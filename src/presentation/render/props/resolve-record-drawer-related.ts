@@ -12,6 +12,12 @@ import {
   readOpensToEveryone,
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { declaredFieldLabel } from '@/presentation/design/field-display'
+import {
+  componentFields,
+  entryAsComponent,
+  mapComponentChildren,
+  rewriteComponent,
+} from '@/presentation/render/resolve/component-rewrite'
 import { readableFieldsOf } from './caller-table-inputs'
 import { resolveValueCurrency } from './resolve-chart-field-context'
 import {
@@ -123,25 +129,22 @@ export function markRelatedGuestCaller(
   mode: RelatedCallerMode | undefined
 ): readonly Component[] {
   const mark = (component: Component): Component => {
-    const record = component as Readonly<Record<string, unknown>>
-    const { children } = record
-    const withChildren = Array.isArray(children)
-      ? {
-          ...record,
-          children: (children as readonly (Component | string)[]).map((child) =>
-            typeof child === 'string' ? child : mark(child)
-          ),
-        }
-      : record
+    const record = componentFields(component)
+    const withChildren = Array.isArray(component.children)
+      ? mapComponentChildren(component, (children) =>
+          children.map((child) =>
+            typeof child === 'string' ? child : mark(entryAsComponent(child))
+          )
+        )
+      : component
     if (record['type'] !== 'sheet' || !Array.isArray(record['related'])) {
-      return withChildren as Component
+      return withChildren
     }
     const { [RELATED_GUEST_CALLER_KEY]: _authored, ...props } =
       (record['props'] as Readonly<Record<string, unknown>> | undefined) ?? {}
-    return {
-      ...withChildren,
+    return rewriteComponent(withChildren, {
       props: mode === undefined ? props : { ...props, [RELATED_GUEST_CALLER_KEY]: mode },
-    } as Component
+    })
   }
   return components.map(mark)
 }

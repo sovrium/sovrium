@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { DatabaseError, ForeignKeyViolationError, StaleWriteError } from '@/domain/errors'
+import type {
+  BusinessRuleViolationError,
+  DatabaseError,
+  ForeignKeyViolationError,
+  StaleWriteError,
+} from '@/domain/errors'
 
 /**
  * The accounts a list of people (`user`, `allowMultiple`) names in one write,
@@ -24,5 +29,6 @@ export interface RecordWriteExtras<Link> {
   readonly accounts?: readonly AccountReference[]
 }
 
-/** How a single-record update can fail. */
-export type UpdateRecordFailure = DatabaseError | StaleWriteError | ForeignKeyViolationError
+/** How a single-record update can fail, a business rule's refusal included. */
+export type UpdateRecordFailure =
+  DatabaseError | StaleWriteError | ForeignKeyViolationError | BusinessRuleViolationError

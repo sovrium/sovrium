@@ -59,7 +59,7 @@
  * @see src/application/use-cases/automations/resolve-env-vars.ts — `buildEnvLookup`
  */
 
-import { isEnvVarRequired } from '@/application/use-cases/env/validate-required-env-vars'
+import { isEnvVarRequired } from '@/application/use-cases/config/validate-required-env-vars'
 import { ENV_VALUE_MASK } from '@/domain/models/api/admin/env'
 import { envReferenceLocations } from '@/domain/models/app/env-reference-validation'
 import type { EnvDefaultState, EnvValueSource, EnvVarStatus } from '@/domain/models/api/admin/env'

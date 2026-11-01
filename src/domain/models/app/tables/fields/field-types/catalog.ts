@@ -80,6 +80,7 @@
  * @see src/domain/models/api/admin/design-system/field-types.ts — the wire contract
  */
 
+import { astOf, objectFields, stringLiteral } from '@/domain/kernel/config-parsing/schema-ast'
 import { READONLY_COMPUTED_FIELD_TYPES } from '..'
 import * as advancedFieldTypes from './advanced'
 import * as aiFieldTypes from './ai'
@@ -93,12 +94,6 @@ import * as userFieldTypes from './user'
 
 /** A schema module namespace, as imported above. */
 type FieldSchemaModule = Readonly<Record<string, unknown>>
-
-/** One entry of a struct AST's property signature list. */
-interface PropertySignatureLike {
-  readonly name?: unknown
-  readonly type?: { readonly literal?: unknown }
-}
 
 /**
  * Every field-type category the domain registers, in READING order, each with
@@ -135,15 +130,8 @@ const FIELD_TYPE_CATEGORY_MODULES: readonly (readonly [string, string, FieldSche
  * `undefined` for anything that is not a struct carrying a literal `type`,
  * which includes every non-schema export a barrel happens to have.
  */
-const fieldTypeLiteralOf = (value: unknown): string | undefined => {
-  const signatures = (
-    value as { readonly ast?: { readonly propertySignatures?: readonly PropertySignatureLike[] } }
-  )?.ast?.propertySignatures
-  if (!Array.isArray(signatures)) return undefined
-  const discriminator = signatures.find((signature) => signature.name === 'type')
-  const literal = discriminator?.type?.literal
-  return typeof literal === 'string' ? literal : undefined
-}
+const fieldTypeLiteralOf = (value: unknown): string | undefined =>
+  stringLiteral(objectFields(astOf(value)).find((signature) => signature.name === 'type')?.type)
 
 /**
  * Every field-type literal a category's barrel exports.

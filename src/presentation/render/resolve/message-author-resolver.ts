@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { entryAsComponent, rewriteComponent, type ComponentEntry } from './component-rewrite'
 import type { Page } from '@/domain/models/app/pages'
-import type { Component } from '@/domain/models/app/pages/components'
 
 /**
  * A run of consecutive `message` turns by ONE author prints the author once.
@@ -20,36 +20,38 @@ import type { Component } from '@/domain/models/app/pages/components'
  */
 export const AUTHOR_CONTINUED_KEY = 'authorContinued'
 
-const authorOf = (node: Component | string | undefined): string | undefined => {
-  if (typeof node !== 'object' || node.type !== 'message') return undefined
-  const { author } = node as { readonly author?: unknown }
+const authorOf = (node: ComponentEntry | undefined): string | undefined => {
+  if (typeof node !== 'object') return undefined
+  const component = entryAsComponent(node)
+  if (component.type !== 'message') return undefined
+  const { author } = component
   return typeof author === 'string' ? author : undefined
 }
 
 /** Mark the continuing turns of one sibling list, recursing into each child's own children. */
-function markSiblings(
-  siblings: ReadonlyArray<Component | string>
-): ReadonlyArray<Component | string> {
+function markSiblings(siblings: ReadonlyArray<ComponentEntry>): ReadonlyArray<ComponentEntry> {
   return siblings.map((node, index) => {
     if (typeof node !== 'object') return node
+    const component = entryAsComponent(node)
     const author = authorOf(node)
     const continued = author !== undefined && authorOf(siblings[index - 1]) === author
-    const children = Array.isArray(node.children) ? markSiblings(node.children) : node.children
-    return {
-      ...node,
-      ...(children === node.children ? {} : { children }),
+    const children = Array.isArray(component.children)
+      ? markSiblings(component.children)
+      : component.children
+    return rewriteComponent(component, {
+      ...(children === component.children ? {} : { children }),
       ...(continued ? { [AUTHOR_CONTINUED_KEY]: true } : {}),
-    } as Component
+    })
   })
 }
 
 /** True when any node of the tree is a `message`, so a page without one is left untouched. */
-const hasMessage = (nodes: ReadonlyArray<Component | string>): boolean =>
-  nodes.some(
-    (node) =>
-      typeof node === 'object' &&
-      (node.type === 'message' || (Array.isArray(node.children) && hasMessage(node.children)))
-  )
+const hasMessage = (nodes: ReadonlyArray<ComponentEntry>): boolean =>
+  nodes.some((node) => {
+    if (typeof node !== 'object') return false
+    const { type, children } = entryAsComponent(node)
+    return type === 'message' || (Array.isArray(children) && hasMessage(children))
+  })
 
 /** Mark every message turn that continues the previous turn's author. */
 export function groupMessageAuthors(components: Page['components']): Page['components'] {

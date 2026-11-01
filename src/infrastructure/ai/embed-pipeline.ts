@@ -14,11 +14,12 @@
  * via the eco-routed `AiService`, and persist the resulting rows through the
  * `AiEmbeddingRepository` port. The embed-each-chunk-then-filter-failures step
  * and the layer composition were duplicated three times before this module —
- * `embedChunksToRows` and `RagSyncLayer` are the single source of truth.
+ * `embedChunksToRows` and `ragSyncLayerOver` are the single source of truth.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, type Context } from 'effect'
 import { AiService } from '@/application/ports/services/ai-service'
+import { Database, type DatabaseService } from '@/infrastructure/database/drizzle/layer'
 import { AiEmbeddingRepositoryActive } from '@/infrastructure/layers/ai-embedding-repository-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { AiLive } from './layer'
@@ -29,13 +30,27 @@ import type {
 
 /**
  * The merged layer every RAG sync Effect program needs — the eco-routed
- * `AiService` plus the `AiEmbeddingRepository`. Shared by both the
- * table-knowledge and document-knowledge sync runners.
+ * `AiService`, the `AiEmbeddingRepository`, and the `Database` the
+ * table-knowledge reads go through. Shared by both the table-knowledge and
+ * document-knowledge sync runners.
+ *
+ * The `Database` is the caller's: the server's own for the boot sync, the
+ * knowledge listener and the on-demand re-embed, which all run while it owns
+ * the client; the unowned one for `sovrium reindex`, which has no server.
  */
-export const RagSyncLayer: Layer.Layer<AiService | AiEmbeddingRepository> = Layer.merge(
-  AiLive,
-  AiEmbeddingRepositoryActive
-)
+export const ragSyncLayerOver = (
+  database: DatabaseService
+): Layer.Layer<AiService | AiEmbeddingRepository | Database> =>
+  Layer.merge(
+    AiLive,
+    Layer.provideMerge(AiEmbeddingRepositoryActive, Layer.succeed(Database, database))
+  )
+
+/**
+ * {@link ragSyncLayerOver} once built: what a long-lived caller (the knowledge
+ * listener) holds so that each record it re-embeds is provided, not rebuilt.
+ */
+export type RagSyncServices = Context.Context<AiService | AiEmbeddingRepository | Database>
 
 /**
  * Discard the failure of a best-effort embedding write, after logging its cause.

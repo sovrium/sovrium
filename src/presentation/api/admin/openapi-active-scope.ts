@@ -6,12 +6,12 @@
  */
 
 import { Schema } from 'effect'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
 import {
   activeScopeGetResponseSchema,
   activeScopeSetResponseSchema,
   setActiveScopeRequestSchema,
-} from '@/domain/models/api/session/active-scope'
+} from '@/domain/models/api/admin/active-scope'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   effectJsonBody,
   effectJsonResponse,

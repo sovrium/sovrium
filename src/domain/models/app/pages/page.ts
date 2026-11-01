@@ -14,6 +14,7 @@ import { SystemDetailSourceSchema } from './components/system-detail-source'
 import { ContentDirSchema } from './content-dir'
 import { deriveContentDirIndexBasePath } from './content-dir-index-base-path'
 import { DataSourceSchema } from './data-source'
+import { findDuplicateFeedPath } from './feed-path-uniqueness-validation'
 import { PageIdSchema } from './id'
 import { PageInvitationSchema } from './invitation'
 import { PageLayoutSchema } from './layout'
@@ -26,6 +27,7 @@ import { PageParamsSchema } from './params'
 import { PagePathSchema } from './path'
 import { PageQuerySchema } from './query'
 import { PageRequiresSchema } from './requires'
+import { PageRssSchema } from './rss'
 import { ScriptsSchema } from './scripts'
 import { SitemapConfigSchema } from './sitemap'
 import { PageSourceSchema } from './source'
@@ -342,62 +344,10 @@ export const PageSchema = Schema.Struct({
   sitemap: Schema.optional(SitemapConfigSchema),
 
   /**
-   * RSS feed configuration for collection pages
-   *
-   * When set on a collection page, generates an RSS feed endpoint.
-   * - `true`: Generate feed with default settings (20 items)
-   * - `{ limit: N }`: Generate feed with custom item count
-   * - `{ title, description }`: name the feed itself, when the page's own
-   *   title names one record
-   *
-   * @example
-   * ```typescript
-   * // Simple boolean
-   * rss: true
-   *
-   * // With custom limit
-   * rss: { limit: 25 }
-   * ```
+   * RSS feed configuration (`PageRssSchema`): `true`, `{ limit }`,
+   * `{ title, description }` and `{ path }`, the address of a second feed.
    */
-  rss: Schema.optional(
-    Schema.Union([
-      Schema.Boolean.annotate({
-        description: 'Enable RSS feed with default settings (20 items)',
-      }),
-      Schema.Struct({
-        /** Maximum number of items in the RSS feed */
-        limit: Schema.optional(
-          Schema.Finite.pipe(
-            Schema.annotate({
-              description: 'Maximum number of items in the RSS feed',
-              examples: [10, 20, 50],
-            }),
-            Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
-          )
-        ),
-        /** The feed's own name, for a page whose title names one record */
-        title: Schema.optional(
-          Schema.String.annotate({
-            description:
-              "The feed's name as a feed reader lists it. Takes precedence over the page's `meta.title`, and is the way to name the feed of a collection page whose title names one record. Accepts a `$t:` key.",
-            examples: ['Field Notes', '$t:feed.title'],
-          })
-        ),
-        /** The feed's own description */
-        description: Schema.optional(
-          Schema.String.annotate({
-            description:
-              "One line a feed reader shows under the feed's name. Takes precedence over the page's `meta.description`. Accepts a `$t:` key.",
-            examples: ['Essays on building and running software a small team owns.'],
-          })
-        ),
-      }),
-    ]).annotate({
-      identifier: 'PageRss',
-      title: 'RSS Feed Configuration',
-      description: 'RSS feed generation for collection pages',
-    })
-  ),
+  rss: Schema.optional(PageRssSchema),
 
   /**
    * Layout configuration with named sections (header, footer, sidebar).
@@ -787,11 +737,12 @@ export const PagesSchema = Schema.Array(PageSchema).pipe(
     })
   ),
   // One address, one page: two pages at one path (trailing slash ignored, as
-  // the router compares) leave one unreachable. The issue points at the second
-  // page, so a report names the `$ref` file it was declared in.
+  // the router compares) leave one unreachable; nor may two feeds share an
+  // address one of them named. The issue points at the second page, so a
+  // report names the `$ref` file it was declared in.
   Schema.check(
     Schema.makeFilter((pages) => {
-      const duplicate = findDuplicatePagePath(pages)
+      const duplicate = findDuplicatePagePath(pages) ?? findDuplicateFeedPath(pages)
       return duplicate === undefined ? true : { path: [duplicate.index], issue: duplicate.message }
     })
   ),

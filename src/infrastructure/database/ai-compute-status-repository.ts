@@ -19,7 +19,6 @@
  */
 
 import { and, eq, inArray } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { aiComputeStatus as aiComputeStatusPg } from '@/infrastructure/database/drizzle/schema/ai'
 import { aiComputeStatus as aiComputeStatusSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
@@ -28,6 +27,7 @@ import type {
   AiComputeStatusKey,
   AiComputeStatusValue,
 } from '@/application/ports/repositories/ai/ai-compute-status-repository'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const aiComputeStatus = resolveDialectSchema(aiComputeStatusPg, aiComputeStatusSqlite)
 
@@ -43,6 +43,7 @@ const keyMatch = (key: AiComputeStatusKey) =>
  * Read the current status row for a key, or `undefined` when none exists.
  */
 export const readAiComputeStatus = async (
+  db: PortableDb,
   key: AiComputeStatusKey
 ): Promise<AiComputeFieldStatus | undefined> => {
   const rows = await db.select().from(aiComputeStatus).where(keyMatch(key)).limit(1)
@@ -63,6 +64,7 @@ export const readAiComputeStatus = async (
  * INTEGER and TEXT dynamic-table id types, [internal ref]).
  */
 export const readAiComputeStatusesForRecords = async (
+  db: PortableDb,
   appId: string,
   tableName: string,
   recordIds: readonly (string | number)[]
@@ -103,6 +105,7 @@ export const readAiComputeStatusesForRecords = async (
  * caller (the worker increments it when transitioning to `pending`).
  */
 export const upsertAiComputeStatus = async (
+  db: PortableDb,
   key: AiComputeStatusKey,
   status: AiComputeStatusValue,
   options: { readonly attempt?: number; readonly error?: string } = {}

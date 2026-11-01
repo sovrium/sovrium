@@ -36,17 +36,48 @@
       "type": "container",
       "element": "div",
       "props": {
-        "className": "flex flex-col items-stretch gap-4 px-4 @5xl/main:flex-row lg:px-6"
+        "className": "flex flex-col gap-4 px-4 lg:px-6"
       },
       "children": [
         {
           "type": "container",
           "element": "section",
           "props": {
-            "className": "min-w-0 @5xl/main:flex-[1.6]",
+            "className": "flex min-w-0 flex-col",
             "aria-label": "$t:admin.welcome.pulse.region"
           },
           "children": [
+            {
+              "type": "container",
+              "element": "div",
+              "visibility": {
+                "record": {
+                  "field": "attentionItems",
+                  "eq": 0
+                }
+              },
+              "props": {
+                "role": "status",
+                "className": "flex items-center gap-2 text-sm text-foreground",
+                "data-testid": "welcome-all-clear"
+              },
+              "children": [
+                {
+                  "type": "icon",
+                  "props": {
+                    "name": "circle-check",
+                    "size": 16,
+                    "className": "shrink-0 text-muted-foreground",
+                    "aria-hidden": "true"
+                  }
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": "$t:admin.welcome.pulse.allClear"
+                }
+              ]
+            },
             {
               "type": "card",
               "title": "$t:admin.welcome.pulse.heading",
@@ -67,42 +98,9 @@
                 "content": "$record.attentionItems"
               },
               "props": {
-                "className": "h-full",
                 "data-testid": "welcome-attention"
               },
               "children": [
-                {
-                  "type": "container",
-                  "element": "div",
-                  "visibility": {
-                    "record": {
-                      "field": "attentionItems",
-                      "eq": 0
-                    }
-                  },
-                  "props": {
-                    "className": "flex flex-col gap-0.5",
-                    "data-testid": "welcome-all-clear"
-                  },
-                  "children": [
-                    {
-                      "type": "text",
-                      "element": "p",
-                      "props": {
-                        "className": "text-sm font-medium text-foreground"
-                      },
-                      "content": "$t:admin.welcome.pulse.allClear"
-                    },
-                    {
-                      "type": "text",
-                      "element": "p",
-                      "props": {
-                        "className": "text-sm text-muted-foreground"
-                      },
-                      "content": "$t:admin.welcome.pulse.allClear.body"
-                    }
-                  ]
-                },
                 {
                   "type": "container",
                   "element": "div",
@@ -175,7 +173,7 @@
                           "type": "link",
                           "props": {
                             "href": "/runs",
-                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
                           },
                           "content": "$t:admin.welcome.pulse.failedRuns.action"
                         }
@@ -251,7 +249,7 @@
                           "type": "link",
                           "props": {
                             "href": "/env",
-                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
                           },
                           "content": "$t:admin.welcome.pulse.variablesUnset.action"
                         }
@@ -326,7 +324,7 @@
                           "type": "link",
                           "props": {
                             "href": "/connections",
-                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
                           },
                           "content": "$t:admin.welcome.pulse.tokensExpired.action"
                         }
@@ -402,7 +400,7 @@
                           "type": "link",
                           "props": {
                             "href": "/users",
-                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
                           },
                           "content": "$t:admin.welcome.pulse.invitationsPending.action"
                         }
@@ -477,7 +475,7 @@
                           "type": "link",
                           "props": {
                             "href": "/submissions",
-                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
                           },
                           "content": "$t:admin.welcome.pulse.recentSubmissions.action"
                         }
@@ -553,7 +551,7 @@
                           "type": "link",
                           "props": {
                             "href": "/organisation?tab=map",
-                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
                           },
                           "content": "$t:admin.welcome.pulse.findingsCount.action"
                         }
@@ -567,7 +565,13 @@
                     }
                   ]
                 }
-              ]
+              ],
+              "visibility": {
+                "record": {
+                  "field": "attentionItems",
+                  "gt": 0
+                }
+              }
             }
           ]
         },
@@ -575,7 +579,7 @@
           "type": "container",
           "element": "section",
           "props": {
-            "className": "min-w-0 @5xl/main:flex-1",
+            "className": "min-w-0",
             "aria-label": "$t:admin.welcome.instance.heading"
           },
           "children": [
@@ -584,7 +588,6 @@
               "title": "$t:admin.welcome.instance.heading",
               "description": "$t:admin.welcome.instance.description",
               "props": {
-                "className": "h-full",
                 "data-testid": "welcome-instance"
               },
               "children": [
@@ -592,24 +595,29 @@
                   "type": "container",
                   "element": "div",
                   "props": {
-                    "className": "-mx-(--card-spacing) -mb-(--card-spacing) divide-y border-t"
+                    "className": "-mx-(--card-spacing) -mb-(--card-spacing) grid grid-cols-2 gap-px overflow-hidden rounded-b-xl border-t bg-border @3xl/main:grid-cols-5"
                   },
                   "children": [
                     {
-                      "type": "description-list",
+                      "type": "container",
+                      "element": "div",
                       "props": {
-                        "className": "px-(--card-spacing) [&_dd]:text-right",
-                        "data-testid": "welcome-instance-facts"
+                        "data-testid": "welcome-instance-uptime",
+                        "className": "bg-card min-w-0 py-3"
                       },
-                      "items": [
+                      "children": [
                         {
-                          "term": "$t:admin.welcome.instance.booted",
-                          "detail": "$record.bootedAt",
-                          "format": "day-relative-time"
-                        },
-                        {
-                          "term": "$t:admin.welcome.instance.version",
-                          "detail": "Sovrium $app.engineVersion"
+                          "type": "description-list",
+                          "props": {
+                            "className": "px-(--card-spacing) [&_[data-description-row]]:flex [&_[data-description-row]]:flex-col [&_[data-description-row]]:gap-0.5 [&_[data-description-row]]:*:border-b-0 [&_[data-description-row]]:*:py-0 [&_dd]:tabular-nums [&_dt]:pr-0"
+                          },
+                          "items": [
+                            {
+                              "term": "$t:admin.welcome.instance.uptime",
+                              "detail": "$record.uptimeMs",
+                              "format": "duration"
+                            }
+                          ]
                         }
                       ]
                     },
@@ -617,7 +625,44 @@
                       "type": "container",
                       "element": "div",
                       "props": {
-                        "className": "flex min-h-10 items-center justify-between gap-3 px-(--card-spacing) py-2 text-sm"
+                        "className": "bg-card flex min-w-0 flex-col items-start gap-0.5 px-(--card-spacing) py-3 text-sm",
+                        "data-testid": "welcome-instance-version"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-muted-foreground"
+                          },
+                          "content": "$t:admin.welcome.instance.version"
+                        },
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "flex max-w-full min-w-0 items-center gap-2"
+                          },
+                          "children": [
+                            {
+                              "type": "link",
+                              "props": {
+                                "href": "/changelog",
+                                "className": "min-w-0 truncate font-medium text-foreground underline-offset-4 hover:underline",
+                                "title": "$t:admin.welcome.instance.versionLink"
+                              },
+                              "content": "Sovrium $app.engineVersion"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "bg-card flex min-w-0 flex-col items-start gap-0.5 px-(--card-spacing) py-3 text-sm",
+                        "data-testid": "welcome-instance-database"
                       },
                       "children": [
                         {
@@ -629,57 +674,61 @@
                           "content": "$t:admin.welcome.instance.database"
                         },
                         {
-                          "type": "text",
-                          "element": "span",
+                          "type": "container",
+                          "element": "div",
                           "props": {
-                            "className": "min-w-0 truncate text-right font-medium text-foreground"
+                            "className": "flex max-w-full min-w-0 items-center gap-2"
                           },
-                          "content": "PostgreSQL"
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "min-w-0 truncate font-medium text-foreground"
+                              },
+                              "content": "PostgreSQL",
+                              "visibility": {
+                                "record": {
+                                  "field": "database",
+                                  "eq": "postgresql"
+                                }
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "min-w-0 truncate font-medium text-foreground"
+                              },
+                              "content": "SQLite",
+                              "visibility": {
+                                "record": {
+                                  "field": "database",
+                                  "eq": "sqlite"
+                                }
+                              }
+                            },
+                            {
+                              "type": "badge",
+                              "badgeVariant": "destructive",
+                              "content": "$t:admin.welcome.instance.degraded",
+                              "visibility": {
+                                "record": {
+                                  "field": "databaseHealth",
+                                  "eq": "degraded"
+                                }
+                              }
+                            }
+                          ]
                         }
-                      ],
-                      "visibility": {
-                        "record": {
-                          "field": "database",
-                          "eq": "postgresql"
-                        }
-                      }
+                      ]
                     },
                     {
                       "type": "container",
                       "element": "div",
                       "props": {
-                        "className": "flex min-h-10 items-center justify-between gap-3 px-(--card-spacing) py-2 text-sm"
-                      },
-                      "children": [
-                        {
-                          "type": "text",
-                          "element": "span",
-                          "props": {
-                            "className": "text-muted-foreground"
-                          },
-                          "content": "$t:admin.welcome.instance.database"
-                        },
-                        {
-                          "type": "text",
-                          "element": "span",
-                          "props": {
-                            "className": "min-w-0 truncate text-right font-medium text-foreground"
-                          },
-                          "content": "SQLite"
-                        }
-                      ],
-                      "visibility": {
-                        "record": {
-                          "field": "database",
-                          "eq": "sqlite"
-                        }
-                      }
-                    },
-                    {
-                      "type": "container",
-                      "element": "div",
-                      "props": {
-                        "className": "flex min-h-10 items-center justify-between gap-3 px-(--card-spacing) py-2 text-sm"
+                        "className": "bg-card flex min-w-0 flex-col items-start gap-0.5 px-(--card-spacing) py-3 text-sm",
+                        "data-testid": "welcome-instance-storage"
                       },
                       "children": [
                         {
@@ -691,12 +740,32 @@
                           "content": "$t:admin.welcome.instance.storage"
                         },
                         {
-                          "type": "text",
-                          "element": "span",
+                          "type": "container",
+                          "element": "div",
                           "props": {
-                            "className": "min-w-0 truncate text-right font-medium text-foreground capitalize"
+                            "className": "flex max-w-full min-w-0 items-center gap-2"
                           },
-                          "content": "$record.storage"
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "min-w-0 truncate font-medium text-foreground capitalize"
+                              },
+                              "content": "$record.storage"
+                            },
+                            {
+                              "type": "badge",
+                              "badgeVariant": "destructive",
+                              "content": "$t:admin.welcome.instance.degraded",
+                              "visibility": {
+                                "record": {
+                                  "field": "storageHealth",
+                                  "eq": "degraded"
+                                }
+                              }
+                            }
+                          ]
                         }
                       ]
                     },
@@ -704,7 +773,8 @@
                       "type": "container",
                       "element": "div",
                       "props": {
-                        "className": "flex min-h-10 items-center justify-between gap-3 px-(--card-spacing) py-2 text-sm"
+                        "className": "bg-card flex min-w-0 flex-col items-start gap-0.5 px-(--card-spacing) py-3 text-sm col-span-2 @3xl/main:col-span-1",
+                        "data-testid": "welcome-instance-ai"
                       },
                       "children": [
                         {
@@ -716,24 +786,90 @@
                           "content": "$t:admin.welcome.instance.ai"
                         },
                         {
-                          "type": "text",
-                          "element": "span",
+                          "type": "container",
+                          "element": "div",
                           "props": {
-                            "className": "min-w-0 truncate text-right font-medium text-foreground capitalize"
+                            "className": "flex max-w-full min-w-0 items-center gap-2"
                           },
-                          "content": "$record.aiProvider"
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "min-w-0 truncate font-medium text-foreground capitalize"
+                              },
+                              "content": "$record.aiProvider",
+                              "visibility": {
+                                "record": {
+                                  "field": "aiProvider",
+                                  "isNotEmpty": true
+                                }
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "min-w-0 truncate font-medium text-foreground text-muted-foreground font-normal"
+                              },
+                              "content": "$t:admin.welcome.instance.aiNone",
+                              "visibility": {
+                                "record": {
+                                  "field": "aiProvider",
+                                  "isEmpty": true
+                                }
+                              }
+                            },
+                            {
+                              "type": "badge",
+                              "badgeVariant": "destructive",
+                              "content": "$t:admin.welcome.instance.degraded",
+                              "visibility": {
+                                "record": {
+                                  "field": "aiProviderHealth",
+                                  "eq": "degraded"
+                                }
+                              }
+                            }
+                          ]
                         }
-                      ],
-                      "visibility": {
-                        "record": {
-                          "field": "aiProvider",
-                          "isNotEmpty": true
-                        }
-                      }
+                      ]
                     }
                   ]
                 }
-              ]
+              ],
+              "action": {
+                "type": "container",
+                "element": "div",
+                "props": {
+                  "className": "flex",
+                  "data-testid": "welcome-instance-health"
+                },
+                "children": [
+                  {
+                    "type": "badge",
+                    "badgeVariant": "secondary",
+                    "content": "$t:admin.welcome.instance.healthy",
+                    "visibility": {
+                      "record": {
+                        "field": "health",
+                        "eq": "healthy"
+                      }
+                    }
+                  },
+                  {
+                    "type": "badge",
+                    "badgeVariant": "destructive",
+                    "content": "$t:admin.welcome.instance.degraded",
+                    "visibility": {
+                      "record": {
+                        "field": "health",
+                        "eq": "degraded"
+                      }
+                    }
+                  }
+                ]
+              }
             }
           ]
         }
@@ -742,7 +878,7 @@
     {
       "type": "grid",
       "props": {
-        "className": "grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-4 px-4 lg:px-6",
+        "className": "grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-4 px-4 lg:px-6 empty:hidden",
         "data-testid": "welcome-figures",
         "role": "group",
         "aria-label": "$t:admin.welcome.figures.region"
@@ -1571,7 +1707,7 @@
                       "type": "text",
                       "element": "span",
                       "props": {
-                        "className": "text-muted-foreground font-normal text-foreground"
+                        "className": "text-muted-foreground font-normal"
                       },
                       "content": "$t:admin.welcome.counts.pages.where",
                       "visibility": {
@@ -1730,7 +1866,7 @@
                       "type": "text",
                       "element": "span",
                       "props": {
-                        "className": "text-muted-foreground font-normal text-foreground"
+                        "className": "text-muted-foreground font-normal"
                       },
                       "content": "$t:admin.welcome.counts.roles.where",
                       "visibility": {

@@ -7,8 +7,11 @@
 
 import { Effect } from 'effect'
 import { deriveSlugFromBody, isValidSlugFormat } from '@/domain/kernel/identity/slug'
-import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
-import { FieldFormatError, ValidationContext } from '../middleware/validation'
+import {
+  AUTHORSHIP_TABLE_COLUMNS,
+  INTRINSIC_TABLE_COLUMNS,
+} from '@/domain/models/app/tables/system-fields'
+import { FieldFormatError, FieldValidationError, ValidationContext } from '../middleware/validation'
 import {
   validateReadonlyIdField,
   validateReadonlyComputedFields,
@@ -27,11 +30,7 @@ import {
 } from './multi-select-rules'
 import { validateRelationshipLinkLimits } from './relationship-rules'
 import { validateSingleSelectOptions } from './single-select-rules'
-import type {
-  FieldValidationError,
-  FieldPermissionError,
-  FieldStorageError,
-} from '../middleware/validation'
+import type { FieldPermissionError, FieldStorageError } from '../middleware/validation'
 import type { StorageService } from '@/application/ports/services/storage-service'
 
 /**
@@ -61,12 +60,10 @@ function validateSlugFormat(
     const slugField = table.fields.find((f) => f.name === 'slug' && f.type === 'single-line-text')
     if (!slugField) return
     if (!isValidSlugFormat(value)) {
-      return yield* Effect.fail(
-        new FieldFormatError(
-          `Invalid slug format for field 'slug': must be lowercase letters, digits, and hyphens (e.g. 'my-post')`,
-          'slug'
-        )
-      )
+      return yield* new FieldFormatError({
+        message: `Invalid slug format for field 'slug': must be lowercase letters, digits, and hyphens (e.g. 'my-post')`,
+        field: 'slug',
+      })
     }
   })
 }
@@ -91,44 +88,37 @@ function applySlugAutoDerive(
   })
 }
 
+/** Column names the engine keeps on its own, which a write may name without declaring them. */
+const ENGINE_COLUMNS: ReadonlySet<string> = new Set([
+  ...INTRINSIC_TABLE_COLUMNS,
+  ...AUTHORSHIP_TABLE_COLUMNS,
+])
+
 /**
- * Walk every `rich-text` field declared on the table schema and pass its HTML
- * value through {@link sanitizeRichTextHTML} (server-side defence in depth).
+ * Refuse a create naming a field the table does not declare, with a 400 that
+ * names it. Left to the database, such a name answered a 500 on SQLite and a
+ * 400 naming nothing on PostgreSQL — a misspelt key read as a server fault.
  *
- * Non-rich-text fields and missing values pass through unchanged.
- *
- * Asserted by a pages CRUD wysiwyg spec (script tags, on* attributes, and
- * javascript: URLs are stripped before persistence).
- *
- * Exported so the update path can run this ONE rule directly. Both write verbs
- * on a record resource must leave a `rich-text` column in the same state, and
- * the create path reaches this through `validateRecordCreation` while the
- * update path composes its steps individually in the route handler.
- *
- * Selects columns by declared field TYPE, which is what keeps `long-text` /
- * `single-line-text` prose containing angle brackets byte-identical.
- *
- * @public
+ * Run AFTER the field-permission step, so a declared field the caller may not
+ * write still answers the anti-enumeration 404 it always did; only a name no
+ * field of the table carries reaches this rule.
  */
-export function sanitizeRichTextFields(
+function validateDeclaredFields(
   fields: Record<string, unknown>
-): Effect.Effect<Record<string, unknown>, never, ValidationContext> {
+): Effect.Effect<void, FieldValidationError, ValidationContext> {
   return Effect.gen(function* () {
     const ctx = yield* ValidationContext
     const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
-    if (!table) return fields
-    const richTextNames = new Set(
-      table.fields.filter((f) => f.type === 'rich-text').map((f) => f.name)
+    if (!table) return
+    const declared = new Set(table.fields.map((f) => f.name))
+    const unknown = Object.keys(fields).find(
+      (name) => !declared.has(name) && !ENGINE_COLUMNS.has(name)
     )
-    const sanitized = Object.fromEntries(
-      Object.entries(fields).map(([key, value]) => {
-        if (richTextNames.has(key) && typeof value === 'string') {
-          return [key, sanitizeRichTextHTML(value)]
-        }
-        return [key, value]
-      })
-    )
-    return sanitized
+    if (unknown === undefined) return
+    return yield* new FieldValidationError({
+      message: `Field '${unknown}' is not declared on this table`,
+      field: unknown,
+    })
   })
 }
 
@@ -164,6 +154,9 @@ export function validateRecordCreation(
     // Step 4: Check for forbidden fields
     yield* validateFieldWritePermissions(forbiddenFields)
 
+    // Step 4b: Refuse a field the table does not declare (400 naming it)
+    yield* validateDeclaredFields(allowedData)
+
     // Step 5: Slug-convention validation BEFORE auto-derive so an invalid
     // explicit slug fails fast with FieldFormatError (HTTP 422), without
     // being overwritten by an auto-derived value (the pages access requirement-
@@ -179,7 +172,11 @@ export function validateRecordCreation(
     // an auto-derived slug satisfies a `required: true` slug declaration)
     yield* validateRequiredFields(slugAppliedData)
 
-    // Step 8: Validate field formats (URL, etc.)
+    // Step 8: Validate field formats (URL, etc.). The write orchestration
+    // checks them again on every road (`record-write-values.ts`); this earlier
+    // check is kept for ORDER — a malformed address is refused before the
+    // option, cardinality and attachment rules answer, and before step 9.5
+    // stores an inline attachment for a write that would then be refused.
     yield* validateFieldFormats(slugAppliedData)
 
     // Step 8b: Reject `single-select` / `status` and `multi-select` values
@@ -218,13 +215,10 @@ export function validateRecordCreation(
     // `storeMetadata: true` enrichment of the stored key is left to step 10.
     const persistedData = yield* uploadInlineAttachmentContent(slugAppliedData)
 
-    // Step 10: Enrich attachment metadata when storeMetadata: true
-    const enrichedData = yield* enrichAttachmentMetadata(persistedData)
-
-    // Step 11: Sanitize rich-text HTML before persistence (defence in depth)
-    const sanitizedData = yield* sanitizeRichTextFields(enrichedData)
-
-    return sanitizedData
+    // Step 10: Enrich attachment metadata when storeMetadata: true. A
+    // `rich-text` value is cleaned by the write orchestration itself, on every
+    // road a record is written through (`record-write-values.ts`).
+    return yield* enrichAttachmentMetadata(persistedData)
   })
 }
 
@@ -243,16 +237,29 @@ export const findReadonlyUpdateField = (
 /**
  * Every per-VALUE rule an update enforces, in create-path order: column
  * formats, `single-select` / `status` membership, `multi-select` membership
- * then cardinality, a `relationship`
- * column's `maxLinked` cap, then attachment-reference confinement.
+ * then cardinality, a `relationship` column's `maxLinked` cap, attachment
+ * reference confinement and the column's declared file constraints — then the
+ * attachment TRANSFORMS a create applies: an inline `{ name, content }` value is
+ * stored in the column's bucket and replaced by what the column holds, and a
+ * `storeMetadata: true` column's key becomes its metadata object.
+ *
+ * Returns the values to write. The attachment steps transform the update
+ * rather than merely admitting it, so a caller that dropped the result would
+ * write an inline payload to the column as text.
+ *
+ * The formats are checked again by the write orchestration on every road
+ * (`record-write-values.ts`), which also cleans `rich-text` values; they are
+ * checked here FIRST so a malformed address is refused before the option,
+ * cardinality and attachment rules answer and before an inline attachment is
+ * stored for a write that would then be refused.
  *
  * ONE composition for every door an update comes through — the records API's
  * `PATCH`, its native form `POST`, and the MCP update tool. An update does not
  * traverse {@link validateRecordCreation}, so each of these rules had to be
  * added to the update path separately, and each time a door was missed (the
  * `email`/`url` formats, `multi-select` options, `maxLinked`, foreign
- * attachment keys). A new value rule belongs here, which reaches every door at
- * once.
+ * attachment keys, inline attachment content). A new value rule belongs here,
+ * which reaches every door at once.
  *
  * Only columns the payload SUPPLIES are inspected — each rule's own property —
  * so a row holding a legacy value stays editable through its other columns.
@@ -263,7 +270,7 @@ export const findReadonlyUpdateField = (
 export function checkRecordUpdateValues(
   fields: Record<string, unknown>
 ): Effect.Effect<
-  void,
+  Record<string, unknown>,
   FieldValidationError | FieldFormatError | FieldStorageError,
   ValidationContext | StorageService
 > {
@@ -274,5 +281,8 @@ export function checkRecordUpdateValues(
     yield* validateMultiSelectSelectionLimits(fields)
     yield* validateRelationshipLinkLimits(fields)
     yield* validateAttachmentReferences(fields)
+    yield* validateAttachmentConstraints(fields)
+    const persisted = yield* uploadInlineAttachmentContent(fields)
+    return yield* enrichAttachmentMetadata(persisted)
   })
 }

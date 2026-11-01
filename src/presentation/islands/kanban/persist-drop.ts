@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { showSuccessToast } from '../parts/crud-form/toast'
+import { refusalMessageOf } from '../runtime/refusal-message'
+import { renderToast, showSuccessToast } from '../runtime/toast'
+import type { TableRecord } from '../runtime/types'
 import type { KanbanDrag } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 
 export interface DragPersistContext {
@@ -36,6 +38,33 @@ function resolveUpdateOverride(drag: KanbanDrag | undefined) {
   return action
 }
 
+/** What a drop's write answered: whether it saved, the refusal's sentence, the record as stored. */
+export interface DropOutcome {
+  readonly ok: boolean
+  readonly refusal?: string | undefined
+  /** After a refusal, the record as the database holds it now, its `fields` flattened. */
+  readonly stored?: TableRecord | undefined
+}
+
+/**
+ * The record as the database holds it, read again after a refused drop: the
+ * board may have drawn it from a state that has since moved (a colleague's
+ * write), and the card must land where the record is, drawn from its `_locks`
+ * as they now are. `undefined` when it cannot be read.
+ */
+async function readStoredRecord(url: string): Promise<TableRecord | undefined> {
+  try {
+    const res = await fetch(url, { credentials: 'include' })
+    if (!res.ok) return undefined
+    const { fields, ...rest } = (await res.json()) as TableRecord & {
+      readonly fields?: TableRecord
+    }
+    return { ...rest, ...(fields ?? {}) }
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Persist a drop.
  *
@@ -61,6 +90,9 @@ function resolveUpdateOverride(drag: KanbanDrag | undefined) {
  *   - within-column reorders never reach this function — only cross-column
  *     moves carry a value to write.
  *
+ * A refused write answers the record as it is stored now, read again, so the
+ * card goes back to the lane the record holds rather than the one it left.
+ *
  * An unbound board (embedded rows, or a system source) has nowhere to write and
  * reports `{ ok: true }`, leaving the drop visual-only rather than snapping the
  * card back from a save that was never attempted.
@@ -69,7 +101,7 @@ export async function persistKanbanDrop(
   ctx: DragPersistContext,
   recordId: string,
   updates: Readonly<Record<string, string>>
-): Promise<{ readonly ok: boolean }> {
+): Promise<DropOutcome> {
   const action = resolveUpdateOverride(ctx.drag)
 
   const tableName = action?.table || ctx.tableName
@@ -84,7 +116,11 @@ export async function persistKanbanDrop(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
     })
-    if (!res.ok) return { ok: false }
+    // A refusal carrying a sentence — a table rule's message — is shown as it is.
+    if (!res.ok) {
+      const refusal = await refusalMessageOf(res)
+      return { ok: false, refusal, stored: await readStoredRecord(url) }
+    }
 
     const successToast = action?.onSuccess?.toast
     if (successToast?.message) {
@@ -96,7 +132,11 @@ export async function persistKanbanDrop(
   }
 }
 
-export function showErrorToast(drag: KanbanDrag | undefined): void {
+export function showErrorToast(drag: KanbanDrag | undefined, refusal?: string): void {
+  if (refusal !== undefined) {
+    renderToast(refusal, 'error')
+    return
+  }
   const action = drag?.persistAction
   const errorToast =
     action && 'type' in action && action.type === 'crud' ? action.onError?.toast : undefined

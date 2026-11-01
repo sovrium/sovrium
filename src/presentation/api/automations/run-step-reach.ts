@@ -63,7 +63,6 @@ import {
 } from '@/domain/models/app/automations/step-read-service'
 import { recordedTrigger } from '@/domain/models/app/automations/trigger-entries-service'
 import { rowRuledTablesBehind } from '@/domain/models/app/tables/lookup-link-service'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
   readableColumns,
   readsColumns,
@@ -75,7 +74,7 @@ import {
 } from './run-record-reach'
 import { readsEveryRow } from './run-row-reach'
 import type { App } from '@/domain/models/app'
-import type { Context } from 'hono'
+import type { DomainServices } from '@/infrastructure/logging/request-effect'
 
 /** A step as the judgement reads it. */
 export interface JudgedStep {
@@ -103,9 +102,11 @@ export interface JudgedRun {
 const isErased = (run: JudgedRun): boolean =>
   run.valuesErasedAt !== undefined && run.valuesErasedAt !== null
 
+/** A judgement that may read the stores. What it cannot read fails closed, so it cannot fail. */
+type Reach = Effect.Effect<boolean, never, DomainServices>
+
 /** Who is judged, and how far the judgement has followed runs into other runs. */
 interface Judge {
-  readonly c: Context
   readonly app: App
   readonly reader: Reader
   /** How many runs away from the run being read this judgement is. */
@@ -113,13 +114,11 @@ interface Judge {
 }
 
 /** Sequentially: each item may cost reads on the shared pool. */
-const everyInTurn = <T>(
-  items: ReadonlyArray<T>,
-  judge: (item: T) => Promise<boolean>
-): Promise<boolean> =>
-  items.reduce<Promise<boolean>>(
-    async (verdict, item) => (await verdict) && judge(item),
-    Promise.resolve(true)
+const everyInTurn = <T>(items: ReadonlyArray<T>, judge: (item: T) => Reach): Reach =>
+  items.reduce<Reach>(
+    (verdict, item) =>
+      Effect.flatMap(verdict, (within) => (within ? judge(item) : Effect.succeed(false))),
+    Effect.succeed(true)
   )
 
 /**
@@ -128,21 +127,18 @@ const everyInTurn = <T>(
  * with a row-level rule a lookup among them reads through, at any hop
  * ({@link rowRuledTablesBehind}).
  */
-const readsWhole = async (input: {
-  readonly c: Context
+const readsWhole = (input: {
   readonly app: App
   readonly table: AppTable
   readonly columns: ReadonlySet<string>
   readonly reader: Reader
-}): Promise<boolean> => {
-  const { c, app, table, columns, reader } = input
-  if (!readsColumns(app, table, columns, reader)) return false
+}): Reach => {
+  const { app, table, columns, reader } = input
+  if (!readsColumns(app, table, columns, reader)) return Effect.succeed(false)
   const { userId } = reader
-  if (userId === undefined) return false
+  if (userId === undefined) return Effect.succeed(false)
   const behind = rowRuledTablesBehind(app, table.name, columns) as ReadonlyArray<AppTable>
-  return everyInTurn([table, ...behind], (each) =>
-    readsEveryRow(c, app, each, { ...reader, userId })
-  )
+  return everyInTurn([table, ...behind], (each) => readsEveryRow(app, each, { ...reader, userId }))
 }
 
 /** The tables an agent declared with `role` reads, with the columns it reads in each. */
@@ -170,66 +166,70 @@ const tableNamed = (app: App, name: string): AppTable | undefined =>
  * read — or, for a step whose output holds the records it read, each of them
  * whole.
  */
-const readsTableRead = async (
+const readsTableRead = (
   judge: Judge,
   read: Extract<StepRead, { readonly kind: 'table' | 'records' }>
-): Promise<boolean> => {
-  const { c, app, reader } = judge
+): Reach => {
+  const { app, reader } = judge
   const table = tableNamed(app, read.table)
-  if (table === undefined) return false
+  if (table === undefined) return Effect.succeed(false)
   const columns = new Set(table.fields.map((field) => field.name))
-  const whole = await readsWhole({ c, app, table, columns, reader })
-  if (whole || read.kind === 'table' || read.records === undefined) return whole
-  return recordsReadWhole({ c, app, table, records: read.records, reader })
+  return Effect.gen(function* () {
+    const whole = yield* readsWhole({ app, table, columns, reader })
+    if (whole || read.kind === 'table' || read.records === undefined) return whole
+    return yield* recordsReadWhole({ app, table, records: read.records, reader })
+  })
 }
 
 /** A run and its steps as the store holds them, or `undefined` when it cannot be read. */
-const loadRun = (c: Context, runId: string): Promise<JudgedRun | undefined> =>
-  runDomainPromise(
-    c,
-    Effect.gen(function* () {
-      const repo = yield* AutomationRunRepository
-      const run = yield* repo.findById(runId)
-      if (run === undefined) return undefined
-      const steps = yield* repo.findStepsByRunId(runId)
-      return {
-        automationName: run.automationName,
-        triggerName: run.triggerName,
-        triggerData: run.triggerData,
-        relay: run.relay,
-        valuesErasedAt: run.valuesErasedAt,
-        steps: steps.map((step) => ({
-          name: step.actionName,
-          status: step.status,
-          output: step.output,
-          reads: step.reads,
-        })),
-      }
-    })
-  ).catch(() => undefined)
+const loadRun = (runId: string): Effect.Effect<JudgedRun | undefined, never, DomainServices> =>
+  Effect.gen(function* () {
+    const repo = yield* AutomationRunRepository
+    const run = yield* repo.findById(runId)
+    if (run === undefined) return undefined
+    const steps = yield* repo.findStepsByRunId(runId)
+    return {
+      automationName: run.automationName,
+      triggerName: run.triggerName,
+      triggerData: run.triggerData,
+      relay: run.relay,
+      valuesErasedAt: run.valuesErasedAt,
+      steps: steps.map((step) => ({
+        name: step.actionName,
+        status: step.status,
+        output: step.output,
+        reads: step.reads,
+      })),
+    }
+  }).pipe(
+    // effect-swallow: fails closed, a run that cannot be read is beyond every reader
+    Effect.catchCause(() => Effect.undefined)
+  )
 
 /** True when every step of the run a synchronous call started stays within reach. */
-const calledRunWithinReach = async (judge: Judge, runId: string): Promise<boolean> => {
-  if (judge.hops >= RELAY_MAX_HOPS) return false
-  const run = await loadRun(judge.c, runId)
-  // A run scrubbed with an account no longer shows what it read.
-  if (run === undefined || isErased(run)) return false
-  return stepsWithinReach({ ...judge, hops: judge.hops + 1 }, run, run.steps)
+const calledRunWithinReach = (judge: Judge, runId: string): Reach => {
+  if (judge.hops >= RELAY_MAX_HOPS) return Effect.succeed(false)
+  return Effect.flatMap(loadRun(runId), (run) =>
+    // A run scrubbed with an account no longer shows what it read.
+    run === undefined || isErased(run)
+      ? Effect.succeed(false)
+      : stepsWithinReach({ ...judge, hops: judge.hops + 1 }, run, run.steps)
+  )
 }
 
 /**
  * True when what a step read stays within what the reader may read. What no
  * reach judges is beyond her (fail closed).
  */
-const readWithinReach = (judge: Judge, read: StepRead): Promise<boolean> => {
+const readWithinReach = (judge: Judge, read: StepRead): Reach => {
   switch (read.kind) {
     case 'none':
-      return Promise.resolve(true)
+      return Effect.succeed(true)
     case 'unknown':
-      return Promise.resolve(false)
+      return Effect.succeed(false)
     case 'agent':
       return everyInTurn(agentReach(judge.app, read.role), ({ table, columns }) =>
-        readsWhole({ c: judge.c, app: judge.app, table, columns, reader: judge.reader })
+        readsWhole({ app: judge.app, table, columns, reader: judge.reader })
       )
     case 'run':
       return readWithinReach(judge, read.reads)
@@ -275,10 +275,10 @@ const stepWithinReach = (
   judge: Judge,
   actions: ReadonlyArray<StepAction>,
   step: JudgedStep
-): Promise<boolean> => {
-  if (step.status === 'skipped') return Promise.resolve(true)
+): Reach => {
+  if (step.status === 'skipped') return Effect.succeed(true)
   const action = actions.find((candidate) => candidate.name === step.name)
-  if (action === undefined) return Promise.resolve(false)
+  if (action === undefined) return Effect.succeed(false)
   return readWithinReach(judge, stepRead(judge.app, action, step))
 }
 
@@ -287,9 +287,9 @@ const stepsWithinReach = (
   judge: Judge,
   run: JudgedRun,
   steps: ReadonlyArray<JudgedStep>
-): Promise<boolean> => {
+): Reach => {
   const actions = actionsOf(judge.app, run.automationName)
-  if (actions === undefined) return Promise.resolve(steps.length === 0)
+  if (actions === undefined) return Effect.succeed(steps.length === 0)
   return everyInTurn(steps, (step) => stepWithinReach(judge, actions, step))
 }
 
@@ -311,27 +311,23 @@ export const capturedRecordsOf = (
  * True when a run's own trigger captured no record of `tableName` — the table its record or comment
  * trigger names — or every such record whole, its related rows captured whole included.
  */
-const capturedWithinReach = async (
-  judge: Judge,
-  run: JudgedRun,
-  tableName: unknown
-): Promise<boolean> => {
+const capturedWithinReach = (judge: Judge, run: JudgedRun, tableName: unknown): Reach => {
   const records = capturedRecordsOf(run.triggerData)
-  if (records.length === 0) return true
-  if (typeof tableName !== 'string') return true
+  if (records.length === 0) return Effect.succeed(true)
+  if (typeof tableName !== 'string') return Effect.succeed(true)
   const table = tableNamed(judge.app, tableName)
-  if (table === undefined) return false
-  return recordsReadWhole({ c: judge.c, app: judge.app, table, records, reader: judge.reader })
+  if (table === undefined) return Effect.succeed(false)
+  return recordsReadWhole({ app: judge.app, table, records, reader: judge.reader })
 }
 
 /**
  * True when a run no other run fed keeps its trigger data within reach (a call or failure run
  * recorded before relays: never; a run no entry of its automation can be placed on: never).
  */
-const ownTriggerWithinReach = (judge: Judge, run: JudgedRun): Promise<boolean> => {
+const ownTriggerWithinReach = (judge: Judge, run: JudgedRun): Reach => {
   const automation = judge.app.automations?.find((a) => a.name === run.automationName)
   const trigger = automation && recordedTrigger(automation, run.triggerName)
-  if (trigger === undefined || isRelayedTriggerType(trigger.type)) return Promise.resolve(false)
+  if (trigger === undefined || isRelayedTriggerType(trigger.type)) return Effect.succeed(false)
   return capturedWithinReach(judge, run, (trigger as { readonly table?: unknown }).table)
 }
 
@@ -348,48 +344,51 @@ const recordsCarried = (run: JudgedRun, steps: ReadonlyArray<JudgedStep>): numbe
  * another run handed it on, from what its own trigger captured otherwise.
  * `carried` counts the records the runs followed so far carried.
  */
-const triggerWithinReach = async (
-  judge: Judge,
-  run: JudgedRun,
-  carried: number
-): Promise<boolean> => {
-  const relay = parseRelay(run.relay)
-  if (relay !== undefined && 'outside' in relay) return true
-  if (relay === undefined) return ownTriggerWithinReach(judge, run)
-  if (judge.hops >= RELAY_MAX_HOPS) return false
-  const feeding = await loadRun(judge.c, relay.run)
-  // A run scrubbed with an account no longer shows what it read: what it
-  // handed on is withheld from every reader who does not read every run.
-  if (feeding === undefined || isErased(feeding)) return false
-  const handedOn = feeding.steps.slice(0, relay.through)
-  const total = carried + recordsCarried(feeding, handedOn)
-  if (total > RELAY_MAX_RECORDS) return false
-  const next = { ...judge, hops: judge.hops + 1 }
-  return (
-    (await triggerWithinReach(next, feeding, total)) && stepsWithinReach(next, feeding, handedOn)
-  )
-}
+const triggerWithinReach = (judge: Judge, run: JudgedRun, carried: number): Reach =>
+  Effect.gen(function* () {
+    const relay = parseRelay(run.relay)
+    if (relay !== undefined && 'outside' in relay) return true
+    if (relay === undefined) return yield* ownTriggerWithinReach(judge, run)
+    if (judge.hops >= RELAY_MAX_HOPS) return false
+    const feeding = yield* loadRun(relay.run)
+    // A run scrubbed with an account no longer shows what it read: what it
+    // handed on is withheld from every reader who does not read every run.
+    if (feeding === undefined || isErased(feeding)) return false
+    const handedOn = feeding.steps.slice(0, relay.through)
+    const total = carried + recordsCarried(feeding, handedOn)
+    if (total > RELAY_MAX_RECORDS) return false
+    const next = { ...judge, hops: judge.hops + 1 }
+    return (
+      (yield* triggerWithinReach(next, feeding, total)) &&
+      (yield* stepsWithinReach(next, feeding, handedOn))
+    )
+  })
 
 /**
  * How many of a run's leading steps the reader may see the output of: none
  * when its trigger data is withheld from her — data flows forward, so every
  * step may carry it — else up to the first step whose reach exceeds hers.
  */
-export const visibleStepCount = async (input: {
-  readonly c: Context
+export const visibleStepCount = (input: {
   readonly app: App
   readonly reader: Reader
   readonly run: JudgedRun
-}): Promise<{ readonly triggerVisible: boolean; readonly visibleSteps: number }> => {
-  const judge: Judge = { c: input.c, app: input.app, reader: input.reader, hops: 0 }
-  const triggerVisible = await triggerWithinReach(judge, input.run, 0)
-  if (!triggerVisible) return { triggerVisible, visibleSteps: 0 }
-  const actions = actionsOf(input.app, input.run.automationName) ?? []
-  const visibleSteps = await input.run.steps.reduce<Promise<number>>(async (count, step, index) => {
-    const sofar = await count
-    // Past the first step beyond her reach everything is withheld anyway.
-    if (sofar < index) return sofar
-    return (await stepWithinReach(judge, actions, step)) ? sofar + 1 : sofar
-  }, Promise.resolve(0))
-  return { triggerVisible, visibleSteps }
-}
+}) =>
+  Effect.gen(function* () {
+    const judge: Judge = { app: input.app, reader: input.reader, hops: 0 }
+    const triggerVisible = yield* triggerWithinReach(judge, input.run, 0)
+    if (!triggerVisible) return { triggerVisible, visibleSteps: 0 }
+    const actions = actionsOf(input.app, input.run.automationName) ?? []
+    const visibleSteps = yield* Effect.reduce(
+      input.run.steps,
+      () => 0,
+      (sofar, step, index) =>
+        // Past the first step beyond her reach everything is withheld anyway.
+        sofar < index
+          ? Effect.succeed(sofar)
+          : Effect.map(stepWithinReach(judge, actions, step), (within) =>
+              within ? sofar + 1 : sofar
+            )
+    )
+    return { triggerVisible, visibleSteps }
+  })

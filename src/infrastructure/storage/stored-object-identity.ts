@@ -38,21 +38,21 @@ import { stat } from 'node:fs/promises'
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import {
-  StorageError,
   storageObjectNotFound,
+  type StorageError,
   type StoredObjectHash,
   type StoredObjectIdentity,
 } from '@/application/ports/services/storage-service'
-import { db } from '@/infrastructure/database'
-import { isClaimed } from './catalog-claim'
 import { resolveStoragePath } from './local-adapter'
-import { assertCanonicalS3Key } from './s3-adapter'
+import { canonicalS3Key } from './s3-adapter'
 import {
   S3_METADATA_TIMEOUT_MS,
   passThrough,
   retryIdempotentS3,
   s3Deadline,
 } from './s3-call-policy'
+import { attemptStorage, type DriverCall } from './storage-attempt'
+import type { PgDb } from '@/infrastructure/database/drizzle/db'
 
 const ABSENT: StoredObjectIdentity = { kind: 'absent' }
 const NONE: StoredObjectIdentity = { kind: 'none' }
@@ -63,25 +63,26 @@ const identity = (value: string): StoredObjectIdentity => ({ kind: 'identity', v
  * `read`, answering `absent` while a claim holds `key`. The claim is checked
  * AFTER the store answers: bytes a claim is still writing are never reported,
  * and a claim settled in between leaves the identity of the bytes it settled.
- * The bytea identity needs no wrapper, its query reads settled rows only.
+ * `claimed` is the catalog's `isClaimed` in production. The bytea
+ * identity needs no wrapper, its query reads settled rows only.
  */
-export const absentWhileClaimed =
-  (
-    key: string,
-    read: () => Promise<StoredObjectIdentity>,
-    claimed: (key: string) => Promise<boolean> = isClaimed
-  ) =>
-  async (): Promise<StoredObjectIdentity> => {
-    const answer = await read()
-    if (answer.kind === 'absent') return answer
-    return (await claimed(key)) ? ABSENT : answer
-  }
-
-/** Run `read` as the port's effect: a rejection is the store not answering. */
-export const storedObjectIdentity = (
-  read: () => Promise<StoredObjectIdentity>
+export const absentWhileClaimed = (
+  key: string,
+  read: DriverCall<StoredObjectIdentity>,
+  claimed: (key: string) => Promise<boolean>
 ): Effect.Effect<StoredObjectIdentity, StorageError> =>
-  Effect.tryPromise({ try: read, catch: (cause: unknown) => new StorageError({ cause }) })
+  attemptStorage(read).pipe(
+    Effect.filterOrElse(
+      (answer) => answer.kind === 'absent',
+      (answer) =>
+        attemptStorage(() => claimed(key)).pipe(Effect.map((held) => (held ? ABSENT : answer)))
+    )
+  )
+
+/** Run `read` as the port's effect: a failure is the store not answering. */
+export const storedObjectIdentity = (
+  read: DriverCall<StoredObjectIdentity>
+): Effect.Effect<StoredObjectIdentity, StorageError> => attemptStorage(read)
 
 const codeOf = (error: unknown): unknown =>
   typeof error === 'object' && error !== null
@@ -95,30 +96,30 @@ const codeOf = (error: unknown): unknown =>
  */
 export const S3_RACY_WINDOW_MS = 60_000
 
-/** The S3 identity of `key`: one `HEAD`, read at `nowMs`. */
-export const s3ObjectIdentity = async (
+/** The S3 identity of `key`: one `HEAD`, read at `nowMs` (by default, when the store answers). */
+export const s3ObjectIdentity = (
   client: Bun.S3Client,
   bucket: string,
   key: string,
-  nowMs: number = Date.now()
-): Promise<StoredObjectIdentity> => {
-  assertCanonicalS3Key(key)
-  return Effect.runPromise(
-    retryIdempotentS3(
-      Effect.timeoutOrElse(
-        // @effect-diagnostics-next-line unknownInEffectCatch:off -- as `s3StoredSize`: the peer's own rejection reaches the Promise boundary verbatim
-        Effect.tryPromise({ try: () => client.file(key, { bucket }).stat(), catch: passThrough }),
-        s3Deadline('stat', S3_METADATA_TIMEOUT_MS)
-      )
-    ).pipe(
-      Effect.map((stats) => s3IdentityOf(stats, nowMs)),
-      Effect.catchIf(
-        (error) => codeOf(error) === 'NoSuchKey',
-        () => Effect.succeed(ABSENT)
+  nowMs?: number
+): Effect.Effect<StoredObjectIdentity, unknown> =>
+  canonicalS3Key(key).pipe(
+    Effect.andThen(
+      retryIdempotentS3(
+        Effect.timeoutOrElse(
+          // @effect-diagnostics-next-line unknownInEffectCatch:off -- as `s3StoredSize`: the peer's own rejection reaches the caller verbatim
+          Effect.tryPromise({ try: () => client.file(key, { bucket }).stat(), catch: passThrough }),
+          s3Deadline('stat', S3_METADATA_TIMEOUT_MS)
+        )
+      ).pipe(
+        Effect.map((stats) => s3IdentityOf(stats, nowMs ?? Date.now())),
+        Effect.catchIf(
+          (error) => codeOf(error) === 'NoSuchKey',
+          () => Effect.succeed(ABSENT)
+        )
       )
     )
   )
-}
 
 /**
  * The identity one `HEAD` answered at `nowMs`; `none` when it carried no `ETag`
@@ -185,8 +186,11 @@ export const localIdentityOf = (
 }
 
 /** The database identity of `key`: its payload row and that row's write counter. */
-export const byteaObjectIdentity = async (key: string): Promise<StoredObjectIdentity> => {
-  const rows = (await db.execute(sql`
+export const byteaObjectIdentity = async (
+  client: PgDb,
+  key: string
+): Promise<StoredObjectIdentity> => {
+  const rows = (await client.execute(sql`
     SELECT b.id AS id, b.write_count AS writes, octet_length(b.content) AS size
     FROM system.file_storage_bytea b
     JOIN system.file_storage_metadata m ON m.id = b.metadata_id
@@ -208,8 +212,8 @@ export const byteaIdentityOf = (rows: readonly Record<string, unknown>[]): Store
  * never leaves it, whatever its size. Rejects with the not-found marker when no
  * bytea payload is stored under `key`.
  */
-export const byteaHashObject = async (key: string): Promise<StoredObjectHash> => {
-  const result = (await db.execute(sql`
+export const byteaHashObject = async (client: PgDb, key: string): Promise<StoredObjectHash> => {
+  const result = (await client.execute(sql`
     SELECT octet_length(b.content) AS size, encode(sha256(b.content), 'hex') AS sha256
     FROM system.file_storage_bytea b
     JOIN system.file_storage_metadata m ON m.id = b.metadata_id

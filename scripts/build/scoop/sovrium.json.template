@@ -16,7 +16,10 @@
   "autoupdate": {
     "architecture": {
       "64bit": {
-        "url": "https://github.com/sovrium/sovrium/releases/download/v$version/sovrium-$version-windows-x64.zip"
+        "url": "https://github.com/sovrium/sovrium/releases/download/v$version/sovrium-$version-windows-x64.zip",
+        "hash": {
+          "url": "https://github.com/sovrium/sovrium/releases/download/v$version/sovrium-$version-windows-x64.sha256"
+        }
       }
     }
   }

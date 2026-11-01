@@ -101,12 +101,22 @@ const offeredSubmission = (config: Readonly<SubmitFormConfig>) =>
     return Effect.succeed({ form, body: withoutWithheldAnswers(config.body, declared, form) })
   })
 
-// eslint-disable-next-line max-lines-per-function -- single-pass form-submission generator: 8 sequential gates (validate / honeypot / rate-limit / availability / format-validate / coerce / persist / emit + trigger). Each step needs the prior step's resolved state. [internal ref] added the analytics emit call.
-export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
-  // eslint-disable-next-line max-lines-per-function -- see comment on submitFormProgram
+/** The language a translatable answer is filed under: the route's, else `?lang=` on the submission. */
+const writeLanguageOf = (config: Readonly<SubmitFormConfig>): string | undefined =>
+  config.writeLanguage ??
+  requestedRecordLanguage(config.app.languages, config.query?.['lang'], undefined)
+
+/**
+ * The gates a submission meets before any of its answers is read: the form's
+ * availability window, the honeypot, then the rate limit.
+ */
+const screenSubmission = (
+  config: Readonly<SubmitFormConfig>,
+  form: Form,
+  body: SubmitFormConfig['body']
+) =>
   Effect.gen(function* () {
-    const { app, submitterIpHash, userAgent, processEnv, query, submitterUserId } = config
-    const { form, body } = yield* offeredSubmission(config)
+    const { app, submitterIpHash, userAgent } = config
 
     // Availability window gate — see checkAvailabilityWindow. The cap is
     // enforced atomically inside persistSubmission (see reserveLedgerSlot).
@@ -135,14 +145,26 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       rateLimitKeyHash: config.rateLimitKeyHash,
       userAgent,
     })
+  })
 
+/**
+ * The submitter's answers as the bound row will store them: hidden fields
+ * filled and pinned to what the server could have rendered, every value
+ * coerced, and every link checked against the rows the form offers.
+ */
+const prepareAnswers = (
+  config: Readonly<SubmitFormConfig>,
+  form: Form,
+  body: SubmitFormConfig['body']
+) =>
+  Effect.gen(function* () {
+    const { app, submitterUserId, visitor } = config
     // An embedded form marks its surface on the query; the rest is the form's.
-    const { surface, query: formQuery } = splitSubmissionSurface(query ?? {})
+    const { surface, query: formQuery } = splitSubmissionSurface(config.query ?? {})
     // A hidden field's lookup default is the row it finds now, for this submitter.
-    const filled = yield* withHiddenLookupDefaults(app, form, config.visitor)
+    const filled = yield* withHiddenLookupDefaults(app, form, visitor)
     // A hidden field keeps only what the server could have rendered into it; a
     // value it could not falls back to the field's default.
-    const { visitor } = config
     const rendered = yield* withoutUnrenderedHiddenValues({
       app,
       form: filled,
@@ -158,46 +180,76 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
     // A link must name a row the form offers, and a hidden link or account only
     // what the server would have put in it for this submitter — both answered
     // like a missing row.
-    const links = { app, form: filled, mapped, visitor: config.visitor, submitterUserId }
+    const links = { app, form: filled, mapped, visitor, submitterUserId }
     yield* findUnofferedLinkField(links).pipe(Effect.flatMap(refuseAsMissingRow))
     yield* findUnpinnedHiddenField(links).pipe(Effect.flatMap(refuseAsMissingRow))
+    return { surface, mapped }
+  })
 
-    // [internal ref] / a forms spec: translate FK violations on the bound-table
-    // write into a structured FormFieldForeignKeyError so the route layer
-    // emits a 400 with `fieldErrors[]` instead of a generic 422. Mirrors the
-    // FormFieldFormatError translation in `processSubmissionBody`.
-    const persisted = yield* persistSubmission({
-      app,
-      form,
-      surface,
-      mapped,
-      submitterIpHash,
-      userAgent,
-      submitterUserId,
-      // The bound row fires the table's record automations and webhooks as it is written.
-      processEnv: processEnv ?? {},
-      // A translatable field's answer is filed under the language the form was answered in.
-      language: requestedRecordLanguage(app.languages, query?.['lang'], undefined),
-    }).pipe(
-      Effect.catchTags({
-        ForeignKeyViolationError: (fk) => Effect.fail(missingRowError(fk.fieldName)),
-        // A value refused by a unique, CHECK or NOT NULL rule is reported
-        // against the field it came from, so the page can draw it there.
-        UniqueConstraintViolationError: (unique) =>
-          Effect.flatMap(
-            takenValueRefusal({
-              app,
-              form,
-              mapped,
-              unique,
-              submitterUserId,
-              visitor: config.visitor,
-            }),
-            Effect.fail
-          ),
-        DatabaseError: (failure) => Effect.fail(constraintRefusalForField(failure) ?? failure),
-      })
-    )
+/** The answers a {@link prepareAnswers} step settled, and the surface they came from. */
+type PreparedAnswers = Effect.Success<ReturnType<typeof prepareAnswers>>
+
+/**
+ * Write the ledger row and the bound row, reporting a value a database rule
+ * refuses against the field it came from.
+ */
+const persistAnswers = (
+  config: Readonly<SubmitFormConfig>,
+  form: Form,
+  { surface, mapped }: Readonly<PreparedAnswers>
+) => {
+  const { app, submitterIpHash, userAgent, submitterUserId } = config
+  // [internal ref] / a forms spec: translate FK violations on the bound-table
+  // write into a structured FormFieldForeignKeyError so the route layer
+  // emits a 400 with `fieldErrors[]` instead of a generic 422. Mirrors the
+  // FormFieldFormatError translation in `processSubmissionBody`.
+  return persistSubmission({
+    app,
+    form,
+    surface,
+    mapped,
+    submitterIpHash,
+    userAgent,
+    submitterUserId,
+    // The bound row fires the table's record automations and webhooks as it is written.
+    // A translatable field's answer is filed under the language the form was answered in.
+    language: writeLanguageOf(config),
+  }).pipe(
+    Effect.catchTags({
+      ForeignKeyViolationError: (fk) => Effect.fail(missingRowError(fk.fieldName)),
+      // A value refused by a unique, CHECK or NOT NULL rule is reported
+      // against the field it came from, so the page can draw it there.
+      UniqueConstraintViolationError: (unique) =>
+        Effect.flatMap(
+          takenValueRefusal({
+            app,
+            form,
+            mapped,
+            unique,
+            submitterUserId,
+            visitor: config.visitor,
+            lang: config.query?.['lang'],
+          }),
+          Effect.fail
+        ),
+      DatabaseError: (failure) => Effect.fail(constraintRefusalForField(failure) ?? failure),
+    })
+  )
+}
+
+/** What a committed submission set in motion: its access links, its analytics row, its automations. */
+const followUpSubmission = (
+  config: Readonly<SubmitFormConfig>,
+  form: Form,
+  mapped: Readonly<PreparedAnswers['mapped']>,
+  persisted: {
+    readonly submissionId: string | undefined
+    readonly linkedRecordPresent: boolean
+    readonly linkedRecordId: string | undefined
+  }
+) =>
+  Effect.gen(function* () {
+    const { app, submitterIpHash, submitterUserId } = config
     const { submissionId, linkedRecordPresent, linkedRecordId } = persisted
     yield* applySubmissionAccessLinks({
       form,
@@ -210,12 +262,7 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
     // every successful submission. Three-layer gate (env / app / form);
     // emission failures are absorbed so a missing analytics row never
     // rolls back the committed submission.
-    yield* emitFormSubmissionAnalyticsEvent({
-      app,
-      form,
-      submissionId,
-      submitterIpHash,
-    })
+    yield* emitFormSubmissionAnalyticsEvent({ app, form, submissionId, submitterIpHash })
 
     // Start form-triggered automations AFTER the bound-table + ledger rows
     // commit so action templates referencing `{{trigger.data.linkedRecord.id}}`
@@ -229,18 +276,30 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       formId: form.id,
       linkedRecord: buildLinkedRecord(form, linkedRecordPresent, linkedRecordId),
       meta: buildSubmitterMeta(config),
-      processEnv: processEnv ?? {},
       // The submitter is the run's actor: `runAs: 'triggering-user'` actions
       // and per-user OAuth2 token lookups resolve against it. Omitted for
       // anonymous submissions, which keep the system actor.
       ...(submitterUserId !== undefined ? { userId: submitterUserId } : {}),
     })
+  })
 
+/**
+ * One form submission, gate by gate: the form as offered, the screening gates,
+ * the answers settled, the rows written, then what the commit sets in motion.
+ * Each step needs the prior step's resolved state.
+ */
+export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
+  Effect.gen(function* () {
+    const { form, body } = yield* offeredSubmission(config)
+    yield* screenSubmission(config, form, body)
+    const prepared = yield* prepareAnswers(config, form, body)
+    const persisted = yield* persistAnswers(config, form, prepared)
+    yield* followUpSubmission(config, form, prepared.mapped, persisted)
     return {
-      submissionId: submissionId ?? null,
-      linkedRecordId: linkedRecordId ?? null,
+      submissionId: persisted.submissionId ?? null,
+      linkedRecordId: persisted.linkedRecordId ?? null,
       // Expose only the submitter-supplied bound-table columns
       // for `$record.<column>` redirect interpolation (see SubmitFormResult).
-      record: filterTableBoundFields(mapped, form),
+      record: filterTableBoundFields(prepared.mapped, form),
     } satisfies SubmitFormResult
   }).pipe(Effect.withSpan('forms.submit-form-program', { attributes: { form: config.formName } }))

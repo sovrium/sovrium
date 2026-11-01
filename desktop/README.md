@@ -10,14 +10,16 @@ the change appear, which cannot happen if closing the window kills the server.
 
 ## Layout
 
-| Path                           | What it is                                                                |
-| ------------------------------ | ------------------------------------------------------------------------- |
-| `src/`                         | The shell's own UI — plain TypeScript and Vite, no framework              |
-| `src-tauri/src/`               | The Rust side: sidecar supervision, tray, settings, deep links, nav guard |
-| `src-tauri/tauri.conf.json`    | Window, CSP, updater endpoint, and everything the installers carry        |
-| `src-tauri/entitlements.plist` | The macOS entitlements the engine needs, JIT included                     |
-| `src-tauri/windows/hooks.nsh`  | NSIS install hooks                                                        |
-| `package.json`, `bun.lock`     | This directory's own dependencies — it does not share the repository's    |
+| Path                                 | What it is                                                                |
+| ------------------------------------ | ------------------------------------------------------------------------- |
+| `src/`                               | The shell's own UI — plain TypeScript and Vite, no framework              |
+| `src-tauri/src/`                     | The Rust side: sidecar supervision, tray, settings, deep links, nav guard |
+| `src-tauri/tauri.conf.json`          | Window, CSP, updater endpoint, and everything the installers carry        |
+| `src-tauri/entitlements.plist`       | The macOS entitlements the engine sidecar needs, JIT included             |
+| `src-tauri/shell.entitlements.plist` | The app shell's macOS entitlements: none, on purpose                      |
+| `tauri-cli.ts`                       | The `tauri` script: keeps the engine out of Tauri's macOS signing pass    |
+| `src-tauri/windows/hooks.nsh`        | NSIS install hooks                                                        |
+| `package.json`, `bun.lock`           | This directory's own dependencies — it does not share the repository's    |
 
 Nothing here imports from the repository's `src/`. The two trees are built and shipped separately,
 and the shell's brand tokens arrive as a generated CSS file rather than as an import.
@@ -50,14 +52,25 @@ bun run build:binary
 bun run scripts/build/stage-desktop-sidecar.ts --from ./sovrium
 
 # Then, from this directory:
-bunx tauri dev                                  # live-reloading window
-bunx tauri build --debug --bundles app,dmg      # a real bundle, quickly
-bunx tauri build                                # every target for this platform
+bun run tauri dev                               # live-reloading window
+bun run tauri build --debug --bundles app,dmg   # a real bundle, quickly
+bun run tauri build                             # every target for this platform
 ```
 
 `bun run scripts/build/stage-desktop-sidecar.ts --placeholder` writes a stub instead. That is enough
 to compile and to bundle, and not enough to run — the app will open and do nothing, which is exactly
 what a missing or unrunnable sidecar looks like. Use it for build checks only.
+
+Use `bun run tauri`, not `bunx tauri`. On macOS the script hands the engine to the bundler as a plain
+file, so Tauri does not re-sign it with the shell's empty entitlements; the engine keeps the signature
+made with `src-tauri/entitlements.plist`. A signed build (`APPLE_SIGNING_IDENTITY` set, `-` for
+ad hoc) therefore needs the engine signed first, as the build workflows do, and refuses to start when
+the staged engine lacks `allow-jit`:
+
+```bash
+codesign --force --options runtime --entitlements desktop/src-tauri/entitlements.plist \
+  --sign - desktop/src-tauri/sovrium-aarch64-apple-darwin
+```
 
 ## The installers are not signed yet
 
@@ -72,8 +85,15 @@ the operating system warns about:
 
 This is not a temporary bug to route around: the signing steps in the release workflow are all
 conditional on their secrets existing, so the pipeline degrades instead of failing. Adding the
-certificates turns them on with no code change. The published article "Troubleshooting: the Sovrium
-App" is what a user is pointed at in the meantime.
+certificates turns them on with no code change.
+
+What users can check in the meantime is the release key. The `sign-release` job in
+`.github/workflows/release.yml` signs every installer with the same Ed25519 key that signs the CLI
+archives, and publishes the signature beside it as `<installer>.sig` (the base64 of a 64-byte
+signature over the file's exact bytes). The published article "Troubleshooting: the Sovrium App"
+teaches users to verify that signature before they get past the Gatekeeper or SmartScreen warning,
+and to delete and report a file that does not verify. The full recipe, including the GitHub build
+attestation, is in [`docs/infrastructure/release/verifying-downloads.md`](../docs/infrastructure/release/verifying-downloads.md).
 
 ## The updater key
 

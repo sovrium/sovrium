@@ -56,7 +56,7 @@ export const LongTextFieldSchema = BaseFieldSchema.pipe(
         Schema.annotate({
           description:
             "Make this field searchable by word from a full-text index kept on both SQLite and PostgreSQL. On a table declaring at least one such field, the records endpoint's `q` parameter and a `searchEngine: 'fts'` search box search the declared fields only: every word must appear in the field, each matching the start of a word, a double-quoted span is a phrase, case is ignored, and matches come most relevant first unless a sort is given. A table declaring none keeps the substring search over all its text fields.",
-          defaultNote: 'false — matched by `q` as a substring, like the other text fields',
+          defaultNote: 'false: matched by `q` as a substring, like the other text fields',
         })
       )
     ),

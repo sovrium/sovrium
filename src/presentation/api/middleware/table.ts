@@ -8,6 +8,7 @@
 import { getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isRecordKeyShaped } from '@/domain/models/app/tables/record-id-service'
+import { findTableByIdOrName } from '@/domain/models/app/tables/table-lookup-service'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { ContextWithSession } from './auth'
@@ -19,33 +20,6 @@ import type { Context, Next } from 'hono'
 // ============================================================================
 // Extended Context Types
 // ============================================================================
-
-/**
- * Hono context with validated table information attached
- *
- * Available after `validateTable()` middleware runs.
- * @public
- */
-export type ContextWithValidatedTable = ContextWithSession & {
-  readonly var: {
-    readonly tableName: string
-    readonly tableId: string
-  }
-}
-
-/**
- * Hono context with user role attached
- *
- * Available after `enrichUserRole()` middleware runs.
- * Requires session to exist (use after `requireAuth()`).
- * @public
- */
-export type ContextWithUserRole = ContextWithSession & {
-  readonly var: {
-    readonly userRole: string
-    readonly userGroups: readonly string[]
-  }
-}
 
 /**
  * Combined context with session, validated table, and user role
@@ -88,7 +62,7 @@ export type ContextWithTableAndRole = Context & {
  * **Usage**:
  * ```typescript
  * app.use('/api/tables/:tableId/*', validateTable(app))
- * app.get('/api/tables/:tableId/records', (c: ContextWithValidatedTable) => {
+ * app.get('/api/tables/:tableId/records', (c: ContextWithTableAndRole) => {
  *   const { tableName } = c.var  // Already validated!
  * })
  * ```
@@ -96,7 +70,7 @@ export type ContextWithTableAndRole = Context & {
  * @param app - Application configuration containing table definitions
  * @returns Hono middleware function
  */
-export function validateTable(appOrResolver: App | (() => App)) {
+export function validateTable(app: App) {
   return async (c: Context, next: Next) => {
     const tableId = c.req.param('tableId')
 
@@ -107,10 +81,7 @@ export function validateTable(appOrResolver: App | (() => App)) {
       )
     }
 
-    // Resolve the live App per-request so a table added by a schema
-    // publish (which swaps the live App without a restart) is found here.
-    const app = typeof appOrResolver === 'function' ? appOrResolver() : appOrResolver
-    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+    const table = findTableByIdOrName(app.tables, tableId)
 
     if (!table) {
       return notFound(c)
@@ -145,16 +116,15 @@ const RECORDS_PATH_WORDS: ReadonlySet<string> = new Set([
  * before any query runs: on PostgreSQL the cast would otherwise fail and read
  * as a 400, telling a caller probing ids something about their shape.
  */
-export function rejectNonKeyRecordId(appOrResolver: App | (() => App)) {
+export function rejectNonKeyRecordId(app: App) {
   return async (c: Context, next: Next) => {
     const recordId = c.req.param('recordId')
     if (recordId === undefined || RECORDS_PATH_WORDS.has(recordId)) {
       await next()
       return undefined
     }
-    const app = typeof appOrResolver === 'function' ? appOrResolver() : appOrResolver
     const tableId = c.req.param('tableId')
-    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+    const table = tableId === undefined ? undefined : findTableByIdOrName(app.tables, tableId)
     if (table !== undefined && !isRecordKeyShaped(recordId, table, app.auth?.scopeTables)) {
       return notFound(c)
     }
@@ -177,7 +147,7 @@ export function rejectNonKeyRecordId(appOrResolver: App | (() => App)) {
  * app.use('/api/tables/*', authMiddleware(auth))
  * app.use('/api/tables/*', requireAuth())
  * app.use('/api/tables/:tableId/*', enrichUserRole())
- * app.get('/api/tables/:tableId/records', (c: ContextWithUserRole) => {
+ * app.get('/api/tables/:tableId/records', (c: ContextWithTableAndRole) => {
  *   const { userRole } = c.var  // Already fetched!
  * })
  * ```
@@ -191,16 +161,16 @@ export function rejectNonKeyRecordId(appOrResolver: App | (() => App)) {
  * `NO_GRANT_ROLE`, so no evaluator downstream ever sees `''` or an unknown
  * string — both of which would otherwise take the open bare-table default.
  *
- * @param resolveApp - The live app whose role vocabulary judges the stored
+ * @param app - The app whose role vocabulary judges the stored
  *   role. Omitted, only an absent or empty role is closed.
  * @returns Hono middleware function
  */
-export function enrichUserRole(resolveApp?: () => AdminRoleResolvable) {
+export function enrichUserRole(app?: AdminRoleResolvable) {
   return async (c: Context, next: Next) => {
     // Resolved per request, not once at mount: both reads run on the services
     // THIS request carries, so the role and group lookups share its fiber and
     // its span.
-    const resolveRole = (userId: string) => runDomainPromise(c, getUserRole(userId, resolveApp?.()))
+    const resolveRole = (userId: string) => runDomainPromise(c, getUserRole(userId, app))
     const resolveGroups = (userId: string) => runDomainPromise(c, getUserGroups(userId))
 
     const { session } = (c as ContextWithSession).var

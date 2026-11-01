@@ -7,6 +7,7 @@
 
 /** What the S3 storage layer checks at construction: the env it needs, and whether the bucket answers. */
 
+import { Effect } from 'effect'
 import { logWarning } from '@/infrastructure/logging/logger'
 import { s3ValidateBucket } from './s3-adapter'
 import { probeS3BucketOnce } from './s3-bucket-probe'
@@ -54,8 +55,11 @@ export const warnIfS3BucketUnreachable = async (
   endpoint: string,
   bucket: string
 ): Promise<void> => {
+  // The one run of an S3 Effect outside a caller's fiber, on purpose: the probe
+  // is memoised for the PROCESS (`probeS3BucketOnce`), so it must outlive the
+  // composition that happened to start it rather than be interrupted with it.
   const probe = await probeS3BucketOnce(`${endpoint}|${bucket}`, () =>
-    s3ValidateBucket(client, bucket)
+    Effect.runPromise(s3ValidateBucket(client, bucket))
   )
   if (probe.reachable) return
   logWarning(

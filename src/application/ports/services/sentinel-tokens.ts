@@ -8,10 +8,10 @@
 import { Context } from 'effect'
 
 /**
- * Recognises the placeholder credential the test-mode token seeder writes.
+ * Recognises the placeholder credential the E2E harness seeds.
  *
- * The seeder (infrastructure) upserts a sentinel access token for every new
- * user so the encryption-at-rest specs have a row to decrypt. Everything that
+ * The harness writes a sentinel access token for each user it signs up so the
+ * encryption-at-rest specs have a row to decrypt; the server never writes one. Everything that
  * READS a stored credential has to treat that placeholder as "not authorised":
  * the connection status programs report it disconnected, and the outbound
  * auth-header paths refuse to send it upstream as a Bearer token.

@@ -5,11 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import {
   clearTransformCacheResponseSchema,
   type ClearTransformCacheResponse,
 } from '@/domain/models/api/admin/storage/transform-cache'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { clearTransformCache } from '@/infrastructure/storage/transform-cache'
 import type { Context, Hono } from 'hono'
 

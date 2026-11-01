@@ -14,7 +14,7 @@ import {
   menuPanel,
   para,
   slot,
-} from '@/library/manifest/app-block-kit'
+} from '@/library/kit/app-block-kit'
 import {
   asComponent,
   flex,
@@ -25,7 +25,7 @@ import {
   stack,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 const LINKS: readonly (readonly [string, string])[] = [

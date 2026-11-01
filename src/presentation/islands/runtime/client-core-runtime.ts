@@ -41,6 +41,7 @@ import { hydrateSessionBindings } from '@/presentation/islands/runtime/session-r
 import { runErrorOutcome, runSuccessOutcome } from './action-outcome'
 import { automationPressHeaders } from './automation-press-headers'
 import { delegate, bindActionButtons, parseActionInput } from './client-event-delegate'
+import { warnInBrowser } from './client-log'
 import { showToast } from './client-toast'
 import { setupClipboardHandlers } from './clipboard-runtime'
 import { applyFetchSuccessEffects } from './fetch-action-effects'
@@ -49,6 +50,7 @@ import { dispatchToastResponse, setupFetchButtonHandlers } from './fetch-button-
 import { setupFillHandlers } from './fill-runtime'
 import { withPending } from './pending-control'
 import { setupSeekHandlers } from './seek-runtime'
+import { reloadOnceForStaleChunk } from './stale-chunk-reload'
 import { exitLeavesPage, exitOutcome, judgeSuccessExit } from './success-exit'
 
 // ─── Modal lifecycle ────────────────────────────────────────────────────────
@@ -138,11 +140,14 @@ function handleFilterAction(method: string, data: Record<string, FormDataEntryVa
       url.searchParams.set('page', String(data.page || '1'))
       break
     default:
-      console.warn(`[sovrium] Unknown filter method: ${method}`)
+      warnInBrowser('sovrium', `Unknown filter method: ${method}`)
       return
   }
 
-  window.location.href = url.toString()
+  // The address is this page's own with new query parameters; it still goes
+  // through the canonical same-origin check before the browser follows it.
+  const target = toSafeRedirectPath(`${url.pathname}${url.search}${url.hash}`)
+  if (target !== undefined) window.location.assign(target)
 }
 
 // ─── Form dispatch (filter only) ────────────────────────────────────────────
@@ -263,6 +268,8 @@ function setupAuthButtonHandlers(): void {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
+      // Forget this browser's language choice: the next person reads the default
+      localStorage.removeItem('sovrium_language')
     } finally {
       // The target comes off a DOM attribute, so what reaches `location` is a
       // path the URL parser REBUILT — never the attribute itself. A bare
@@ -310,6 +317,17 @@ function adoptFormFlashToasts(): void {
   })
 }
 
+/**
+ * A list the server draws through a row template, on a shared-filter channel,
+ * redrawn in place when the channel changes (`channel-region-refresh.ts`). A
+ * split chunk that follows the page's regions as it loads, fetched only on a
+ * page holding one, as few do.
+ */
+function followChannelRegions(): void {
+  if (document.querySelector('[data-channel-region]'))
+    void import('./channel-region-refresh').catch(reloadOnceForStaleChunk)
+}
+
 // ─── Initialization ─────────────────────────────────────────────────────────
 
 function initClientRuntime(): void {
@@ -325,6 +343,7 @@ function initClientRuntime(): void {
   setupSessionBoundChrome()
   setupNativeSelectPublishers()
   setupSearchInputPublishers()
+  followChannelRegions()
   adoptFormFlashToasts()
   setupAwaitingScriptControls()
 }

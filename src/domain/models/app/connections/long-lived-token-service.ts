@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { DAY_MS } from '@/domain/kernel/time/durations'
+
 /** The renewal window of `longLivedToken` when `renewWithinDays` is omitted. */
 export const DEFAULT_LONG_LIVED_RENEW_WITHIN_DAYS = 30
-
-const DAY_MS = 24 * 60 * 60 * 1000
 
 /**
  * Whether a stored long-lived token should be exchanged for a fresh one
@@ -19,7 +19,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 export const isLongLivedRenewalDue = (
   expiresAt: Readonly<Date> | undefined,
   renewWithinDays: number | undefined,
-  now: number = Date.now()
+  now: number
 ): boolean => {
   if (expiresAt === undefined) return false
   const left = expiresAt.getTime() - now

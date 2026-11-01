@@ -119,7 +119,7 @@ export const InlinePrefillSchema = Schema.Struct({
   identifier: 'InlinePrefill',
   title: 'Inline Prefill',
   description:
-    'Prefill fields of a form placed with `formRef` from the host page record — typically the parent link (`$parent.id`) of a record added from inside that record. Only on a `formRef` embed.',
+    'Prefill fields of a form placed with `formRef` from the host page record, typically the parent link (`$parent.id`) of a record added from inside that record. Only on a `formRef` embed.',
 })
 
 /**
@@ -134,7 +134,7 @@ export const FormPresentationSchema = Schema.Literals(['form', 'composer']).anno
   title: 'Form Presentation',
   defaultNote: 'form',
   description:
-    "How the placed form is drawn: 'form' (the default, its fields one under the other with a submit button) or 'composer' (the box at the foot of a conversation — one auto-growing text input for the form's first text field, the send button inside it, Enter to send and Shift+Enter for a new line, and the other fields behind an attach button). Only on a form placed with `formRef`.",
+    "How the placed form is drawn: 'form' (the default, its fields one under the other with a submit button) or 'composer' (the box at the foot of a conversation: one auto-growing text input for the form's first text field, the send button inside it, Enter to send and Shift+Enter for a new line, and the other fields behind an attach button). Only on a form placed with `formRef`.",
 })
 
 /**
@@ -149,12 +149,12 @@ export const FormPresentationSchema = Schema.Literals(['form', 'composer']).anno
 export const ComposerGifSchema = Schema.Struct({
   connection: Schema.String.annotate({
     description:
-      'The name of the connection the search is sent through, as declared under `connections` — for example the one `sovrium library add connection/giphy` installs. Its key stays on the server.',
+      'The name of the connection the search is sent through, as declared under `connections`, for example the one `sovrium library add connection/giphy` installs. Its key stays on the server.',
     examples: ['giphy'],
   }).pipe(Schema.check(Schema.isMinLength(1))),
   field: Schema.String.annotate({
     description:
-      "The field of the form's table the picked GIF's address is stored in — a `url` field, drawn by the turn template with an `image` reading `$record.<field>`. The address stored is the app's own address of the GIF, never the provider's. Picking a GIF posts the message at once with that field filled.",
+      "The field of the form's table the picked GIF's address is stored in: a `url` field, drawn by the turn template with an `image` reading `$record.<field>`. The address stored is the app's own address of the GIF, never the provider's. Picking a GIF posts the message at once with that field filled.",
     examples: ['gif'],
   }).pipe(Schema.check(Schema.isMinLength(1))),
   provider: Schema.optional(
@@ -251,7 +251,7 @@ export const FormEndpointSuccessResponseSchema = Schema.Struct({
 export const FormEndpointSubmitOnSchema = Schema.Literals(['submit', 'change']).annotate({
   title: 'Form Endpoint Submit On',
   description:
-    "When an endpoint form sends. 'submit' (default): on its submit button. 'change': each time the reader changes a control — at once for a switch or a select, once typing pauses (or on leaving the field, or Enter) for a typed control — and no submit button is drawn. The whole form is sent and onSuccess/onError run as on a submit.",
+    "When an endpoint form sends. 'submit' (default): on its submit button. 'change': each time the reader changes a control (at once for a switch or a select, once typing pauses, on leaving the field or on Enter for a typed control), and no submit button is drawn. The whole form is sent and onSuccess/onError run as on a submit.",
 })
 
 /**
@@ -503,7 +503,7 @@ export const formFields = {
   layout: Schema.optional(
     Schema.Literals(['single-column', 'two-column', 'main-aside', 'custom']).annotate({
       description:
-        "Form layout mode: single-column | two-column | main-aside | custom. 'main-aside' sets the fields whose region is 'aside' — and the submit button — in a narrow column beside the others from the lg breakpoint up, and stacks everything on one column below it.",
+        "Form layout mode: single-column | two-column | main-aside | custom. 'main-aside' sets the fields whose region is 'aside' (and, unless stickyActions pins it to the save bar, the submit button) in a narrow column beside the others from the lg breakpoint up, and stacks everything on one column below it.",
     })
   ),
   /**
@@ -545,7 +545,7 @@ export const formFields = {
   labelPlacement: Schema.optional(
     Schema.Literals(['top', 'side']).annotate({
       description:
-        "Where each field's label sits: top (default, above the control) or side (label and help on the left, control on the right, one row per field — stacked again below the md breakpoint).",
+        "Where each field's label sits: top (default, above the control) or side (label and help on the left, control on the right, one row per field, stacked again below the md breakpoint).",
     })
   ),
   /**

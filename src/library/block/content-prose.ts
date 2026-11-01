@@ -19,9 +19,9 @@ import {
   stringParam,
   THEME_NOTE,
   when,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import type { BlockNode } from '@/library/manifest/block-kit'
+import type { BlockNode } from '@/library/kit/block-kit'
 
 /**
  * A body paragraph of the article. No size or leading of its own: the article

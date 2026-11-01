@@ -7,13 +7,18 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { BatchValidationError } from '@/application/ports/repositories/tables/batch-repository'
 import { reportCommittedRows } from '@/application/ports/services/record-change-feed'
-import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { BusinessRuleViolationError } from '@/domain/errors'
+import { DatabaseError } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
-import { nowExpr } from '@/infrastructure/database/sql/dialect-sql'
 import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { fetchRecordsByIds } from '../mutation-helpers/record-fetch-helpers'
+import {
+  judgeInTransaction,
+  judgePermanentDeleteInTransaction,
+} from '../mutation-helpers/rule-judgement'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import {
   passthroughError,
@@ -22,8 +27,11 @@ import {
   type PassthroughError,
 } from '../statement/error-handling'
 import { tableIdentifier, databaseTableName } from '../statement/validation'
-import { BATCH_FANOUT_CONCURRENCY, BatchValidationError, deletedRowChanges } from './batch-helpers'
+import { BATCH_FANOUT_CONCURRENCY, deletedRowChanges } from './batch-helpers'
+import type { InTransactionRuleJudge } from '@/application/ports/repositories/tables/in-transaction-rule-judge'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect, TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Validate records exist for batch delete.
@@ -38,7 +46,7 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
  * position — not whichever probe happened to finish first.
  */
 const validateRecordsForDelete = (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<void, PassthroughError | BatchValidationError> =>
@@ -57,7 +65,8 @@ const validateRecordsForDelete = (
       // handled below.
       Effect.tryPromise({
         try: async () => {
-          const checkResult = await executeRaw(
+          const checkResult = await executeRawOn(
+            dialect.kind,
             tx,
             sql`SELECT id FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
           )
@@ -92,11 +101,11 @@ const validateRecordsForDelete = (
  * Validate records exist for batch delete with Effect error handling
  */
 function validateRecordsForDeleteWithEffect(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<void, DatabaseError> {
-  return validateRecordsForDelete(tx, tableIdent, recordIds).pipe(
+  return validateRecordsForDelete({ tx, dialect }, tableIdent, recordIds).pipe(
     Effect.mapError((error) => {
       // Unwrap FIRST so both the composed message and the stored `cause`
       // refer to the original driver error, not to the carrier the inner
@@ -113,11 +122,11 @@ function validateRecordsForDeleteWithEffect(
  * Check if table supports soft delete (has deleted_at column)
  */
 function checkSoftDeleteSupport(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string
 ): Effect.Effect<boolean, DatabaseError> {
   return Effect.tryPromise({
-    try: () => columnExists(tx, databaseTableName(tableName), 'deleted_at'),
+    try: () => columnExists(dialect.kind, tx, databaseTableName(tableName), 'deleted_at'),
     catch: (error) => new DatabaseError('Failed to check deleted_at column', error),
   })
 }
@@ -126,11 +135,11 @@ function checkSoftDeleteSupport(
  * Check if table has deleted_by column for authorship tracking
  */
 function checkDeletedBySupport(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string
 ): Effect.Effect<boolean, DatabaseError> {
   return Effect.tryPromise({
-    try: () => columnExists(tx, databaseTableName(tableName), 'deleted_by'),
+    try: () => columnExists(dialect.kind, tx, databaseTableName(tableName), 'deleted_by'),
     catch: (error) => new DatabaseError('Failed to check deleted_by column', error),
   })
 }
@@ -139,7 +148,7 @@ function checkDeletedBySupport(
  * Execute delete query (soft or hard delete based on parameters)
  */
 function executeDeleteQuery(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   params: {
     readonly tableName: string
     readonly recordIds: readonly string[]
@@ -162,11 +171,11 @@ function executeDeleteQuery(
         ? sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
         : params.hasSoftDelete
           ? params.hasDeletedBy
-            ? sql`UPDATE ${tableIdent} SET deleted_at = ${nowExpr()}, deleted_by = ${params.userId} WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
-            : sql`UPDATE ${tableIdent} SET deleted_at = ${nowExpr()} WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
+            ? sql`UPDATE ${tableIdent} SET deleted_at = ${dialect.sql.nowExpr()}, deleted_by = ${params.userId} WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
+            : sql`UPDATE ${tableIdent} SET deleted_at = ${dialect.sql.nowExpr()} WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
           : sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
 
-      const result = await executeRaw(tx, query)
+      const result = await executeRawOn(dialect.kind, tx, query)
       return result.length
     },
     catch: (error) => new DatabaseError(`Failed to delete records in ${params.tableName}`, error),
@@ -177,12 +186,13 @@ function executeDeleteQuery(
  * Log delete activities for all deleted records
  */
 function logDeleteActivities(
+  db: PortableDb,
   session: Readonly<Session>,
   tableName: string,
   recordsBefore: readonly Record<string, unknown>[]
 ): Effect.Effect<void, never> {
   return Effect.forEach(recordsBefore, (record) =>
-    logActivity({
+    logActivity(db, {
       session,
       tableName,
       action: 'delete',
@@ -190,6 +200,29 @@ function logDeleteActivities(
       changes: { before: record },
     })
   ).pipe(Effect.asVoid)
+}
+
+/**
+ * The table's business rules, judged on every row of the batch as this
+ * transaction reads it (`rule-judgement.ts`), before any row is removed. A
+ * permanent delete judges a row already in the trash as it judges a live one.
+ */
+const judgedDeletes = (
+  on: TransactionOn,
+  tableName: string,
+  recordIds: readonly string[],
+  rules: { readonly judge: InTransactionRuleJudge | undefined; readonly permanent: boolean }
+): Effect.Effect<void, BusinessRuleViolationError | DatabaseError> => {
+  const { judge } = rules
+  if (judge === undefined) return Effect.void
+  const judgeRows = rules.permanent ? judgePermanentDeleteInTransaction : judgeInTransaction
+  return Effect.tryPromise({
+    try: () => judgeRows(on, tableName, recordIds, judge),
+    catch: (error) =>
+      error instanceof BusinessRuleViolationError
+        ? error
+        : new DatabaseError(`Failed to read the records of a batch in ${tableName}`, error),
+  })
 }
 
 /**
@@ -203,47 +236,61 @@ function logDeleteActivities(
  * @param session - Better Auth session
  * @param tableName - Name of the table
  * @param recordIds - Array of record IDs to delete
- * @param permanent - If true, performs hard delete; otherwise soft delete (if supported)
+ * @param options - `permanent`: hard delete, else soft delete (if supported);
+ *   `judge`: the table's business rules, judged on the rows inside the transaction
  * @returns Effect resolving to number of deleted records
  */
-export function batchDeleteRecords(
-  session: Readonly<Session>,
-  tableName: string,
-  recordIds: readonly string[],
-  permanent = false
-): Effect.Effect<number, DatabaseError> {
-  return Effect.gen(function* () {
-    const { deletedCount, recordsBefore } = yield* withOutboxTransaction(
-      (deleted: { readonly recordsBefore: readonly Record<string, unknown>[] }) =>
-        deletedRowChanges(tableName)(deleted.recordsBefore)
-    )(
-      (tx) =>
-        Effect.gen(function* () {
-          const tableIdent = tableIdentifier(tableName)
+export const batchDeleteRecords =
+  (db: PortableDb, dialect: Dialect) =>
+  (
+    session: Readonly<Session>,
+    tableName: string,
+    recordIds: readonly string[],
+    options: {
+      readonly permanent?: boolean | undefined
+      readonly judge?: InTransactionRuleJudge | undefined
+    } = {}
+  ): Effect.Effect<number, DatabaseError | BusinessRuleViolationError> => {
+    const { permanent = false, judge } = options
+    const wrap = wrapDatabaseError(`Failed to delete records in ${tableName}`)
+    return Effect.gen(function* () {
+      const { deletedCount, recordsBefore } = yield* withOutboxTransaction(
+        { client: db, dialect },
 
-          yield* validateRecordsForDeleteWithEffect(tx, tableIdent, recordIds)
+        (deleted: { readonly recordsBefore: readonly Record<string, unknown>[] }) =>
+          deletedRowChanges(tableName)(deleted.recordsBefore)
+      )(
+        (tx) =>
+          Effect.gen(function* () {
+            const tableIdent = tableIdentifier(tableName)
 
-          const before = yield* fetchRecordsByIds(tx, tableName, recordIds)
-          const hasSoftDelete = yield* checkSoftDeleteSupport(tx, tableName)
-          const hasDeletedBy = yield* checkDeletedBySupport(tx, tableName)
+            yield* judgedDeletes({ tx, dialect }, tableName, recordIds, { judge, permanent })
+            yield* validateRecordsForDeleteWithEffect({ tx, dialect }, tableIdent, recordIds)
 
-          const count = yield* executeDeleteQuery(tx, {
-            tableName,
-            recordIds,
-            hasSoftDelete,
-            hasDeletedBy,
-            permanent,
-            userId: session.userId,
-          })
+            const before = yield* fetchRecordsByIds({ tx, dialect }, tableName, recordIds)
+            const hasSoftDelete = yield* checkSoftDeleteSupport({ tx, dialect }, tableName)
+            const hasDeletedBy = yield* checkDeletedBySupport({ tx, dialect }, tableName)
 
-          return { deletedCount: count, recordsBefore: before }
-        }),
-      wrapDatabaseError(`Failed to delete records in ${tableName}`)
-    )
+            const count = yield* executeDeleteQuery(
+              { tx, dialect },
+              {
+                tableName,
+                recordIds,
+                hasSoftDelete,
+                hasDeletedBy,
+                permanent,
+                userId: session.userId,
+              }
+            )
 
-    yield* logDeleteActivities(session, tableName, recordsBefore)
-    yield* reportCommittedRows(deletedRowChanges(tableName)(recordsBefore))
+            return { deletedCount: count, recordsBefore: before }
+          }),
+        (error) => (error instanceof BusinessRuleViolationError ? error : wrap(error))
+      )
 
-    return deletedCount
-  })
-}
+      yield* logDeleteActivities(db, session, tableName, recordsBefore)
+      yield* reportCommittedRows(deletedRowChanges(tableName)(recordsBefore))
+
+      return deletedCount
+    })
+  }

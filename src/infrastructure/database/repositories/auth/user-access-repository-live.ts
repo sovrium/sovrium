@@ -6,7 +6,7 @@
  */
 
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
-import { Layer, Option } from 'effect'
+import { Effect, Option } from 'effect'
 import {
   UserAccessDatabaseError,
   UserAccessRepository,
@@ -21,25 +21,37 @@ import {
   type UserAccessRow,
 } from '@/application/ports/repositories/auth/user-access-repository'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
-import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
   resolveDialectSchema,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type DatabaseService,
+  type MembersOverDatabase,
+  type TransactionOn,
+} from '@/infrastructure/database/drizzle/layer'
 import { userAccess as userAccessPg } from '@/infrastructure/database/drizzle/schema/user-access'
 import { userAccess as userAccessSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/user-access'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import { withPromiseTransaction } from '@/infrastructure/database/transaction'
 import {
-  lockGrantsOf,
+  lockGrantsOfOn,
   type GrantTransaction,
 } from '@/infrastructure/database/user-access-grant-lock'
 import { closeUserConnections } from '@/infrastructure/realtime/connection-counter'
+import type { PortableDb, PortableTx } from '@/infrastructure/database/drizzle/db'
 
 const userAccess = resolveDialectSchema(userAccessPg, userAccessSqlite)
 
 /** Wrap a DB promise, adapting failures to UserAccessDatabaseError. */
-const wrap = makeDbWrap((cause) => new UserAccessDatabaseError({ cause }))
+const toError = (cause: unknown) => new UserAccessDatabaseError({ cause })
+const wrap = makeDbWrap(toError)
+
+/** A grant write in ONE transaction, on the caller's fiber (`withTransaction`). */
+const transact = <A>(db: PortableDb, body: (tx: Readonly<PortableTx>) => Promise<A>) =>
+  withPromiseTransaction(db, body, toError)
 
 /**
  * Project a Drizzle row into the port's `UserAccessRow` shape. Centralised
@@ -60,7 +72,7 @@ const shapeRow = (row: Readonly<typeof userAccess.$inferSelect>): UserAccessRow 
  * The accounts holding `email`, matched without regard to case — a subquery, so
  * an address no account holds narrows the listing to nothing.
  */
-const accountsWithEmail = (email: string) => {
+const accountsWithEmail = (db: PortableDb, email: string) => {
   const users = authUsersTable()
   return db
     .select({ id: users.id })
@@ -69,13 +81,19 @@ const accountsWithEmail = (email: string) => {
 }
 
 /** The SQL half of a listing filter: the account and the table, bound as values. */
-const filterCondition = (filter: Readonly<UserAccessFilter>) =>
+const filterCondition = (db: PortableDb, filter: Readonly<UserAccessFilter>) =>
   and(
     filter.userId === undefined ? undefined : eq(userAccess.userId, filter.userId),
     filter.userEmail === undefined
       ? undefined
-      : inArray(userAccess.userId, accountsWithEmail(filter.userEmail)),
+      : inArray(userAccess.userId, accountsWithEmail(db, filter.userEmail)),
     filter.tableSlug === undefined ? undefined : eq(userAccess.tableSlug, filter.tableSlug)
+  )
+
+const boundIds = (ids: readonly string[]) =>
+  sql.join(
+    [...new Set(ids)].map((id) => sql`${id}`),
+    sql`, `
   )
 
 /**
@@ -84,16 +102,15 @@ const filterCondition = (filter: Readonly<UserAccessFilter>) =>
  * answers the string ids a grant stores.
  */
 const readRecordLabels = async (
+  { client: db, dialect }: DatabaseService,
   source: Readonly<RecordLabelSource>,
   ids: readonly string[]
 ): Promise<readonly RecordLabel[]> => {
   const key = sql.identifier(source.primaryKey)
   const label = sql.identifier(source.labelField)
-  const wanted = sql.join(
-    [...new Set(ids)].map((id) => sql`${id}`),
-    sql`, `
-  )
-  const rows = await executeRaw(
+  const wanted = boundIds(ids)
+  const rows = await executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT CAST(${key} AS TEXT) AS record_id, ${label} AS label
         FROM ${sql.identifier(sanitizeTableName(source.tableName))}
@@ -112,15 +129,14 @@ const readRecordLabels = async (
  * naming it would store access nobody can use until a restore nobody tied to it.
  */
 const readRecordIds = async (
+  { client: db, dialect }: DatabaseService,
   source: Readonly<RecordKeySource>,
   ids: readonly string[]
 ): Promise<readonly string[]> => {
   const key = sql.identifier(source.primaryKey)
-  const wanted = sql.join(
-    [...new Set(ids)].map((id) => sql`${id}`),
-    sql`, `
-  )
-  const rows = await executeRaw(
+  const wanted = boundIds(ids)
+  const rows = await executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT CAST(${key} AS TEXT) AS record_id
         FROM ${sql.identifier(sanitizeTableName(source.tableName))}
@@ -177,11 +193,11 @@ const grantsHeld = (
  * few milliseconds apart would put a fresh grant in the caller's future.
  */
 const mergeRecords = async (
-  tx: GrantTransaction,
+  { tx, dialect }: TransactionOn,
   input: Readonly<UserAccessInsertInput>,
   createdBy: string
 ) => {
-  await lockGrantsOf(tx, input)
+  await lockGrantsOfOn(dialect.kind, tx, input)
   const held = (await grantsHeld(tx, input)).find((row) => row.role === input.role)
   if (held === undefined) {
     const [row] = await tx
@@ -214,10 +230,10 @@ const mergeRecords = async (
  * only, when it names one — inside the lock; how many grants changed.
  */
 const takeRecord = async (
-  tx: GrantTransaction,
+  { tx, dialect }: TransactionOn,
   grant: Readonly<UserAccessRecordRevocation>
 ): Promise<number> => {
-  await lockGrantsOf(tx, grant)
+  await lockGrantsOfOn(dialect.kind, tx, grant)
   const naming = (await grantsHeld(tx, grant)).filter(
     (row) =>
       row.recordIds.includes(grant.recordId) &&
@@ -245,14 +261,14 @@ const changedColumns = (change: Readonly<UserAccessChange>) => ({
  * order, gains the records not yet named, and is the answer — and deletes it.
  */
 const changeGrant = async (
-  tx: GrantTransaction,
+  { tx, dialect }: TransactionOn,
   id: string,
   change: Readonly<UserAccessChange>
 ): Promise<typeof userAccess.$inferSelect | undefined> => {
   const byId = () => tx.select().from(userAccess).where(eq(userAccess.id, id)).limit(1)
   const [found] = await byId()
   if (found === undefined) return undefined
-  await lockGrantsOf(tx, found)
+  await lockGrantsOfOn(dialect.kind, tx, found)
   const [target] = await byId()
   if (target === undefined) return undefined
   const held =
@@ -285,33 +301,37 @@ const changeGrant = async (
 /**
  * User-Access Repository Implementation (Drizzle).
  *
- * Replaces the raw `bun:sql` access that previously lived in
- * `user-access-handlers.ts` (R-1 audit follow-up). The DDL is still
- * engine-managed via `schema-initializer.ts` — this layer just provides
+ * The DDL is engine-managed via `schema-initializer.ts`; this layer provides
  * type-safe inserts/selects against that schema.
  */
-export const UserAccessRepositoryLive = Layer.succeed(UserAccessRepository, {
-  mintGrant: (input, createdBy) =>
-    wrap(async () => {
-      const merged = await db.transaction((tx) => mergeRecords(tx, input, createdBy))
-      const row = shapeRow(merged.row)
-      return { row: merged.changed ? closingConnectionsOf(row) : row, created: merged.created }
-    }),
+const members: MembersOverDatabase<typeof UserAccessRepository> = {
+  mintGrant: (db, dialect) => (input, createdBy) =>
+    transact(db, (tx) => mergeRecords({ tx, dialect }, input, createdBy)).pipe(
+      Effect.flatMap((merged) =>
+        wrap(async () => {
+          const row = shapeRow(merged.row)
+          return {
+            row: merged.changed ? closingConnectionsOf(row) : row,
+            created: merged.created,
+          }
+        })
+      )
+    ),
 
-  findRecordIds: (source, ids) =>
-    wrap(async () => (ids.length === 0 ? [] : readRecordIds(source, ids))),
+  findRecordIds: (db, dialect) => (source, ids) =>
+    wrap(async () => (ids.length === 0 ? [] : readRecordIds({ client: db, dialect }, source, ids))),
 
-  list: (filter) =>
+  list: (db) => (filter) =>
     wrap(async () => {
       const rows = await db
         .select()
         .from(userAccess)
-        .where(filterCondition(filter))
+        .where(filterCondition(db, filter))
         .orderBy(asc(userAccess.createdAt))
       return rows.map((row) => shapeRow(row)).filter(namesRecord(filter.recordId))
     }),
 
-  findAccounts: (ids) =>
+  findAccounts: (db) => (ids) =>
     wrap(async () => {
       if (ids.length === 0) return []
       const users = authUsersTable()
@@ -321,47 +341,60 @@ export const UserAccessRepositoryLive = Layer.succeed(UserAccessRepository, {
         .where(inArray(users.id, [...new Set(ids)]))
     }),
 
-  labelRecords: (source, ids) =>
-    wrap(async () => (ids.length === 0 ? [] : readRecordLabels(source, ids))),
+  labelRecords: (client, dialect) => (source, ids) =>
+    wrap(async () => (ids.length === 0 ? [] : readRecordLabels({ client, dialect }, source, ids))),
 
-  get: (id) =>
+  get: (db) => (id) =>
     wrap(async () => {
       const [row] = await db.select().from(userAccess).where(eq(userAccess.id, id)).limit(1)
       return row === undefined ? Option.none() : Option.some(shapeRow(row))
     }),
 
-  update: (id, change) =>
-    wrap(async () => {
-      if (Object.keys(changedColumns(change)).length === 0) {
-        const [row] = await db.select().from(userAccess).where(eq(userAccess.id, id)).limit(1)
-        return row === undefined ? Option.none() : Option.some(shapeRow(row))
-      }
-      const row = await db.transaction((tx) => changeGrant(tx, id, change))
-      return row === undefined ? Option.none() : Option.some(closingConnectionsOf(shapeRow(row)))
-    }),
+  update: (db, dialect) => (id, change) =>
+    Object.keys(changedColumns(change)).length === 0
+      ? wrap(async () => {
+          const [row] = await db.select().from(userAccess).where(eq(userAccess.id, id)).limit(1)
+          return row === undefined ? Option.none() : Option.some(shapeRow(row))
+        })
+      : transact(db, (tx) => changeGrant({ tx, dialect }, id, change)).pipe(
+          Effect.flatMap((row) =>
+            wrap(async () =>
+              row === undefined ? Option.none() : Option.some(closingConnectionsOf(shapeRow(row)))
+            )
+          )
+        ),
 
-  grantRecord: (grant, createdBy) =>
-    wrap(async () => {
-      const { recordId, ...rest } = grant
-      const merged = await db.transaction((tx) =>
-        mergeRecords(tx, { ...rest, recordIds: [recordId] }, createdBy)
+  grantRecord:
+    (db, dialect) =>
+    ({ recordId, ...rest }, createdBy) =>
+      transact(db, (tx) =>
+        mergeRecords({ tx, dialect }, { ...rest, recordIds: [recordId] }, createdBy)
+      ).pipe(
+        Effect.flatMap((merged) =>
+          wrap(async () => {
+            if (!merged.changed) return false
+            closingConnectionsOf(shapeRow(merged.row))
+            return true
+          })
+        )
+      ),
+
+  revokeRecord: (db, dialect) => (grant) =>
+    transact(db, (tx) => takeRecord({ tx, dialect }, grant)).pipe(
+      Effect.flatMap((changed) =>
+        wrap(async () => {
+          if (changed === 0) return false
+          closeUserConnections(grant.userId)
+          return true
+        })
       )
-      if (!merged.changed) return false
-      closingConnectionsOf(shapeRow(merged.row))
-      return true
-    }),
+    ),
 
-  revokeRecord: (grant) =>
-    wrap(async () => {
-      const changed = await db.transaction((tx) => takeRecord(tx, grant))
-      if (changed === 0) return false
-      closeUserConnections(grant.userId)
-      return true
-    }),
-
-  remove: (id) =>
+  remove: (db) => (id) =>
     wrap(async () => {
       const [row] = await db.delete(userAccess).where(eq(userAccess.id, id)).returning()
       return row === undefined ? Option.none() : Option.some(closingConnectionsOf(shapeRow(row)))
     }),
-})
+}
+
+export const UserAccessRepositoryLive = layerOverDatabase(UserAccessRepository, members)

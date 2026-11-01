@@ -107,21 +107,28 @@ function serverRenderedTargets(ids: readonly string[]): readonly HTMLElement[] {
 }
 
 /**
- * Re-render the current page and return it PARSED, or `undefined`.
+ * Re-render the current page (or `href`, the same page under another
+ * address) and return it PARSED, or `undefined`.
  *
  * `cache: 'no-store'` is not belt-and-braces: the document is being re-read in
  * order to observe a write that just landed, and a heuristically cached copy
  * would answer with the very rows this call exists to replace.
  *
+ * `mode: 'same-origin'` keeps the markup this page's own: a redirect leading to
+ * another origin fails the read instead of answering with that origin's HTML.
+ *
  * `DOMParser` builds an inert document — a `<script>` it parses is never
  * executed, and nothing here adopts a node out of it into the live tree, so the
  * parse cannot run anything.
  */
-async function fetchRenderedPage(): Promise<Document | undefined> {
+export async function fetchRenderedPage(
+  href = window.location.href
+): Promise<Document | undefined> {
   try {
-    const response = await fetch(window.location.href, {
+    const response = await fetch(href, {
       credentials: 'include',
       cache: 'no-store',
+      mode: 'same-origin',
       headers: { Accept: 'text/html' },
     })
     if (!response.ok) return undefined
@@ -213,6 +220,17 @@ function holdsOpenConfirmGate(region: HTMLElement): boolean {
 }
 
 /**
+ * Swap `live` for `fresh` unless it holds what this module never writes over: a
+ * mounted island ({@link holdsMountedIsland}) or an open confirm gate
+ * ({@link holdsOpenConfirmGate}). The one swap a region redrawn from outside
+ * this module goes through (`channel-region-refresh.ts`), so both obey the same
+ * two refusals.
+ */
+export function swapUnheldRegion(swap: RegionSwap): void {
+  if (!holdsMountedIsland(swap.live) && !holdsOpenConfirmGate(swap.live)) swapRegion(swap)
+}
+
+/**
  * Re-read the server-rendered regions among `ids`, if any.
  *
  * Resolves without doing anything when every named id belongs to an island (the
@@ -232,8 +250,10 @@ export async function refreshServerRenderedRegions(ids: readonly string[]): Prom
   const rendered = await fetchRenderedPage()
   if (!rendered) return
 
+  // Judged again after the read: a question opened while it was in flight is
+  // the reader's as much as one already open when it started.
   targets.forEach((live) => {
     const fresh = rendered.getElementById(live.id)
-    if (fresh) swapRegion({ live, fresh })
+    if (fresh) swapUnheldRegion({ live, fresh })
   })
 }

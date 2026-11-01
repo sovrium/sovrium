@@ -8,7 +8,7 @@
 import {
   accountDeclineInvitationRequestSchema,
   accountDeclineInvitationResponseSchema,
-} from '@/domain/models/api/account/account'
+} from '@/domain/models/api/auth/account/account'
 import {
   adminAcceptInvitationResponseSchema,
   adminBanUserResponseSchema,
@@ -18,6 +18,7 @@ import {
   adminListUsersResponseSchema,
   adminUnbanUserResponseSchema,
   adminUpdateUserResponseSchema,
+  adminUserRoleUpdatedResponseSchema,
   changePasswordResponseSchema,
   forgotPasswordResponseSchema,
   getSessionResponseSchema,
@@ -34,7 +35,7 @@ import {
   betterAuthErrorSchema,
   errorResponseSchema,
   validationErrorResponseSchema,
-} from '@/domain/models/api/combinators/error'
+} from '@/domain/models/api/error'
 import { effectJsonBody, effectJsonResponse } from '@/presentation/api/openapi/route-fragments'
 import { type StaticGroupSpec } from '../openapi/route-spec'
 
@@ -227,10 +228,10 @@ export const authGroup: StaticGroupSpec = {
       method: 'post',
       pathTemplate: '/api/auth/admin/update-user',
       summary: 'Update user (admin)',
-      description: 'Updates user details including name, email, and role.',
+      description: "Changes a user's role. Every other property of the account stays as it is.",
       operationIdBase: 'postAuthAdminUpdateUser',
       responses: {
-        200: effectJsonResponse(adminUpdateUserResponseSchema, 'User updated'),
+        200: effectJsonResponse(adminUserRoleUpdatedResponseSchema, 'Role updated'),
         401: errorResponse('Not authenticated'),
         404: errorResponse('User not found'),
       },
@@ -291,7 +292,7 @@ export const authGroup: StaticGroupSpec = {
     // Better Auth's own OpenAPI plugin therefore cannot see them, which is
     // exactly why they were absent from the catalogue while every sibling admin
     // operation was present. Since an admin invitation is the ONLY onboarding
-    // path when `allowSignUp: false`, that gap hid the endpoint an integrator's
+    // path while sign-up is closed (the default), that gap hid the endpoint an integrator's
     // whole onboarding flow depends on.
     {
       method: 'post',
@@ -300,8 +301,9 @@ export const authGroup: StaticGroupSpec = {
       description:
         'Issues a passwordless invitation: creates a placeholder account, mints a ' +
         'single-use token, and emails the invitee an activation link. The role must ' +
-        'be assignable for this app. Unaffected by `allowSignUp: false` — an admin ' +
-        'invitation remains the onboarding path when self-signup is disabled.',
+        'be assignable for this app. Unaffected by closed sign-up (the default, or ' +
+        '`allowSignUp: false`) — an admin invitation remains the onboarding path ' +
+        'when self-signup is closed.',
       operationIdBase: 'postAuthAdminInviteUser',
       responses: {
         200: effectJsonResponse(adminInviteUserResponseSchema, 'Invitation issued'),

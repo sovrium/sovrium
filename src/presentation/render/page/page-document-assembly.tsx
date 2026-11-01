@@ -24,7 +24,7 @@ import { isOperatorConsoleApp } from '@/domain/models/app/admin/admin-data-nav'
 import { getVersionedCssPath } from '@/infrastructure/css/versioned-css-path'
 import { logError } from '@/infrastructure/logging/logger'
 import {
-  extractSessionTimeout,
+  extractBeaconSettings,
   shouldInjectAnalytics,
 } from '@/presentation/render/page/analytics-helpers'
 import { resolveBadge } from '@/presentation/render/page/badge-placement'
@@ -38,7 +38,7 @@ import {
 import {
   PageLanguageAlternatesContext,
   pageLanguageAlternatesFor,
-  resolveFeedTitle,
+  resolveFeedAnnouncement,
   type PageAlternatesRequest,
 } from '@/presentation/render/page/page-alternates'
 import {
@@ -46,12 +46,14 @@ import {
   hasInteractiveFeatures,
 } from '@/presentation/render/page/page-interactivity'
 import { bindsToIsland } from '@/presentation/render/page/page-island-detection'
+import { ConsentPurposesContext } from '@/presentation/render/registry/consent-purposes-context'
 import { pageFoldsDocsNav } from '@/presentation/render/registry/docs-nav-drawer-mode'
 import {
   ISLAND_COMPONENT_TYPES,
   zeroJsDialogNeedsNoRuntime,
 } from '@/presentation/render/registry/island-component-types'
 import { stampAuthFormFacts } from '@/presentation/render/resolve/auth-form-facts-stamp'
+import { componentField, keyOf } from '@/presentation/render/resolve/component-rewrite'
 import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -157,8 +159,12 @@ function isSingleRecordBoundForm(s: Component): boolean {
  * Mirrors `hasDataIslandProp` in `dynamic-page.tsx` (both sites must agree).
  */
 function hasDataIslandProp(s: Component): boolean {
-  const props = (s as Record<string, unknown>).props as Record<string, unknown> | undefined
-  return typeof props?.['data-island'] === 'string'
+  return typeof s.props?.['data-island'] === 'string'
+}
+
+/** A component's action type, read by name: `undefined` with no action or no type. */
+function actionTypeOf(s: Component): unknown {
+  return keyOf(componentField(s, 'action'), 'type')
 }
 
 /** The binding shapes that mount an island: one list, shared with the script injection (`page-island-detection.ts`). */
@@ -168,11 +174,11 @@ function selfNeedsIslands(s: Component): boolean {
   if (zeroJsDialogNeedsNoRuntime(s)) return false
   if (ISLAND_COMPONENT_TYPES.has(s.type)) return true
   if (hasDataIslandProp(s)) return true
-  if (s.dataSource?.mode === 'search') return true
+  if (keyOf(componentField(s, 'dataSource'), 'mode') === 'search') return true
   if (bindsToIsland(s)) return true
   if (isSingleRecordBoundForm(s)) return true
-  const action = (s as Record<string, unknown>).action as { type?: string } | undefined
-  return action?.type !== undefined && ISLAND_ACTION_TYPES.has(action.type)
+  const actionType = actionTypeOf(s)
+  return typeof actionType === 'string' && ISLAND_ACTION_TYPES.has(actionType)
 }
 
 /**
@@ -189,7 +195,7 @@ function selfNeedsIslands(s: Component): boolean {
 function pageNeedsIslands(page: Page, components: App['components']): boolean {
   if (page.presence === true) return true
   if (pageFoldsDocsNav(page)) return true
-  return someComponentInTree(page.components, components, (s) => selfNeedsIslands(s as Component))
+  return someComponentInTree(page.components, components, selfNeedsIslands)
 }
 
 /**
@@ -203,16 +209,14 @@ function pageNeedsIslands(page: Page, components: App['components']): boolean {
  * renders perfectly and silently drops an uploaded file.
  */
 function selfMountsCrudForm(s: Component): boolean {
-  const action = (s as Record<string, unknown>).action as { type?: string } | undefined
   // `isSingleRecordBoundForm` covers PG-04's synthesized crud update, which
   // carries no authored `action` at all.
-  return action?.type === 'crud' || isSingleRecordBoundForm(s)
+  return actionTypeOf(s) === 'crud' || isSingleRecordBoundForm(s)
 }
 
 /** True when this component mounts the `auth-form` island. */
 function selfMountsAuthForm(s: Component): boolean {
-  const action = (s as Record<string, unknown>).action as { type?: string } | undefined
-  return action?.type === 'auth'
+  return actionTypeOf(s) === 'auth'
 }
 
 /**
@@ -225,12 +229,8 @@ function selfMountsAuthForm(s: Component): boolean {
  * every page for the sake of two answers.
  */
 function pagePreloadIslandTypes(page: Page, components: App['components']): readonly string[] {
-  const crud = someComponentInTree(page.components, components, (s) =>
-    selfMountsCrudForm(s as Component)
-  )
-  const auth = someComponentInTree(page.components, components, (s) =>
-    selfMountsAuthForm(s as Component)
-  )
+  const crud = someComponentInTree(page.components, components, selfMountsCrudForm)
+  const auth = someComponentInTree(page.components, components, selfMountsAuthForm)
   return [...(auth ? ['auth-form'] : []), ...(crud ? ['crud-form'] : [])]
 }
 
@@ -352,42 +352,44 @@ export function renderPageHtml(input: RenderPageHtmlInput): string {
   } = input
   const policyApp = input.hostApp ?? app
   const injectAnalytics = shouldInjectAnalytics(app.analytics, primaryPagePath(page.path))
-  const sessionTimeout = extractSessionTimeout(app.analytics)
+  const beaconSettings = extractBeaconSettings(app.analytics, app.consent, app.languages)
   const head = input.headReferences ?? ((text: string) => text)
   const alternates = pageLanguageAlternatesFor(app, page, input)
   const html = renderToString(
     <ClientScriptPathsContext.Provider value={clientScriptPaths}>
       <HeadReferencesContext.Provider value={head}>
         <PageLanguageAlternatesContext.Provider value={alternates}>
-          <DynamicPage
-            page={stampAuthFormFacts(page, policyApp, app)}
-            badgePlacement={resolveBadge(app.badge)}
-            devNoticeEnabled={input.devNotice !== false && !isOperatorConsoleApp(app)}
-            components={stampAuthFormFacts(appComponents, policyApp, app)}
-            // One position, `app.design`, with no fallback to an alias: the no-FOUC
-            // colour-scheme bootstrap reads its tokens from here, and without them
-            // the dark cascade — a class on `<html>`, not a media query — would be
-            // unreachable.
-            design={app.design}
-            languages={app.languages}
-            tables={app.tables}
-            // The buckets of the app whose files the page shows: on a mounted
-            // console, the operator's, so an upload states what its bucket takes.
-            buckets={policyApp.buckets}
-            landingPath={app.auth?.landingPath}
-            detectedLanguage={detectedLanguage}
-            urlLanguage={urlLanguage}
-            routeParams={routeParams}
-            builtInAnalyticsEnabled={injectAnalytics}
-            builtInAnalyticsSessionTimeout={sessionTimeout}
-            islandEntryFile={islandEntryFile}
-            islandPreloadHrefs={islandPreloadHrefs}
-            resolvedSidebar={resolvedSidebar}
-            markdownPayload={markdownPayload}
-            session={session}
-            cssHref={getVersionedCssPath(app)}
-            feedTitle={resolveFeedTitle(app, page)}
-          />
+          <ConsentPurposesContext.Provider value={app.consent?.purposes}>
+            <DynamicPage
+              page={stampAuthFormFacts(page, policyApp, app)}
+              badgePlacement={resolveBadge(app.badge)}
+              devNoticeEnabled={input.devNotice !== false && !isOperatorConsoleApp(app)}
+              components={stampAuthFormFacts(appComponents, policyApp, app)}
+              // One position, `app.design`, with no fallback to an alias: the no-FOUC
+              // colour-scheme bootstrap reads its tokens from here, and without them
+              // the dark cascade — a class on `<html>`, not a media query — would be
+              // unreachable.
+              design={app.design}
+              languages={app.languages}
+              tables={app.tables}
+              // The buckets of the app whose files the page shows: on a mounted
+              // console, the operator's, so an upload states what its bucket takes.
+              buckets={policyApp.buckets}
+              landingPath={app.auth?.landingPath}
+              detectedLanguage={detectedLanguage}
+              urlLanguage={urlLanguage}
+              routeParams={routeParams}
+              builtInAnalyticsEnabled={injectAnalytics}
+              builtInAnalyticsSettings={beaconSettings}
+              islandEntryFile={islandEntryFile}
+              islandPreloadHrefs={islandPreloadHrefs}
+              resolvedSidebar={resolvedSidebar}
+              markdownPayload={markdownPayload}
+              session={session}
+              cssHref={getVersionedCssPath(app)}
+              feed={resolveFeedAnnouncement(app, page)}
+            />
+          </ConsentPurposesContext.Provider>
         </PageLanguageAlternatesContext.Provider>
       </HeadReferencesContext.Provider>
     </ClientScriptPathsContext.Provider>

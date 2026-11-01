@@ -29,10 +29,11 @@ import {
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { rowPassesRule } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { buildSyntheticSession, buildSystemSession } from '../build-guest-session'
-import { resolveRunAsActor } from './record'
-import { CALLER_REFUSAL } from './record-caller-gate'
+import { CALLER_REFUSAL } from './record/caller-gate'
+import { resolveRunAsActor } from './record/record'
 import { stringProp, type ActionOutcome, type AutomationContext } from './shared'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -159,7 +160,7 @@ export const commentTargetOf = (
 ): CommentTarget | ActionOutcome => {
   const tableName = stringProp(props, 'table').trim()
   const recordId = stringProp(props, 'recordId').trim()
-  const table = app.tables?.find((candidate) => candidate.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   if (table === undefined) return commentFailure(operator, `no table named '${tableName}'`)
   if (recordId === '') return commentFailure(operator, 'requires a non-empty `recordId`')
   return { table, recordId }

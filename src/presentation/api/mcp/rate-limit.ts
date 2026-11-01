@@ -242,3 +242,21 @@ export const buildRateLimitExceededResponse = (
     }
   )
 }
+
+/**
+ * Return a copy of `response` carrying the rate-limit headers. The body is
+ * passed through by reference (not read), so no stream is consumed.
+ */
+export const withRateLimitHeaders = (
+  response: Readonly<Response>,
+  headers: Readonly<Record<string, string>>
+): Response => {
+  const merged = new Headers(response.headers)
+
+  Object.entries(headers).forEach(([name, value]) => merged.set(name, value))
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: merged,
+  })
+}

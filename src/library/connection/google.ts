@@ -250,6 +250,9 @@ export const entry = defineLibraryEntry({
       extraAuthParams: { access_type: 'offline', prompt: 'consent' },
     },
     baseUrl: 'https://www.googleapis.com',
+    // The Sheets API answers on its own host; `form-to-google-sheets` calls it
+    // with this connection's token from an http step.
+    allowedOrigins: ['https://sheets.googleapis.com'],
     operations: OPERATIONS,
   }),
 })

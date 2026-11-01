@@ -18,12 +18,9 @@ import {
   type SkillsTarget,
   type TargetPlan,
 } from '@/cli/commands/skills-files'
-import {
-  printDocument,
-  printFailure,
-  printStderr,
-  type CliLine,
-} from '@/infrastructure/logging/cli-output'
+import { defineFlags, flag } from '@/cli/runtime/flag-schema'
+import { refuseCommand, withFlagsAsync } from '@/cli/runtime/run-command'
+import { printDocument, printStderr, type CliLine } from '@/infrastructure/logging/cli-output'
 import { devStampNotice, isDevStamp } from '@/infrastructure/process/build-stamp'
 
 /**
@@ -155,7 +152,7 @@ const refuse = (plans: readonly TargetPlan[]): never => {
     blockingFindings(plan).map((finding) => ({ plan, finding }))
   )
   const rows = blocking.map(({ plan, finding }) => findingRow(plan, finding))
-  printFailure({
+  return refuseCommand({
     headline: `${rows.length} skill path${rows.length === 1 ? ' is' : 's are'} not Sovrium's to replace — nothing was written.`,
     detail: [
       ...rows,
@@ -165,7 +162,6 @@ const refuse = (plans: readonly TargetPlan[]): never => {
     ],
     guidance: refusalGuidance(new Set(blocking.map(({ finding }) => finding.state))),
   })
-  return process.exit(1)
 }
 
 /**
@@ -190,14 +186,13 @@ const reportCheck = (plans: readonly TargetPlan[], catalogue: SkillsCatalogue): 
     ])
     return
   }
-  printFailure({
+  return refuseCommand({
     headline: `The agent skills are not current for Sovrium ${catalogue.version} — nothing was written.`,
     detail: rows,
     guidance:
       "Run 'sovrium skills' to bring them up to date; it keeps an edited file unless\n" +
       'you pass --force. A foreign directory has to be renamed first.',
   })
-  process.exit(1)
 }
 
 export interface SkillsCommandOptions {
@@ -213,7 +208,7 @@ const resolveTargets = (raw: string | undefined): readonly SkillsTarget[] => {
   const value = raw ?? 'claude'
   if (value === 'all') return ['claude', 'agents']
   if (value === 'claude' || value === 'agents') return [value]
-  printFailure({
+  return refuseCommand({
     headline: `Unknown --target "${value}".`,
     detail: [`Accepted: ${TARGET_VALUES.join(', ')}.`],
     guidance:
@@ -222,7 +217,6 @@ const resolveTargets = (raw: string | undefined): readonly SkillsTarget[] => {
       '  agents  .agents/skills/ (Codex, Copilot, Gemini CLI, OpenCode, Cursor)\n' +
       '  all     both',
   })
-  return process.exit(1)
 }
 
 const planAll = async (
@@ -234,14 +228,13 @@ const planAll = async (
   Promise.all(
     targets.map(async (target) => planTarget(catalogue, { projectDir, target, force }))
   ).catch((error: unknown) => {
-    printFailure({
+    return refuseCommand({
       headline: 'Could not read the skills ownership record — nothing was written.',
       detail: [error instanceof Error ? error.message : String(error)],
       guidance:
         'Restore it from version control, or delete it: the next run rebuilds it from\n' +
         'the files still equal to what this version ships.',
     })
-    return process.exit(1)
   })
 
 /**
@@ -265,14 +258,26 @@ export const handleSkillsCommand = async (options: SkillsCommandOptions = {}): P
   if (plans.some((plan) => blockingFindings(plan).length > 0)) return refuse(plans)
 
   await Promise.all(plans.map(applyPlan)).catch((error: unknown) => {
-    printFailure({
+    return refuseCommand({
       headline: `Could not write the agent skills into ${projectDir}.`,
       detail: [error instanceof Error ? error.message : String(error)],
       guidance:
         'Check the directory exists and is writable, or pass a different one with\n' +
         '  sovrium skills --output <dir>',
     })
-    return process.exit(1)
   })
   await reportWritten(plans, catalogue, projectDir)
 }
+
+/** The flags `sovrium skills` reads beyond the shared ones. */
+export const skillsFlags = defineFlags({ target: flag.value('--target') })
+
+/** `sovrium skills`, as the dispatcher runs it. */
+export const skillsCommand = withFlagsAsync(skillsFlags, ({ flags, ...args }) =>
+  handleSkillsCommand({
+    outputDir: args.outputPath,
+    target: flags.target,
+    check: args.check ?? false,
+    force: args.forceFlag,
+  })
+)

@@ -8,11 +8,11 @@
 import { Effect } from 'effect'
 import { listViewsProgram, getViewProgram } from '@/application/use-cases/tables/table-operations'
 import { listRecordsQuerySchema } from '@/domain/models/api/tables/params'
-import { getViewResponseSchema } from '@/domain/models/api/tables/tables'
-import { runEffect } from '@/presentation/api/runtime'
+import { getViewResponseSchema, listViewsResponseSchema } from '@/domain/models/api/tables/tables'
 import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { effectValidator } from '@/presentation/api/runtime/effect-validator'
+import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import { refuseTableWithNoReaderRow } from './readable-table-gate'
 import { servesRecordLanguage } from './record-read-language'
 import { resolveTableReadCaller } from './table-read-caller'
@@ -20,50 +20,39 @@ import { handleListViewRecords } from './view-records-handler'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
-export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
+export function chainViewRoutesMethods<T extends Hono>(honoApp: T, app: App) {
   return (
     honoApp
-      .get('/api/tables/:tableId/views', refuseTableWithNoReaderRow(resolveApp), async (c) => {
+      .get('/api/tables/:tableId/views', refuseTableWithNoReaderRow(app), (c) => {
         // Session, tableId, and userRole are guaranteed by middleware chain
         const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
-        const app = resolveApp()
-        const caller = await resolveTableReadCaller(c, app, {
-          session,
-          tableName,
-          userRole,
-          userGroups,
-        })
-
-        const program = Effect.gen(function* () {
-          const result = yield* listViewsProgram(tableId, app, caller)
-          // Return the views array directly (unwrapped) to match test expectations
-          // No schema validation - test expects minimal view objects without timestamps
-          return result
-        })
-
-        return runEffect(c, program)
-      })
-      .get(
-        '/api/tables/:tableId/views/:viewId',
-        refuseTableWithNoReaderRow(resolveApp),
-        async (c) => {
-          // Session, tableId, and userRole are guaranteed by middleware chain
-          const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
-          const app = resolveApp()
-          const caller = await resolveTableReadCaller(c, app, {
-            session,
-            tableName,
-            userRole,
-            userGroups,
-          })
-
-          return runEffect(
+        return runHandlerEffect(
+          c,
+          respondWith(
             c,
-            getViewProgram(tableId, c.req.param('viewId')!, app, caller),
+            Effect.flatMap(
+              resolveTableReadCaller(app, { session, tableName, userRole, userGroups }),
+              (caller) => listViewsProgram(tableId, app, caller)
+            ),
+            listViewsResponseSchema
+          )
+        )
+      })
+      .get('/api/tables/:tableId/views/:viewId', refuseTableWithNoReaderRow(app), (c) => {
+        // Session, tableId, and userRole are guaranteed by middleware chain
+        const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
+        return runHandlerEffect(
+          c,
+          respondWith(
+            c,
+            Effect.flatMap(
+              resolveTableReadCaller(app, { session, tableName, userRole, userGroups }),
+              (caller) => getViewProgram(tableId, c.req.param('viewId')!, app, caller)
+            ),
             getViewResponseSchema
           )
-        }
-      )
+        )
+      })
       // The query is typed by the records list's own schema — the same page,
       // sort, search and filter parameters — so the grid's typed client can
       // read a view the way it reads a table.
@@ -72,12 +61,12 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: (
         // A table whose list admits the caller no row answers as a missing
         // one before the view is asked anything — a row rule matching nothing
         // included.
-        refuseTableWithNoReaderRow(resolveApp),
+        refuseTableWithNoReaderRow(app),
         conditionalRead(),
         effectValidator('query', listRecordsQuerySchema),
         // Translatable fields are served in the reader's language, as on the records list.
-        servesRecordLanguage(resolveApp),
-        (c) => handleListViewRecords(c, resolveApp())
+        servesRecordLanguage(app),
+        (c) => handleListViewRecords(c, app)
       )
   )
 }

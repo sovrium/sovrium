@@ -95,7 +95,7 @@ export const BrowserAgentActionSchema = Schema.Struct({
     goal: TemplateStringSchema.pipe(
       Schema.annotate({
         description:
-          'What the agent should achieve, in plain words (e.g. "Download the September statement and report its total"). Rendered from the trigger and earlier steps, then sent to the model: it may not read `$env` — name a secret in `credentials`.',
+          'What the agent should achieve, in plain words (e.g. "Download the September statement and report its total"). Rendered from the trigger and earlier steps, then sent to the model: it may not read `$env`, so name a secret in `credentials`.',
       }),
       Schema.check(Schema.isMinLength(1), Schema.isMaxLength(4000))
     ),

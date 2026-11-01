@@ -28,10 +28,17 @@ export { createTaggedError } from './create-tagged-error'
  * These classes have no `toJSON`, so they are returned directly today; a
  * conversion would silently reroute every one of them through that branch.
  *
- * The payoff would have been ten `eslint-disable` escapes and a `_tag` that
- * NOTHING reads — `sanitizeError` classifies these by walking the `cause`
- * chain (`classifyDriverFailure`), never by tag. If you revisit this, start
- * from that trade, not from "converge on one idiom".
+ * The payoff would have been ten `eslint-disable` escapes. The `_tag` IS
+ * read — `Effect.catchTag('NotFoundError', …)` in the calendar feed use-case,
+ * and `error-sanitizer.ts`'s `mapTaggedError` switching on these names — so a
+ * conversion would keep that contract; what it would change is the
+ * serialization above. `sanitizeError` still classifies a DRIVER failure by
+ * walking the `cause` chain (`classifyDriverFailure`), not by tag. If you
+ * revisit this, start from that trade, not from "converge on one idiom".
+ *
+ * `field-rule-error.ts` is the converted exception: the four refusals a
+ * record write's field rules answer with are `Data.TaggedError`s, and the one
+ * carrying a `cause` (`FieldStorageError`) overrides `toJSON` to leave it out.
  *
  * `create-tagged-error.ts` is a THIRD, unrelated pattern (a plain
  * `{ _tag, cause }` object that does not extend `Error`) with 13 usages
@@ -42,6 +49,16 @@ export { createTaggedError } from './create-tagged-error'
 export { DatabaseError } from './database-error'
 export { NotFoundError } from './not-found-error'
 export { StaleWriteError } from './stale-write-error'
+export {
+  BusinessRuleViolationError,
+  isBusinessRuleViolationError,
+  type BusinessRuleViolation,
+} from './business-rule-violation-error'
+export {
+  FieldFormatViolationError,
+  isFieldFormatViolationError,
+  type FieldFormatViolationEntry,
+} from './field-format-violation-error'
 export { ForbiddenError } from './forbidden-error'
 export { UniqueConstraintViolationError } from './unique-constraint-violation-error'
 export { ForeignKeyViolationError } from './foreign-key-violation-error'

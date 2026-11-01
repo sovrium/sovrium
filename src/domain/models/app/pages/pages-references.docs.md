@@ -1,6 +1,6 @@
 # Page References
 
-> The reference families a page resolves — `$record`, `$vars`, `$currentUser`, `$t:` and the browser-side `$session` — plus the two page inputs that put a value in the URL, `query` and `window`.
+> The reference families a page resolves (`$record`, `$vars`, `$currentUser`, `$t:` and the browser-side `$session`), plus the two page inputs that put a value in the URL, `query` and `window`.
 
 Component `content` and `props` values resolve four reference families at render time:
 
@@ -15,7 +15,7 @@ A page rendered from `markdown` additionally exposes `$frontmatter.*`. A fifth r
 
 ## Formatted values and `.raw`
 
-`$record.<field>` in a sentence a reader reads — a component's `content`, a string child, a confirm's `title` and `message`, a `description-list` `detail`, a breadcrumb's `currentLabel`, the page's `meta.title` and `meta.description` — prints a date, a date-time, an amount, a percentage, a yes/no, an option or a duration formatted by its field type, exactly as a `record-field` with no `format` prints it:
+`$record.<field>` in a sentence a reader reads (a component's `content`, a string child, a confirm's `title` and `message`, a `description-list` `detail`, a breadcrumb's `currentLabel`, the page's `meta.title` and `meta.description`) prints a date, a date-time, an amount, a percentage, a yes/no, an option or a duration formatted by its field type, exactly as a `record-field` with no `format` prints it:
 
 | Field type                                      | Prints as                                                                                      | Example                                |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------- |
@@ -31,13 +31,15 @@ A page rendered from `markdown` additionally exposes `$frontmatter.*`. A fifth r
 | `user`                                          | The person's name                                                                              | `Ada Lovelace`                         |
 | every other type (`number`, `integer` included) | The stored value                                                                               | `1250`                                 |
 
-The type is read from the table the record came from — a collection page's `collection.table`, or the component's `dataSource.table`, one row at a time in a list. A relationship or a person reads as the reader's records API names it, so a list row, a record page and a kanban card print the same label, and a linked record she may not read, or a relationship with no `displayField`, keeps its stored id; a list reads those labels once, not once per row. The record's `createdAt` and `updatedAt` read as date-times. The language is the page's own (its `<html lang>`), so a French page prints `14 mars 2025`, `1 250,50 €`, `12,5 %` and `Oui`. The time zone is the operator's (`SOVRIUM_TIMEZONE`, UTC when unset), except for a `datetime` field that declares its own `timeZone`, which prints in that zone, as the grid shows it; `local` reads in the operator's. A `date` names a calendar day and prints the same day in every zone.
+The type is read from the table the record came from: a collection page's `collection.table`, or the component's `dataSource.table`, one row at a time in a list. A relationship or a person reads as the reader's records API names it, so a list row, a record page and a kanban card print the same label, and a linked record she may not read, or a relationship with no `displayField`, keeps its stored id; a list reads those labels once, not once per row. The record's `createdAt` and `updatedAt` read as date-times. The language is the page's own (its `<html lang>`), so a French page prints `14 mars 2025`, `1 250,50 €`, `12,5 %` and `Oui`. The time zone is the operator's (`SOVRIUM_TIMEZONE`, UTC when unset), except for a `datetime` field that declares its own `timeZone`, which prints in that zone, as the grid shows it; `local` reads in the operator's. A `date` names a calendar day and prints the same day in every zone.
 
-A template the browser fills — a record drawer's `children` and its `actions`' `confirm`, a kanban `card`, a list or search `itemTemplate` — prints a value exactly as the server prints it on a record page: same formats, the page's language, the operator's time zone. The same value never reads one way on a page and another in the drawer opened from it.
+A template the browser fills (a record drawer's `children` and its `actions`' `confirm`, a kanban `card`, a list or search `itemTemplate`) prints a value exactly as the server prints it on a record page: same formats, the page's language, the operator's time zone. The same value never reads one way on a page and another in the drawer opened from it.
 
-Every other place keeps the stored value, as the records API returns it — `2025-03-14`, `2025-03-20T14:05:00.000Z`, `1250.5`: a `props` value such as a link's `href` or an image's `src`, an attribute inside HTML `content` (only the text between its tags is formatted), an action's `path`, `url` and `inputData`, a form field's `defaultValue`, a confirm's `input.matchValue`, filters and `meta` values other than the title and description. An address must resolve, and a phrase must be typable from what is stored.
+Every other place keeps the stored value, as the records API returns it (`2025-03-14`, `2025-03-20T14:05:00.000Z`, `1250.5`): a `props` value such as a link's `href` or an image's `src`, an attribute inside HTML `content` (only the text between its tags is formatted), an action's `path`, `url` and `inputData`, a form field's `defaultValue`, a confirm's `input.matchValue`, filters and `meta` values other than the title and description. An address must resolve, and a phrase must be typable from what is stored.
 
-Write `$record.<field>.raw` to print the stored value in a sentence — `12.5`, `true`, an option's stored value. The suffix is accepted everywhere, is never printed, and may end each member of a fallback chain (`$record.paid_at.raw|$record.issued_on.raw`).
+A record value that begins the address of a link, an image, or a form inside HTML `content` (an `href`, `src`, `action` or `formaction` attribute) is written only when it is a web address or a path on this site; any other value leaves the address empty. A value placed after your own path, as in `href="/members/$record.slug"`, is written as it is.
+
+Write `$record.<field>.raw` to print the stored value in a sentence: `12.5`, `true`, an option's stored value. The suffix is accepted everywhere, is never printed, and may end each member of a fallback chain (`$record.paid_at.raw|$record.issued_on.raw`).
 
 ## Query parameters as page inputs
 
@@ -60,7 +62,7 @@ pages:
 
 `/dashboard` renders `7d`; `/dashboard?period=30d` renders `30d`.
 
-**An unknown value falls back to the default — the page never answers 400.** A query string is supplied by whoever holds the link, and a stale bookmark is not an error condition, so an unrecognised value renders exactly as though the parameter were absent. Bounding the accepted set also bounds the response space to one rendering per allowed value, which is what keeps the page cacheable per value.
+**An unknown value falls back to the default: the page never answers 400.** A query string is supplied by whoever holds the link, and a stale bookmark is not an error condition, so an unrecognised value renders exactly as though the parameter were absent. Bounding the accepted set also bounds the response space to one rendering per allowed value, which is what keeps the page cacheable per value.
 
 `default` must be one of its own `enum` values, and each property name must be lowercase kebab-case; both are checked at startup.
 
@@ -68,7 +70,7 @@ pages:
 
 <!-- sovrium:options PageParamPropSchema depth=2 -->
 
-A page's `params` block constrains a `:segment` to a closed set supplied by a read endpoint. A segment outside the set answers `404` rather than rendering an empty page — the same distinction the records explorer draws between "does not exist" and "is empty".
+A page's `params` block constrains a `:segment` to a closed set supplied by a read endpoint. A segment outside the set answers `404` rather than rendering an empty page, the same distinction the records explorer draws between "does not exist" and "is empty".
 
 ## A relative look-back window
 
@@ -95,15 +97,15 @@ pages:
 
 Five references resolve, once per render:
 
-| Reference             | Value                                                        |
-| --------------------- | ------------------------------------------------------------ |
-| `$window.start`       | ISO instant the window opens at.                             |
-| `$window.end`         | ISO instant it closes at — the moment the page was rendered. |
-| `$window.granularity` | Bucket width for a time series: hour, day, week or month.    |
-| `$window.label`       | The phrase naming the window in visible copy.                |
-| `$window.id`          | The active preset id, for marking a selector.                |
+| Reference             | Value                                                       |
+| --------------------- | ----------------------------------------------------------- |
+| `$window.start`       | ISO instant the window opens at.                            |
+| `$window.end`         | ISO instant it closes at: the moment the page was rendered. |
+| `$window.granularity` | Bucket width for a time series: hour, day, week or month.   |
+| `$window.label`       | The phrase naming the window in visible copy.               |
+| `$window.id`          | The active preset id, for marking a selector.               |
 
-A preset id is a span — a positive integer followed by `h`, `d` or `w`, as in `24h`, `7d`, `2w`. Months and years are absent because neither has a fixed length, so "one month back from March 31st" has no single defensible answer. Granularity and label derive from the span and may each be overridden per preset.
+A preset id is a span: a positive integer followed by `h`, `d` or `w`, as in `24h`, `7d`, `2w`. Months and years are absent because neither has a fixed length, so "one month back from March 31st" has no single defensible answer. Granularity and label derive from the span and may each be overridden per preset.
 
 They resolve **once** per render, against a single instant. Panels that each read the clock for themselves would drift their windows apart by however long the render took, and a page reporting two periods at once invites you to compare them.
 
@@ -142,13 +144,13 @@ pages:
             - { field: id, operator: in, value: '$currentUser.assignments.projects' }
 ```
 
-**A `$currentUser` filter makes the page authenticated.** Resolving one with no session answers `401 Unauthorized` — separate from the page `access` gate, which redirects or answers `404` instead. A sidebar section that hits the same condition is dropped silently rather than failing the page.
+**A `$currentUser` filter makes the page authenticated.** Resolving one with no session answers `401 Unauthorized`, separate from the page `access` gate, which redirects or answers `404` instead. A sidebar section that hits the same condition is dropped silently rather than failing the page.
 
 ## Session-bound text
 
-`$session.<field>` resolves the **signed-in caller's own** session field — `email`, `name`, `role`, `roleLabel` or `id` — inside a component's `content`. `roleLabel` is the role as the app calls it, in the caller's language: the role's declared `label` (a `$t:` key is translated), else the built-in words for a role every app carries (`Viewer`), else the role name made readable. It is the browser-side counterpart to `$currentUser`, and where it resolves is the whole difference: `$currentUser` is substituted server-side per request, `$session` after the page has been served. That is what lets a session-bound greeting sit on a statically cached page without the cache ever carrying one reader's identity to the next.
+`$session.<field>` resolves the **signed-in caller's own** session field (`email`, `name`, `role`, `roleLabel` or `id`) inside a component's `content`. `roleLabel` is the role as the app calls it, in the caller's language: the role's declared `label` (a `$t:` key is translated), else the built-in words for a role every app carries (`Viewer`), else the role name made readable. It is the browser-side counterpart to `$currentUser`, and where it resolves is the whole difference: `$currentUser` is substituted server-side per request, `$session` after the page has been served. That is what lets a session-bound greeting sit on a statically cached page without the cache ever carrying one reader's identity to the next.
 
-A token that resolves to nothing — an anonymous caller, or a field the account does not carry — becomes the empty string.
+A token that resolves to nothing (an anonymous caller, or a field the account does not carry) becomes the empty string.
 
 ### Optional segments
 
@@ -169,19 +171,21 @@ pages:
 
 A caller signed in with a display name reads `Welcome, Alice Johnson`; an anonymous one, or a signed-in one with no display name, reads `Welcome`.
 
-A segment is all-or-nothing: every token inside it must resolve non-empty, or the whole segment goes — brackets, literals and all. A half-resolved unit is precisely the dangling punctuation the segment exists to prevent. Segments do not nest, and one may not contain a further bracket.
+A segment is all-or-nothing: every token inside it must resolve non-empty, or the whole segment goes: brackets, literals and all. A half-resolved unit is precisely the dangling punctuation the segment exists to prevent. Segments do not nest, and one may not contain a further bracket.
 
-**Brackets are a segment only where a session token lives inside them.** A phrase such as `Status [draft]` holds no session token, so it renders verbatim, brackets included — square brackets are ordinary prose, and copy that never asked for this grammar is untouched by it. A token **outside** any brackets is unchanged too: it resolves, or it becomes the empty string.
+**Brackets are a segment only where a session token lives inside them.** A phrase such as `Status [draft]` holds no session token, so it renders verbatim, brackets included. Square brackets are ordinary prose, and copy that never asked for this grammar is untouched by it. A token **outside** any brackets is unchanged too: it resolves, or it becomes the empty string.
 
 The server drops every optional segment and hydration adds it back. That direction is deliberate: a heading that reads `Welcome` and then grows is legible at every instant, where one that arrives empty and fills in is a layout shift on the first thing a reader looks at.
 
 ## An invitation in the address
 
-A page declaring `invitation: {}` looks up the invitation whose token is in its address (`?token=`, or the key `param` names) and exposes it as `$invitation.inviter.name`, `$invitation.inviter.image`, `$invitation.email`, `$invitation.role`, `$invitation.role.isAdminTier`, `$invitation.workspace`, `$invitation.expiresAt`, `$invitation.expiresAt.relative`, `$invitation.expiresAt.iso`, `$invitation.accountExists` and `$invitation.status` (`pending`, `expired`, or `invalid` for a token that matches no outstanding invitation — one already accepted or revoked included). An invalid token empties every other reference, so the page can say the link is not valid without revealing whether it ever was. Unless the invitation is `pending`, the page's `acceptInvitation` and `declineInvitation` forms are left out.
+A page declaring `invitation: {}` looks up the invitation whose token is in its address (`?token=`, or the key `param` names) and exposes it as `$invitation.inviter.name`, `$invitation.inviter.image`, `$invitation.email`, `$invitation.role`, `$invitation.role.isAdminTier`, `$invitation.workspace`, `$invitation.expiresAt`, `$invitation.expiresAt.relative`, `$invitation.expiresAt.iso`, `$invitation.accountExists` and `$invitation.status` (`pending`, `expired`, or `invalid` for a token that matches no outstanding invitation, one already accepted or revoked included). An invalid token empties every other reference, so the page can say the link is not valid without revealing whether it ever was. Unless the invitation is `pending`, the page's `acceptInvitation` and `declineInvitation` forms are left out.
 
-`$invitation.workspace` names the app the way `$app.label` does — `acme-console` reads `Acme Console`. `$invitation.expiresAt` is the deadline as a long date in the page's language and the instance time zone (`SOVRIUM_TIMEZONE`, UTC by default): `14 March 2031`, or `14 mars 2031` on a French page. `$invitation.expiresAt.relative` is the time from now in the same language — `in 3 days`, `in 5 hours`, `2 days ago` — counted in whole days, else hours, else minutes. `$invitation.expiresAt.iso` keeps the ISO 8601 instant, for a `<time datetime>` attribute or anything else a machine reads.
+A reference may sit inside a translation too: write `$invitation.inviter.name invited you` as the value of a `$t:` key, and the page fills it once the key has resolved in the page's language, as it fills a literal value. The inviter chooses her own name, so every value is shown as text, even inside content written as HTML: `<p>Sent by $invitation.inviter.name</p>` keeps its paragraph and prints a name that holds markup as those characters. In `meta` the references fill the title and the description, and never a script or a style: an analytics `initScript` or a `customElements` body keeps an `$invitation` reference as written.
 
-`$invitation.role.isAdminTier` is `true` when the invited role reaches the operator console — the built-in `admin`, `admin-editor` and `admin-viewer`, a role that declares a `dashboardTier`, or your app's top custom role at level 80 or above — and `false` for any other role; it is empty for an invalid link. It is the same rule that decides where the invitee lands once she accepts: in the console, or in your app. A page that compares `$invitation.role` with `admin` misses a custom role that reaches the console, so condition on this one instead: `{ field: $invitation.role.isAdminTier, operator: eq, value: 'true' }`.
+`$invitation.workspace` names the app the way `$app.label` does: `acme-console` reads `Acme Console`. `$invitation.expiresAt` is the deadline as a long date in the page's language and the instance time zone (`SOVRIUM_TIMEZONE`, UTC by default): `14 March 2031`, or `14 mars 2031` on a French page. `$invitation.expiresAt.relative` is the time from now in the same language (`in 3 days`, `in 5 hours`, `2 days ago`), counted in whole days, else hours, else minutes. `$invitation.expiresAt.iso` keeps the ISO 8601 instant, for a `<time datetime>` attribute or anything else a machine reads.
+
+`$invitation.role.isAdminTier` is `true` when the invited role reaches the operator console (the built-in `admin`, `admin-editor` and `admin-viewer`, a role that declares a `dashboardTier`, or your app's top custom role at level 80 or above), and `false` for any other role; it is empty for an invalid link. It is the same rule that decides where the invitee lands once she accepts: in the console, or in your app. A page that compares `$invitation.role` with `admin` misses a custom role that reaches the console, so condition on this one instead: `{ field: $invitation.role.isAdminTier, operator: eq, value: 'true' }`.
 
 This page is also where the app's invitation emails send people: an invitation, and its resend, links to the first page declaring `invitation`, with the token under the key `param` names. A page whose path holds a `:param` segment is passed over, since a link cannot fill it; an app with no other such page links to the operator console's invitation page when the console is served and declares one (`/_admin/accept-invitation`), and to the built-in `/accept-invitation` otherwise. On the console's page, `$invitation.workspace` prints your app's name, never the console's.
 
@@ -189,7 +193,7 @@ A component's `visibility.condition` may read these too: `{ field: $invitation.s
 
 ## Related reading
 
-- **Data Binding** — the `dataSource` that produces `$record`.
-- **Pages Overview** — `vars` and the rest of the page property table.
-- **Languages** — the `$t:` keys and how a page resolves its language.
-- **Layouts, Sidebars & Access** — the `access` gate and its different answer.
+- **Data Binding**: the `dataSource` that produces `$record`.
+- **Pages Overview**: `vars` and the rest of the page property table.
+- **Languages**: the `$t:` keys and how a page resolves its language.
+- **Layouts, Sidebars & Access**: the `access` gate and its different answer.

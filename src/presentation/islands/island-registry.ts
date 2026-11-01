@@ -11,8 +11,7 @@ import { lazy } from 'react'
 // server-rendered markup rather than owning it — so they add chunk graph but
 // almost no bytes, and the frame must be sized before a reader meets it or a
 // 40rem box is visibly seen collapsing. See their entries below for the full
-// reasoning; it survived both the 2026-09-01 pass that made twelve islands lazy
-// and the 2026-09-02 pass that took the last two form islands with them.
+// reasoning.
 import DesignSystemRailIsland from './admin/design-system-rail-island'
 import { CalendarIslandLazy, GalleryIslandLazy, KanbanIslandLazy } from './view-type-islands'
 
@@ -38,15 +37,11 @@ export type IslandLoader = () => Promise<{
  * mount X" — it was eager for EVERY page that mounts ANY island.
  *
  * Measured by `[internal ref]` against the real
- * `buildRuntimeAssets`, over the three shapes this file has had:
+ * `buildRuntimeAssets`, by how many islands the entry imports statically:
  *
- *     14 static (before 2026-09-01)       49 chunks   784.0 KB
- *      2 static (2026-09-01)              17 chunks   566.0 KB
- *      0 static (2026-09-02, this shape)   6 chunks   233.1 KB
- *
- * The third row was a PROBE when the second shipped — "~230 KB, not shipped",
- * because nothing could hold the timing guarantee the two static imports were
- * paying for. It ships now, and it landed within 3 KB of the probe.
+ *     14 static                           49 chunks   784.0 KB
+ *      2 static                           17 chunks   566.0 KB
+ *      0 static (this shape)               6 chunks   233.1 KB
  *
  * A page mounting one `tabs` and a page mounting one `accordion` fetched the
  * byte-identical set, because the set never depended on the page. It still does
@@ -55,7 +50,7 @@ export type IslandLoader = () => Promise<{
  *
  * The trap that had kept this in place: removing any ONE of the 14 static
  * imports saved nothing. Measured per island, the saving ranged from -603 to
- * +5,865 bytes — noise — because those 14 share Base UI, react-hook-form, zod
+ * +5,865 bytes — noise — because those 14 share Base UI, react-hook-form
  * and floating-ui, so whichever ones remain hold the whole library set in the
  * closure anyway. Nothing improves until a whole cluster moves at once, which is
  * why this was taken in one step rather than island by island.
@@ -84,13 +79,13 @@ export type IslandLoader = () => Promise<{
  * For most islands that is harmless: Playwright's actionability polling and a
  * one-chunk fetch overlap. For the crud-form it is not, and the failure is
  * silent rather than loud. The crud-form's chunk pulls a SUB-GRAPH
- * (react-hook-form, zod, the field renderers), so its load is several round
+ * (react-hook-form, the field renderers), so its load is several round
  * trips rather than one, and it loses the race CONSISTENTLY rather than
  * occasionally: `setInputFiles` lands on the SSR `<input type="file">`, React
  * re-renders the field, the file is gone, the island's size/type validation
  * never runs, and the form renders perfectly while doing the wrong thing.
  *
- * Re-measured 2026-09-02 by mutation — the links emitted, then suppressed, on an
+ * Measured by mutation — the links emitted, then suppressed, on an
  * otherwise identical tree: 17/17 with them, **7/17 with them removed**. The ten
  * failures are in `[internal ref]`.
  *
@@ -116,9 +111,9 @@ export type IslandLoader = () => Promise<{
  * a pending top-level await, which deadlocks. It throws nothing and logs
  * nothing — the surface simply renders with no island mounted, reading as
  * "the sidebar is missing" rather than as an import problem. It cost 10 of the
- * 10 `[internal ref]` specs before the SPA swap
- * module (now `navigation/spa-nav-swap.ts`) was moved to a dynamic `import()`,
- * which is also why `tabs-island.tsx` has always reached the mounter that way.
+ * 10 `[internal ref]` specs until the SPA swap
+ * module (`navigation/spa-nav-swap.ts`) became a dynamic `import()`, which is
+ * also why `tabs-island.tsx` reaches the mounter that way.
  *
  * To add a new island type:
  * 1. Create the component in src/presentation/islands/
@@ -163,9 +158,8 @@ const loadPageRecordSystem = () => import('./page-record-system-island')
  *
  * Membership is a claim about EVENT OWNERSHIP, not about importance: an island
  * belongs here when the SSR skeleton would otherwise handle the user's — or the
- * spec's — first gesture. Every entry below was a static import before
- * 2026-09-01 and keeps the identical guarantee; the reason is on its `ISLANDS`
- * line.
+ * spec's — first gesture. Every entry below keeps the guarantee a static
+ * import would give; the reason is on its `ISLANDS` line.
  */
 export const PRIORITY_ISLAND_LOADERS: Readonly<Record<string, IslandLoader>> = {
   resizable: loadResizable,
@@ -335,12 +329,11 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // the existing field editor's chunk, so the ~848 KB of Tiptap and the ~428 KB
   // of CodeMirror stay on the far side of a second split point and are paid
   // only by a page that actually mounts one.
-  'rich-text-editor': lazy(() => import('./rich-text-editor-island')),
-  'code-editor': lazy(() => import('./code-editor-island')),
+  'rich-text-editor': lazy(() => import('./form-controls/rich-text-editor-island')),
+  'code-editor': lazy(() => import('./form-controls/code-editor-island')),
   'date-range-picker': lazy(() => import('./date-range-picker/date-range-picker-island')),
   'filter-bar': lazy(() => import('./filter-bar/filter-bar-island')),
-  // The last two static imports in this file, moved 2026-09-02. PRIORITY like the
-  // rest, but ALSO the only two island types carrying an SSR-emitted
+  // PRIORITY like the rest, but ALSO the only two island types carrying an SSR-emitted
   // `<link rel="modulepreload">` — the runtime preload alone loses their race
   // against `load` (the header block has the mutation measurement). Their entry
   // in `PRELOADED_ISLAND_CHUNK_NAMES`
@@ -360,13 +353,9 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // Phase 1 — Form Controls & Core
   select: lazy(() => import('./select/select-island')),
   combobox: lazy(() => import('./select/select-island')),
-  // (The `dropdown` key — a "legacy alias for select" — was DELETED, not
-  // exempted. Nothing in `src/` emitted `data-island="dropdown"` (only
-  // `dropdown-menu`, a different island), and commit 9ea2b7832 had already
-  // removed its COMPONENT_REGISTRY renderer, so it was unreachable from both
-  // ends. `mountIslandsWithin` (island-client.tsx:143) is the ONLY mount path
-  // and it keys strictly off this object, so no honest exemption could be
-  // written for it. Enforced by `[internal ref]`.)
+  // `mountIslandsWithin` (island-client.tsx) is the ONLY mount path and it keys
+  // strictly off this object, so a key nothing emits is dead weight, not an
+  // alias. Enforced by `[internal ref]`.
   accordion: lazy(() => import('./disclosure/accordion-island')),
   // `collapsible` under `hydrate: true` — an enhancement that renders nothing
   // and wires the server-drawn trigger. Lazy (eco R2): one listener.
@@ -404,8 +393,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   sheet: lazy(() => import('./overlays/drawer-island')),
   // `drawer` — the panel rising from the bottom edge, on Base UI's Drawer.
   drawer: lazy(() => import('./overlays/bottom-drawer-island')),
-  // `record-drawer` — record-detail/edit drawer specialization
-  //. PRIORITY so its
+  // `record-drawer` — record-detail/edit drawer specialization. PRIORITY so its
   // `sovrium:open-drawer` listener is wired before a data-table row click can
   // fire (the dispatch arrives synchronously on click); a Suspense fallback
   // would miss the first event.
@@ -423,65 +411,11 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   'navigation-menu': lazy(() => import('./overlays/nav-menu-island')),
   'notification-bell': lazy(() => import('./navigation/notification-bell-island')),
   'scroll-area': lazy(() => import('./overlays/scroll-area-island')),
-  // Wave-6 — page-level presence awareness. Mounted by `DynamicPage` on every
+  // Page-level presence awareness. Mounted by `DynamicPage` on every
   // page configured with `presence: true` (not a schema-authored component).
   'presence-indicator': lazy(() => import('./presence-indicator-island')),
-  // NOTE: the `admin-record-grid` bespoke island was retired ([internal ref] dogfood) —
-  // the Données surface now renders the record
-  // grid via the GENERIC `table` component bound to the operator table by
-  // its DB-table data source (`dataSource.table`), reusing the data-table's
-  // record CRUD + typed create modal + `onRowClick: openSheet` (see
-  // `table-data-surface.ts`) instead of a one-off admin island.
-  // NOTE: the `admin-overview` bespoke island was retired — the dashboard ROOT
-  // "Tableau de bord" overview is now built from the
-  // GENERIC `kpi` component bound to `GET /api/admin/overview` via the
-  // `dataSource.system` value-path binding (see `overview-surface.ts`), dogfooding
-  // Sovrium's own data components instead of a one-off admin island.
-  // (The run-DETAIL pane is no longer a bespoke island: the converted
-  // automation-runs directory now opens the GENERIC `record-drawer` over
-  // `dataSource.system` from its action column — see the Automations preset page.
-  // The `admin-automation-runs-detail` + `-retry` islands were dropped.)
-  // NOTE: `shared-filter-select` is GONE. It was the automation + status
-  // publisher for the runs directory, and its whole job was to dispatch one
-  // `island:system-query` event. `select.publishes` is that
-  // dispatch as a declaration, bound by the global vanilla runtime, so the
-  // Automations page now expresses the same filter bar with no hydration at all
-  // — see `src/admin/config/pages/data/automations.ts`.
-  // NOTE: the FORMS Données surface (`admin-form-submissions` + `admin-form-metrics`)
-  // was DROPPED in the [internal ref] dogfood pass — the Soumissions page now renders via
-  // GENERIC components (a `table` system source for the list, a `kpi` system
-  // source for the metric, a `fetch`/`download` action for the CSV export, and a
-  // system-detail `record-drawer` for the per-submission drill-down). See
-  // `src/admin/config/pages/data/forms.ts` — the builder this used to point at
-  // was deleted with the rest of `dashboard-surfaces/` when the console became
-  // config.
-  // NOTE: the RGPD Données & RGPD surface (`admin-gdpr`) was DROPPED in the [internal ref]
-  // dogfood pass — the Mon compte page now renders via GENERIC config (a
-  // session-bound `text` identity, `mode: download` / confirm-gated `fetch` action
-  // buttons with a persistent `onSuccess.status`, and a system-source `table`
-  // for the pending erasure). See `src/admin/config/pages/gdpr.ts` — same
-  // deletion as the note above.
-  // `admin-mcp-connect` — the MCP "Connecter votre IA" island was RETIRED in the
-  // [internal ref] dogfood pass. The `/_admin/mcp` MCP page now renders via GENERIC config:
-  // a static `content/code` endpoint reference + an "Émettre un identifiant"
-  // RFC-7591 register curl (`POST /api/auth/oauth2/register`, fully curl-usable) +
-  // the static "Configuration de référence" Claude-wiring card. Accepted loss:
-  // one-click credential copy and the live status pill — the origin is no longer
-  // a loss, since the page resolves it server-side from `/api/admin/instance`.
-  // See `src/admin/config/pages/developers/mcp.ts`.
-  // (The Data-tab Utilisateurs page — [internal ref] — is now
-  // composed from GENERIC Sovrium config: a `kpi` strip + a system-bound
-  // `table` over `GET /api/admin/users`, with the row gestures rewired onto
-  // config `fetch` actions. The bespoke `admin-users-directory` island + its
-  // `EndUserRow` / `MetricCard` / `AddUserForm` helpers were retired in the
-  // Consoles-as-Config conversion — see `data-users-surface.ts`.)
-  // (The Data-tab Statistiques page — [internal ref] — is now
-  // composed from GENERIC Sovrium config: a `kpi` strip + a system-bound `chart`
-  // + a system-bound `table` over the page-view analytics backend. The
-  // former bespoke per-analytics island was retired in the dogfooding conversion,
-  // so it no longer needs a registry entry.)
-  // `admin-spa-nav` — Native Admin Dashboard content-only (SPA) navigation
-  //. Renders nothing; intercepts left-clicks on
+  // `admin-spa-nav` — the operator console's content-only (SPA) navigation.
+  // Renders nothing; intercepts left-clicks on
   // `/_admin/*` links and swaps ONLY the `#admin-surface-content` region via a
   // content-only partial fetch (keeping the persistent sidebar + ⌘K palette
   // mounted), routes ⌘K palette selections through the same swap path, handles
@@ -490,8 +424,8 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // click. Mounted via a `data-island` marker in the shell chrome (outside the
   // swap region so its listeners survive content swaps).
   'admin-spa-nav': lazy(loadSpaNav),
-  // `spa-nav` — the same content-only navigation over an app's own pages
-  //. Mounted by a hidden host the page
+  // `spa-nav` — the same content-only navigation over an app's own pages.
+  // Mounted by a hidden host the page
   // renders beside `<main id="main-content">` when its sidebar sets
   // `clientSideNavigation`; props `{ regionId: 'main-content', scope: 'app' }`
   // make it replace the main landmark and serve the app's pages only. PRIORITY
@@ -506,13 +440,8 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // `data-command-palette-trigger` click) open the dialog. PRIORITY so the
   // open-intent listener is wired before the first keypress.
   command: lazy(loadCommand),
-  // (The `admin-bucket-metrics` + `admin-bucket-files` bespoke islands were retired:
-  // the `/_admin/buckets/:name` file browser is now a generic config surface —
-  // a quota `kpi`, an upload `file-upload`, and a file `table` bound via
-  // `dataSource.system` to `GET /api/admin/buckets/:name/files` with a CAP-3
-  // `mode: download` per-row action. See `data-buckets-surface.ts`.)
-  // `admin-agent-conversations` — Native Admin Dashboard agents Données surface
-  //. The ChatGPT-style read-only conversation
+  // `admin-agent-conversations` — the operator console's agent conversations
+  // surface. The ChatGPT-style read-only conversation
   // viewer: a conversation list (`GET /api/admin/agents/:name/conversations`) +
   // the selected conversation's message thread (`.../conversations/:id`).
   // PRIORITY: the viewer is the surface's primary content, so the specs read it
@@ -524,15 +453,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // report read and links what it answers. Lazy and not PRIORITY: it owns no first gesture, and the run page
   // reads in full without it. Mounted via a `data-island` marker.
   'admin-report-link': lazy(loadAdminReportLink),
-  // (`design-system-share` used to sit here — the mint / revoke affordance on
-  // `/_admin/design-system`, [internal ref] amendment A3 Part 2. It is GONE rather
-  // than moved: the panel is now declared as CONFIGURATION in
-  // `src/admin/config/pages/design-system/overview.ts`, where the listing is a
-  // rows binding and mint/revoke are buttons with fetch actions, so nothing
-  // emits its `data-island` marker any more. The entry outlived that swap and
-  // kept a lazy chunk in the build no rendered page could mount. The API it
-  // spoke to is unchanged, still gated, and still specced.)
-  // The two halves of the preview channel (`[internal ref]`, `-055`).
+  // The two halves of the design-system preview channel.
   // Both are pure enhancers rendering `null`, in the enhancer mould: the
   // console-side one drives the SSR-rendered iframe rather than rendering it,
   // because an island that owned the `<iframe>` would re-create it on hydration
@@ -542,10 +463,6 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // long enough to be seen collapsing. Both render nothing, so the eager cost
   // is eco-negligible.
   'design-system-rail': DesignSystemRailIsland,
-  // (The `admin-connections-directory` bespoke island was retired: the
-  // `/_admin/connections` directory is now a generic config `table` bound via
-  // `dataSource.system` to `GET /api/admin/connections` — see
-  // `data-connections-surface.ts`, the flagship Consoles-as-Config conversion.)
   // File-upload (dropzone variant) — wires client-side size/count validation
   // on top of the SSR placeholder rendered by `renderFileUpload`. PRIORITY so
   // the React handler takes over BEFORE the test (or user) calls

@@ -134,7 +134,7 @@ export function useDrawerRecord(
   const systemQuery = useRecordQuery('record-drawer', system ? { system } : undefined, recordId)
   const record = system ? (systemQuery.data ?? EMPTY_RECORD) : tableRecord
   const formatted = useMemo(
-    () => withRecordTextFields(record, recordText, resolvePageLocale()) as RawRecord,
+    () => withRecordTextFields(record, recordText, resolvePageLocale(), new Date()) as RawRecord,
     [record, recordText]
   )
   // A system detail read that failed — refused, or the server down — leaves no

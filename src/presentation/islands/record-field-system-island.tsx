@@ -96,7 +96,10 @@ export default function RecordFieldSystemIsland({
 
   const value = field !== undefined && data ? data[field] : undefined
   const text = format
-    ? formatCellValue(value, format, resolvePageLocale(), { timeZone: resolvePageTimezone() })
+    ? formatCellValue(value, format, resolvePageLocale(), {
+        timeZone: resolvePageTimezone(),
+        now: new Date(),
+      })
     : value === undefined || value === null
       ? ''
       : String(value)

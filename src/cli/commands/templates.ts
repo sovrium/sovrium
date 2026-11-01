@@ -25,7 +25,7 @@
  */
 
 import { Effect } from 'effect'
-import { printStderr } from '@/infrastructure/logging/cli-output'
+import { CliExit, fromAsync, fromAsyncValue, type CommandHandler } from '@/cli/runtime/run-command'
 import { writeStdout } from './document-output'
 import { readEmbeddedTemplateCatalog } from './templates-catalog'
 import { renderTemplatesJson, renderTemplatesText } from './templates-render'
@@ -59,15 +59,11 @@ export const templatesOutput = (
  * A catalogue that does not decode is a build defect: reported on stderr,
  * exit 1, nothing on stdout.
  */
-export const handleTemplatesCommand = async (
-  options: Omit<TemplatesCommandOptions, 'engine'>
-): Promise<void> => {
-  const outcome = await Effect.runPromise(
-    Effect.result(templatesOutput({ json: options.json, engine: await getCurrentVersion() }))
-  )
-  if (outcome._tag === 'Failure') {
-    printStderr(`Error: ${outcome.failure.message}`)
-    process.exit(1)
-  }
-  await writeStdout(outcome.success)
-}
+export const handleTemplatesCommand: CommandHandler = (args) =>
+  Effect.gen(function* () {
+    const engine = yield* fromAsyncValue(getCurrentVersion)
+    const output = yield* templatesOutput({ json: args.json, engine }).pipe(
+      Effect.mapError((error) => new CliExit({ code: 1, stderr: `Error: ${error.message}` }))
+    )
+    yield* fromAsync(() => writeStdout(output))
+  })

@@ -17,11 +17,11 @@
 import { eq, or } from 'drizzle-orm'
 import { AUTH_COOKIE_PREFIX } from '@/domain/models/app/auth/session-cookie'
 import { resolveAuthSecret } from '@/infrastructure/auth/auth-secret'
-import { db } from '@/infrastructure/database'
 import { authVerificationsTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { logError } from '@/infrastructure/logging/logger'
 import { isTransportRelaxed } from '@/infrastructure/process/security-posture'
 import { destinationIdentifier, TWO_FACTOR_COOKIE } from './two-factor-attempt-keys'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /** The two-step attempt a request carries, as a code page reads it. */
 export interface TwoFactorAttemptFacts {
@@ -93,6 +93,7 @@ export const verifiedAttemptId = async (
 
 /** The rows of attempt `id` and of its kept destination, unexpired ones only. */
 const liveRows = async (
+  db: PortableDb,
   id: string
 ): Promise<readonly { readonly identifier: string; readonly value: string }[]> => {
   const verifications = authVerificationsTable()
@@ -111,25 +112,26 @@ const liveRows = async (
 }
 
 /**
- * The attempt the request's cookies carry. No cookie, a forged or tampered one,
- * or an attempt whose row is gone or lapsed all read as no attempt.
+ * The attempt the request's cookies carry, read over `client`. No cookie, a
+ * forged or tampered one, or an attempt whose row is gone or lapsed all read as
+ * no attempt.
  */
-export async function readTwoFactorAttempt(
-  cookies: Readonly<Record<string, string>> | undefined
-): Promise<TwoFactorAttemptFacts> {
-  const cookieValue = cookies?.[twoFactorCookieName()]
-  if (cookieValue === undefined || cookieValue === '') return NO_ATTEMPT
-  try {
-    const id = await verifiedAttemptId(cookieValue, resolveAuthSecret())
-    if (id === undefined || !id.startsWith('2fa-')) return NO_ATTEMPT
-    const rows = await liveRows(id)
-    if (!rows.some((row) => row.identifier === id)) return NO_ATTEMPT
-    const destination = rows.find((row) => row.identifier === destinationIdentifier(id))?.value
-    return destination === undefined ? { live: true } : { live: true, destination }
-  } catch (err) {
-    // The code form then draws the expired notice and its way back to sign in:
-    // a page that cannot tell is safer saying so than drawing a dead field.
-    logError('[auth:two-factor] could not read the sign-in waiting for its code', err)
-    return NO_ATTEMPT
+export const readTwoFactorAttemptIn =
+  (client: PortableDb) =>
+  async (cookies: Readonly<Record<string, string>> | undefined): Promise<TwoFactorAttemptFacts> => {
+    const cookieValue = cookies?.[twoFactorCookieName()]
+    if (cookieValue === undefined || cookieValue === '') return NO_ATTEMPT
+    try {
+      const id = await verifiedAttemptId(cookieValue, resolveAuthSecret())
+      if (id === undefined || !id.startsWith('2fa-')) return NO_ATTEMPT
+      const rows = await liveRows(client, id)
+      if (!rows.some((row) => row.identifier === id)) return NO_ATTEMPT
+      const destination = rows.find((row) => row.identifier === destinationIdentifier(id))?.value
+      return destination === undefined ? { live: true } : { live: true, destination }
+    } catch (err) {
+      // The code form then draws the expired notice and its way back to sign in:
+      // a page that cannot tell is safer saying so than drawing a dead field.
+      logError('[auth:two-factor] could not read the sign-in waiting for its code', err)
+      return NO_ATTEMPT
+    }
   }
-}

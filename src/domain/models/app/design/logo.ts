@@ -141,7 +141,7 @@ export const LogoSchema = Schema.Struct({
           'Named for the MODE, not for the ink, and it is the field most often filled in backwards. The DARK-ink file is the one shown in LIGHT mode, so it belongs in `src`; the light-ink file belongs here. Leave it out when one mark reads on both surfaces.',
         title: 'Dark-Mode Logo Source',
         description:
-          'Variant shown when the interface is in dark mode — i.e. the light-ink file. Omit when one mark reads on both surfaces.',
+          'Variant shown when the interface is in dark mode: the light-ink file. Omit when one mark reads on both surfaces.',
         examples: ['/logos/sovrium-horizontal-light.svg'],
       })
     )
@@ -156,7 +156,7 @@ export const LogoSchema = Schema.Struct({
   alt: Schema.String.pipe(
     Schema.annotate({
       title: 'Logo Alt Text',
-      description: "Accessible name of the mark — normally just the app's name",
+      description: "Accessible name of the mark, normally just the app's name",
       examples: ['Sovrium'],
     }),
     Schema.check(Schema.isMinLength(1, { message: 'A logo `alt` must not be empty' }))

@@ -25,25 +25,24 @@
 
 import { Effect } from 'effect'
 import { Hono } from 'hono'
-import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
-import { healthProbeResponseSchema } from '@/domain/models/api/health/health'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { ServerEnv } from '@/application/ports/services/server-env'
+import { decodeOrThrow } from '@/domain/kernel/config-parsing/decode'
+import { healthProbeResponseSchema } from '@/domain/models/api/server/health'
 import {
   isStrictPortBoot,
   resolveBindHost,
   resolveListenUnix,
 } from '@/domain/models/process-env/server-lifecycle'
 import { logInfo } from '@/infrastructure/logging/logger'
-import {
-  parsePort,
-  resolveMaxRequestBodySize,
-  startBunServer,
-} from '@/infrastructure/server/bun-listener'
+import { parsePort, startBunServer } from '@/infrastructure/server/bun-listener'
 import { previewGate } from '@/infrastructure/server/middleware/preview-gate'
 import { isPortFree } from '@/infrastructure/server/port-availability'
+import { resolveMaxRequestBodySize } from '@/infrastructure/server/request-body-ceiling'
 import { removeSocketFile, startUnixServer } from '@/infrastructure/server/unix-listener'
 import type { HeldListener, HoldListenerConfig } from '@/application/ports/services/server-factory'
+import type { ServerCreationError } from '@/domain/errors/server-creation-error'
 import type { App } from '@/domain/models/app'
-import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import type { MiddlewareHandler } from 'hono'
 
 /** What every 503 tells its caller to do. Seconds, as the header takes them. */
@@ -79,17 +78,16 @@ const DEGRADED_PAGE = `<!doctype html>
  * documented `degraded` shape, the API error envelope on `/api/*`, and a short
  * page everywhere else. Every answer carries `Retry-After`.
  */
-const buildHoldingApp = (app: App): Hono => {
+const buildHoldingApp = (app: App, token: string | undefined): Hono => {
   const probeBody = decodeOrThrow(healthProbeResponseSchema)({
     status: 'degraded',
     ...(app.version === undefined ? {} : { version: app.version }),
     checks: { db: 'error' },
   })
   const headers = { 'Retry-After': RETRY_AFTER_SECONDS }
-  const token = process.env['SOVRIUM_PREVIEW_TOKEN']
   // A token-gated preview stays hidden while its database is down, too ([internal ref] D2).
   const gate: MiddlewareHandler =
-    token === undefined || token === ''
+    token === undefined
       ? (_c, next) => next()
       : previewGate({
           token,
@@ -151,9 +149,11 @@ export const holdDegradedListener = (
   config: HoldListenerConfig
 ): Effect.Effect<HeldListener, ServerCreationError> =>
   Effect.gen(function* () {
-    const honoApp = buildHoldingApp(config.app)
+    const env = yield* ProcessEnv
+    const serverEnv = yield* ServerEnv
+    const honoApp = buildHoldingApp(config.app, serverEnv.previewToken)
     const maxRequestBodySize = resolveMaxRequestBodySize(config.app)
-    const socketPath = resolveListenUnix(process.env)
+    const socketPath = resolveListenUnix(env)
     if (socketPath !== undefined) {
       const server = yield* startUnixServer(honoApp, socketPath, maxRequestBodySize)
       logInfo(`[server] listening on unix:${socketPath} (degraded: database unreachable)`)
@@ -162,9 +162,9 @@ export const holdDegradedListener = (
         release: releaseEffect(server, () => removeSocketFile(socketPath)),
       }
     }
-    const hostname = config.hostname ?? resolveBindHost(process.env).host
-    const port = config.port ?? parsePort(Bun.env.PORT) ?? 3000
-    const strict = isStrictPortBoot(process.env)
+    const hostname = config.hostname ?? resolveBindHost(env).host
+    const port = config.port ?? parsePort(serverEnv.port) ?? 3000
+    const strict = isStrictPortBoot(env)
     const server = yield* startBunServer(honoApp, { port, hostname, strict }, maxRequestBodySize)
     const boundPort = server.port
     logInfo(

@@ -63,6 +63,9 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # Framing and private previews (read once at start; unset = off):
 # SOVRIUM_FRAME_ANCESTORS=https://editor.example.com   # origins allowed to frame the app; space-separated
 # SOVRIUM_PREVIEW_TOKEN=                  # at least 32 characters: everything else answers 404
+#
+# A front-end on another origin, calling the API from the visitor's browser:
+# SOVRIUM_CORS_ORIGINS=https://app.example.com   # origins allowed; commas or spaces
 
 # ── Letting your AI client edit the config ────────────────────────────
 # Read by \`sovrium mcp\` alone, and only when the project directory was named
@@ -169,8 +172,8 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # How long a run of an automation that sets no timeout may execute, in ms
 # (1000 to 3600000). Time spent waiting for a concurrency slot does not count.
 # SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS=900000   # default 15 minutes
-# How many days an ended run is kept (1 to 36500). Unset keeps every run.
-# SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS=30
+# How many days an ended run is kept (1 to 36500). Unset keeps 90 days.
+# SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS=90
 # Switches on the app/seed action, an app reseeding or resetting itself from
 # its own seed/ folder: reset allows every mode, any other value if-empty and
 # upsert only. Unset, an automation holding the step is not scheduled.

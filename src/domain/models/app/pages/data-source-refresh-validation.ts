@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { locatedObjectNodes } from '@/domain/kernel/config-parsing/config-node-walk'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Cross-config validation of `dataSource.refreshMode` on rows the server draws.
  *
@@ -25,9 +28,6 @@
  * that do not follow it yet. Runs inside `decodeAppConfigObject`, so `validate`,
  * `start` and `build` reach the same verdict.
  */
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null
 
 /** The way to draw server-drawn rows so they follow their table. */
 const LIVE_ALTERNATIVE =
@@ -67,17 +67,10 @@ const checkNode = (node: Readonly<Record<string, unknown>>, path: string): reado
       )
 }
 
-const walk = (node: unknown, path: string): readonly string[] => {
-  if (Array.isArray(node))
-    return node.flatMap((element, index) => walk(element, `${path}[${index}]`))
-  if (!isRecord(node)) return []
-  return [
-    ...(typeof node['type'] === 'string' ? checkNode(node, path) : []),
-    ...Object.entries(node).flatMap(([key, value]) =>
-      walk(value, path === '' ? key : `${path}.${key}`)
-    ),
-  ]
-}
+const walk = (node: unknown, path: string): readonly string[] =>
+  locatedObjectNodes(node, path).flatMap(({ node: at, path: where }) =>
+    typeof at['type'] === 'string' ? checkNode(at, where) : []
+  )
 
 /** Report every `dataSource.refreshMode` declared on rows the server draws. */
 export function validateDataSourceRefreshModes(config: unknown): readonly string[] {

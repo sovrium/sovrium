@@ -30,6 +30,16 @@
  * deterministic across runs without requiring a schema change.
  */
 
+import {
+  componentField,
+  entryAsComponent,
+  rewriteComponent,
+  type ComponentContent,
+  type ComponentEntry,
+  type RenderProps,
+} from './component-rewrite'
+import { encoderForTemplate, startsAsMarkup, type ValueEncoder } from './html-template-values'
+import { hasPlainTextPin, withPlainTextPin } from './record-substitution'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
@@ -154,16 +164,42 @@ export async function fetchCollectionAdjacency(
  * altogether by `substituteCollectionInComponent`, so a stray empty
  * string never reaches the rendered DOM.
  */
-export function substituteCollectionVars(text: string, adjacency: CollectionAdjacency): string {
+export function substituteCollectionVars(
+  text: string,
+  adjacency: CollectionAdjacency,
+  encode?: ValueEncoder
+): string {
   return text.replace(
     /\$collection\.(previous|next|resume)\.([a-zA-Z0-9_]+)/g,
     (_, side: CollectionSide, fieldName: string) => {
       const record = adjacency[side]
       if (record === undefined) return ''
       const value = record[fieldName]
-      return value !== undefined ? String(value) : ''
+      const written = value !== undefined ? String(value) : ''
+      return encode === undefined ? written : encode(written)
     }
   )
+}
+
+/**
+ * A component's `content` with its neighbours' values written as TEXT — the
+ * `$record` rule. The template decides, never the value: an HTML template
+ * (`<p>Up next: <strong>$collection.next.title</strong></p>`) keeps the
+ * author's markup and takes each value HTML-escaped; a text template takes it
+ * verbatim, and is pinned to text when the result would read as markup, so a
+ * stored title cannot flip the element onto the raw-HTML branch.
+ */
+function substituteCollectionContent(
+  component: Component,
+  adjacency: CollectionAdjacency,
+  props: RenderProps | undefined
+): { readonly content: ComponentContent; readonly props: RenderProps | undefined } {
+  const template = componentField(component, 'content')
+  if (typeof template !== 'string') return { content: template, props }
+  const encode = hasPlainTextPin(props) ? undefined : encoderForTemplate(template)
+  const content = substituteCollectionVars(template, adjacency, encode)
+  const flipped = !startsAsMarkup(template) && startsAsMarkup(content)
+  return { content, props: withPlainTextPin(props, flipped) }
 }
 
 /**
@@ -183,8 +219,8 @@ function detectCollectionSides(text: string): ReadonlySet<CollectionSide> {
  * component should be filtered out (when the referenced side is null).
  */
 function gatherCollectionSides(component: Component): ReadonlySet<CollectionSide> {
-  const contentSides =
-    typeof component.content === 'string' ? [...detectCollectionSides(component.content)] : []
+  const content = componentField(component, 'content')
+  const contentSides = typeof content === 'string' ? [...detectCollectionSides(content)] : []
   const propSides = component.props
     ? Object.values(component.props).flatMap((value) =>
         typeof value === 'string' ? [...detectCollectionSides(value)] : []
@@ -229,26 +265,22 @@ export function substituteCollectionInComponent(
   if (componentRefsNullSide(component, adjacency)) return undefined
 
   const filteredChildren = component.children
-    ?.map((child: Component | string): Component | string | undefined =>
+    ?.map((child): ComponentEntry | undefined =>
       typeof child === 'string'
         ? substituteCollectionVars(child, adjacency)
-        : substituteCollectionInComponent(child, adjacency)
+        : substituteCollectionInComponent(entryAsComponent(child), adjacency)
     )
-    .filter(
-      (child: Component | string | undefined): child is Component | string => child !== undefined
-    )
+    .filter((child): child is ComponentEntry => child !== undefined)
 
-  return {
-    ...component,
-    props: component.props
-      ? substituteCollectionInProps(component.props, adjacency)
-      : component.props,
-    content:
-      typeof component.content === 'string'
-        ? substituteCollectionVars(component.content, adjacency)
-        : component.content,
+  // Props are attributes React escapes; a string child is a React text node.
+  // Both take the values verbatim. Only `content` can reach the raw-HTML sink.
+  const props = component.props
+    ? substituteCollectionInProps(component.props, adjacency)
+    : component.props
+  return rewriteComponent(component, {
+    ...substituteCollectionContent(component, adjacency, props),
     ...(filteredChildren !== undefined ? { children: filteredChildren } : {}),
-  }
+  })
 }
 
 /**
@@ -263,7 +295,7 @@ export function substituteCollectionInPageComponents(
   return components
     .map((item) => {
       if ('component' in item || '$ref' in item) return item
-      return substituteCollectionInComponent(item as Component, adjacency)
+      return substituteCollectionInComponent(item, adjacency)
     })
     .filter((item): item is NonNullable<typeof item> => item !== undefined)
 }

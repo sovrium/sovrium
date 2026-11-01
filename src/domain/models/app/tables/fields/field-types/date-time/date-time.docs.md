@@ -1,6 +1,6 @@
 # Date & Time Fields
 
-> The seven date and time field types — date, datetime, time, duration, and the system audit timestamps created-at, updated-at and deleted-at.
+> The seven date and time field types: date, datetime, time, duration, and the system audit timestamps created-at, updated-at and deleted-at.
 
 Seven field types store dates, times, durations and system-managed audit timestamps. All of them also accept the base field properties every field type shares.
 
@@ -14,7 +14,7 @@ Seven field types store dates, times, durations and system-managed audit timesta
 | `updated-at` | System-updated timestamp refreshed on every modification. |
 | `deleted-at` | Soft-delete timestamp; `NULL` means the record is active. |
 
-An empty string, or one holding only spaces, written to a date, a datetime or a time — through the API, as a default, or in a seed file — stores no value: the field reads null.
+An empty string, or one holding only spaces, written to a date, a datetime or a time (through the API, as a default, or in a seed file) stores no value: the field reads null.
 
 ## `date`
 
@@ -24,7 +24,7 @@ A date is shown in the page's language and on its own calendar day for every rea
 
 A `date` field reads as its day, `YYYY-MM-DD`, on every database: on a record, on a list, in an export, as the name of a group, in what an automation reads, and in a webhook's previous values.
 
-`weekday: short` prints the day of the week before the date — "Thu 24 Sept 2026" — and `weekday: long` writes both out — "Thursday, 24 September 2026" — in the page language — in the grid, a drawer, a list item's metadata and a card. A date without it prints exactly as before. A `datetime` accepts the same key.
+`weekday: short` prints the day of the week before the date ("Thu 24 Sept 2026"), and `weekday: long` writes both out ("Thursday, 24 September 2026"), in the page language. Both apply in the grid, a drawer, a list item's metadata and a card. A date without it prints exactly as before. A `datetime` accepts the same key.
 
 <!-- sovrium:options DateFieldSchema -->
 
@@ -49,7 +49,7 @@ A datetime is stored as an instant and reads back in UTC, as ISO 8601 ending in 
 
 ## `time`
 
-A time of day with no date attached — opening hours, a daily cut-off.
+A time of day with no date attached: opening hours, a daily cut-off.
 
 <!-- sovrium:options TimeFieldSchema -->
 
@@ -77,11 +77,11 @@ On PostgreSQL the value is an integer column; a column an earlier version stored
 
 `created-at`, `updated-at` and `deleted-at` are written by the engine, never by a client. `created_at` and `updated_at` carry a database default and a trigger that keeps them current; `deleted_at` is moved only by the delete and restore paths.
 
-Do not send a value for one. Unlike the five computed types — `formula`, `rollup`, `count`, `lookup`, `autonumber` — which refuse a write outright with `Cannot write to readonly field`, these three are not on the write-path's readonly list, so a request naming one is not rejected for you and the result is not a contract this page can promise.
+Do not send a value for one. Unlike the five computed types (`formula`, `rollup`, `count`, `lookup`, `autonumber`), which refuse a write outright with `Cannot write to readonly field`, these three are not on the write-path's readonly list, so a request naming one is not rejected for you and the result is not a contract this page can promise.
 
-**You do not declare them to switch anything on.** Every table already carries `id`, `created_at`, `updated_at` and `deleted_at`: the engine adds each one automatically unless the table declares a field of that exact name. So soft delete is not something a `deleted-at` field opts into — it is how every table behaves, with `NULL` meaning active. **Records: Soft Delete and Restore** covers the behaviour itself.
+**You do not declare them to switch anything on.** Every table already carries `id`, `created_at`, `updated_at` and `deleted_at`: the engine adds each one automatically unless the table declares a field of that exact name. So soft delete is not something a `deleted-at` field opts into. It is how every table behaves, with `NULL` meaning active. **Records: Soft Delete and Restore** covers the behaviour itself.
 
-Declaring one of these fields does two things instead. It suppresses the automatic column, so the one you wrote is the one that exists; and it puts the column into `fields[]`, where the rest of the configuration surface can reach it — a grid column, a form, a field-level permission.
+Declaring one of these fields does two things instead. It suppresses the automatic column, so the one you wrote is the one that exists; and it puts the column into `fields[]`, where the rest of the configuration surface can reach it: a grid column, a form, a field-level permission.
 
 <!-- sovrium:options CreatedAtFieldSchema -->
 

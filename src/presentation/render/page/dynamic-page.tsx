@@ -9,12 +9,12 @@ import { type ReactElement } from 'react'
 import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { fillRoutePattern, type RouteParams } from '@/domain/kernel/matching/route-matcher'
 import { resolveDensityStep } from '@/domain/models/app/design/density-service'
-import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { placeFooterBadge } from '@/presentation/render/page/badge-shell-inset'
 import { ClientRuntimeScript } from '@/presentation/render/page/client-script-paths'
 import { IslandEntryScript } from '@/presentation/render/page/island-entry-script'
 import { PageAccessibilityChrome } from '@/presentation/render/page/page-accessibility-chrome'
 import { PageBodyScripts } from '@/presentation/render/page/page-body-scripts'
+import { pageClockAttributes } from '@/presentation/render/page/page-clock-attributes'
 import { hasClientSideNavigation } from '@/presentation/render/page/page-island-detection'
 import { resolvePageLanguage } from '@/presentation/render/page/page-lang-resolver'
 import { PageMain } from '@/presentation/render/page/page-main'
@@ -25,9 +25,8 @@ import { PageSpaNavMount } from '@/presentation/render/page/page-spa-nav-mount'
 import { PlatformChrome } from '@/presentation/render/page/platform-chrome'
 import { PresenceIndicatorMount } from '@/presentation/render/page/presence-indicator-mount'
 import { getToastDismissLabel } from '@/presentation/render/page/toast-dismiss-labels'
-// Island-runtime detection lives in page-island-detection.ts; this file keeps only interactive-
-// runtime detection (same reference-aware walker, so a template-hosted button ships client.js).
-import { DynamicPageHead } from './dynamic-page-head'
+// Island detection: page-island-detection.ts; here only interactive-runtime detection.
+import { DynamicPageHead, type DynamicPageHeadProps } from './dynamic-page-head'
 import { hasInteractiveFeatures, mergeComponentMetaIntoPage } from './page-interactivity'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Buckets } from '@/domain/models/app/buckets'
@@ -61,7 +60,7 @@ type DynamicPageProps = {
   readonly urlLanguage?: string
   readonly routeParams?: RouteParams
   readonly builtInAnalyticsEnabled?: boolean
-  readonly builtInAnalyticsSessionTimeout?: number
+  readonly builtInAnalyticsSettings?: DynamicPageHeadProps['builtInAnalyticsSettings']
   /** Hashed filename of the island entry bundle (e.g., "island-client-a7f3b2.js") */
   readonly islandEntryFile?: string
   /** Island `modulepreload` hrefs — see {@link IslandPreloadLinks}. */
@@ -78,8 +77,8 @@ type DynamicPageProps = {
   readonly session?: SessionInfo
   /** Content-versioned stylesheet URL — see `PageHeadProps.cssHref`. */
   readonly cssHref?: string
-  /** Title of the feed this page announces — see `PageHeadProps.feedTitle`. */
-  readonly feedTitle?: string
+  /** The feed this page announces — see `PageHeadProps.feed`. */
+  readonly feed?: DynamicPageHeadProps['feed']
   /**
    * "Built with Sovrium" badge — callers pass `resolveBadge(app.badge)`, which
    * yields where it sits. Undefined renders no badge.
@@ -319,6 +318,7 @@ function DynamicPageBody({
         direction={direction}
         scripts={scripts}
         position="end"
+        lang={lang}
         frontmatter={markdownPayload?.frontmatter}
       />
       {hasInteractiveFeatures(page, components) && <ClientRuntimeScript />}
@@ -348,7 +348,7 @@ export function DynamicPage({
   urlLanguage,
   routeParams,
   builtInAnalyticsEnabled,
-  builtInAnalyticsSessionTimeout,
+  builtInAnalyticsSettings,
   islandEntryFile,
   islandPreloadHrefs,
   resolvedSidebar,
@@ -357,7 +357,7 @@ export function DynamicPage({
   cssHref,
   badgePlacement,
   devNoticeEnabled,
-  feedTitle,
+  feed,
 }: DynamicPageProps): Readonly<ReactElement> {
   // Resolve the locale ONCE, then hand it to the metadata extractor. Both used
   // to derive it independently, which is how `<html lang>` and `<title>` drifted
@@ -367,7 +367,7 @@ export function DynamicPage({
     lang: langConfig.lang,
     frontmatter: markdownPayload?.frontmatter,
   })
-  const scripts = groupScriptsByPosition(page, components)
+  const scripts = groupScriptsByPosition(page, components, builtInAnalyticsSettings)
   const pageWithMeta = mergeComponentMetaIntoPage(page, components)
   // On a window-high shell, a footer badge closes its scrolling inset instead.
   const placed = placeFooterBadge(page, badgePlacement)
@@ -376,9 +376,9 @@ export function DynamicPage({
     <html
       lang={langConfig.lang}
       dir={langConfig.direction}
-      // The operator timezone, stamped for the islands: they format dates in it
-      // (`resolvePageTimezone`) without ever reading the environment.
-      data-timezone={parseSovriumTimezone().zoneId}
+      // The operator timezone and the date-time glue, stamped for the islands:
+      // they format dates with them without ever reading the environment.
+      {...pageClockAttributes(langConfig.lang)}
       // The density step this page runs at — its zone's, else the app's, else compact,
       // written for compact too; the ladder's `[data-density]` blocks make it paint.
       data-density={resolveDensityStep(
@@ -403,9 +403,9 @@ export function DynamicPage({
         languages={languages}
         scripts={scripts}
         builtInAnalyticsEnabled={builtInAnalyticsEnabled}
-        builtInAnalyticsSessionTimeout={builtInAnalyticsSessionTimeout}
-        contentDirSeo={markdownPayload?.seo}
-        feedTitle={feedTitle}
+        builtInAnalyticsSettings={builtInAnalyticsSettings}
+        markdownPayload={markdownPayload}
+        feed={feed}
       />
       <DynamicPageBody
         page={placed.page}

@@ -23,5 +23,5 @@ import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
 /** Chain `GET /api/admin/audit-log` onto a Hono app. */
-export const chainAdminAuditLogRoutes = <T extends Hono>(honoApp: T, resolveApp: () => App): T =>
-  chainAdminReadRoutes(honoApp, resolveApp, AUDIT_LOG_READ_OPERATIONS)
+export const chainAdminAuditLogRoutes = <T extends Hono>(honoApp: T, app: App): T =>
+  chainAdminReadRoutes(honoApp, app, AUDIT_LOG_READ_OPERATIONS)

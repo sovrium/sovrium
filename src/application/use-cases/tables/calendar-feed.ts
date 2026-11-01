@@ -41,6 +41,7 @@ import {
   type CalendarFeedRow,
 } from '@/domain/models/app/tables/calendar-feed-service'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { listRecordsAsCaller, synthesizeCallerSession } from './list-records-as-caller'
 import { loadCallerIdentity, type CallerIdentity } from './permissions/caller-write-authority'
 import { buildReadListFilter } from './permissions/row-level-read-filter'
@@ -70,7 +71,7 @@ type ReaderRequirements = AuthRepository | DataSourceRepository | TableRepositor
 
 /** A table that publishes a feed, by name. */
 const feedTableOf = (app: App, tableName: string): Table | undefined => {
-  const table = app.tables?.find((candidate) => candidate.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   return table?.calendarFeed === undefined ? undefined : table
 }
 

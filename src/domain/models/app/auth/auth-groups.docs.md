@@ -1,6 +1,6 @@
 # Groups
 
-> A many-to-many layer over roles — a user has one role, and belongs to any number of groups.
+> A many-to-many layer over roles: a user has one role, and belongs to any number of groups.
 
 Permissions reference a group with a `group:` prefix, which makes groups the right tool for team-scoped and field-level access.
 
@@ -23,7 +23,7 @@ Teams are configured through groups: define one per team and reference it in per
 
 <!-- sovrium:options GroupSchema -->
 
-`name` is required, lowercase, alphanumeric with hyphens, and must start with a letter — the same convention role names follow. `maxMembers` is unlimited when omitted.
+`name` is required, lowercase, alphanumeric with hyphens, and must start with a letter, the same convention role names follow. `maxMembers` is unlimited when omitted.
 
 ### What the console calls a group
 
@@ -51,8 +51,10 @@ The shared namespace is what makes a permission entry unambiguous: `marketing` i
 The schema declares which groups **exist**, not who belongs to them. Membership is assigned at runtime, in one of three ways:
 
 - **In the console**, an administrator opens an account in the Users directory and picks its groups with **Change groups**, beside Change role.
-- **From an automation**, the `auth` action's `addToGroup` and `removeFromGroup` operators add or remove one account, by the group's name — see [Auth Actions](/en/docs/automation-auth-actions). A `code` step calls the same two through `context.actions.auth`.
+- **From an automation**, the `auth` action's `addToGroup` and `removeFromGroup` operators add or remove one account, by the group's name; see [Auth Actions](/en/docs/automation-auth-actions). A `code` step calls the same two through `context.actions.auth`.
 - **Over the API**, `PUT /api/admin/users/:userId/groups` with `{ "groups": ["facilitation"] }` sets the account's membership to exactly the listed groups, and answers with the groups it `added` and `removed`. It is open to administrators only, by session or API key, and answers `404` to everyone else. A name the configuration does not declare refuses the whole request with `400`, and nothing changes. Because the list is the account's whole membership, a group the account belongs to that `auth.groups` does not declare is removed as well. `GET /api/admin/groups` lists the declared groups.
+
+The organisation endpoints under `/api/auth/organization/*` follow the same rule. Creating, renaming or deleting a group, adding or removing its members, inviting someone, changing a member's role and editing the organisation answer `404` to anyone who is not an administrator. Members can still read the groups and who belongs to them. Signing up first grants nothing: the first account is an ordinary member unless it is an administrator, and an administrator created later manages groups like one created first.
 
 Adding an account that is already a member, or removing one that is not, changes nothing and is not an error. Every change is recorded in the audit log as `user.groups.changed`, with the groups added and removed. Where `maxMembers` is set, an attempt to add somebody past the cap is refused.
 
@@ -82,9 +84,9 @@ Resolution is **most permissive wins**: the effective permissions are the union 
 
 This also holds on a table that declares `rowLevelPermissions`. A group grant admits the member to the table exactly as a role grant does, and the row-level rule then narrows which rows they reach: a member of `ops` granted `read: ['group:ops']` on a table whose rule shows only northern rows reads the northern rows, and a southern one answers `404` as a missing record does.
 
-Every door onto a table admits exactly the callers its records admit, through one set of roles: the account role, a `group:` entry per group, and — on a table with row-level rules, and only there — every role an assignment gives. That holds for the records themselves, the table's permission map, an upsert, the comment thread and a new comment, the MCP tools, a restore and a batch restore, the delete form and a record button. Groups and assignments are read on every request, so a membership or an assignment you withdraw stops counting on the caller's next request.
+Every door onto a table admits exactly the callers its records admit, through one set of roles: the account role, a `group:` entry per group, and every role an assignment gives (on a table with row-level rules, and only there). That holds for the records themselves, the table's permission map, an upsert, the comment thread and a new comment, the MCP tools, a restore and a batch restore, the delete form and a record button. Groups and assignments are read on every request, so a membership or an assignment you withdraw stops counting on the caller's next request.
 
-Groups earn their place at the field level — exposing a salary or budget column to a finance group while the rest of the table stays broadly readable. A role could express that only by creating a role per intersection, which is how a permission model becomes unmaintainable.
+Groups earn their place at the field level: exposing a salary or budget column to a finance group while the rest of the table stays broadly readable. A role could express that only by creating a role per intersection, which is how a permission model becomes unmaintainable.
 
 A field `read` grant naming a group opens the column to that group's members wherever records are read: the list, a single record, `filter`, `sort`, `groupBy` and `aggregate`, the `?q=` search, the record history, the record a write hands back, the table definition and its permission map. A caller in no group, or in another one, reads none of it, and a query naming the column answers `404` as for a column that does not exist.
 

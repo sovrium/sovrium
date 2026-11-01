@@ -6,13 +6,57 @@
  */
 
 import { createHmac } from 'node:crypto'
-import { Effect } from 'effect'
+import { Effect, Schema, Struct } from 'effect'
+import { OutboundHttp } from '@/application/ports/services/outbound-http'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
-import { guardedFetch } from '@/infrastructure/egress/guarded-fetch'
-import { connectionHeaderRefusal, resolveConnectionHeaders } from './auth-headers'
+import {
+  WebhookResponseActionSchema,
+  WebhookSendActionSchema,
+} from '@/domain/models/app/automations/actions/webhook'
+import {
+  connectionHeaderRefusal,
+  resolveConnectionHeaders,
+  type InjectedHeaders,
+} from './auth-headers'
+import { credentialBindingRefusal } from './credential-binding'
+import { decodedHandler } from './decoded-handler'
 import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
-import { actionAttributes, serializeActionBody, stringProp } from './shared'
-import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
+import { actionAttributes, serializeActionBody } from './shared'
+import type { ActionOutcome, ActionRunContext } from './shared'
+import type { ProcessEnvShape } from '@/application/ports/services/process-env'
+import type { App } from '@/domain/models/app'
+
+/**
+ * The settings a `webhook/*` handler is dispatched with: each operator's
+ * declared props, refused when outside them on every road the action comes by
+ * (see `decoded-handler.ts`), except where a template fills a value of another
+ * type in. A header value a whole `{{path}}` fills is sent as its text; the
+ * body a template fills is sent as JSON whatever its shape, and an empty one
+ * (`null`) as no body, as they always were.
+ */
+const filledHeadersAndBody = {
+  headers: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  body: Schema.optional(Schema.Unknown),
+}
+
+export const WebhookSendSettings = Schema.Struct({
+  type: WebhookSendActionSchema.fields.type,
+  operator: WebhookSendActionSchema.fields.operator,
+  props: WebhookSendActionSchema.fields.props.mapFields(Struct.assign(filledHeadersAndBody)),
+})
+
+export const WebhookResponseSettings = Schema.Struct({
+  type: WebhookResponseActionSchema.fields.type,
+  operator: WebhookResponseActionSchema.fields.operator,
+  props: WebhookResponseActionSchema.fields.props.mapFields(Struct.assign(filledHeadersAndBody)),
+})
+
+/** Header values as the text they are sent as. */
+const headerText = (
+  headers: Readonly<Record<string, unknown>> | undefined
+): Readonly<Record<string, string>> =>
+  Object.fromEntries(Object.entries(headers ?? {}).map(([name, value]) => [name, String(value)]))
 
 /**
  * `webhook/send` handler — sends an outbound HTTP request with a JSON body
@@ -56,34 +100,52 @@ const addressKeyRefusal = (
       }
     : undefined
 
-/** Why the webhook cannot be sent with its connection's credential, or `undefined`. */
+/**
+ * Why the webhook cannot be sent with its connection's credential, or
+ * `undefined`: the credential could not be built, is read from the address, or
+ * belongs to another site than the one the webhook goes to.
+ */
 const webhookConnectionRefusal = (
-  merged: Parameters<typeof connectionHeaderRefusal>[0] & {
-    readonly query?: Readonly<Record<string, string>>
-  },
-  connectionName: string
-) => connectionHeaderRefusal(merged) ?? addressKeyRefusal(merged, connectionName)
+  merged: InjectedHeaders,
+  target: { readonly app: App; readonly url: string; readonly connectionName: string },
+  env: ProcessEnvShape
+) =>
+  connectionHeaderRefusal(merged) ??
+  addressKeyRefusal(merged, target.connectionName) ??
+  (target.connectionName !== ''
+    ? credentialBindingRefusal(target.app, target.connectionName, target.url, { ...merged, env })
+    : undefined)
 
-export const handleWebhookSend: ActionHandler = (action, app, automation) =>
+/** The headers that carry a credential: the connection's, and the signature when one is sent. */
+const credentialHeadersOf = (merged: InjectedHeaders, secret: string): readonly string[] => [
+  ...(merged.credentialHeaders ?? []),
+  ...(secret !== '' ? ['X-Webhook-Signature'] : []),
+]
+
+export const handleWebhookSend = decodedHandler(WebhookSendSettings, (action, app, automation) =>
   Effect.gen(function* () {
-    const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-    const url = stringProp(props, 'url')
-    if (!url) return { status: 'failure', error: 'webhook.send requires a url' } as const
+    const { props } = action
+    const { url } = props
+    if (url === '') return { status: 'failure', error: 'webhook.send requires a url' } as const
 
     // Webhook send defaults to POST; Slack/Discord/PagerDuty all expect POST.
-    const method = String(props['method'] ?? 'POST')
+    const method = props.method ?? 'POST'
     const baseHeaders: Readonly<Record<string, string>> = {
       'Content-Type': 'application/json',
-      ...((props['headers'] as Record<string, string> | undefined) ?? {}),
+      ...headerText(props.headers),
     }
-    const connectionName = stringProp(props, 'connection')
+    const connectionName = props.connection ?? ''
 
     const merged =
       connectionName !== ''
         ? yield* resolveConnectionHeaders(app, automation, baseHeaders, connectionName)
         : { headers: baseHeaders }
 
-    const refusal = webhookConnectionRefusal(merged, connectionName)
+    const refusal = webhookConnectionRefusal(
+      merged,
+      { app, url, connectionName },
+      yield* ProcessEnv
+    )
     if (refusal !== undefined) return refusal
 
     // Serialize body if present. Receivers tolerate empty bodies on POST
@@ -91,7 +153,7 @@ export const handleWebhookSend: ActionHandler = (action, app, automation) =>
     // remote's choice; we surface it as an action failure). Webhook
     // semantics treat `null` like an absent body, so we normalise before
     // delegating serialisation.
-    const rawBody = props['body'] === null ? undefined : props['body']
+    const rawBody = props.body === null ? undefined : props.body
     const bodyResult = yield* Effect.result(serializeActionBody(rawBody))
     if (bodyResult._tag === 'Failure') {
       return { status: 'failure', error: bodyResult.failure.message } as const
@@ -103,17 +165,20 @@ export const handleWebhookSend: ActionHandler = (action, app, automation) =>
     // body to prove integrity + authenticity. An empty body still signs
     // (digest of the empty string) so the header is always present when a
     // secret is set.
-    const secret = stringProp(props, 'secret')
+    const secret = props.secret ?? ''
     const signedHeaders =
       secret !== ''
         ? { ...merged.headers, 'X-Webhook-Signature': signBody(bodyResult.success, secret) }
         : merged.headers
 
-    // effect-promise: total -- `sendWebhook` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
-    return yield* Effect.promise(() => sendWebhook(url, method, signedHeaders, bodyResult.success))
+    return yield* sendWebhook(url, method, bodyResult.success, {
+      headers: signedHeaders,
+      credentialHeaders: credentialHeadersOf(merged, secret),
+    })
   }).pipe(
     Effect.withSpan('automations.handle-webhook-send', { attributes: actionAttributes(action) })
   )
+)
 
 /**
  * Compute the `sha256=<hex>` HMAC signature header value for a request
@@ -172,17 +237,20 @@ const typedResponseBody = (
  * clean success in run-history but its override is effectively ignored
  * on the wire.
  */
-export const handleWebhookResponse: ActionHandler = (action, _app, _automation, runContext) =>
-  Effect.sync(() => {
-    const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-    const body = typedResponseBody(props['body'], runContext)
-    const responseOverride: Readonly<Record<string, unknown>> = {
-      ...(props['status'] !== undefined ? { status: props['status'] } : {}),
-      ...(body !== undefined ? { body } : {}),
-      ...(props['headers'] !== undefined ? { headers: props['headers'] } : {}),
-    }
-    return { status: 'success', responseOverride } satisfies ActionOutcome
-  }).pipe(Effect.withSpan('automations.handle-webhook-response'))
+export const handleWebhookResponse = decodedHandler(
+  WebhookResponseSettings,
+  (action, _app, _automation, runContext) =>
+    Effect.sync(() => {
+      const { props } = action
+      const body = typedResponseBody(props.body, runContext)
+      const responseOverride: Readonly<Record<string, unknown>> = {
+        ...(props.status !== undefined ? { status: props.status } : {}),
+        ...(body !== undefined ? { body } : {}),
+        ...(props.headers !== undefined ? { headers: props.headers } : {}),
+      }
+      return { status: 'success', responseOverride } satisfies ActionOutcome
+    }).pipe(Effect.withSpan('automations.handle-webhook-response'))
+)
 
 /**
  * Bounded outbound POST. Mirrors `performHttpRequest` from `http.ts` but
@@ -190,33 +258,42 @@ export const handleWebhookResponse: ActionHandler = (action, _app, _automation, 
  * `status: 'failure'` so the run-history records a clean failure
  * regardless of the underlying cause (timeout, network, 4xx, 5xx).
  */
-const sendWebhook = async (
+const sendWebhook = (
   url: string,
   method: string,
-  headers: Readonly<Record<string, string>>,
-  body: string | undefined
-): Promise<ActionOutcome> => {
-  // SSRF guard on the URL and on every redirect hop: same threat model as the
-  // `http/*` action. The answer's body is not read — only its status counts.
-  try {
-    const sent = await guardedFetch(
+  body: string | undefined,
+  request: {
+    readonly headers: Readonly<Record<string, string>>
+    /** Dropped on a redirect to another origin. */
+    readonly credentialHeaders: readonly string[]
+  }
+): Effect.Effect<ActionOutcome, never, OutboundHttp> =>
+  Effect.gen(function* () {
+    const { headers, credentialHeaders } = request
+    const { guardedFetch } = yield* OutboundHttp
+    // SSRF guard on the URL and on every redirect hop: same threat model as the
+    // `http/*` action. The answer's body is not read — only its status counts.
+    return yield* guardedFetch(
       url,
       { method, headers, ...(body !== undefined ? { body } : {}) },
-      { timeoutMs: HTTP_REQUEST_TIMEOUT_MS, maxBodyBytes: 0 }
+      { timeoutMs: HTTP_REQUEST_TIMEOUT_MS, maxBodyBytes: 0, credentialHeaders }
+    ).pipe(
+      Effect.map((sent): ActionOutcome => {
+        if (!sent.ok) return { status: 'failure', error: sent.message }
+        const { response } = sent
+        if (!response.ok) {
+          return {
+            status: 'failure',
+            error: `webhook ${url}: HTTP ${String(response.status)}`,
+          }
+        }
+        return { status: 'success' }
+      }),
+      Effect.catchTag('OutboundTransportError', ({ cause }) =>
+        Effect.succeed<ActionOutcome>({
+          status: 'failure',
+          error: cause instanceof Error ? cause.message : String(cause),
+        })
+      )
     )
-    if (!sent.ok) return { status: 'failure', error: sent.message }
-    const { response } = sent
-    if (!response.ok) {
-      return {
-        status: 'failure',
-        error: `webhook ${url}: HTTP ${String(response.status)}`,
-      }
-    }
-    return { status: 'success' }
-  } catch (error) {
-    return {
-      status: 'failure',
-      error: error instanceof Error ? error.message : String(error),
-    }
-  }
-}
+  })

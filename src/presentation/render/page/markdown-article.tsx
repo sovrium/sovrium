@@ -8,6 +8,7 @@
 import { type ReactElement } from 'react'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { cn } from '@/presentation/design/class-merge'
+import { InlineScript } from '@/presentation/design/inline-script'
 import { renderDocsArticleHeader } from '@/presentation/render/markdown/docs-article-header'
 import {
   getDocsChromeLabels,
@@ -22,11 +23,11 @@ import {
 import { DocsPrevNext } from '@/presentation/render/markdown/docs-prev-next'
 import { DocsSidebarNav } from '@/presentation/render/markdown/docs-sidebar-nav'
 import {
-  COPY_MARKDOWN_SCRIPT_HTML,
-  DOCS_PROSE_PATCH_HTML,
-  TOC_SCROLLSPY_SCRIPT_HTML,
-  TOC_SCROLLSPY_STYLE_HTML,
+  COPY_MARKDOWN_SCRIPT,
+  DOCS_PROSE_PATCH,
+  TOC_SCROLLSPY_SCRIPT,
 } from '@/presentation/render/markdown/markdown-article-enhancements'
+import { wrapMarkdownTables } from '@/presentation/render/markdown/markdown-table-scroll'
 import { renderToc } from '@/presentation/render/markdown/markdown-toc-nav'
 import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part-classes'
 import type { ResolvedMarkdownPage } from '@/presentation/render/markdown/markdown-page-resolver'
@@ -143,7 +144,7 @@ function renderArticle(
         )}
         // eslint-disable-next-line sovrium/require-sanitized-html -- markdown rendered from the app's own content directory (operator-authored files), with engine syntax highlighting
         dangerouslySetInnerHTML={buildHtmlContainer(
-          applyProsePartClasses(markdown.html, markdown.parts)
+          applyProsePartClasses(wrapMarkdownTables(markdown.html, labels.table), markdown.parts)
         )}
       />
       {layout === 'docs' && markdown.lastUpdated !== undefined && (
@@ -205,8 +206,10 @@ function renderDocsLayout(
       className="bg-background min-h-[calc(100dvh-var(--sv-docs-sticky-offset,6.5rem))]"
       style={docsFrameStyle(markdown.frame)}
     >
-      {/* eslint-disable-next-line sovrium/require-sanitized-html -- a same-file string literal, hoisted into a constant object for react-perf */}
-      <style dangerouslySetInnerHTML={DOCS_PROSE_PATCH_HTML} />
+      <InlineScript
+        as="style"
+        source={DOCS_PROSE_PATCH}
+      />
       {/* Below `lg` the navigation is a menu button above the article, so the row
           stacks; from `lg` it is the three columns it has always been. */}
       <div
@@ -219,16 +222,14 @@ function renderDocsLayout(
           nav={markdown.collectionNav}
           menuLabel={labels.menu}
           closeLabel={resolveInterpreterString('sidebar.drawerClose', markdown.lang)}
+          searchLabel={labels.searchDocs}
           parts={markdown.parts}
         />
         {article}
         {toc}
       </div>
       {/* After the frame, so the trigger it lifts is already parsed. */}
-      {markdown.frame?.menuButton === 'header' && (
-        // eslint-disable-next-line sovrium/require-sanitized-html -- a same-file string literal, hoisted into a constant object for react-perf
-        <script dangerouslySetInnerHTML={LIFT_MENU_BUTTON_SCRIPT} />
-      )}
+      {markdown.frame?.menuButton === 'header' && <InlineScript source={LIFT_MENU_BUTTON_SCRIPT} />}
     </div>
   )
 }
@@ -288,16 +289,8 @@ export function MarkdownArticle({ markdown }: MarkdownArticleProps): Readonly<Re
   return (
     <>
       {body}
-      {hasToc && (
-        <>
-          {/* eslint-disable-next-line sovrium/require-sanitized-html -- a same-file string literal, hoisted into a constant object for react-perf */}
-          <style dangerouslySetInnerHTML={TOC_SCROLLSPY_STYLE_HTML} />
-          {/* eslint-disable-next-line sovrium/require-sanitized-html -- a same-file string literal, hoisted into a constant object for react-perf */}
-          <script dangerouslySetInnerHTML={TOC_SCROLLSPY_SCRIPT_HTML} />
-        </>
-      )}
-      {/* eslint-disable-next-line sovrium/require-sanitized-html -- a same-file string literal, hoisted into a constant object for react-perf */}
-      {hasDocsHeader && <script dangerouslySetInnerHTML={COPY_MARKDOWN_SCRIPT_HTML} />}
+      {hasToc && <InlineScript source={TOC_SCROLLSPY_SCRIPT} />}
+      {hasDocsHeader && <InlineScript source={COPY_MARKDOWN_SCRIPT} />}
     </>
   )
 }

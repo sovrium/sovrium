@@ -121,7 +121,7 @@ export const fieldSpecimenFields = {
       Schema.annotate({
         title: 'Control Name',
         description:
-          'The `name` attribute the drawn control carries — the element a comparison against a real form is anchored on. Defaults to the field type with hyphens replaced by underscores, which is what `FieldNameSchema` accepts.',
+          'The `name` attribute the drawn control carries: the element a comparison against a real form is anchored on. Defaults to the field type with hyphens replaced by underscores, which is what `FieldNameSchema` accepts.',
         examples: ['long_text'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -144,7 +144,7 @@ export const fieldSpecimenFields = {
       Schema.String.annotate({ description: 'One option value the drawn control offers' })
     ).annotate({
       description:
-        'Option values for a choice-shaped field type. Absent draws the empty control — which is what an author who declares no options actually gets.',
+        'Option values for a choice-shaped field type. Absent draws the empty control, which is what an author who declares no options actually gets.',
       examples: [['Draft', 'Sent', 'Paid']],
     })
   ),
@@ -165,7 +165,7 @@ export const fieldSpecimenFields = {
   value: Schema.optional(
     Schema.String.annotate({
       description:
-        'An illustrative value in the drawn control. Empty by default — a specimen documents the control, not a record.',
+        'An illustrative value in the drawn control. Empty by default: a specimen documents the control, not a record.',
     })
   ),
   /**

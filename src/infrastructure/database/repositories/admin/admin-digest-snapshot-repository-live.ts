@@ -6,7 +6,7 @@
  */
 
 import { desc, eq, sql } from 'drizzle-orm'
-import { Effect, Layer, Result, Schema } from 'effect'
+import { Effect, Result, Schema } from 'effect'
 import {
   AdminDigestSnapshotDatabaseError,
   AdminDigestSnapshotRepository,
@@ -16,13 +16,15 @@ import {
   weeklyDigestSchema,
   type WeeklyDigest,
 } from '@/domain/models/api/admin/notifications/weekly-digest'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { adminDigestSnapshots as adminDigestSnapshotsPg } from '@/infrastructure/database/drizzle/schema/admin-digest'
 import { adminDigestSnapshots as adminDigestSnapshotsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/admin-digest'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawTypedOn } from '@/infrastructure/database/sql/dialect-execute'
 import { logWarning } from '@/infrastructure/logging/logger'
 
 /**
@@ -118,25 +120,31 @@ export const pickLatestSnapshot = (
     { found: undefined, done: false }
   ).found
 
-export const AdminDigestSnapshotRepositoryLive = Layer.succeed(AdminDigestSnapshotRepository, {
+const members: MembersOverDatabase<typeof AdminDigestSnapshotRepository> = {
   // SQLite rows are stamped by this process (`$defaultFn`), so its clock IS the
   // database's; PostgreSQL stamps with its own `now()`.
-  clock: wrap(async () => {
-    if (parseDatabaseDialectConfig().dialect !== 'postgres') return new Date()
-    const rows = await executeRawTyped<{ readonly now: unknown }>(db, sql`SELECT now() AS now`)
-    // A driver value that does not parse falls back to this process's clock.
-    return new Date((toInstant(rows[0]?.now) ?? new Date()).getTime())
-  }),
+  clock: (db, dialect) =>
+    wrap(async () => {
+      if (dialect.kind === 'sqlite') return new Date()
+      const rows = await executeRawTypedOn<{ readonly now: unknown }>(
+        dialect.kind,
+        db,
+        sql`SELECT now() AS now`
+      )
+      // A driver value that does not parse falls back to this process's clock.
+      return new Date((toInstant(rows[0]?.now) ?? new Date()).getTime())
+    }),
 
-  latest: wrap(() =>
-    db.select().from(snapshots).orderBy(desc(snapshots.periodEnd)).limit(LATEST_CANDIDATES)
-  ).pipe(
-    Effect.map((rows) =>
-      pickLatestSnapshot(rows as ReadonlyArray<Readonly<Record<string, unknown>>>)
-    )
-  ),
+  latest: (db) =>
+    wrap(() =>
+      db.select().from(snapshots).orderBy(desc(snapshots.periodEnd)).limit(LATEST_CANDIDATES)
+    ).pipe(
+      Effect.map((rows) =>
+        pickLatestSnapshot(rows as ReadonlyArray<Readonly<Record<string, unknown>>>)
+      )
+    ),
 
-  insert: (snapshot) =>
+  insert: (db) => (snapshot) =>
     wrap(async () => {
       const id = crypto.randomUUID()
       await db.insert(snapshots).values({
@@ -150,8 +158,15 @@ export const AdminDigestSnapshotRepositoryLive = Layer.succeed(AdminDigestSnapsh
       return id
     }),
 
-  markSent: ({ id, sentAt, recipientCount }) =>
-    wrap(async () => {
-      await db.update(snapshots).set({ sentAt, recipientCount }).where(eq(snapshots.id, id))
-    }),
-})
+  markSent:
+    (db) =>
+    ({ id, sentAt, recipientCount }) =>
+      wrap(async () => {
+        await db.update(snapshots).set({ sentAt, recipientCount }).where(eq(snapshots.id, id))
+      }),
+}
+
+export const AdminDigestSnapshotRepositoryLive = layerOverDatabase(
+  AdminDigestSnapshotRepository,
+  members
+)

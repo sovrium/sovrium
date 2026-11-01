@@ -36,12 +36,10 @@ export interface TabItem {
   readonly id: string
   readonly label: string
   /**
-   * The panel's rendered markup, or `undefined` for the panel the URL ADDRESSED.
-   *
-   * That one is already in the document as real markup, so the server stops
-   * serialising it here and the island reads it back out of {@link
-   * TabsIslandProps.ssrHtml} instead — one copy on the wire rather than two
-   *.
+   * The panel's rendered markup. A served page sends none: every panel is in
+   * the document once, as markup or an inert template, and the island reads it
+   * back out of {@link TabsIslandProps.ssrHtml} instead, so it is paid for once
+   * rather than again escaped inside the props.
    */
   readonly content?: string
   readonly disabled?: boolean
@@ -211,8 +209,9 @@ export function TabStrip(input: {
 /**
  * Every panel, each taking its markup from the nearest place that has it.
  *
- * The props' copy first, then the DOCUMENT's (where the panel the URL addressed
- * lives, read back through the `ssrHtml` capture), then one fetched by address.
+ * The props' copy first, then the DOCUMENT's (the open panel's markup and the
+ * unopened ones' templates, read back through the `ssrHtml` capture), then one
+ * fetched by address.
  * On an addressed tab set the first two are absent for every panel but the one
  * the URL named, so the third is the only source the rest ever have — and until
  * it arrives the panel is `pending` rather than empty.

@@ -33,7 +33,8 @@
  * behind a green exit code.
  */
 
-import { printStderr } from '@/infrastructure/logging/cli-output'
+import { defineFlags, flag } from '@/cli/runtime/flag-schema'
+import { stopCommand, withFlagsAsync } from '@/cli/runtime/run-command'
 import { renderChangelogRequest } from './changelog-render'
 import { resolveDocumentFormat, writeDocument } from './document-output'
 import { getCurrentVersion } from './update'
@@ -52,10 +53,7 @@ export interface ChangelogCommandOptions {
 }
 
 /** Stop with a refusal on stderr and exit 1. */
-const refuse = (message: string): never => {
-  printStderr(message)
-  process.exit(1)
-}
+const refuse = (message: string): never => stopCommand(1, message)
 
 /**
  * Handle the `changelog` command.
@@ -77,3 +75,20 @@ export const handleChangelogCommand = async (options: ChangelogCommandOptions): 
   if (outcome.kind === 'refused') return refuse(outcome.reason)
   await writeDocument(outcome.content, options.outputPath, 'Release notes')
 }
+
+/** The flags `sovrium changelog` reads beyond the shared ones. */
+export const changelogFlags = defineFlags({
+  list: flag.switch('--list'),
+  sinceRequested: flag.switch('--since'),
+  since: flag.path('--since'),
+})
+
+/** `sovrium changelog`, as the dispatcher runs it. */
+export const changelogCommand = withFlagsAsync(changelogFlags, ({ flags, ...args }) =>
+  handleChangelogCommand({
+    ...flags,
+    args: args.positionalArgs ?? [],
+    format: args.format,
+    outputPath: args.outputPath,
+  })
+)

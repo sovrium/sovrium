@@ -13,14 +13,14 @@
 import { Effect } from 'effect'
 import { type BucketBinding } from '@/application/ports/services/storage-service'
 import {
+  probeStoredFile,
+  readRecordedFile,
+} from '@/application/use-cases/buckets/recorded-file-read'
+import {
   signedLinkDisplay,
   verifiedDownloadBinding,
 } from '@/application/use-cases/buckets/signed-download-binding'
 import { resolveSignBucket } from '@/application/use-cases/buckets/signed-url-minting'
-import {
-  probeStoredFile,
-  readRecordedFile,
-} from '@/application/use-cases/storage/recorded-file-read'
 import {
   inferMimeFromKey,
   isFramablePreviewKey,
@@ -28,40 +28,24 @@ import {
 } from '@/domain/kernel/identity/mime-types'
 import { isChatAttachmentKey } from '@/domain/kernel/identity/storage-key'
 import { buildContentDisposition } from '@/domain/kernel/url/content-disposition'
-import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { isNotFoundError } from '@/presentation/api/runtime/error-sanitizer'
+import { runHandlerEffect } from '@/presentation/api/runtime/run-effect'
+import { UNTRUSTED_FILE_CSP } from '@/presentation/api/runtime/untrusted-file-headers'
 import type { App } from '@/domain/models/app'
 import type { SignedUrlDisplay } from '@/domain/models/app/buckets/signed-url-service'
 import type { Context } from 'hono'
-
-/**
- * Download a stored object via the configured `StorageService`.
- *
- * Returns an `Either`: `Right` carries the bytes, `Left` carries the storage
- * failure (inspected for not-found vs. hard error by the caller). Centralises
- * the `Effect.gen → provideDomain → Effect.result` boilerplate shared by the
- * file-existence probe and the signed-download stream.
- *
- * Takes the request context because the storage adapter comes from the runtime
- * the running server owns, resolved once at boot — see `provideDomain`.
- */
-export function downloadFromStorage(c: Context, path: string, bucket: BucketBinding) {
-  return Effect.runPromise(provideDomain(c, readRecordedFile(path, bucket)).pipe(Effect.result))
-}
 
 /**
  * Check whether a stored object exists as a download would find it, reading at
  * most its first piece. A chat attachment answers as absent: no bucket route
  * signs or serves one.
  */
-export async function fileExists(c: Context, path: string, bucket: string): Promise<boolean> {
-  if (isChatAttachmentKey(path)) return false
-  const result = await Effect.runPromise(
-    provideDomain(c, probeStoredFile(path, bucket)).pipe(Effect.result)
-  )
-  return result._tag === 'Success'
-}
+export const fileExists = (path: string, bucket: string) =>
+  isChatAttachmentKey(path)
+    ? Effect.succeed(false)
+    : // effect-swallow: an unreadable object is one no signed URL can serve; the caller answers its 404.
+      Effect.map(Effect.result(probeStoredFile(path, bucket)), (read) => read._tag === 'Success')
 
 /**
  * Strip the `<uuid>-` prefix the upload handler prepends, so signed downloads
@@ -108,38 +92,42 @@ function servedHeaders(path: string, display: SignedUrlDisplay | undefined): Hea
     return {
       ...base,
       'Content-Disposition': buildContentDisposition(fileNameOf(path), 'inline'),
-      'Content-Security-Policy': "default-src 'none'; frame-ancestors 'self'",
+      'Content-Security-Policy': `${UNTRUSTED_FILE_CSP}; frame-ancestors 'self'`,
       'X-Frame-Options': 'SAMEORIGIN',
     }
   }
   return {
     ...base,
     'Content-Disposition': buildSignedContentDisposition(path),
-    'Content-Security-Policy': "default-src 'none'",
+    'Content-Security-Policy': UNTRUSTED_FILE_CSP,
   }
 }
 
 /** Download `path` via the StorageService and stream it back to the client. */
-async function streamSignedDownload(
+function streamSignedDownload(
   c: Context,
   path: string,
   bucket: BucketBinding,
   display: SignedUrlDisplay | undefined
-): Promise<Response> {
+): Promise<Response> | Response {
   // A chat attachment is served by the chat's own route only, as if absent here.
   if (isChatAttachmentKey(path)) return notFound(c, 'File not found')
-  const result = await downloadFromStorage(c, path, bucket)
-  if (result._tag === 'Failure') {
-    const { cause } = result.failure as { readonly cause?: unknown }
-    const isNotFound = isNotFoundError(cause)
-    return isNotFound
-      ? notFound(c, 'File not found')
-      : c.json(storageErrorBody('Download failed', 'STORAGE_ERROR'), 500)
-  }
-  return new Response(Uint8Array.from(result.success), {
-    status: 200,
-    headers: servedHeaders(path, display),
-  })
+  return runHandlerEffect(
+    c,
+    Effect.match(readRecordedFile(path, bucket), {
+      onFailure: (failure) => {
+        const { cause } = failure as { readonly cause?: unknown }
+        return isNotFoundError(cause)
+          ? notFound(c, 'File not found')
+          : c.json(storageErrorBody('Download failed', 'STORAGE_ERROR'), 500)
+      },
+      onSuccess: (bytes) =>
+        new Response(Uint8Array.from(bytes), {
+          status: 200,
+          headers: servedHeaders(path, display),
+        }),
+    })
+  )
 }
 
 /**
@@ -150,7 +138,7 @@ async function streamSignedDownload(
  * the proof of authorization.
  */
 export function createHandleSignedServe(app: App) {
-  return async (c: Context) => {
+  return (c: Context): Promise<Response> | Response => {
     const bucketName = c.req.param('bucketName')
     if (!resolveSignBucket(app, bucketName) || bucketName === undefined) {
       return notFound(c, 'Bucket not found')

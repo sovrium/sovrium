@@ -1,6 +1,6 @@
-# Migrating From Baserow, Retool Database, Webflow CMS and Zite
+# Migrating From Baserow, Retool Database, Supabase, Webflow CMS and Zite
 
-> Bring a Baserow workspace or database, a Retool Database, a Webflow site's CMS collections or a Zite database across, typed from the source's own schema.
+> Bring a Baserow workspace or database, a Retool Database, a Supabase project, a Webflow site's CMS collections or a Zite database across, typed from the source's own schema.
 
 Each of these sources follows the two stages of [Migrating From Another Tool](/en/docs/cli-import). The summary of every table source is on [Migrating Tables and Records](/en/docs/cli-import-tables).
 
@@ -35,6 +35,37 @@ sovrium import fetch 'retool-db:$env.RETOOL_DB_URL'
 - A one-column primary key keys the records and becomes `source_id`; a one-column foreign key becomes a `relationship` to the table it references; a one-column `UNIQUE` constraint is kept as `unique`. A table with no primary key is keyed by row position.
 
 A Retool workflow converts from its **Export to JSON** file: see [Migrating Automations](/en/docs/cli-import-automations).
+
+## Supabase
+
+A Supabase project brings four things across: the tables of its `public` schema with their rows, its row-level security policies, its users and its storage buckets. Three variables are read from the environment, under the names a Supabase project's `.env` already uses; none of them is ever written to the snapshot, the config, a seed file, the report or the terminal.
+
+```bash
+export SUPABASE_DB_URL='postgresql://postgres.<ref>:<password>@<pooler host>:5432/postgres'
+export SUPABASE_URL=https://<ref>.supabase.co
+export SUPABASE_SERVICE_ROLE_KEY=…
+sovrium import fetch 'supabase:$env.SUPABASE_DB_URL'
+sovrium import .sovrium-imports/supabase-… --config app.yaml --write --apply
+```
+
+- **The database** is read as a Retool Database is, inside one read-only transaction: the catalogue and rows of `public`, whether each table has row-level security on, its policies from `pg_policies`, the users from `auth.users` and the buckets and object list from `storage`. Password hashes are never read.
+- **The files** are downloaded through the Storage API with the service-role key, by `GET` only. `SUPABASE_URL` must be `https` (plain `http` is accepted for a loopback host only), and one holding a user name, a password, a path or a query is refused. With `--skip-attachments` the buckets are read without their files, and neither storage variable is needed.
+- **Types** go through the Retool Database table, plus two of Supabase's own: an enum column becomes a single select, and a column that references `auth.users` becomes a `user` field, seeded with the imported account so a row keeps its owner. Supabase's own schemas (`auth`, `storage`, `realtime`, …) are never imported as tables.
+
+**Row-level security** becomes `permissions` and `rowLevelPermissions` through a closed table, and anything outside it stays closed:
+
+| Policy in Supabase                                                                            | In Sovrium                                                                           |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `true`, for `anon` or `public`                                                                | the operation open to `all`                                                          |
+| `true` for `authenticated`, or `auth.role() = 'authenticated'`                                | the operation open to `authenticated`                                                |
+| `auth.uid() = owner_id`, `owner_id = auth.uid()` or `(select auth.uid()) = owner_id`          | `authenticated`, with a row rule `owner_id` equal to `$currentUser.id`               |
+| anything else: another function, a sub-select, a literal, a restrictive policy, a custom role | not translated: the operation is closed to `admin`, and the report quotes the policy |
+
+`SELECT`, `INSERT`, `UPDATE` and `DELETE` become `read`, `create`, `update` and `delete`. An operation no policy covers is closed to `admin`, as Supabase closes it, and so is every operation of a table that had row-level security switched **off**, which Supabase served to anyone holding the project's public key: open it deliberately. To limit a table to the people who own its rows, write the row rule shown in the row-level permissions section of [Table Permissions](/en/docs/table-permissions).
+
+**Users** become accounts with the `member` role. A user who confirmed their email is seeded with no password and no invitation; one Supabase invited who never accepted is seeded as a pending invitation. Anonymous users, users with no email and deleted users are left out and counted. **No password comes across**: Supabase's password hashes cannot be verified here, so each person sets a password by resetting it, or by accepting their invitation.
+
+**Buckets** become `buckets:` entries keeping their visibility, size limit and accepted types; their files are written under `seed/import/buckets/<bucket>/`, and `--apply` stores them in the instance's own buckets under the same paths. Storage policies are listed in the report, not translated. `--only auth` and `--only buckets` import one of these parts alone; access rules always come with their tables.
 
 ## Webflow CMS
 

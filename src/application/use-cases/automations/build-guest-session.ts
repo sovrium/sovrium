@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { servesNoAuthVisitor } from '@/domain/models/app/auth/anonymous-grant-service'
 import { GUEST_USER_ID, SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { SIGNED_OUT_VISITOR_ROLE } from '@/domain/models/app/auth/permission-evaluation'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -56,10 +57,16 @@ export const buildSystemSession = (): UserSession => buildSyntheticSession(SYSTE
 /**
  * The reader the records API reads a signed-out visitor as: a guest session
  * under the visitor role, or — in an app without sign-in, where every caller is
- * alike — the admin role every page reads with.
+ * alike — the `guest` placeholder the records API serves there, which holds
+ * only what a table opens with `'all'`. The operator console mounted into an
+ * app reads with the admin role: the host app's sign-in admitted its caller.
  */
 export const buildSignedOutReader = (app: Pick<App, 'auth'>) => ({
   session: buildGuestSession(),
-  role: app.auth === undefined ? 'admin' : SIGNED_OUT_VISITOR_ROLE,
+  role: servesNoAuthVisitor(app)
+    ? GUEST_USER_ID
+    : app.auth === undefined
+      ? 'admin'
+      : SIGNED_OUT_VISITOR_ROLE,
   groups: [] as readonly string[],
 })

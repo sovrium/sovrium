@@ -35,7 +35,7 @@ export const systemRecordWithText = (
     ? record
     : withRecordTextFields(
         record,
-        isoDateTextFieldsOf(record, parseSovriumTimezone().zoneId),
+        isoDateTextFieldsOf(record, parseSovriumTimezone(process.env).zoneId),
         context.locale,
         renderNow()
       )

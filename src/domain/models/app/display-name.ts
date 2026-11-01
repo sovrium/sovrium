@@ -38,7 +38,7 @@ const DISPLAY_NAME_MAX_LENGTH = 100
 export const DisplayNameSchema = Schema.String.pipe(
   Schema.annotate({
     title: 'Display Name',
-    description: `The name people read in the app's chrome — the operator console, the sign-in card, the page title — where \`name\` stays the identifier. One line, at most ${DISPLAY_NAME_MAX_LENGTH} characters. When absent, those surfaces print \`name\`.`,
+    description: `The name people read in the app's chrome (the operator console, the sign-in card, the page title), where \`name\` stays the identifier. One line, at most ${DISPLAY_NAME_MAX_LENGTH} characters. When absent, those surfaces print \`name\`.`,
     examples: ['Acme CRM', 'Café Dupont', "Atelier d'Anna"],
   }),
   Schema.check(

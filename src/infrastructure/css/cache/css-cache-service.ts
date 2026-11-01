@@ -10,6 +10,7 @@ import { dirname } from 'node:path'
 import { Data, Effect, Ref, pipe } from 'effect'
 import { defaultPrecompiledCssPath } from '@/domain/models/process-env/data-dir'
 import { designCacheKey } from '@/infrastructure/css/cache/design-cache-keys'
+import { ensurePrivateDirectory } from '@/infrastructure/filesystem/private-modes'
 import { logWarning } from '@/infrastructure/logging/logger'
 import type { Design } from '@/domain/models/app/design'
 
@@ -49,7 +50,7 @@ export interface CompiledCSS {
  * seam both verbs resolve the path through, so they cannot disagree.
  */
 export const getPrecompiledCSSPath = (): string =>
-  process.env.SOVRIUM_CSS_FILE || defaultPrecompiledCssPath()
+  process.env.SOVRIUM_CSS_FILE || defaultPrecompiledCssPath(process.env)
 
 /** What `/*! sovrium-css <hash> *\/`, the first line of a pre-compiled file, opens with. */
 const PRECOMPILED_STAMP_PREFIX = '/*! sovrium-css '
@@ -145,7 +146,11 @@ export const writePrecompiledCSS = (
     const dir = dirname(cssPath)
     yield* Effect.tryPromise({
       try: async () => {
-        await mkdir(dir, { recursive: true })
+        // The default path is inside the data directory, which a build can be the
+        // first to create: it is created private, as every other writer makes it.
+        // A path the operator named keeps the ordinary mode.
+        if (process.env.SOVRIUM_CSS_FILE) await mkdir(dir, { recursive: true })
+        else ensurePrivateDirectory(dir)
         await Bun.write(cssPath, stampPrecompiledCSS(css, stamp))
       },
       catch: (cause) =>

@@ -14,8 +14,8 @@ import {
   analyticsTopPagesResponseSchema,
   analyticsTopReferrersResponseSchema,
 } from '@/domain/models/api/analytics/analytics'
-import { successResponseSchema } from '@/domain/models/api/combinators/common'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { successResponseSchema } from '@/domain/models/api/common'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   effectJsonBody,
   effectJsonResponse,

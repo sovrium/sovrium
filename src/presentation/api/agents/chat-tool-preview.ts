@@ -26,6 +26,7 @@
  * says so when it was.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { CHAT_TOOL_PREVIEW_MAX_CHARS } from '@/domain/models/api/ai/chat'
 import { toolSafeTableName } from '@/domain/models/app/auth/ai-access'
 import { projectAppTables, readableColumnsForTable } from './chat-table-projection'
@@ -54,9 +55,6 @@ export const toolPreview = (text: string): ToolPreview => {
   const end = splitsAPair ? CHAT_TOOL_PREVIEW_MAX_CHARS - 1 : CHAT_TOOL_PREVIEW_MAX_CHARS
   return { text: text.slice(0, end), truncated: true }
 }
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** `values` keeping only the fields in `readable`. */
 const keepReadable = (

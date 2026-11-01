@@ -56,7 +56,7 @@
  */
 
 import { Schema } from 'effect'
-import { uri, uuid } from '@/domain/models/api/combinators/formats'
+import { uri, uuid } from '@/domain/kernel/config-parsing/formats'
 
 /**
  * The shape a request id takes on this server: the one `X-Request-Id` admits
@@ -69,7 +69,7 @@ const REQUEST_ID_PATTERN = /^[\w\-=]{1,255}$/
 export const reportRequestParamsSchema = Schema.Struct({
   requestId: Schema.String.annotate({
     description:
-      'The request id an internal error was answered under — the `requestId` of its error body and its `X-Request-Id` header',
+      'The request id an internal error was answered under: the `requestId` of its error body and its `X-Request-Id` header',
   }).pipe(
     Schema.check(
       Schema.makeFilter((value: string) =>

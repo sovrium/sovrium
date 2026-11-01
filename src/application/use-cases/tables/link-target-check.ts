@@ -43,6 +43,7 @@ import { DatabaseError, ForeignKeyViolationError } from '@/domain/errors'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { hasReadPermissionForCaller } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import {
   accountIdsOf,
   userListFieldNames,
@@ -80,7 +81,7 @@ type Admitted = ReadonlySet<string> | 'all'
  * one-to-one hold one, many-to-many a list. A one-to-many holds nothing.
  */
 const linkFieldsOf = (app: App, tableName: string): readonly LinkField[] =>
-  (app.tables?.find((t) => t.name === tableName)?.fields ?? []).flatMap((field) => {
+  (findTableByName(app.tables, tableName)?.fields ?? []).flatMap((field) => {
     const candidate = field as {
       readonly name: string
       readonly type: string
@@ -222,7 +223,7 @@ export const namedAccounts = (
   tableName: string,
   rows: readonly Readonly<Record<string, unknown>>[]
 ): readonly AccountReference[] =>
-  userListFieldNames(app?.tables?.find((t) => t.name === tableName)?.fields).flatMap((field) => {
+  userListFieldNames(findTableByName(app?.tables, tableName)?.fields).flatMap((field) => {
     const ids = [...new Set(rows.flatMap((row) => accountsNamed(row, field)))]
     return ids.length === 0 ? [] : [{ field, ids }]
   })
@@ -263,7 +264,7 @@ const refuseUnknownAccounts = (
   writes: readonly LinkTargetWrite[]
 ): Effect.Effect<void, ForeignKeyViolationError | DatabaseError, AuthRepository> =>
   Effect.gen(function* () {
-    const names = userListFieldNames(app.tables?.find((t) => t.name === tableName)?.fields)
+    const names = userListFieldNames(findTableByName(app.tables, tableName)?.fields)
     const ids = [
       ...new Set(
         writes.flatMap((write) => names.flatMap((name) => accountsNamed(write.fields, name)))
@@ -306,7 +307,7 @@ export const refuseUnreadableLinkTargets = (input: {
     if (fields.length === 0) return
     const targets = namedTargets(fields, writes)
     const verdicts = yield* Effect.forEach([...targets], ([relatedTable, target]) => {
-      const related = app.tables?.find((t) => t.name === relatedTable)
+      const related = findTableByName(app.tables, relatedTable)
       if (related === undefined) return Effect.succeed([relatedTable, 'all' as Admitted] as const)
       return admittedKeys(app, related, target.keys, {
         session,

@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * A grid deriving its answer columns from a form (`columnsFrom: { form }`) must
  * name a form the app declares. A literal name is judged here, at the decode
@@ -15,9 +17,6 @@
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every object at any depth, with its location. */
 function collectNodes(node: unknown, path: string): readonly (readonly [RawRecord, string])[] {

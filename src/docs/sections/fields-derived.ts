@@ -148,7 +148,7 @@ export const derivedFieldArticles: readonly DocArticle[] = [
     slug: 'ai-fields',
     title: 'AI Fields',
     description:
-      'The seven AI field types — ai-generate, ai-summary, ai-categorize, ai-extract, ai-sentiment, ai-tag and ai-translate — that compute a value from other fields with a language model.',
+      'The seven AI field types (ai-generate, ai-summary, ai-categorize, ai-extract, ai-sentiment, ai-tag, ai-translate) that compute a value from other fields.',
     keywords: [
       'sovrium',
       'ai fields',

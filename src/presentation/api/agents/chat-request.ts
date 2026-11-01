@@ -15,11 +15,12 @@ import { type ChatMessagePart } from '@/domain/models/api/ai/chat'
 import { type ContextPageScope } from '@/domain/models/app/agents/ai-chat-context'
 import {
   checkChatRateLimit,
+  checkUserChatRateLimit,
   type ChatRateLimitDecision,
-} from '@/infrastructure/process/chat-rate-limit'
-import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
+} from '@/infrastructure/ai/agents/chat-rate-limit'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { rateLimitedResponse } from '@/presentation/api/runtime/rate-limit-response'
 import type { Context } from 'hono'
 
 /** A decoded chat request. */
@@ -86,9 +87,9 @@ export const aiDisabledResponse = (c: Context): Response | undefined => {
 /**
  * Run the per-user chat rate-limit gate for one request (the AI chat rate requirement-*).
  *
- * Keyed by the acting user's id so different users have independent counters
- * A no-op unless `AI_CHAT_RATE_LIMIT` is set, so the
- * rest of the chat specs (which never set it) are unaffected. Returns a 429
+ * Keyed by the acting user's id so different users have independent counters.
+ * Unset, `AI_CHAT_RATE_LIMIT` caps a signed-in user at 60 messages a window on a
+ * hosted provider and not at all on a local model; `0` lifts it. Returns a 429
  * `Response` (with `Retry-After`) when the request must be rejected, or the
  * limiter decision when the request may proceed — the decision carries the
  * remaining quota surfaced as `X-RateLimit-Remaining` on the 200 response.
@@ -97,7 +98,12 @@ export const applyChatRateLimit = (
   c: Context
 ): { readonly rejected: Response } | { readonly decision: ChatRateLimitDecision } => {
   const session = getSessionContext(c)
-  const principalKey = session?.userId ?? 'anonymous'
-  const decision = checkChatRateLimit(principalKey)
+  // A signed-in user's chat takes the hosted-provider default; the shared
+  // anonymous key keeps the explicit `AI_CHAT_RATE_LIMIT` only (an app without
+  // `auth` is bounded per client address by the anonymous limit).
+  const decision =
+    session?.userId === undefined
+      ? checkChatRateLimit('anonymous')
+      : checkUserChatRateLimit(session.userId)
   return decision.limited ? { rejected: rateLimitedResponse(c, decision.retryAfter) } : { decision }
 }

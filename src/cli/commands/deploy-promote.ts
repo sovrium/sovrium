@@ -13,6 +13,7 @@
 
 import { createHash } from 'node:crypto'
 import { Effect, Option, Schema } from 'effect'
+import { CliRefusal } from '@/cli/runtime/run-command'
 import {
   deployMissingEnvRefusalSchema,
   deployRefusalSchema,
@@ -22,7 +23,7 @@ import {
   previewNotLiveRefusalSchema,
   promoteRequestSchema,
 } from '@/domain/models/api/automations/cloud/preview'
-import { CliRefusal, callCloudThroughBusy, describeUnreachable } from './cloud-session'
+import { callCloudThroughBusy, describeUnreachable } from './cloud-session'
 import type { SignedInCloud } from './cloud-sign-in'
 import type { DeployResponse } from '@/domain/models/api/automations/automations'
 

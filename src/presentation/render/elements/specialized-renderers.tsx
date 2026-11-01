@@ -9,6 +9,7 @@ import { type ReactElement } from 'react'
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { type Design } from '@/domain/models/app/design'
 import { type Languages } from '@/domain/models/app/languages'
+import { logWarningOnce } from '@/infrastructure/logging/logger'
 import { LanguageSwitcher } from '@/presentation/render/page/language-switcher'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { getAnimationConfig, calculateStaggerDelay } from './html-element-helpers'
@@ -36,11 +37,7 @@ export function renderLanguageSwitcher(
   designStyles?: ComponentDesignResolution
 ): ReactElement {
   if (!languages) {
-    // DEVELOPMENT WARNING: Keep console.warn for development debugging
-    // This warning alerts developers when language-switcher component is used without languages config
-    // Safe to keep - helps identify configuration issues during development
-    // eslint-disable-next-line no-console -- SSR component (presentation-component) cannot import the infrastructure Logger per layer boundaries; dev-only config warning
-    console.warn('language-switcher component requires languages configuration')
+    logWarningOnce('language-switcher component requires languages configuration')
     return (
       <div
         style={{

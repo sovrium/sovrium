@@ -172,7 +172,13 @@ function commentsTab(table: Table, input: GenericSheetInput) {
   if (table.comments === undefined || !isSignedIn(input)) return undefined
   const { currentLang, languages } = input.locale
   const placeholder = resolveInterpreterString('comments.placeholder', currentLang, languages)
-  const fields = resolveCommentsFields(undefined, { table: table.name }, {}, { placeholder })
+  const emptyText = resolveInterpreterString('comments.noComments', currentLang, languages)
+  const fields = resolveCommentsFields(
+    undefined,
+    { table: table.name },
+    {},
+    { placeholder, emptyText }
+  )
   const { recordId: _unbound, ...props } = buildCommentThreadIslandProps({
     fields: { ...fields, sort: 'oldest' },
     elementProps: {},

@@ -10,7 +10,7 @@ import { Schema } from 'effect'
 /**
  * Built-in Analytics Configuration Schema
  *
- * Configures the first-party, privacy-friendly analytics engine.
+ * Configures the first-party analytics engine.
  * When this property exists in the app config, analytics is enabled.
  * When omitted, no analytics endpoints are available.
  *
@@ -20,9 +20,11 @@ import { Schema } from 'effect'
  * - `{ ... }` — Enable analytics with custom options
  *
  * Design principles:
- * - No cookies (visitor hashing via SHA-256)
+ * - No cookies: a server-computed visitor identifier, rotated daily, counts
+ *   unique visitors
  * - No external dependencies
- * - GDPR-friendly by default (respectDoNotTrack: true)
+ * - Honors Do Not Track and Global Privacy Control by default
+ *   (respectDoNotTrack: true, respectGlobalPrivacyControl: true)
  * - Configurable data retention
  *
  * @example
@@ -71,7 +73,7 @@ export const BuiltInAnalyticsSchema = Schema.Union([
       Schema.Array(
         Schema.String.annotate({
           description:
-            'One glob pattern. A path matching it records no event — `/admin/*` excludes everything beneath `/admin`.',
+            'One glob pattern. A path matching it records no event: `/admin/*` excludes everything beneath `/admin`.',
         })
       ).pipe(
         Schema.annotate({
@@ -85,12 +87,44 @@ export const BuiltInAnalyticsSchema = Schema.Union([
      * Whether to honor the Do Not Track browser setting (optional).
      *
      * When true, visitors with DNT:1 header will not be tracked.
-     * Defaults to true for privacy compliance.
+     * Defaults to true.
      */
     respectDoNotTrack: Schema.optional(
       Schema.Boolean.annotate({
         description: 'Records nothing for a visitor whose browser asks not to be tracked.',
         defaultNote: 'true',
+      })
+    ),
+
+    /**
+     * Whether to honor the Global Privacy Control signal (optional).
+     *
+     * Sibling of `respectDoNotTrack`. Only the exact `Sec-GPC: 1` request header
+     * (and `navigator.globalPrivacyControl === true` in the tracker) is the
+     * signal. Defaults to true.
+     */
+    respectGlobalPrivacyControl: Schema.optional(
+      Schema.Boolean.annotate({
+        description:
+          'Records nothing for a visitor whose browser sends the Global Privacy Control signal (`Sec-GPC: 1`).',
+        defaultNote: 'true',
+      })
+    ),
+
+    /**
+     * Which fields each analytics event stores (optional).
+     *
+     * `audience-only` (the default) keeps what audience measurement needs and
+     * drops the rest on the server, whatever the tracker sends. `full` stores
+     * every field. Switching to `audience-only` also strips the now-excluded
+     * fields from the events already stored, once, at the next start.
+     */
+    profile: Schema.optional(
+      Schema.Literals(['audience-only', 'full']).annotate({
+        title: 'Analytics Profile',
+        description:
+          'Which fields each event stores. `audience-only` keeps page paths without their query string, the referrer host, device, browser, operating system and language, and stores no UTM value, screen size or page title; outbound clicks keep their destination without its query string, and short-link clicks, QR scans and form submissions carry one shared visitor identifier instead of a per-visitor one. `full` also stores UTM values, screen size, page titles, full referrers and full destinations, with a per-visitor identifier on short-link clicks, QR scans and form submissions too.',
+        defaultNote: 'audience-only',
       })
     ),
 
@@ -116,7 +150,7 @@ export const BuiltInAnalyticsSchema = Schema.Union([
     identifier: 'BuiltInAnalytics',
     title: 'Built-in Analytics Configuration',
     description:
-      'First-party, privacy-friendly analytics engine. No cookies, no external dependencies, GDPR-compliant.',
+      "First-party analytics engine. It sets no cookies and calls no external service; whether visitors must consent before it runs is the operator's to assess.",
     examples: [
       true,
       {

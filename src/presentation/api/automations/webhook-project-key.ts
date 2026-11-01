@@ -5,15 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Option, Result } from 'effect'
+import { Effect, Option, Result } from 'effect'
 import {
   findIngestProject,
   type IngestProject,
   type IngestProjectSource,
 } from '@/application/use-cases/automations/find-ingest-project'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
-import type { Context } from 'hono'
+import type { DomainServices } from '@/infrastructure/logging/request-effect'
 
 /**
  * Who is sending, for a webhook declaring `auth: { type: projectKey }` — the
@@ -121,29 +120,25 @@ const fromMemory = (
 }
 
 /** The sender holding `key` in `source`, from memory or the table. */
-export const resolveWebhookProject = async (
-  c: Context,
-  app: App,
-  source: IngestProjectSource,
-  key: string
-): Promise<ProjectLookup> => {
-  const memory = memoryOf(app)
-  const cacheKey = cacheKeyOf(source, key)
-  const now = Date.now()
-  const remembered = fromMemory(memory, cacheKey, now)
-  if (remembered !== undefined) return remembered
-  const lookup = await runOnRequest(c, findIngestProject(source, key))
-  if (Result.isFailure(lookup)) return { status: 'failed', failure: lookup.failure }
-  if (Option.isNone(lookup.success)) {
-    memory.found.delete(cacheKey)
-    rememberBounded(memory.unknown, cacheKey, now + UNKNOWN_TTL_MS)
-    return { status: 'unknown' }
-  }
-  const project = lookup.success.value
-  memory.unknown.delete(cacheKey)
-  rememberBounded(memory.found, cacheKey, { project, foundAt: now })
-  return { status: 'found', project }
-}
+export const resolveWebhookProject = (app: App, source: IngestProjectSource, key: string) =>
+  Effect.gen(function* (): Effect.fn.Return<ProjectLookup, never, DomainServices> {
+    const memory = memoryOf(app)
+    const cacheKey = cacheKeyOf(source, key)
+    const now = Date.now()
+    const remembered = fromMemory(memory, cacheKey, now)
+    if (remembered !== undefined) return remembered
+    const lookup = yield* Effect.result(findIngestProject(source, key))
+    if (Result.isFailure(lookup)) return { status: 'failed', failure: lookup.failure }
+    if (Option.isNone(lookup.success)) {
+      memory.found.delete(cacheKey)
+      rememberBounded(memory.unknown, cacheKey, now + UNKNOWN_TTL_MS)
+      return { status: 'unknown' }
+    }
+    const project = lookup.success.value
+    memory.unknown.delete(cacheKey)
+    rememberBounded(memory.found, cacheKey, { project, foundAt: now })
+    return { status: 'found', project }
+  })
 
 /**
  * Whether the `<project>` segment of a Sentry envelope path names this sender:

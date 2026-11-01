@@ -5,16 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent } from '@/library/manifest/block-kit'
-import { defineLibraryEntry } from '@/library/manifest/define'
-import { brandRow, crumbs, placeholderContent } from '@/library/manifest/navigation-block-kit'
+import { asComponent } from '@/library/kit/block-kit'
+import { brandRow, crumbs, placeholderContent } from '@/library/kit/navigation-block-kit'
 import {
   SHELL_NOTES,
   shellHeader,
   shellInset,
   shellLayout,
   shellSidebar,
-} from '@/library/manifest/sidebar-shell-block-kit'
+} from '@/library/kit/sidebar-shell-block-kit'
+import { defineLibraryEntry } from '@/library/manifest/define'
 
 type Section = readonly [title: string, slug: string, entries: readonly string[]]
 

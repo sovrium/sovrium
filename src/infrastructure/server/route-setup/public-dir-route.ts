@@ -87,12 +87,21 @@ export async function setupPublicDirRoute(
     // genuinely-unknown types. These are trusted, app-authored public files, so
     // (unlike untrusted bucket uploads) SVG is served inline with its real type;
     // the upload path's attachment/CSP gate is intentionally NOT applied here.
+    //
+    // The whole-file answer states what a player probes for. Hono answers HEAD by
+    // discarding this body, so its length has to be written out, and only there:
+    // on GET the runtime frames the file itself and drops a handler's length. A
+    // `Range` GET gets no `Accept-Ranges` from here, because the runtime writes
+    // its own on the 206 it answers and a second one would be a repeated header.
     const file = Bun.file(targetRealpath)
     if (await file.exists()) {
+      const isHead = c.req.method === 'HEAD'
       return new Response(file, {
         headers: {
           'Content-Type': inferMimeFromKey(targetRealpath),
           'Cache-Control': getCacheControlHeader(),
+          ...(isHead || c.req.header('Range') === undefined ? { 'Accept-Ranges': 'bytes' } : {}),
+          ...(isHead ? { 'Content-Length': String(file.size) } : {}),
         },
       })
     }

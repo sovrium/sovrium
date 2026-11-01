@@ -36,7 +36,8 @@ import {
   type AutomationPauseDatabaseError,
 } from '@/application/ports/repositories/automations/automation-pause-repository'
 import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
-import { EmitAuditEvent, ListAuditEvents } from '@/application/use-cases/admin/audit-log/emit'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { emitAuditEvent, listAuditEvents } from '@/application/use-cases/admin/audit-log-emit'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
   AUTO_PAUSE_REASON,
@@ -54,7 +55,7 @@ import type { App } from '@/domain/models/app'
 const lastResumedAt = (
   automationName: string
 ): Effect.Effect<Date | undefined, never, AuditLogRepository> =>
-  ListAuditEvents({ action: AUDIT_ACTIONS.AUTOMATION_RESUMED, resourceId: automationName }).pipe(
+  listAuditEvents({ action: AUDIT_ACTIONS.AUTOMATION_RESUMED, resourceId: automationName }).pipe(
     Effect.map((entries) => {
       const newest = entries[0]
       return newest === undefined ? undefined : new Date(newest.timestamp)
@@ -66,7 +67,7 @@ const auditAutoPause = (
   automationName: string,
   threshold: number
 ): Effect.Effect<void, never, AuditLogRepository> =>
-  EmitAuditEvent({
+  emitAuditEvent({
     action: AUDIT_ACTIONS.AUTOMATION_AUTO_PAUSED,
     actor: { id: null, type: 'system', role: 'system' },
     resourceId: automationName,
@@ -112,7 +113,6 @@ const pauseAndAnnounce = (
 export const autoPauseOnFailures = (input: {
   readonly app: App
   readonly automationName: string
-  readonly env?: Readonly<Record<string, string | undefined>> | undefined
 }): Effect.Effect<
   void,
   never,
@@ -123,7 +123,7 @@ export const autoPauseOnFailures = (input: {
   | EmailSender
 > =>
   Effect.gen(function* () {
-    const threshold = parseSovriumAutomationAutopause(input.env ?? process.env)
+    const threshold = parseSovriumAutomationAutopause(yield* ProcessEnv)
     if (threshold === undefined) return
     const resumedAt = yield* lastResumedAt(input.automationName)
     const runs = yield* AutomationRunOutcomeRepository

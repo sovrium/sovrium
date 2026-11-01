@@ -17,9 +17,10 @@
  *                                           knowledge (admin).
  *  - `GET  /api/ai/agents/:name/config`   — agent knowledge config readback.
  *
- * Auth: `api-routes.ts` applies `authMiddleware` to `/api/ai/rag/REBUILD` and to
- * `/api/ai/agents/*` — NOT to `/api/ai/rag/*`. An older version of this comment
- * claimed the whole prefix was covered; it never was. `rebuild` carries its own
+ * Auth: `guardRagRoutes` in `compose-api-routes.ts` attaches the session with
+ * `authMiddleware` on `rebuild`, `search`, `status` and `config` and on
+ * `/api/ai/agents/*` — never on a `/api/ai/rag/*` wildcard — and chains
+ * `requireAuth()` only on `status` and `config`. `rebuild` carries its own
  * gate (`authorizeRebuild`: a session AND the admin role, an AI RAG agent spec,
  * so the 404 is distinguishable from a 401 "not signed in"), and `search` now
  * carries the two in-file gates described below.
@@ -44,6 +45,13 @@
  *     under the running config; a chunk naming none (written before chunks
  *     recorded them) or naming a field no longer declared is never served.
  *
+ * DOCUMENTS. A knowledge document is not tied to a table, so it has no read
+ *   grant of its own: it is read through the agents that may retrieve it. A
+ *   document chunk (search) or a document path (status) is served only to a
+ *   caller who may trigger at least one agent that may retrieve that document,
+ *   by the rule a chat turn follows (`someAgentRetrievesDocument`). A document
+ *   no agent may retrieve is served to no one.
+ *
  * `config` and `status` require a session (`requireAuth`, 401) when the app
  * configures auth: they name the knowledge directory's files and the model. The agent
  * readback `agents/:name/config` takes the agent's trigger gate, as
@@ -53,46 +61,37 @@
 import { Effect } from 'effect'
 import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import { AiService } from '@/application/ports/services/ai-service'
+import {
+  listKnowledgeDocuments,
+  rebuildAgentKnowledge,
+} from '@/application/use-cases/agents/agent-knowledge-index'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import {
+  agentKnowledgeConfigResponseSchema,
+  ragConfigResponseSchema,
+  ragRebuildResponseSchema,
+  ragStatusResponseSchema,
+} from '@/domain/models/api/ai/rag'
+import { ragSearchResponseSchema } from '@/domain/models/api/ai/search'
+import { ApiErrorCode } from '@/domain/models/api/error'
+import {
+  documentPathOf,
+  someAgentRetrievesDocument,
+} from '@/domain/models/app/agents/knowledge-citation-service'
 import { resolveRagConfig } from '@/domain/models/app/agents/rag-config'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import {
-  discoverDocuments,
-  resolveKnowledgeDir,
-  runSyncDocuments,
-} from '@/infrastructure/ai/document-sync'
-import { RagSyncLayer } from '@/infrastructure/ai/embed-pipeline'
-import { runSyncKnowledge } from '@/infrastructure/ai/knowledge-sync'
-import { AiLive } from '@/infrastructure/ai/layer'
-import { filterRagKnowledgeByRole } from '@/infrastructure/database/ai-knowledge-listener'
-import {
-  requireDomainContext,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
-import { mayTriggerAgent } from '@/presentation/api/agents/agent-trigger-guard'
+import { logError } from '@/infrastructure/logging/logger'
+import { judgeAgentTriggers } from '@/presentation/api/agents/agent-trigger-guard'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { answerFailures, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
 import { resolveUserPrincipal } from './chat-read-scope'
+import { withChatTurnReads } from './chat-reader-rows'
 import { filterHitsThroughReadGate, filterServableHits } from './rag-search-read-gate'
+import { providerNotConfigured, searchRateLimited } from './rag-search-refusals'
 import type { App } from '@/domain/models/app'
-import type { RagAgent } from '@/infrastructure/ai/rag-agent-input'
+import type { Agent } from '@/domain/models/app/agents/agent'
 import type { Hono, Context } from 'hono'
-
-/** Build the knowledge-sync input for a list of RAG agents. */
-const toSyncInput = (agents: ReadonlyArray<RagAgent>) =>
-  agents
-    .map((agent) => ({
-      name: agent.name,
-      tables: (agent.knowledge?.tables ?? []).map((t) => ({
-        table: t.table,
-        fields: t.fields,
-        ...(t.fieldGroups !== undefined ? { fieldGroups: t.fieldGroups } : {}),
-        ...(t.filter !== undefined ? { filter: t.filter } : {}),
-      })),
-    }))
-    .filter((agent) => agent.tables.length > 0)
 
 /**
  * Refuse a search from a caller with no session, when the app configures auth.
@@ -119,27 +118,65 @@ const requireSearchSession = (c: Context, app: App | undefined): Response | unde
 }
 
 /** `GET /api/ai/rag/config` — resolved RAG configuration. */
-const handleConfig = async (c: Context): Promise<Response> => {
-  const program = Effect.gen(function* () {
-    const ai = yield* AiService
-    return resolveRagConfig(process.env, ai.embeddingModel())
-  }).pipe(Effect.provide(AiLive))
-  const config = await runRequestEffect(c, program)
-  return c.json(config)
+const handleConfig = (c: Context): Promise<Response> =>
+  runHandlerEffect(
+    c,
+    Effect.gen(function* () {
+      const ai = yield* AiService
+      return shapedJson(
+        c,
+        resolveRagConfig(process.env, ai.embeddingModel()),
+        ragConfigResponseSchema
+      )
+    })
+  )
+
+/** The declared agents this request's caller may trigger, with one role lookup. */
+const reachableAgents = (c: Context, app: App | undefined) => {
+  const agents = app?.agents ?? []
+  if (agents.length === 0) return Effect.succeed<readonly Agent[]>([])
+  return Effect.map(judgeAgentTriggers(c, agents, app), (verdicts) =>
+    agents.filter((_, index) => verdicts[index] === true)
+  )
 }
 
 /**
- * `GET /api/ai/rag/status` — discovered knowledge documents.
+ * Keep a document chunk only when one of `agents` may retrieve its document;
+ * a table chunk is left to the table read gate.
+ */
+const withinAgentReach = <T extends { readonly sourceRef: string | null }>(
+  agents: readonly Agent[],
+  results: readonly T[]
+): readonly T[] =>
+  results.filter((result) => {
+    const path = documentPathOf(result.sourceRef)
+    return path === undefined || someAgentRetrievesDocument(agents, path)
+  })
+
+/**
+ * `GET /api/ai/rag/status` — the knowledge documents the caller may read.
  *
- * Lists every supported document file found in `AI_KNOWLEDGE_DIR`
- * Unsupported extensions are excluded by
+ * Lists the supported document files found in `AI_KNOWLEDGE_DIR` that an agent
+ * the caller may trigger may retrieve. Unsupported extensions are excluded by
  * `discoverDocuments`. A missing directory yields an empty list.
  */
-const handleStatus = async (c: Context): Promise<Response> => {
-  const dir = resolveKnowledgeDir(process.env)
-  const documents = await discoverDocuments(dir).catch((): ReadonlyArray<{ path: string }> => [])
-  return c.json({ documents: documents.map((d) => ({ path: d.path })) })
-}
+const handleStatus = (c: Context, app: App | undefined): Promise<Response> =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const paths = yield* listKnowledgeDocuments()
+        const agents = yield* reachableAgents(c, app)
+        const readable = paths.filter((path) => someAgentRetrievesDocument(agents, path))
+        return shapedJson(
+          c,
+          { documents: readable.map((path) => ({ path })) },
+          ragStatusResponseSchema
+        )
+      })
+    )
+  )
 
 /**
  * Tier 1, second half: keep only the hits the records API would show the
@@ -154,7 +191,7 @@ const handleStatus = async (c: Context): Promise<Response> => {
  * a chunk that records no fields, or names a table or field the config no
  * longer declares, is still never served ({@link filterServableHits}).
  */
-const filterResultsByReadAccess = async <
+const filterResultsByReadAccess = <
   T extends {
     readonly sourceRef: string | null
     readonly fields?: ReadonlyArray<string> | undefined
@@ -163,35 +200,13 @@ const filterResultsByReadAccess = async <
   c: Context,
   app: App | undefined,
   results: readonly T[]
-): Promise<readonly T[]> => {
-  if (app?.auth === undefined) return filterServableHits(app, results)
-  if (getSessionContext(c)?.userId === undefined) return []
-  const { reader } = await resolveUserPrincipal(c)
-  return filterHitsThroughReadGate({ services: requireDomainContext(c), app, reader, results })
-}
-
-/**
- * The 503 for a deployment with no `AI_PROVIDER` at all —
- * a clear refusal rather than a silent empty result.
- *
- * `AI_PROVIDER_NOT_CONFIGURED` is a canonical `ApiErrorCode` member. It says
- * the operator must set an env var, where SERVICE_UNAVAILABLE would say "wait
- * and retry" — advice that is never true here, and the only signal separating
- * an unconfigured deployment from an unreachable provider.
- */
-const PROVIDER_NOT_CONFIGURED_MESSAGE =
-  'AI provider not configured. Set AI_PROVIDER (and AI_BASE_URL / AI_API_KEY) to enable RAG search.'
-
-const providerNotConfigured = (c: Context): Response =>
-  c.json(
-    {
-      success: false,
-      error: PROVIDER_NOT_CONFIGURED_MESSAGE,
-      message: PROVIDER_NOT_CONFIGURED_MESSAGE,
-      code: ApiErrorCode.AI_PROVIDER_NOT_CONFIGURED,
-    },
-    503
+) => {
+  if (app?.auth === undefined) return Effect.succeed(filterServableHits(app, results))
+  if (getSessionContext(c)?.userId === undefined) return Effect.succeed<readonly T[]>([])
+  return Effect.flatMap(resolveUserPrincipal(c), ({ reader }) =>
+    filterHitsThroughReadGate({ app, reader, results })
   )
+}
 
 /** `POST /api/ai/rag/search` — pgvector cosine similarity search. */
 const handleSearch = async (c: Context, app: App | undefined): Promise<Response> => {
@@ -219,6 +234,8 @@ const handleSearch = async (c: Context, app: App | undefined): Promise<Response>
   // `AI_PROVIDER` is unset/blank, refuse before attempting any embedding work
   // — a clear 503 rather than a silent empty result.
   if ((process.env.AI_PROVIDER?.trim() ?? '') === '') return providerNotConfigured(c)
+  const limited = searchRateLimited(c)
+  if (limited) return limited
   const ragConfig = resolveRagConfig(process.env, 'text-embedding-3-small')
   const program = Effect.gen(function* () {
     const ai = yield* AiService
@@ -234,55 +251,66 @@ const handleSearch = async (c: Context, app: App | undefined): Promise<Response>
       maxResults: ragConfig.maxResults,
     })
   }).pipe(
-    // Single merged provide — `AiService` + `AiEmbeddingRepository` together.
-    Effect.provide(RagSyncLayer),
     // effect-swallow: a provider or database failure yields an empty result set rather than a 5xx — an unavailable knowledge index is indistinguishable, to this endpoint, from a query that matched nothing.
     Effect.orElseSucceed(() => [])
   )
-  const results = await runRequestEffect(c, program)
-  const readable = await filterResultsByReadAccess(c, app, results)
-  return c.json({
-    results: readable.map((r) => ({
-      agentName: r.agentName,
-      sourceRef: r.sourceRef,
-      content: r.content,
-      similarity: r.similarity,
-    })),
+  // `AiService` and `AiEmbeddingRepository` are the ones the domain runtime
+  // resolved at boot, read off THIS request rather than rebuilt per search.
+  const answered = Effect.gen(function* () {
+    const results = yield* program
+    const gated = yield* filterResultsByReadAccess(c, app, results)
+    const readable = withinAgentReach(yield* reachableAgents(c, app), gated)
+    return shapedJson(
+      c,
+      {
+        results: readable.map((r) => ({
+          agentName: r.agentName,
+          sourceRef: r.sourceRef,
+          content: r.content,
+          similarity: r.similarity,
+        })),
+      },
+      ragSearchResponseSchema
+    )
   })
+  return runHandlerEffect(c, answerFailures(c, answered.pipe(withChatTurnReads)))
 }
 
 /**
  * Authorize a rebuild request. Returns an HTTP error response when the
- * caller is not an admin (and `app.auth` is configured), or `undefined`
- * when the request may proceed.
+ * caller is not an admin, or `undefined` when the request may proceed.
+ *
+ * With no `app.auth` nobody can be an administrator, so every caller gets the
+ * standard 404, as for a route the app does not have.
  */
-const authorizeRebuild = async (
-  c: Context,
-  app: App | undefined
-): Promise<Response | undefined> => {
-  if (app?.auth === undefined) return undefined
-  const session = getSessionContext(c)
-  if (session?.userId === undefined) {
-    return c.json(
-      errorBody({ error: 'Authentication required', code: ApiErrorCode.UNAUTHORIZED }),
-      401
+const authorizeRebuild = (c: Context, app: App | undefined) =>
+  Effect.gen(function* () {
+    if (app?.auth === undefined) return notFound(c, 'Resource not found')
+    const session = getSessionContext(c)
+    if (session?.userId === undefined) {
+      return c.json(
+        errorBody({ error: 'Authentication required', code: ApiErrorCode.UNAUTHORIZED }),
+        401
+      )
+    }
+    const role = yield* getUserRole(session.userId).pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() => logError('[ai-rag] reading the rebuild caller role failed', cause))
+      ),
+      // effect-swallow: a role that cannot be read is the least one, which is refused the rebuild; logged above.
+      Effect.orElseSucceed(() => 'member')
     )
-  }
-  const role = await runDomainPromise(c, getUserRole(session.userId)).catch(() => 'member')
-  if (!isAdminEquivalent(role, app)) {
     // S1 anti-enumeration: a caller who is not admin-equivalent (the built-in
     // `admin` or the app's top role) gets 404.
-    return notFound(c, 'Resource not found')
-  }
-  return undefined
-}
+    return isAdminEquivalent(role, app) ? undefined : notFound(c, 'Resource not found')
+  })
 
 /**
  * `POST /api/ai/rag/rebuild` — re-embed agent table-knowledge and document
  * knowledge.
  *
- * Admin-only when `app.auth` is configured. With no
- * `app.auth` the endpoint is open (no role model exists). An optional
+ * Admin-only. With no `app.auth` it answers 404 to everyone, since no
+ * visitor can be an administrator. An optional
  * `agent` body field scopes the table-knowledge rebuild to one agent;
  * document knowledge is global and always re-embedded.
  */
@@ -290,55 +318,49 @@ const handleRebuild = async (c: Context, app?: App): Promise<Response> => {
   const body = (await c.req.json().catch(() => ({}))) as { agent?: unknown }
   const agentFilter = typeof body.agent === 'string' ? body.agent : undefined
 
-  const denied = await authorizeRebuild(c, app)
-  if (denied !== undefined) return denied
-
-  // The same agents the boot sync embeds: knowledge filtered by the agent's
-  // role, each entry's fields partitioned by their effective read grant.
-  const allAgents: ReadonlyArray<RagAgent> = app === undefined ? [] : filterRagKnowledgeByRole(app)
-  const selected =
-    agentFilter !== undefined ? allAgents.filter((a) => a.name === agentFilter) : allAgents
-  const syncInput = toSyncInput(selected)
-
-  const started = Date.now()
-  const [statsByAgent, documentStats] = await Promise.all([
-    runSyncKnowledge(syncInput).catch(() => ({})),
-    runSyncDocuments(process.env).catch(() => ({ documents: {}, totalChunks: 0 })),
-  ])
-  const duration = Date.now() - started
-
-  const tables = Object.values(statsByAgent).reduce<Record<string, number>>(
-    (acc, agentStats) => ({ ...acc, ...agentStats.tables }),
-    {}
-  )
-  const tableChunks = Object.values(statsByAgent).reduce(
-    (sum, agentStats) => sum + agentStats.totalChunks,
-    0
-  )
-  const totalChunks = tableChunks + documentStats.totalChunks
-
-  return c.json({
-    status: 'completed',
-    ...(agentFilter !== undefined ? { agent: agentFilter } : {}),
-    stats: { tables, documents: documentStats.documents, totalChunks, duration },
+  const program = Effect.gen(function* () {
+    const denied = yield* authorizeRebuild(c, app)
+    if (denied !== undefined) return denied
+    // `authorizeRebuild` answered 404 to every caller of an app without `auth`,
+    // so `app` is set here.
+    if (app === undefined) return notFound(c, 'Resource not found')
+    const started = Date.now()
+    const rebuilt = yield* rebuildAgentKnowledge(app, agentFilter)
+    return shapedJson(
+      c,
+      {
+        status: 'completed',
+        ...(agentFilter !== undefined ? { agent: agentFilter } : {}),
+        stats: { ...rebuilt, duration: Date.now() - started },
+      },
+      ragRebuildResponseSchema
+    )
   })
+  return runHandlerEffect(c, answerFailures(c, program))
 }
 
 /** `GET /api/ai/agents/:name/config` — agent knowledge configuration. */
-const handleAgentConfig = async (c: Context, app?: App): Promise<Response> => {
+const handleAgentConfig = (c: Context, app?: App): Promise<Response> => {
   const name = c.req.param('name')
   const agent = (app?.agents ?? []).find((a) => a.name === name)
   // A caller who may not reach the agent is answered exactly as for an unknown name.
-  if (agent === undefined || !(await mayTriggerAgent(c, agent, app))) {
-    return notFound(c, 'Agent not found')
-  }
-  return c.json({
-    name: agent.name,
-    knowledge: {
-      tables: agent.knowledge?.tables ?? [],
-      documents: agent.knowledge?.documents ?? [],
-    },
-  })
+  if (agent === undefined) return Promise.resolve(notFound(c, 'Agent not found'))
+  const program = Effect.map(judgeAgentTriggers(c, [agent], app), ([may]) =>
+    may === true
+      ? shapedJson(
+          c,
+          {
+            name: agent.name,
+            knowledge: {
+              tables: agent.knowledge?.tables ?? [],
+              documents: agent.knowledge?.documents ?? [],
+            },
+          },
+          agentKnowledgeConfigResponseSchema
+        )
+      : notFound(c, 'Agent not found')
+  )
+  return runHandlerEffect(c, answerFailures(c, program))
 }
 
 /**
@@ -358,7 +380,7 @@ const handleAgentConfig = async (c: Context, app?: App): Promise<Response> => {
 export function chainRagRoutes(honoApp: Hono, app?: App): Hono {
   return honoApp
     .get('/api/ai/rag/config', (c) => handleConfig(c))
-    .get('/api/ai/rag/status', (c) => handleStatus(c))
+    .get('/api/ai/rag/status', (c) => handleStatus(c, app))
     .post('/api/ai/rag/search', (c) => handleSearch(c, app))
     .post('/api/ai/rag/rebuild', (c) => handleRebuild(c, app))
     .get('/api/ai/agents/:name/config', (c) => handleAgentConfig(c, app))

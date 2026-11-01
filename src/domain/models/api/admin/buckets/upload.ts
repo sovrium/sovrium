@@ -74,7 +74,7 @@ import { bucketFileItemSchema } from './files'
 export const bucketFileUploadResponseSchema = Schema.Struct({
   success: Schema.Literal(true).annotate({
     description:
-      'Discriminant — always `true` on the 201 success response. Lets the admin dialog branch on outcome the same way it does for the public upload route.',
+      'Discriminant: always `true` on the 201 success response. Lets the admin dialog branch on outcome the same way it does for the public upload route.',
   }),
   file: bucketFileItemSchema.annotate({
     description:

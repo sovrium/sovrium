@@ -22,6 +22,7 @@ import {
   hasUpdatePermission,
   resolveInheritedPermissions,
 } from '@/domain/models/app/auth/permission-evaluator-service'
+import { isSignUpOpen } from '@/domain/models/app/auth/sign-up-service'
 import type { App, Table } from '@/domain/models/app'
 import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
 
@@ -91,12 +92,13 @@ const bucketsReachedBySignUp = (app: Readonly<App>, role: string): readonly stri
  * naming the role, each reachable table and its operations, evaluated by the
  * SHARED permission evaluator the records API uses.
  *
- * Silent when the app has no auth, when `allowSignUp` is `false`, and for any
+ * Silent when the app has no auth, when sign-up is closed (`allowSignUp` omitted
+ * or `false` — only `true` opens it), and for any
  * operation already open to anonymous visitors (`'all'`, declared or
  * inherited): sign-up changes nothing there.
  */
 export const collectSignUpExposurePhases = (app: Readonly<App>): readonly StartupPhase[] => {
-  if (!app.auth || app.auth.allowSignUp === false) return []
+  if (!app.auth || !isSignUpOpen(app.auth)) return []
   const role = app.auth.defaultRole ?? 'member'
   const tables = app.tables ?? []
   const reachable = tables.flatMap((table) => {

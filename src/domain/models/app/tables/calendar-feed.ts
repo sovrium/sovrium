@@ -28,7 +28,7 @@ const feedFieldName = (description: string) =>
  * {
  *   name: 'meetings',
  *   fields: [...],
- *   calendarFeed: { start: 'starts_at', end: 'ends_at', title: 'title', description: 'notes' },
+ *   calendarFeed: { start: 'starts_at', end: 'ends_at', title: 'title', description: 'notes', location: 'room' },
  * }
  * ```
  */
@@ -47,6 +47,16 @@ export const TableCalendarFeedSchema = Schema.Struct({
   description: Schema.optional(
     feedFieldName(
       "The field shown as the event's notes, of one of the kinds `title` accepts. A person who may not read it sees events without notes."
+    )
+  ),
+  location: Schema.optional(
+    feedFieldName(
+      "The field shown as the event's place, of one of the kinds `title` accepts. A person who may not read it sees events without a place."
+    )
+  ),
+  url: Schema.optional(
+    feedFieldName(
+      "The field shown as the event's link — a join link or the event's page: a `url` field of this table. A person who may not read it sees events without a link."
     )
   ),
 }).pipe(

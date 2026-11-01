@@ -29,9 +29,10 @@
  */
 
 import { Cause, Effect } from 'effect'
+import { lazyImportSchema } from '@/cli/runtime/lazy-modules'
+import { stopCommand } from '@/cli/runtime/run-command'
 import { formatDiscoveredConfigNotice } from '@/domain/kernel/config-parsing/default-config-files'
 import { printStderr } from '@/infrastructure/logging/cli-output'
-import { lazyImportSchema } from './utils'
 import type { App } from '@/domain/models/app'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 
@@ -44,18 +45,12 @@ import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table
  */
 export const DEFAULT_CONFIG_FILE = './app.yaml'
 
-/** The message the last {@link refuse} printed — what `sovrium seed --report` records as `error`. */
-let lastRefusalMessage: string | undefined
-
-/** The message of the refusal this process is exiting on, if any. */
-export const lastRefusal = (): string | undefined => lastRefusalMessage
-
-/** Print to stderr and exit 1. There is no partial-success exit code. */
-export const refuse = (message: string): never => {
-  lastRefusalMessage = message
-  printStderr(message)
-  process.exit(1)
-}
+/**
+ * Stop the command with `message` on stderr and exit 1. There is no
+ * partial-success exit code. The stop carries the message, which is what
+ * `sovrium seed --report` records as `error`.
+ */
+export const refuse = (message: string): never => stopCommand(1, message)
 
 /**
  * Resolve the config when no positional one was given.
@@ -132,9 +127,10 @@ export const applyDatabaseMigrations = async (
     await import('@/domain/models/process-env/database/database-dialect')
   const { runMigrations } = await import('@/infrastructure/database/drizzle/migrate')
   const { initializeSchema } = await import('@/infrastructure/database/schema/schema-initializer')
+  // A Promise helper every database verb awaits; the run stays here for them.
   return Effect.runPromise(
     Effect.gen(function* () {
-      yield* runMigrations(parseDatabaseDialectConfig())
+      yield* runMigrations(parseDatabaseDialectConfig(process.env))
       yield* initializeSchema(app, options)
     })
   )
@@ -204,8 +200,9 @@ export const planDatabaseRefusals = async (
   // DEFECT rather than a typed failure. `catchCause` is therefore the one arm that
   // sees it, and `tapCause` sits BEFORE the recovery so the cause is logged rather
   // than only summarised into a sentence (standing rule E6).
+  // Awaited by the reload pre-flight, which is no command: the run stays here.
   return Effect.runPromise(
-    planConfigTableChanges(app, parseDatabaseDialectConfig(), { authoredTableIds }).pipe(
+    planConfigTableChanges(app, parseDatabaseDialectConfig(process.env), { authoredTableIds }).pipe(
       Effect.map((changes): DatabasePlanOutcome => ({
         kind: 'planned',
         refusals: changes.flatMap((change) => change.refusals),

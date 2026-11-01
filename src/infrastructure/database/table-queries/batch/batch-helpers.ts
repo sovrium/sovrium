@@ -5,15 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Data, Effect } from 'effect'
-import {
-  type DatabaseError,
-  type ValidationError,
-  type DrizzleTransaction,
-} from '@/infrastructure/database'
+import { Effect } from 'effect'
+import { type DatabaseError, type ValidationError } from '@/infrastructure/database'
 import { buildInsertClauses, insertAndResolveRow } from '../mutation-helpers/create-record-helpers'
 import { wrapWriteStatementError } from '../statement/error-handling'
 import type { CommittedRowChange } from '@/application/ports/services/record-change-feed'
+import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 type Row = Record<string, unknown>
 
@@ -33,14 +30,6 @@ export const deletedRowChanges =
       recordId: String(previous['id']),
       previous,
     }))
-
-/**
- * Batch validation error - returned when batch validation fails
- */
-export class BatchValidationError extends Data.TaggedError('BatchValidationError')<{
-  readonly message: string
-  readonly details?: readonly string[]
-}> {}
 
 /**
  * Width of every per-record fan-out inside a batch transaction.
@@ -106,11 +95,11 @@ type InsertClauses = ReturnType<typeof buildInsertClauses>
  * here would quietly unify that, which is a behaviour change, not a cleanup.
  */
 async function executeInsertReturning(
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   tableName: string,
   clauses: InsertClauses
 ): Promise<Readonly<Record<string, unknown>> | undefined> {
-  const row = await insertAndResolveRow(tx, tableName, clauses.columnsClause, clauses.valuesClause)
+  const row = await insertAndResolveRow(on, tableName, clauses)
   // `insertAndResolveRow` normalises "no row returned" to `{}`; batch callers
   // treat that case as "nothing was created", so map it back to `undefined`.
   // A successful INSERT always returns every column, so an empty object can
@@ -134,15 +123,15 @@ const handleInsertError = wrapWriteStatementError('Failed to insert a batch reco
  * Helper to create a single record within a transaction
  */
 export async function createSingleRecord(
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   tableName: string,
   fields: Readonly<Record<string, unknown>>,
   arrayColumnTypes: Readonly<Record<string, string>>
 ): Promise<Readonly<Record<string, unknown>> | undefined> {
-  const clauses = buildInsertClauses(fields, arrayColumnTypes)
+  const clauses = buildInsertClauses(on.dialect.kind, fields, arrayColumnTypes)
 
   try {
-    return await executeInsertReturning(tx, tableName, clauses)
+    return await executeInsertReturning(on, tableName, clauses)
   } catch (error) {
     throw handleInsertError(error)
   }
@@ -155,7 +144,7 @@ export async function createSingleRecord(
  * to properly propagate ValidationError through Effect.reduce.
  */
 export function createSingleRecordInBatch(
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   tableName: string,
   fields: Readonly<Record<string, unknown>>,
   arrayColumnTypes: Readonly<Record<string, string>>
@@ -165,9 +154,9 @@ export function createSingleRecordInBatch(
       // A record with no column value (only many-to-many links) is still a
       // row: `buildInsertClauses` inserts it with every column at its default.
       return await executeInsertReturning(
-        tx,
+        on,
         tableName,
-        buildInsertClauses(fields, arrayColumnTypes)
+        buildInsertClauses(on.dialect.kind, fields, arrayColumnTypes)
       )
     },
     catch: handleInsertError,

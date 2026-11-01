@@ -8,10 +8,9 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { DatabaseError } from '@/domain/errors'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { tableIdentifier } from '../statement/validation'
-import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
+import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Fetch a single record by ID (Promise-based for transaction use)
@@ -20,12 +19,13 @@ import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
  * Throws DatabaseError on database failure.
  */
 export async function fetchRecordById(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   recordId: string
 ): Promise<Record<string, unknown> | undefined> {
   try {
-    const result = await executeRaw(
+    const result = await executeRawOn(
+      dialect.kind,
       tx,
       sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id = ${recordId} LIMIT 1`
     )
@@ -41,7 +41,7 @@ export async function fetchRecordById(
  * Fails with DatabaseError on database failure.
  */
 export function fetchRecordsByIds(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   recordIds: readonly string[]
 ): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
@@ -51,7 +51,8 @@ export function fetchRecordsByIds(
         recordIds.map((id) => sql`${id}`),
         sql.raw(', ')
       )
-      const result = await executeRaw(
+      const result = await executeRawOn(
+        dialect.kind,
         tx,
         sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id IN (${idParams})`
       )
@@ -72,13 +73,14 @@ export function fetchRecordsByIds(
  * triggers, which `RETURNING` already reflects, so its row is kept as it is.
  */
 export async function rowAfterTriggers(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   row: Readonly<Record<string, unknown>>
 ): Promise<Readonly<Record<string, unknown>>> {
   const { id } = row
-  if (!isSqliteRuntime() || id === undefined || id === null) return row
-  const [reread] = await executeRaw(
+  if (dialect.kind !== 'sqlite' || id === undefined || id === null) return row
+  const [reread] = await executeRawOn(
+    dialect.kind,
     tx,
     sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id = ${id} LIMIT 1`
   )

@@ -18,7 +18,7 @@
  *
  *   - `@import 'tailwindcss'` / `@import 'tw-animate-css'` /
  *     `@import 'shadcn/tailwind.css'` are resolved from
- *     stylesheet constants embedded at build time (`generated-css-assets.ts`),
+ *     stylesheet constants embedded at build time (`generated-css-assets.generated.ts`),
  *     since the binary has no node_modules.
  *   - The engine is *candidate-driven*: it only emits a utility's CSS if that
  *     class is in the candidate list. The native oxide scanner that normally
@@ -39,6 +39,7 @@
  */
 
 import { Effect } from 'effect'
+import { CSSCompilationError } from '@/domain/errors/css-compilation-error'
 import { isOperatorConsoleApp } from '@/domain/models/app/admin/admin-data-nav'
 import {
   componentClassesCandidates,
@@ -52,8 +53,7 @@ import {
   SHADCN_TAILWIND_CSS,
   TAILWIND_INDEX_CSS,
   TW_ANIMATE_CSS,
-} from '@/infrastructure/css/generated-css-assets'
-import { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
+} from '@/infrastructure/css/generated-css-assets.generated'
 import { logDebug } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 import type { CompiledCSS } from '@/infrastructure/css/cache/css-cache-service'

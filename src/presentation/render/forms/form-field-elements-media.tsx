@@ -18,7 +18,7 @@ import { ariaRequired, FIELD_LABEL_CLASS, fieldWrapperAttributes } from './form-
 import { ChipsInput, SelectInput } from './form-field-elements-design'
 import { RequiredMark } from './form-field-elements-typed'
 import { HelpText } from './form-help-text'
-import type { ResolvedFormField } from './form-field-elements'
+import type { ResolvedFormField } from './form-resolved-field'
 
 /**
  * SSR picker for `user`-typed columns ([internal ref] / the forms specs).

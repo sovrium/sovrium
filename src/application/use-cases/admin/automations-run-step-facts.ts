@@ -10,8 +10,8 @@
  * input and output: the entries it logged, and when it ran.
  */
 
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import { stepLogEntrySchema } from '@/domain/models/api/automations'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { stepConnectionOf } from '@/domain/models/app/connections/connection-usage-service'
 import type { AdminRunStep } from '@/domain/models/api/admin/automations'
 import type { App } from '@/domain/models/app'

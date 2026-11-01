@@ -18,12 +18,21 @@
  *  2. dispatch the table's record-restore automations, handed the record as restored
  *  3. deliver the webhook deliveries the restore recorded
  *
- * A restore that fails — a missing row, one that is not in the trash — runs no
- * side effect. The route keeps its own gate (the delete role and the row-level
- * rules, judged on the trashed row); this program authorizes nothing.
+ * Before step 1, the table's business rules judge the restore as an update
+ * that changes no field, on the trashed row as it will stand restored — once
+ * for an early answer, and again inside the restore's transaction, the
+ * judgement that binds.
+ *
+ * A restore that fails — a missing row, one that is not in the trash, one a
+ * rule refuses — runs no side effect. The route keeps its own gate (the delete
+ * role and the row-level rules, judged on the trashed row); this program
+ * authorizes nothing else.
  */
 
 import { Effect } from 'effect'
+import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import { rowAsRestored } from '@/domain/models/app/tables/business-rule-service'
+import { prepareRowOpRuleJudge } from './permissions/business-rule-gate'
 import { restoreRecordProgram } from './record-lifecycle-programs'
 import { storedRowOf } from './record-stored-row'
 import { deliverRecordWebhooks, withRecordWebhooks } from './record-webhook-outbox'
@@ -51,8 +60,6 @@ export interface RecordRestoreInput {
    * which is the authority the restore is judged under and may be a door's own.
    */
   readonly requester?: TriggerRequester
-  /** Process env captured at the route boundary, for the automations' `$env` lookups. */
-  readonly processEnv: Readonly<Record<string, string | undefined>>
 }
 
 /** The steps the orchestration is made of, so the ORDER is unit-testable. */
@@ -64,7 +71,7 @@ export interface RecordRestoreSteps<E, R, RD = never, RA = never> {
 
 /** The restore, in the order the module header documents, over abstract steps. */
 export function orchestrateRecordRestore<E, R, RD = never, RA = never>(
-  input: Pick<RecordRestoreInput, 'app' | 'tableName' | 'processEnv' | 'requester'> & {
+  input: Pick<RecordRestoreInput, 'app' | 'tableName' | 'requester'> & {
     readonly userId: string
   },
   steps: RecordRestoreSteps<E, R, RD, RA>
@@ -77,13 +84,34 @@ export function orchestrateRecordRestore<E, R, RD = never, RA = never>(
       tableName,
       event: 'restore',
       record: { ...storedRowOf(restored.value.record) },
-      processEnv: input.processEnv,
       userId: input.userId,
       ...(input.requester === undefined ? {} : { requester: input.requester }),
     })
     yield* steps.deliverWebhooks(restored.deliveryIds)
     return restored.value
   }).pipe(Effect.withSpan('tables.orchestrate-record-restore', { attributes: { tableName } }))
+}
+
+/**
+ * The rules' step of a restore: the table's rules judged on the trashed row as
+ * the door read it, and handed on for the restore to judge again inside its
+ * transaction. A row that is not in the trash is left to the restore, which
+ * answers it.
+ */
+const restoreRulesStep = (input: RecordRestoreInput) => {
+  const { session, app, tableName, recordId } = input
+  return prepareRowOpRuleJudge(
+    {
+      ...{ app, tableName, userId: session.userId },
+      ...(input.requester === undefined ? {} : { userRole: input.requester.role }),
+      ...(input.userGroups === undefined ? {} : { userGroups: input.userGroups }),
+    },
+    { op: 'restore', recordId },
+    Effect.gen(function* () {
+      const repo = yield* TableRepository
+      return rowAsRestored(yield* repo.getRecord(session, tableName, recordId, true))
+    })
+  ).pipe(Effect.withSpan('tables.restore-rules-step', { attributes: { tableName } }))
 }
 
 /**
@@ -95,13 +123,19 @@ export function restoreRecordWithSideEffects(input: RecordRestoreInput) {
   return orchestrateRecordRestore(
     { ...input, userId: session.userId },
     {
-      restore: restoreRecordProgram(session, tableName, recordId, {
-        app,
-        ...(input.userRole === undefined ? {} : { userRole: input.userRole }),
-        ...(input.userGroups === undefined ? {} : { userGroups: input.userGroups }),
-      }).pipe(withRecordWebhooks(app, tableName, 'restore')),
+      restore: restoreRulesStep(input).pipe(
+        Effect.flatMap((judge) =>
+          restoreRecordProgram(session, tableName, recordId, {
+            app,
+            judge,
+            ...(input.userRole === undefined ? {} : { userRole: input.userRole }),
+            ...(input.userGroups === undefined ? {} : { userGroups: input.userGroups }),
+          })
+        ),
+        withRecordWebhooks(app, tableName, 'restore')
+      ),
       dispatchAutomations: dispatchRecordEventInBackground,
-      deliverWebhooks: (deliveryIds) => deliverRecordWebhooks(app, deliveryIds, 'await'),
+      deliverWebhooks: (deliveryIds) => deliverRecordWebhooks(app, deliveryIds),
     }
   ).pipe(Effect.withSpan('tables.restore-record-with-side-effects', { attributes: { tableName } }))
 }

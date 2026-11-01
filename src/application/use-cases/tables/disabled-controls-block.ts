@@ -10,6 +10,7 @@ import {
   tableControls,
   type RecordControl,
 } from '@/domain/models/app/pages/record-control-service'
+import { locksBlock } from './locks-block'
 import { writeOnlyBlock } from './write-only-presence'
 
 /**
@@ -29,13 +30,17 @@ export const disabledControlsBlock = (
 }
 
 /**
- * Both blocks a records-API answer judges on the STORED row — `_writeOnly`
- * ({@link writeOnlyBlock}) and `_disabled` — as one spread.
+ * The blocks a records-API answer judges on the STORED row — `_writeOnly`
+ * ({@link writeOnlyBlock}), `_disabled` and `_locks` ({@link locksBlock}) — as
+ * one spread.
  */
 export const storedRowBlocks = (
-  input: Parameters<typeof writeOnlyBlock>[0] & { readonly tableName: string }
-): ReturnType<typeof writeOnlyBlock> & ReturnType<typeof disabledControlsBlock> => ({
+  input: Parameters<typeof writeOnlyBlock>[0] & Parameters<typeof locksBlock>[0]
+): ReturnType<typeof writeOnlyBlock> &
+  ReturnType<typeof disabledControlsBlock> &
+  ReturnType<typeof locksBlock> => ({
   ...writeOnlyBlock(input),
+  ...locksBlock(input),
   ...(input.app === undefined
     ? {}
     : disabledControlsBlock(tableControls(input.app, input.tableName), input.record)),

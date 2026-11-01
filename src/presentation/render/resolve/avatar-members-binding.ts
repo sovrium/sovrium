@@ -18,6 +18,12 @@
  * (`props._avatarTooltips`) so each disc names its person in a tooltip.
  */
 
+import {
+  componentFields,
+  rewriteComponent,
+  synthesizedComponent,
+  tableBindingOf,
+} from './component-rewrite'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -33,14 +39,11 @@ export interface AvatarMembersContext {
 }
 
 /** The group with these people as its members, marked for its tooltips. */
-const withMembers = <C extends { readonly props?: unknown }>(
-  component: C,
-  names: readonly string[]
-): C => ({
-  ...component,
-  items: names.map((label) => ({ label })),
-  props: { ...((component.props ?? {}) as Row), _avatarTooltips: true },
-})
+const withMembers = (component: Component, names: readonly string[]): Component =>
+  rewriteComponent(component, {
+    items: names.map((label) => ({ label })),
+    props: { ...(component.props ?? {}), _avatarTooltips: true },
+  })
 
 /** One label of a labels block, as a list of names. */
 const namesOf = (label: unknown): readonly string[] => {
@@ -52,15 +55,13 @@ const namesOf = (label: unknown): readonly string[] => {
  * A bound avatar group (`dataSource` + `userField`) with its members taken from
  * `rows`; any other component comes back as it is.
  */
-export async function withAvatarMembers<
-  C extends {
-    readonly type: string
-    readonly props?: unknown
-    readonly dataSource?: { readonly table?: unknown }
-  },
->(component: C, rows: readonly Row[], ctx: AvatarMembersContext): Promise<C> {
-  const { userField } = component as { readonly userField?: unknown }
-  const table = component.dataSource?.table
+export async function withAvatarMembers(
+  component: Component,
+  rows: readonly Row[],
+  ctx: AvatarMembersContext
+): Promise<Component> {
+  const { userField } = componentFields(component)
+  const table = tableBindingOf(component)?.table
   const label = ctx.db.readRecordLabels
   if (component.type !== 'avatar' || typeof userField !== 'string' || typeof table !== 'string')
     return component
@@ -101,7 +102,7 @@ export function withAvatarUsers<T>(
     if (typeof entry !== 'object' || entry === null) return entry
     const node = entry as Row
     const field = usersField(node)
-    if (field !== undefined) return withMembers(node as Component, namesOf(labels[field]))
+    if (field !== undefined) return withMembers(synthesizedComponent(node), namesOf(labels[field]))
     const { children } = node
     return Array.isArray(children) ? { ...node, children: children.map(fill) } : node
   }

@@ -22,6 +22,16 @@
  */
 
 import { deriveInitials } from '@/presentation/design/avatar-initials'
+import {
+  componentFields,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+  synthesizedComponent,
+  tableBindingOf,
+  type ComponentEntry,
+  type ComponentNode,
+} from './component-rewrite'
 import { CONVERSATION_RECORD_KEY, withConversationExtras } from './conversation-extras'
 import {
   followedParentOf,
@@ -37,7 +47,7 @@ import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
 
-type Node = Component | string
+type Node = ComponentEntry
 type Row = Readonly<Record<string, unknown>>
 
 /** Who reads the page and through which readers, as the list mode resolves it. */
@@ -53,10 +63,7 @@ interface ConversationKeys {
 }
 
 const keysOf = (component: Component): ConversationKeys => {
-  const { authorField, dayField } = component as {
-    readonly authorField?: unknown
-    readonly dayField?: unknown
-  }
+  const { authorField, dayField } = componentFields(component)
   return {
     authorField: typeof authorField === 'string' ? authorField : undefined,
     dayField: typeof dayField === 'string' ? dayField : undefined,
@@ -80,8 +87,14 @@ export function formatDay(dayKey: string, locale: string): string {
   }
 }
 
-const isMarker = (node: Node): node is Component =>
-  typeof node === 'object' && (node as { readonly type?: unknown }).type === 'marker'
+const isMarker = (node: Node): node is ComponentNode =>
+  typeof node === 'object' && keyOf(node, 'type') === 'marker'
+
+/** The template's own day marker, when it declares one. */
+const markerTemplateOf = (template: readonly Node[]): Component | undefined => {
+  const marker = template.find(isMarker)
+  return marker === undefined ? undefined : entryAsComponent(marker)
+}
 
 /** The marker opening one day: the template's own, filled from the day's first record. */
 function dayMarker(
@@ -97,7 +110,7 @@ function dayMarker(
     live: true,
     content: text,
   }
-  return separator as Component
+  return synthesizedComponent(separator)
 }
 
 /** The author id a record holds, as text; `undefined` when it holds none. */
@@ -143,43 +156,40 @@ interface TurnDecoration {
 /** An `image` whose address the record left empty: a turn with no picture draws none. */
 const isEmptyImage = (node: Node): boolean =>
   typeof node === 'object' &&
-  node.type === 'image' &&
-  (node.props as { readonly src?: unknown } | undefined)?.src === ''
+  keyOf(node, 'type') === 'image' &&
+  keyOf(keyOf(node, 'props'), 'src') === ''
 
 /** A node of the turn without the pictures its record does not hold. */
 function withoutEmptyImages(node: Node): Node {
-  if (typeof node !== 'object' || !Array.isArray(node.children)) return node
-  const children = (node.children as readonly Node[])
-    .filter((child) => !isEmptyImage(child))
-    .map(withoutEmptyImages)
-  return { ...node, children } as Component
+  if (typeof node !== 'object') return node
+  const turn = entryAsComponent(node)
+  if (!Array.isArray(turn.children)) return node
+  const children = turn.children.filter((child) => !isEmptyImage(child)).map(withoutEmptyImages)
+  return rewriteComponent(turn, { children })
 }
 
 /** One turn of the row, decorated with its side, its author and whether it continues a run. */
 function decorateTurn(node: Node, decoration: TurnDecoration): Node {
   if (typeof node !== 'object') return node
-  const turn = node as Component & Readonly<Record<string, unknown>>
+  const turn = entryAsComponent(node)
   if (turn.type !== 'message') {
     return Array.isArray(turn.children)
-      ? ({
-          ...turn,
-          children: (turn.children as readonly Node[]).map((c) => decorateTurn(c, decoration)),
-        } as Component)
+      ? rewriteComponent(turn, {
+          children: turn.children.map((c) => decorateTurn(c, decoration)),
+        })
       : turn
   }
   const children =
     decoration.own && Array.isArray(turn.children)
-      ? { children: (turn.children as readonly Node[]).map(bubbleAtEnd) }
+      ? { children: turn.children.map(bubbleAtEnd) }
       : {}
-  return { ...turn, ...turnKeys(turn, decoration), ...children } as Component
+  return rewriteComponent(turn, { ...turnKeys(componentFields(turn), decoration), ...children })
 }
 
 /** A bubble of the reader's own turn, its tail on the end side unless it says otherwise. */
 const bubbleAtEnd = (node: Node): Node =>
-  typeof node === 'object' &&
-  node.type === 'bubble' &&
-  (node as { readonly align?: unknown }).align === undefined
-    ? ({ ...node, align: 'end' } as Component)
+  typeof node === 'object' && keyOf(node, 'type') === 'bubble' && keyOf(node, 'align') === undefined
+    ? rewriteComponent(entryAsComponent(node), { align: 'end' })
     : node
 
 /** The keys a turn gains: its side, its author's name and picture, and the run mark. */
@@ -240,7 +250,7 @@ const markersBefore = (
   walk: Walk,
   record: Row
 ): { readonly day: string | undefined; readonly markers: readonly Component[] } => {
-  const tableName = ctx.turnTemplate.dataSource?.table ?? ''
+  const tableName = tableBindingOf(ctx.turnTemplate)?.table ?? ''
   const { dayField } = ctx.keys
   const day = dayField === undefined ? undefined : dayKeyOf(record[dayField])
   const dayMarkers =
@@ -255,7 +265,7 @@ const markersBefore = (
 const conversationStep =
   (ctx: StepContext) =>
   (walk: Walk, record: Row): Walk => {
-    const tableName = ctx.turnTemplate.dataSource?.table ?? ''
+    const tableName = tableBindingOf(ctx.turnTemplate)?.table ?? ''
     const { day, markers } = markersBefore(ctx, walk, record)
     const author = authorOf(record, ctx.keys.authorField)
     const decoration = decorationOf(
@@ -265,7 +275,7 @@ const conversationStep =
       author === walk.author && markers.length === 0
     )
     const expanded = expandDataSourceChildren(ctx.turnTemplate, [record], undefined, { tableName })
-    const turns = ((expanded.children ?? []) as readonly Node[]).map((node) =>
+    const turns = (expanded.children ?? []).map((node) =>
       decorateTurn(withoutEmptyImages(node), decoration)
     )
     return { nodes: [...walk.nodes, ...markers, ...turns], day: day ?? walk.day, author }
@@ -280,14 +290,13 @@ async function expandConversation(
   rows: readonly Row[],
   reader: BoundRowsReader
 ): Promise<Component> {
-  const tableName = component.dataSource?.table ?? ''
+  const tableName = tableBindingOf(component)?.table ?? ''
   const { authorField } = keysOf(component)
   const template = component.children ?? []
-  const markerTemplate = (template as readonly Node[]).find(isMarker)
-  const turnTemplate = {
-    ...component,
-    children: (template as readonly Node[]).filter((node) => !isMarker(node)),
-  }
+  const markerTemplate = markerTemplateOf(template)
+  const turnTemplate = rewriteComponent(component, {
+    children: template.filter((node) => !isMarker(node)),
+  })
   const names = await authorNamesOf(rows, authorField, tableName, reader)
   const { parent, unreadFrom } = await readerPlaceOf(component, rows, {
     reader,
@@ -312,13 +321,12 @@ async function expandConversation(
     db: reader.db,
     table,
   })
-  return {
-    ...component,
+  return rewriteComponent(component, {
     children,
     [CONVERSATION_DIGEST_KEY]: digestOf(children),
     ...(parent === undefined ? {} : { [READ_STATE_PARENT_KEY]: parent }),
     props: { ...(component.props ?? {}), _dataSourceBound: true },
-  } as Component
+  })
 }
 
 /**
@@ -348,13 +356,13 @@ export async function expandBoundRows(
   paginationMeta: PaginationMeta | undefined,
   reader: BoundRowsReader
 ): Promise<Component> {
-  const tableName = component.dataSource?.table
+  const tableName = tableBindingOf(component)?.table
   if (component.type === 'message-scroller') {
     const drawn =
       rows.length > 0
         ? await expandConversation(component, rows, reader)
         : expandDataSourceChildren(component, rows, paginationMeta, { tableName })
-    return { ...drawn, ...followedParentOf(component, reader.app) } as Component
+    return rewriteComponent(drawn, followedParentOf(component, reader.app))
   }
   // A list nested in a row keeps its own template; it reads its rows afterwards.
   return expandDataSourceChildren(component, rows, paginationMeta, {

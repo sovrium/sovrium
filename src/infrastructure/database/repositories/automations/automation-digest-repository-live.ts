@@ -6,13 +6,15 @@
  */
 
 import { and, asc, count, eq, sql } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AutomationDigestDatabaseError,
   AutomationDigestRepository,
 } from '@/application/ports/repositories/automations/automation-digest-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   automationDigestBuckets as automationDigestBucketsPg,
   automationDigestItems as automationDigestItemsPg,
@@ -22,7 +24,6 @@ import {
   automationDigestItems as automationDigestItemsSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation-digest'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 
 const automationDigestBuckets = resolveDialectSchema(
   automationDigestBucketsPg,
@@ -35,6 +36,117 @@ const automationDigestItems = resolveDialectSchema(
 
 /** Wrap a DB promise, adapting failures to AutomationDigestDatabaseError. */
 const wrap = makeDbWrap((cause) => new AutomationDigestDatabaseError({ cause }))
+
+const members: MembersOverDatabase<typeof AutomationDigestRepository> = {
+  findOrCreateActiveBucket:
+    (db) =>
+    ({ automationId, digestKey }) =>
+      wrap(async () => {
+        const existing = await db
+          .select({ id: automationDigestBuckets.id })
+          .from(automationDigestBuckets)
+          .where(
+            and(
+              eq(automationDigestBuckets.digestKey, digestKey),
+              eq(automationDigestBuckets.status, 'collecting')
+            )
+          )
+          .limit(1)
+        if (existing[0] !== undefined) return existing[0].id
+
+        const [created] = await db
+          .insert(automationDigestBuckets)
+          .values({ automationId, digestKey })
+          .returning({ id: automationDigestBuckets.id })
+        return created?.id ?? ''
+      }),
+
+  addItem:
+    (db, dialect) =>
+    ({ bucketId, item, dedupeKey }) =>
+      wrap(async () => {
+        // The `item` JSONB value binds through `bindJsonb` (`$1::text::jsonb`).
+        // A string bound straight to a `jsonb` parameter is JSON-encoded AGAIN
+        // by bun:sql — the cell ends up holding a JSON *string scalar* (`"{…}"`)
+        // instead of a JSON object, `item ->> 'field'` returns NULL, and
+        // `digest:release`'s sort silently breaks. See `bindJsonb`'s doc.
+        // Dedupe: if a row with the same dedupe_key already exists in this
+        // bucket, skip the insert and return the current size.
+        if (dedupeKey !== undefined) {
+          const existing = await db
+            .select({ id: automationDigestItems.id })
+            .from(automationDigestItems)
+            .where(
+              and(
+                eq(automationDigestItems.bucketId, bucketId),
+                eq(automationDigestItems.dedupeKey, dedupeKey)
+              )
+            )
+            .limit(1)
+          if (existing[0] === undefined) {
+            await db
+              .insert(automationDigestItems)
+              .values({ bucketId, item: dialect.sql.bindJsonb(item), dedupeKey })
+          }
+        } else {
+          await db
+            .insert(automationDigestItems)
+            .values({ bucketId, item: dialect.sql.bindJsonb(item) })
+        }
+
+        const [sizeRow] = await db
+          .select({ size: count() })
+          .from(automationDigestItems)
+          .where(eq(automationDigestItems.bucketId, bucketId))
+        return sizeRow?.size ?? 0
+      }),
+
+  release:
+    (db) =>
+    ({ digestKey, sort, limit }) =>
+      wrap(async () => {
+        const buckets = await db
+          .select({ id: automationDigestBuckets.id })
+          .from(automationDigestBuckets)
+          .where(
+            and(
+              eq(automationDigestBuckets.digestKey, digestKey),
+              eq(automationDigestBuckets.status, 'collecting')
+            )
+          )
+          .limit(1)
+        const bucketId = buckets[0]?.id
+        if (bucketId === undefined) return []
+
+        // Build the ORDER BY clause. For a JSONB-field sort the direction
+        // keyword must live INSIDE the `sql` fragment — wrapping a `sql`
+        // expression with Drizzle's `desc()`/`asc()` helper does not emit
+        // the keyword reliably for a `jsonb ->> key` expression, so the
+        // rows come back in physical (insertion) order. The key is a JSON key,
+        // not a column, and it may come from the release request: it is BOUND
+        // as a parameter, never spliced into the statement (S3). The cast
+        // settles which `->>` PostgreSQL applies — the text-key one, not the
+        // array-index one — and is plain SQL on both engines.
+        const orderClause =
+          sort === undefined
+            ? asc(automationDigestItems.collectedAt)
+            : sql`${automationDigestItems.item} ->> CAST(${sort.field} AS TEXT) ${sort.direction === 'desc' ? sql.raw('DESC') : sql.raw('ASC')}`
+
+        const itemsQuery = db
+          .select({ item: automationDigestItems.item })
+          .from(automationDigestItems)
+          .where(eq(automationDigestItems.bucketId, bucketId))
+          .orderBy(orderClause)
+        const items = limit !== undefined ? await itemsQuery.limit(limit) : await itemsQuery
+
+        await db
+          .update(automationDigestBuckets)
+          .set({ status: 'released', releasedAt: new Date() })
+          .where(eq(automationDigestBuckets.id, bucketId))
+
+        return items.map((row) => row.item)
+      }),
+}
 
 /**
  * Automation Digest Repository Implementation (Drizzle).
@@ -59,108 +171,4 @@ const wrap = makeDbWrap((cause) => new AutomationDigestDatabaseError({ cause }))
  * for timestamp-shaped strings. Numeric fields would need an explicit
  * cast; out of scope until a spec demands it.
  */
-export const AutomationDigestRepositoryLive = Layer.succeed(AutomationDigestRepository, {
-  findOrCreateActiveBucket: ({ automationId, digestKey }) =>
-    wrap(async () => {
-      const existing = await db
-        .select({ id: automationDigestBuckets.id })
-        .from(automationDigestBuckets)
-        .where(
-          and(
-            eq(automationDigestBuckets.digestKey, digestKey),
-            eq(automationDigestBuckets.status, 'collecting')
-          )
-        )
-        .limit(1)
-      if (existing[0] !== undefined) return existing[0].id
-
-      const [created] = await db
-        .insert(automationDigestBuckets)
-        .values({ automationId, digestKey })
-        .returning({ id: automationDigestBuckets.id })
-      return created?.id ?? ''
-    }),
-
-  addItem: ({ bucketId, item, dedupeKey }) =>
-    wrap(async () => {
-      // The `item` JSONB value is inlined via `jsonbLiteral` (`'…'::jsonb`)
-      // rather than passed as a typed bind. drizzle-orm + bun-sql binds a
-      // JS object to a `jsonb` column by `JSON.stringify`-ing it, and the
-      // bun-sql driver then JSON-encodes that string AGAIN — the cell ends
-      // up holding a JSON *string scalar* (`"{…}"`) instead of a JSON
-      // object. That double-encoding makes `item ->> 'field'` return NULL,
-      // which silently broke `digest:release`'s sort. See `jsonbLiteral`'s
-      // doc and drizzle-orm issue #4385.
-      // Dedupe: if a row with the same dedupe_key already exists in this
-      // bucket, skip the insert and return the current size.
-      if (dedupeKey !== undefined) {
-        const existing = await db
-          .select({ id: automationDigestItems.id })
-          .from(automationDigestItems)
-          .where(
-            and(
-              eq(automationDigestItems.bucketId, bucketId),
-              eq(automationDigestItems.dedupeKey, dedupeKey)
-            )
-          )
-          .limit(1)
-        if (existing[0] === undefined) {
-          await db
-            .insert(automationDigestItems)
-            .values({ bucketId, item: jsonbLiteral(item), dedupeKey })
-        }
-      } else {
-        await db.insert(automationDigestItems).values({ bucketId, item: jsonbLiteral(item) })
-      }
-
-      const [sizeRow] = await db
-        .select({ size: count() })
-        .from(automationDigestItems)
-        .where(eq(automationDigestItems.bucketId, bucketId))
-      return sizeRow?.size ?? 0
-    }),
-
-  release: ({ digestKey, sort, limit }) =>
-    wrap(async () => {
-      const buckets = await db
-        .select({ id: automationDigestBuckets.id })
-        .from(automationDigestBuckets)
-        .where(
-          and(
-            eq(automationDigestBuckets.digestKey, digestKey),
-            eq(automationDigestBuckets.status, 'collecting')
-          )
-        )
-        .limit(1)
-      const bucketId = buckets[0]?.id
-      if (bucketId === undefined) return []
-
-      // Build the ORDER BY clause. For a JSONB-field sort the direction
-      // keyword must live INSIDE the `sql` fragment — wrapping a `sql`
-      // expression with Drizzle's `desc()`/`asc()` helper does not emit
-      // the keyword reliably for a `jsonb ->> key` expression, so the
-      // rows come back in physical (insertion) order. The key is a JSON key,
-      // not a column, and it may come from the release request: it is BOUND
-      // as a parameter, never spliced into the statement (S3). The cast
-      // settles which `->>` PostgreSQL applies — the text-key one, not the
-      // array-index one — and is plain SQL on both engines.
-      const orderClause =
-        sort === undefined
-          ? asc(automationDigestItems.collectedAt)
-          : sql`${automationDigestItems.item} ->> CAST(${sort.field} AS TEXT) ${sort.direction === 'desc' ? sql.raw('DESC') : sql.raw('ASC')}`
-
-      const itemsQuery = db
-        .select({ item: automationDigestItems.item })
-        .from(automationDigestItems)
-        .where(eq(automationDigestItems.bucketId, bucketId))
-        .orderBy(orderClause)
-      const items = limit !== undefined ? await itemsQuery.limit(limit) : await itemsQuery
-
-      await db
-        .update(automationDigestBuckets)
-        .set({ status: 'released', releasedAt: new Date() })
-        .where(eq(automationDigestBuckets.id, bucketId))
-
-      return items.map((row) => row.item)
-    }),
-})
+export const AutomationDigestRepositoryLive = layerOverDatabase(AutomationDigestRepository, members)

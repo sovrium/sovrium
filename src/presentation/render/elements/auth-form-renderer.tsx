@@ -19,6 +19,7 @@ import {
   authPendingLabelKey,
   authSubmitLabel,
   authSubmitLabelKey,
+  keyRefusalsByCode,
   withAuthFieldHints,
   type AuthFormField,
 } from '@/presentation/design/auth-form-types'
@@ -35,6 +36,7 @@ import {
   type AuthFormAction,
   type AuthFormRenderContext,
 } from './auth-form-action'
+import { localizeCredentialError } from './auth-form-credential-error'
 import { boundTableOf, resolveAuthFormFields } from './auth-form-fields'
 import { authFieldControlId, withRecoveryLink } from './auth-form-recovery-link'
 import { passwordRuleText, renderAuthFieldRule, withPasswordRule } from './password-rule'
@@ -136,6 +138,7 @@ function buildIslandPropsJson(config: {
   readonly redirectUrl: string | undefined
   readonly uiStrings?: Readonly<Record<string, string>>
   readonly twoFactorNotice?: TwoFactorNotice
+  readonly context: AuthFormRenderContext
 }): string {
   return JSON.stringify({
     // A bound form names its table, so the page's per-reader walk judges its
@@ -146,7 +149,7 @@ function buildIslandPropsJson(config: {
     factor: config.action.factor,
     trustDevice: config.action.trustDevice,
     tokenParam: config.action._invitationParam,
-    uiStrings: config.uiStrings,
+    uiStrings: keyRefusalsByCode(config.uiStrings),
     fields: config.fields,
     submitLabel: config.submitLabel,
     pendingLabel: config.pendingLabel,
@@ -158,6 +161,7 @@ function buildIslandPropsJson(config: {
     successToast: config.action.onSuccess?.toast,
     successPage: successPageOf(config.action),
     errorToast: config.action.onError?.toast,
+    credentialError: localizeCredentialError(config.action._credentialError, config.context),
     'data-testid': config.props['data-testid'],
     id: config.props.id,
     className: config.props.className,
@@ -177,22 +181,15 @@ function buildIslandPropsJson(config: {
  * tripping the react-perf JSX object-allocation rule.
  *
  * EXCEPTION — the hide gate wins: when auth is not configured,
- * `render-page.tsx::stripAuthActionsIfUnconfigured` injects
- * `style={{ display: 'none' }}` onto the component to hide the whole form
- * (the inner SSR form keeps it, but the island re-renders without it, so the
- * wrapper is the only durable hide point post-hydration). If we unconditionally
- * forced `display:'block'` we would clobber that gate and the form would become
- * visible once the island mounts. So we only override `display` to `block` when
- * the base style is NOT already hiding the wrapper.
+ * `stripAuthActionsIfUnconfigured` puts `display: 'none'` on the component,
+ * and the wrapper is the only hide point that survives the island's re-render.
+ * Forcing `block` there would show the form once the island mounts, so `block`
+ * applies only when the base style is not already hiding the wrapper.
  */
 export function buildAuthWrapperStyle(baseStyle: unknown): React.CSSProperties {
   const base = baseStyle as React.CSSProperties | undefined
   if (base?.display === 'none') return base
-  return {
-    ...base,
-    display: 'block',
-    width: '100%',
-  }
+  return { ...base, display: 'block', width: '100%' }
 }
 
 /**
@@ -351,7 +348,7 @@ export function renderAuthForm(
   const { submitLabel, pendingLabel } = resolveAuthLabels(action, method, lang, languages)
   // The base field set (a second-factor step names its code by `factor`), then overrides.
   const variant = action.strategy ?? action.factor
-  const baseFields = resolveAuthFormFields(method, tables, component, variant)
+  const baseFields = resolveAuthFormFields(method, tables, component, action)
   const hinted = withAuthFieldHints(applyFieldOverrides(baseFields, action.fields, context), {
     method,
     ...(variant !== undefined && { variant }),
@@ -371,9 +368,9 @@ export function renderAuthForm(
     pendingLabel,
     props,
     redirectUrl,
-    // The two-step screens, and a sign-in's pending banner, speak the page language.
     uiStrings: resolveInterpreterStringOverrides(authFormStringPrefixes(method), lang, languages),
     twoFactorNotice,
+    context,
   })
   const formDataAttrs = buildFormDataAttrs(method, action, redirectUrl)
   const wrapperStyle = buildAuthWrapperStyle(props.style)

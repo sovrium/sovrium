@@ -20,7 +20,7 @@
 
 import { redactBoundQueryValues } from '@/domain/kernel/sanitize/bound-value-redaction'
 import { type ActionOutcome } from '../action-handlers'
-import { CALLER_REFUSAL } from '../action-handlers/record-caller-gate'
+import { CALLER_REFUSAL } from '../action-handlers/record/caller-gate'
 import { redactSecretsForRunHistory } from '../redact-secrets'
 import { readActionIdentity } from './action-identity'
 import { redactedReads } from './read-tracker'

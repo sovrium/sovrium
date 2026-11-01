@@ -88,6 +88,7 @@ export default {
   'admin.crumb.links': 'Liens',
   'admin.crumb.templates': 'Modèles',
   'admin.crumb.decisions': 'Décisions',
+  'admin.crumb.footprint': 'Empreinte',
 
   // The app's own name (`$app.label`) opens every title, as in English: it is
   // a name, not a word to translate.

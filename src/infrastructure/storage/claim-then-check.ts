@@ -26,18 +26,17 @@
  */
 
 import { Effect } from 'effect'
-import { StorageError } from '@/application/ports/services/storage-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { claimProviderOf, releaseClaim, type CatalogClaim } from './catalog-claim'
 import { assertNoOtherSpelling, insertFileMetadataOnly, type SpellingStore } from './catalog-guards'
+import { attemptStorage } from './storage-attempt'
 import type { CatalogWrite } from './bytea-adapter'
-
-const attempt = <A>(run: () => Promise<A>): Effect.Effect<A, StorageError> =>
-  Effect.tryPromise({ try: run, catch: (e: unknown) => new StorageError({ cause: e }) })
+import type { StorageError } from '@/application/ports/services/storage-service'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /** Remove `claim`, and only it; a failure is logged, never raised over the write's own answer. */
-export const releaseClaimQuietly = (claim: CatalogClaim): Effect.Effect<void> =>
-  attempt(() => releaseClaim(claim)).pipe(
+export const releaseClaimQuietly = (client: PortableDb, claim: CatalogClaim): Effect.Effect<void> =>
+  attemptStorage(() => releaseClaim(client, claim)).pipe(
     Effect.tapCause((cause) =>
       Effect.sync(() => logError('[storage] a claimed key could not be released', cause))
     ),
@@ -52,6 +51,7 @@ export const releaseClaimQuietly = (claim: CatalogClaim): Effect.Effect<void> =>
  * nothing was inserted. The claim comes back only once the check has passed.
  */
 export const claimThenCheck = (
+  client: PortableDb,
   catalog: CatalogWrite,
   store: Readonly<SpellingStore>
 ): Effect.Effect<CatalogClaim | undefined, StorageError> =>
@@ -62,12 +62,12 @@ export const claimThenCheck = (
       provider: catalog.storageProvider,
       marker: claimProviderOf(catalog.storageProvider, token),
     }
-    const inserted = yield* attempt(() =>
-      insertFileMetadataOnly({ ...catalog, storageProvider: claim.marker })
+    const inserted = yield* attemptStorage(() =>
+      insertFileMetadataOnly(client, { ...catalog, storageProvider: claim.marker })
     )
     if (inserted === 'taken') return undefined
-    yield* assertNoOtherSpelling(catalog.key, catalog.bucket, store).pipe(
-      Effect.tapError(() => releaseClaimQuietly(claim))
+    yield* assertNoOtherSpelling(client, catalog.key, catalog.bucket, store).pipe(
+      Effect.tapError(() => releaseClaimQuietly(client, claim))
     )
     return claim
   }).pipe(Effect.withSpan('storage.claim-then-check'))

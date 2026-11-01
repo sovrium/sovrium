@@ -94,7 +94,7 @@ const PreviewSubjectSchema = Schema.Struct({
     Schema.annotate({
       title: 'Option Path',
       description:
-        'The option to set, in the path grammar `GET /api/admin/schema/component-types/:type/options` publishes — dotted, with `[]` for an array level. `$record.<field>` resolves it per row.',
+        'The option to set, in the path grammar `GET /api/admin/schema/component-types/:type/options` publishes: dotted, with `[]` for an array level. `$record.<field>` resolves it per row.',
       examples: ['pagination.position', 'columns[].format', '$record.path'],
     }),
     Schema.check(Schema.isMinLength(1))

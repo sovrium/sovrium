@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { seesPresence } from '@/domain/models/app/auth/presence-audience-service'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -56,8 +57,4 @@ function dropChoices(value: unknown): unknown {
       .filter(([key]) => !(value['type'] === 'filter-bar' && key === 'online'))
       .map(([key, child]) => [key, dropChoices(child)])
   )
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

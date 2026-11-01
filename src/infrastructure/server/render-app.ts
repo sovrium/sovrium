@@ -69,9 +69,9 @@ import { buildDomainRuntimeAndApp } from '@/infrastructure/server/build-domain-a
 import { disposeDomainRuntime } from '@/infrastructure/server/domain-runtime'
 import { validateOperatorEnv } from '@/infrastructure/server/validate-operator-env'
 import type { RenderApp, RenderAppConfig } from '@/application/ports/services/server-factory'
-import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
-import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
-import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
+import type { CSSCompilationError } from '@/domain/errors/css-compilation-error'
+import type { ServerCreationError } from '@/domain/errors/server-creation-error'
+import type { TransformPresetError } from '@/domain/errors/transform-preset-error'
 
 /**
  * Build a Hono app to render through, plus the one call that releases it.

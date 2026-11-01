@@ -8,6 +8,7 @@
 import { Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { purgeExpiredActivityLogs } from '@/infrastructure/database/activity-log-retention'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
@@ -66,8 +67,9 @@ const RETENTION_JOB_ID = 'activity-log-retention'
 export const registerActivityLogRetentionScheduler: Effect.Effect<
   string | undefined,
   never,
-  CronScheduler
+  CronScheduler | Database
 > = Effect.gen(function* () {
+  const database = yield* Database
   const scheduler = yield* CronScheduler
   return yield* scheduler
     .schedule(
@@ -77,7 +79,7 @@ export const registerActivityLogRetentionScheduler: Effect.Effect<
         // callback signature is `void`. Any DB error is caught and logged so
         // the timer re-arms for the next daily tick.
         Effect.tryPromise({
-          try: () => purgeExpiredActivityLogs(),
+          try: () => purgeExpiredActivityLogs(database),
           catch: (cause) => new ActivityLogRetentionSweepError({ cause }),
         }).pipe(
           Effect.tapError((error) =>
@@ -94,7 +96,7 @@ export const registerActivityLogRetentionScheduler: Effect.Effect<
           Effect.catch(() => Effect.void),
           Effect.asVoid
         ),
-      { jobId: RETENTION_JOB_ID, timezone: resolveOperatorTimezone() }
+      { jobId: RETENTION_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
     )
     .pipe(
       Effect.catch((err) =>

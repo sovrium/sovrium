@@ -13,7 +13,10 @@
  * slot) in the database forever: nothing in the next process will ever finish
  * it, and the console shows it running for good. So at boot, every such row
  * that was TRIGGERED BEFORE THIS SERVER (its `created_at`) is closed as `failed` with
- * {@link INTERRUPTED_RUN_ERROR}, and each is alerted like any other failure.
+ * {@link INTERRUPTED_RUN_ERROR}. The operators — the same recipients, under the
+ * same preferences, as every failure alert — receive ONE email for the sweep,
+ * naming each automation with how many of its runs were interrupted: a restart
+ * is one event, however many runs it caught.
  *
  * "Triggered before this server" is exact rather than a timeout guess: no run of
  * this server can predate it. A run waiting for a human approval survives a
@@ -33,16 +36,48 @@
 
 import { Effect } from 'effect'
 import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
-import { INTERRUPTED_RUN_ERROR } from '@/domain/models/app/automations/automation-run-outcome-service'
+import {
+  INTERRUPTED_RUN_ERROR,
+  countInterruptedRuns,
+  type InterruptedRunCount,
+} from '@/domain/models/app/automations/automation-run-outcome-service'
 import { onDevTimeline, readServerBootInstant } from '@/infrastructure/process/server-boot-instant'
-import { notifyPlatformFailure } from './notify-platform-failure'
+import { deliverAutomationNotice, type AutomationNoticeContent } from './automation-notice'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationRunOutcomeDatabaseError } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { App } from '@/domain/models/app'
 
+/** One line per automation: its name and how many of its runs were interrupted. */
+const countLine = ({ name, runs }: InterruptedRunCount): string =>
+  `${name}: ${runs} ${runs === 1 ? 'run' : 'runs'} interrupted`
+
 /**
- * Close every orphaned run and alert each one, answering the ids closed.
+ * What the restart's one email says. The subject names every automation, so
+ * an operator searching for one finds it; the body counts each one's runs.
+ */
+const interruptedNotice = (
+  counts: readonly InterruptedRunCount[],
+  closedAt: string
+): AutomationNoticeContent => {
+  const names = counts.map((count) => count.name).join(', ')
+  const total = counts.reduce((sum, count) => sum + count.runs, 0)
+  return {
+    title:
+      counts.length === 1
+        ? `Automation interrupted: ${names}`
+        : `Automations interrupted: ${names}`,
+    intro: `The server stopped while ${total === 1 ? 'a run was' : `${total} runs were`} in progress, so ${total === 1 ? 'it was' : 'they were'} closed as failed when the server started again. Nothing in the automations themselves failed.`,
+    sections: [
+      { lines: counts.map(countLine) },
+      { lines: [`Error: ${INTERRUPTED_RUN_ERROR}`, `Closed at: ${closedAt}`] },
+    ],
+  }
+}
+
+/**
+ * Close every orphaned run and tell the operators in ONE email for the whole
+ * sweep, answering the ids closed. A sweep that closed nothing sends nothing.
  *
  * `startedBefore` defaults to the instant the running server started.
  */
@@ -62,19 +97,9 @@ export const reapInterruptedRuns = (
       startedBefore: onDevTimeline(startedBefore),
       error: INTERRUPTED_RUN_ERROR,
     })
-    const closedAt = new Date().toISOString()
-    yield* Effect.forEach(
-      closed,
-      (run) =>
-        notifyPlatformFailure({
-          app,
-          automationName: run.automationName,
-          runId: run.id,
-          error: INTERRUPTED_RUN_ERROR,
-          failedAt: closedAt,
-          kind: 'interrupted',
-        }),
-      { discard: true }
-    )
+    if (closed.length > 0) {
+      const content = interruptedNotice(countInterruptedRuns(closed), new Date().toISOString())
+      yield* deliverAutomationNotice({ app, content })
+    }
     return closed.map((run) => run.id)
   }).pipe(Effect.withSpan('automations.reap-interrupted-runs'))

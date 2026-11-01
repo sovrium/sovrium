@@ -49,11 +49,14 @@ function writeLlmsFullFile(app: App, target: LlmsLocaleTarget, context: LlmsWrit
                 new StaticGenerationError({ message: `Failed to generate ${name}`, cause: error })
             )
           )
-          yield* Effect.tryPromise({
-            try: () => context.fs.writeFile(`${context.outputDir}/${name}`, full, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({ message: `Failed to write ${name}`, cause: error }),
-          })
+          yield* context.fs
+            .writeFile(`${context.outputDir}/${name}`, full)
+            .pipe(
+              Effect.mapError(
+                ({ cause: error }) =>
+                  new StaticGenerationError({ message: `Failed to write ${name}`, cause: error })
+              )
+            )
           return [name] as readonly string[]
         })
       : Effect.succeed([] as readonly string[])
@@ -74,11 +77,14 @@ function writeLlmsPair(app: App, target: LlmsLocaleTarget, context: LlmsWriteCon
           new StaticGenerationError({ message: `Failed to generate ${name}`, cause: error })
       )
     )
-    yield* Effect.tryPromise({
-      try: () => context.fs.writeFile(`${context.outputDir}/${name}`, llms, 'utf-8'),
-      catch: (error) =>
-        new StaticGenerationError({ message: `Failed to write ${name}`, cause: error }),
-    })
+    yield* context.fs
+      .writeFile(`${context.outputDir}/${name}`, llms)
+      .pipe(
+        Effect.mapError(
+          ({ cause: error }) =>
+            new StaticGenerationError({ message: `Failed to write ${name}`, cause: error })
+        )
+      )
     const fullFiles = yield* writeLlmsFullFile(app, target, context)
     return [name, ...fullFiles] as readonly string[]
   })
@@ -90,14 +96,15 @@ function ensureLocaleDirectory(target: LlmsLocaleTarget, context: LlmsWriteConte
   return Effect.suspend(() =>
     directory === ''
       ? Effect.void
-      : Effect.tryPromise({
-          try: () => context.fs.mkdir(`${context.outputDir}/${directory}`, { recursive: true }),
-          catch: (error) =>
-            new StaticGenerationError({
-              message: `Failed to create ${directory}/`,
-              cause: error,
-            }),
-        }).pipe(Effect.asVoid)
+      : context.fs.makeDirectory(`${context.outputDir}/${directory}`).pipe(
+          Effect.mapError(
+            ({ cause: error }) =>
+              new StaticGenerationError({
+                message: `Failed to create ${directory}/`,
+                cause: error,
+              })
+          )
+        )
   )
 }
 

@@ -11,8 +11,8 @@ import {
   accountDeleteRequestSchema,
   accountDeleteScheduledResponseSchema,
   accountExportResponseSchema,
-} from '@/domain/models/api/account/account'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+} from '@/domain/models/api/auth/account/account'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import { effectJsonBody, effectJsonResponse } from '@/presentation/api/openapi/route-fragments'
 import { type StaticGroupSpec } from '../openapi/route-spec'
 

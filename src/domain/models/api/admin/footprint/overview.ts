@@ -38,9 +38,9 @@
  */
 
 import { Schema } from 'effect'
-import { enumKeyedRecord } from '@/domain/models/api/combinators/enum-record'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { enumKeyedRecord } from '@/domain/kernel/config-parsing/enum-record'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { SUPPORTED_AI_PROVIDERS } from '@/domain/models/process-env/ai/ai-providers'
 
 /** EcoIndex letter grade A–G (per EcoIndex methodology). */
@@ -60,7 +60,7 @@ export const ecoIndexHeaderPanelSchema = Schema.Struct({
   currentGrade: Schema.NullOr(
     ecoIndexGradeSchema.annotate({
       description:
-        'Letter grade of the most recently graded response, or `null` when nothing has been graded yet. NULLABLE on purpose: this field used to default to `A`, so a freshly booted instance advertised a top grade alongside `graded: 0` — a score before any measurement, which ADR-013 D6 forbids. There is no honest letter for "not measured".',
+        'Letter grade of the most recently graded response, or `null` when nothing has been graded yet. NULLABLE on purpose: this field used to default to `A`, so a freshly booted instance advertised a top grade alongside `graded: 0`: a score before any measurement, which ADR-013 D6 forbids. There is no honest letter for "not measured".',
     })
   ),
   graded: Schema.Int.annotate({
@@ -68,19 +68,19 @@ export const ecoIndexHeaderPanelSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   since: looseIsoDateTime({
     description:
-      'ISO 8601 boot timestamp — the counter epoch for `graded`. Shared with `pageCache.since`: both read one process-wide epoch, so the two panels can never report rates over different intervals.',
+      'ISO 8601 boot timestamp: the counter epoch for `graded`. Shared with `pageCache.since`: both read one process-wide epoch, so the two panels can never report rates over different intervals.',
   }),
   histogram: enumKeyedRecord(
     ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
     Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
   ).annotate({
     description:
-      'Responses per letter grade over the same interval as `graded`. A single `currentGrade` says nothing about the distribution behind it — an instance that served one heavy page among a thousand light ones reads identically to one that serves heavy pages always, unless the spread is published.',
+      'Responses per letter grade over the same interval as `graded`. A single `currentGrade` says nothing about the distribution behind it. An instance that served one heavy page among a thousand light ones reads identically to one that serves heavy pages always, unless the spread is published.',
   }),
   meanBytes: Schema.NullOr(
     Schema.Int.annotate({
       description:
-        'Mean `Content-Length` across graded responses, or `null` when nothing has been graded. Published because it is the ONLY quantity the grades are computed from: the grader reads `Content-Length` and nothing else — not DOM size, not request count, not the other inputs the EcoIndex.fr methodology uses. Naming the raw number stops the letters from implying a richer model.',
+        'Mean `Content-Length` across graded responses, or `null` when nothing has been graded. Published because it is the ONLY quantity the grades are computed from: the grader reads `Content-Length` and nothing else: not DOM size, not request count, not the other inputs the EcoIndex.fr methodology uses. Naming the raw number stops the letters from implying a richer model.',
     }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
   ),
 })
@@ -106,7 +106,7 @@ export const pageCachePanelSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   bypasses: Schema.Int.annotate({
     description:
-      'Responses the cache was never eligible to serve — dynamic paths, authenticated or preview renders, or a cache turned off.',
+      'Responses the cache was never eligible to serve: dynamic paths, authenticated or preview renders, or a cache turned off.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   hitRate: Schema.NullOr(
     Schema.Finite.annotate({
@@ -131,7 +131,7 @@ export const pageCachePanelSchema = Schema.Struct({
       'Renders refused admission for exceeding the entire budget on their own, since boot. Distinct from an eviction: nothing was displaced, and a non-zero count means the budget is smaller than a single page.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   since: looseIsoDateTime({
-    description: 'ISO 8601 boot timestamp — the shared counter epoch (see `ecoIndexHeader.since`).',
+    description: 'ISO 8601 boot timestamp: the shared counter epoch (see `ecoIndexHeader.since`).',
   }),
 })
 
@@ -186,8 +186,7 @@ export const aiProviderMixPanelSchema = Schema.Struct({
         'Result of the local-provider probe that decided the routing. `false` when no Ollama endpoint is configured, or when the configured one did not answer.',
     }),
   }).annotate({
-    description:
-      'Resolved AI routing — precedence, the provider in force, and the probe behind it.',
+    description: 'Resolved AI routing: precedence, the provider in force, and the probe behind it.',
   }),
 })
 
@@ -272,7 +271,7 @@ export const topStorageConsumerSchema = Schema.Struct({
   ),
   measurement: storageMeasurementSchema.annotate({
     description:
-      "Where this row's byte count came from. A `table` row can only cite a database sizing source or `unavailable` — never `storage_adapter`, which cannot see a table.",
+      "Where this row's byte count came from. A `table` row can only cite a database sizing source or `unavailable`, never `storage_adapter`, which cannot see a table.",
   }),
 })
 
@@ -290,7 +289,7 @@ export const databaseFootprintPanelSchema = Schema.Struct({
       'Whole-database size in bytes (`pg_database_size` on PostgreSQL; page count × page size on SQLite).',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   scope: Schema.Literal('database').annotate({
-    description: 'Always `"database"` — this figure covers no single table.',
+    description: 'Always `"database"`: this figure covers no single table.',
   }),
 })
 
@@ -320,7 +319,7 @@ export const footprintOverviewResponseSchema = Schema.Struct({
     .pipe(Schema.check(Schema.isMaxLength(3))),
   database: databaseFootprintPanelSchema,
   telemetrySource: Schema.Literal('local').annotate({
-    description: 'Always `"local"` — no third-party SaaS telemetry is consulted.',
+    description: 'Always `"local"`: no third-party SaaS telemetry is consulted.',
   }),
 }).annotate({ identifier: 'FootprintOverviewResponse' })
 

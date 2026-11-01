@@ -26,7 +26,37 @@ import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generator
 import { SQLITE_FTS_PREFIX } from '../schema/command-search-fts-ddl'
 import { isManyToManyRelationship } from '../sql/sql-field-predicates'
 import { generateJunctionTableName, postgresStoredName } from '../sql/sql-junction-tables'
+import { PROTECTED_SYSTEM_TABLES } from './constants'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
+
+/**
+ * Whether `tableName` is a managed Better-Auth / system table that runtime
+ * schema migration must never drop.
+ *
+ * On PostgreSQL the Better-Auth (`auth.*`) and system (`system.*`) tables live
+ * in dedicated schemas, so `getExistingTableNames` (scoped to `public`) never
+ * even returns them; the `PROTECTED_SYSTEM_TABLES` set is otherwise defensive.
+ *
+ * On SQLite there are no schemas: the `schema-sqlite/` mirror prefixes those
+ * tables `auth_` / `system_`, and `getExistingTableNames` returns every
+ * non-`sqlite_%` table in one flat namespace. So the SQLite arm protects any
+ * `auth_`- or `system_`-prefixed physical table.
+ */
+export const isProtectedTable = (tableName: string, dialect: DatabaseDialect): boolean =>
+  PROTECTED_SYSTEM_TABLES.has(tableName) ||
+  (dialect === 'sqlite' && (tableName.startsWith('auth_') || tableName.startsWith('system_')))
+
+/**
+ * The live relations the planners below read, and the engine they were read
+ * from: the table names, the view names, and the dialect that decides how a
+ * statement over them is spelled.
+ */
+export interface LiveCatalogue {
+  readonly tables: ReadonlySet<string>
+  readonly views: ReadonlySet<string>
+  readonly dialect: DatabaseDialect
+}
 
 /** The suffix a view-backed table's physical relation carries. */
 const BASE_SUFFIX = getBaseTableName('')

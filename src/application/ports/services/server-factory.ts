@@ -6,22 +6,22 @@
  */
 
 import { Context } from 'effect'
+import type { HttpApp } from '@/application/ports/contracts/http-app'
 import type {
   FetchSitemapRecords,
   PageRenderResult,
   RenderRssFeed,
 } from '@/application/ports/services/page-renderer'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
+import type { AuthConfigRequiredForUserFields } from '@/domain/errors/auth-config-required-error'
+import type { CSSCompilationError } from '@/domain/errors/css-compilation-error'
+import type { SchemaInitializationError } from '@/domain/errors/schema-initialization-error'
+import type { ServerCreationError } from '@/domain/errors/server-creation-error'
+import type { TransformPresetError } from '@/domain/errors/transform-preset-error'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
-import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
-import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
-import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
-import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
-import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 import type { Effect } from 'effect'
-import type { Hono } from 'hono'
 
 /**
  * Server factory port for creating web servers
@@ -121,12 +121,16 @@ export interface ServerFactoryConfig {
       readonly cookies?: Readonly<Record<string, string>>
       /** The `/:lang/` URL-prefix locale, when present. */
       readonly urlLanguage?: string
+      /** The text of a file under this server's public directory: see the port (`page-renderer.ts`). */
+      readonly readPublicFile?: (path: string) => Promise<string | undefined>
     }
   ) => PageRenderResult | Promise<PageRenderResult>
   readonly renderNotFoundPage: (
     app?: App,
     detectedLanguage?: string,
-    requestPath?: string
+    requestPath?: string,
+    /** The reader, so a block gated on sign-in or a role shows as on `/404` itself. */
+    session?: SessionInfo
   ) => string | Promise<string>
   readonly renderErrorPage: (
     app?: App,
@@ -198,7 +202,7 @@ export interface RenderAppConfig {
  * it, so it cannot fail the way a stop can and its error channel says so.
  */
 export interface RenderApp {
-  readonly app: Readonly<Hono>
+  readonly app: HttpApp
   readonly dispose: Effect.Effect<void, never>
 }
 
@@ -301,6 +305,22 @@ export class ServerFactory extends Context.Service<
      * render pass, and they must be: a `dataSource`-bound page needs its table
      * to exist before anything renders.
      */
+    /**
+     * Activate the enabled telemetry signals of this process, once: the error
+     * reporter, the process crash handlers and the OTLP exporters, labelled
+     * with `appName` and the engine version. Idempotent across watch reloads,
+     * and a no-op when no telemetry variable is set. Only a server start calls
+     * it — never the static build — after the telemetry configuration has been
+     * validated and before anything else can fail.
+     */
+    readonly activateTelemetry: (appName: string) => Effect.Effect<void>
+    /**
+     * Record that a server is starting now, and answer the instant recorded:
+     * the boundary every automation run of this server postdates, read by the
+     * interrupted-run sweep and the run history. Process state — one server per
+     * process — so a start publishes it before anything can start a run.
+     */
+    readonly publishBootInstant: Effect.Effect<Readonly<Date>>
     readonly buildRenderApp: (
       config: RenderAppConfig
     ) => Effect.Effect<

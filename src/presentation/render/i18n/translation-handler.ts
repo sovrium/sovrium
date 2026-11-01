@@ -5,11 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import {
   collectTranslationsForKey,
   resolveTranslationPattern,
   resolveTranslationTokensDeep,
 } from '@/domain/models/app/languages/translation-resolver'
+import { componentFields, rewriteComponent } from '@/presentation/render/resolve/component-rewrite'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -17,12 +19,11 @@ import type { Component } from '@/domain/models/app/pages/components'
  * Find first translation key in children
  */
 export function findFirstTranslationKey(
-  children: readonly (Component | string)[] | undefined
+  children: readonly unknown[] | undefined
 ): string | undefined {
   return children
     ?.find(
-      (child: Component | string): child is string =>
-        typeof child === 'string' && child.startsWith('$t:')
+      (child: unknown): child is string => typeof child === 'string' && child.startsWith('$t:')
     )
     ?.slice(3) // Remove '$t:' prefix
 }
@@ -72,7 +73,8 @@ export function getTranslationData(
  * Substitutes translation tokens in props recursively
  *
  * Walks through props object and replaces all $t:key patterns with actual translations.
- * Handles nested objects (e.g., style props) recursively.
+ * Handles nested objects (e.g., style props) and arrays recursively, through
+ * the shared `mapStringsDeep`.
  *
  * @param props - Component props that may contain translation tokens
  * @param currentLang - Current language code
@@ -107,40 +109,12 @@ export function substitutePropsTranslationTokens(
 
   const lang = getCurrentLanguage(currentLang, languages)
 
-  // Use functional Object.entries + reduce for immutable transformation
-  return Object.entries(props).reduce<Record<string, unknown>>((acc, [key, value]) => {
-    if (typeof value === 'string') {
-      return { ...acc, [key]: resolveTranslationPattern(value, lang, languages) }
-    } else if (Array.isArray(value)) {
-      // Recursively handle arrays (like navigation links, footer columns)
-      return {
-        ...acc,
-        [key]: value.map((item) =>
-          item && typeof item === 'object' && !Array.isArray(item)
-            ? substitutePropsTranslationTokens(
-                item as Record<string, unknown>,
-                currentLang,
-                languages
-              )
-            : typeof item === 'string'
-              ? resolveTranslationPattern(item, lang, languages)
-              : item
-        ),
-      }
-    } else if (value && typeof value === 'object') {
-      // Recursively handle nested objects (like style props)
-      return {
-        ...acc,
-        [key]: substitutePropsTranslationTokens(
-          value as Record<string, unknown>,
-          currentLang,
-          languages
-        ),
-      }
-    } else {
-      return { ...acc, [key]: value }
-    }
-  }, {})
+  // The shared deep walk: an object a driver returned (a record's `Date`) is a
+  // leaf it passes through, where a private copy rebuilt it as `{}`.
+  return mapStringsDeep(props, (str) => resolveTranslationPattern(str, lang, languages)) as Record<
+    string,
+    unknown
+  >
 }
 
 /**
@@ -249,11 +223,10 @@ export function resolveComponentTranslationTokens(
 ): Component {
   if (!languages?.translations) return component
   const lang = getCurrentLanguage(currentLang, languages)
-  const fields = component as Readonly<Record<string, unknown>>
   const resolved = Object.fromEntries(
-    Object.entries(fields)
+    Object.entries(componentFields(component))
       .filter(([key]) => !COMPONENT_KEYS_RESOLVED_ELSEWHERE.has(key))
       .map(([key, value]) => [key, resolveTranslationTokensDeep(value, lang, languages)])
   )
-  return { ...fields, ...resolved } as Component
+  return rewriteComponent(component, resolved)
 }

@@ -19,5 +19,18 @@ export type Raw = Readonly<Record<string, unknown>>
 export const isRecord = (value: unknown): value is Raw =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
+/**
+ * Whether a value is an object LITERAL: `{}` or `Object.create(null)`, as
+ * opposed to a `Date`, a `Map`, a typed array or any class instance. Narrower
+ * than {@link isRecord}, which admits those: a walk that rebuilds or empties an
+ * object must leave such values alone, because they carry meaning without own
+ * keys and a spread would silently turn them into `{}`.
+ */
+export const isPlainObject = (value: unknown): value is Raw => {
+  if (!isRecord(value)) return false
+  const prototype: unknown = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
 /** A value read as a list: itself when it is an array, nothing otherwise. */
 export const arrayOf = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : [])

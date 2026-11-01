@@ -30,3 +30,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 0
+  # The Dockerfile's base image: an advisory on it reaches every `docker pull`.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0

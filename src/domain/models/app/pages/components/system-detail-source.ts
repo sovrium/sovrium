@@ -77,7 +77,7 @@ export const SystemDetailSourceSchema = Schema.Struct({
   param: Schema.optional(
     Schema.String.annotate({
       description:
-        "Param injected into the endpoint's `:param` placeholder — the clicked row id (record-drawer) or the route parameter (page mode:single). Default 'id'.",
+        "Param injected into the endpoint's `:param` placeholder: the clicked row id (record-drawer) or the route parameter (page mode:single). Default 'id'.",
       examples: ['runId', 'id', 'submissionId'],
     })
   ),

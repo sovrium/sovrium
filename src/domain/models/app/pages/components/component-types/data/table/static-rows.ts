@@ -55,7 +55,7 @@ const StaticColumnSchema = Schema.Struct({
   className: Schema.optional(
     Schema.String.annotate({
       description:
-        "Tailwind classes on every body cell of the column — a mono face for a time, a muted ink for a secondary value. The header cell is styled by the table's `header` part",
+        "Tailwind classes on every body cell of the column, such as a mono face for a time, a muted ink for a secondary value. The header cell is styled by the table's `header` part",
       examples: ['font-mono', 'text-muted-foreground'],
     })
   ),

@@ -78,7 +78,7 @@ export const FormSectionSchema = Schema.Struct({
     identifier: 'FormSection',
     title: 'Form Section',
     description:
-      'A titled group of fields on a page form: a heading, an optional line of guidance, and the fields drawn under it. Layout only — every field is shown and submitted.',
+      'A titled group of fields on a page form: a heading, an optional line of guidance, and the fields drawn under it. Layout only: every field is shown and submitted.',
   })
 )
 
@@ -89,7 +89,7 @@ export const FormSectionSchema = Schema.Struct({
 export const FormSectionsSchema = Schema.Array(FormSectionSchema).pipe(
   Schema.annotate({
     description:
-      'Titled groups of fields, drawn in order. Layout only: no condition, no step — every field is shown and submitted. A field in no section is drawn after the last section. Each listed field must be one the form draws, and may sit in one section only.',
+      'Titled groups of fields, drawn in order. Layout only: no condition, no step; every field is shown and submitted. A field in no section is drawn after the last section. Each listed field must be one the form draws, and may sit in one section only.',
   }),
   Schema.check(Schema.isMinLength(1))
 )

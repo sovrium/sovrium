@@ -15,6 +15,7 @@ import {
   toPermissionValue,
 } from '@/domain/models/app/auth/permission-evaluation'
 import { BUILT_IN_ROLES } from '@/domain/models/app/auth/roles'
+import { redirectTargetInRequestLanguage } from './redirect-target-language-service'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { PageAccess } from '@/domain/models/app/pages/access'
@@ -189,7 +190,8 @@ function denyAccess(
  * `currentPath` is the request path being evaluated; when provided and
  * the access rule produces a redirect, the original path is preserved
  * via a `?redirect=<encoded>` query parameter so the login page can
- * bounce the user back after sign-in.
+ * bounce the user back after sign-in. Under a `/{lang}/` prefix the redirect
+ * names that language's version of the `redirectTo` page, when it has one.
  */
 export function checkPageAccess(
   access: PageAccess | undefined,
@@ -229,5 +231,8 @@ export function checkPageAccess(
     return { allowed: true }
   }
 
-  return denyAccess(normalized.redirectTo, currentPath, session !== undefined)
+  const redirectTo =
+    normalized.redirectTo &&
+    redirectTargetInRequestLanguage(app, normalized.redirectTo, currentPath)
+  return denyAccess(redirectTo, currentPath, session !== undefined)
 }

@@ -23,6 +23,7 @@
 
 import { setCookie } from 'hono/cookie'
 import { findPageRoute } from '@/domain/kernel/matching/localized-path'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { resolveRedirectAgainst } from '@/domain/kernel/url/redirect-resolution'
 import {
   resolveInterpreterString,
@@ -153,14 +154,6 @@ export function decodeFlash(raw: string): FormFlash | undefined {
   }
 }
 
-const escapeHtml = (text: string): string =>
-  text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-
 const TOASTER_STYLE =
   'position:fixed;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px'
 
@@ -221,9 +214,9 @@ export async function redirectRefusedFormPost(
  * (timed, dismissible) once it runs; without a script it simply stays drawn.
  */
 export function withFlashToast(html: string, flash: FormFlash): string {
-  const variant = escapeHtml(flash.variant ?? 'success')
+  const variant = escapeHtmlAttribute(flash.variant ?? 'success')
   const message = flashMessageIn(html, flash)
-  const toast = `<div data-toast="" data-form-flash="" data-variant="${variant}"><span data-toast-message="">${escapeHtml(message)}</span></div>`
+  const toast = `<div data-toast="" data-form-flash="" data-variant="${variant}"><span data-toast-message="">${escapeHtmlAttribute(message)}</span></div>`
   const container = /<div data-sonner-toaster=""[^>]*>/.exec(html)
   if (container !== null) {
     const at = container.index + container[0].length

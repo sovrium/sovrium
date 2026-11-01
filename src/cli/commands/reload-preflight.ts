@@ -63,12 +63,11 @@ const describeCause = (cause: unknown): string =>
  */
 const envRefusals = async (app: App): Promise<readonly string[]> => {
   const { validateRequiredEnvVars } =
-    await import('@/application/use-cases/env/validate-required-env-vars')
+    await import('@/application/use-cases/config/validate-required-env-vars')
   const { Effect } = await import('effect')
 
-  const result = await Effect.runPromise(
-    validateRequiredEnvVars(app.env, process.env).pipe(Effect.result)
-  )
+  // The reload pre-flight is a Promise pipeline of the watcher, not a command.
+  const result = await Effect.runPromise(validateRequiredEnvVars(app.env).pipe(Effect.result))
   return result._tag === 'Failure' ? [describeCause(result.failure.cause)] : []
 }
 

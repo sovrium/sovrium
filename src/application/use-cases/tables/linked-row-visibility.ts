@@ -27,6 +27,7 @@ import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { rowPassesRule } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { admitsRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { loadCurrentUserContext, rowRuleScopeOf } from './permissions/row-level-enforcement'
 import { readerRowsOf } from './row-read-admission'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -155,7 +156,7 @@ export const filterReadableLinks = (
     if (app === undefined || reader === undefined) return linkMap
     const relatedTables = [...new Set(specs.map((spec) => spec.relatedTable))]
     const verdicts = yield* Effect.forEach(relatedTables, (name) => {
-      const table = app.tables?.find((t) => t.name === name)
+      const table = findTableByName(app.tables, name)
       if (table === undefined) return Effect.succeed([name, undefined] as const)
       const fieldNames = specs.filter((s) => s.relatedTable === name).map((s) => s.fieldName)
       return readableKeys(app, table, linkedKeys(linkMap, fieldNames), reader).pipe(

@@ -7,7 +7,6 @@
 
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   executeSQLStatements,
   type TransactionLike,
@@ -116,7 +115,7 @@ export const syncUniqueConstraints = (
   physicalTableName: string = table.name
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const sqlite = isSqliteRuntime()
+    const sqlite = tx.dialect === 'sqlite'
     const drift = yield* readUniqueShapeDrift(tx, table, physicalTableName)
     const repairs = uniqueShapeRepairStatements({ sqlite, physicalTableName, drift })
     // Must use the SAME predicate the CREATE path uses (`isBtreeUniqueField`):
@@ -144,8 +143,12 @@ export const syncForeignKeyConstraints = (
   Effect.gen(function* () {
     // SQLite: FOREIGN KEY constraints are inline in CREATE TABLE; reconciled by
     // (re)creation, never by ALTER (see the module-level dialect note).
-    if (isSqliteRuntime()) return
-    const fkConstraints = generateForeignKeyConstraints(table.name, table.fields, tableUsesView)
+    if (tx.dialect === 'sqlite') return
+    const fkConstraints = generateForeignKeyConstraints(
+      tx.dialect,
+      { name: table.name, fields: table.fields },
+      tableUsesView
+    )
 
     // Build drop and add statements for each FK constraint
     const statements = fkConstraints.flatMap((constraint) => {
@@ -231,8 +234,8 @@ export const syncCheckConstraints = (
   Effect.gen(function* () {
     // SQLite: CHECK constraints are inline in CREATE TABLE; reconciled by
     // (re)creation, never by ALTER (see the module-level dialect note).
-    if (isSqliteRuntime()) return
-    const allConstraints = generateTableConstraints(table, undefined)
+    if (tx.dialect === 'sqlite') return
+    const allConstraints = generateTableConstraints(table, tx.dialect)
 
     // Filter only CHECK constraints (not UNIQUE, FK, or PRIMARY KEY)
     const checkConstraints = allConstraints.filter(

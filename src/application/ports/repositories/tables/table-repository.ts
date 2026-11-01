@@ -6,11 +6,14 @@
  */
 
 import { Context, type Effect } from 'effect'
+import type { InTransactionRuleJudge } from './in-transaction-rule-judge'
+import type { DeleteRecord, PermanentlyDeleteRecord } from './record-delete-port'
 import type { ManyToManyFieldRead, RecordLinkWrite } from './record-links'
 import type { RecordWriteExtras, UpdateRecordFailure } from './record-write-accounts'
 import type { TableFileReferences } from './table-file-references'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type {
+  BusinessRuleViolationError,
   ForeignKeyViolationError,
   DatabaseError,
   UncompilableFilterOperatorError,
@@ -297,6 +300,7 @@ export class TableRepository extends Context.Service<
      * edits from one read cannot both apply: the loser fails with
      * {@link StaleWriteError}; no token, no `updated_at` or a bad token skips it.
      * `auditContext` names the surface the change was made through (a form edit).
+     * `judge`: the rules, judged in the transaction ({@link InTransactionRuleJudge}).
      */
     readonly updateRecord: (
       session: Readonly<UserSession>,
@@ -310,30 +314,25 @@ export class TableRepository extends Context.Service<
         readonly expectedUpdatedAt?: string
         readonly auditContext?: Readonly<Record<string, string>>
         readonly accounts?: RecordWriteExtras<RecordLinkWrite>['accounts']
+        readonly judge?: InTransactionRuleJudge
       }
     ) => Effect.Effect<Record<string, unknown>, UpdateRecordFailure>
 
-    readonly deleteRecord: (
-      session: Readonly<UserSession>,
-      tableName: string,
-      recordId: string,
-      app?: App
-    ) => Effect.Effect<
-      { success: boolean; setNullPerformed: boolean; restrictViolation: boolean },
-      DatabaseError
-    >
+    readonly deleteRecord: DeleteRecord
 
-    readonly permanentlyDeleteRecord: (
-      session: Readonly<UserSession>,
-      tableName: string,
-      recordId: string
-    ) => Effect.Effect<boolean, DatabaseError>
+    readonly permanentlyDeleteRecord: PermanentlyDeleteRecord
 
+    /**
+     * Bring a record back from the trash. `judge`: the rules, judged in the
+     * transaction on the trashed row as it will stand restored
+     * ({@link InTransactionRuleJudge}); a refusal restores nothing.
+     */
     readonly restoreRecord: (
       session: Readonly<UserSession>,
       tableName: string,
-      recordId: string
-    ) => Effect.Effect<Record<string, unknown> | null, DatabaseError>
+      recordId: string,
+      judge?: InTransactionRuleJudge
+    ) => Effect.Effect<Record<string, unknown> | null, DatabaseError | BusinessRuleViolationError>
 
     readonly computeAggregations: (config: {
       readonly session: Readonly<UserSession>

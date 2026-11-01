@@ -45,6 +45,14 @@ interface OptionListboxProps {
   readonly emptyLabel: string
   readonly ariaLabel: string
   readonly multiple: boolean
+  /**
+   * The candidate the keyboard has highlighted, in a combobox whose input
+   * keeps the focus. While one is highlighted it alone is the selected option
+   * of a single-valued list, as the combobox pattern announces it.
+   */
+  readonly activeIndex?: number
+  /** Prefix of each option's id, so the combobox can point at the highlighted one. */
+  readonly optionIdPrefix?: string
 }
 
 // The row's WELL marks the selection and the weight distinguishes it from a row
@@ -54,6 +62,57 @@ interface OptionListboxProps {
 const optionClass = (selected: boolean): string =>
   `${computeTableEditorListRowClasses({ active: selected })} aria-selected:font-medium`
 
+/**
+ * One candidate. `highlighted` is set while the keyboard drives the list: the
+ * highlight is then what the combobox announces as selected, and the check
+ * stays the mark of what the field holds.
+ */
+function OptionRow({
+  candidate,
+  id,
+  chosen,
+  highlighted,
+  onToggle,
+}: {
+  readonly candidate: ListboxCandidate
+  readonly id: string | undefined
+  readonly chosen: boolean
+  readonly highlighted: boolean | undefined
+  readonly onToggle: (value: string) => void
+}): ReactElement {
+  const isSelected = highlighted ?? chosen
+  return (
+    <li
+      {...(id !== undefined && { id })}
+      role="option"
+      aria-selected={isSelected}
+      tabIndex={-1}
+      className={optionClass(isSelected)}
+      onClick={() => onToggle(candidate.value)}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        e.preventDefault()
+        onToggle(candidate.value)
+      }}
+    >
+      <span
+        aria-hidden="true"
+        className="w-3 shrink-0 text-sm"
+      >
+        {chosen ? '✓' : ''}
+      </span>
+      <span
+        className="truncate"
+        {...(candidate.color && {
+          style: { color: candidate.color },
+        })}
+      >
+        {candidate.label}
+      </span>
+    </li>
+  )
+}
+
 export function OptionListbox({
   candidates,
   selected,
@@ -61,7 +120,10 @@ export function OptionListbox({
   emptyLabel,
   ariaLabel,
   multiple,
+  activeIndex = -1,
+  optionIdPrefix,
 }: OptionListboxProps): ReactElement {
+  const highlighting = !multiple && activeIndex >= 0
   return (
     <ul
       role="listbox"
@@ -75,39 +137,16 @@ export function OptionListbox({
       {candidates.length === 0 ? (
         <li className={`${computeTableEditorLabelClasses()} px-2 py-1`}>{emptyLabel}</li>
       ) : (
-        candidates.map((candidate) => {
-          const isSelected = selected.includes(candidate.value)
-          return (
-            <li
-              key={candidate.value}
-              role="option"
-              aria-selected={isSelected}
-              tabIndex={-1}
-              className={optionClass(isSelected)}
-              onClick={() => onToggle(candidate.value)}
-              onKeyDown={(e) => {
-                if (e.key !== 'Enter' && e.key !== ' ') return
-                e.preventDefault()
-                onToggle(candidate.value)
-              }}
-            >
-              <span
-                aria-hidden="true"
-                className="w-3 shrink-0 text-sm"
-              >
-                {isSelected ? '✓' : ''}
-              </span>
-              <span
-                className="truncate"
-                {...(candidate.color && {
-                  style: { color: candidate.color },
-                })}
-              >
-                {candidate.label}
-              </span>
-            </li>
-          )
-        })
+        candidates.map((candidate, index) => (
+          <OptionRow
+            key={candidate.value}
+            candidate={candidate}
+            id={optionIdPrefix === undefined ? undefined : `${optionIdPrefix}-${index}`}
+            chosen={selected.includes(candidate.value)}
+            highlighted={highlighting ? index === activeIndex : undefined}
+            onToggle={onToggle}
+          />
+        ))
       )}
     </ul>
   )

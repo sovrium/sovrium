@@ -64,6 +64,8 @@ const PALETTE_WORDS = [
   'commandLabel',
   'empty',
   'startTyping',
+  'searchData',
+  'searchIn',
   'searching',
   'noResultsFor',
 ] as const
@@ -85,6 +87,43 @@ export const paletteHints = (config: ComponentDispatchConfig): PaletteHints => {
       PALETTE_WORDS.map((word) => [word, resolve(`commandPalette.${word}`)])
     ) as Record<(typeof PALETTE_WORDS)[number], string>),
   }
+}
+
+/**
+ * The kinds of data a search palette can reach, stamped by the page pass
+ * (`props._searchKinds`) from what the app declares; none when unstamped.
+ */
+const searchKindsOf = (component: ComponentDispatchConfig['component']): readonly string[] => {
+  const stamped = (component as { readonly props?: Record<string, unknown> } | undefined)?.props?.[
+    '_searchKinds'
+  ]
+  return Array.isArray(stamped)
+    ? stamped.filter((kind): kind is string => typeof kind === 'string')
+    : []
+}
+
+/** `a`, `a and b`, `a, b and c`. */
+const listOf = (nouns: readonly string[], and: string): string =>
+  nouns.length < 2
+    ? nouns.join('')
+    : `${nouns.slice(0, -1).join(', ')} ${and} ${nouns[nouns.length - 1] ?? ''}`
+
+/**
+ * A search palette's words, with `{kinds}` filled from the kinds the app
+ * declares (`Type to search records and users.`). An app declaring none gets
+ * no prompt and no Search data row: an empty word draws nothing.
+ */
+export const searchPaletteHints = (config: ComponentDispatchConfig): PaletteHints => {
+  const hints = paletteHints(config)
+  const resolve = (key: string) =>
+    resolveInterpreterString(key, config.currentLang ?? config.languages?.default, config.languages)
+  const nouns = searchKindsOf(config.component).map((kind) =>
+    resolve(`commandPalette.kindNoun.${kind}`)
+  )
+  const kinds = listOf(nouns, resolve('commandPalette.kindsAnd'))
+  const fill = (text: string): string =>
+    nouns.length === 0 ? '' : text.split('{kinds}').join(kinds)
+  return { ...hints, startTyping: fill(hints.startTyping), searchIn: fill(hints.searchIn) }
 }
 
 /**
@@ -144,8 +183,11 @@ export const navPagesOf = (
     : []
 }
 
-/** The built-in words a search palette's Pages and Quick actions groups speak. */
-const SEARCH_ACTION_WORDS = ['pages', 'quickActions', 'toggleDarkMode', 'darkModeOn', 'lightModeOn']
+/**
+ * The built-in words a search palette's Pages group speaks. It carries no
+ * quick actions: the theme has one home, the account menu.
+ */
+const SEARCH_ACTION_WORDS = ['pages']
 
 export const searchActionWords = (
   config: ComponentDispatchConfig

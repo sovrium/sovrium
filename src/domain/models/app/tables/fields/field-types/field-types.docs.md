@@ -1,6 +1,6 @@
 # Field Types
 
-> Every field type a table column can declare, grouped into nine categories — and the base properties all of them share.
+> Every field type a table column can declare, grouped into nine categories, and the base properties all of them share.
 
 A table's `fields` array declares its columns. Every field carries the same base properties and adds type-specific ones on top, so learning one category teaches the shape of the rest.
 
@@ -32,13 +32,13 @@ Each category is documented beside the schemas that declare it, so the list of o
 
 ## Choosing a type is choosing a column
 
-A field type is not a display hint. It decides the database column, the constraint on it, and what a filter or an aggregation can do with the values — which is why a phone number is text rather than a number, and why a duration is stored in seconds rather than as `2h 30m`.
+A field type is not a display hint. It decides the database column, the constraint on it, and what a filter or an aggregation can do with the values. That is why a phone number is text rather than a number, and why a duration is stored in seconds rather than as `2h 30m`.
 
 The consequence worth planning for: changing a field's `type` on a table that already holds data is a migration, not an edit. Changing its `label`, its ordering or most of its type-specific options is not.
 
 ## A translated field label
 
-In a multi-language app a field's `label` may be a `$t:` key instead of text. It resolves against the page's language on each of the three surfaces that show the field — the grid's column header, the form control's label, and the record drawer's field label — whenever that surface declares no label of its own.
+In a multi-language app a field's `label` may be a `$t:` key instead of text. It resolves against the page's language on each of the three surfaces that show the field (the grid's column header, the form control's label, and the record drawer's field label) whenever that surface declares no label of its own.
 
 ```yaml
 languages:

@@ -6,17 +6,17 @@
  */
 
 /**
- * The SEARCH mode's two local groups, matched in the browser beside the
- * endpoint's results: the PAGES the app's navigation names (handed over by the
- * server, already filtered for this caller) and the QUICK ACTIONS the palette
- * carries everywhere. Each lists only what the typed words match, so a query
- * no page or action answers draws neither group.
+ * The SEARCH mode's local rows, drawn in the browser beside the endpoint's
+ * results: the PAGES the app's navigation names (handed over by the server,
+ * already filtered for this caller), listed only when the typed words match
+ * one, and the SEARCH DATA row saying where the search looks
+ * (`Search “camille” in users`), worded from the kinds the app declares. The
+ * palette carries no theme action: the theme has one home, the account menu.
  */
 
 import { useCallback, type ReactElement } from 'react'
 import { CommandGroup, CommandItem } from '../parts/command-primitives'
-import { localMatches, type PalettePage } from './command-actions-data'
-import { toggleDarkMode } from './command-dark-mode'
+import { pageMatches, type PalettePage } from './command-actions-data'
 
 /** One page row: named by its navigation label, opening the page. */
 function PageItem({
@@ -38,30 +38,57 @@ function PageItem({
   )
 }
 
-/** The Pages and Quick actions groups for `query`, each drawn only when it matched. */
+/**
+ * The Search data row for `query`: one option naming the words and the kinds
+ * of data they are looked for in. The results arrive under it as they are
+ * found, so choosing it leaves the palette open on them. Nothing is drawn
+ * before the reader types, or when the app declares no kind (`searchIn` empty).
+ */
+function SearchDataRow({
+  query,
+  heading,
+  sentence,
+}: {
+  readonly query: string
+  readonly heading: string
+  readonly sentence: string
+}): ReactElement | null {
+  const words = query.trim()
+  if (words.length === 0 || sentence.length === 0) return null
+  const label = sentence.split('{query}').join(words)
+  return (
+    <CommandGroup heading={heading}>
+      <CommandItem
+        value="search-data"
+        aria-label={label}
+      >
+        <span>{label}</span>
+      </CommandItem>
+    </CommandGroup>
+  )
+}
+
+/** The Pages group and the Search data row for `query`, each drawn only when it applies. */
 export function LocalGroups({
   pages,
   strings,
+  hints,
   query,
   onSelect,
-  close,
 }: {
   readonly pages: readonly PalettePage[]
   readonly strings: Readonly<Record<string, string>>
+  /** The palette's own words: `searchData` and `searchIn`, `{kinds}` already filled. */
+  readonly hints: Readonly<Record<string, string | undefined>> | undefined
   readonly query: string
   readonly onSelect: (href: string) => void
-  readonly close: () => void
 }): ReactElement {
-  const matched = localMatches(pages, strings, query)
-  const toggle = useCallback(() => {
-    close()
-    toggleDarkMode(strings)
-  }, [close, strings])
+  const matched = pageMatches(pages, query)
   return (
     <>
-      {matched.pages.length > 0 && (
+      {matched.length > 0 && (
         <CommandGroup heading={strings['pages'] ?? 'Pages'}>
-          {matched.pages.map((page) => (
+          {matched.map((page) => (
             <PageItem
               key={page.path}
               page={page}
@@ -70,17 +97,11 @@ export function LocalGroups({
           ))}
         </CommandGroup>
       )}
-      {matched.toggle !== undefined && (
-        <CommandGroup heading={strings['quickActions'] ?? 'Quick actions'}>
-          <CommandItem
-            value="action:toggle-dark-mode"
-            aria-label={matched.toggle}
-            onSelect={toggle}
-          >
-            <span>{matched.toggle}</span>
-          </CommandItem>
-        </CommandGroup>
-      )}
+      <SearchDataRow
+        query={query}
+        heading={hints?.['searchData'] ?? 'Search data'}
+        sentence={hints?.['searchIn'] ?? ''}
+      />
     </>
   )
 }

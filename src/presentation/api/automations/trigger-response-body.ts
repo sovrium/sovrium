@@ -10,12 +10,12 @@
  * press, a replay — as the caller who started it may read it.
  */
 
+import { Effect } from 'effect'
 import { runErrorAsSeenBy } from '@/application/use-cases/automations/run-admin-only-output'
 import { lastOutputAsSeenBy } from '@/application/use-cases/automations/run-person-address-mask'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import { logError } from '@/infrastructure/logging/logger'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { RunAutomationResult } from '@/application/use-cases/automations/run-automation'
 import type { App } from '@/domain/models/app'
@@ -67,14 +67,18 @@ const triggerResultBody = (
  * run has already happened by the time this is asked, so a role that cannot be
  * read is not a failed request — it is a reader shown the masked body.
  */
-const callerIsAdmin = async (c: Context, app: App): Promise<boolean> => {
+const callerIsAdmin = (c: Context, app: App) => {
   const userId = getSessionContext(c)?.userId
-  if (userId === undefined) return false
-  const role = await runDomainPromise(c, getUserRole(userId)).catch((cause: unknown) => {
-    logError('[automation] trigger response: caller role unreadable, masking the output', cause)
-    return undefined
-  })
-  return role !== undefined && isAdminEquivalent(role, app)
+  if (userId === undefined) return Effect.succeed(false)
+  return getUserRole(userId).pipe(
+    Effect.map((role) => role !== undefined && isAdminEquivalent(role, app)),
+    Effect.catchCause((cause) =>
+      Effect.sync(() => {
+        logError('[automation] trigger response: caller role unreadable, masking the output', cause)
+        return false
+      })
+    )
+  )
 }
 
 /**
@@ -84,7 +88,7 @@ const callerIsAdmin = async (c: Context, app: App): Promise<boolean> => {
  * history shows it to her (`run-step-output-reach.ts`). The run itself
  * already read — and mailed — the full address.
  */
-export const triggerResponseAsSeenByCaller = async (
+export const triggerResponseAsSeenByCaller = (
   c: Context,
   app: App,
   input: { readonly automationName: string; readonly result: RunAutomationResult }
@@ -92,9 +96,11 @@ export const triggerResponseAsSeenByCaller = async (
   const { automationName, result } = input
   // Nothing to judge, no role to read: a run with neither an output nor an error.
   const judged = result.lastOutput !== undefined || result.error !== undefined
-  const readsWhole = !judged || (await callerIsAdmin(c, app))
-  return triggerResultBody(result, {
-    output: lastOutputAsSeenBy(app, { automationName, readsWhole, result }),
-    error: runErrorAsSeenBy(app, { automationName, readsWhole, result }),
-  })
+  const whole = judged ? callerIsAdmin(c, app) : Effect.succeed(true)
+  return Effect.map(whole, (readsWhole) =>
+    triggerResultBody(result, {
+      output: lastOutputAsSeenBy(app, { automationName, readsWhole, result }),
+      error: runErrorAsSeenBy(app, { automationName, readsWhole, result }),
+    })
+  )
 }

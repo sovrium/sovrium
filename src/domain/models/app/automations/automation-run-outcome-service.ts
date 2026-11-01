@@ -42,6 +42,26 @@ export const RUN_DEFECT_ERROR = 'The run stopped with an internal error'
  */
 export const STUCK_RUN_ERROR = 'Timed out: the run exceeded its timeout and was closed by the sweep'
 
+/** How many runs of one automation a restart interrupted. */
+export interface InterruptedRunCount {
+  readonly name: string
+  readonly runs: number
+}
+
+/**
+ * Count the runs a restart closed, per automation, sorted by name — the lines
+ * of the one email a restart sends, however many runs it interrupted.
+ */
+export const countInterruptedRuns = (
+  closed: ReadonlyArray<{ readonly automationName: string }>
+): readonly InterruptedRunCount[] => {
+  const names = [...new Set(closed.map((run) => run.automationName))].toSorted()
+  return names.map((name) => ({
+    name,
+    runs: closed.filter((run) => run.automationName === name).length,
+  }))
+}
+
 /** The statuses a run ends on when it failed for good. */
 export const FINAL_FAILURE_RUN_STATUSES: readonly string[] = ['failed', 'exhausted', 'timed-out']
 
@@ -184,3 +204,217 @@ export const isFailureStreak = (statuses: readonly string[], threshold: number):
   threshold >= 1 &&
   statuses.length >= threshold &&
   statuses.slice(0, threshold).every((status) => isFinalFailureStatus(status))
+
+// ── The hold-back the server keeps in memory ─────────────────────────────────
+//
+// The rules above read the run history. A database that refuses writes — a
+// full disk, a read-only file — leaves no row to read, so every failure would
+// look like the first of its hour. The server therefore keeps, per automation,
+// when it last sent an immediate alert and what it has held back since. It is
+// consulted only for a failure the history does not hold: when the history
+// recorded the failure, the history decides exactly as before, and the roll-up
+// counts it from there.
+
+/** How many automations the in-memory hold-back tracks at once. */
+export const HOLD_BACK_MAX_AUTOMATIONS = 500
+
+/** Held-back failures, counted rather than listed so the state stays bounded. */
+export interface HeldBackTally {
+  readonly extraFailures: number
+  readonly lastError: string
+  readonly lastFailedAt: Date
+}
+
+/** What the server remembers about one automation's alerts. */
+export interface HoldBackEntry {
+  readonly lastAlertAt: Date | undefined
+  readonly held: HeldBackTally | undefined
+}
+
+/**
+ * The in-memory hold-back. `overflow` counts the failures of automations it
+ * had no room to track: they are never emailed at once, and the next roll-up
+ * reports them in one line.
+ */
+export interface HoldBackState {
+  readonly entries: ReadonlyMap<string, HoldBackEntry>
+  readonly overflow: HeldBackTally | undefined
+}
+
+export const EMPTY_HOLD_BACK: HoldBackState = { entries: new Map(), overflow: undefined }
+
+/** How one final failure is told: emailed now, or held back for the roll-up. */
+export type HoldBackDecision = 'immediate' | 'held'
+
+const addToTally = (
+  tally: Readonly<HeldBackTally> | undefined,
+  failure: Readonly<FinalFailure>
+): HeldBackTally => {
+  const latest = tally === undefined || failure.completedAt >= tally.lastFailedAt
+  return {
+    extraFailures: (tally?.extraFailures ?? 0) + 1,
+    lastError: latest ? rollupErrorLine(failure.error) : tally.lastError,
+    lastFailedAt: latest ? failure.completedAt : tally.lastFailedAt,
+  }
+}
+
+/** Whether `at` falls in the hour after `alertAt`. */
+const withinAlertWindow = (alertAt: Readonly<Date> | undefined, at: Readonly<Date>): boolean =>
+  alertAt !== undefined &&
+  at.getTime() >= alertAt.getTime() &&
+  at.getTime() - alertAt.getTime() <= FAILURE_ALERT_WINDOW_MS
+
+/** Drop the entries that hold nothing back and whose alert window has closed. */
+const pruneEntries = (
+  entries: ReadonlyMap<string, HoldBackEntry>,
+  at: Readonly<Date>
+): ReadonlyMap<string, HoldBackEntry> =>
+  new Map(
+    [...entries].filter(
+      ([, entry]) => entry.held !== undefined || withinAlertWindow(entry.lastAlertAt, at)
+    )
+  )
+
+const withEntry = (
+  state: HoldBackState,
+  entries: ReadonlyMap<string, HoldBackEntry>,
+  name: string,
+  entry: HoldBackEntry
+): HoldBackState => ({ ...state, entries: new Map([...entries, [name, entry]]) })
+
+/**
+ * Decide whether `failure` is emailed at once, and return the hold-back as it
+ * stands after it.
+ *
+ * `history` is the automation's final failures of the hour up to `failure`, as
+ * the database answered — `undefined` when it could not be read.
+ *
+ *   - The history holds `failure` itself: the history decides, unchanged. An
+ *     immediate alert is still remembered, so a later failure the database
+ *     refuses to record is held back behind it.
+ *   - It does not: the failure is held when the server sent an immediate alert
+ *     for this automation in the hour before it, or when the history shows an
+ *     earlier failure of that hour; otherwise it is emailed and remembered.
+ *     A held failure is counted for the next roll-up.
+ *   - No room to track a new automation: its unrecorded failure joins the
+ *     overflow, held rather than emailed, so the emails stay bounded too.
+ */
+export const decideHoldBack = (
+  state: HoldBackState,
+  failure: FinalFailure,
+  history: readonly FinalFailure[] | undefined
+): HoldBackOutcome => {
+  const entries = pruneEntries(state.entries, failure.completedAt)
+  const historyImmediate = history === undefined || qualifiesForImmediateAlert(failure, history)
+  const recorded = history?.some((other) => other.id === failure.id) ?? false
+  if (recorded && !historyImmediate) return { decision: 'held', state: { ...state, entries } }
+  const pruned = { ...state, entries }
+  const tracked = entries.has(failure.automationName) || entries.size < HOLD_BACK_MAX_AUTOMATIONS
+  if (!tracked) return untrackedOutcome(pruned, failure, recorded)
+  return trackedOutcome(pruned, failure, recorded || historyImmediate, recorded)
+}
+
+/** A decision and the hold-back as it stands after it. */
+interface HoldBackOutcome {
+  readonly decision: HoldBackDecision
+  readonly state: HoldBackState
+}
+
+/** No room for a new automation: recorded failures follow the history, the rest overflow. */
+const untrackedOutcome = (
+  state: HoldBackState,
+  failure: FinalFailure,
+  recorded: boolean
+): HoldBackOutcome =>
+  recorded
+    ? { decision: 'immediate', state }
+    : { decision: 'held', state: { ...state, overflow: addToTally(state.overflow, failure) } }
+
+/**
+ * A tracked automation: emailed when the history allows it and, for a failure
+ * the history did not record, no alert of the server's own went out in the hour
+ * before it; otherwise counted for the roll-up.
+ */
+const trackedOutcome = (
+  state: HoldBackState,
+  failure: FinalFailure,
+  historyAllows: boolean,
+  recorded: boolean
+): HoldBackOutcome => {
+  const name = failure.automationName
+  const entry = state.entries.get(name)
+  const immediate =
+    recorded || (historyAllows && !withinAlertWindow(entry?.lastAlertAt, failure.completedAt))
+  return immediate
+    ? {
+        decision: 'immediate',
+        state: withEntry(state, state.entries, name, {
+          lastAlertAt: failure.completedAt,
+          held: entry?.held,
+        }),
+      }
+    : {
+        decision: 'held',
+        state: withEntry(state, state.entries, name, {
+          lastAlertAt: entry?.lastAlertAt,
+          held: addToTally(entry?.held, failure),
+        }),
+      }
+}
+
+/** What a roll-up takes out of the in-memory hold-back. */
+export interface TakenHoldBack {
+  readonly groups: readonly RollupGroup[]
+  readonly overflow: HeldBackTally | undefined
+  readonly state: HoldBackState
+}
+
+/**
+ * Take every failure the hold-back counted, as roll-up groups sorted by name,
+ * and forget them: a roll-up reports a held-back failure once. The alert
+ * instants stay, so the hour after an alert keeps holding back.
+ */
+export const takeHeldBack = (state: HoldBackState): TakenHoldBack => {
+  const groups = [...state.entries]
+    .flatMap(([name, entry]): readonly RollupGroup[] =>
+      entry.held === undefined ? [] : [{ name, ...entry.held }]
+    )
+    .toSorted((a, b) => a.name.localeCompare(b.name))
+  const entries = new Map(
+    [...state.entries].map(([name, entry]): readonly [string, HoldBackEntry] => [
+      name,
+      { lastAlertAt: entry.lastAlertAt, held: undefined },
+    ])
+  )
+  return { groups, overflow: state.overflow, state: { entries, overflow: undefined } }
+}
+
+/**
+ * Merge the roll-up groups read from the history with those the in-memory
+ * hold-back counted, one line per automation, sorted by name. The two never
+ * count the same failure: the hold-back counts only failures the history did
+ * not record.
+ */
+export const mergeRollupGroups = (
+  fromHistory: readonly RollupGroup[],
+  fromMemory: readonly RollupGroup[]
+): readonly RollupGroup[] => {
+  const all = [...fromHistory, ...fromMemory]
+  const names = [...new Set(all.map((group) => group.name))].toSorted()
+  return names.flatMap((name) => {
+    const ofName = all
+      .filter((group) => group.name === name)
+      .toSorted((a, b) => a.lastFailedAt.getTime() - b.lastFailedAt.getTime())
+    const last = ofName.at(-1)
+    return last === undefined
+      ? []
+      : [
+          {
+            name,
+            extraFailures: ofName.reduce((sum, group) => sum + group.extraFailures, 0),
+            lastError: last.lastError,
+            lastFailedAt: last.lastFailedAt,
+          },
+        ]
+  })
+}

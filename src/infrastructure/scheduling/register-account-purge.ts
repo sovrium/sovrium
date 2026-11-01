@@ -9,6 +9,7 @@ import { Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { resolvePurgeTableAuthorship } from '@/infrastructure/database/account-purge-authorship'
 import { purgeDueAccounts } from '@/infrastructure/database/account-purge-sweep'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { App } from '@/domain/models/app'
@@ -71,7 +72,7 @@ const PURGE_JOB_ID = 'account-purge-due'
  */
 export const registerAccountPurgeScheduler = (
   app: App
-): Effect.Effect<string | undefined, never, CronScheduler> =>
+): Effect.Effect<string | undefined, never, CronScheduler | Database> =>
   Effect.gen(function* () {
     // Authorship columns resolved from the DECLARED FIELD TYPES, matching the
     // `/api/account/purge-due` trigger. Passing bare names let the sweep assume
@@ -81,6 +82,7 @@ export const registerAccountPurgeScheduler = (
       resolvePurgeTableAuthorship(app.tables, table.name)
     )
 
+    const database = yield* Database
     const scheduler = yield* CronScheduler
     return yield* scheduler
       .schedule(
@@ -90,7 +92,7 @@ export const registerAccountPurgeScheduler = (
           // signature is `void`. Any DB error is caught and logged so the
           // timer re-arms for the next hourly tick.
           Effect.tryPromise({
-            try: () => purgeDueAccounts(appTables, app),
+            try: () => purgeDueAccounts(database, appTables, app),
             catch: (cause) => new AccountPurgeSweepError({ cause }),
           }).pipe(
             Effect.tapError((error) =>
@@ -101,7 +103,7 @@ export const registerAccountPurgeScheduler = (
             Effect.catch(() => Effect.void),
             Effect.asVoid
           ),
-        { jobId: PURGE_JOB_ID, timezone: resolveOperatorTimezone() }
+        { jobId: PURGE_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
       )
       .pipe(
         Effect.catch((err) =>

@@ -20,7 +20,7 @@
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { logError } from '@/infrastructure/logging/logger'
-import { CALLER_REFUSAL } from '../action-handlers/record-caller-gate'
+import { CALLER_REFUSAL } from '../action-handlers/record/caller-gate'
 import { EMPTY_RUN_ACCUMULATOR, type RunAccumulator } from './types'
 
 /**

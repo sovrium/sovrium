@@ -9,8 +9,19 @@ import { Schema } from 'effect'
 
 // ─── Webhook Retry Policy ───────────────────────────────────────────────────
 
+/** The most retries one delivery may make after its first attempt. */
+const MAX_RETRY_ATTEMPTS = 10
+/** The shortest wait, in milliseconds, before a delivery's first retry. */
+const MIN_INITIAL_DELAY_MS = 100
+/** The longest wait, in milliseconds, between two retries of one delivery: one hour. */
+const MAX_RETRY_DELAY_MS = 3_600_000
+
 /**
  * Webhook retry configuration for failed deliveries.
+ *
+ * Every field is bounded so that one webhook cannot keep a dead receiver busy
+ * for ever: at most ten retries, a first retry at least 100 ms after the
+ * failed attempt, and at most an hour between two retries.
  *
  * @example
  * ```typescript
@@ -18,15 +29,19 @@ import { Schema } from 'effect'
  * ```
  */
 export const WebhookRetrySchema = Schema.Struct({
-  /** Number of retry attempts after initial failure. 0 disables retries. Default: 3. */
+  /** Number of retry attempts after initial failure, 0 to 10. 0 disables retries. Default: 3. */
   maxAttempts: Schema.Finite.pipe(
     Schema.annotate({
       title: 'Max Attempts',
       description:
-        'Number of retry attempts after the initial delivery failure (0 = no retries). Required once a `retry` block is present; 3 is what applies when the whole block is omitted.',
+        'Number of retry attempts after the initial delivery failure, from 0 (no retries) to 10. Required once a `retry` block is present; 3 is what applies when the whole block is omitted. A value above 10 is refused when the config is validated.',
       defaultNote: '3, when `retry` is omitted entirely',
     }),
-    Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
+    Schema.check(
+      Schema.isInt(),
+      Schema.isGreaterThanOrEqualTo(0),
+      Schema.isLessThanOrEqualTo(MAX_RETRY_ATTEMPTS)
+    )
   ),
 
   /** Backoff strategy between retries (default: exponential). */
@@ -39,26 +54,31 @@ export const WebhookRetrySchema = Schema.Struct({
     )
   ),
 
-  /** Milliseconds before first retry (default: 1000). */
+  /** Milliseconds before first retry, at least 100 (default: 1000). */
   initialDelay: Schema.optional(
     Schema.Finite.pipe(
       Schema.annotate({
-        description: 'Initial delay in milliseconds before the first retry. Defaults to 1000.',
+        description:
+          'Initial delay in milliseconds before the first retry, at least 100. Defaults to 1000. A value below 100 is refused when the config is validated.',
         defaultNote: '1000',
       }),
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(MIN_INITIAL_DELAY_MS))
     )
   ),
 
-  /** Maximum delay between retries in milliseconds (default: 60000). */
+  /** Maximum delay between retries in milliseconds, at most one hour (default: 60000). */
   maxDelay: Schema.optional(
     Schema.Finite.pipe(
       Schema.annotate({
         description:
-          'Upper bound on the delay between retries, in milliseconds. Defaults to 60000.',
+          'Upper bound on the delay between retries, in milliseconds, at most 3600000 (one hour). Defaults to 60000. A value above one hour is refused when the config is validated.',
         defaultNote: '60000',
       }),
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
+      Schema.check(
+        Schema.isInt(),
+        Schema.isGreaterThan(0),
+        Schema.isLessThanOrEqualTo(MAX_RETRY_DELAY_MS)
+      )
     )
   ),
 }).pipe(

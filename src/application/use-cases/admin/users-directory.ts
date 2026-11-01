@@ -33,12 +33,13 @@ import {
   type DirectoryUserRow,
 } from '@/application/ports/repositories/tables/users-directory-repository'
 import { UsersOverviewRepository } from '@/application/ports/repositories/tables/users-overview-repository'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import {
   adminUsersDirectoryResponseSchema,
   type AdminUsersDirectoryResponse,
 } from '@/domain/models/api/admin/users'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { readableName } from '@/domain/models/app/auth/readable-name-service'
+import { isAdminTier } from '@/domain/models/app/auth/roles'
 import { logError } from '@/infrastructure/logging/logger'
 import { signInMethodLabelOf } from './sign-in-method-labels'
 import type { ConsoleLabels } from '@/application/use-cases/admin/operator-language'
@@ -84,11 +85,25 @@ const roleOf = (
 const isoOf = (value: Readonly<Date> | string | null): string | null =>
   value === null ? null : new Date(value instanceof Date ? value.getTime() : value).toISOString()
 
-const projectRow = (row: DirectoryUserRow, labels: ConsoleLabels): Readonly<ProjectedRow> => ({
+/** Whether the row is the reader's own, and the caption that row alone carries. */
+const selfOf = (
+  id: string,
+  reader: DirectoryReader
+): { readonly self: boolean; readonly selfLabel?: string } =>
+  reader.actorUserId !== undefined && id === reader.actorUserId
+    ? { self: true, ...(reader.selfLabel !== undefined ? { selfLabel: reader.selfLabel } : {}) }
+    : { self: false }
+
+const projectRow = (
+  row: DirectoryUserRow,
+  labels: ConsoleLabels,
+  reader: DirectoryReader
+): Readonly<ProjectedRow> => ({
   id: row.id,
   email: row.email,
   name: typeof row.name === 'string' ? row.name : '',
   ...roleOf(row, labels),
+  ...selfOf(row.id, reader),
   banned: row.banned === true,
   createdAt: isoOf(row.createdAt),
   twoFactorEnabled: row.twoFactorEnabled === true,
@@ -132,13 +147,44 @@ export interface UsersDirectoryInput {
    * (an email address included) matches no row.
    */
   readonly id?: string | undefined
+  /**
+   * `yes` keeps the accounts whose role opens the operator console, `no` the
+   * others. Decided by {@link DirectoryReader.opensConsole}, never by a list of
+   * role names: a custom role's side follows from its level.
+   */
+  readonly consoleAccess?: 'yes' | 'no' | undefined
 }
 
-/** Whether a projected row passes the directory's role and status filters. */
-const passesFilters = (row: Readonly<ProjectedRow>, input: UsersDirectoryInput): boolean =>
+/**
+ * Who is reading the directory, and what the read knows about the app.
+ *
+ * `actorUserId` marks the caller's own row (`self: true`) and `selfLabel` is
+ * the caption that row carries; every other row reads `self: false` and has no
+ * caption. `opensConsole` is the one console-access predicate (`isAdminTier`)
+ * bound to the app, which `consoleAccess` filters on.
+ */
+export interface DirectoryReader {
+  readonly actorUserId?: string | undefined
+  readonly selfLabel?: string | undefined
+  readonly opensConsole: (role: string) => boolean
+}
+
+/** No reader: no row is the caller's, and only the built-in admin-tier roles open the console. */
+const ANONYMOUS_READER: DirectoryReader = {
+  opensConsole: (role) => isAdminTier(role, {}),
+}
+
+/** Whether a projected row passes the directory's role, status and console-access filters. */
+const passesFilters = (
+  row: Readonly<ProjectedRow>,
+  input: UsersDirectoryInput,
+  reader: DirectoryReader
+): boolean =>
   (input.id === undefined || row.id === input.id) &&
   (input.role === undefined || row.role === input.role) &&
-  (input.status === undefined || row.banned === (input.status === 'banned'))
+  (input.status === undefined || row.banned === (input.status === 'banned')) &&
+  (input.consoleAccess === undefined ||
+    reader.opensConsole(row.role) === (input.consoleAccess === 'yes'))
 
 /** The columns the directory can be ordered by (the closed set the API validates). */
 export type DirectorySortField = 'id' | 'email' | 'name' | 'role' | 'banned'
@@ -288,9 +334,10 @@ const withAccountFacts = (
  * Returns `Ok` with the validated body or `ValidationFailed` when the assembled
  * body does not match `adminUsersDirectoryResponseSchema`.
  */
-export const BuildUsersDirectory = (
+export const buildUsersDirectory = (
   input: UsersDirectoryInput = {},
-  labels: ConsoleLabels = READABLE_LABELS
+  labels: ConsoleLabels = READABLE_LABELS,
+  reader: DirectoryReader = ANONYMOUS_READER
 ): Effect.Effect<
   UsersDirectoryOutcome,
   UsersDirectoryDatabaseError,
@@ -311,8 +358,8 @@ export const BuildUsersDirectory = (
     )
     const matching = rows
       .filter((row) => !pending.has(row.id))
-      .map((row) => projectRow(row, labels))
-      .filter((row) => passesFilters(row, input))
+      .map((row) => projectRow(row, labels, reader))
+      .filter((row) => passesFilters(row, input, reader))
     const body = {
       users: [
         ...(yield* withGroups(

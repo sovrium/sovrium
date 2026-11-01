@@ -16,7 +16,7 @@ import {
   stack,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** What happened, newest first: an event, who did it and how long ago. */

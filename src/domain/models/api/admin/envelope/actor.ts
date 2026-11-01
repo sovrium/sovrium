@@ -6,8 +6,8 @@
  */
 
 import { Schema } from 'effect'
-import { email } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { email } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 
 /**
@@ -66,7 +66,7 @@ export const actorTypeSchema = Schema.Literals([
  */
 export const actorRoleSchema = Schema.Literals(['admin', 'operator', 'system']).annotate({
   description:
-    'Coarse trust tier of the actor: `admin`, `operator` (any other human), or `system` (non-human). A tier, not the actor’s role — read `id`/`email` for attribution.',
+    'Coarse trust tier of the actor: `admin`, `operator` (any other human), or `system` (non-human). A tier, not the actor’s role; read `id`/`email` for attribution.',
 })
 
 /**

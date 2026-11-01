@@ -16,10 +16,10 @@
  * family with no `design` home (`size`, `shadow`, …) is reported by token.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   adapterError,
   adapterOk,
-  isObject,
   namesDark,
   parseJson,
   resolveAliases,
@@ -34,10 +34,10 @@ type JsonObject = Readonly<Record<string, unknown>>
 
 /** Whether a parsed document is a Claude Design tokens file: a `color.tokens` list. */
 export const isClaudeDesignTokens = (document: unknown): boolean =>
-  isObject(document) && isObject(document['color']) && Array.isArray(document['color']['tokens'])
+  isRecord(document) && isRecord(document['color']) && Array.isArray(document['color']['tokens'])
 
 const listOf = (value: unknown): readonly JsonObject[] =>
-  Array.isArray(value) ? value.filter(isObject) : []
+  Array.isArray(value) ? value.filter(isRecord) : []
 
 const nameOf = (entry: JsonObject): string =>
   typeof entry['name'] === 'string' ? entry['name'] : ''
@@ -60,7 +60,7 @@ const readThemes = (color: JsonObject): Themes => {
 
 /** A colour token's value in one theme: its per-theme entry, or the single value for the first. */
 const themeValue = (value: unknown, theme: string, first: string | undefined): unknown => {
-  if (isObject(value)) return value[theme]
+  if (isRecord(value)) return value[theme]
   return theme === first ? value : undefined
 }
 
@@ -85,7 +85,7 @@ const PREFIXED_FAMILIES: Readonly<Record<string, string>> = { spacing: 'space-',
 const lengthTokens = (document: JsonObject, family: string): readonly CanonicalToken[] => {
   const group = document[family]
   const prefix = PREFIXED_FAMILIES[family] ?? ''
-  return listOf(isObject(group) ? group['tokens'] : undefined).map((token) => {
+  return listOf(isRecord(group) ? group['tokens'] : undefined).map((token) => {
     const name = nameOf(token)
     const { value } = token
     return {
@@ -97,7 +97,7 @@ const lengthTokens = (document: JsonObject, family: string): readonly CanonicalT
 }
 
 const familyTokens = (type: JsonObject): readonly CanonicalToken[] =>
-  Object.entries(isObject(type['families']) ? type['families'] : {}).map(([key, stack]) => ({
+  Object.entries(isRecord(type['families']) ? type['families'] : {}).map(([key, stack]) => ({
     path: ['font', key],
     type: 'fontFamily',
     value: stack,
@@ -148,15 +148,15 @@ const unmappedFamilies = (document: JsonObject): readonly ImportUnmapped[] =>
   Object.entries(document)
     .filter(([family]) => !MAPPED_FAMILIES.has(family))
     .flatMap(([family, group]) => {
-      const tokens = listOf(isObject(group) ? group['tokens'] : undefined)
+      const tokens = listOf(isRecord(group) ? group['tokens'] : undefined)
       return tokens.length === 0
         ? [unmappedFamily(family, family)]
         : tokens.map((token) => unmappedFamily(family, `${family}.${nameOf(token)}`))
     })
 
 const modeTokens = (document: JsonObject, theme: string, first: string | undefined) => {
-  const color = isObject(document['color']) ? document['color'] : {}
-  const type = isObject(document['type']) ? document['type'] : {}
+  const color = isRecord(document['color']) ? document['color'] : {}
+  const type = isRecord(document['type']) ? document['type'] : {}
   return resolveAliases([
     ...colorTokens(color, theme, first),
     ...lengthTokens(document, 'spacing'),
@@ -179,7 +179,7 @@ const tokensDocument = (source: ImportSource): unknown => {
 /** Claude Design tokens → canonical tokens. */
 export const fromClaudeDesign = (source: ImportSource): AdapterResult => {
   const document = tokensDocument(source)
-  if (!isObject(document) || !isClaudeDesignTokens(document)) {
+  if (!isRecord(document) || !isClaudeDesignTokens(document)) {
     return adapterError('It is not a Claude Design tokens file: it has no `color.tokens` list.')
   }
   const themes = readThemes(document['color'] as JsonObject)

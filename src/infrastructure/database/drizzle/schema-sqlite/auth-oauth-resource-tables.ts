@@ -22,7 +22,7 @@ export const oauthResources = authTable('oauth_resource', {
   refreshTokenTtl: integer('refresh_token_ttl'),
   signingAlgorithm: text('signing_algorithm'),
   signingKeyId: text('signing_key_id'),
-  allowedScopes: text('allowed_scopes', { mode: 'json' }),
+  allowedScopes: text('allowed_scopes', { mode: 'json' }).$type<string[]>(),
   customClaims: text('custom_claims', { mode: 'json' }),
   dpopBoundAccessTokensRequired: integer('dpop_bound_access_tokens_required', { mode: 'boolean' }),
   disabled: integer('disabled', { mode: 'boolean' }),

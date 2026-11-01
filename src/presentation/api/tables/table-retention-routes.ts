@@ -17,27 +17,34 @@
  * exist.
  */
 
-import { purgeExpiredTableRows } from '@/infrastructure/database/table-retention'
+import { Effect } from 'effect'
+import { purgeExpiredRows } from '@/application/use-cases/tables/purge-expired-rows'
+import { tableRetentionResponseSchema } from '@/domain/models/api/tables/tables'
 import {
   internalSchedulerNotFound,
   isInternalSchedulerRequest,
 } from '@/presentation/api/runtime/internal-scheduler-gate'
+import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 /** Sweep every table declaring a window; answers the rows deleted per table. */
 async function handleRetentionDue(c: Context, app: App): Promise<Response> {
   if (!isInternalSchedulerRequest(c)) return internalSchedulerNotFound(c)
-  const deleted = await purgeExpiredTableRows(app)
-  return c.json({ deleted }, 200)
+  return runHandlerEffect(
+    c,
+    respondWith(
+      c,
+      purgeExpiredRows(app).pipe(Effect.map((deleted) => ({ deleted }))),
+      tableRetentionResponseSchema
+    )
+  )
 }
 
 /**
  * Chain the table retention trigger route onto a Hono app. Registered without
  * a session requirement: the scheduler token IS the gate.
  */
-export function chainTableRetentionRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
-  return honoApp.post('/api/internal/tables/retention-due', (c) =>
-    handleRetentionDue(c, resolveApp())
-  ) as T
+export function chainTableRetentionRoutes(honoApp: Hono, app: App): void {
+  honoApp.post('/api/internal/tables/retention-due', (c) => handleRetentionDue(c, app))
 }

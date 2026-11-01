@@ -51,20 +51,21 @@
  * - `SOVRIUM_BUNDLE_OPTIMIZATION` (optional) - Bundle optimization strategy
  */
 
-import { Effect, Console } from 'effect'
-import { getCommandHelp } from '@/cli/runtime/command-help'
 import { parseArgs } from '@/cli/runtime/dispatch'
-import { failIfCrashInjected } from '@/cli/runtime/fault-injection'
-import { findUnknownFlag, getFlagValue, getFlagValues } from '@/cli/runtime/flag-vocabulary'
-import { printFailure } from '@/infrastructure/logging/cli-output'
-import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
+import { resolveInvocation } from '@/cli/runtime/invocation'
+import {
+  asyncCommand as lazy,
+  lazyProgram,
+  runCommandProgram,
+  type CommandHandler,
+} from '@/cli/runtime/run-command'
+import { printLine } from '@/infrastructure/logging/cli-output'
 
 /**
  * Show CLI version (delegates to getCurrentVersion from cli-update module).
  */
 const showVersion = async (): Promise<void> => {
-  const version = await (await import('@/cli/commands/update')).getCurrentVersion()
-  Effect.runSync(Console.log(version))
+  printLine(await (await import('@/cli/commands/update')).getCurrentVersion())
 }
 
 /**
@@ -90,6 +91,7 @@ const HELP_TEXT = [
   '  sovrium templates             List the templates init can scaffold (--json for tooling)',
   '  sovrium schema                Print JSON Schema to stdout',
   '  sovrium types                 Emit sovrium.d.ts + tsconfig.json for a .ts config',
+  '  sovrium client [config]       Write sovrium-client.ts, a typed client for the records API',
   "  sovrium skills                Write this version's agent skills into .claude/skills/",
   '  sovrium validate <config>     Validate a config file against AppSchema',
   '  sovrium render <asset>        Render a template asset offline, with its sample data or yours',
@@ -102,6 +104,7 @@ const HELP_TEXT = [
   '  sovrium library <verb>        Browse and install ready-made blocks, connections, recipes',
   '  sovrium seed [config]         Load seed/<table>.yaml data into the tables',
   '  sovrium migrate [config]      Bring the database schema forward, without booting',
+  '  sovrium reindex [config]      Rebuild the AI knowledge index from documents and tables',
   '  sovrium bundle [config]       Package the validated config, public/ and seed/ for deployment',
   '  sovrium mcp [--project <dir>] Serve the config read tools to an AI client over stdio',
   '',
@@ -122,7 +125,7 @@ const HELP_TEXT = [
   '  --help, -h                    Show this help message',
   '  --version, -v                 Show version number',
   '  --watch, -w                   Watch config file and hot reload (start)',
-  '  --output <path>               Write to a file (schema, design-system, backup, bundle) or dir (types, skills)',
+  '  --output <path>               Write to a file (schema, design-system, backup, bundle, client) or dir (types, skills)',
   '  --typescript                  Scaffold a typed app.ts instead of app.yaml (init)',
   '  --format <format>             md (default), json, llms or bundle (design-system, docs, changelog, licenses)',
   '  --full                        Print the whole manual (docs)',
@@ -132,8 +135,9 @@ const HELP_TEXT = [
   '  --list                        List every release, newest first (changelog)',
   '  --since <version>             Every release after <version>, breaking first (changelog)',
   '  --template <name>             Bundled template, or <owner>/<repo>[#ref] from GitHub (init)',
+  '  --allow-code                  Create a GitHub template that contains code (init)',
   '  --name <name>                 App name (init), display name (admin create)',
-  '  --password <value>            Admin password (admin create; else prompted)',
+  '  --password-stdin | --password <value>   Admin password from stdin, or given (admin create)',
   '  --force                       Overwrite existing files (init, restore), edited skill files (skills)',
   '  --data-dir <dir>              Data directory to restore into (restore)',
   '  --target <name>               claude | agents | all (skills; default: claude)',
@@ -142,7 +146,7 @@ const HELP_TEXT = [
   '  --table <name>                Restrict to one table, repeatable (seed)',
   '  --today <YYYY-MM-DD>          The day {{today}} resolves against (seed)',
   '  --dry-run                     Report the plan and write nothing (seed, migrate)',
-  '  --check                       Report and write nothing (migrate, skills)',
+  '  --check                       Report and write nothing (migrate, skills, client)',
   '  --allow-destructive           Let migrate drop a table still holding rows',
   '  --project <dir>               Directory to read the config from (mcp)',
   '  --kind <kind>                 block | connection | recipe (library list)',
@@ -158,6 +162,7 @@ const HELP_TEXT = [
   '  --host <url>                  The Sovrium cloud (login, deploy, seed)',
   '  --api-key <key>               Sign in with a key you already have (login)',
   '  --open | --no-open            Open the page in your browser (login, report); skip it (dev)',
+  '  --external-database           Let dev use the DATABASE_URL database (dev)',
   '  --status | --logout           Print or end the stored sign-in (login)',
   '  --app <slug>                  The hosted app (deploy, preview, env, seed)',
   '  --remote                      Seed the app this project is linked to (seed)',
@@ -208,12 +213,7 @@ const HELP_TEXT = [
 /**
  * Show CLI help text
  */
-const showHelp = (): void => {
-  Effect.runSync(Console.log(HELP_TEXT))
-}
-
-/** What `deploy` and `preview` read: the config, and the whole command line. */
-const shipOptions = () => ({ configFile: parsed.configFile, argv: rawArgs })
+const showHelp = (): void => printLine(HELP_TEXT)
 
 /**
  * Commands that exit after completion (no persistent server)
@@ -223,326 +223,186 @@ const shipOptions = () => ({ configFile: parsed.configFile, argv: rawArgs })
  * server start — evaluate every command's graph (the MCP server, backup, the
  * template scaffolder). Literal specifiers keep each one in the compiled binary.
  */
-const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
-  stop: async () => (await import('@/cli/commands/stop')).handleStopCommand(),
-  restart: async () =>
-    (await import('@/cli/commands/restart')).handleRestartCommand(parsed.configFile),
-  reload: async () => (await import('@/cli/commands/reload')).handleReloadCommand(),
-  init: async () =>
-    parsed.fromBundle !== undefined
-      ? (await import('@/cli/commands/init-from-bundle')).handleInitFromBundle({
-          ...parsed,
-          source: parsed.fromBundle,
-          targetDir: parsed.configFile ?? parsed.outputPath,
-        })
-      : (await import('@/cli/commands/init')).handleInitCommand({
-          templateName: parsed.templateName,
-          outputDir: parsed.outputPath,
-          positionalDir: parsed.configFile,
-          forceFlag: parsed.forceFlag,
-          appName: parsed.appName,
-          typescript: parsed.typescript ?? false,
-          gitInit: parsed.gitInit ?? false,
-          fromUrl: parsed.fromUrl,
-        }),
-  admin: async () =>
-    (await import('@/cli/commands/admin')).handleAdminCommand(
-      parsed.subcommand,
-      parsed.positionalArg,
-      {
-        configFile: parsed.configFile,
-        password: parsed.password,
-        name: parsed.appName,
-      }
-    ),
-  secret: async () =>
-    (await import('@/cli/commands/secret')).handleSecretCommand(
-      parsed.subcommand,
-      parsed.positionalArg
-    ),
-  backup: async () =>
-    (await import('@/cli/commands/backup')).handleBackupCommand({
-      configFile: parsed.configFile,
-      outputPath: parsed.outputPath,
-    }),
-  usage: async () =>
-    (await import('@/cli/commands/usage')).handleUsageCommand(parsed.configFile, rawArgs),
-  bundle: async () =>
+const exitCommands: Readonly<Record<string, CommandHandler>> = {
+  stop: lazy(async () => (await import('@/cli/commands/stop')).handleStopCommand()),
+  restart: lazy(async (args) =>
+    (await import('@/cli/commands/restart')).handleRestartCommand(args.configFile)
+  ),
+  reload: lazy(async () => (await import('@/cli/commands/reload')).handleReloadCommand()),
+  init: lazyProgram(
+    () => import('@/cli/commands/init'),
+    (module, args) => module.initCommand(args)
+  ),
+  admin: lazyProgram(
+    () => import('@/cli/commands/admin'),
+    (module, args) => module.handleAdminCommand(args)
+  ),
+  secret: lazy(async (args) =>
+    (await import('@/cli/commands/secret')).handleSecretCommand(args.subcommand, args.positionalArg)
+  ),
+  backup: lazyProgram(
+    () => import('@/cli/commands/backup'),
+    (module, args) =>
+      module.handleBackupCommand({ configFile: args.configFile, outputPath: args.outputPath })
+  ),
+  usage: lazyProgram(
+    () => import('@/cli/commands/usage'),
+    (module, args) => module.handleUsageCommand(args)
+  ),
+  bundle: lazy(async (args) =>
     (await import('@/cli/commands/bundle')).handleBundleCommand({
-      configFile: parsed.configFile,
-      outputPath: parsed.outputPath,
-    }),
-  login: async () => (await import('@/cli/commands/login')).handleLoginCommand(rawArgs),
-  deploy: async () => (await import('@/cli/commands/deploy')).handleDeployCommand(shipOptions()),
-  preview: async () => (await import('@/cli/commands/preview')).handlePreviewCommand(shipOptions()),
-  env: async () =>
-    (await import('@/cli/commands/env')).handleEnvCommand({
-      args: parsed.positionalArgs ?? [],
-      argv: rawArgs,
-    }),
-  restore: async () =>
-    (await import('@/cli/commands/restore')).handleRestoreCommand({
-      archivePath: parsed.configFile,
-      dataDir: parsed.dataDir,
-      force: parsed.forceFlag,
-    }),
-  update: async () =>
-    (await import('@/cli/commands/update')).handleUpdateCommand({
-      helpRequested: parsed.helpRequested ?? false,
-      insecureSkipChecksum: rawArgs.includes('--insecure-skip-checksum'),
-    }),
+      configFile: args.configFile,
+      outputPath: args.outputPath,
+    })
+  ),
+  login: lazyProgram(
+    () => import('@/cli/commands/login'),
+    (module, args) => module.handleLoginCommand(args)
+  ),
+  deploy: lazyProgram(
+    () => import('@/cli/commands/deploy'),
+    (module, args) => module.handleDeployCommand(args)
+  ),
+  preview: lazyProgram(
+    () => import('@/cli/commands/preview'),
+    (module, args) => module.handlePreviewCommand(args)
+  ),
+  env: lazyProgram(
+    () => import('@/cli/commands/env'),
+    (module, args) => module.handleEnvCommand(args)
+  ),
+  restore: lazyProgram(
+    () => import('@/cli/commands/restore'),
+    (module, args) => module.restoreCommand(args)
+  ),
+  update: lazyProgram(
+    () => import('@/cli/commands/update'),
+    (module, args) => module.handleUpdateCommand(args)
+  ),
   // An EXIT command, not a persistent one: it brings the schema forward and
   // stops. A platform release phase waits on the exit code.
-  migrate: async () =>
-    (await import('@/cli/commands/migrate')).handleMigrateCommand({
-      configFile: parsed.configFile,
-      dryRun: parsed.dryRun ?? false,
-      check: parsed.check ?? false,
-      allowDestructive: parsed.allowDestructive ?? false,
-    }),
+  migrate: lazyProgram(
+    () => import('@/cli/commands/migrate'),
+    (module, args) => module.migrateCommand(args)
+  ),
+  // An EXIT command: it rebuilds the AI knowledge index and stops.
+  reindex: lazyProgram(
+    () => import('@/cli/commands/reindex'),
+    (module, args) => module.handleReindexCommand(args)
+  ),
   // An EXIT command, not a persistent one. It looks like a server and is not:
   // it binds no port and owns no lifetime of its own — the CLIENT owns the
   // lifetime, and the verb ends when that client closes the pipe. Exiting 0 on
   // EOF is what makes "the client quit" a success rather than a crash.
-  mcp: async () =>
-    (await import('@/cli/commands/mcp')).handleMcpCommand({ projectDir: parsed.projectDir }),
-  changelog: async () =>
-    (await import('@/cli/commands/changelog')).handleChangelogCommand({
-      args: parsed.positionalArgs ?? [],
-      format: parsed.format,
-      outputPath: parsed.outputPath,
-      list: parsed.changelogList ?? false,
-      sinceRequested: parsed.changelogSinceRequested ?? false,
-      since: parsed.changelogSince,
-    }),
+  mcp: lazyProgram(
+    () => import('@/cli/commands/mcp'),
+    (module, args) => module.mcpCommand(args)
+  ),
+  changelog: lazyProgram(
+    () => import('@/cli/commands/changelog'),
+    (module, args) => module.changelogCommand(args)
+  ),
   // An EXIT command: a migration converts files once and stops; only `--apply`
   // opens the database, through the seed path, and it closes with the run.
-  import: async () =>
-    (await import('@/cli/commands/import')).handleImportCommand(
-      rawArgs,
-      parsed.positionalArgs ?? []
-    ),
+  import: lazyProgram(
+    () => import('@/cli/commands/import'),
+    (module, args) => module.handleImportCommand(args)
+  ),
   // An EXIT command: it renders one template and stops — no server, no database.
-  render: async () => (await import('@/cli/commands/render')).handleRenderCommand(rawArgs),
-  report: async () => (await import('@/cli/commands/report')).handleReportCommand(rawArgs),
+  render: lazyProgram(
+    () => import('@/cli/commands/render'),
+    (module, args) => module.handleRenderCommand(args)
+  ),
+  report: lazyProgram(
+    () => import('@/cli/commands/report'),
+    (module, args) => module.handleReportCommand(args)
+  ),
   // An EXIT command: it prints the embedded template catalogue and stops.
-  templates: async () => (await import('@/cli/commands/templates')).handleTemplatesCommand(parsed),
-  licenses: async () =>
+  templates: lazyProgram(
+    () => import('@/cli/commands/templates'),
+    (module, args) => module.handleTemplatesCommand(args)
+  ),
+  licenses: lazy(async (args) =>
     (await import('@/cli/commands/licenses')).handleLicensesCommand({
-      format: parsed.format,
-      outputPath: parsed.outputPath,
-    }),
-  '--version': async () => showVersion(),
-  version: async () => showVersion(),
-  '--help': async () => showHelp(),
-  help: async () => showHelp(),
+      format: args.format,
+      outputPath: args.outputPath,
+    })
+  ),
+  // An EXIT command: the exit is explicit because a database connection can
+  // outlive the last write and keep the process alive.
+  seed: lazyProgram(
+    () => import('@/cli/commands/seed'),
+    (module, args) => module.handleSeedCommand(args)
+  ),
+  '--version': lazy(async () => showVersion()),
+  version: lazy(async () => showVersion()),
+  '--help': lazy(async () => showHelp()),
+  help: lazy(async () => showHelp()),
 }
 
 /**
  * Commands that may keep the process alive (server mode)
  */
-const persistentCommands: Readonly<Record<string, () => Promise<unknown>>> = {
-  start: async () =>
+const persistentCommands: Readonly<Record<string, CommandHandler>> = {
+  start: lazy(async (args) =>
     (await import('@/cli/commands/start')).handleStartCommand(
-      parsed.configFile,
-      parsed.watchMode,
-      parsed.publicDir,
-      parsed.helpRequested ?? false
-    ),
-  dev: async () => (await import('@/cli/commands/dev')).handleDevCommand(parsed, rawArgs),
-  build: async () =>
-    (await import('@/cli/commands/build')).handleBuildCommand(parsed.configFile, parsed.publicDir),
-  schema: async () =>
-    (await import('@/cli/commands/schema')).handleSchemaCommand(parsed.outputPath),
-  types: async () =>
-    (await import('@/cli/commands/types')).handleTypesCommand({ outputDir: parsed.outputPath }),
-  skills: async () =>
-    (await import('@/cli/commands/skills')).handleSkillsCommand({
-      outputDir: parsed.outputPath,
-      target: parsed.skillsTarget,
-      check: parsed.check ?? false,
-      force: parsed.forceFlag,
-    }),
-  validate: async () =>
-    (await import('@/cli/commands/validate')).handleValidateCommand(parsed.configFile, parsed.json),
-  'design-system': async () =>
-    parsed.positionalArgs?.[0] === 'import'
-      ? (await import('@/cli/commands/design-system-import')).handleDesignSystemImportCommand(
-          rawArgs,
-          parsed.positionalArgs
-        )
-      : (await import('@/cli/commands/design-system')).handleDesignSystemCommand({
-          // `--seed` is a switch to `deploy`, so its folder is read among the positionals.
-          configFile: (parsed.positionalArgs ?? []).find(
-            (arg) => arg !== getFlagValue(rawArgs, '--seed')
-          ),
-          outputPath: parsed.outputPath,
-          format: parsed.format,
-          mode: parsed.mode,
-          force: parsed.forceFlag,
-          pages: rawArgs.includes('--pages'),
-          pageNames: getFlagValues(rawArgs, '--page'),
-          argv: rawArgs,
-        }),
-  docs: async () =>
-    (await import('@/cli/commands/docs')).handleDocsCommand({
-      args: parsed.positionalArgs ?? [],
-      format: parsed.format,
-      lang: parsed.lang,
-      outputPath: parsed.outputPath,
-      full: parsed.full ?? false,
-      listSections: parsed.listSections ?? false,
-      sections: parsed.docsSections ?? [],
-      exportRequested: parsed.exportRequested ?? false,
-      exportDir: parsed.exportDir,
-      force: parsed.forceFlag,
-    }),
-  library: async () =>
-    (await import('@/cli/commands/library')).handleLibraryCommand({
-      args: parsed.positionalArgs ?? [],
-      kind: parsed.libraryKind,
-      category: parsed.libraryCategory,
-      format: parsed.format,
-      sets: parsed.librarySets ?? [],
-      as: parsed.libraryAs,
-      into: parsed.libraryInto,
-      dryRun: parsed.dryRun ?? false,
-      noWire: parsed.noWire ?? false,
-      tag: parsed.libraryTag,
-      limit: parsed.libraryLimit,
-      all: parsed.libraryAll ?? false,
-      yes: parsed.libraryYes ?? false,
-      update: parsed.libraryUpdate ?? false,
-    }),
-  seed: async () =>
-    (await import('@/cli/commands/seed')).handleSeedCommand({
-      configFile: parsed.configFile,
-      seedDir: parsed.seedDir,
-      mode: parsed.mode,
-      tables: parsed.seedTables ?? [],
-      dryRun: parsed.dryRun ?? false,
-      as: parsed.seedAs,
-      today: parsed.seedToday,
-      argv: rawArgs,
-    }),
+      args.configFile,
+      args.watchMode,
+      args.publicDir,
+      args.helpRequested ?? false
+    )
+  ),
+  dev: lazyProgram(
+    () => import('@/cli/commands/dev'),
+    (module, args) => module.handleDevCommand(args)
+  ),
+  build: lazy(async (args) =>
+    (await import('@/cli/commands/build')).handleBuildCommand(args.configFile, args.publicDir)
+  ),
+  schema: lazy(async (args) =>
+    (await import('@/cli/commands/schema')).handleSchemaCommand(args.outputPath)
+  ),
+  client: lazyProgram(
+    () => import('@/cli/commands/client'),
+    (module, args) => module.clientCommand(args)
+  ),
+  types: lazy(async (args) =>
+    (await import('@/cli/commands/types')).handleTypesCommand({ outputDir: args.outputPath })
+  ),
+  skills: lazyProgram(
+    () => import('@/cli/commands/skills'),
+    (module, args) => module.skillsCommand(args)
+  ),
+  validate: lazy(async (args) =>
+    (await import('@/cli/commands/validate')).handleValidateCommand(args.configFile, args.json)
+  ),
+  'design-system': (args) =>
+    args.positionalArgs?.[0] === 'import'
+      ? lazyProgram(
+          () => import('@/cli/commands/design-system/import'),
+          (module, importArgs) => module.handleDesignSystemImportCommand(importArgs)
+        )(args)
+      : lazyProgram(
+          () => import('@/cli/commands/design-system'),
+          (module, exportArgs) => module.handleDesignSystemCommand(exportArgs)
+        )(args),
+  docs: lazyProgram(
+    () => import('@/cli/commands/docs'),
+    (module, args) => module.docsCommand(args)
+  ),
+  library: lazyProgram(
+    () => import('@/cli/commands/library/command'),
+    (module, args) => module.libraryCommand(args)
+  ),
 }
 
-// Main CLI entry point
+// Main CLI entry point. The one place a command's outcome becomes an exit
+// code is `cli/runtime/run-command.ts`; what this invocation runs is decided
+// by `cli/runtime/invocation.ts`, from the two tables above.
 const rawArgs = Bun.argv.slice(2)
 const parsed = parseArgs(rawArgs)
-
-/**
- * Answer `<command> --help` and exit 0, BEFORE either dispatch table runs.
- *
- * If `--help` were opt-in per command, a command that forgot to opt in would
- * simply run — `schema --help` dumping the whole JSON Schema, `stop --help`
- * stopping a live server, `init --help` scaffolding a project into the working
- * directory and overwriting an existing `CLAUDE.md`. Asking a command what its
- * options are must never be the thing that runs it.
- *
- * Centralising the lookup (rather than threading a flag into each handler) is
- * what makes the behaviour hold for commands not yet written: a new command
- * inherits `--help` by appearing in `COMMAND_HELP`.
- *
- * @returns `true` when help was printed and the process is exiting.
- */
-const showCommandHelpIfRequested = (): boolean => {
-  const commandHelp =
-    parsed.helpRequested === true ? getCommandHelp(parsed.command, parsed.subcommand) : undefined
-  if (commandHelp === undefined) return false
-  Effect.runSync(Console.log(commandHelp))
-  process.exit(0)
-  return true
-}
-
-/**
- * Reject unknown flags BEFORE dispatching — otherwise `--definitely-not-a-flag`
- * silently falls through to implicit `start` and the user gets a misleading
- * "No configuration provided" message instead of "Unknown flag: --foo".
- * Skipped when `--help` / `--version` short-circuits (early exit already accepted).
- */
-const rejectUnknownFlag = (): void => {
-  if (parsed.command === '--help' || parsed.command === '--version') return
-  const unknownFlag = findUnknownFlag(rawArgs)
-  if (unknownFlag === undefined) return
-  // `import` refuses a token on the command line itself, naming the variable to use.
-  if (parsed.command === 'import' && /^--token(?:=|$)/.test(unknownFlag)) return
-
-  printFailure({
-    headline: `Unknown flag "${unknownFlag}".`,
-    guidance: "Run 'sovrium --help' to list the accepted flags.",
-  })
-  process.exit(1)
-}
-
-const runCommand = async (): Promise<void> => {
-  // The E2E harness's generic-stylesheet seam, ahead of everything else: it
-  // ignores the command line. Not a capability — see the module's docblock.
-  const genericCssPath = process.env['SOVRIUM_E2E_PRECOMPILE_CSS']
-  if (genericCssPath) {
-    await (
-      await import('@/cli/runtime/precompile-generic-css')
-    ).handlePrecompileGenericCss(genericCssPath)
-    return
-  }
-
-  rejectUnknownFlag()
-
-  // Answered ahead of BOTH dispatch tables — see `showCommandHelpIfRequested`.
-  if (showCommandHelpIfRequested()) return
-
-  // The non-production `SOVRIUM_FAULT_INJECTION=crash` seam: a failure before
-  // the named command runs, which only the crash handler below catches.
-  await failIfCrashInjected(parsed.command)
-
-  const exitHandler = exitCommands[parsed.command]
-  if (exitHandler) {
-    await exitHandler()
-    process.exit(0)
-    return
-  }
-
-  const persistentHandler = persistentCommands[parsed.command]
-  if (persistentHandler) {
-    await persistentHandler()
-    return
-  }
-
-  // Unknown command. It does not fall through to an implicit `start`: with
-  // config auto-discovery, in a directory holding an `app.yaml`, `sovrium strt`
-  // would silently BOOT A SERVER. So an unknown word is reported as a typo,
-  // exactly as an unknown *flag* already is above.
-  //
-  // Still reaching their handlers, and not this branch: bare `sovrium` (parseArgs
-  // defaults the command to `start`) and `sovrium ./app.yaml` (isConfigFile
-  // rewrites it to `start` with a configFile).
-  printFailure({
-    headline: `Unknown command "${parsed.command}".`,
-    guidance: "Run 'sovrium --help' to list the available commands.",
-  })
-  process.exit(1)
-}
-
-runCommand().catch(async (error: unknown) => {
-  // formatRuntimeError unwraps Effect FiberFailure / Cause / ParseError /
-  // TaggedError into actionable diagnostics. Without it, schema decode
-  // failures and most Effect-thrown errors surface as "An error has occurred"
-  // — see commit 68b20a5af for the full motivation.
-  // NOTE: this headline is a CRASH marker and nothing else — it means Sovrium
-  // reached a failure it has no specific handling for. A rejected config never
-  // arrives here: `commands/start.ts` routes refusals through
-  // `formatConfigRejection` and exits 1 before this catch. Nothing keys on the
-  // wording any more; the E2E fixture decides
-  // whether to retry a boot from an allow-list of transient signatures, and
-  // the refusal side of that boundary is pinned by
-  // `commands/start.test.ts` rather than by a string match here.
-  const message = formatRuntimeError(error)
-  const { offerFailureReport, withoutSecretValues } = await import('@/cli/runtime/failure-report')
-
-  printFailure({
-    headline: 'Unexpected failure — Sovrium changed nothing.',
-    detail: [withoutSecretValues(message)],
-    guidance: offerFailureReport({ command: parsed.command, error, text: message }),
-  })
-  process.exit(1)
+const invocation = resolveInvocation({ parsed, argv: rawArgs, exitCommands, persistentCommands })
+void runCommandProgram(invocation.program, {
+  command: parsed.command,
+  exitOnSuccess: invocation.exitOnSuccess,
 })

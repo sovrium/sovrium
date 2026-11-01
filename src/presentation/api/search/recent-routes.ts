@@ -5,14 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import {
-  ListRecent,
+  listRecent,
   MAX_RECENT_ITEMS,
-  RecordRecent,
-} from '@/application/use-cases/user-entity-lists'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+  recordRecent,
+} from '@/application/use-cases/tables/user-entity-lists'
+import { successResponseSchema } from '@/domain/models/api/common'
+import { recentListResponseSchema } from '@/domain/models/api/search/entity-lists'
 import { notFound, unauthorized } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+  shapedJson,
+} from '@/presentation/api/runtime/run-effect'
 import { parseEntityMutationBody } from '@/presentation/api/search/entity-list-parsers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -50,16 +58,23 @@ const resolveLimit = (c: Context): number => {
  * admits — removed, missing, not hers to list, or of a table the app does not
  * declare — is filtered out of the response.
  */
-const handleList = async (c: Context, app: App) => {
-  const session = getSessionContext(c)
-  if (!session) return unauthorized(c)
+const handleList = (c: Context, app: App) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const session = getSessionContext(c)
+        if (!session) return unauthorized(c)
 
-  const limit = resolveLimit(c)
-  const caller = { app, userId: session.userId }
-  const visible = await runRequestEffect(c, provideDomain(c, ListRecent(caller, limit)))
+        const limit = resolveLimit(c)
+        const caller = { app, userId: session.userId }
+        const visible = yield* listRecent(caller, limit)
 
-  return c.json(visible, 200)
-}
+        return shapedJson(c, visible, recentListResponseSchema)
+      })
+    )
+  )
 
 /**
  * POST /api/recent — record a view of an entity for the caller.
@@ -70,33 +85,44 @@ const handleList = async (c: Context, app: App) => {
  * record of a table the app does not declare, or whose list admits the caller
  * no row, is refused with the unknown table's 404.
  */
-const handleAdd = async (c: Context, app: App) => {
-  const session = getSessionContext(c)
-  if (!session) return unauthorized(c)
+const handleAdd = (c: Context, app: App) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const session = getSessionContext(c)
+        if (!session) return unauthorized(c)
 
-  const body = await c.req.json().catch(() => undefined)
-  const input = parseEntityMutationBody(body)
-  if (!input) {
-    return c.json({ success: false, message: 'Invalid recent payload', code: 'BAD_REQUEST' }, 400)
-  }
+        // effect-promise: total -- a body that is not JSON is caught here and read as none.
+        const body = yield* Effect.promise(() => c.req.json().catch(() => undefined))
+        const input = parseEntityMutationBody(body)
+        if (!input) {
+          return c.json(
+            { success: false, message: 'Invalid recent payload', code: 'BAD_REQUEST' },
+            400
+          )
+        }
 
-  const caller = { app, userId: session.userId }
-  const kept = await runRequestEffect(c, provideDomain(c, RecordRecent(caller, input)))
-  // A table she may not list answers as a table that does not exist.
-  if (!kept) return notFound(c)
-  return c.json({ success: true }, 201)
-}
+        const caller = { app, userId: session.userId }
+        const kept = yield* recordRecent(caller, input)
+        // A table she may not list answers as a table that does not exist.
+        if (!kept) return notFound(c)
+        return yield* respondWith(c, Effect.succeed({ success: true }), successResponseSchema, 201)
+      })
+    )
+  )
 
 /**
  * Chain recent-item routes onto a Hono app.
  *
  * **Authentication**: `authMiddleware` is applied to `/api/recent` in
- * `api-routes.ts` when `app.auth` is configured so `getSessionContext` can
+ * `middleware/api-auth-guards.ts` when `app.auth` is configured so `getSessionContext` can
  * resolve the caller. Each handler returns 401 itself when no session is
  * attached, so the routes behave consistently whether or not auth is wired.
  */
-export function chainRecentRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
+export function chainRecentRoutes(honoApp: Hono, app: App): Hono {
   return honoApp
-    .get('/api/recent', (c) => handleList(c, resolveApp()))
-    .post('/api/recent', (c) => handleAdd(c, resolveApp())) as T
+    .get('/api/recent', (c) => handleList(c, app))
+    .post('/api/recent', (c) => handleAdd(c, app))
 }

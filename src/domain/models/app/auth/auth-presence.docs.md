@@ -1,6 +1,6 @@
 # Presence
 
-> Show who is online, when each person was last seen, and who is typing — to the roles you name, and never to anonymous visitors.
+> Show who is online, when each person was last seen, and who is typing, to the roles you name and never to anonymous visitors.
 
 Page presence (`presence: true` on a page) shows who is on that page. `auth.presence` answers a wider question: is this person online anywhere in the app.
 

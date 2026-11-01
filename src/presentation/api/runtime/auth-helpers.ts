@@ -6,11 +6,11 @@
  */
 
 import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode, NOT_FOUND_ERROR, NOT_FOUND_MESSAGE } from '@/domain/models/api/error'
 import { internalErrorLogSuffix } from '@/infrastructure/logging/internal-error-report'
 import { logError } from '@/infrastructure/logging/logger'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import type { FieldError } from '@/domain/models/api/combinators/error'
+import type { FieldError } from '@/domain/models/api/error'
 import type { Context } from 'hono'
 
 /**
@@ -18,7 +18,7 @@ import type { Context } from 'hono'
  *
  * Centralises the canonical error envelopes so every route returns a
  * single, predictable shape that matches the OpenAPI schemas in
- * `src/domain/models/api/combinators/error.ts`:
+ * `src/domain/models/api/error.ts`:
  *
  *   - `errorResponseSchema`           → { success: false, message, code }
  *   - `validationErrorResponseSchema` → { success: false, message, code: 'VALIDATION_ERROR', errors: [...] }
@@ -31,7 +31,7 @@ import type { Context } from 'hono'
  *
  * Coordination note: when adding a new helper here, also add the
  * corresponding `code` value to the `errorResponseSchema.code` enum
- * in `src/domain/models/api/combinators/error.ts` — otherwise the response
+ * in `src/domain/models/api/error.ts` — otherwise the response
  * will not type-check against the schema.
  */
 
@@ -92,7 +92,7 @@ export const unauthorized = (c: Context) =>
  * A discriminated union rather than `T | undefined` on purpose. The predecessor
  * returned `{ userId } | undefined` — a shape that ENFORCES nothing despite its
  * name, because a caller who forgets the `if (!session)` line gets a silent
- * `undefined` and carries on. `api-routes.ts` applies `authMiddleware` without
+ * `undefined` and carries on. `middleware/api-auth-guards.ts` applies `authMiddleware` without
  * `requireAuth` on eight prefixes under a standing convention that "the handler
  * returns 401 itself", and the audit found six of the eight did not. A name
  * that says `require` and a type that does not is exactly how a convention
@@ -110,7 +110,7 @@ export type RequiredSession =
  *
  * For routes carrying `authMiddleware` but NOT `requireAuth` — those that must
  * stay reachable anonymously for SOME paths while gating others. A route that
- * is gated on EVERY path belongs behind `requireAuth()` in `api-routes.ts`
+ * is gated on EVERY path belongs behind `requireAuth()` in `middleware/api-auth-guards.ts`
  * instead; this helper is for the mixed case.
  *
  * Usage:
@@ -167,8 +167,8 @@ export const notFound = (c: Context, message?: string) => c.json(notFoundBody(me
 export const notFoundBody = (message?: string) =>
   ({
     success: false,
-    error: 'Not Found',
-    message: message ?? 'Resource not found',
+    error: NOT_FOUND_ERROR,
+    message: message ?? NOT_FOUND_MESSAGE,
     code: ApiErrorCode.NOT_FOUND,
   }) as const
 

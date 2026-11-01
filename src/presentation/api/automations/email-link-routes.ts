@@ -11,8 +11,8 @@ import {
   recordOpenByToken,
   unsubscribeByToken,
 } from '@/application/use-cases/automations/email-links'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { answerFailures, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import type { Context, Hono } from 'hono'
 
 /**
@@ -54,39 +54,54 @@ const DONE_PAGE = page(
 /** The token from the query, or the empty string (which answers `404` before any lookup). */
 const tokenOf = (c: Context): string => c.req.query('token') ?? ''
 
-const handleConfirm = async (c: Context): Promise<Response> => {
+const handleConfirm = (c: Context): Promise<Response> | Response => {
   const token = tokenOf(c)
   if (token === '') return notFound(c)
-  const valid = await runRequestEffect(c, provideDomain(c, isValidUnsubscribeToken(token)))
-  if (!valid) return notFound(c)
-  return c.html(CONFIRM_PAGE(`/api/email/unsubscribe?token=${encodeURIComponent(token)}`), 200, {
-    'Cache-Control': 'no-store',
-  })
-}
-
-const handleUnsubscribe = async (c: Context): Promise<Response> => {
-  const token = tokenOf(c)
-  if (token === '') return notFound(c)
-  const done = await runRequestEffect(c, provideDomain(c, unsubscribeByToken(token)))
-  if (!done) return notFound(c)
-  return c.html(DONE_PAGE, 200, { 'Cache-Control': 'no-store' })
-}
-
-const handleOpen = async (c: Context): Promise<Response> => {
-  await runRequestEffect(
+  return runHandlerEffect(
     c,
-    provideDomain(c, recordOpenByToken(c.req.param('token') ?? '')).pipe(
+    answerFailures(
+      c,
+      Effect.map(isValidUnsubscribeToken(token), (valid) =>
+        valid
+          ? c.html(CONFIRM_PAGE(`/api/email/unsubscribe?token=${encodeURIComponent(token)}`), 200, {
+              'Cache-Control': 'no-store',
+            })
+          : notFound(c)
+      )
+    )
+  )
+}
+
+const handleUnsubscribe = (c: Context): Promise<Response> | Response => {
+  const token = tokenOf(c)
+  if (token === '') return notFound(c)
+  return runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.map(unsubscribeByToken(token), (done) =>
+        done ? c.html(DONE_PAGE, 200, { 'Cache-Control': 'no-store' }) : notFound(c)
+      )
+    )
+  )
+}
+
+const handleOpen = (c: Context): Promise<Response> =>
+  runHandlerEffect(
+    c,
+    recordOpenByToken(c.req.param('token') ?? '').pipe(
       Effect.tapCause((cause) => Effect.logError('email open could not be counted', cause)),
       // effect-swallow: the pixel answers the same image whatever happens; a count
       // that could not be written only lowers a figure the manual calls a lower bound.
-      Effect.ignore
+      Effect.ignore,
+      Effect.map(() =>
+        c.body(TRANSPARENT_GIF, 200, {
+          'Content-Type': 'image/gif',
+          'Cache-Control': 'no-store, max-age=0',
+        })
+      )
     )
   )
-  return c.body(TRANSPARENT_GIF, 200, {
-    'Content-Type': 'image/gif',
-    'Cache-Control': 'no-store, max-age=0',
-  })
-}
 
 /** Chain the unsubscribe and open addresses. */
 export const chainEmailLinkRoutes = <T extends Hono>(honoApp: T): T =>

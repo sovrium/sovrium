@@ -190,7 +190,7 @@ function ThreadTranscript({
         />
       ) : undefined}
       <div
-        aria-label="Message thread"
+        aria-label={useWord('thread', 'Message thread')}
         className="flex flex-col gap-5"
       >
         {state.messages.map((message) => (

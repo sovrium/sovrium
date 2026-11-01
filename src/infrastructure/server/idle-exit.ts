@@ -25,12 +25,15 @@
  *
  * The exit itself is the ordinary graceful stop (`lifecycle.ts`), so the lock
  * file is removed and the exit code is `0`, exactly as on `SIGTERM`.
+ *
+ * The monitor is a fiber in a scope the server it watches owns: its stop
+ * closes the scope, so a server stopped by a signal, or replaced by a `--watch`
+ * restart, leaves no monitor behind.
  */
 
 import { and, count, eq, gte, inArray, notInArray } from 'drizzle-orm'
-import { Cron, DateTime, Result } from 'effect'
+import { Cron, Data, DateTime, Duration, Effect, Exit, Result, Schedule, Scope } from 'effect'
 import { triggersOfType } from '@/domain/models/app/automations/trigger-entries-service'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   automationDelayedSteps as automationDelayedStepsPg,
@@ -43,7 +46,9 @@ import {
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { onDevTimeline, readServerBootInstant } from '@/infrastructure/process/server-boot-instant'
+import type { ServerInstance } from '@/application/ports/services/server-instance'
 import type { App } from '@/domain/models/app'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 // ─── Request activity ────────────────────────────────────────────────────────
 
@@ -88,7 +93,7 @@ const automationDelayedSteps = resolveDialectSchema(
 )
 
 /** Runs of THIS boot still queued or running, a run parked on a delay step excepted. */
-const countRunningAutomations = async (): Promise<number> => {
+export const countRunningAutomations = async (db: PortableDb): Promise<number> => {
   const parked = db
     .select({ runId: automationDelayedSteps.runId })
     .from(automationDelayedSteps)
@@ -119,7 +124,7 @@ const parseSchedule = (expression: string, timezone: string): Cron.Cron | undefi
 
 /** Every schedule the config declares: enabled cron automations and agent schedules. */
 const declaredSchedules = (app: App): readonly Cron.Cron[] => {
-  const fallbackZone = resolveOperatorTimezone()
+  const fallbackZone = resolveOperatorTimezone(process.env)
   const automations = (app.automations ?? []).flatMap((automation) => {
     if (automation.enabled === false) return []
     return triggersOfType(automation, 'cron').flatMap((trigger) => {
@@ -145,48 +150,79 @@ const scheduleDueWithin = (
 // ─── The monitor ─────────────────────────────────────────────────────────────
 
 /** How often the monitor looks. */
-const CHECK_INTERVAL_MS = 1000
+const CHECK_INTERVAL = Duration.seconds(1)
 
-/** The armed monitor: one per process, its config replaced on a `--watch` reload. */
-const armed = new Map<'schedules', readonly Cron.Cron[]>()
+/** An idle check that could not be answered: the automation count failed. */
+class IdleCheckError extends Data.TaggedError('IdleCheckError')<{ readonly cause: unknown }> {}
+
+/** Whether the server has been idle for the whole of `windowMs`, by all four measures. */
+const isIdle = async (
+  countRunning: ServerInstance['countRunningAutomations'],
+  schedules: readonly Cron.Cron[],
+  windowMs: number
+): Promise<boolean> => {
+  const now = Date.now()
+  if (activity.inFlight > 0 || now - activity.lastAt < windowMs) return false
+  if (scheduleDueWithin(schedules, now, windowMs)) return false
+  if ((await countRunning()) > 0) return false
+  // A request may have begun while the count ran.
+  return !(activity.inFlight > 0 || Date.now() - activity.lastAt < windowMs)
+}
 
 /**
- * Arm the idle exit: after `seconds` of idleness, call `stop` once.
- *
- * Idempotent across `--watch` reloads, which re-enter the boot: the first call
- * starts the timer, later ones only replace the schedules it reads. The timer
- * is unreferenced, so it never holds the process open on its own.
+ * Look every second until the server is idle, then call `stop` once and end.
+ * One check at a time: the next waits for the previous to answer.
  */
-export const armIdleExit = (app: App, seconds: number, stop: (reason: string) => void): void => {
-  const firstArming = !armed.has('schedules')
-  armed.set('schedules', declaredSchedules(app))
-  if (!firstArming) return
-  markActivity()
-  const windowMs = seconds * 1000
-  const state = { checking: false, done: false }
-  const check = async (): Promise<void> => {
-    const now = Date.now()
-    if (activity.inFlight > 0 || now - activity.lastAt < windowMs) return
-    if (scheduleDueWithin(armed.get('schedules') ?? [], now, windowMs)) return
-    if ((await countRunningAutomations()) > 0) return
-    // A request may have begun while the count ran.
-    if (activity.inFlight > 0 || Date.now() - activity.lastAt < windowMs) return
-    state.done = true
-    clearInterval(timer)
-    stop(`idle for ${String(seconds)}s`)
-  }
-  const timer = setInterval(() => {
-    if (state.checking || state.done) return
-    state.checking = true
-    check()
-      .catch((cause: unknown) => {
-        // Swallowed on purpose (E6): a failed check keeps the server running,
-        // the safe side, and the next tick looks again.
-        logError('[server] the idle check failed; staying up', cause)
-      })
-      .finally(() => {
-        state.checking = false
-      })
-  }, CHECK_INTERVAL_MS)
-  timer.unref()
+const idleMonitor = (
+  countRunning: ServerInstance['countRunningAutomations'],
+  schedules: readonly Cron.Cron[],
+  seconds: number,
+  stop: (reason: string) => void
+): Effect.Effect<void> => {
+  const check = Effect.tryPromise({
+    try: () => isIdle(countRunning, schedules, seconds * 1000),
+    catch: (cause) => new IdleCheckError({ cause }),
+  }).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError('[server] the idle check failed; staying up', cause))
+    ),
+    // effect-swallow: logged above; a failed check keeps the server running, the safe side, and the next tick looks again.
+    Effect.orElseSucceed(() => false)
+  )
+  return Effect.sleep(CHECK_INTERVAL).pipe(
+    Effect.andThen(
+      check.pipe(
+        Effect.repeat({ schedule: Schedule.spaced(CHECK_INTERVAL), until: (idle) => idle })
+      )
+    ),
+    Effect.andThen(Effect.sync(() => stop(`idle for ${String(seconds)}s`)))
+  )
 }
+
+/**
+ * Arm the idle exit on `server`: after `seconds` of idleness, call `stop` once.
+ *
+ * Answers the same server, whose `stop` first ends the monitor, so no check
+ * reads a client the stop has released. The idle window starts here, once the
+ * server is up; the schedules it reads are the ones `app` declares, and its
+ * automation count is the server's own. A `--watch` restart stops the previous server (ending its monitor)
+ * and arms the next one afresh with the new config's schedules.
+ */
+export const withIdleExit = (
+  server: ServerInstance,
+  app: App,
+  seconds: number,
+  stop: (reason: string) => void
+): Effect.Effect<ServerInstance> =>
+  Effect.gen(function* () {
+    const scope = yield* Scope.make()
+    markActivity()
+    yield* Effect.forkIn(
+      idleMonitor(server.countRunningAutomations, declaredSchedules(app), seconds, stop),
+      scope
+    )
+    return {
+      ...server,
+      stop: Effect.andThen(Scope.close(scope, Exit.void), server.stop),
+    }
+  }).pipe(Effect.withSpan('server.idle-exit.arm', { attributes: { 'idle.seconds': seconds } }))

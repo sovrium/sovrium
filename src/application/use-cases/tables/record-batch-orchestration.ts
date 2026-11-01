@@ -18,6 +18,10 @@
  * an automation read one record per event whatever road wrote it. The order is
  * fixed, and the unit tests pin it:
  *
+ *  0. clean every row's values and check their formats (`record-write-values.ts`),
+ *     then judge the table's business rules on every row: one malformed
+ *     address or one broken rule refuses the whole batch, nothing written
+ *     (`batch-business-rules.ts`)
  *  1. write, recording the table's webhook deliveries for every committed row
  *     in the same transaction (create: the SQLite AI-compute baseline merged
  *     into every row first)
@@ -36,10 +40,21 @@
 import { Effect } from 'effect'
 import {
   markUserAuthoredAiFieldsForRecords,
+  signalAiComputeForBatchCreate,
   type AiComputeBatchWrite,
-} from '@/application/use-cases/ai-compute/enqueue-refinement'
+} from '@/application/use-cases/ai/enqueue-refinement'
 import { startRecordEventAutomationsInBackground } from '@/application/use-cases/automations/record-event-background'
+import { startInTrackedBackground } from '@/application/use-cases/automations/tracked-background'
+import { isBusinessRuleViolationError } from '@/domain/errors'
+import { transformRecord } from '@/domain/models/app/tables/record-transformer-service'
 import { logError, logInfo } from '@/infrastructure/logging/logger'
+import {
+  authorizeBatchCreateRules,
+  authorizeBatchDeleteRules,
+  authorizeBatchRestoreRules,
+  authorizeBatchUpdateRules,
+  authorizeUpsertRules,
+} from './batch-business-rules'
 import {
   batchCreateProgram,
   batchDeleteProgram,
@@ -47,14 +62,14 @@ import {
   batchUpdateProgram,
   upsertProgram,
 } from './batch-operations'
-import { mergeCreateAiBaseline } from './record-create-orchestration'
+import { engineMergesAiBaseline, mergeCreateAiBaseline } from './record-create-orchestration'
 import { storedRowOf } from './record-stored-row'
-import { transformRecord } from './record-transformer'
 import {
   deliverRecordWebhooks,
   withRecordWebhooks,
   type WebhookWriteKind,
 } from './record-webhook-outbox'
+import { checkedWriteRows } from './record-write-values'
 import type { LinkReader } from './linked-row-visibility'
 import type { StoredRow } from './record-update-orchestration'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -72,8 +87,6 @@ export interface BatchScope {
   readonly session: Readonly<UserSession>
   readonly app: App
   readonly tableName: string
-  /** Process env captured at the route boundary, for the automations' `$env` lookups. */
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /**
    * Whether the write fires the table's webhooks and record automations. Only
    * a CSV import into a table declaring `import: { fireEvents: false }` turns
@@ -84,6 +97,7 @@ export interface BatchScope {
   readonly deliveryMode?: DeliveryMode
   /** Who made the write, as each row's `trigger.user`: absent for a write no person made. */
   readonly requester?: TriggerRequester
+  readonly userGroups?: readonly string[]
 }
 
 /** A bulk write that echoes the records it wrote. */
@@ -93,8 +107,8 @@ interface EchoingBatch extends BatchScope {
   readonly linkReader: LinkReader
 }
 
-/** A row event, before the process env of the road is attached. */
-export type RowEvent = Omit<TriggerRecordEventInput, 'processEnv'>
+/** One row event a bulk write fires. */
+export type RowEvent = TriggerRecordEventInput
 
 /** The record event one committed row change is, for the record automations. */
 export function rowEventOf(
@@ -191,10 +205,8 @@ export function orchestrateBulkWrite<A, E, RW, RA = never, RE = never, RD = neve
  * records them as stopped — one event after another, each automation under
  * its own `concurrency`.
  */
-const dispatchRowEventsFor = (scope: BatchScope) => (events: readonly RowEvent[]) => {
-  const inputs = events.map((event) => ({ ...event, processEnv: scope.processEnv }))
-  return startRecordEventAutomationsInBackground(inputs)
-}
+const dispatchRowEvents = (events: readonly RowEvent[]) =>
+  startRecordEventAutomationsInBackground(events)
 
 /** One line per bulk write: what it wrote and what it queued. */
 const reportFor = (scope: BatchScope) => (summary: BulkWriteSummary) =>
@@ -209,7 +221,7 @@ const reportFor = (scope: BatchScope) => (summary: BulkWriteSummary) =>
 /** The orchestration's bound steps, shared by every bulk write. */
 const boundSteps = <A, E, R>(scope: BatchScope, write: Effect.Effect<OutboxedWrite<A>, E, R>) => ({
   write,
-  dispatchRowEvents: dispatchRowEventsFor(scope),
+  dispatchRowEvents,
   deliverWebhooks: (deliveryIds: readonly string[]) =>
     deliverRecordWebhooks(scope.app, deliveryIds, scope.deliveryMode ?? 'background'),
   report: reportFor(scope),
@@ -227,6 +239,12 @@ const outboxed =
       ? silently(write)
       : write.pipe(withRecordWebhooks(scope.app, scope.tableName, kind))
 
+/** The rules' scope for a bulk write: her role exempts; her role and groups bound what a refusal names. */
+const ruleScope = (scope: BatchScope) => ({
+  ...{ session: scope.session, app: scope.app, tableName: scope.tableName },
+  ...{ userRole: scope.requester?.role, userGroups: scope.userGroups },
+})
+
 const bulkInput = (scope: BatchScope, kind: WebhookWriteKind = 'write') => ({
   app: scope.app,
   tableName: scope.tableName,
@@ -241,17 +259,26 @@ export function batchCreateWithSideEffects(
   input: EchoingBatch & {
     /** The validated fields of each row, as the caller asked to write them. */
     readonly rows: readonly StoredRow[]
-    readonly isSqlite: boolean
   }
 ) {
   const { session, app, tableName, linkReader } = input
-  const write = batchCreateProgram({
-    ...{ session, tableName, app, linkReader },
-    recordsData: input.rows.map((fields) => ({
-      ...mergeCreateAiBaseline(input, fields, input.isSqlite),
-    })),
-    ...(input.returnRecords === undefined ? {} : { returnRecords: input.returnRecords }),
-  }).pipe(outboxed(input))
+  const write = checkedWriteRows(app, tableName, input.rows).pipe(
+    Effect.tap((rows) => authorizeBatchCreateRules(ruleScope(input), rows)),
+    Effect.zip(engineMergesAiBaseline),
+    Effect.flatMap(([rows, isSqlite]) =>
+      batchCreateProgram({
+        ...{ session, tableName, app, linkReader },
+        recordsData: rows.map((fields) => ({
+          ...mergeCreateAiBaseline(input, fields, isSqlite),
+        })),
+        ...(input.returnRecords === undefined ? {} : { returnRecords: input.returnRecords }),
+      })
+    ),
+    outboxed(input),
+    Effect.tap(({ changes }) =>
+      startInTrackedBackground(signalAiComputeForBatchCreate({ ...input, changes }))
+    )
+  )
   return orchestrateBulkWrite(bulkInput(input), boundSteps(input, write)).pipe(
     Effect.withSpan('tables.batch-create-with-side-effects', { attributes: { tableName } })
   )
@@ -265,17 +292,34 @@ export function batchUpdateWithSideEffects(
   }
 ) {
   const { session, app, tableName, linkReader, records } = input
-  const write = batchUpdateProgram({
-    ...{ session, tableName, app, linkReader },
-    recordsData: records.map((record) => ({ id: record.id, fields: { ...record.fields } })),
-    ...(input.returnRecords === undefined ? {} : { returnRecords: input.returnRecords }),
-  }).pipe(outboxed(input))
+  const write = checkedWriteRows(
+    app,
+    tableName,
+    records.map((record) => record.fields)
+  ).pipe(
+    Effect.map((rows) =>
+      records.map((record, index) => ({ id: record.id, fields: { ...rows[index] } }))
+    ),
+    Effect.flatMap((recordsData) =>
+      Effect.map(authorizeBatchUpdateRules(ruleScope(input), recordsData), (judge) => ({
+        recordsData,
+        judge,
+      }))
+    ),
+    Effect.flatMap(({ recordsData, judge }) =>
+      batchUpdateProgram({
+        ...{ session, tableName, app, linkReader, recordsData, judge },
+        ...(input.returnRecords === undefined ? {} : { returnRecords: input.returnRecords }),
+      })
+    ),
+    outboxed(input)
+  )
   return orchestrateBulkWrite(bulkInput(input), {
     ...boundSteps(input, write),
-    // Detached: the status writes outlive the request, and read the same
-    // services this program was provided.
-    afterWrite: Effect.asVoid(
-      Effect.forkDetach(markUserAuthoredAiFieldsForRecords({ app, tableName, records }))
+    // In the tracked background: the status writes outlive the request, drain
+    // with the server, and read the same services this program was provided.
+    afterWrite: startInTrackedBackground(
+      markUserAuthoredAiFieldsForRecords({ app, tableName, records })
     ),
   }).pipe(Effect.withSpan('tables.batch-update-with-side-effects', { attributes: { tableName } }))
 }
@@ -285,15 +329,21 @@ export function batchDeleteWithSideEffects(
   input: BatchScope & { readonly ids: readonly string[]; readonly permanent: boolean }
 ) {
   const { session, app, tableName, ids, permanent } = input
-  const write = batchDeleteProgram(session, tableName, ids, { permanent, app }).pipe(
+  const write = authorizeBatchDeleteRules(ruleScope(input), ids, permanent).pipe(
+    Effect.flatMap((judge) =>
+      batchDeleteProgram(session, tableName, ids, { permanent, app, judge })
+    ),
     outboxed(input)
   )
   return orchestrateBulkWrite(bulkInput(input), {
     ...boundSteps(input, write),
+    // A rule refusing the delete is the caller's answer, not a failure to log.
     reportFailure: (error: unknown) =>
-      Effect.sync(() =>
-        logError(`[tables] batch ${permanent ? 'hard-' : 'soft-'}delete failed`, error)
-      ),
+      isBusinessRuleViolationError(error)
+        ? Effect.void
+        : Effect.sync(() =>
+            logError(`[tables] batch ${permanent ? 'hard-' : 'soft-'}delete failed`, error)
+          ),
   }).pipe(Effect.withSpan('tables.batch-delete-with-side-effects', { attributes: { tableName } }))
 }
 
@@ -302,7 +352,9 @@ export function batchRestoreWithSideEffects(
   input: BatchScope & { readonly ids: readonly string[] }
 ) {
   const { session, app, tableName, ids } = input
-  const write = batchRestoreProgram(session, tableName, ids, app).pipe(outboxed(input, 'restore'))
+  const write = Effect.flatMap(authorizeBatchRestoreRules(ruleScope(input), ids), (judge) =>
+    batchRestoreProgram(session, tableName, ids, { app, judge })
+  ).pipe(outboxed(input, 'restore'))
   return orchestrateBulkWrite(bulkInput(input, 'restore'), boundSteps(input, write)).pipe(
     Effect.withSpan('tables.batch-restore-with-side-effects', { attributes: { tableName } })
   )
@@ -324,14 +376,24 @@ export function upsertWithSideEffects(
   }
 ) {
   const { session, app, tableName } = input
-  const write = upsertProgram(session, tableName, {
-    recordsData: input.recordsData,
+  const mergeOf = (recordsData: readonly StoredRow[]) => ({
+    recordsData: recordsData.map((row) => ({ ...row })),
     fieldsToMergeOn: input.fieldsToMergeOn,
     ...(input.hiddenIds === undefined ? {} : { hiddenIds: input.hiddenIds }),
-    returnRecords: input.returnRecords,
-    app,
-    ...(input.linkReader === undefined ? {} : { linkReader: input.linkReader }),
-  }).pipe(outboxed(input))
+  })
+  const write = checkedWriteRows(app, tableName, input.recordsData).pipe(
+    Effect.map(mergeOf),
+    Effect.flatMap((merge) =>
+      Effect.flatMap(authorizeUpsertRules(ruleScope(input), merge), (judge) =>
+        upsertProgram(session, tableName, {
+          ...{ ...merge, judge, app },
+          returnRecords: input.returnRecords,
+          ...(input.linkReader === undefined ? {} : { linkReader: input.linkReader }),
+        })
+      )
+    ),
+    outboxed(input)
+  )
   return orchestrateBulkWrite(bulkInput(input), boundSteps(input, write)).pipe(
     Effect.withSpan('tables.upsert-with-side-effects', { attributes: { tableName } })
   )

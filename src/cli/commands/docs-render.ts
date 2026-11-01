@@ -147,14 +147,14 @@ const loadLookups = async () => {
  * The catalogue is reached HERE, lazily, and nowhere else in the manual: no
  * section manifest names it, because a manifest is imported by every reader of
  * the registry and the catalogue grows with every entry. Its articles are
- * projections of the entries themselves (`library-docs.ts`), so the manual can
+ * projections of the entries themselves (`library/docs.ts`), so the manual can
  * never describe an entry the binary does not ship.
  */
 const loadLibrary = async () => {
   const [catalogueModule, buildLibraryManual, operationSets] = await Promise.all([
     import('@/library/manifest/catalogue'),
-    import('./library-docs').then(({ buildLibraryManual: build }) => build),
-    import('./library-operations').then(async ({ loadAllOperationSets, loadOperationsModule }) =>
+    import('./library/docs').then(({ buildLibraryManual: build }) => build),
+    import('./library/operations').then(async ({ loadAllOperationSets, loadOperationsModule }) =>
       loadAllOperationSets(await loadOperationsModule())
     ),
   ])
@@ -210,13 +210,15 @@ const loadCorpus = async (
     }))
   )
 
-/** One article, rendered with its tables expanded and its Behaviour block. */
-const renderOne = async (manual: Manual, located: LocatedArticle): Promise<string> =>
-  manual.renderManualArticle({
+/** One article with its tables expanded and its Behaviour block; a refused directive rejects. */
+const renderOne = async (manual: Manual, located: LocatedArticle): Promise<string> => {
+  const rendered = manual.renderManualArticle({
     article: located.article,
     body: await readBody(manual, located.article),
     behaviour: manual.embeddedBehaviourFor(located.article.slug),
   })
+  return rendered.ok ? rendered.value : Promise.reject(rendered.error)
+}
 
 // =============================================================================
 // The whole manual
@@ -262,9 +264,7 @@ const jsonDocument = async (
   full: boolean
 ): Promise<string> => {
   const located = manual.locatedArticles(sections)
-  const rendered = full
-    ? await Promise.all(located.map(async (entry) => await renderOne(manual, entry)))
-    : []
+  const rendered = full ? await Promise.all(located.map((entry) => renderOne(manual, entry))) : []
   const bodyOf = (index: number): Readonly<Record<string, string>> =>
     full ? { body: rendered[index] ?? '' } : {}
   const document = {

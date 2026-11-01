@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { objectNodes } from '@/domain/kernel/config-parsing/config-node-walk'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /** Every `{field}` placeholder of an `hrefTemplate`. A STATIC literal. */
 const HREF_PLACEHOLDER = /\{([^{}]+)\}/g
 
@@ -44,8 +47,8 @@ export function findFirstObjectSource(page: unknown): FirstObjectSource | undefi
     return { kind: 'table', table: pageSource['table'] }
   }
 
-  return walk(page['components'])
-    .concat(walk(page['layout']))
+  return objectNodes(page['components'])
+    .concat(objectNodes(page['layout']))
     .map(readSystemSource)
     .find((source): source is FirstObjectSource => source !== undefined)
 }
@@ -92,15 +95,4 @@ function toPathValue(value: unknown): string | undefined {
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : undefined
   if (typeof value === 'boolean') return String(value)
   return undefined
-}
-
-/** Depth-first collection of every object node — see `page-binding-validation.ts`. */
-function walk(value: unknown): readonly Record<string, unknown>[] {
-  if (Array.isArray(value)) return value.flatMap(walk)
-  if (!isRecord(value)) return []
-  return [value, ...Object.values(value).flatMap(walk)]
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

@@ -25,6 +25,7 @@
 import {
   getTabLabel,
   hasDocsTabs,
+  tabLandingHref,
   tabOfSection,
 } from '@/presentation/render/markdown/docs-sidebar-tabs'
 import type {
@@ -56,11 +57,7 @@ export const resolveDocsRootCrumb = (
   if (!hasDocsTabs(tabs)) return undefined
   const activeTab = tabOfSection(current.group, tabs)
   if (activeTab === undefined) return undefined
-  // Landing = the configured `href`, else the first sidebar entry (in order)
-  // whose section belongs to the active tab (self-healing default).
-  const href =
-    activeTab.href ??
-    sidebar.find((entry) => tabOfSection(entry.group, tabs)?.id === activeTab.id)?.href
+  const href = tabLandingHref(activeTab, sidebar, tabs)
   if (href === undefined) return undefined
   return { name: getTabLabel(activeTab), href }
 }

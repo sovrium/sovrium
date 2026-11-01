@@ -8,7 +8,7 @@
 import { preserveIdType } from '@/application/use-cases/tables/preserve-id-type'
 import { NotFoundError } from '@/domain/errors'
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
-import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { notFound, notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import { handleRouteError, restoreUniqueConflict } from './error-handlers'
 import type { Context } from 'hono'
 
@@ -151,10 +151,7 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
   if (error instanceof NotFoundError) {
     return c.json(
       {
-        success: false,
-        error: 'Not Found',
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
+        ...notFoundBody(),
         recordId: error.recordId === undefined ? undefined : preserveIdType(error.recordId),
       },
       404

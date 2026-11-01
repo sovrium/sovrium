@@ -5,8 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Data, Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { accountAvatarResponseSchema } from '@/domain/models/api/auth/account'
+import { successResponseSchema } from '@/domain/models/api/common'
 import {
   AVATAR_BUCKET_NAME,
   avatarStorageKeyFromUrl,
@@ -14,14 +16,29 @@ import {
   resolveAvatarBucket,
 } from '@/domain/models/app/auth/avatar-url'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { readSourceImageMetadata } from '@/infrastructure/storage/bun-image'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
+import { acceptsUploadBody } from '@/presentation/api/middleware/request-body-limit'
 import { storageErrorBody, unauthorized } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { readMultipartFile } from '@/presentation/api/runtime/multipart-file'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import type { AvatarProfileStore } from '@/application/ports/contracts/avatar-profile-store'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
+
+/** The profile store did not answer a read or a write of the caller's image. */
+class AvatarProfileError extends Data.TaggedError('AvatarProfileError')<{
+  readonly cause: unknown
+}> {}
+
+/** One call to the injected profile store, on the handler's program. */
+const profileStep = <A>(run: () => Promise<A>) =>
+  Effect.tryPromise({ try: run, catch: (cause) => new AvatarProfileError({ cause }) })
 
 /**
  * `POST` / `DELETE /api/account/avatar` — the only writers of `auth.user.image`.
@@ -114,23 +131,23 @@ const resolveAvatarBucketFor = (app: App) => resolveAvatarBucket(app.buckets)
  * briefly unreachable would leave the user pointing at an object that may well
  * be gone anyway.
  */
-async function removeAvatarObject(c: Context, storedImage: string | null): Promise<void> {
-  const key = avatarStorageKeyFromUrl(storedImage)
-  if (key === undefined) return
+const removeAvatarObject = (storedImage: string | null) =>
+  Effect.gen(function* () {
+    const key = avatarStorageKeyFromUrl(storedImage)
+    if (key === undefined) return
 
-  const program = Effect.gen(function* () {
     const storage = yield* StorageService
     // Bracket notation dodges a `drizzle/enforce-delete-with-where` false
     // positive on the storage port's `delete` — same workaround as `buckets.ts`.
-    yield* storage['delete'](key, AVATAR_BUCKET_NAME)
+    yield* storage['delete'](key, AVATAR_BUCKET_NAME).pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() => logError('[account] avatar object delete failed', cause))
+      ),
+      // effect-swallow: logged above; the caller has already decided the avatar is going away.
+      Effect.orElseSucceed(() => undefined)
+    )
+    evictTransformCacheForKey(key)
   })
-
-  const result = await runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))
-  if (result._tag === 'Failure') {
-    logError('[account] avatar object delete failed', result.failure)
-  }
-  evictTransformCacheForKey(key)
-}
 
 /**
  * Decode `bytes` and report the extension to store them under, or `undefined`
@@ -162,11 +179,8 @@ async function readAvatarUpload(
   c: Context,
   maxBytes: number
 ): Promise<{ readonly bytes: Uint8Array } | { readonly response: Response }> {
-  const body = await c.req.parseBody()
-  const { file } = body
-  if (!file || !(file instanceof File)) {
-    return { response: badRequest(c, 'No file provided') }
-  }
+  const file = await readMultipartFile(c, 'file')
+  if (file === undefined) return { response: badRequest(c, 'No file provided') }
   if (file.size > maxBytes) {
     return {
       response: c.json(
@@ -189,36 +203,40 @@ async function readAvatarUpload(
  * failure part-way through leaves a replaceable orphan rather than a user whose
  * avatar 404s. Extracted from the handler to keep it under the statement cap.
  */
-async function persistAvatar(
+const persistAvatar = (
   c: Context,
   store: AvatarProfileStore,
   userId: string,
   upload: { readonly bytes: Uint8Array; readonly extension: string }
-): Promise<Response> {
-  const key = `${crypto.randomUUID()}-avatar.${upload.extension}`
-  const mimeType = upload.extension === 'jpg' ? 'image/jpeg' : `image/${upload.extension}`
-  const program = Effect.gen(function* () {
+) =>
+  Effect.gen(function* () {
+    const key = `${crypto.randomUUID()}-avatar.${upload.extension}`
+    const mimeType = upload.extension === 'jpg' ? 'image/jpeg' : `image/${upload.extension}`
     const storage = yield* StorageService
-    yield* storage.upload(key, upload.bytes, mimeType, {
-      bucket: AVATAR_BUCKET_NAME,
-      uploadedById: userId,
-    })
+    const stored = yield* Effect.result(
+      storage.upload(key, upload.bytes, mimeType, {
+        bucket: AVATAR_BUCKET_NAME,
+        uploadedById: userId,
+      })
+    )
+    if (stored._tag === 'Failure') {
+      logError('[account] avatar upload failed', stored.failure)
+      return c.json(storageErrorBody('Avatar upload failed', 'STORAGE_ERROR'), 500)
+    }
+
+    const previous = yield* profileStep(() => store.readImage(userId))
+    const image = buildIssuedAvatarUrl(key)
+    yield* profileStep(() => store.writeImage(userId, image))
+    // Only once the column points at the NEW object is the old one collectable.
+    yield* removeAvatarObject(previous)
+
+    return yield* respondWith(
+      c,
+      Effect.succeed({ success: true, image }),
+      accountAvatarResponseSchema,
+      201
+    )
   })
-
-  const result = await runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))
-  if (result._tag === 'Failure') {
-    logError('[account] avatar upload failed', result.failure)
-    return c.json(storageErrorBody('Avatar upload failed', 'STORAGE_ERROR'), 500)
-  }
-
-  const previous = await store.readImage(userId)
-  const image = buildIssuedAvatarUrl(key)
-  await store.writeImage(userId, image)
-  // Only once the column points at the NEW object is the old one collectable.
-  await removeAvatarObject(c, previous)
-
-  return c.json({ success: true, image }, 201)
-}
 
 /** `POST /api/account/avatar` — upload and set the caller's profile image. */
 function createHandleUploadAvatar(app: App, store: AvatarProfileStore) {
@@ -241,23 +259,35 @@ function createHandleUploadAvatar(app: App, store: AvatarProfileStore) {
       return badRequest(c, 'File is not a decodable PNG, JPEG or WebP image')
     }
 
-    return persistAvatar(c, store, session.userId, { bytes: read.bytes, extension })
+    return runHandlerEffect(
+      c,
+      answerFailures(c, persistAvatar(c, store, session.userId, { bytes: read.bytes, extension }))
+    )
   }
 }
 
 /** `DELETE /api/account/avatar` — clear the column and remove the object. */
 function createHandleDeleteAvatar(store: AvatarProfileStore) {
-  return async (c: Context): Promise<Response> => {
+  return (c: Context): Promise<Response> | Response => {
     const session = getSessionContext(c)
     if (session === undefined) return unauthorized(c)
+    const { userId } = session
 
-    const previous = await store.readImage(session.userId)
-    // Clear the column first: it is the value every reader projects, so it is
-    // the one that must stop naming the object even if the blob store is down.
-    await store.writeImage(session.userId, null)
-    await removeAvatarObject(c, previous)
+    return runHandlerEffect(
+      c,
+      answerFailures(
+        c,
+        Effect.gen(function* () {
+          const previous = yield* profileStep(() => store.readImage(userId))
+          // Clear the column first: it is the value every reader projects, so it is
+          // the one that must stop naming the object even if the blob store is down.
+          yield* profileStep(() => store.writeImage(userId, null))
+          yield* removeAvatarObject(previous)
 
-    return c.json({ success: true }, 200)
+          return yield* respondWith(c, Effect.succeed({ success: true }), successResponseSchema)
+        })
+      )
+    )
   }
 }
 
@@ -276,6 +306,6 @@ export function chainAccountAvatarRoutes<T extends Hono>(
   // DELETE registered via `.on()` to avoid a `drizzle/enforce-delete-with-where`
   // false positive on the Hono builder — same workaround as `chainBucketRoutes`.
   return honoApp
-    .post('/api/account/avatar', createHandleUploadAvatar(app, store))
+    .post('/api/account/avatar', acceptsUploadBody(createHandleUploadAvatar(app, store)))
     .on('DELETE', '/api/account/avatar', createHandleDeleteAvatar(store)) as T
 }

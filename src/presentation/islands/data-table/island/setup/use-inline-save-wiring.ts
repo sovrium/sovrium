@@ -6,6 +6,7 @@
  */
 
 import { useMemo } from 'react'
+import { lockedOnRecord } from '@/presentation/design/locks-verdict'
 import { resolveEditableFields, resolveSaveIndicator } from '../island-setup-helpers'
 import { resolveTabTarget } from '../tab-target'
 import type { SetupContext } from './setup-params'
@@ -66,6 +67,8 @@ export function useInlineSaveWiring(
       if (target === undefined) return
       void committed.then(() => {
         const record = records.find((candidate) => String(candidate.id) === target.rowId)
+        // A cell a lock rule holds on its record opens no editor.
+        if (lockedOnRecord(record, target.field) !== undefined) return
         inlineEditing.startEditing(target.rowId, target.field, record?.[target.field])
       })
     },

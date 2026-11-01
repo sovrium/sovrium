@@ -22,8 +22,9 @@
  * of them did not, and listed the app's automation as staff.
  *
  * The email SUFFIX is the predicate rather than the `type = 'agent'` column
- * because the column is added by runtime DDL on PostgreSQL only and does not
- * exist on SQLite — the suffix is the only portable discriminator.
+ * because only the PostgreSQL agent sync writes that column (both dialects
+ * carry it, but SQLite rows never have it set) — the suffix is the only
+ * discriminator true on both engines.
  */
 
 import { notEndsWithInsensitive, type LikeOperand } from './dialect-sql-helpers'

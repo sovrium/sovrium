@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { operationBodyIssue } from './operation-body-validation'
 
 /**
@@ -52,13 +53,13 @@ export const OperationParamSchema = Schema.Struct({
   in: Schema.Literals(['path', 'query', 'header', 'body']).pipe(
     Schema.annotate({
       description:
-        'Where the value is sent: a `{name}` segment of the path, the query string, a request header, or the request body — a field of it for a `json`, `form` or `multipart` body (a file part for a `file` parameter), or a `{{params.<name>}}` placeholder of a `raw` or `multipart-related` one. Values are URL-encoded by Sovrium.',
+        'Where the value is sent: a `{name}` segment of the path, the query string, a request header, or the request body: a field of it for a `json`, `form` or `multipart` body (a file part for a `file` parameter), or a `{{params.<name>}}` placeholder of a `raw` or `multipart-related` one. Values are URL-encoded by Sovrium.',
     })
   ),
   type: Schema.Literals(['string', 'number', 'integer', 'boolean', 'array', 'object', 'file']).pipe(
     Schema.annotate({
       description:
-        "The type of the value. A literal of another type in an automation step is refused when the config loads; a template value is checked when the step runs. An `object` or `array` parameter filled with one whole `{{…}}` template receives the object or list it names, unchanged. A `file` parameter (`in: body` only) names a file the way the `file` actions do — a storage key, an attachment field's value, a `data:` URI or an `https://` URL — and sends its bytes: as a file part, with its file name and content type, in a `multipart` body, or inlined as base64 with `encoding: base64`.",
+        "The type of the value. A literal of another type in an automation step is refused when the config loads; a template value is checked when the step runs. An `object` or `array` parameter filled with one whole `{{…}}` template receives the object or list it names, unchanged. A `file` parameter (`in: body` only) names a file the way the `file` actions do (a storage key, an attachment field's value, a `data:` URI or an `https://` URL) and sends its bytes: as a file part, with its file name and content type, in a `multipart` body, or inlined as base64 with `encoding: base64`.",
     })
   ),
   encoding: Schema.optional(
@@ -242,7 +243,7 @@ export const LastItemPaginationSchema = Schema.Struct({
     identifier: 'ConnectionOperationLastItemPagination',
     title: 'Last-Item Pagination',
     description:
-      'Each next page is asked for with the id of the last item of the previous one — the style of APIs that page with starting_after and has_more.',
+      'Each next page is asked for with the id of the last item of the previous one, the style of APIs that page with starting_after and has_more.',
   })
 )
 
@@ -257,7 +258,7 @@ export const OperationPaginationSchema = Schema.Union([
     identifier: 'ConnectionOperationPagination',
     title: 'Operation Pagination',
     description:
-      'How the operation pages its results, so a call with `paginate` can read every page — or the first N — and return the items as one array.',
+      'How the operation pages its results, so a call with `paginate` can read every page (or the first N) and return the items as one array.',
   })
 )
 
@@ -332,7 +333,7 @@ const OperationRawBodySchema = Schema.Struct({
     identifier: 'ConnectionOperationRawBody',
     title: 'Raw Operation Body',
     description:
-      'Send one payload exactly as written — text with `{{params.<name>}}` placeholders, or the bytes of a file — under the content type given. The `in: body` parameters fill the placeholders and are not sent as fields.',
+      'Send one payload exactly as written (text with `{{params.<name>}}` placeholders, or the bytes of a file) under the content type given. The `in: body` parameters fill the placeholders and are not sent as fields.',
   })
 )
 
@@ -370,7 +371,7 @@ const OperationMultipartRelatedBodySchema = Schema.Struct({
     identifier: 'ConnectionOperationMultipartRelatedBody',
     title: 'Multipart Related Operation Body',
     description:
-      'Send ordered parts as multipart/related (RFC 2387), each with its own content type — for example JSON metadata followed by the bytes of a file. The `in: body` parameters fill the placeholders and are not sent as fields.',
+      'Send ordered parts as multipart/related (RFC 2387), each with its own content type, for example JSON metadata followed by the bytes of a file. The `in: body` parameters fill the placeholders and are not sent as fields.',
   })
 )
 
@@ -539,9 +540,6 @@ const FORMAT_PATTERNS: Readonly<Record<string, RegExp>> = {
   iban: /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/,
 }
 
-const isPlainObject = (value: unknown): boolean =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 /** Whether a literal fits its declared type; a `file` literal is a key, `data:` URI or URL. */
 const MATCHES_TYPE: Readonly<Record<string, (value: unknown) => boolean>> = {
   string: (value) => typeof value === 'string',
@@ -565,7 +563,7 @@ export const fitsParamType = (
 ): boolean =>
   type === 'file' && at === 'runtime'
     ? typeof value === 'string' || (typeof value === 'object' && value !== null)
-    : (MATCHES_TYPE[type] ?? isPlainObject)(value)
+    : (MATCHES_TYPE[type] ?? isRecord)(value)
 
 const describeValue = (value: unknown): string => JSON.stringify(value) ?? String(value)
 

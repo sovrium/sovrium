@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Data, Effect } from 'effect'
 import { hasGatedPage } from '@/domain/models/app/pages/page-search-corpus-service'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -22,9 +23,19 @@ export type PageReaderResolver = (headers: Headers) => Promise<SessionInfo | und
  * Resolve the reader a page search answers for. When no declared page is closed
  * to a visitor there is nothing a session could add, so no lookup is paid.
  */
-export const resolvePageReader = async (
+/** The router's session reader did not answer. */
+class PageReaderReadError extends Data.TaggedError('PageReaderReadError')<{
+  readonly cause: unknown
+}> {}
+
+export const resolvePageReader = (
   c: Context,
   app: App,
   getSession: PageReaderResolver | undefined
-): Promise<SessionInfo | undefined> =>
-  getSession !== undefined && hasGatedPage(app) ? getSession(c.req.raw.headers) : undefined
+) =>
+  getSession !== undefined && hasGatedPage(app)
+    ? Effect.tryPromise({
+        try: () => getSession(c.req.raw.headers),
+        catch: (cause) => new PageReaderReadError({ cause }),
+      })
+    : Effect.undefined

@@ -54,7 +54,7 @@ export const EmailSendActionSchema = Schema.Struct({
       templateSourceSchema('text').pipe(
         Schema.annotate({
           description:
-            'Email subject as a template — { inline }, { asset } or { key, bucket? } — rendered from data like the body, with its helpers, partials and translations, and never HTML-escaped. Requires template.',
+            'Email subject as a template ({ inline }, { asset } or { key, bucket? }), rendered from data like the body, with its helpers, partials and translations, and never HTML-escaped. Requires template.',
         })
       ),
     ]).pipe(
@@ -67,7 +67,7 @@ export const EmailSendActionSchema = Schema.Struct({
       TemplateStringSchema.pipe(
         Schema.annotate({
           description:
-            'Email body — HTML or plain text (supports template variables). Exactly one of body and template.',
+            'Email body: HTML or plain text (supports template variables). Exactly one of body and template.',
         })
       )
     ),
@@ -84,17 +84,17 @@ export const EmailSendActionSchema = Schema.Struct({
     // array before calling Nodemailer.
     cc: Schema.optional(
       Schema.Union([TemplateStringSchema, Schema.Array(TemplateStringSchema)]).pipe(
-        Schema.annotate({ description: 'CC recipient(s) — single string or array' })
+        Schema.annotate({ description: 'CC recipient(s): single string or array' })
       )
     ),
     bcc: Schema.optional(
       Schema.Union([TemplateStringSchema, Schema.Array(TemplateStringSchema)]).pipe(
-        Schema.annotate({ description: 'BCC recipient(s) — single string or array' })
+        Schema.annotate({ description: 'BCC recipient(s): single string or array' })
       )
     ),
     replyTo: Schema.optional(
       Schema.Union([TemplateStringSchema, Schema.Array(TemplateStringSchema)]).pipe(
-        Schema.annotate({ description: 'Reply-To recipient(s) — single string or array' })
+        Schema.annotate({ description: 'Reply-To recipient(s): single string or array' })
       )
     ),
     // ── Templated body and attachments (additive) ──
@@ -107,7 +107,7 @@ export const EmailSendActionSchema = Schema.Struct({
       HtmlTemplateSourceSchema.pipe(
         Schema.annotate({
           description:
-            'HTML body rendered from a template — { asset }, { key, bucket? } or { inline } — filled from data. Exactly one of body and template.',
+            'HTML body rendered from a template ({ asset }, { key, bucket? } or { inline }), filled from data. Exactly one of body and template.',
         })
       )
     ),

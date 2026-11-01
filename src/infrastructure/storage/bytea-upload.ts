@@ -10,15 +10,15 @@ import {
   storageObjectNotFound,
   uploadTargetParts,
 } from '@/application/ports/services/storage-service'
-import { db } from '@/infrastructure/database'
-import { executeRaw, type RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
+import { type RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { bucketColumnValue, pinnedCreatedAtSql } from './bytea-adapter'
 import type { UploadTarget } from '@/application/ports/services/storage-service'
 
 /**
  * The database a replacing bytea write runs in: anything that opens a
- * transaction over a raw-SQL runner. The `db` facade in production; a test
- * hands {@link byteaUploadIn} a handle whose payload statement fails.
+ * transaction over a raw-SQL runner. The `Database` service's client in
+ * production; a test hands {@link byteaUploadIn} a handle whose payload statement fails.
  */
 export interface ByteaTransactor {
   readonly transaction: <T>(run: (tx: RawSqlRunner) => Promise<T>) => Promise<T>
@@ -50,7 +50,8 @@ export const byteaUploadIn =
     const pinned = pinnedCreatedAtSql()
 
     await database.transaction(async (tx) => {
-      const result = await executeRaw(
+      const result = await executeRawOn(
+        'postgres',
         tx,
         sql`
         INSERT INTO system.file_storage_metadata
@@ -80,7 +81,8 @@ export const byteaUploadIn =
         throw storageObjectNotFound(key)
       }
 
-      await executeRaw(
+      await executeRawOn(
+        'postgres',
         tx,
         sql`
         INSERT INTO system.file_storage_bytea (metadata_id, content)
@@ -92,6 +94,3 @@ export const byteaUploadIn =
       )
     })
   }
-
-/** {@link byteaUploadIn} on the `db` facade: the provider's replacing write. */
-export const byteaUpload = byteaUploadIn(db)

@@ -6,7 +6,7 @@
  */
 
 import { asc, desc, eq, sql } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   AccountDatabaseError,
   AccountRepository,
@@ -20,31 +20,31 @@ import {
   type AuthoredTableColumn,
 } from '@/application/ports/repositories/auth/account-repository'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
-import { db } from '@/infrastructure/database'
 import { readAiFootprint } from '@/infrastructure/database/account-export-ai-reads'
 import { readEntityLists } from '@/infrastructure/database/account-export-entity-list-reads'
 import { readEmailSuppressions } from '@/infrastructure/database/account-purge-email-suppressions'
 import {
-  authTableRef,
   formSubmissionsTable,
   resolveDialectSchema,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type DatabaseService,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { aiChatAttachments as chatAttachmentsPg } from '@/infrastructure/database/drizzle/schema/ai'
 import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
 import { aiChatAttachments as chatAttachmentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
-import {
-  executeRaw,
-  executeRawTyped,
-  type RawSqlRunner,
-} from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn, executeRawTypedOn } from '@/infrastructure/database/sql/dialect-execute'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { withPromiseTransaction } from '@/infrastructure/database/transaction'
 import { closeUserConnections, SESSION_ENDED } from '@/infrastructure/realtime/connection-counter'
 
 /** Wrap a DB promise, adapting failures to AccountDatabaseError. */
-const wrap = makeDbWrap((cause) => new AccountDatabaseError({ cause }))
+const toError = (cause: unknown) => new AccountDatabaseError({ cause })
+const wrap = makeDbWrap(toError)
 
 /**
  * Normalize a raw `scheduledErasureAt` cell into a `Date | undefined`.
@@ -87,10 +87,15 @@ function toOptionalDate(value: unknown) {
  * which already routes through this helper.)
  */
 const probeCreatedByColumn = async (
-  runner: Readonly<RawSqlRunner>,
+  { client, dialect }: DatabaseService,
   candidate: Readonly<AuthoredTableCandidate>
 ): Promise<AuthoredTableColumn | undefined> => {
-  const existing = await getExistingColumnNames(runner, candidate.tableName, candidate.columns)
+  const existing = await getExistingColumnNames(
+    dialect.kind,
+    client,
+    candidate.tableName,
+    candidate.columns
+  )
   // Candidate ORDER is the caller's preference order and is preserved: the
   // literal `created_by` is offered first, so a table carrying both it and a
   // custom-named field exports through the literal exactly as it always did.
@@ -122,7 +127,10 @@ const probeCreatedByColumn = async (
  * with the identical cause. Wrapping moved from one outer `wrap` to one `wrap`
  * per probe, which is the same tagged error either way.
  */
-const tablesWithCreatedByEffect = (candidates: readonly AuthoredTableCandidate[]) => {
+const tablesWithCreatedByEffect = (
+  database: DatabaseService,
+  candidates: readonly AuthoredTableCandidate[]
+) => {
   // De-duped by sanitized table name via a Map rather than a mutated Set —
   // last-wins, and `Map` preserves insertion order, so the fan-out order (and
   // therefore the ordering of the export's per-table sections) is unchanged.
@@ -135,13 +143,9 @@ const tablesWithCreatedByEffect = (candidates: readonly AuthoredTableCandidate[]
     ).values(),
   ]
 
-  // The `db` facade drives `getExistingColumnNames` as a `RawSqlRunner` — it
-  // carries `execute()` (Postgres) or `all()` (SQLite); the helper picks
-  // whichever the active dialect needs (never the Postgres-only `db.execute`).
-  const runner = db as RawSqlRunner
   return Effect.forEach(
     sanitized,
-    (candidate) => wrap(() => probeCreatedByColumn(runner, candidate)),
+    (candidate) => wrap(() => probeCreatedByColumn(database, candidate)),
     { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
   ).pipe(
     Effect.map((matched) =>
@@ -161,41 +165,44 @@ const tablesWithCreatedByEffect = (candidates: readonly AuthoredTableCandidate[]
  * unchanged; the schedule-erasure path keeps its original `db.transaction`
  * boundary, operations, and order.
  */
-export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
-  loadProfile: (userId) =>
+const members: MembersOverDatabase<typeof AccountRepository> = {
+  loadProfile: (db, dialect) => (userId) =>
     wrap(async () => {
-      const userRows = await executeRawTyped<AccountUserRow>(
+      const userRows = await executeRawTypedOn<AccountUserRow>(
+        dialect.kind,
         db,
         sql`SELECT id, email, name, image, language, email_verified AS "emailVerified",
-                   notify_automation_alerts AS "notifyAutomationAlerts",
-                   notify_weekly_digest AS "notifyWeeklyDigest",
-                   role, created_at AS "createdAt", updated_at AS "updatedAt"
-            FROM ${authTableRef('user')} WHERE id = ${userId}`
+               notify_automation_alerts AS "notifyAutomationAlerts",
+               notify_weekly_digest AS "notifyWeeklyDigest",
+               role, created_at AS "createdAt", updated_at AS "updatedAt"
+        FROM ${dialect.sql.authTableRef('user')} WHERE id = ${userId}`
       )
       return userRows[0]
     }),
 
-  loadSessions: (userId) =>
+  loadSessions: (db, dialect) => (userId) =>
     wrap(async () =>
-      executeRawTyped<AccountSessionRow>(
+      executeRawTypedOn<AccountSessionRow>(
+        dialect.kind,
         db,
         sql`SELECT id, user_id AS "userId", expires_at AS "expiresAt",
-                   ip_address AS "ipAddress", user_agent AS "userAgent",
-                   created_at AS "createdAt", updated_at AS "updatedAt"
-            FROM ${authTableRef('session')} WHERE user_id = ${userId}`
+               ip_address AS "ipAddress", user_agent AS "userAgent",
+               created_at AS "createdAt", updated_at AS "updatedAt"
+        FROM ${dialect.sql.authTableRef('session')} WHERE user_id = ${userId}`
       )
     ),
 
   // Secret material (password / accessToken / refreshToken / idToken) is
   // deliberately NOT selected — exporting credentials is a security risk.
-  loadAccounts: (userId) =>
+  loadAccounts: (db, dialect) => (userId) =>
     wrap(async () =>
-      executeRawTyped<AccountLinkedRow>(
+      executeRawTypedOn<AccountLinkedRow>(
+        dialect.kind,
         db,
         sql`SELECT id, user_id AS "userId", provider_id AS "providerId",
-                   account_id AS "accountId", scope,
-                   created_at AS "createdAt", updated_at AS "updatedAt"
-            FROM ${authTableRef('account')} WHERE user_id = ${userId}`
+               account_id AS "accountId", scope,
+               created_at AS "createdAt", updated_at AS "updatedAt"
+        FROM ${dialect.sql.authTableRef('account')} WHERE user_id = ${userId}`
       )
     ),
 
@@ -204,7 +211,7 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
   // `system_form_submissions` on SQLite) and the `data` column's JSON decoding
   // (jsonb on Postgres, TEXT `{ mode: 'json' }` on SQLite) both come for free.
   // `submitter_ip_hash` is deliberately NOT selected — see the port docstring.
-  loadFormSubmissions: (userId) =>
+  loadFormSubmissions: (db) => (userId) =>
     wrap(async () => {
       const submissions = formSubmissionsTable()
       return (await db
@@ -224,7 +231,7 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
         )) as readonly AccountFormSubmissionRow[]
     }),
 
-  loadChatAttachments: (userId) =>
+  loadChatAttachments: (db) => (userId) =>
     wrap(async () => {
       const uploads = resolveDialectSchema(chatAttachmentsPg, chatAttachmentsSqlite)
       return (await db
@@ -241,7 +248,7 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
         .orderBy(asc(uploads.createdAt), asc(uploads.id))) as readonly AccountChatAttachmentRow[]
     }),
 
-  loadAuditTrail: (userId) =>
+  loadAuditTrail: (db) => (userId) =>
     wrap(
       async () =>
         (await db
@@ -257,60 +264,74 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
           .orderBy(desc(auditLog.createdAt), desc(auditLog.id))) as readonly AccountAuditEntryRow[]
     ),
 
-  loadAiFootprint: (userId, email) => wrap(() => readAiFootprint(userId, email)),
+  loadAiFootprint: (db) => (userId, email) => wrap(() => readAiFootprint(db, userId, email)),
 
-  loadEntityLists: (userId) => wrap(() => readEntityLists(userId)),
+  loadEntityLists: (db) => (userId) => wrap(() => readEntityLists(db, userId)),
 
-  loadEmailSuppressions: (email) => wrap(() => readEmailSuppressions(email)),
+  loadEmailSuppressions: (db) => (email) => wrap(() => readEmailSuppressions(db, email)),
 
-  loadScheduledErasure: (userId) =>
+  loadScheduledErasure: (db, dialect) => (userId) =>
     wrap(async () => {
-      const rows = await executeRawTyped<{ readonly scheduledErasureAt: unknown }>(
+      const rows = await executeRawTypedOn<{ readonly scheduledErasureAt: unknown }>(
+        dialect.kind,
         db,
         sql`SELECT "scheduledErasureAt" AS "scheduledErasureAt"
-            FROM ${authTableRef('user')} WHERE id = ${userId}`
+        FROM ${dialect.sql.authTableRef('user')} WHERE id = ${userId}`
       )
       return toOptionalDate(rows[0]?.scheduledErasureAt)
     }),
 
-  tablesWithCreatedBy: (candidates) => tablesWithCreatedByEffect(candidates),
+  tablesWithCreatedBy: (client, dialect) => (candidates) =>
+    tablesWithCreatedByEffect({ client, dialect }, candidates),
 
-  readAuthoredRecords: (tableName, column, userId) =>
+  readAuthoredRecords: (db, dialect) => (tableName, column, userId) =>
     wrap(async () =>
-      executeRawTyped<Record<string, unknown>>(
+      executeRawTypedOn<Record<string, unknown>>(
+        dialect.kind,
         db,
         sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE ${sql.identifier(column)} = ${userId}`
       )
     ),
 
-  cancelErasure: (userId) =>
+  cancelErasure: (db, dialect) => (userId) =>
     wrap(async () => {
       // SQL `NULL` literal clears the pending erasure.
-      await executeRaw(
+      await executeRawOn(
+        dialect.kind,
         db,
-        sql`UPDATE ${authTableRef('user')} SET "scheduledErasureAt" = NULL WHERE id = ${userId}`
+        sql`UPDATE ${dialect.sql.authTableRef('user')} SET "scheduledErasureAt" = NULL WHERE id = ${userId}`
       )
     }),
 
-  scheduleErasure: (userId, scheduledAt) =>
-    wrap(async () => {
-      // SQLite's `scheduledErasureAt` is an INTEGER `timestamp_ms` column and
-      // bun:sqlite silently coerces a bound `Date` to NULL — so persist the
-      // epoch-ms number there; Postgres keeps the native `timestamptz` Date.
-      // Without this the SQLite erasure schedule wrote NULL, so the pending
-      // read never surfaced it and the (integer-ms) purge sweep never matched.
-      const scheduledValue = isSqliteRuntime() ? scheduledAt.getTime() : scheduledAt
-      await db.transaction(async (tx) => {
-        await executeRaw(
+  scheduleErasure: (db, dialect) => (userId, scheduledAt) =>
+    withPromiseTransaction(
+      db,
+      async (tx) => {
+        // SQLite's `scheduledErasureAt` is an INTEGER `timestamp_ms` column and
+        // bun:sqlite silently coerces a bound `Date` to NULL — so persist the
+        // epoch-ms number there; Postgres keeps the native `timestamptz` Date.
+        // Without this the SQLite erasure schedule wrote NULL, so the pending
+        // read never surfaced it and the (integer-ms) purge sweep never matched.
+        const scheduledValue = dialect.kind === 'sqlite' ? scheduledAt.getTime() : scheduledAt
+        await executeRawOn(
+          dialect.kind,
           tx,
-          sql`UPDATE ${authTableRef('user')} SET "scheduledErasureAt" = ${scheduledValue} WHERE id = ${userId}`
+          sql`UPDATE ${dialect.sql.authTableRef('user')} SET "scheduledErasureAt" = ${scheduledValue} WHERE id = ${userId}`
         )
         // Revoke ALL of the caller's sessions — the account is on its way out.
-        await executeRaw(tx, sql`DELETE FROM ${authTableRef('session')} WHERE user_id = ${userId}`)
-      })
+        await executeRawOn(
+          dialect.kind,
+          tx,
+          sql`DELETE FROM ${dialect.sql.authTableRef('session')} WHERE user_id = ${userId}`
+        )
+      },
+      toError
+    ).pipe(
       // Those sessions went by raw SQL, which no Better Auth session-delete
       // hook sees: close the live realtime connections they opened now, with
       // the session-ended code, rather than at the next re-check.
-      closeUserConnections(userId, SESSION_ENDED)
-    }),
-})
+      Effect.andThen(wrap(async () => closeUserConnections(userId, SESSION_ENDED)))
+    ),
+}
+
+export const AccountRepositoryLive = layerOverDatabase(AccountRepository, members)

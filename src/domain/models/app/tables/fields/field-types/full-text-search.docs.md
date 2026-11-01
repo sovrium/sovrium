@@ -10,7 +10,7 @@ A table declares what is worth indexing; a component decides where a query is ty
 | `fullTextSearch` | the `long-text` type | Makes the field searchable **by word**, from a full-text index, on SQLite and PostgreSQL alike. |
 | `fullTextSearch` | the `rich-text` type | A PostgreSQL-only index over the field's text, which no search reads yet.                       |
 
-Both are ordinary field properties and are listed with the rest of them — `indexed` in **Field Types Overview** among the base properties every type shares, `fullTextSearch` in **Text Fields** with the rest of `long-text` and `rich-text`.
+Both are ordinary field properties and are listed with the rest of them: `indexed` in **Field Types Overview** among the base properties every type shares, `fullTextSearch` in **Text Fields** with the rest of `long-text` and `rich-text`.
 
 ## `indexed`
 
@@ -32,7 +32,7 @@ The index TYPE follows the field type, and only on PostgreSQL:
 - `geolocation` fields get a GiST index.
 - Everything else gets a B-tree.
 
-SQLite has neither GIN nor GiST, so an `array`, `json` or `geolocation` field is simply left unindexed there — the column still works and every query still answers, it just scans. Every other type gets a plain index on both dialects.
+SQLite has neither GIN nor GiST, so an `array`, `json` or `geolocation` field is simply left unindexed there. The column still works and every query still answers, it just scans. Every other type gets a plain index on both dialects.
 
 What `indexed` buys you is faster `filter`, `sort` and foreign-key lookups on that column, paid for with slightly slower writes. It is **not** a prerequisite for any search: `?q=` either matches substrings or reads the full-text index `fullTextSearch` asks for, and the ⌘K palette maintains an index of its own. Index a field because you filter or sort on it often, not because you intend to search it.
 
@@ -51,14 +51,14 @@ tables:
       - { name: body, type: long-text, fullTextSearch: true }
 ```
 
-From then on, `GET /api/tables/logs/records?q=…` — and every search box that issues it — answers from an index instead of a scan, and the meaning of `q` on that table changes in four ways:
+From then on, `GET /api/tables/logs/records?q=…`, and every search box that issues it, answers from an index instead of a scan, and the meaning of `q` on that table changes in four ways:
 
 - **It searches the declared fields only.** On a table declaring at least one `fullTextSearch` field, `q` no longer looks at the table's other text fields. Narrow those with `filter` instead (`level`, `service` above). A table declaring none keeps the substring search over all its text fields.
 - **It matches words, not fragments.** A word is a run of letters and digits; everything else separates words, so `user_id=4821` holds the words `user`, `id` and `4821`. Each word of the query matches a word of the field that **starts** with it: `time` finds `timeout`, `imeou` finds nothing.
-- **Every word must appear** in the same field, in any order. Text in double quotes is a phrase: its words must appear next to each other, in that order, matched whole — `"connection refused"` does not find _refused the connection_, and `"10.0.0.12"` finds that address however it is punctuated.
+- **Every word must appear** in the same field, in any order. Text in double quotes is a phrase: its words must appear next to each other, in that order, matched whole: `"connection refused"` does not find _refused the connection_, and `"10.0.0.12"` finds that address however it is punctuated.
 - **The most relevant line comes first** when the request gives no `sort`: the field where the query's words occur most often, then the newest record. A `sort` replaces relevance.
 
-Case never matters. No other character has a meaning: a minus sign, a star, a colon, parentheses, `OR` or an unpaired quote are plain text, and a query with no word in it matches nothing. The search answers normally whatever the input — it cannot be made to fail by its syntax.
+Case never matters. No other character has a meaning: a minus sign, a star, a colon, parentheses, `OR` or an unpaired quote are plain text, and a query with no word in it matches nothing. The search answers normally whatever the input. It cannot be made to fail by its syntax.
 
 The usual rules still apply: only the declared fields the caller may read are searched, row-level rules and `filter` narrow the result, and the response has its usual shape, with `total` counting the matches.
 
@@ -71,7 +71,7 @@ The usual rules still apply: only the declared fields the caller may read are se
 
 Adding `fullTextSearch` to a field of a table that already holds rows is an ordinary schema change: the next start builds what is missing, and the rows written before are found at once. Removing it drops the PostgreSQL index and brings the substring search back. A backup restored with `sovrium restore` searches the same way after its first start.
 
-Two differences between the databases are worth knowing. SQLite folds accents — `cafe` finds `café` — and PostgreSQL does not, so search with the spelling the text uses. And the two compute relevance with different formulas, so only the order is comparable, never a score.
+Two differences between the databases are worth knowing. SQLite folds accents (`cafe` finds `café`) and PostgreSQL does not, so search with the spelling the text uses. And the two compute relevance with different formulas, so only the order is comparable, never a score.
 
 ## `fullTextSearch` on rich text
 
@@ -103,8 +103,8 @@ tables:
 
 ## Related reading
 
-- **Search Overview** — the four search mechanisms and which one a configuration reaches.
-- **Search Components** — the components that put a search box on a page.
-- **Field Types Overview** — `indexed` and the other base properties every field shares.
-- **Text Fields** — `rich-text`, `long-text` and the rest of the text family.
-- **Table Indexes** — multi-column indexes declared on the table rather than on a field.
+- **Search Overview**: the four search mechanisms and which one a configuration reaches.
+- **Search Components**: the components that put a search box on a page.
+- **Field Types Overview**: `indexed` and the other base properties every field shares.
+- **Text Fields**: `rich-text`, `long-text` and the rest of the text family.
+- **Table Indexes**: multi-column indexes declared on the table rather than on a field.

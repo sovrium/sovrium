@@ -79,10 +79,12 @@ const tabsModelOf = (
 }
 
 /**
- * The island's props. The addressed panel's markup is DROPPED: it is already
- * in the document, and the island reads it back through the `ssrHtml` capture.
- * On an ADDRESSED tab set every panel's is: the unopened ones are fetched on
- * activation. The author's `props['aria-label']` names the island's tablist.
+ * The island's props: ids, labels and trigger details, never a served panel's
+ * markup. The addressed panel is in the document and the unopened ones are in
+ * inert templates beside it, both read back through the `ssrHtml` capture; on
+ * an ADDRESSED tab set the unopened ones are fetched on activation instead. A
+ * page export keeps them, since it draws its hidden panels from the items. The
+ * author's `props['aria-label']` names the island's tablist.
  */
 const tabsIslandProps = (
   model: TabsModel,
@@ -92,7 +94,7 @@ const tabsIslandProps = (
   items: stripAddressedPanelContent(
     model.items,
     model.addressed?.id,
-    model.lazyParam !== undefined
+    model.lazyParam !== undefined || model.exported === undefined
   ),
   defaultTab: model.defaultTab,
   lazyParam: model.lazyParam,
@@ -104,8 +106,30 @@ const tabsIslandProps = (
 })
 
 /**
- * The panels drawn before hydration: the addressed one as real markup, and, in
- * a page export, every other one `hidden`.
+ * The unopened panels of a served tab set that is not an address, each as an
+ * inert `<template>` named by its panel id: part of the response once, drawn by
+ * nothing and mounted by nothing until the island takes its markup on opening.
+ * Empty on an addressed tab set, whose unopened panels are fetched, and in a
+ * page export, which draws them as hidden panels instead.
+ */
+function inertTabPanels(model: TabsModel): readonly ReactElement[] {
+  if (model.lazyParam !== undefined || model.exported !== undefined) return []
+  return model.items
+    .filter((item) => item.id !== model.addressed?.id && item.content.length > 0)
+    .map((item) => (
+      <template
+        key={item.id}
+        data-tab-panel-id={item.id}
+        // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
+        dangerouslySetInnerHTML={{ __html: item.content }}
+      />
+    ))
+}
+
+/**
+ * The panels drawn before hydration: the addressed one as real markup, the
+ * unopened ones as inert templates, and, in a page export, every other one
+ * `hidden`.
  *
  * The addressed panel names WHICH panel its markup belongs to, so the island
  * can pair it back with its own `items` entry after `createRoot` has discarded
@@ -113,7 +137,7 @@ const tabsIslandProps = (
  * second half of the fill chain: the hydrated twin of what
  * `computeTabsFillPanelClasses` does on `<Tabs.Panel>` one element up.
  */
-function renderTabsPanels(model: TabsModel): ReactElement {
+function renderTabsPanels(model: TabsModel, inert: readonly ReactElement[]): ReactElement {
   const { addressed, exported } = model
   return (
     <>
@@ -130,6 +154,7 @@ function renderTabsPanels(model: TabsModel): ReactElement {
         />
       )}
       {renderExportedTabPanels(model.items, addressed?.id, exported)}
+      {inert}
     </>
   )
 }
@@ -154,9 +179,9 @@ function renderTabsPanels(model: TabsModel): ReactElement {
  * outlives the mount.
  *
  * `data-island-ssr` opts in to the pre-mount `ssrHtml` capture in
- * `island-client.tsx`: the addressed panel's markup is no longer serialised
- * into the props, so this subtree is its ONLY copy, and `createRoot` discards
- * it. The panel well is `py-4`, the twin of `TAB_PANEL_LAYOUT` in
+ * `island-client.tsx`: no served panel's markup is serialised into the props,
+ * so this subtree, the addressed panel and the inert templates, is its ONLY
+ * copy, and `createRoot` discards it. The panel well is `py-4`, the twin of `TAB_PANEL_LAYOUT` in
  * `islands/disclosure/disclosure-default-classes.ts`, with no horizontal
  * gutter on either half.
  */
@@ -169,6 +194,7 @@ export const islandTabsComponent: ComponentRenderer = ({
   designStyles,
 }) => {
   const model = tabsModelOf(component, renderedChildren, currentLang, languages)
+  const inert = inertTabPanels(model)
   const fillShell = computeTabsFillShellClasses(model.layout, model.orientation) || undefined
   const rootClasses = resolveClasses(
     computeSsrTabsRootClasses(model.orientation) ?? '',
@@ -185,13 +211,13 @@ export const islandTabsComponent: ComponentRenderer = ({
       data-island="tabs"
       data-component-type={hostComponentType(elementProps)}
       data-island-props={JSON.stringify(tabsIslandProps(model, elementProps, designStyles))}
-      data-island-ssr={model.addressed === undefined ? undefined : 'true'}
+      data-island-ssr={model.addressed === undefined && inert.length === 0 ? undefined : 'true'}
       data-testid={elementProps['data-testid'] as string | undefined}
       className={fillShell}
     >
       <div className={rootClasses || undefined}>
         {renderTabsSsrTriggerStrip(model.items, model.orientation, model.lazyParam, model.exported)}
-        <div className={panelClasses || undefined}>{renderTabsPanels(model)}</div>
+        <div className={panelClasses || undefined}>{renderTabsPanels(model, inert)}</div>
       </div>
     </div>
   )

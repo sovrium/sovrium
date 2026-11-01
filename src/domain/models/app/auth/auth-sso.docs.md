@@ -1,6 +1,6 @@
 # Single Sign-On (OIDC & SAML)
 
-> Let people sign in with the identity provider their organisation already runs — Okta, Entra ID, Google Workspace, Keycloak, JumpCloud — over OpenID Connect or SAML 2.0, declared in config.
+> Let people sign in with the identity provider their organisation already runs (Okta, Entra ID, Google Workspace, Keycloak, JumpCloud) over OpenID Connect or SAML 2.0, declared in config.
 
 Each identity provider is one entry under `auth.sso`. Users see one button per provider on the sign-in page, and an email address on a domain a provider owns is routed to that provider.
 
@@ -27,7 +27,7 @@ auth:
 
 ## Providers live in config, and only there
 
-A provider is added, changed or removed by editing the config file. There is no endpoint that registers one at runtime, so nobody — not even an admin — can point your sign-in at a different identity provider over HTTP. What the file says is what signs people in.
+A provider is added, changed or removed by editing the config file. There is no endpoint that registers one at runtime, so nobody, not even an admin, can point your sign-in at a different identity provider over HTTP. What the file says is what signs people in.
 
 Every secret is written as an `$env.` reference. A literal `clientSecret` is refused when the config is validated, because a literal in config is committed, reviewed and mirrored to every remote. The variable must also be declared in `app.env`; `sovrium validate` names the one that is missing.
 
@@ -61,9 +61,12 @@ Describe the identity provider either with its metadata XML, or with the three v
 `domains` lists the email domains a provider is authoritative for. Two things follow:
 
 - **Routing.** On a sign-in form with an email field, an address on one of those domains is sent to that provider. A domain belongs to one provider; listing it twice is refused.
-- **Linking.** An account that already exists with an address on one of those domains is linked to the SSO identity on its first SSO sign-in, instead of a second account being created. An address on any other domain is never linked by email alone — that would let whoever controls an identity provider take over accounts it does not own. Over OpenID Connect the provider must also assert the address is verified (`email_verified: true`); an unverified claim links nothing. Once linked, the account stays bound to the provider's subject for that person: a later sign-in carrying the same email under another subject is refused.
+- **Password and passwordless accounts.** A domain a provider owns belongs to that provider. A password sign-up with an address on it is refused, with the answer a closed sign-up gives, and a signed-in user cannot change their address to one on it. A sign-in link or sign-in code (the `magicLink` and `emailOtp` strategies) never opens an account there either: following the link, or entering the code, for an address with no account is refused with the same answer. Nor does a social or OAuth provider (an `oauth` strategy, such as Google or GitHub): coming back from it with an address on the domain and no account here lands on your error page with `?error=EMAIL_PASSWORD_SIGN_UP_DISABLED`, and no account is created. An account that already exists on the domain keeps signing in by link, code or social provider. People on that domain sign up through the provider.
+- **Linking.** An account that already exists with an address on one of those domains, for instance one opened before the provider was declared, is linked to the SSO identity on its first SSO sign-in, instead of a second account being created. Its own address must have been verified here: an account whose address was never confirmed is not linked, and the sign-in fails rather than hand it to whoever opened it. An address on any other domain is never linked by email alone: that would let whoever controls an identity provider take over accounts it does not own. Over OpenID Connect the provider must also assert the address is verified (`email_verified: true`); an unverified claim links nothing. Once linked, the account stays bound to the provider's subject for that person: a later sign-in carrying the same email under another subject is refused.
 
-A provider without `domains` routes nothing and links nothing, but while sign-up is open any account that provider vouches for can create one here. For a provider anyone can hold an account at, set `allowSignUp: false`.
+Declaring a provider also turns on `requireEmailVerification` for the email-and-password strategy unless the strategy sets it: a password account on an address its owner never confirmed is refused sign-in, so it cannot sit on an address a provider will later vouch for. See [Email and Password](/en/docs/auth-email-password).
+
+A provider without `domains` routes nothing and links nothing, but while sign-up is open for it any account that provider vouches for can create one here. For a provider anyone can hold an account at, set `allowSignUp: false`.
 
 ## Roles
 
@@ -80,15 +83,15 @@ roleMapping:
 
 The mapping is applied at **every** sign-in, so the identity provider stays the source of truth: remove someone from `it-admins` there and their next sign-in here demotes them. Entries are tried in the order written, and the first value the user carries decides.
 
-An admin role is only ever granted by an entry you wrote. `default` can never be `admin` or another admin-tier role — validation refuses it — and a value the map does not list falls back to `default`, never upward.
+An admin role is only ever granted by an entry you wrote. `default` can never be `admin` or another admin-tier role (validation refuses it), and a value the map does not list falls back to `default`, never upward.
 
 ## Who may sign up
 
-`allowSignUp` decides whether a first SSO sign-in creates an account. It inherits `auth.allowSignUp`. Set it to `false` and only accounts that already exist — invited, created by an admin, or provisioned through SCIM — can sign in with that provider.
+`allowSignUp` decides whether a first SSO sign-in creates an account. It inherits `auth.allowSignUp`, which is closed unless the config opens it. Left closed, only accounts that already exist (invited, created by an admin, or provisioned through SCIM) can sign in with that provider; set the provider's `allowSignUp: true` to let its first sign-in create the account, which is what an SSO-only workforce app usually wants.
 
 ## The sign-in button
 
-A sign-in form whose action uses the `sso` strategy draws one button per provider, labelled with `label`, and — when any provider lists `domains` — an email field that routes by domain. Name a provider with `provider` to draw only its button. After sign-in the user returns to the action's `onSuccess` destination; a sign-in asking to return anywhere but a path of this app is refused.
+A sign-in form whose action uses the `sso` strategy draws one button per provider, labelled with `label`, and, when any provider lists `domains`, an email field that routes by domain. Name a provider with `provider` to draw only its button. After sign-in the user returns to the action's `onSuccess` destination; a sign-in asking to return anywhere but a path of this app is refused.
 
 ```yaml
 - type: form

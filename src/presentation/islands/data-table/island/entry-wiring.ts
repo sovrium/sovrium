@@ -10,7 +10,10 @@ import { withColumnDisplayFields } from './island-setup-helpers'
 import { gridPagination } from './setup/row-cap'
 import type { DataTableIslandProps } from './island-props'
 import type { DataTableRowClickAction } from '../data-row-types'
-import type { DataTableColumn } from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type {
+  DataTableColumn,
+  DataTableSelection,
+} from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /**
  * The data-table island's entry wiring: how its props map onto the setup and
@@ -103,6 +106,33 @@ function permissionEditableAllowed(props: DataTableIslandProps): boolean {
   )
 }
 
+/**
+ * The selection the grid draws checkboxes for. A multi-select grid draws them
+ * only when its checked rows can be acted on: a declared bulk action, the
+ * built-in Delete, the built-in Export selected, or a selection published to
+ * another component. A checkbox nothing can use is chrome. A declared
+ * `showCheckboxes` decides either way.
+ */
+function gridSelection(props: DataTableIslandProps): DataTableSelection | undefined {
+  const { selection } = props
+  if (selection?.mode !== 'multiple' || selection.showCheckboxes !== undefined) return selection
+  return { ...selection, showCheckboxes: checkedRowsAct(props) }
+}
+
+/**
+ * Can the checked rows be acted on? Export selected is offered on every
+ * multi-select grid not bound to a view, and the built-in Delete only ever
+ * there too, so a grid not bound to a view always can; a view-bound grid can
+ * through a declared bulk action or a published selection.
+ */
+function checkedRowsAct(props: DataTableIslandProps): boolean {
+  return (
+    props.isViewBound !== true ||
+    (props.bulkActions?.length ?? 0) > 0 ||
+    props.publishes !== undefined
+  )
+}
+
 /** Maps island props to the parameter bag {@link useDataTableIslandSetup} expects. */
 export function toSetupParams(props: DataTableIslandProps) {
   return {
@@ -112,7 +142,7 @@ export function toSetupParams(props: DataTableIslandProps) {
     hasViewSwitcher: props.viewSwitcher !== undefined,
     listedDefaultView: props.viewSwitcher?.defaultView,
     paginationConfig: gridPagination(props.pagination, props.dataSource),
-    selectionConfig: props.selection,
+    selectionConfig: gridSelection(props),
     publishesSelection: props.publishes !== undefined,
     initialRowHeight: props.rowHeight ?? 'medium',
     searchSourceId: props.searchSourceId,

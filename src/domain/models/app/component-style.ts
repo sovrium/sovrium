@@ -144,7 +144,7 @@ const StateClassListSchema = TailwindClassListSchema.pipe(
   Schema.annotate({
     title: 'State Class List',
     description:
-      'Tailwind utilities for one state, written without the state variant prefix — the engine applies it.',
+      'Tailwind utilities for one state, written without the state variant prefix: the engine applies it.',
     examples: ['bg-neutral-800', 'md:opacity-90'],
   }),
   Schema.check(
@@ -165,19 +165,17 @@ const StateClassListSchema = TailwindClassListSchema.pipe(
  * too (`table` has a `header`, a `row`, a `cell`).
  *
  * The key is a plain `Schema.String`, and for once that is not a workaround: a
- * plain string key can never fail, so nothing is ever dropped. What it cannot
- * do is catch a MISTYPED part, and that check genuinely cannot live here — the
- * per-type part vocabulary is owned by the presentation-layer renderers, and
- * the domain layer may not import them. It belongs to the resolver that reads
- * this key, which knows the parts of the type it is resolving. Recorded rather
- * than papered over: a mistyped part name decodes clean today and styles
- * nothing.
+ * plain string key can never fail, so nothing is ever dropped. The part NAME
+ * is checked one level up, where the type is known: `DesignComponentsSchema`
+ * refuses a part its key does not draw, against the registry in
+ * `design/component-parts.ts`. A node's own `classes` and a page's
+ * `markdown.classes` still accept any part name.
  */
 const PartClassesSchema = Schema.Record(
   Schema.String.annotate({
     title: 'Component Part',
     description:
-      "Name of a part of the component — `root` on every type, plus that type's own inner elements.",
+      "Name of a part of the component: `root` on every type, plus that type's own inner elements.",
     examples: ['root', 'header', 'cell', 'label'],
   }),
   TailwindClassListSchema
@@ -212,8 +210,9 @@ export const ComponentStyleSchema = Schema.Struct({
    * variant — `default`, `destructive`, `outline`.
    *
    * The variant vocabulary is per-type and lives with the type (a `button` has
-   * seven; a `divider` has none), so it is an open key here for the same reason
-   * `parts` is: the domain cannot see it, and a plain string key drops nothing.
+   * seven; a `divider` has none), so a variant NAME is an open key: the domain
+   * holds no variant registry, and a plain string key drops nothing. The part
+   * names inside each variant are checked like `parts`.
    */
   variants: Schema.optional(
     Schema.Record(

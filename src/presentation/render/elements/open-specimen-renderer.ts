@@ -50,20 +50,18 @@
  * the rendered ones: the appearance is real markup, the POSITION and the
  * MODALITY are the console's arrangement.
  *
- * ─── A STRING, AND WHY ──────────────────────────────────────────────────────
+ * ─── AN ELEMENT, RENDERED AT THE CALL SITE ───────────────────────────────────
  *
- * Each function returns markup rather than a `ReactElement`, for the same
- * reason `field-specimen-renderer.ts` does: the callers are component renderers
- * in `presentation-component`, which may not import this directory directly,
- * and `renderToStaticMarkup` is what lets the hop through
- * `presentation/rendering/open-specimen-markup.ts` carry the result. The HTML
- * is produced here from decoded config and never from user input, so the
- * callers emit it with `dangerouslySetInnerHTML` exactly as the field-specimen
- * component already does.
+ * Each function returns the island part as a `ReactElement`. The callers are
+ * component renderers in `render/registry/`, which reach it through the hop
+ * `render/resolve/open-specimen-markup.ts`, and render it there with
+ * `renderToStaticMarkup` straight into `<StaticMarkup>`
+ * (`@/presentation/design/static-markup`): the markup is produced from decoded
+ * config and never from user input, and the sanitize rule can SEE that at the
+ * call site instead of reading it in a comment.
  */
 
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { createElement, type ReactElement } from 'react'
 import { parseIso } from '@/presentation/islands/date-picker/date-format-helpers'
 import { DatePickerPopup } from '@/presentation/islands/date-picker/date-picker-popup'
 import { RangePanel } from '@/presentation/islands/date-range-picker/range-panel'
@@ -102,24 +100,22 @@ export interface OpenDatePickerOptions {
   readonly datePickerMode?: 'single' | 'range'
 }
 
-/** The open calendar of a `date-picker`, as static markup. */
-export const renderOpenDatePickerPopup = (options: OpenDatePickerOptions): string => {
+/** The open calendar of a `date-picker`, as an element to render as static markup. */
+export const openDatePickerPopupElement = (options: OpenDatePickerOptions): ReactElement => {
   const minDateObj = parseIso(options.minDate)
   const maxDateObj = parseIso(options.maxDate)
-  return renderToStaticMarkup(
-    createElement(DatePickerPopup, {
-      depicted: true,
-      label: options.label,
-      viewMonth: viewMonthFor(minDateObj ?? maxDateObj),
-      onMonthChange: NOOP,
-      minDateObj,
-      maxDateObj,
-      datePickerMode: options.datePickerMode ?? 'single',
-      singleValue: undefined,
-      rangeValue: undefined,
-      onDayClick: NOOP,
-    })
-  )
+  return createElement(DatePickerPopup, {
+    depicted: true,
+    label: options.label,
+    viewMonth: viewMonthFor(minDateObj ?? maxDateObj),
+    onMonthChange: NOOP,
+    minDateObj,
+    maxDateObj,
+    datePickerMode: options.datePickerMode ?? 'single',
+    singleValue: undefined,
+    rangeValue: undefined,
+    onDayClick: NOOP,
+  })
 }
 
 /** What a drawn `date-range-picker` panel needs to know. */
@@ -133,32 +129,30 @@ export interface OpenDateRangeOptions {
 }
 
 /**
- * The open panel of a `date-range-picker`, as static markup.
+ * The open panel of a `date-range-picker`, as an element to render as static markup.
  *
  * `value` is honoured rather than dropped: the specimen declares a period, and
  * a panel drawn with its range selected is what distinguishes this cell from a
  * picture of an empty calendar under the label `open`.
  */
-export const renderOpenDateRangePanel = (options: OpenDateRangeOptions): string => {
+export const openDateRangePanelElement = (options: OpenDateRangeOptions): ReactElement => {
   const range = parseInterval(options.value)
   const minDate = parseIso(options.minDate)
   const maxDate = parseIso(options.maxDate)
-  return renderToStaticMarkup(
-    createElement(RangePanel, {
-      depicted: true,
-      label: options.label,
-      months: options.months ?? 2,
-      presets: options.presets ?? [],
-      onPresetClick: NOOP,
-      onMonthChange: NOOP,
-      viewMonth: viewMonthFor(range?.from ?? minDate ?? maxDate),
-      minDate,
-      maxDate,
-      range,
-      pendingStart: undefined,
-      onDayClick: NOOP,
-    })
-  )
+  return createElement(RangePanel, {
+    depicted: true,
+    label: options.label,
+    months: options.months ?? 2,
+    presets: options.presets ?? [],
+    onPresetClick: NOOP,
+    onMonthChange: NOOP,
+    viewMonth: viewMonthFor(range?.from ?? minDate ?? maxDate),
+    minDate,
+    maxDate,
+    range,
+    pendingStart: undefined,
+    onDayClick: NOOP,
+  })
 }
 
 /**
@@ -177,11 +171,9 @@ export interface OpenMenuOptions {
   readonly surface?: MenuSurface
 }
 
-/** The open popup of a menu type, as static markup. */
-export const renderOpenMenuPopup = (options: OpenMenuOptions): string =>
-  renderToStaticMarkup(
-    createElement(MenuPopupBody, {
-      menuItems: options.menuItems as readonly MenuItem[],
-      surface: options.surface ?? 'default',
-    })
-  )
+/** The open popup of a menu type, as an element to render as static markup. */
+export const openMenuPopupElement = (options: OpenMenuOptions): ReactElement =>
+  createElement(MenuPopupBody, {
+    menuItems: options.menuItems as readonly MenuItem[],
+    surface: options.surface ?? 'default',
+  })

@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { createGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import { linkPreviewListResponseSchema } from '@/domain/models/api/tables/link-previews'
 import {
   linkAddressesOfRecord,

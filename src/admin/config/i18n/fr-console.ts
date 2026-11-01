@@ -25,14 +25,18 @@ export default {
   // et pour une visite anonyme, « Bienvenue » tout court — la virgule s’en va
   // avec le nom auquel elle appartient.
   'admin.welcome.intro':
-    'Bienvenue[, $session.name]. Ce qui t’attend, et ce que cette app déclare.',
+    'Bienvenue[, $session.name]. Ce qui demande ton attention, et ce que cette app déclare.',
   'admin.welcome.instance.heading': 'Instance',
   'admin.welcome.instance.description': 'Ce sur quoi tourne cette instance',
-  'admin.welcome.instance.booted': 'Démarrée',
   'admin.welcome.instance.version': 'Version',
   'admin.welcome.instance.database': 'Base de données',
   'admin.welcome.instance.storage': 'Stockage des fichiers',
   'admin.welcome.instance.ai': 'Fournisseur d’IA',
+  'admin.welcome.instance.uptime': 'En ligne depuis',
+  'admin.welcome.instance.aiNone': 'Non utilisé',
+  'admin.welcome.instance.healthy': 'En bonne santé',
+  'admin.welcome.instance.degraded': 'Dégradé',
+  'admin.welcome.instance.versionLink': 'Lire les notes de cette version',
   'admin.welcome.ask.title': 'Pose une question sur cette app',
   'admin.welcome.ask.description':
     'Réponses tirées des données et de la configuration de cette app. Lecture seule. Aussi dans ⌘K.',
@@ -77,9 +81,7 @@ export default {
   'admin.welcome.pulse.recentSubmissions.action': 'Voir les réponses',
   'admin.welcome.pulse.findingsCount': 'Constats',
   'admin.welcome.pulse.findingsCount.action': 'Examiner les constats',
-  'admin.welcome.pulse.allClear': 'Rien à signaler',
-  'admin.welcome.pulse.allClear.body':
-    'Aucune exécution en échec, aucune variable manquante, aucune connexion à reconnecter, rien en attente.',
+  'admin.welcome.pulse.allClear': 'Rien ne demande ton attention pour l’instant.',
 
   'admin.welcome.counts.region': 'Ce que cette app déclare',
   'admin.welcome.counts.heading': 'Ce que cette app déclare',
@@ -136,7 +138,7 @@ export default {
 
   'admin.profile.language.label': 'Langue',
   'admin.profile.language.hint':
-    'Enregistrée sur ton compte, elle te suit sur tous les navigateurs. Tant que tu n’en enregistres pas, chaque navigateur garde la sienne.',
+    'S’applique dès que tu choisis, sur tous les navigateurs où tu te connectes.',
   'admin.profile.language.formRegion': 'Changer la langue de la console',
   'admin.profile.language.saved': 'Langue enregistrée.',
   'admin.profile.language.savedDetail':
@@ -174,22 +176,24 @@ export default {
   'admin.gdpr.export.retry': 'Réessayer',
   'admin.gdpr.erase.heading': 'Effacer mon compte',
   'admin.gdpr.erase.submit': 'Demander l’effacement',
-  'admin.gdpr.erase.confirm.title': 'Confirmer l’effacement',
+  'admin.gdpr.erase.confirm.title': 'Effacer ton compte ?',
   'admin.gdpr.erase.confirm.message':
-    'Cette action est définitive et irréversible. Saisis ton adresse e-mail pour confirmer l’effacement de ton compte.',
-  'admin.gdpr.erase.confirm.input': 'Saisis ton adresse e-mail',
-  'admin.gdpr.erase.confirm.affirm': 'Effacer',
+    'Programmé dans 7 jours. Tu peux annuler d’ici là depuis cette page. Ensuite, ton compte et tes données sont supprimés pour de bon. Ils ne peuvent pas être restaurés.',
+  'admin.gdpr.erase.confirm.input': 'Saisis ton adresse e-mail pour confirmer',
+  'admin.gdpr.erase.confirm.affirm': 'Demander l’effacement',
   'admin.gdpr.erase.confirm.dismiss': 'Annuler',
   'admin.gdpr.pending.region': 'Demandes en cours',
   'admin.gdpr.pending.account': 'Compte',
   'admin.gdpr.pending.due': 'Échéance',
   'admin.gdpr.pending.actions': 'Actions',
   'admin.gdpr.pending.empty': 'Aucune demande d’effacement en cours.',
-  'admin.gdpr.pending.cancel': 'Annuler',
-  'admin.gdpr.pending.confirm.title': 'Confirmer l’annulation',
+  'admin.gdpr.pending.empty.guidance':
+    'Une demande faite ci-dessus s’affiche ici jusqu’à son exécution ou son annulation.',
+  'admin.gdpr.pending.cancel': 'Annuler l’effacement',
+  'admin.gdpr.pending.confirm.title': 'Annuler ta demande d’effacement ?',
   'admin.gdpr.pending.confirm.message':
-    'Annuler ta demande d’effacement de compte ? Ton compte ne sera pas supprimé.',
-  'admin.gdpr.pending.confirm.affirm': 'Confirmer l’annulation',
+    'Ton compte et tes données restent. Tu pourras redemander l’effacement plus tard.',
+  'admin.gdpr.pending.confirm.affirm': 'Annuler l’effacement',
   'admin.gdpr.pending.confirm.dismiss': 'Retour',
   'admin.gdpr.account.label': 'Ton compte',
   'admin.gdpr.account.hint': 'Change ton nom, ton e-mail, ton mot de passe, ta photo ou ta langue.',
@@ -224,14 +228,85 @@ export default {
   'admin.auditLog.filter.resource': 'Ressource',
 
   'admin.auditLog.filter.allResources': 'Toutes les ressources',
+  'admin.auditLog.filter.actor': 'Auteur',
+  'admin.auditLog.filter.allActors': 'Tous les auteurs',
+  'admin.auditLog.filter.action': 'Action',
+  'admin.auditLog.filter.allActions': 'Toutes les actions',
+  'admin.auditLog.filter.period': 'Filtrer par période',
+  'admin.auditLog.filter.anyTime': 'Toute la période',
+  'admin.auditLog.search': 'Rechercher dans le journal d’audit',
 
   'admin.auditLog.col.time': 'Heure',
 
   'admin.auditLog.col.actor': 'Auteur',
 
   'admin.auditLog.col.action': 'Action',
+  'admin.auditLog.action.account.deletion.scheduled': 'A programmé la suppression d’un compte',
+  'admin.auditLog.action.account.deletion.requested': 'A demandé la suppression d’un compte',
+  'admin.auditLog.action.account.deletion.deferred': 'A annulé la suppression d’un compte',
+  'admin.auditLog.action.account.deletion.purged': 'A supprimé un compte pour de bon',
+  'admin.auditLog.action.config.version.queried': 'A lu la version de la config',
+  'admin.auditLog.action.config.schema.queried': 'A lu le schéma de la config',
+  'admin.auditLog.action.config.env.queried': 'A lu l’environnement',
+  'admin.auditLog.action.config.design.queried': 'A lu le design system',
+  'admin.auditLog.action.table.overview.queried': 'A lu l’aperçu des tables',
+  'admin.auditLog.action.table.record.created': 'A créé un enregistrement',
+  'admin.auditLog.action.table.record.updated': 'A modifié un enregistrement',
+  'admin.auditLog.action.table.record.deleted': 'A supprimé un enregistrement',
+  'admin.auditLog.action.table.record.button.invoked': 'A appuyé sur un bouton d’enregistrement',
+  'admin.auditLog.action.bucket.list.queried': 'A lu les buckets',
+  'admin.auditLog.action.bucket.overview.queried': 'A lu l’aperçu des buckets',
+  'admin.auditLog.action.bucket.files.queried': 'A lu les fichiers d’un bucket',
+  'admin.auditLog.action.bucket.file.uploaded': 'A envoyé un fichier',
+  'admin.auditLog.action.form.list.queried': 'A lu les formulaires',
+  'admin.auditLog.action.form.detail.queried': 'A lu un formulaire',
+  'admin.auditLog.action.form.submission.list.queried': 'A lu les réponses d’un formulaire',
+  'admin.auditLog.action.form.submission.detail.queried': 'A lu une réponse',
+  'admin.auditLog.action.form.submission.bulk.queried': 'A lu plusieurs réponses',
+  'admin.auditLog.action.form.submission.body.revealed': 'A révélé les réponses d’une soumission',
+  'admin.auditLog.action.form.submission.bodies.revealed':
+    'A révélé les réponses de plusieurs soumissions',
+  'admin.auditLog.action.form.analytics.queried': 'A lu l’analytique d’un formulaire',
+  'admin.auditLog.action.form.export.queried': 'A exporté les réponses d’un formulaire',
+  'admin.auditLog.action.user.overview.queried': 'A lu l’aperçu des utilisateurs',
+  'admin.auditLog.action.user.role.changed': 'A changé un rôle',
+  'admin.auditLog.action.user.impersonation.started': 'A commencé à agir en tant qu’utilisateur',
+  'admin.auditLog.action.user.impersonation.stopped': 'A arrêté d’agir en tant qu’utilisateur',
+  'admin.auditLog.action.user.banned': 'A banni un compte',
+  'admin.auditLog.action.user.unbanned': 'A levé un bannissement',
+  'admin.auditLog.action.user.password.set': 'A défini un mot de passe',
+  'admin.auditLog.action.user.groups.changed': 'A changé des groupes',
+  'admin.auditLog.action.scim.user.created': 'A provisionné un compte',
+  'admin.auditLog.action.scim.user.updated': 'A modifié un compte provisionné',
+  'admin.auditLog.action.scim.user.deactivated': 'A désactivé un compte provisionné',
+  'admin.auditLog.action.scim.user.reactivated': 'A réactivé un compte provisionné',
+  'admin.auditLog.action.scim.group.members.updated': 'A modifié les membres d’un groupe',
+  'admin.auditLog.action.automation.overview.queried': 'A lu l’aperçu des automatisations',
+  'admin.auditLog.action.automation.runs.list.queried': 'A lu les exécutions',
+  'admin.auditLog.action.automation.runs.detail.queried': 'A lu une exécution',
+  'admin.auditLog.action.automation.paused': 'A mis en pause une automatisation',
+  'admin.auditLog.action.automation.resumed': 'A relancé une automatisation',
+  'admin.auditLog.action.automation.auto_paused': 'Automatisation mise en pause d’elle-même',
+  'admin.auditLog.action.agent.conversation.list.queried': 'A lu les conversations d’un agent',
+  'admin.auditLog.action.agent.conversation.detail.queried': 'A lu une conversation',
+  'admin.auditLog.action.agent.list.queried': 'A lu les agents',
+  'admin.auditLog.action.agent.detail.queried': 'A lu un agent',
+  'admin.auditLog.action.connection.list.queried': 'A lu les connexions',
+  'admin.auditLog.action.connection.detail.queried': 'A lu une connexion',
+  'admin.auditLog.action.link.created': 'A créé un lien',
+  'admin.auditLog.action.link.updated': 'A redirigé un lien',
+  'admin.auditLog.action.link.deleted': 'A supprimé un lien',
+  'admin.auditLog.action.link.disabled': 'A désactivé un lien',
+  'admin.auditLog.action.link.enabled': 'A réactivé un lien',
+  'admin.auditLog.action.design.share.created': 'A partagé le design system',
+  'admin.auditLog.action.design.share.revoked': 'A révoqué un partage du design system',
+  'admin.auditLog.copyResourceId': 'Copier l’ID de la ressource',
+  'admin.auditLog.count.one': '{count} événement',
+  'admin.auditLog.count.other': '{count} événements',
+  'admin.auditLog.filter.showReads': 'Afficher les lectures',
 
   'admin.auditLog.col.resource': 'Ressource',
+  'admin.auditLog.col.resourceId': 'Identifiant',
 
   'admin.auditLog.col.result': 'Résultat',
 
@@ -347,10 +422,16 @@ export default {
   'admin.login.heading': 'Connexion',
   'admin.login.blurb': 'La console d’exploitation de ',
   'admin.login.sessionEnded': 'Ta session a pris fin — connecte-toi pour continuer.',
+  'admin.login.signedOut': 'Déconnexion effectuée.',
   'admin.login.submit': 'Se connecter',
   'admin.login.pending': 'Connexion…',
   'admin.login.cloudSignIn': 'Se connecter avec Sovrium Cloud',
   'admin.login.orEmail': 'Ou avec ton e-mail',
+  'admin.login.credentialError.title': 'L’e-mail ou le mot de passe ne correspond pas.',
+  'admin.login.credentialError.description': 'Vérifie les deux, ou réinitialise ton mot de passe.',
+  'admin.login.credentialError.descriptionWithoutMail':
+    'Vérifie les deux, ou demande à un admin de réinitialiser ton mot de passe.',
+  'admin.login.credentialError.recovery': 'réinitialise ton mot de passe',
 
   'admin.forgotPassword.heading': 'Mot de passe oublié',
   'admin.forgotPassword.blurb':
@@ -367,13 +448,19 @@ export default {
   'admin.resetPassword.pending': 'Enregistrement…',
   'admin.resetPassword.singleUse':
     'Ce lien ne fonctionne qu’une seule fois. Demandes-en un nouveau si tu en as besoin.',
+  'admin.resetPassword.missing.heading': 'Ce lien est absent ou a expiré.',
+  'admin.resetPassword.missing.blurb':
+    'Un lien de réinitialisation ne sert qu’une fois et expire au bout d’une heure.',
+  'admin.resetPassword.missing.ask': 'En demander un nouveau',
 
   'admin.auth.backToSignIn': 'Retour à la connexion',
 
   'admin.locked.audit.gdpr.exportScope':
     'Télécharge une archive JSON de tes données (profil, enregistrements que tu as créés, réponses de formulaire, activité).',
   'admin.locked.audit.gdpr.erasureNotice':
-    'L’effacement est définitif et irréversible. Après un délai de grâce de 7 jours, ton compte et tes données sont supprimés pour de bon — ils ne peuvent pas être restaurés depuis la corbeille.',
+    'Programmé dans 7 jours. Tu peux annuler d’ici là depuis cette page.',
+  'admin.locked.audit.gdpr.erasureFinal':
+    'Ensuite, ton compte et tes données sont supprimés pour de bon. Ils ne peuvent pas être restaurés.',
   'admin.locked.audit.apiKeys.scopeNotice':
     'Identifiants de longue durée pour les scripts et les services qui appellent cette instance en ton nom. Présente-en un dans l’en-tête x-api-key. Une clé porte ton propre rôle — elle ne peut jamais faire plus que toi.',
   'admin.locked.audit.env.secrecyNotice':

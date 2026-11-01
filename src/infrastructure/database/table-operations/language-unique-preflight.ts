@@ -22,7 +22,6 @@
  */
 
 import { Effect } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { executeSQL, type SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import {
   formatLanguageDuplicateRefusal,
@@ -43,7 +42,7 @@ export const liveMapColumns = (
   relation: string,
   existingColumns: ReadonlyMap<string, unknown>
 ): Effect.Effect<ReadonlySet<string>, SQLExecutionError> =>
-  isSqliteRuntime()
+  tx.dialect === 'sqlite'
     ? executeSQL(tx, `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = $1`, [
         relation,
       ]).pipe(
@@ -71,7 +70,7 @@ const probe = (
   expression: string,
   refusal: (values: ReturnType<typeof sharedValuesOf>) => string
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
-  executeSQL(tx, sharedValuesQuery(relation, expression)).pipe(
+  executeSQL(tx, sharedValuesQuery(relation, expression, tx.dialect)).pipe(
     Effect.map((rows) => {
       const values = sharedValuesOf(rows)
       return values.length === 0 ? [] : [refusal(values)]
@@ -96,13 +95,17 @@ export const languageUniqueRefusals = (params: {
     const languages = yield* Effect.forEach(
       params.missing.filter((index) => mapColumns.has(index.field)),
       (index) =>
-        probe(tx, relation, languageValueExpression(index.field, index.code), (values) =>
-          formatLanguageDuplicateRefusal({
-            tableName: table.name,
-            field: index.field,
-            language: index.code,
-            values,
-          })
+        probe(
+          tx,
+          relation,
+          languageValueExpression(tx.dialect, index.field, index.code),
+          (values) =>
+            formatLanguageDuplicateRefusal({
+              tableName: table.name,
+              field: index.field,
+              language: index.code,
+              values,
+            })
         )
     )
     const collapses = yield* Effect.forEach(
@@ -110,7 +113,7 @@ export const languageUniqueRefusals = (params: {
         (field) => params.collapsing.includes(field.name) && mapColumns.has(field.name)
       ),
       (field) =>
-        probe(tx, relation, collapsedValueDdl(field), (values) =>
+        probe(tx, relation, collapsedValueDdl(field, tx.dialect), (values) =>
           formatLanguageDuplicateRefusal({ tableName: table.name, field: field.name, values })
         )
     )

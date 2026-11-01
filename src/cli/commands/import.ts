@@ -16,7 +16,7 @@
  * ```
  *
  * Two stages, the network on one side of a folder and nothing on the other:
- * `fetch` (`import-fetch.ts`) is the only egress; the conversion below reads a
+ * `fetch` (`import/fetch.ts`) is the only egress; the conversion below reads a
  * snapshot or an export file offline, deterministically, with no AI, and
  * writes files only — config entries or sidecars, and seed files under the
  * gitignored `seed/import/`. A dry run is the default. Every refusal happens
@@ -25,25 +25,34 @@
 
 import { dirname, resolve } from 'node:path'
 import { Effect } from 'effect'
-import { IMPORT_REPORT_FORMAT, type ImportReport } from '@/domain/models/import/import-report'
-import { findFetchSource } from '@/domain/models/import/import-source'
-import { SEED_IMPORT_DIR } from '@/domain/models/import/seed-emission-service'
-import { refuse } from './app-prelude'
-import { readImportInput, type ImportInput } from './import-input'
-import { MigratedPagesLive } from './import-pages-converter'
-import { planMigration, type MigrationPlan } from './import-plan'
+import { writeStdout } from '@/cli/commands/document-output'
+import { readImportInput, type ImportInput } from '@/cli/commands/import/input'
+import { MigratedPagesLive } from '@/cli/commands/import/pages-converter'
+import { planMigration, type MigrationPlan } from '@/cli/commands/import/plan'
 import {
   convertMigratedPages,
   migratedPagesTargetOf,
   refuseRefusedPages,
-} from './import-plan-pages'
-import { renderImportReport } from './import-report-text'
-import { readConvertRequest, refuseTokenFlag, type ConvertRequest } from './import-request'
-import { chooseTool, readSource } from './import-sources'
-import { writeMigration } from './import-write'
-import { readExistingConnections, type LibraryWrite } from './import-write-library'
-import { rootFormatOf } from './library-add-config'
-import { lazyImportSchema } from './utils'
+} from '@/cli/commands/import/plan-pages'
+import { renderImportReport } from '@/cli/commands/import/report-text'
+import {
+  importFlags,
+  readConvertRequest,
+  refuseTokenFlag,
+  type ConvertRequest,
+  type ImportFlags,
+} from '@/cli/commands/import/request'
+import { chooseTool, readSource } from '@/cli/commands/import/sources'
+import { writeMigration } from '@/cli/commands/import/write'
+import { writeBucketFiles } from '@/cli/commands/import/write-buckets'
+import { readExistingConnections, type LibraryWrite } from '@/cli/commands/import/write-library'
+import { rootFormatOf } from '@/cli/commands/library/add-config'
+import { lazyImportSchema } from '@/cli/runtime/lazy-modules'
+import { withFlagsAsync } from '@/cli/runtime/run-command'
+import { IMPORT_REPORT_FORMAT, type ImportReport } from '@/domain/models/import/import-report'
+import { findFetchSource } from '@/domain/models/import/import-source'
+import { SEED_IMPORT_DIR } from '@/domain/models/import/seed-emission-service'
+import { refuse } from './app-prelude'
 import { loadConfigForValidationWithSources } from './validate'
 import type { ImportSourceTool } from '@/domain/models/import/import-source'
 
@@ -101,7 +110,7 @@ const onStderr = async <A>(work: () => Promise<A>): Promise<A> => {
   }
 }
 
-/** Write, then — with `--apply` — seed what was written. */
+/** Write, then — with `--apply` — seed what was written and store the bucket files. */
 const writeAndApply = async (
   request: ConvertRequest,
   configPath: string,
@@ -118,12 +127,24 @@ const writeAndApply = async (
     ...(library === undefined ? {} : { library }),
     envNames: plan.connectionEnv,
   })
-  if (!request.apply || plan.seed === undefined) return written
-  const { applyImportedSeed } = await import('./seed-apply')
-  const applied = await onStderr(() =>
-    applyImportedSeed(configPath, resolve(dirname(configPath), SEED_IMPORT_DIR))
+  const projectRoot = dirname(configPath)
+  const snapshotRoot = read.kind === 'snapshot' ? read.path : undefined
+  const bucketsChanged = await writeBucketFiles(projectRoot, plan.bucketFiles, snapshotRoot)
+  const changed = { ...written, unchanged: written.unchanged && !bucketsChanged }
+  if (!request.apply) return changed
+  const { applyImportedSeed } = await import('@/cli/commands/seed/apply')
+  const { storeBucketFiles } = await import('@/cli/commands/seed/bucket-files')
+  const applied =
+    plan.seed === undefined
+      ? undefined
+      : await onStderr(() => applyImportedSeed(configPath, resolve(projectRoot, SEED_IMPORT_DIR)))
+  await onStderr(() =>
+    storeBucketFiles(configPath, projectRoot, {
+      files: plan.bucketFiles,
+      migrated: applied !== undefined,
+    })
   )
-  return { ...written, applied }
+  return applied === undefined ? changed : { ...changed, applied }
 }
 
 /**
@@ -132,7 +153,7 @@ const writeAndApply = async (
  */
 const connectionsOf = async (hasFlows: boolean, configPath: string, parsed: unknown) => {
   if (!hasFlows) return { library: undefined, connections: { connection: () => undefined } }
-  const { loadLibraryConnections } = await import('./library-connections')
+  const { loadLibraryConnections } = await import('@/cli/commands/library/connections')
   const library = await loadLibraryConnections()
   const existing = await readExistingConnections(configPath, parsed)
   return { library, connections: { connection: library.connection, existing } }
@@ -150,12 +171,12 @@ const libraryWriteOf = async (
 }
 
 /** The input to convert: the path given, or — for a source URI — the snapshot a fetch writes first. */
-const inputOf = async (argv: readonly string[], request: ConvertRequest): Promise<string> => {
+const inputOf = async (flags: ImportFlags, request: ConvertRequest): Promise<string> => {
   if (findFetchSource(request.input) === undefined || (await Bun.file(request.input).exists())) {
     return request.input
   }
-  const { runFetch } = await import('./import-fetch')
-  return runFetch(argv, ['fetch', request.input])
+  const { runFetch } = await import('@/cli/commands/import/fetch')
+  return runFetch(flags, ['fetch', request.input])
 }
 
 /**
@@ -170,6 +191,7 @@ const migratedPagesOf = (
 ) =>
   hasPages
     ? {
+        // A synchronous conversion inside a plain object builder; it never waits.
         migratedPages: Effect.runSync(
           convertMigratedPages(read, tool, migratedPagesTargetOf(parsed)).pipe(
             Effect.provide(MigratedPagesLive)
@@ -179,23 +201,24 @@ const migratedPagesOf = (
     : {}
 
 /**
- * Handle `sovrium import`.
+ * Run `sovrium import`.
  *
- * @param argv - the raw arguments after the binary name.
- * @param positional - the positional arguments after `import`.
+ * @param args - the command line, its flags, and the positional arguments after `import`.
  */
-export const handleImportCommand = async (
-  argv: readonly string[],
-  positional: readonly string[]
-): Promise<void> => {
-  refuseTokenFlag(argv)
+const runImport = async (args: {
+  readonly argv: readonly string[]
+  readonly flags: ImportFlags
+  readonly positional: readonly string[]
+}): Promise<void> => {
+  const { argv, flags, positional } = args
+  refuseTokenFlag(flags, argv)
   if (positional[0] === 'fetch') {
-    const { runFetch } = await import('./import-fetch')
-    await runFetch(argv, positional)
+    const { runFetch } = await import('@/cli/commands/import/fetch')
+    await runFetch(flags, positional)
     return
   }
-  const request = readConvertRequest(argv, positional)
-  const read = await readImportInput(await inputOf(argv, request))
+  const request = readConvertRequest(flags, positional)
+  const read = await readImportInput(await inputOf(flags, request))
   const configPath = await resolveConfig(request.config)
   // Judged once, with the migration in place (`planMigration`): a config that only
   // validates once the imported tables exist — a trigger on one of them — is accepted.
@@ -229,5 +252,10 @@ export const handleImportCommand = async (
   const report = reportOf({ request, read, tool, forced, plan, written })
   const json = `${JSON.stringify(report, undefined, 2)}\n`
   if (request.report !== undefined) await Bun.write(resolve(process.cwd(), request.report), json)
-  process.stdout.write(request.json ? json : renderImportReport(report))
+  await writeStdout(request.json ? json : renderImportReport(report))
 }
+
+/** Handle `sovrium import`. */
+export const handleImportCommand = withFlagsAsync(importFlags, ({ argv, flags, positionalArgs }) =>
+  runImport({ argv, flags, positional: positionalArgs ?? [] })
+)

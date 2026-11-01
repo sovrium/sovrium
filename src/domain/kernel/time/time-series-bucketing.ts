@@ -44,11 +44,7 @@
  * in-memory rows, so it shares no surface here.
  */
 
-/** One hour in milliseconds. */
-export const HOUR_MS = 60 * 60 * 1000
-
-/** One day in milliseconds. */
-export const DAY_MS = 24 * HOUR_MS
+import { DAY_MS, HOUR_MS } from './durations'
 
 /** Step size in milliseconds for a series interval. */
 export const intervalStepMs = (interval: '1h' | '1d'): number =>

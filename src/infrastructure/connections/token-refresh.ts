@@ -230,7 +230,12 @@ const postTokenRequest = async (
     const sent = await guardedFetch(
       props.tokenUrl,
       { method: 'POST', headers: buildRefreshHeaders(props), body: body.toString() },
-      { timeoutMs: OAUTH_CALLBACK_TIMEOUT_MS, maxBodyBytes: TOKEN_RESPONSE_MAX_BYTES }
+      // The form carries the refresh token or the client secret: never re-sent to another origin.
+      {
+        timeoutMs: OAUTH_CALLBACK_TIMEOUT_MS,
+        maxBodyBytes: TOKEN_RESPONSE_MAX_BYTES,
+        bodyCarriesSecret: true,
+      }
     )
     if (!sent.ok) return { ok: false, error: `${tag}_invalid_url_${sent.reason}` }
     const { response } = sent

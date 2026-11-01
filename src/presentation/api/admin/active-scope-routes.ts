@@ -9,12 +9,17 @@ import { Effect } from 'effect'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { UserAccessRepository } from '@/application/ports/repositories/auth/user-access-repository'
 import {
+  activeScopeGetResponseSchema,
+  activeScopeSetResponseSchema,
+} from '@/domain/models/api/admin/active-scope'
+import {
   cookieNameForScope,
   validateActiveAssignment,
 } from '@/domain/models/app/auth/active-assignment-cookie'
-import { runUserAccessProgram } from '@/infrastructure/layers/table-layer'
+import { isTransportRelaxed } from '@/infrastructure/process/security-posture'
 import { notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -41,7 +46,9 @@ import type { Context, Hono } from 'hono'
  *     per scope table so users with cross-scope active assignments stay
  *     independent).
  *
- * Cookie attributes: `httpOnly`, `sameSite=lax`, `secure` in production.
+ * Cookie attributes: `httpOnly`, `sameSite=lax`, and `secure` whenever the
+ * session cookie is — decided by the deployment posture (a non-loopback
+ * `BASE_URL` or bind), never by `NODE_ENV`, which the binary does not set.
  *
  * The picker UI itself is just a normal Sovrium page (see
  * post-login-landing.spec.ts [internal ref]) — this file only owns the session
@@ -90,19 +97,21 @@ const getScopeTablesIfEnabled = (app: App): readonly string[] | undefined => {
  * UserAccessRepository port so the route layer stays consistent with the
  * R-1 audit pattern (no raw `bun:sql` in handlers).
  */
-const fetchAccessibleRecordIds = async (
-  userId: string,
-  tableSlug: string
-): Promise<readonly string[]> => {
-  const result = await runUserAccessProgram(
-    Effect.gen(function* () {
-      const repo = yield* UserAccessRepository
-      return yield* repo.list({ userId })
-    })
+const fetchAccessibleRecordIds = (userId: string, tableSlug: string) =>
+  Effect.gen(function* () {
+    const repo = yield* UserAccessRepository
+    return yield* repo.list({ userId })
+  }).pipe(
+    // effect-swallow: an unreadable junction reads as no access, which refuses (see above).
+    Effect.result,
+    Effect.map((result) =>
+      result._tag === 'Failure'
+        ? []
+        : result.success
+            .filter((row) => row.tableSlug === tableSlug)
+            .flatMap((row) => row.recordIds)
+    )
   )
-  if (result._tag === 'Failure') return []
-  return result.success.filter((row) => row.tableSlug === tableSlug).flatMap((row) => row.recordIds)
-}
 
 interface PostBody {
   readonly recordId?: unknown
@@ -129,20 +138,24 @@ async function handleSetActiveScope(c: Context, app: App): Promise<Response> {
     return respondBadRequest(c, 'recordId is required and must be a non-empty string')
   }
 
-  const accessible = await fetchAccessibleRecordIds(session.userId, tableSlug)
-  if (validateActiveAssignment(recordId, accessible) === undefined) {
-    // Denied: recordId is not in the caller's accessible scope.
-    return respondForbidden(c)
-  }
+  return runHandlerEffect(
+    c,
+    Effect.flatMap(fetchAccessibleRecordIds(session.userId, tableSlug), (accessible) => {
+      if (validateActiveAssignment(recordId, accessible) === undefined) {
+        // Denied: recordId is not in the caller's accessible scope.
+        return Effect.succeed(respondForbidden(c))
+      }
 
-  setCookie(c, cookieNameForScope(tableSlug), recordId, {
-    httpOnly: true,
-    sameSite: 'Lax',
-    path: '/',
-    secure: process.env['NODE_ENV'] === 'production',
-  })
+      setCookie(c, cookieNameForScope(tableSlug), recordId, {
+        httpOnly: true,
+        sameSite: 'Lax',
+        path: '/',
+        secure: !isTransportRelaxed(),
+      })
 
-  return c.json({ tableSlug, recordId }, 200)
+      return respondWith(c, Effect.succeed({ tableSlug, recordId }), activeScopeSetResponseSchema)
+    })
+  )
 }
 
 /**
@@ -162,21 +175,20 @@ async function handleGetActiveScope(c: Context, app: App): Promise<Response> {
   if (!tableSlug || !scopeTables.includes(tableSlug)) return respondNotFound(c)
 
   const cookieValue = getCookie(c, cookieNameForScope(tableSlug))
-  if (!cookieValue) {
-    return c.json({ tableSlug, recordId: null }, 200)
-  }
+  const answer = (recordId: string | null) =>
+    respondWith(c, Effect.succeed({ tableSlug, recordId }), activeScopeGetResponseSchema)
+  if (!cookieValue) return runHandlerEffect(c, answer(null))
 
-  const accessible = await fetchAccessibleRecordIds(session.userId, tableSlug)
-  // API contract intentionally diverges from the SSR resolver: on
-  // tamper we return null (not the fallback) so clients can distinguish
-  // "no active scope" from "your cookie was rejected". The SSR resolver
-  // silently falls back; the API surfaces the bad state.
-  const validated = validateActiveAssignment(cookieValue, accessible)
-  if (validated === undefined) {
-    return c.json({ tableSlug, recordId: null }, 200)
-  }
-
-  return c.json({ tableSlug, recordId: validated }, 200)
+  return runHandlerEffect(
+    c,
+    Effect.flatMap(fetchAccessibleRecordIds(session.userId, tableSlug), (accessible) =>
+      // API contract intentionally diverges from the SSR resolver: on
+      // tamper we return null (not the fallback) so clients can distinguish
+      // "no active scope" from "your cookie was rejected". The SSR resolver
+      // silently falls back; the API surfaces the bad state.
+      answer(validateActiveAssignment(cookieValue, accessible) ?? null)
+    )
+  )
 }
 
 /**
@@ -193,8 +205,11 @@ async function handleClearActiveScope(c: Context, app: App): Promise<Response> {
   const tableSlug = c.req.param('tableSlug')
   if (!tableSlug || !scopeTables.includes(tableSlug)) return respondNotFound(c)
 
+  // The clearing cookie repeats `secure`: a browser refuses to overwrite a
+  // Secure cookie from a Set-Cookie that lacks it.
   deleteCookie(c, cookieNameForScope(tableSlug), {
     path: '/',
+    secure: !isTransportRelaxed(),
   })
 
   // 204 No Content — explicit null body matches Hono's body() signature

@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
 
 /**
  * Wire contracts of the link previews a `bubble` with `linkPreviews: true`

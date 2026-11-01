@@ -108,7 +108,7 @@ export interface SearchFilterInput {
  * Exported because TWO things must agree about it and they live in different
  * functions: the filter built below, and the `appliedQuery` the response echoes
  * back so the grid knows not to narrow the page a second time
- * (`src/domain/models/api/combinators/search.ts`). Deriving the term twice is how
+ * (`src/domain/models/api/search-term.ts`). Deriving the term twice is how
  * they drift — a route that filtered on `'Zinc'` while reporting `'  Zinc  '`
  * would still switch the client filter off, but would be lying about which
  * question it answered.

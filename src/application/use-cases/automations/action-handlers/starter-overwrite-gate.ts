@@ -11,7 +11,7 @@ import {
   StorageService,
   UNATTRIBUTED_BUCKET,
 } from '@/application/ports/services/storage-service'
-import { CALLER_REFUSAL } from './record-caller-gate'
+import { CALLER_REFUSAL } from './record/caller-gate'
 import {
   catalogBucket,
   reportOutage,

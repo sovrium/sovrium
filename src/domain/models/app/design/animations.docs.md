@@ -6,7 +6,7 @@ Its four members sit side by side rather than nesting, so a duration ladder is a
 
 <!-- sovrium:options DesignMotionSchema -->
 
-Each of the four is an open map keyed by a token name — alphanumeric, starting with a letter — so none publishes a table of its own.
+Each of the four is an open map keyed by a token name (alphanumeric, starting with a letter), so none publishes a table of its own.
 
 ## `animations`
 
@@ -63,10 +63,10 @@ design:
         '100%': { backgroundColor: '$colors.primary' }
 ```
 
-`durations` and `easings` are keyed by a ladder step name and hold a CSS duration or timing function. `keyframes` is keyed like an animation and holds a keyframe map — `from`/`to`, or percentage stops.
+`durations` and `easings` are keyed by a ladder step name and hold a CSS duration or timing function. `keyframes` is keyed like an animation and holds a keyframe map: `from`/`to`, or percentage stops.
 
 **Keyframe values may reference design colours** with the `$colors.<name>` syntax, which keeps motion in step with the palette rather than freezing a hex value inside an animation.
 
 ## Footprint
 
-Motion is a footprint concern. Prefer short durations, and avoid long-running infinite animations on first paint. Sovrium's eco posture is operator-controlled through environment variables rather than through the design schema — see the `ECO_` variables in the Environment Variables reference for the controls that govern client behaviour.
+Motion is a footprint concern. Prefer short durations, and avoid long-running infinite animations on first paint. Sovrium's eco posture is operator-controlled through environment variables rather than through the design schema. See the `ECO_` variables in the Environment Variables reference for the controls that govern client behaviour.

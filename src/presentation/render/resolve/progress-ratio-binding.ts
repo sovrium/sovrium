@@ -19,17 +19,13 @@
  * zero is an empty bar and `0 of 0`, never a division.
  */
 
+import { rewriteComponent, tableBindingOf } from './component-rewrite'
 import { recordMatchesCollectionFilter } from './page-collection-filter'
 import type { App } from '@/domain/models/app'
+import type { Component } from '@/domain/models/app/pages/components'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 
 type Row = Readonly<Record<string, unknown>>
-
-interface RatioSides {
-  readonly function?: unknown
-  readonly numerator?: { readonly filter: readonly DataFilter[] }
-  readonly denominator?: { readonly filter: readonly DataFilter[] }
-}
 
 /** The rows matching every condition of one side, read through the table's field types. */
 const matching = (
@@ -51,33 +47,23 @@ const fillLabel = (template: string, counts: Readonly<Record<string, number>>): 
  * A bound progress bar with its figure taken from `rows`; any other component,
  * or a bar without a ratio, comes back as it is.
  */
-export function withProgressRatio<
-  C extends {
-    readonly type: string
-    readonly props?: unknown
-    readonly dataSource?: { readonly table?: unknown }
-  },
->(component: C, rows: readonly Row[], app: App): C {
-  const { kpiAggregate, labelTemplate } = component as {
-    readonly kpiAggregate?: RatioSides
-    readonly labelTemplate?: unknown
-  }
-  const table = component.dataSource?.table
-  if (component.type !== 'progress' || kpiAggregate?.function !== 'ratio') return component
-  if (typeof table !== 'string') return component
+export function withProgressRatio(component: Component, rows: readonly Row[], app: App): Component {
+  if (component.type !== 'progress') return component
+  const { kpiAggregate } = component
+  const table = tableBindingOf(component)?.table
+  if (kpiAggregate?.function !== 'ratio' || typeof table !== 'string') return component
   const ctx = { table, app }
   const denominatorRows = matching(rows, kpiAggregate.denominator?.filter, ctx)
   const numerator = matching(denominatorRows, kpiAggregate.numerator?.filter, ctx).length
   const denominator = denominatorRows.length
-  return {
-    ...component,
+  return rewriteComponent(component, {
     progressValue: numerator,
     progressMax: denominator,
     props: {
-      ...((component.props ?? {}) as Row),
-      ...labelOf(labelTemplate, numerator, denominator),
+      ...(component.props ?? {}),
+      ...labelOf(component.labelTemplate, numerator, denominator),
     },
-  }
+  })
 }
 
 /** The filled `labelTemplate` a bound bar prints, as its marker prop; none without a template. */

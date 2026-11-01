@@ -12,7 +12,7 @@
  * language is written to.
  */
 import { type Context, type Hono } from 'hono'
-import { getCookie, setCookie } from 'hono/cookie'
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { roleLabelFor } from '@/domain/models/app/auth/readable-name-service'
 import {
   findDeclaredLanguage,
@@ -223,10 +223,22 @@ export const setupSessionRoleLabel = (
  * when the update succeeded, with the value Better Auth's language guard just
  * accepted; it carries no authority (the server clamps it to the languages it
  * declares), so it is the switcher's cookie, not `HttpOnly`.
+ *
+ * A sign-out forgets it: the browser's next visitor reads the app's default
+ * language until they choose one. Only this browser's cookie goes; a language
+ * saved to the account stays, and comes back at the next sign-in.
  */
 export const setupSavedLanguageCookie = (honoApp: Readonly<Hono>, app?: App): Readonly<Hono> => {
   if (!app?.auth) return honoApp
 
+  honoApp.use('/api/auth/sign-out', async (c, next) => {
+    await next()
+    if (getCookie(c, LANGUAGE_PREFERENCE_COOKIE) === undefined) return
+    deleteCookie(c, LANGUAGE_PREFERENCE_COOKIE, {
+      path: '/',
+      secure: new URL(c.req.url).protocol === 'https:',
+    })
+  })
   return honoApp.use('/api/auth/update-user', async (c, next) => {
     const body =
       c.req.method === 'POST'

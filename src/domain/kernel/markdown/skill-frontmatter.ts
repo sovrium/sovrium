@@ -44,14 +44,21 @@ export type SkillFrontmatterResult =
   | { readonly ok: true; readonly skill: SkillFrontmatter }
   | { readonly ok: false; readonly problem: SkillFrontmatterProblem }
 
+/**
+ * The YAML parser a caller supplies — Bun's native `Bun.YAML` in both readers.
+ * The kernel names the shape, never the runtime.
+ */
+export type SkillYamlParser = { readonly parse: (text: string) => unknown }
+
 /** Parse YAML, reporting a syntax error as a value rather than a throw. */
 const parseYaml = (
-  source: string
+  source: string,
+  yaml: SkillYamlParser
 ):
   | { readonly ok: true; readonly value: unknown }
   | { readonly ok: false; readonly detail: string } => {
   try {
-    return { ok: true, value: Bun.YAML.parse(source) }
+    return { ok: true, value: yaml.parse(source) }
   } catch (error) {
     return {
       ok: false,
@@ -90,11 +97,14 @@ const skillFromMapping = (
  * out. A `name` or `description` that is absent, not a string or blank counts
  * as missing — a host cannot index a skill by an empty name.
  */
-export const parseSkillFrontmatter = (text: string): SkillFrontmatterResult => {
+export const parseSkillFrontmatter = (
+  text: string,
+  yaml: SkillYamlParser
+): SkillFrontmatterResult => {
   const match = SKILL_FRONTMATTER_BLOCK.exec(text)
   if (match === null) return { ok: false, problem: { kind: 'no-frontmatter' } }
-  const [block, yaml] = match
-  const parsed = parseYaml(yaml ?? '')
+  const [block, source] = match
+  const parsed = parseYaml(source ?? '', yaml)
   if (!parsed.ok) return { ok: false, problem: { kind: 'malformed', detail: parsed.detail } }
   return skillFromMapping(asMapping(parsed.value), text.slice(block.length))
 }

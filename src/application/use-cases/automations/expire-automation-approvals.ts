@@ -68,7 +68,6 @@ type ExpiredRow = AutomationApprovalRow & { readonly runId: string }
 const expireOne = (
   row: ExpiredRow,
   app: App,
-  processEnv: Readonly<Record<string, string | undefined>>,
   nowMs: number
 ): Effect.Effect<string | undefined, ResolveApprovalError, ResolveRequirements> =>
   Effect.gen(function* () {
@@ -82,7 +81,6 @@ const expireOne = (
       decision,
       resolver: { by: 'timeout' },
       app,
-      processEnv,
     })
     return row.id
   }).pipe(
@@ -97,10 +95,9 @@ const expireOne = (
 const expireOneOrLeave = (
   row: ExpiredRow,
   app: App,
-  processEnv: Readonly<Record<string, string | undefined>>,
   nowMs: number
 ): Effect.Effect<string | undefined, never, ResolveRequirements> =>
-  expireOne(row, app, processEnv, nowMs).pipe(
+  expireOne(row, app, nowMs).pipe(
     Effect.tapCause((cause) =>
       Effect.sync(() =>
         logError('[approval-expiry] expired approval request not resolved', cause, {
@@ -122,14 +119,13 @@ const linkedToRun = (rows: readonly AutomationApprovalRow[]): readonly ExpiredRo
  */
 const sweepPages = (input: {
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly nowMs: number
   readonly after: { readonly expiresAt: Date; readonly id: string } | undefined
   readonly pagesLeft: number
   readonly resolved: readonly string[]
 }): Effect.Effect<readonly string[], AutomationApprovalDatabaseError, ResolveRequirements> =>
   Effect.gen(function* () {
-    const { app, processEnv, nowMs, after } = input
+    const { app, nowMs, after } = input
     const repository = yield* AutomationApprovalRepository
     const rows = yield* repository.listExpiredPending({
       now: new Date(nowMs),
@@ -142,7 +138,7 @@ const sweepPages = (input: {
       (done, row) =>
         done.length >= MAX_RESOLVED_PER_SWEEP
           ? Effect.succeed(done)
-          : expireOneOrLeave(row, app, processEnv, nowMs).pipe(
+          : expireOneOrLeave(row, app, nowMs).pipe(
               Effect.map((id) => (id === undefined ? done : [...done, id]))
             )
     )
@@ -173,14 +169,12 @@ const sweepPages = (input: {
  * requests of one automation never resume side by side.
  */
 export const expireAutomationApprovals = (
-  app: App,
-  processEnv: Readonly<Record<string, string | undefined>>
+  app: App
 ): Effect.Effect<readonly string[], AutomationApprovalDatabaseError, ResolveRequirements> =>
   Effect.gen(function* () {
     const nowMs = yield* Clock.currentTimeMillis
     return yield* sweepPages({
       app,
-      processEnv,
       nowMs,
       after: undefined,
       pagesLeft: MAX_PAGES_PER_SWEEP,

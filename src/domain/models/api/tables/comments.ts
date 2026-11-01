@@ -6,8 +6,8 @@
  */
 
 import { Schema } from 'effect'
-import { describedRef } from '@/domain/models/api/combinators/described-ref'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { describedRef } from '@/domain/kernel/config-parsing/described-ref'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { extractMentionIds } from '@/domain/models/app/tables/comment-mention-markup-service'
 
 // ============================================================================
@@ -30,6 +30,14 @@ export const commentUserSchema = Schema.Struct({
   image: optionalField(Schema.NullOr(Schema.String.annotate({ description: 'User avatar URL' }))),
 }).annotate({ identifier: 'CommentUser' })
 
+/** Where a comment stands in moderation. */
+const commentModerationStatusSchema = Schema.Literals(['approved', 'pending', 'rejected']).annotate(
+  {
+    description:
+      "'approved' on a thread without moderation; 'pending' or 'rejected' when the moderation policy or the spam guard held it",
+  }
+)
+
 /**
  * A person a comment mentions, resolved for display.
  *
@@ -49,20 +57,41 @@ export const commentMentionSchema = Schema.Struct({
 
 /**
  * Comment response schema
+ *
+ * Every verb projects one reader-safe shape. A signed-out guest has no `userId`
+ * and, when the thread names her, a `guestName`; an author who was erased, or a
+ * row the author join missed, has no `user`.
  */
 export const commentSchema = Schema.Struct({
   id: Schema.String.annotate({ description: 'Comment identifier' }),
-  content: Schema.String.annotate({ description: 'Comment content' }),
-  userId: Schema.String.annotate({ description: 'Author user ID' }),
-  recordId: Schema.String.annotate({
-    description: 'Parent record ID, as the records API names it',
-  }),
   tableId: Schema.String.annotate({
     description: 'Parent table name',
   }),
+  recordId: Schema.String.annotate({
+    description: 'Parent record ID, as the records API names it',
+  }),
+  userId: Schema.NullOr(
+    Schema.String.annotate({ description: 'Author user ID; null for a guest' })
+  ),
+  content: Schema.String.annotate({ description: 'Comment content' }),
+  parentCommentId: Schema.NullOr(
+    Schema.String.annotate({ description: 'The comment this one replies to; null at top level' })
+  ),
   createdAt: Schema.String.annotate({ description: 'ISO 8601 creation timestamp' }),
   updatedAt: Schema.String.annotate({ description: 'ISO 8601 last update timestamp' }),
-  user: commentUserSchema.annotate({ description: 'Comment author details' }),
+  user: optionalField(commentUserSchema.annotate({ description: 'Comment author details' })),
+  guestName: Schema.NullOr(
+    Schema.String.annotate({ description: 'The name a guest signed with; null otherwise' })
+  ),
+  status: commentModerationStatusSchema,
+  guestEmail: optionalField(
+    Schema.NullOr(
+      Schema.String.annotate({
+        description:
+          "The guest's own email address, echoed on the answer to her post and on no read",
+      })
+    )
+  ),
   mentions: optionalField(
     Schema.Array(commentMentionSchema).annotate({
       description:
@@ -88,7 +117,16 @@ export const commentPaginationSchema = Schema.Struct({
  */
 export const listCommentsResponseSchema = Schema.Struct({
   comments: Schema.Array(commentSchema).annotate({ description: 'List of comments' }),
-  pagination: commentPaginationSchema.annotate({ description: 'Pagination metadata' }),
+  pagination: optionalField(
+    commentPaginationSchema.annotate({
+      description: 'Pagination metadata, present when the request sent `limit`',
+    })
+  ),
+  unreadCount: optionalField(
+    Schema.Int.annotate({
+      description: "The caller's unread comments, when the table tracks reads",
+    })
+  ),
 })
 
 /**
@@ -111,6 +149,18 @@ export const getCommentResponseSchema = Schema.Struct({
  */
 export const createCommentResponseSchema = Schema.Struct({
   comment: describedRef(commentSchema, 'Created comment'),
+  status: commentModerationStatusSchema,
+})
+
+/**
+ * What a post caught by the spam trap answers: a bot reads success, and nothing
+ * was stored.
+ *
+ * POST /api/tables/:tableId/records/:recordId/comments
+ */
+export const discardedCommentResponseSchema = Schema.Struct({
+  success: Schema.Literal(true).annotate({ description: 'Reads as a success on purpose' }),
+  discarded: Schema.Literal(true).annotate({ description: 'The post was dropped, unread' }),
 })
 
 /**
@@ -118,12 +168,29 @@ export const createCommentResponseSchema = Schema.Struct({
  *
  * PATCH /api/tables/:tableId/records/:recordId/comments/:commentId
  *
- * Wrapped in `comment`, and carrying the edited body's resolved `mentions`,
- * as the create response does.
+ * An edit is wrapped in `comment` and carries the edited body's resolved
+ * `mentions`, as the create response does. A moderation change (`{ status }`)
+ * answers the row itself, flat.
  */
-export const updateCommentResponseSchema = Schema.Struct({
-  comment: describedRef(commentSchema, 'Updated comment details'),
-})
+export const updateCommentResponseSchema = Schema.Union([
+  Schema.Struct({
+    comment: describedRef(commentSchema, 'Updated comment details'),
+  }),
+  Schema.Struct({
+    id: Schema.String.annotate({ description: 'Comment identifier' }),
+    tableId: Schema.String.annotate({ description: 'Parent table name' }),
+    recordId: Schema.String.annotate({
+      description: 'Parent record ID, as the records API names it',
+    }),
+    userId: Schema.NullOr(
+      Schema.String.annotate({ description: 'Author user ID; null for a guest' })
+    ),
+    content: Schema.String.annotate({ description: 'Comment content' }),
+    status: commentModerationStatusSchema,
+    createdAt: Schema.String.annotate({ description: 'ISO 8601 creation timestamp' }),
+    updatedAt: Schema.String.annotate({ description: 'ISO 8601 last update timestamp' }),
+  }).annotate({ description: 'The answer to a moderation change: the row, flat, with no author' }),
+])
 
 /**
  * A person the comment composer can mention on one record.
@@ -160,7 +227,7 @@ export const mentionableUsersResponseSchema = Schema.Struct({
  * Record history entry schema — one change, as `GET …/history` answers it.
  */
 export const recordHistoryEntrySchema = Schema.Struct({
-  action: Schema.Literals(['create', 'update', 'delete', 'restore']).annotate({
+  action: Schema.Literals(['create', 'update', 'delete', 'restore', 'permanent_delete']).annotate({
     description: 'What happened to the record',
   }),
   createdAt: Schema.String.annotate({ description: 'When it happened, as an ISO 8601 timestamp' }),
@@ -181,7 +248,7 @@ export const recordHistoryEntrySchema = Schema.Struct({
   ),
   userName: Schema.NullOr(Schema.String).annotate({
     description:
-      "The name of the person who made the change — the same name `user` carries — or null when no person made it. Flat, so a page's row template can print it.",
+      "The name of the person who made the change (the same name `user` carries), or null when no person made it. Flat, so a page's row template can print it.",
   }),
 }).annotate({ identifier: 'RecordHistoryEntry' })
 
@@ -203,15 +270,13 @@ export const getRecordHistoryResponseSchema = Schema.Struct({
   }),
   total: Schema.Int.annotate({
     description:
-      'How many entries the whole history holds, whatever page was asked for — the same number as `pagination.total`',
+      'How many entries the whole history holds, whatever page was asked for: the same number as `pagination.total`',
   }),
-  pagination: optionalField(
-    Schema.Struct({
-      total: Schema.Int.annotate({ description: 'Total activity count' }),
-      limit: Schema.Int.annotate({ description: 'Items returned' }),
-      offset: Schema.Int.annotate({ description: 'Items skipped' }),
-    }).annotate({ description: 'Pagination metadata' })
-  ),
+  pagination: Schema.Struct({
+    limit: Schema.Int.annotate({ description: 'Items returned' }),
+    offset: Schema.Int.annotate({ description: 'Items skipped' }),
+    total: Schema.Int.annotate({ description: 'Total activity count' }),
+  }).annotate({ description: 'Pagination metadata' }),
 })
 
 // ============================================================================

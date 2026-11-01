@@ -8,4 +8,6 @@
 export * from './automations'
 export * from './cloud'
 export * from './ingest'
+export * from './notifications'
+export * from './runs'
 export * from './steps'

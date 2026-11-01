@@ -147,7 +147,7 @@ export const DecisionSchema = Schema.Struct({
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ).pipe(
     Schema.annotate({
-      description: 'Who took the decision — one entry per person, never a joined string',
+      description: 'Who took the decision: one entry per person, never a joined string',
       examples: [['Léa Fontaine', 'Thomas']],
     }),
     Schema.check(Schema.isMinLength(1))

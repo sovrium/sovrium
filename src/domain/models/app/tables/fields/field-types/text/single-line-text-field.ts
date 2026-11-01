@@ -28,7 +28,7 @@ export const WriteOnlyOptionSchema = Schema.optional(
       title: 'Write-only',
       description:
         'Keep the value out of every answer. A write-only field can be set and replaced by anyone allowed to write it, but no role reads it back, the admin included: the records API, its exports, realtime events, the MCP tools, the operator console and the record history omit it, and filtering, sorting, grouping or searching on it answers as if the field did not exist. A record shows only whether a value is stored, in its `_writeOnly` block. Automations and seed files still read and write it, so a secret reaches the system that needs it without passing through a person. It cannot be combined with `unique` or `fullTextSearch`, and a formula or lookup cannot read it.',
-      defaultNote: 'false — the value is read under the usual field rules',
+      defaultNote: 'false: the value is read under the usual field rules',
     })
   )
 )
@@ -54,8 +54,8 @@ export const TranslatableOptionSchema = Schema.optional(
       description:
         "Store one value per language the app declares, in the field's own column, as a map from language code to text. A reader receives one string, chosen by the active language (the request's `lang` parameter, then its `Accept-Language` header, on a page the page's own language), then `languages.fallback`, then `languages.default`; a records request with `lang=*` receives the whole map instead. Webhooks, realtime events, the MCP record tools, the JSON export and the GDPR export always carry the whole map, and the CSV export gives it one column per declared language (`name.en`, `name.fr`); an automation template prints the default-language value, `{{trigger.data.record.name.fr}}` one language. A filter or a sort compares the default-language value; a search reads every language. A write of a plain string sets the active language and keeps the others; a write of an object merges by language, and a language set to `null` is removed. `required` asks for the default-language value only. It needs at least two declared languages. It cannot be combined with `writeOnly` or `fullTextSearch`. On a `single-line-text`, `unique` holds within each language: two live records cannot share a value in the same language, while the same value in two languages is allowed, and a record with no value in a language never collides. A `long-text` cannot be `unique`, and a table-level `unique` entry cannot name a translatable field; a formula, rollup or condition cannot read it.",
       howTo:
-        'Declare `languages` with two or more entries, then set `translatable: true` on the text field whose content differs by language — a product name, an article body. Leave codes that are the same in every language (a SKU) untranslatable; a slug that differs by language can be one translatable `unique` field. Seed a value as a string for the default language, or as a map: `{ en: Linen shirt, fr: Chemise en lin }`. Adding a language later needs no migration; turning the option off keeps only the default-language value and asks for `allowDestructive`.',
-      defaultNote: 'false — the field holds one value, the same in every language',
+        'Declare `languages` with two or more entries, then set `translatable: true` on the text field whose content differs by language, such as a product name or an article body. Leave codes that are the same in every language (a SKU) untranslatable; a slug that differs by language can be one translatable `unique` field. Seed a value as a string for the default language, or as a map: `{ en: Linen shirt, fr: Chemise en lin }`. Adding a language later needs no migration; turning the option off keeps only the default-language value and asks for `allowDestructive`.',
+      defaultNote: 'false: the field holds one value, the same in every language',
     })
   )
 )
@@ -75,7 +75,7 @@ export const TranslatableDefaultSchema = Schema.optional(
       Schema.annotate({
         title: 'Per-language default',
         description:
-          'A default value per language, keyed by declared language code — `{ en: Untitled, fr: Sans titre }`. Only a `translatable` field takes a map.',
+          'A default value per language, keyed by declared language code: `{ en: Untitled, fr: Sans titre }`. Only a `translatable` field takes a map.',
       })
     ),
   ]).pipe(

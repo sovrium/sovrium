@@ -45,28 +45,6 @@ export const LICENSE_SUPPLEMENTS: readonly LicenseSupplement[] = [
   },
   {
     ecosystem: 'npm',
-    packages: [
-      '@react-pdf/fns',
-      '@react-pdf/font',
-      '@react-pdf/hyphenate',
-      '@react-pdf/image',
-      '@react-pdf/layout',
-      '@react-pdf/paginate',
-      '@react-pdf/primitives',
-      '@react-pdf/reconciler',
-      '@react-pdf/render',
-      '@react-pdf/renderer',
-      '@react-pdf/stylesheet',
-      '@react-pdf/svg',
-      '@react-pdf/textkit',
-      '@react-pdf/types',
-    ],
-    files: ['diegomura-react-pdf.txt'],
-    source:
-      'https://github.com/diegomura/react-pdf (repository license file; the published package ships none)',
-  },
-  {
-    ecosystem: 'npm',
     packages: ['@uiw/codemirror-extensions-basic-setup', '@uiw/react-codemirror'],
     files: ['uiwjs-react-codemirror.txt'],
     source:
@@ -102,24 +80,10 @@ export const LICENSE_SUPPLEMENTS: readonly LicenseSupplement[] = [
   },
   {
     ecosystem: 'npm',
-    packages: ['yoga-layout'],
-    files: ['facebook-yoga.txt'],
-    source:
-      'https://github.com/facebook/yoga (repository license file; the published package ships none)',
-  },
-  {
-    ecosystem: 'npm',
     packages: ['@scalar/schemas'],
     files: ['scalar-scalar.txt'],
     source:
       'https://github.com/scalar/scalar (repository license file; the published package ships none)',
-  },
-  {
-    ecosystem: 'npm',
-    packages: ['base64-js'],
-    files: ['beatgammit-base64-js.txt'],
-    source:
-      'https://github.com/beatgammit/base64-js (repository license file; the published package ships none)',
   },
   {
     ecosystem: 'npm',
@@ -154,62 +118,6 @@ export const LICENSE_SUPPLEMENTS: readonly LicenseSupplement[] = [
   },
   {
     ecosystem: 'npm',
-    packages: ['fontkit'],
-    files: ['spdx-mit.txt'],
-    source:
-      'https://github.com/foliojs/fontkit declares MIT but ships no license file; canonical SPDX text, holder from the manifest',
-    holder: 'Devon Govett',
-  },
-  {
-    ecosystem: 'npm',
-    packages: ['abs-svg-path'],
-    files: ['spdx-mit.txt'],
-    source:
-      'https://github.com/jkroso/abs-svg-path declares MIT but ships no license file; canonical SPDX text, holder from the manifest',
-    holder: 'Jake Rosoman',
-  },
-  {
-    ecosystem: 'npm',
-    packages: ['brotli'],
-    files: ['spdx-mit.txt'],
-    source:
-      'https://github.com/devongovett/brotli.js declares MIT but ships no license file; canonical SPDX text, holder from the manifest',
-    holder: 'Devon Govett',
-  },
-  {
-    ecosystem: 'npm',
-    packages: ['dfa'],
-    files: ['spdx-mit.txt'],
-    source:
-      'https://github.com/devongovett/dfa declares MIT but ships no license file; canonical SPDX text, holder from the manifest',
-    holder: 'Devon Govett',
-  },
-  {
-    ecosystem: 'npm',
-    packages: ['hsl-to-hex'],
-    files: ['spdx-mit.txt'],
-    source:
-      'https://github.com/davidmarkclements/hsl-to-hex declares MIT but ships no license file; canonical SPDX text, holder from the manifest',
-    holder: 'David Mark Clements',
-  },
-  {
-    ecosystem: 'npm',
-    packages: ['media-engine'],
-    files: ['spdx-mit.txt'],
-    source:
-      'https://github.com/diegomura/media-engine declares MIT but ships no license file; canonical SPDX text, holder from the manifest',
-    holder: 'Diego Muracciole',
-  },
-  {
-    ecosystem: 'npm',
-    packages: ['hsl-to-rgb-for-reals'],
-    files: ['spdx-isc.txt'],
-    source:
-      'https://github.com/davidmarkclements/hsl_rgb_converter declares ISC but ships no license file; canonical SPDX text, holder from the manifest',
-    holder: 'David Mark Clements',
-  },
-  {
-    ecosystem: 'npm',
     packages: ['boolbase'],
     files: ['fb55-boolbase.txt'],
     source:
@@ -221,13 +129,6 @@ export const LICENSE_SUPPLEMENTS: readonly LicenseSupplement[] = [
     files: ['thekashey-react-remove-scroll-bar.txt'],
     source:
       'https://github.com/theKashey/react-remove-scroll-bar (repository license file, fetched 2026-10-12; the published package ships none). Reached through cmdk -> @radix-ui/react-dialog -> react-remove-scroll',
-  },
-  {
-    ecosystem: 'npm',
-    packages: ['victory-vendor'],
-    files: ['formidablelabs-victory.txt', 'victory-vendor-d3.txt'],
-    source:
-      "MIT AND ISC: the MIT half is https://github.com/FormidableLabs/victory (repository LICENSE.txt, fetched 2026-10-12; the published package ships none at its root); the ISC half is the vendored d3 modules' own LICENSE files, copied from the 37.3.6 tarball's lib-vendor/. Reached through recharts",
   },
   {
     ecosystem: 'npm',

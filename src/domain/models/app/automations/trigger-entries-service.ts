@@ -203,3 +203,56 @@ export const triggerNameFilterOf = (
       automation !== undefined && runTriggerOf(automation, undefined).triggerName === triggerName,
   }
 }
+
+/**
+ * The record-trigger entries of one automation that watch one table: the runs
+ * they start carry their entry's name, and a run recorded before entries had
+ * names reads as the automation's first entry (`orUnrecorded`).
+ */
+export interface RecordTriggerSource {
+  readonly automationName: string
+  readonly triggerNames: readonly string[]
+  readonly orUnrecorded: boolean
+}
+
+/** The record-trigger entries of `automation` on `table`, or `undefined` when it has none. */
+const recordSourceOn = (
+  automation: WithTriggers & { readonly name: string },
+  table: string
+): RecordTriggerSource | undefined => {
+  const entries = triggersOfType(automation, 'record').filter((trigger) => trigger.table === table)
+  if (entries.length === 0) return undefined
+  const first = firstTrigger(automation)
+  return {
+    automationName: automation.name,
+    triggerNames: entries.map(triggerEntryName),
+    orUnrecorded: first.type === 'record' && first.table === table,
+  }
+}
+
+/**
+ * The automations a submission of `formName` can start: those with a `form`
+ * trigger on that form, by name, and — when the form writes into `table` —
+ * each automation's `record` trigger entries on that table, which start for the
+ * record it wrote. An automation whose record triggers also watch another table
+ * is narrowed to its entries on this one, so a run on the other table's record
+ * of the same id is never read as this submission's.
+ */
+export const submissionAutomationNames = (
+  automations: ReadonlyArray<WithTriggers & { readonly name: string }> | undefined,
+  formName: string,
+  table: string | undefined
+): { readonly form: readonly string[]; readonly record: readonly RecordTriggerSource[] } => ({
+  form: (automations ?? [])
+    .filter((automation) =>
+      triggersOfType(automation, 'form').some((trigger) => trigger.form === formName)
+    )
+    .map((automation) => automation.name),
+  record:
+    table === undefined
+      ? []
+      : (automations ?? []).flatMap((automation) => {
+          const source = recordSourceOn(automation, table)
+          return source === undefined ? [] : [source]
+        }),
+})

@@ -51,9 +51,11 @@ export function validateRelationshipLinkLimits(
 
     const firstOverflowing = overflowing[0]
     if (firstOverflowing) {
-      return yield* Effect.fail(
-        new FieldValidationError(firstOverflowing.message, firstOverflowing.field, overflowing)
-      )
+      return yield* new FieldValidationError({
+        message: firstOverflowing.message,
+        field: firstOverflowing.field,
+        errors: overflowing,
+      })
     }
   })
 }

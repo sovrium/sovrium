@@ -65,7 +65,7 @@ export const kbdFields = {
     .annotate({
       title: 'Keys',
       description:
-        'The keys of the chord, in press order. Each becomes its own `<kbd>` cap — one per element, because the box and its bottom edge are per key.',
+        'The keys of the chord, in press order. Each becomes its own `<kbd>` cap, one per element, because the box and its bottom edge are per key.',
       examples: [['⌘', 'K'], ['Esc']],
     }),
   /**
@@ -80,7 +80,7 @@ export const kbdFields = {
       Schema.annotate({
         title: 'Separator',
         description:
-          'Plain text printed between the caps — never itself a cap. Omit for adjacent keys.',
+          'Plain text printed between the caps, never itself a cap. Omit for adjacent keys.',
         examples: ['+', 'then'],
       }),
       Schema.check(Schema.isMinLength(1))

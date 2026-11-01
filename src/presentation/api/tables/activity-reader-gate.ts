@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { readerRowsOf } from '@/application/use-cases/tables/row-read-admission'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import { filterChangesReadableByAny } from '@/domain/models/app/tables/field-read-filter-service'
 import { callersOfRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { admissionOf, planTables, readableRecordIds, REFUSED } from './activity-table-plan'
 import { checkRecordReadGateFor } from './record-read-gate'
 import type { ActivityTableAdmission } from '@/application/ports/repositories/analytics/activity-log-repository'
@@ -76,34 +76,24 @@ export function readerIsAdmin(c: Context, app: App): boolean {
 /**
  * The rows of `tableName` the caller reads and the grants that open them, read
  * once for a request that both admits an entry and projects its changes.
- * `undefined` when her grants could not be read: each step then reads alone.
  */
-export async function entryReaderRows(
-  c: Context,
-  app: App,
-  tableName: string
-): Promise<ReaderRows | undefined> {
+export const entryReaderRows = (c: Context, app: App, tableName: string) => {
   const { session, userRole, userGroups } = getTableContext(c)
   const reader = { session, role: userRole, groups: userGroups }
-  const rows = await runOnRequest(c, readerRowsOf(app, tableName, reader))
-  return rows._tag === 'Success' ? rows.success : undefined
+  return readerRowsOf(app, tableName, reader)
 }
 
 /**
  * Whether the caller may read the record an entry was written on. `rows`, when
  * this request already read them, spares a second read of her grants.
  */
-export async function admitsActivityEntry(
-  c: Context,
-  app: App,
-  entry: GatedEntry,
-  rows?: ReaderRows
-): Promise<boolean> {
-  if (readerIsAdmin(c, app)) return true
+export const admitsActivityEntry = (c: Context, app: App, entry: GatedEntry, rows?: ReaderRows) => {
+  if (readerIsAdmin(c, app)) return Effect.succeed(true)
   const table = app.tables?.find((t) => t.name === entry.tableName)
-  if (!table) return false
-  return (
-    (await checkRecordReadGateFor(c, app, table, { recordId: entry.recordId, rows })) === undefined
+  if (!table) return Effect.succeed(false)
+  return Effect.map(
+    checkRecordReadGateFor(c, app, table, { recordId: entry.recordId, rows }),
+    (refusal) => refusal === undefined
   )
 }
 
@@ -114,21 +104,16 @@ export async function admitsActivityEntry(
  * in the statement that pages them, so the page and its total count admitted
  * entries only. `tableName` narrows the tables planned to the one filtered on.
  */
-export async function activityAdmission(
-  c: Context,
-  app: App,
-  tableName: string | undefined
-): Promise<'everything' | readonly ActivityTableAdmission[]> {
-  if (readerIsAdmin(c, app)) return 'everything'
-  const names = (app.tables ?? [])
-    .map((table) => table.name)
-    .filter((name) => tableName === undefined || name === tableName)
-  const plans = await planTables(c, app, names)
-  return [...plans].reduce<Promise<readonly ActivityTableAdmission[]>>(
-    async (done, [name, plan]) => [...(await done), ...(await admissionOf(c, name, plan))],
-    Promise.resolve([])
-  )
-}
+export const activityAdmission = (c: Context, app: App, tableName: string | undefined) =>
+  Effect.gen(function* () {
+    if (readerIsAdmin(c, app)) return 'everything' as const
+    const names = (app.tables ?? [])
+      .map((table) => table.name)
+      .filter((name) => tableName === undefined || name === tableName)
+    const plans = yield* planTables(c, app, names)
+    const admissions = yield* Effect.forEach([...plans], ([name, plan]) => admissionOf(name, plan))
+    return admissions.flat() as readonly ActivityTableAdmission[]
+  })
 
 /**
  * Name the actor as this caller may see her: whole for an admin or for the
@@ -167,23 +152,23 @@ export function projectEntryActor<E extends { readonly actor: object }>(
  * caller: under her role, and each role a grant gives her on that row. `rows`,
  * when this request already read them, spares a second read of her grants.
  */
-export async function projectActivityChanges(
+export const projectActivityChanges = (
   c: Context,
   app: App,
   entry: GatedEntry & { readonly changes: unknown },
   rows?: ReaderRows
-): Promise<unknown> {
-  const { userRole, userGroups } = getTableContext(c)
-  const caller = { role: userRole, groups: userGroups }
-  // Without its grants the caller reads under her role alone.
-  const grants = (rows ?? (await entryReaderRows(c, app, entry.tableName)))?.grants
-  return filterChangesReadableByAny({
-    app,
-    tableName: entry.tableName,
-    callers: callersOfRow(caller, grants, entry.recordId),
-    changes: entry.changes,
+) =>
+  Effect.gen(function* () {
+    const { userRole, userGroups } = getTableContext(c)
+    const caller = { role: userRole, groups: userGroups }
+    const { grants } = rows ?? (yield* entryReaderRows(c, app, entry.tableName))
+    return filterChangesReadableByAny({
+      app,
+      tableName: entry.tableName,
+      callers: callersOfRow(caller, grants, entry.recordId),
+      changes: entry.changes,
+    })
   })
-}
 
 /**
  * An agent `entries` item, as far as the audience rule reads it — a decision
@@ -213,62 +198,63 @@ const actionKey = (table: string, recordId: string | undefined): string =>
  * refuses since no record exists to judge it on. Each table is planned once
  * and its rows judged in one statement.
  */
-async function agentActionVerdicts(
+const agentActionVerdicts = (
   c: Context,
   app: App,
   targets: readonly { readonly table: string; readonly recordId: string | undefined }[]
-): Promise<ReadonlyMap<string, boolean>> {
-  const plans = await planTables(
-    c,
-    app,
-    targets.map((target) => target.table)
-  )
-  const readable = await [...plans].reduce<Promise<ReadonlyMap<string, ReadonlySet<string>>>>(
-    async (done, [table, plan]) => {
-      const ids = targets.flatMap((target) =>
-        target.table === table && target.recordId !== undefined ? [target.recordId] : []
-      )
-      return new Map([...(await done), [table, await readableRecordIds(c, table, plan, ids)]])
-    },
-    Promise.resolve(new Map())
-  )
-  return new Map(
-    targets.map((target) => {
-      const plan = plans.get(target.table) ?? REFUSED
-      const admitted =
-        target.recordId === undefined
-          ? plan.kind === 'all'
-          : readable.get(target.table)?.has(target.recordId) === true
-      return [actionKey(target.table, target.recordId), admitted] as const
-    })
-  )
-}
+) =>
+  Effect.gen(function* () {
+    const plans = yield* planTables(
+      c,
+      app,
+      targets.map((target) => target.table)
+    )
+    const readable: ReadonlyMap<string, ReadonlySet<string>> = new Map(
+      yield* Effect.forEach([...plans], ([table, plan]) => {
+        const ids = targets.flatMap((target) =>
+          target.table === table && target.recordId !== undefined ? [target.recordId] : []
+        )
+        return Effect.map(readableRecordIds(table, plan, ids), (rows) => [table, rows] as const)
+      })
+    )
+    return new Map(
+      targets.map((target) => {
+        const plan = plans.get(target.table) ?? REFUSED
+        const admitted =
+          target.recordId === undefined
+            ? plan.kind === 'all'
+            : readable.get(target.table)?.has(target.recordId) === true
+        return [actionKey(target.table, target.recordId), admitted] as const
+      })
+    )
+  })
 
 /**
  * Keep the agent `entries` this caller may read, in order (the audience rule
  * above). Each table is judged once, however many actions touched it.
  */
-export async function filterAudienceEntries<E extends AudienceEntry>(
+export const filterAudienceEntries = <E extends AudienceEntry>(
   c: Context,
   app: App,
   entries: readonly E[]
-): Promise<readonly E[]> {
-  if (readerIsAdmin(c, app)) return entries
-  const callerId = getTableContext(c).session.userId
-  const targets = entries.flatMap((entry) =>
-    'approvalId' in entry || entry.targetTable === undefined
-      ? []
-      : [{ table: entry.targetTable, recordId: entry.recordId }]
-  )
-  const verdicts = await agentActionVerdicts(c, app, targets)
-  return entries.filter((entry) => {
-    if ('approvalId' in entry) {
-      return entry.actor.id === callerId || entry.runStartedById === callerId
-    }
-    if (entry.targetTable === undefined) return entry.runStartedById === callerId
-    return verdicts.get(actionKey(entry.targetTable, entry.recordId)) === true
+) =>
+  Effect.gen(function* () {
+    if (readerIsAdmin(c, app)) return entries
+    const callerId = getTableContext(c).session.userId
+    const targets = entries.flatMap((entry) =>
+      'approvalId' in entry || entry.targetTable === undefined
+        ? []
+        : [{ table: entry.targetTable, recordId: entry.recordId }]
+    )
+    const verdicts = yield* agentActionVerdicts(c, app, targets)
+    return entries.filter((entry) => {
+      if ('approvalId' in entry) {
+        return entry.actor.id === callerId || entry.runStartedById === callerId
+      }
+      if (entry.targetTable === undefined) return entry.runStartedById === callerId
+      return verdicts.get(actionKey(entry.targetTable, entry.recordId)) === true
+    })
   })
-}
 
 /** An `entries` item as it goes on the wire: who started its run stays here. */
 export function toWireEntry<E extends AudienceEntry>(entry: E): Omit<E, 'runStartedById'> {

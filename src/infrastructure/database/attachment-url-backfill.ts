@@ -46,8 +46,8 @@
  * Dialect-aware by construction: the repaired column is `JSONB` under Postgres
  * and JSON-in-TEXT under SQLite, so the value reads back parsed on one dialect
  * and as a raw string on the other. Reads go through `executeRaw`
- * (`.execute()` / `.all()`) and writes through `jsonbLiteral`, which already
- * branches on `isSqliteRuntime()`. There is no in-SQL JSON path in this repo,
+ * (`.execute()` / `.all()`) and writes through `bindJsonb`, which already
+ * branches on `dialect.kind`. There is no in-SQL JSON path in this repo,
  * so the rewrite is read-modify-write in TypeScript.
  */
 
@@ -55,13 +55,12 @@ import { sql } from 'drizzle-orm'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
-import { db } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { logError, logInfo } from '@/infrastructure/logging/logger'
 import { getBaseTableName, shouldUseView } from './lookup/lookup-view-generators'
-import { executeRaw } from './sql/dialect-execute'
 import { shouldCreateDatabaseColumn } from './sql/sql-field-predicates'
-import { jsonbLiteral } from './sql/sql-utils'
 import type { App, Table } from '@/domain/models/app'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The URL prefix the defective write path emitted.
@@ -190,10 +189,14 @@ export const collectRepairTargets = (app: Readonly<App>): readonly RepairTarget[
  * is the authority. `CAST(… AS TEXT)` reads a `jsonb` column on Postgres and a
  * TEXT column on SQLite identically.
  */
-const repairTarget = async (target: Readonly<RepairTarget>): Promise<number> => {
+const repairTarget = async (
+  { client: db, dialect }: DatabaseService,
+  target: Readonly<RepairTarget>
+): Promise<number> => {
   const { relation, primaryKey, column, bucket } = target
 
-  const rows = await executeRaw(
+  const rows = await executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT ${sql.identifier(primaryKey)} AS row_id, ${sql.identifier(column)} AS value
         FROM ${sql.identifier(relation)}
@@ -207,10 +210,11 @@ const repairTarget = async (target: Readonly<RepairTarget>): Promise<number> => 
   })
 
   for (const repair of repairs) {
-    await executeRaw(
+    await executeRawOn(
+      dialect.kind,
       db,
       sql`UPDATE ${sql.identifier(relation)}
-          SET ${sql.identifier(column)} = ${jsonbLiteral(repair.value)}
+          SET ${sql.identifier(column)} = ${dialect.sql.bindJsonb(repair.value)}
           WHERE ${sql.identifier(primaryKey)} = ${repair.id}`
     )
   }
@@ -224,9 +228,12 @@ const repairTarget = async (target: Readonly<RepairTarget>): Promise<number> => 
  * to — its declared bucket, or the built-in `system` one.
  *
  * Best-effort per target AND overall — one unreachable relation must not skip
- * the rest, and no failure may block startup.
+ * the rest, and no failure may block startup. Reads and writes through `db`.
  */
-export const runAttachmentUrlBackfill = async (app: Readonly<App>): Promise<void> => {
+export const runAttachmentUrlBackfill = async (
+  { client: db, dialect }: DatabaseService,
+  app: Readonly<App>
+): Promise<void> => {
   const targets = collectRepairTargets(app)
   if (targets.length === 0) return
 
@@ -235,7 +242,7 @@ export const runAttachmentUrlBackfill = async (app: Readonly<App>): Promise<void
   // Postgres pool during boot.
   let repaired = 0
   for (const target of targets) {
-    repaired += await repairTarget(target).catch((error: unknown) => {
+    repaired += await repairTarget({ client: db, dialect }, target).catch((error: unknown) => {
       logError(
         `[attachment-url-backfill] repair of ${target.relation}.${target.column} failed (non-fatal)`,
         error

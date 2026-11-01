@@ -47,20 +47,27 @@
 
 import { join } from 'node:path'
 import {
+  drawFlagsOf,
+  pageDrawFlags,
+  refuseDrawFlags,
+  type PageDrawFlags,
+} from '@/cli/commands/design-system/page-flags'
+import { defineFlags, flag } from '@/cli/runtime/flag-schema'
+import { lazyImportSchema } from '@/cli/runtime/lazy-modules'
+import { stopCommand, withFlagsAsync } from '@/cli/runtime/run-command'
+import {
   formatConfigCandidatesLine,
   formatDiscoveredConfigNotice,
 } from '@/domain/kernel/config-parsing/default-config-files'
 import { designSystemModeSchema } from '@/domain/models/api/admin/design-system'
 import { printStderr } from '@/infrastructure/logging/cli-output'
-import { drawFlagsOf, refuseDrawFlags, type PageDrawFlags } from './design-system-page-flags'
 import { resolveDocumentFormat, writeDocument } from './document-output'
-import { lazyImportSchema } from './utils'
 import { loadConfigForValidationWithSources } from './validate'
 
 /** The single-document format this command emits besides its markdown default. */
 const JSON_FORMAT = 'json'
 
-/** The directory format: the portable bundle (`design-system-bundle.ts`). */
+/** The directory format: the portable bundle (`design-system/bundle.ts`). */
 const BUNDLE_FORMAT = 'bundle'
 
 /** Options as parsed from argv. */
@@ -77,9 +84,16 @@ export interface DesignSystemCommandOptions {
   readonly pages?: boolean
   /** Every `--page <name>`: export only these pages with `--pages`. */
   readonly pageNames?: readonly string[]
-  /** The whole argv, for `--seed`, `--records`, `--now`, `--state` and `--prototype`. */
-  readonly argv?: readonly string[]
+  /** `--seed`, `--records`, `--now`, `--as`, `--state` and `--prototype`, read. */
+  readonly draw?: PageDrawFlags
 }
+
+/** The flags `sovrium design-system` reads beyond the shared ones. */
+export const designSystemFlags = defineFlags({
+  ...pageDrawFlags,
+  pages: flag.switch('--pages'),
+  pageNames: flag.values('--page'),
+})
 
 /** The colour modes a token document describes, named once by the wire schema; light first. */
 const COLOR_MODE_VALUES = designSystemModeSchema.literals
@@ -96,12 +110,12 @@ const resolveColorMode = (raw: string | undefined): (typeof COLOR_MODE_VALUES)[n
   const normalized = raw.trim().toLowerCase()
   const mode = COLOR_MODE_VALUES.find((candidate) => candidate === normalized)
   if (mode !== undefined) return mode
-  printStderr(
+  return stopCommand(
+    1,
     `Error: Unsupported --mode "${raw}".\n\n` +
       `  Accepted values: ${COLOR_MODE_VALUES.join(', ')}.\n\n` +
       `  Omitting --mode prints the light document.`
   )
-  process.exit(1)
 }
 
 /**
@@ -112,12 +126,12 @@ const resolveColorMode = (raw: string | undefined): (typeof COLOR_MODE_VALUES)[n
  */
 const refuseModeOutsideJson = (mode: string | undefined, format: string): void => {
   if (mode === undefined || format === JSON_FORMAT) return
-  printStderr(
+  return stopCommand(
+    1,
     'Error: `--mode` selects the JSON token document; the markdown brief and the bundle ' +
       'describe both schemes.\n\n' +
       '  Use --format json --mode dark for the dark token document, or drop --mode.'
   )
-  process.exit(1)
 }
 
 /**
@@ -128,18 +142,18 @@ const refuseModeOutsideJson = (mode: string | undefined, format: string): void =
 const refusePagesOutsideBundle = (options: DesignSystemCommandOptions, format: string): void => {
   const named = (options.pageNames ?? []).length > 0
   if ((options.pages === true || named) && format !== BUNDLE_FORMAT) {
-    printStderr(
+    return stopCommand(
+      1,
       "Error: `--pages` draws the app's pages into the bundle, so it needs --format bundle.\n\n" +
         '  sovrium design-system app.yaml --format bundle --pages --output design-system'
     )
-    process.exit(1)
   }
   if (named && options.pages !== true) {
-    printStderr(
+    return stopCommand(
+      1,
       'Error: `--page` narrows a page export, so it needs --pages.\n\n' +
         '  sovrium design-system app.yaml --format bundle --pages --page dashboard --output design-system'
     )
-    process.exit(1)
   }
 }
 
@@ -155,13 +169,13 @@ const discoverDesignSystemConfig = async (): Promise<string> => {
   const discovered = await discoverDefaultConfigFile(process.cwd())
 
   if (!discovered) {
-    printStderr(
+    return stopCommand(
+      1,
       `Error: No config file provided.\n\n` +
         `${formatConfigCandidatesLine(process.cwd())}\n\n` +
         `Usage:\n  sovrium design-system <config.json|config.yaml|config.ts>\n\n` +
         `Run 'sovrium init' to scaffold a new project.`
     )
-    process.exit(1)
   }
 
   printStderr(formatDiscoveredConfigNotice(discovered))
@@ -181,8 +195,7 @@ const decodeForExport = async (configPath: string) => {
 
   if (!decoded.valid) {
     const errorLines = decoded.errors.map((error) => `  ${error}`).join('\n')
-    printStderr(`Error: Validation failed.\n\n${errorLines}`)
-    process.exit(1)
+    return stopCommand(1, `Error: Validation failed.\n\n${errorLines}`)
   }
 
   // Notices go to stderr so `--format json` keeps stdout parseable by `jq` and
@@ -202,9 +215,9 @@ const writeBundleFor = async (
   options: DesignSystemCommandOptions,
   drawFlags: PageDrawFlags
 ): Promise<void> => {
-  const { writeDesignSystemBundle } = await import('./design-system-bundle')
-  const { pageSelectionFor } = await import('./design-system-pages')
-  const { pageDrawRequestFor } = await import('./design-system-page-flags')
+  const { writeDesignSystemBundle } = await import('@/cli/commands/design-system/bundle')
+  const { pageSelectionFor } = await import('@/cli/commands/design-system/pages')
+  const { pageDrawRequestFor } = await import('@/cli/commands/design-system/page-flags')
   // The logo files are read from the `public/` beside the config, as `sovrium start` serves it.
   const { assetProjectDir } = await import('@/infrastructure/assets/private-assets')
   const draw = await pageDrawRequestFor(app, configPath, drawFlags)
@@ -226,9 +239,7 @@ const writeBundleFor = async (
  *
  * @param options - The parsed positional config path and flag values.
  */
-export const handleDesignSystemCommand = async (
-  options: DesignSystemCommandOptions
-): Promise<void> => {
+const exportDesignSystem = async (options: DesignSystemCommandOptions): Promise<void> => {
   // Format is resolved FIRST, before any file is read: an operator who mistyped
   // the format learns it immediately rather than after a config decode.
   const format = resolveDocumentFormat(
@@ -238,7 +249,7 @@ export const handleDesignSystemCommand = async (
   )
   refuseModeOutsideJson(options.mode, format)
   refusePagesOutsideBundle(options, format)
-  const drawFlags = drawFlagsOf(options.argv ?? [])
+  const drawFlags = options.draw ?? {}
   refuseDrawFlags(drawFlags, options.pages === true)
   const mode = resolveColorMode(options.mode)
   const configPath = options.configFile ?? (await discoverDesignSystemConfig())
@@ -249,7 +260,7 @@ export const handleDesignSystemCommand = async (
     return
   }
 
-  const { buildDesignSystem } = await import('@/application/use-cases/admin/design-system')
+  const { buildDesignSystem } = await import('@/domain/models/app/design/design-system-service')
   const document = buildDesignSystem(app, mode)
 
   if (format === JSON_FORMAT) {
@@ -262,10 +273,25 @@ export const handleDesignSystemCommand = async (
   }
 
   const { renderDesignSystemMarkdown } =
-    await import('@/application/use-cases/admin/design-system-markdown')
+    await import('@/domain/models/app/design/design-system-markdown-service')
   await writeDocument(
     renderDesignSystemMarkdown(document, buildDesignSystem(app, 'dark'), app.name),
     options.outputPath,
     'Design system'
   )
 }
+
+/** Handle `sovrium design-system`. */
+export const handleDesignSystemCommand = withFlagsAsync(designSystemFlags, (args) =>
+  exportDesignSystem({
+    // `--seed` is a switch to `deploy`, so its folder is read among the positionals.
+    configFile: (args.positionalArgs ?? []).find((arg) => arg !== args.flags.seed),
+    outputPath: args.outputPath,
+    format: args.format,
+    mode: args.mode,
+    force: args.forceFlag,
+    pages: args.flags.pages,
+    pageNames: args.flags.pageNames,
+    draw: drawFlagsOf(args.flags),
+  })
+)

@@ -47,7 +47,7 @@ export const DataTablePaginationSchema = Schema.Struct({
   pageSize: Schema.optional(
     Schema.Finite.pipe(
       Schema.annotate({
-        description: `Default rows per page (default: 25, at most ${MAX_PAGE_SIZE} — the rows per page the records API serves)`,
+        description: `Default rows per page (default: 25, at most ${MAX_PAGE_SIZE}, the rows per page the records API serves)`,
         examples: [10, 25, 50],
       }),
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0), isWithinPageWindow('pageSize'))
@@ -92,7 +92,7 @@ export const DataTablePaginationSchema = Schema.Struct({
   style: Schema.optional(
     Schema.Literals(['numbered', 'loadMore', 'infinite']).annotate({
       description:
-        "How the reader reaches the rows past the first page. `numbered` shows page controls. `loadMore` appends the next page under the rows when the reader presses Load more — TanStack's infinite query, fetched on demand. `infinite` appends it as the reader scrolls to the end of the rows — the same infinite query, fetched by scrolling — and keeps a focusable Load more control for the keyboard; the body is marked busy while a page loads and a polite status announces how many rows are loaded. Both appending styles hide the page-size selector, and a change of sort, filter or search starts again from the first page.",
+        "How the reader reaches the rows past the first page. `numbered` shows page controls. `loadMore` appends the next page under the rows when the reader presses Load more: TanStack's infinite query, fetched on demand. `infinite` appends it as the reader scrolls to the end of the rows (the same infinite query, fetched by scrolling) and keeps a focusable Load more control for the keyboard; the body is marked busy while a page loads and a polite status announces how many rows are loaded. Both appending styles hide the page-size selector, and a change of sort, filter or search starts again from the first page.",
       defaultNote: 'numbered',
     })
   ),

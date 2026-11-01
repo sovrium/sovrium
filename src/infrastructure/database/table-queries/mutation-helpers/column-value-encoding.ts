@@ -7,12 +7,12 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { isLanguageMerge } from '@/domain/models/app/tables/translatable-write-service'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { type DrizzleTransaction } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { languageMergeInsertSql } from '@/infrastructure/database/sql/sql-translatable-writes'
-import { jsonbLiteral, pgTextArrayLiteral } from '@/infrastructure/database/sql/sql-utils'
+import { bindJsonbOn, bindTextArrayOn } from '@/infrastructure/database/sql/sql-utils'
 import { validateColumnName, databaseTableName } from '../statement/validation'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
+import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * How a JS value becomes the SQL that stores it — the single answer shared by
@@ -49,19 +49,18 @@ import { validateColumnName, databaseTableName } from '../statement/validation'
  * it. A caller that cannot introspect the column is therefore safer omitting
  * the map than guessing at it.
  *
- * Scalars are BOUND (standing rule S3). The array and object branches inline an
- * escaped literal instead — not a relaxation of that rule but a driver
- * workaround: bun-sql's parameterised binds do not survive the `::jsonb` cast,
- * and it has no typed-array bind path at all. See `jsonbLiteral` and
- * `pgTextArrayLiteral`, which own the escaping that inlining requires.
+ * Every branch BINDS its value (standing rule S3). Arrays and objects go
+ * through `bindJsonb` and `bindTextArray`, which own the casts bun:sql needs
+ * for a `jsonb` or `text[]` parameter to land as structure, not as a string.
  */
 export const encodeColumnValue = (
+  dialect: DatabaseDialect,
   value: unknown,
   columnType: string | undefined
 ): Readonly<SQL> => {
   // A write to a translatable field inserts the languages it sets; an UPDATE
   // merges them instead (`buildUpdateSetClauseCRUD`).
-  if (isLanguageMerge(value)) return languageMergeInsertSql(value)
+  if (isLanguageMerge(value)) return languageMergeInsertSql(dialect, value)
   if (Array.isArray(value)) {
     // A native array literal can only carry scalars, so an array of objects
     // stays JSON even on a genuine array column.
@@ -70,12 +69,12 @@ export const encodeColumnValue = (
         (entry) =>
           typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean'
       )
-      if (allScalar) return pgTextArrayLiteral(value)
+      if (allScalar) return bindTextArrayOn(dialect, value)
     }
-    return jsonbLiteral(value)
+    return bindJsonbOn(dialect, value)
   }
   if (value !== null && typeof value === 'object') {
-    return jsonbLiteral(value)
+    return bindJsonbOn(dialect, value)
   }
   return sql`${value}`
 }
@@ -118,16 +117,16 @@ export const collectArrayColumnNames = (
  * to reason about.
  */
 export async function lookupArrayColumnTypes(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   columnNames: ReadonlyArray<string>
 ): Promise<Readonly<Record<string, string>>> {
   if (columnNames.length === 0) return {}
   // SQLite has no native array type — array-shaped values are stored as JSON
-  // text. `encodeColumnValue` falls back to `jsonbLiteral` (which emits a plain
-  // JSON-text literal on SQLite) when a column is absent from this map, which
+  // text. `encodeColumnValue` falls back to `bindJsonb` (which binds plain
+  // JSON text on SQLite) when a column is absent from this map, which
   // is exactly the desired encoding. Skip the introspection round-trip.
-  if (parseDatabaseDialectConfig().dialect === 'sqlite') return {}
+  if (dialect.kind === 'sqlite') return {}
   // Defense in depth: validate every name through the same regex the clause
   // builders use, then bind each name as a SQL parameter via `sql\`${n}\``.
   // Per-name binding is required because `bun:sql` mishandles
@@ -144,7 +143,8 @@ export async function lookupArrayColumnTypes(
       validatedNames.map((n) => sql`${n}`),
       sql.raw(', ')
     )
-    const rows = (await executeRaw(
+    const rows = (await executeRawOn(
+      dialect.kind,
       tx,
       sql`SELECT column_name, data_type FROM information_schema.columns
           WHERE table_schema = current_schema()
@@ -177,8 +177,8 @@ export async function lookupArrayColumnTypes(
  * for the whole batch, a single write passes `[fields]`.
  */
 export const resolveArrayColumnTypes = (
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   tableName: string,
   records: readonly Readonly<Record<string, unknown>>[]
 ): Promise<Readonly<Record<string, string>>> =>
-  lookupArrayColumnTypes(tx, tableName, collectArrayColumnNames(records))
+  lookupArrayColumnTypes(on, tableName, collectArrayColumnNames(records))

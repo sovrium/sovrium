@@ -64,7 +64,7 @@ export async function readBoundRecordForCaller(
   }
 ): Promise<RecordRow | undefined> {
   const record = await readBoundRow(input)
-  // A `json` column reaches the page as its structure on SQLite too, as on PostgreSQL.
+  // A list or `json` column reaches the page as its structure on SQLite too, as on PostgreSQL.
   const table = input.app.tables?.find((candidate) => candidate.name === input.tableName)
   return record === undefined ? undefined : decodeStoredJsonColumns(table, record)
 }

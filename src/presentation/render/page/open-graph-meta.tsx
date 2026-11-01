@@ -38,6 +38,7 @@ export function OpenGraphMeta({
     if (!value || !lang) return value
     return resolveTranslationPattern(value, lang, languages)
   }
+  const locale = resolveValue(openGraph.locale) ?? servedOpenGraphLocale(languages, lang)
 
   const fields: ReadonlyArray<{ readonly key: string; readonly value?: string }> = [
     { key: 'title', value: resolveValue(openGraph.title) },
@@ -47,13 +48,13 @@ export function OpenGraphMeta({
     { key: 'url', value: resolveValue(openGraph.url) },
     { key: 'type', value: openGraph.type },
     { key: 'site_name', value: resolveValue(openGraph.siteName) },
-    { key: 'locale', value: openGraph.locale },
+    { key: 'locale', value: locale },
     { key: 'determiner', value: openGraph.determiner },
     { key: 'video', value: openGraph.video },
     { key: 'audio', value: openGraph.audio },
   ]
 
-  const alternates = resolveLocaleAlternates(languages, lang, openGraph.locale)
+  const alternates = resolveLocaleAlternates(languages, lang, locale)
   return (
     <>
       {renderMetaTags({ fields, prefix: 'og', attributeType: 'property' })}
@@ -72,6 +73,21 @@ export function OpenGraphMeta({
 const toOpenGraphLocale = (tag: string | undefined): string | undefined => {
   const match = tag === undefined ? undefined : /^([a-z]{2})[-_]([A-Z]{2})$/.exec(tag)
   return match === null || match === undefined ? undefined : `${match[1]}_${match[2]}`
+}
+
+/**
+ * The `og:locale` of a card declared without one, in an app that declares its
+ * languages: the served language's `locale` in Open Graph form (`fr-FR` →
+ * `fr_FR`). A language declared without a territory has none.
+ */
+const servedOpenGraphLocale = (
+  languages: Languages | undefined,
+  lang: string | undefined
+): string | undefined => {
+  const served = languages?.supported.find(
+    (language) => language.code === lang || language.locale === lang
+  )
+  return served === undefined ? undefined : toOpenGraphLocale(served.locale ?? served.code)
 }
 
 /**

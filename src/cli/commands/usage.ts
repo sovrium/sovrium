@@ -18,25 +18,23 @@
  */
 
 import { resolve } from 'node:path'
-import { Console, Effect } from 'effect'
+import { Effect } from 'effect'
 import {
   measureInstallUsage,
   type UsageStorageSource,
 } from '@/application/use-cases/server/usage-programs'
+import { defineFlags, flag } from '@/cli/runtime/flag-schema'
+import { fromAsync, fromAsyncValue, refuseCommand, withFlags } from '@/cli/runtime/run-command'
 import { InstallUsageReaderLive } from '@/infrastructure/filesystem/install-usage-reader-live'
-import { formatBytes, printFailure } from '@/infrastructure/logging/cli-output'
-import { getFlagPathValue } from '../runtime/flag-vocabulary'
+import { formatBytes, printLine } from '@/infrastructure/logging/cli-output'
 import { readInstallSources } from '../runtime/install-sources'
 import { discoverConfigFile } from './app-prelude'
 import type { CatalogueDatabase } from '@/application/ports/services/install-usage-reader'
 import type { UsageReport } from '@/domain/models/app/automations/actions/instance/usage'
 import type { StorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 
-const fail = (headline: string, guidance: string, detail?: readonly string[]): never => {
-  printFailure({ headline, guidance, ...(detail === undefined ? {} : { detail }) })
-  process.exit(1)
-  return undefined as never
-}
+const fail = (headline: string, guidance: string, detail?: readonly string[]): never =>
+  refuseCommand({ headline, guidance, ...(detail === undefined ? {} : { detail }) })
 
 /** Where uploads live, as the usage measure needs it: the local folder absolute. */
 const toStorageSource = (storage: StorageEnvConfig): UsageStorageSource => {
@@ -77,11 +75,16 @@ const humanLines = (report: UsageReport): readonly string[] => [
   ...report.unmeasured.map((entry) => `${entry.figure} not measured: ${entry.reason}`),
 ]
 
-/** Handle `sovrium usage`. Exits 1 when the install cannot be resolved; a figure it cannot read is `null`. */
-export const handleUsageCommand = async (
-  givenConfigFile: string | undefined,
-  argv: readonly string[]
-): Promise<void> => {
+/** The flags `sovrium usage` reads. */
+export const usageFlags = defineFlags({
+  report: flag.path('--report'),
+  json: flag.switch('--json'),
+})
+
+type UsageFlags = { readonly report: string | undefined; readonly json: boolean }
+
+/** The database and storage to measure, once the config is known to exist. */
+const measuredSources = async (givenConfigFile: string | undefined) => {
   const configFile = givenConfigFile ?? (await discoverConfigFile())
   if (!(await Bun.file(resolve(configFile)).exists())) {
     return fail(
@@ -97,19 +100,28 @@ export const handleUsageCommand = async (
       [sources.error]
     )
   }
-  const report = await Effect.runPromise(
-    measureInstallUsage({ ...sources, now: new Date() }).pipe(
-      Effect.provide(InstallUsageReaderLive)
-    )
-  )
-  const reportPath = getFlagPathValue(argv, '--report')
+  return sources
+}
+
+/** Print the figures, or write them to `--report`. */
+const printReport = async (report: UsageReport, flags: UsageFlags): Promise<void> => {
+  const reportPath = flags.report
   if (reportPath !== undefined) {
     await Bun.write(resolve(reportPath), `${JSON.stringify(report, null, 2)}\n`)
-    Effect.runSync(Console.log(`Usage report written to ${reportPath}.`))
+    printLine(`Usage report written to ${reportPath}.`)
     return
   }
-  const text = argv.includes('--json')
-    ? JSON.stringify(report, null, 2)
-    : humanLines(report).join('\n')
-  Effect.runSync(Console.log(text))
+  const text = flags.json ? JSON.stringify(report, null, 2) : humanLines(report).join('\n')
+  printLine(text)
 }
+
+/** Handle `sovrium usage`. Exits 1 when the install cannot be resolved; a figure it cannot read is `null`. */
+export const handleUsageCommand = withFlags(usageFlags, ({ configFile, flags }) =>
+  Effect.gen(function* () {
+    const sources = yield* fromAsyncValue(() => measuredSources(configFile))
+    const report = yield* measureInstallUsage({ ...sources, now: new Date() }).pipe(
+      Effect.provide(InstallUsageReaderLive)
+    )
+    yield* fromAsync(() => printReport(report, flags))
+  })
+)

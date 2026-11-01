@@ -87,18 +87,20 @@ const triggerObjectsOf = (
   viewName: string,
   dialect: 'postgres' | 'sqlite'
 ): readonly GeneratedViewObject[] =>
-  generateLookupViewTriggers(table).flatMap((statement): readonly GeneratedViewObject[] => {
-    const trigger = triggerNameOf(statement)
-    if (trigger !== undefined) {
-      return [
-        dialect === 'sqlite'
-          ? { kind: 'trigger', name: trigger, sql: statement }
-          : { kind: 'trigger', name: trigger, sql: statement, on: viewName },
-      ]
+  generateLookupViewTriggers(table, dialect).flatMap(
+    (statement): readonly GeneratedViewObject[] => {
+      const trigger = triggerNameOf(statement)
+      if (trigger !== undefined) {
+        return [
+          dialect === 'sqlite'
+            ? { kind: 'trigger', name: trigger, sql: statement }
+            : { kind: 'trigger', name: trigger, sql: statement, on: viewName },
+        ]
+      }
+      const fn = dialect === 'postgres' ? triggerFunctionOf(statement) : undefined
+      return fn === undefined ? [] : [{ kind: 'function', name: fn.name, sql: fn.body }]
     }
-    const fn = dialect === 'postgres' ? triggerFunctionOf(statement) : undefined
-    return fn === undefined ? [] : [{ kind: 'function', name: fn.name, sql: fn.body }]
-  })
+  )
 
 /**
  * Every view and every `INSTEAD OF` trigger (PostgreSQL: and its function) the
@@ -117,7 +119,7 @@ export const generatedViewObjects = (
       const view: GeneratedViewObject = {
         kind: 'view',
         name,
-        sql: generateLookupViewSQL(table, allTables),
+        sql: generateLookupViewSQL(table, allTables, dialect),
       }
       return [view, ...triggerObjectsOf(table, name, dialect)]
     })

@@ -33,13 +33,13 @@
  * server as though it were the real one.
  */
 
-import { Cause, Data, Effect, Exit } from 'effect'
+import { Cause, Data, Effect } from 'effect'
 import { stampPrecompiledCSS } from '@/infrastructure/css/cache/css-cache-service'
 import { compileCSSRaw } from '@/infrastructure/css/compiler'
 import { MINIMAL_FALLBACK_CSS } from '@/infrastructure/css/native-free-compiler'
 import { precompiledStampOf } from '@/infrastructure/css/versioned-css-path'
-import { printFailure } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
+import { CliRefusal } from './run-command'
 
 /** The variable naming the file the harness wants the generic stylesheet in. */
 export const PRECOMPILE_GENERIC_CSS_ENV = 'SOVRIUM_E2E_PRECOMPILE_CSS'
@@ -80,18 +80,20 @@ const describeFailure = (failure: unknown): string =>
       : formatRuntimeError(failure)
 
 /**
- * Run {@link writeGenericPrecompiledCss} and exit: 0 once written, 1 on any
- * failure, reported on stderr.
+ * Run {@link writeGenericPrecompiledCss}: success once written (the runner exits
+ * 0), a refusal naming what stopped it otherwise (exit 1).
  *
  * @param path - where the stamped stylesheet goes.
  */
-export const handlePrecompileGenericCss = async (path: string): Promise<never> => {
-  const exit = await Effect.runPromiseExit(writeGenericPrecompiledCss(path))
-  if (Exit.isSuccess(exit)) return process.exit(0)
-  printFailure({
-    headline: `The generic stylesheet was not written to ${path}.`,
-    detail: [describeFailure(Cause.squash(exit.cause))],
-    guidance: `Unset ${PRECOMPILE_GENERIC_CSS_ENV} to run the command itself; it is a test-harness switch.`,
-  })
-  return process.exit(1)
-}
+export const precompileGenericCss = (path: string): Effect.Effect<void, CliRefusal> =>
+  writeGenericPrecompiledCss(path).pipe(
+    Effect.catchCause((cause) =>
+      Effect.fail(
+        new CliRefusal({
+          headline: `The generic stylesheet was not written to ${path}.`,
+          detail: [describeFailure(Cause.squash(cause))],
+          guidance: `Unset ${PRECOMPILE_GENERIC_CSS_ENV} to run the command itself; it is a test-harness switch.`,
+        })
+      )
+    )
+  )

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { collectPlacements, type Placement } from './component-reference-validation'
 import { ComponentSchema } from './components/component'
 import { asPageNode } from './template-input-order-service'
@@ -41,9 +42,6 @@ interface AppForInputValidation {
   readonly pages?: unknown
   readonly components?: unknown
 }
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every template that declares a substituting input, by name. */
 const inputTemplates = (

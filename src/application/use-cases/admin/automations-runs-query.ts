@@ -11,12 +11,12 @@
  * Pure, and shared by every surface that reads the run history — the admin
  * route and the MCP admin read tool — so the two cannot disagree on which
  * filters a request carries or what a cursor means. The read itself is
- * `BuildAdminRunsList` (`automations-overview.ts`).
+ * `buildAdminRunsList` (`automations-overview.ts`).
  */
 
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import { zonedEndOfIsoDate, zonedStartOfIsoDate } from '@/domain/kernel/time/zoned-calendar'
 import { automationsRunsListQuerySchema } from '@/domain/models/api/admin/automations'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { routineRunSources } from '@/domain/models/app/automations/routine-run-service'
 import { triggerNameFilterOf } from '@/domain/models/app/automations/trigger-entries-service'
 import type { AdminRunsListInput } from './automations-overview'
@@ -79,7 +79,12 @@ const windowBound = (
  * empty page.
  */
 export type AdminRunsListQueryDecode =
-  | { readonly _tag: 'Ok'; readonly input: AdminRunsListInput }
+  | {
+      readonly _tag: 'Ok'
+      readonly input: AdminRunsListInput
+      /** The submission whose runs the read narrows to; the read resolves it. */
+      readonly submissionId?: string | undefined
+    }
   | { readonly _tag: 'InvalidQuery' }
   | { readonly _tag: 'InvertedWindow' }
 
@@ -100,6 +105,20 @@ const endsBeforeItStarts = (
 }
 
 /**
+ * A period as the run history and the audit log both read it: each bound as
+ * the instant the read compares against (a calendar day on the operator's
+ * clock, see {@link windowBound}), or `undefined` when it ends before it starts.
+ */
+export function resolveDateWindow(
+  from: string | undefined,
+  to: string | undefined,
+  timeZone: string
+): { readonly from: string | undefined; readonly to: string | undefined } | undefined {
+  const window = { from: windowBound(from, 'from', timeZone), to: windowBound(to, 'to', timeZone) }
+  return endsBeforeItStarts(window.from, window.to, to) ? undefined : window
+}
+
+/**
  * Decode raw runs-list parameters — the HTTP query string or an MCP tool's
  * arguments — into the use case's input.
  *
@@ -117,9 +136,9 @@ export function decodeAdminRunsListQuery(raw: unknown, timeZone: string): AdminR
   const parsed = decodeSafe(automationsRunsListQuerySchema)(raw)
   if (!parsed.success) return { _tag: 'InvalidQuery' }
   const query = parsed.data
-  const from = windowBound(query.from, 'from', timeZone)
-  const to = windowBound(query.to, 'to', timeZone)
-  if (endsBeforeItStarts(from, to, query.to)) return { _tag: 'InvertedWindow' }
+  const window = resolveDateWindow(query.from, query.to, timeZone)
+  if (window === undefined) return { _tag: 'InvertedWindow' }
+  const { from, to } = window
   return {
     _tag: 'Ok',
     input: {
@@ -136,6 +155,7 @@ export function decodeAdminRunsListQuery(raw: unknown, timeZone: string): AdminR
       page: query.page,
       limit: query.limit,
     },
+    submissionId: query.submissionId,
   }
 }
 
@@ -165,6 +185,7 @@ export function runsListFilters(app: App, input: AdminRunsListInput): AdminRunsL
     onDemand: input.onDemand,
     hideRoutineOf: input.routine === true ? undefined : routineRunSources(app.automations),
     q: input.q,
+    submissionRuns: input.submissionRuns,
     cursorBefore,
     limit: input.limit,
     offset: paged ? ((input.page ?? 1) - 1) * input.limit : undefined,

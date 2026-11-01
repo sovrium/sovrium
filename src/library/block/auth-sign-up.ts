@@ -16,8 +16,8 @@ import {
   ifDeclared,
   orDivider,
   unlessDeclared,
-} from '@/library/manifest/auth-block-kit'
-import { asComponent, param, stringParam, THEME_NOTE } from '@/library/manifest/block-kit'
+} from '@/library/kit/auth-block-kit'
+import { asComponent, param, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** The sign-up screen, with the closed variant an app that closed sign-up shows instead. */
@@ -28,10 +28,10 @@ export const entry = defineLibraryEntry({
   category: 'application',
   tags: ['auth', 'sign-up', 'register', 'account'],
   description:
-    'A create-your-account screen with the email form and the social alternative, which turns into a short "ask for access" page when your app has closed sign-up.',
+    'A create-your-account screen with the email form and the social alternative, which turns into a short "ask for access" page while your app keeps sign-up closed.',
   notes: [
     AUTH_PLACE_NOTE,
-    'When `auth.allowSignUp` is `false` the form is not drawn at all: the page says sign-up is closed, how to get access, and links to sign-in. Open sign-up again and the form comes back, with no edit to the block.',
+    'While sign-up is closed (the default, or `auth.allowSignUp: false`) the form is not drawn at all: the page says sign-up is closed, how to get access, and links to sign-in. Open sign-up with `allowSignUp: true` and the form comes back, with no edit to the block.',
     AUTH_GATE_NOTE,
     THEME_NOTE,
   ],

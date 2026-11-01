@@ -16,6 +16,7 @@ import {
   generateDeletedAtColumn,
 } from './column-generators'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Whether the automatic-id column should declare `PRIMARY KEY` inline on the column.
@@ -56,8 +57,14 @@ const requiresInlineIdPk = (table: Table, primaryKeyFields: readonly string[]): 
  * would die on `foreign key constraint … cannot be implemented`. An optional argument that must always be passed is a comment;
  * a required one is a compile error. Pass `buildTablePrimaryKeyTypesMap(tables)`
  * built from the SAME post-defaults table list the rest of the migration uses.
+ *
+ * `dialect` is REQUIRED for the same reason: the engine decides the column
+ * types, defaults and CHECK clauses, so it is named by the caller rather than
+ * re-read from the environment by each generator.
  */
 export type TableDdlInputs = {
+  /** The engine the DDL is written for. */
+  readonly dialect: DatabaseDialect
   /** Map of table name → `primaryKey.type` (post-`applySchemaDefaults`). */
   readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
   /** Map of table names to whether they use a VIEW. */
@@ -69,11 +76,18 @@ export type TableDdlInputs = {
 }
 
 /**
+ * {@link TableDdlInputs} less the engine: what a step holding a migration
+ * connection is handed. It reads the engine off that connection.
+ */
+export type TableDdlOptions = Omit<TableDdlInputs, 'dialect'>
+
+/**
  * Generate CREATE TABLE statement
  * When table has lookup fields, creates a base table (_base suffix) and will later create a VIEW
  */
 export const generateCreateTableSQL = (table: Table, options: TableDdlInputs): string => {
-  const { tablePrimaryKeyTypes, tableUsesView, skipForeignKeys, hasAuthConfig = true } = options
+  const { dialect, tablePrimaryKeyTypes, tableUsesView, skipForeignKeys } = options
+  const hasAuthConfig = options.hasAuthConfig ?? true
   // The physical relation: `<name>_base` when the table is view-backed.
   const tableName = getPhysicalTableName(table)
 
@@ -86,7 +100,7 @@ export const generateCreateTableSQL = (table: Table, options: TableDdlInputs): s
   // automatic-id path produces it (see `requiresInlineIdPk` helper).
   const primaryKeyOnId = requiresInlineIdPk(table, primaryKeyFields)
   const idColumnDefinition = needsAutomaticIdColumn(table, primaryKeyFields)
-    ? [generateIdColumn(table.primaryKey?.type, primaryKeyOnId)]
+    ? [generateIdColumn(table.primaryKey?.type, primaryKeyOnId, dialect)]
     : []
 
   // Filter out UI-only fields (like button), lookup fields, rollup fields, and
@@ -99,23 +113,23 @@ export const generateCreateTableSQL = (table: Table, options: TableDdlInputs): s
       // Only add inline PRIMARY KEY for single-field composite keys (handled by generateSerialColumn)
       // Multi-field composite keys must have PRIMARY KEY at table level to avoid "multiple primary keys" error
       const isPrimaryKey = primaryKeyFields.includes(field.name) && primaryKeyFields.length === 1
-      return generateColumnDefinition(
-        field,
+      return generateColumnDefinition(field, {
+        dialect,
         isPrimaryKey,
-        table.fields,
+        allFields: table.fields,
         hasAuthConfig,
-        tablePrimaryKeyTypes
-      )
+        tablePrimaryKeyTypes,
+      })
     })
 
   // Add PRIMARY KEY constraint on id if no custom primary key is defined
-  const tableConstraints = generateTableConstraints(table, tableUsesView, skipForeignKeys)
+  const tableConstraints = generateTableConstraints(table, dialect, tableUsesView, skipForeignKeys)
 
   const allDefinitions = [
     ...idColumnDefinition,
-    ...generateCreatedAtColumn(table),
-    ...generateUpdatedAtColumn(table),
-    ...generateDeletedAtColumn(table),
+    ...generateCreatedAtColumn(table, dialect),
+    ...generateUpdatedAtColumn(table, dialect),
+    ...generateDeletedAtColumn(table, dialect),
     ...columnDefinitions,
     ...tableConstraints,
   ]

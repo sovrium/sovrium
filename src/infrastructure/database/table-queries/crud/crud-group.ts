@@ -7,8 +7,7 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { db } from '@/infrastructure/database'
+import { executeRawTypedOn } from '@/infrastructure/database/sql/dialect-execute'
 import { withTransaction } from '@/infrastructure/database/transaction'
 import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
 import {
@@ -30,7 +29,6 @@ import {
   rankForPercentiles,
 } from '../query-helpers/percentile-selects'
 import { wrapDatabaseError } from '../statement/error-handling'
-import { typedExecute } from '../statement/typed-execute'
 import { validateColumnName } from '../statement/validation'
 import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type {
@@ -38,7 +36,9 @@ import type {
   PercentileFigures,
 } from '@/domain/models/app/tables/aggregate-percentile-service'
 import type { CaseFoldedSortField } from '@/domain/models/app/tables/text-sort-service'
-import type { DatabaseError, DrizzleTransaction } from '@/infrastructure/database'
+import type { DatabaseError, PortableTx } from '@/infrastructure/database'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Grouped figures computed by the database — one `GROUP BY` per grouping level.
@@ -147,11 +147,11 @@ const sqliteBucket = (column: Readonly<SQL>, interval: GroupInterval): Readonly<
 }
 
 /** The expression a level groups on: the column itself, or its calendar bucket. */
-const levelExpression = (level: GroupLevelSpec): Readonly<SQL> => {
+const levelExpression = (dialect: Dialect, level: GroupLevelSpec): Readonly<SQL> => {
   validateColumnName(level.field)
   const column = sql`${sql.identifier(level.field)}`
   if (level.interval === undefined) return column
-  return parseDatabaseDialectConfig().dialect === 'sqlite'
+  return dialect.kind === 'sqlite'
     ? sqliteBucket(column, level.interval)
     : pgBucket(column, level.interval)
 }
@@ -165,11 +165,12 @@ const valuedSelects = (aggregate: AggregationSpec): readonly string[] =>
 
 /** The `GROUP BY` statement of one depth: the first `depth` levels. */
 const groupStatement = (
+  dialect: Dialect,
   source: Readonly<SQL>,
   config: GroupedAggregationConfig,
   depth: number
 ): Readonly<SQL> => {
-  const expressions = config.levels.slice(0, depth).map(levelExpression)
+  const expressions = config.levels.slice(0, depth).map((level) => levelExpression(dialect, level))
   const keys = sql.join(
     expressions.map(
       (expression, index) => sql`${expression} AS ${sql.identifier(groupAlias(index))}`
@@ -182,16 +183,16 @@ const groupStatement = (
       sql.raw(
         [
           `COUNT(*) AS ${GROUP_COUNT}`,
-          ...buildAggregationSelects(config.aggregate),
+          ...buildAggregationSelects(dialect, config.aggregate),
           ...valuedSelects(config.aggregate),
         ].join(', ')
       ),
-      ...buildPercentileSelects(config.aggregate),
+      ...buildPercentileSelects(config.aggregate, dialect.kind),
     ],
     sql`, `
   )
   // SQLite ranks each percentile field within this depth's groups first.
-  const ranked = rankForPercentiles(source, config.aggregate, expressions)
+  const ranked = rankForPercentiles(source, config.aggregate, expressions, dialect.kind)
   const orderBy =
     config.order.kind === 'first-seen'
       ? // sql-literal: identifier -- ROW_NUMBER is a module constant
@@ -206,6 +207,7 @@ const groupStatement = (
 
 /** The filtered relation every depth groups — numbered in list order when groups keep first-seen order. */
 const groupSource = (
+  dialect: Dialect,
   relation: Readonly<SQL>,
   whereClause: Readonly<SQL>,
   config: GroupedAggregationConfig
@@ -215,6 +217,7 @@ const groupSource = (
   }
   const { sort, app, primaryKey, caseFoldedSortFields } = config.order
   const orderBy = buildOrderByClause(sort, app, config.tableName, {
+    dialect,
     primaryKey,
     caseFolded: caseFoldedSortFields,
   })
@@ -240,25 +243,30 @@ const toGroupRow = (
 })
 
 const runGroupsInTx = (
-  tx: Readonly<DrizzleTransaction>,
+  tx: Readonly<PortableTx>,
+  dialect: Dialect,
   config: GroupedAggregationConfig,
   onFailure: (error: unknown) => DatabaseError
 ): Effect.Effect<readonly (readonly GroupedAggregationRow[])[], TableReadError> =>
   Effect.gen(function* () {
-    const hasDeletedAt = yield* checkDeletedAtColumn(tx, config.tableName)
-    const whereClause = yield* whereClauseOf(
-      config.tableName,
+    const hasDeletedAt = yield* checkDeletedAtColumn({ runner: tx, dialect }, config.tableName)
+    const whereClause = yield* whereClauseOf(dialect.kind, config.tableName, {
       hasDeletedAt,
-      config.includeDeleted,
-      config.filter
+      includeDeleted: config.includeDeleted,
+      filter: config.filter,
+    })
+    const relation = yield* maskedRelation(
+      { runner: tx, dialect },
+      config.tableName,
+      config.lookupMasks
     )
-    const relation = yield* maskedRelation(tx, config.tableName, config.lookupMasks)
-    const source = groupSource(relation, whereClause, config)
+    const source = groupSource(dialect, relation, whereClause, config)
     return yield* Effect.forEach(
       config.levels.map((_, index) => index + 1),
       (depth) =>
         Effect.tryPromise({
-          try: () => typedExecute(tx, groupStatement(source, config, depth)),
+          try: () =>
+            executeRawTypedOn(dialect.kind, tx, groupStatement(dialect, source, config, depth)),
           catch: onFailure,
         }).pipe(Effect.map((rows) => rows.map((row) => toGroupRow(row, depth, config.aggregate))))
     )
@@ -274,12 +282,14 @@ const runGroupsInTx = (
  * and `pagination.total` describe.
  */
 export function computeGroupedAggregations(
+  db: PortableDb,
+  dialect: Dialect,
   config: GroupedAggregationConfig
 ): Effect.Effect<readonly (readonly GroupedAggregationRow[])[], TableReadError> {
   const onFailure = wrapDatabaseError(`Failed to group records of ${config.tableName}`)
   return traceDbQuery(
     'select',
     config.tableName,
-    withTransaction(db, (tx) => runGroupsInTx(tx, config, onFailure), onFailure)
+    withTransaction(db, (tx) => runGroupsInTx(tx, dialect, config, onFailure), onFailure)
   )
 }

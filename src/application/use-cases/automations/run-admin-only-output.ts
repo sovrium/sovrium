@@ -29,6 +29,7 @@
  * tools — strips alike.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
 import type { App } from '@/domain/models/app'
 
@@ -43,9 +44,6 @@ const MCP_ACTION_RUN_PREFIX = 'mcp-action:'
 
 /** The output key each instance operator keeps for an admin-equivalent reader. */
 const ADMIN_ONLY_KEY: Readonly<Record<string, string>> = { health: 'journal', logs: 'lines' }
-
-const isObject = (value: unknown): value is Json =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The action tree a run of `automationName` executes, `$ref` templates expanded. */
 const actionTreeOf = (app: App, automationName: string): unknown => {
@@ -65,7 +63,7 @@ const actionTreeOf = (app: App, automationName: string): unknown => {
  */
 const adminOnlyEntries = (node: unknown): ReadonlyArray<readonly [string, string]> => {
   if (Array.isArray(node)) return node.flatMap(adminOnlyEntries)
-  if (!isObject(node)) return []
+  if (!isRecord(node)) return []
   const { type, operator, name } = node
   const key =
     type === 'instance' && typeof operator === 'string' ? ADMIN_ONLY_KEY[operator] : undefined
@@ -94,7 +92,7 @@ export const adminOnlyKeyOfStep = (
 
 /** `output` without `key`, or `output` itself when it does not carry it. */
 const withoutKey = (output: unknown, key: string | undefined): unknown => {
-  if (key === undefined || !isObject(output) || !(key in output)) return output
+  if (key === undefined || !isRecord(output) || !(key in output)) return output
   return Object.fromEntries(Object.entries(output).filter(([name]) => name !== key))
 }
 
@@ -131,7 +129,7 @@ const paintText = (text: string, forms: readonly string[]): string =>
 const paintOver = (value: unknown, forms: readonly string[]): unknown => {
   if (typeof value === 'string') return paintText(value, forms)
   if (Array.isArray(value)) return value.map((item) => paintOver(item, forms))
-  if (!isObject(value)) return value
+  if (!isRecord(value)) return value
   return Object.fromEntries(Object.entries(value).map(([key, v]) => [key, paintOver(v, forms)]))
 }
 
@@ -152,7 +150,7 @@ const linesOfSteps = (
 ): readonly string[] =>
   steps.flatMap((step) => {
     const key = keys.get(step.name)
-    const own = key !== undefined && isObject(step.output) ? linesOf(step.output[key]) : []
+    const own = key !== undefined && isRecord(step.output) ? linesOf(step.output[key]) : []
     const inner = [...(step.paths ?? []), ...(step.iterations ?? [])].flatMap((run) =>
       linesOfSteps(keys, run.steps)
     )
@@ -173,7 +171,7 @@ export const adminOnlyLinesOfSteps = (
 const paintLogs = (logs: unknown, forms: readonly string[]): unknown =>
   Array.isArray(logs)
     ? logs.map((entry) =>
-        isObject(entry) && typeof entry['message'] === 'string'
+        isRecord(entry) && typeof entry['message'] === 'string'
           ? { ...entry, message: paintText(entry['message'], forms) }
           : entry
       )
@@ -272,13 +270,13 @@ export const lastOutputWithoutAdminOnlyLines = (
   input: { readonly actions: Readonly<Record<string, unknown>>; readonly output: unknown }
 ): unknown => {
   const { actions, output } = input
-  if (!isObject(output)) return output
+  if (!isRecord(output)) return output
   const keys = adminOnlyKeysOf(app, automationName)
   const writerOf = (key: string): string | undefined =>
     Object.keys(actions)
       .filter((stepName) => {
         const stepOutput = actions[stepName]
-        return isObject(stepOutput) && key in stepOutput
+        return isRecord(stepOutput) && key in stepOutput
       })
       .at(-1)
   const dropped = Object.values(ADMIN_ONLY_KEY).filter((key) => {

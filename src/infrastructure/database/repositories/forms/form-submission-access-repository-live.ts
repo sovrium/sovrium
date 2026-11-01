@@ -7,12 +7,11 @@
 
 import { and, eq, isNull, lt, notInArray } from 'drizzle-orm'
 import { FormSubmissionDatabaseError } from '@/application/ports/repositories/forms/form-submission-repository'
-import { db } from '@/infrastructure/database'
 import { formSubmissionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { inReadWriteTransaction } from '@/infrastructure/database/read-write-sweep'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import type { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
+import type { DatabaseService, MembersOverDatabase } from '@/infrastructure/database/drizzle/layer'
 
 /** Wrap a DB promise, adapting failures to FormSubmissionDatabaseError. */
 const wrap = makeDbWrap((cause) => new FormSubmissionDatabaseError({ cause }))
@@ -29,78 +28,16 @@ const readStoredData = (value: unknown): Record<string, unknown> => {
 }
 
 /**
- * The ledger queries behind a form's private links — a draft's resume link
- * (`saveAndResume`) and a submission's edit link (`editAfterSubmit`): reach a
- * row by the digest of its token, rewrite its answers, and delete the drafts
- * nobody can reopen. Spread into `FormSubmissionRepositoryLive`.
+ * The two draft sweeps open their transaction READ WRITE (`read-write-sweep.ts`)
+ * on the service's client: the hourly sweep must keep deleting on a managed
+ * PostgreSQL that has gone read-only for lack of disk.
  */
-export const FormSubmissionAccessQueries: Pick<
-  FormSubmissionRepository['Service'],
-  | 'setAccessTokenHash'
-  | 'findByAccessToken'
-  | 'deleteById'
-  | 'deleteDraftsSavedBefore'
-  | 'deleteDraftsOutside'
-  | 'updateData'
-> = {
-  setAccessTokenHash: ({ id, accessTokenHash }) =>
-    wrap(() => {
-      const submissions = formSubmissionsTable()
-      return db
-        .update(submissions)
-        .set({ accessTokenHash })
-        .where(eq(submissions.id, id))
-        .then(() => undefined)
-    }),
-
-  findByAccessToken: ({ formName, accessTokenHash }) =>
+const deleteDraftsSavedBefore =
+  (database: DatabaseService): FormSubmissionRepository['Service']['deleteDraftsSavedBefore'] =>
+  ({ formName, savedBefore }) =>
     wrap(async () => {
       const submissions = formSubmissionsTable()
-      const [row] = await db
-        .select({
-          id: submissions.id,
-          status: submissions.status,
-          data: submissions.data,
-          submittedAt: submissions.submittedAt,
-          linkedRecordId: submissions.linkedRecordId,
-          submitterUserId: submissions.submitterUserId,
-        })
-        .from(submissions)
-        .where(
-          and(
-            eq(submissions.formName, formName),
-            eq(submissions.accessTokenHash, accessTokenHash),
-            isNull(submissions.deletedAt)
-          )
-        )
-        .limit(1)
-      if (row === undefined) return undefined
-      return {
-        id: row.id,
-        status: row.status ?? '',
-        data: readStoredData(row.data),
-        submittedAt: new Date(row.submittedAt),
-        linkedRecordId: row.linkedRecordId ?? null,
-        submitterUserId: row.submitterUserId ?? null,
-      }
-    }),
-
-  deleteById: ({ id }) =>
-    wrap(() => {
-      const submissions = formSubmissionsTable()
-      return db
-        .delete(submissions)
-        .where(eq(submissions.id, id))
-        .then(() => undefined)
-    }),
-
-  // The two sweep deletes open their transaction READ WRITE
-  // (`read-write-sweep.ts`): the hourly draft sweep must keep deleting on a
-  // managed PostgreSQL that has gone read-only for lack of disk.
-  deleteDraftsSavedBefore: ({ formName, savedBefore }) =>
-    wrap(async () => {
-      const submissions = formSubmissionsTable()
-      const removed = await inReadWriteTransaction((tx) =>
+      const removed = await inReadWriteTransaction(database, (tx) =>
         tx
           .delete(submissions)
           .where(
@@ -113,13 +50,15 @@ export const FormSubmissionAccessQueries: Pick<
           .returning({ id: submissions.id })
       )
       return removed.length
-    }),
+    })
 
-  deleteDraftsOutside: ({ formNames }) =>
+const deleteDraftsOutside =
+  (database: DatabaseService): FormSubmissionRepository['Service']['deleteDraftsOutside'] =>
+  ({ formNames }) =>
     wrap(async () => {
       const submissions = formSubmissionsTable()
       const drafts = eq(submissions.status, 'draft')
-      const removed = await inReadWriteTransaction((tx) =>
+      const removed = await inReadWriteTransaction(database, (tx) =>
         tx
           .delete(submissions)
           .where(
@@ -130,15 +69,94 @@ export const FormSubmissionAccessQueries: Pick<
           .returning({ id: submissions.id })
       )
       return removed.length
-    }),
+    })
 
-  updateData: ({ id, data }) =>
-    wrap(() => {
-      const submissions = formSubmissionsTable()
-      return db
-        .update(submissions)
-        .set({ data: jsonbLiteral(data) })
-        .where(eq(submissions.id, id))
-        .then(() => undefined)
-    }),
+/**
+ * The ledger queries behind a form's private links — a draft's resume link
+ * (`saveAndResume`) and a submission's edit link (`editAfterSubmit`): reach a
+ * row by the digest of its token, rewrite its answers, and delete the drafts
+ * nobody can reopen. Each is built over the `Database` service like the
+ * repository's own members, and spread into them.
+ */
+export const FormSubmissionAccessQueries: Pick<
+  MembersOverDatabase<typeof FormSubmissionRepository>,
+  | 'setAccessTokenHash'
+  | 'findByAccessToken'
+  | 'deleteById'
+  | 'deleteDraftsSavedBefore'
+  | 'deleteDraftsOutside'
+  | 'updateData'
+> = {
+  setAccessTokenHash:
+    (db) =>
+    ({ id, accessTokenHash }) =>
+      wrap(() => {
+        const submissions = formSubmissionsTable()
+        return db
+          .update(submissions)
+          .set({ accessTokenHash })
+          .where(eq(submissions.id, id))
+          .then(() => undefined)
+      }),
+
+  findByAccessToken:
+    (db) =>
+    ({ formName, accessTokenHash }) =>
+      wrap(async () => {
+        const submissions = formSubmissionsTable()
+        const [row] = await db
+          .select({
+            id: submissions.id,
+            status: submissions.status,
+            data: submissions.data,
+            submittedAt: submissions.submittedAt,
+            linkedRecordId: submissions.linkedRecordId,
+            submitterUserId: submissions.submitterUserId,
+          })
+          .from(submissions)
+          .where(
+            and(
+              eq(submissions.formName, formName),
+              eq(submissions.accessTokenHash, accessTokenHash),
+              isNull(submissions.deletedAt)
+            )
+          )
+          .limit(1)
+        if (row === undefined) return undefined
+        return {
+          id: row.id,
+          status: row.status ?? '',
+          data: readStoredData(row.data),
+          submittedAt: new Date(row.submittedAt),
+          linkedRecordId: row.linkedRecordId ?? null,
+          submitterUserId: row.submitterUserId ?? null,
+        }
+      }),
+
+  deleteById:
+    (db) =>
+    ({ id }) =>
+      wrap(() => {
+        const submissions = formSubmissionsTable()
+        return db
+          .delete(submissions)
+          .where(eq(submissions.id, id))
+          .then(() => undefined)
+      }),
+
+  deleteDraftsSavedBefore: (client, dialect) => deleteDraftsSavedBefore({ client, dialect }),
+
+  deleteDraftsOutside: (client, dialect) => deleteDraftsOutside({ client, dialect }),
+
+  updateData:
+    (db, dialect) =>
+    ({ id, data }) =>
+      wrap(() => {
+        const submissions = formSubmissionsTable()
+        return db
+          .update(submissions)
+          .set({ data: dialect.sql.bindJsonb(data) })
+          .where(eq(submissions.id, id))
+          .then(() => undefined)
+      }),
 }

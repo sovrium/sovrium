@@ -6,7 +6,8 @@
  */
 
 import { Dialog } from '@base-ui/react/dialog'
-import { useEffect, useId, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useId, useState } from 'react'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
   computeDialogCloseClasses,
@@ -18,8 +19,9 @@ import { OverlayCloseGlyph } from '@/presentation/design/overlay-close-glyph'
 import {
   resolveSessionTemplate,
   restoreInertTemplateValue,
-  type SessionUser,
 } from '@/presentation/design/session-template'
+import { nullable, READ_ONCE_QUERY_OPTIONS } from '../runtime/query-client'
+import { fetchSessionUser } from '../runtime/session-resolver'
 import type { ReactElement } from 'react'
 
 /**
@@ -28,17 +30,18 @@ import type { ReactElement } from 'react'
  * carry one reader's email to the next. `$record.` tokens arrive resolved and
  * inert, so a record value is typed as stored and never read as a token.
  * Until the session answers, the text is `undefined` and confirm stays locked.
+ * The read is the page's shared `['session-user']` query, the one the
+ * type-to-confirm gate (`confirm-gate-texts.ts`) asks too, so a page with both
+ * asks once.
  */
 function useExpectedText(confirmText: string | undefined): string | undefined {
   const bound = confirmText?.includes('$session.') === true
-  const [user, setUser] = useState<SessionUser | null | undefined>(bound ? undefined : null)
-  useEffect(() => {
-    if (!bound) return
-    void fetch('/api/auth/get-session', { credentials: 'include' })
-      .then(async (res) => (res.ok ? ((await res.json()) as { user?: SessionUser }) : undefined))
-      .then((body) => setUser(body?.user ?? null))
-      .catch(() => setUser(null))
-  }, [bound])
+  const { data: user } = useQuery({
+    queryKey: ['session-user'],
+    queryFn: nullable(fetchSessionUser),
+    enabled: bound,
+    ...READ_ONCE_QUERY_OPTIONS,
+  })
   if (confirmText === undefined) return undefined
   if (!bound) return restoreInertTemplateValue(confirmText)
   if (user === undefined) return undefined

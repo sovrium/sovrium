@@ -301,9 +301,6 @@ export const serializeBoardNodes = (nodes: readonly HtmlNode[]): string =>
     text.replaceAll(/\{(?=\{)/g, '{<!---->')
   )
 
-export const escapeText = (text: string): string =>
-  text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-
 /** The https origins of the images a board draws, which its policy lets it load. */
 export const imageOriginsOf = (body: string): readonly string[] => [
   ...new Set(

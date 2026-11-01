@@ -28,15 +28,15 @@ Cookie: <session>
 | `contentType` | no       | any type the bucket accepts | Enforced on the write; refused at signing (`400`) when the bucket's `allowedMimeTypes` does not list it                         |
 | `maxSize`     | no       | 10 MB                       | A byte ceiling, enforced on the write; never above the bucket's own cap                                                         |
 
-Unlike a download token, an upload token does **not** require the file to exist — that is the point. It requires the opposite: signing for a path that already holds a file is refused with `409`, and no URL is handed out. A signed upload writes a new file; replacing one goes through the upload route, where the file's owner is checked. The `signUpload` permission gates who may mint one, and it defaults to admin-only (the built-in `admin` and the app's highest role).
+Unlike a download token, an upload token does **not** require the file to exist; that is the point. It requires the opposite: signing for a path that already holds a file is refused with `409`, and no URL is handed out. A signed upload writes a new file; replacing one goes through the upload route, where the file's owner is checked. The `signUpload` permission gates who may mint one, and it defaults to admin-only (the built-in `admin` and the app's highest role).
 
 ### The bucket's rules bind the permit
 
 The caller asking for a permit may narrow the bucket's rules, never widen them:
 
-- **Size.** The bound ceiling is the smaller of what was asked (10 MB when nothing is) and the bucket's effective cap — its `maxFileSize`, else `STORAGE_MAX_FILE_SIZE`, else 100 MB. Asking for more than the bucket allows yields a permit for what the bucket allows.
+- **Size.** The bound ceiling is the smaller of what was asked (10 MB when nothing is) and the bucket's effective cap: its `maxFileSize`, else `STORAGE_MAX_FILE_SIZE`, else 100 MB. Asking for more than the bucket allows yields a permit for what the bucket allows.
 - **Type.** A `contentType` the bucket's `allowedMimeTypes` does not list is refused at signing. A permit signed with no type accepts only the types the bucket lists (any type when it lists none).
-- **Uploader.** The file is recorded as uploaded by the person who signed the permit — the write itself carries no session — so it is theirs to delete, and erasure of their account removes it.
+- **Uploader.** The file is recorded as uploaded by the person who signed the permit (the write itself carries no session), so it is theirs to delete, and erasure of their account removes it.
 
 ### The constraints are signed
 
@@ -60,7 +60,7 @@ That holds within one bucket only. A permit minted on one bucket cannot write a 
 
 Anyone holding the URL can write those bytes until it expires. Ten minutes is generous for a form submission; an hour is already a long time for a permit nobody can revoke.
 
-Always set the content type and the size ceiling explicitly rather than accepting "any type, ten megabytes" — those two are what keep a leaked permit from becoming an arbitrary write.
+Always set the content type and the size ceiling explicitly rather than accepting "any type, ten megabytes". Those two are what keep a leaked permit from becoming an arbitrary write.
 
 ## Batch signing
 
@@ -92,6 +92,6 @@ Each entry is judged by the same grants as the single form: a download entry nee
 
 An upload entry takes the same `contentType` and `maxSize` fields as a single upload request, with the same defaults and the same bucket rules: the size is clamped to the bucket's cap, a type the bucket does not accept fails the whole request with `400`, and an entry whose path already holds a file comes back with `error: 'conflict'` instead of a URL.
 
-A download entry whose file is missing comes back with an error **instead of failing the batch** — a gallery with one dead reference still renders the other ninety-nine.
+A download entry whose file is missing comes back with an error **instead of failing the batch**: a gallery with one dead reference still renders the other ninety-nine.
 
-A few things do fail the whole request, and sign nothing: more than a hundred entries, an entry that names no path (or a path that is not text, answered `400` with `Missing path` as the single form answers it), an upload entry whose path breaks the explicit-path rules, and any single out-of-range lifetime or size limit. The asymmetry is intentional — a missing file is a data condition you can render around, while a malformed entry is a bug in the caller.
+A few things do fail the whole request, and sign nothing: more than a hundred entries, an entry that names no path (or a path that is not text, answered `400` with `Missing path` as the single form answers it), an upload entry whose path breaks the explicit-path rules, and any single out-of-range lifetime or size limit. The asymmetry is intentional: a missing file is a data condition you can render around, while a malformed entry is a bug in the caller.

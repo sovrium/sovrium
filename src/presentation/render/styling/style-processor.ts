@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveGalleryAspectRatio } from '@/presentation/design/gallery-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   isCssProperty,
@@ -105,6 +106,10 @@ function withoutAttributeSize(
 const isPositiveNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value > 0
 
+/** An `aspect-*` class, under a breakpoint prefix or not, is the author's own shape. */
+const hasAspectClass = (className: unknown): boolean =>
+  typeof className === 'string' && /(^|[\s:])aspect-/.test(className)
+
 /**
  * The attributes alone map to `aspect-ratio: auto w / h`, where `auto` hands
  * the ratio to the file once it loads: a logo declared 160 × 58 drawn from a
@@ -120,8 +125,27 @@ function declaredImageRatio(
   if (type !== 'image' || props === undefined) return undefined
   const { width, height, className } = props
   if (!isPositiveNumber(width) || !isPositiveNumber(height)) return undefined
-  if (typeof className === 'string' && /(^|[\s:])aspect-/.test(className)) return undefined
+  if (hasAspectClass(className)) return undefined
   return { aspectRatio: `${width} / ${height}` }
+}
+
+/**
+ * `props.aspectRatio` on a `video` or an `iframe`, written `width:height`: the
+ * box holds that shape before anything has loaded, so the page does not shift
+ * when the poster, the first frame or the embed arrives. It is a default, like
+ * the ratio above: an `aspect-*` class or an `aspectRatio` in the style wins.
+ * A value that is not two positive numbers sets nothing, so no invalid
+ * declaration ever reaches the markup.
+ */
+function declaredMediaRatio(
+  type: Component['type'],
+  props: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  if ((type !== 'video' && type !== 'iframe') || props === undefined) return undefined
+  const { aspectRatio, className } = props
+  if (typeof aspectRatio !== 'string' || hasAspectClass(className)) return undefined
+  const ratio = resolveGalleryAspectRatio(aspectRatio)
+  return ratio === undefined ? undefined : { aspectRatio: ratio }
 }
 
 /**
@@ -188,7 +212,7 @@ function buildButtonModifierClasses(
   variant: string | undefined,
   size: string | undefined
 ): { variantClass: string | undefined; sizeClass: string | undefined } {
-  const isButton = type === 'button' || type === 'btn'
+  const isButton = type === 'button'
   return {
     variantClass: isButton && variant && variant !== 'default' ? `btn-${variant}` : undefined,
     sizeClass: isButton && size && size !== 'default' ? `btn-${size}` : undefined,
@@ -273,7 +297,7 @@ export function processComponentStyle(
   props?: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined {
   const parsedStyle = parseComponentStyle(styleValue, withoutAttributeSize(type, props))
-  const declaredRatio = declaredImageRatio(type, props)
+  const declaredRatio = declaredImageRatio(type, props) ?? declaredMediaRatio(type, props)
   const baseStyle = declaredRatio ? { ...declaredRatio, ...parsedStyle } : parsedStyle
   const styleWithAnimations = applyComponentAnimations(type, baseStyle, design)
   return applyComponentShadow(type, styleWithAnimations, design)

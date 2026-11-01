@@ -23,7 +23,11 @@ import { parsePositiveIntEnv } from '@/domain/models/process-env/positive-int-en
  *   no more than the limit.
  */
 
-/** The JSON API body limit when `API_BODY_LIMIT_BYTES` is unset (25 MiB). */
+/**
+ * The ingest body limit when `API_BODY_LIMIT_BYTES` is unset (25 MiB) — larger
+ * than the 1 MiB every other `/api/*` route gets, since an envelope carries
+ * attachments.
+ */
 const DEFAULT_BODY_LIMIT_BYTES = 25 * 1024 * 1024
 
 /** `API_BODY_LIMIT_BYTES`, or 25 MiB. */

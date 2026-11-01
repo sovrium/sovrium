@@ -10,9 +10,9 @@
  *
  * Backs three endpoints:
  *
- *   - `GET  /api/admin/automations`              → {@link BuildAutomationsCatalog}
- *   - `POST /api/admin/automations/:name/pause`  → {@link PauseAutomation}
- *   - `POST /api/admin/automations/:name/resume` → {@link ResumeAutomation}
+ *   - `GET  /api/admin/automations`              → {@link buildAutomationsCatalog}
+ *   - `POST /api/admin/automations/:name/pause`  → {@link pauseAutomation}
+ *   - `POST /api/admin/automations/:name/resume` → {@link resumeAutomation}
  *
  * The catalog enumerates CONFIG, not runtime history — it is bounded by the app
  * file and therefore uncursored, unlike the cursor-paginated
@@ -27,6 +27,7 @@
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { triggerEntryLabel } from '@/application/use-cases/admin/automations-run-labels'
 import { deliverAutomationNotice } from '@/application/use-cases/automations/automation-notice'
 import { formatDayRelativeTime } from '@/domain/kernel/format/day-relative-time'
@@ -36,8 +37,8 @@ import { resolveAutomationOperationalState } from '@/domain/models/app/automatio
 import { describeTriggerChoice } from '@/domain/models/app/automations/trigger-description-service'
 import { firstTrigger } from '@/domain/models/app/automations/trigger-entries-service'
 import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { logError } from '@/infrastructure/logging/logger'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 import type {
   AutomationPauseDatabaseError,
@@ -93,19 +94,36 @@ const consoleLocaleOf = (app: App, language: ConsoleLanguage): string =>
   CONSOLE_LOCALE[language]
 
 /**
+ * How a catalog row is read: the operator's console language, and the
+ * operator timezone (`SOVRIUM_TIMEZONE`) its pause moment is shown in.
+ */
+interface CatalogReading {
+  readonly language: ConsoleLanguage
+  readonly operatorTimezone: string
+}
+
+/** The reading of a catalog in `language`, the operator timezone read from the environment port. */
+const catalogReading = (language: ConsoleLanguage): Effect.Effect<CatalogReading> =>
+  Effect.map(ProcessEnv, (env) => ({
+    language,
+    operatorTimezone: parseSovriumTimezone(env).zoneId,
+  }))
+
+/**
  * A pause as one reading — who, then when: `Camille Martin · 9 Oct, 10:12`, or
  * `System · Today 16:40` for a pause the platform set itself (a pause with a
  * `reason`). The moment reads as the run history's Started column reads an
  * instant (`day-relative-time`), on the operator's wall clock, in the app's
  * region, with "today" read on the server's timeline.
  */
-const pausedLabelOf = (app: App, pause: AutomationPauseRow, language: ConsoleLanguage): string => {
+const pausedLabelOf = (app: App, pause: AutomationPauseRow, reading: CatalogReading): string => {
+  const { language } = reading
   const words = PAUSE_ACTOR_WORDS[language]
   const actor = pause.reason === null ? (pause.pausedBy ?? words.unknown) : words.system
   const stamp = formatDayRelativeTime(
     toIso(pause.pausedAt),
     usableLocale(consoleLocaleOf(app, language)),
-    resolveOperatorTimezone(),
+    reading.operatorTimezone,
     onDevTimeline()
   )
   return `${actor} · ${stamp}`
@@ -125,8 +143,9 @@ const buildItem = (
   app: App,
   automation: App['automations'] extends readonly (infer T)[] | undefined ? T : never,
   pauses: ReadonlyMap<string, AutomationPauseRow>,
-  language: ConsoleLanguage
+  reading: CatalogReading
 ): Readonly<AutomationCatalogItem> => {
+  const { language } = reading
   const state = resolveAutomationOperationalState(automation, new Set(pauses.keys()))
   const pause = state === 'paused' ? pauses.get(automation.name) : undefined
   return {
@@ -143,7 +162,7 @@ const buildItem = (
     })),
     state,
     // One reading of the pause for the console's Paused column; null when running.
-    pausedLabel: pause === undefined ? null : pausedLabelOf(app, pause, language),
+    pausedLabel: pause === undefined ? null : pausedLabelOf(app, pause, reading),
     ...(pause === undefined
       ? {}
       : {
@@ -183,7 +202,7 @@ const distinctTriggerNames = (
  * they are reading alongside the console. Re-sorting would make the two
  * disagree.
  */
-export const BuildAutomationsCatalog = (
+export const buildAutomationsCatalog = (
   app: App,
   language: ConsoleLanguage
 ): Effect.Effect<
@@ -194,8 +213,9 @@ export const BuildAutomationsCatalog = (
   Effect.gen(function* () {
     const repository = yield* AutomationPauseRepository
     const pauses = indexPauses(yield* repository.listPauses)
+    const reading = yield* catalogReading(language)
     const items = (app.automations ?? []).map((automation) =>
-      buildItem(app, automation, pauses, language)
+      buildItem(app, automation, pauses, reading)
     )
     return { items, triggerNames: distinctTriggerNames(items, language) }
   }).pipe(Effect.withSpan('admin.build-automations-catalog'))
@@ -258,7 +278,7 @@ const runMutation = (
 
     const pauses = indexPauses(yield* repository.listPauses)
     // The response projects no trigger reading, so its language is moot.
-    const body = buildItem(app, automation, pauses, 'en')
+    const body = buildItem(app, automation, pauses, yield* catalogReading('en'))
     return { outcome: { _tag: 'Ok', body }, changed } as const
   })
 
@@ -322,7 +342,7 @@ const mutateAndAnnounce = (
   })
 
 /** Stop new runs of `name`. Idempotent; a second pause keeps the first's `pausedAt`. */
-export const PauseAutomation = (
+export const pauseAutomation = (
   app: App,
   name: string,
   pausedByUserId: string | undefined
@@ -336,7 +356,7 @@ export const PauseAutomation = (
   ).pipe(Effect.withSpan('admin.pause-automation'))
 
 /** Allow new runs of `name` again. Idempotent; resuming an active automation succeeds. */
-export const ResumeAutomation = (
+export const resumeAutomation = (
   app: App,
   name: string,
   resumedByUserId: string | undefined

@@ -19,11 +19,11 @@ import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { seedTablesOf } from '@/application/use-cases/seed/seed-config'
 import { checkTranslatableValues } from '@/application/use-cases/seed/seed-translatable'
+import { loadSeedFiles } from '@/cli/commands/seed/load'
 import {
   declaresTranslatable,
   recordLanguageOrder,
 } from '@/domain/models/app/tables/translatable-field-service'
-import { loadSeedFiles } from './seed-load'
 import type { App } from '@/domain/models/app'
 
 /**

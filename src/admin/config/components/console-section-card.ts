@@ -29,12 +29,9 @@
 // ── From sectionCardCopy ───────────────────────────────────────────────────────
 /** One of dashboard-01's section cards: the metric as the card's title, a footer line. */
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consoleSectionCard = {
+export const consoleSectionCard: TemplateEncoded = {
   name: 'console-section-card',
   type: 'card',
   render: 'transparent',
@@ -50,6 +47,9 @@ export const consoleSectionCard = {
     kpiFormat: {
       kind: 'json',
     },
+    description: {
+      kind: 'text',
+    },
     footer: {
       kind: 'json',
     },
@@ -61,6 +61,7 @@ export const consoleSectionCard = {
       label: '$label',
       dataSource: '$dataSource',
       kpiFormat: '$kpiFormat',
+      description: '$description',
       props: {
         className: 'border-0 bg-transparent p-0 shadow-none [--card-spacing:0px]!',
       },
@@ -69,4 +70,4 @@ export const consoleSectionCard = {
   props: {
     className: '*:data-[slot=card-footer]:flex-1 *:data-[slot=card-footer]:items-start',
   },
-} as unknown as Template
+}

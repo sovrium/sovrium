@@ -11,6 +11,7 @@ import { translateFormula } from './formula-translation'
 import { castFormulaDivisionOperands, getViewComputedFormulaFields } from './formula-utils'
 import type { NumericCastField } from './formula-numeric-cast'
 import type { Fields } from '@/domain/models/app/tables/fields'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /** A view field reduced to the shape the division-cast post-pass needs. */
 const toCastField = (field: Fields[number]): NumericCastField => ({
@@ -39,6 +40,7 @@ const toCastField = (field: Fields[number]): NumericCastField => ({
  * // -> 'computed.sum_heures + CAST(computed.sum_minutes AS REAL) / 60'
  */
 const qualifyViewFormula = (
+  dialect: DatabaseDialect,
   formula: string,
   allFields: readonly Fields[number][],
   cteAlias: string
@@ -49,7 +51,7 @@ const qualifyViewFormula = (
       return acc.replace(fieldRegex, `${cteAlias}.${field.name}`)
     }, code)
   )
-  return castFormulaDivisionOperands(qualified, allFields.map(toCastField), cteAlias)
+  return castFormulaDivisionOperands(dialect, qualified, allFields.map(toCastField), cteAlias)
 }
 
 /** Whether formula `a` references the field name of formula `b`. */
@@ -100,7 +102,8 @@ export type ViewFormulaLayer = {
  * Returns an empty array when the table has no view-computed formulas.
  */
 export const getViewFormulaLayers = (
-  allFields: readonly Fields[number][]
+  allFields: readonly Fields[number][],
+  dialect: DatabaseDialect
 ): readonly ViewFormulaLayer[] => {
   const viewComputedNames = getViewComputedFormulaFields(allFields)
   if (viewComputedNames.size === 0) return []
@@ -119,10 +122,10 @@ export const getViewFormulaLayers = (
     name: field.name,
     render: (previousAlias: string): string => {
       // Translate user-facing syntax (SUBSTR, date::TEXT, GREATEST/LEAST,
-      // reserved-word escaping) for the ACTIVE dialect, then qualify+cast
+      // reserved-word escaping) for `dialect`, then qualify+cast
       // references to the previous CTE alias.
-      const translated = translateFormula(field.formula, allFields)
-      const expression = qualifyViewFormula(translated, allFields, previousAlias)
+      const translated = translateFormula(dialect, field.formula, allFields)
+      const expression = qualifyViewFormula(dialect, translated, allFields, previousAlias)
       return `(${expression}) AS ${quoteSqlIdentifier(field.name)}`
     },
   }))

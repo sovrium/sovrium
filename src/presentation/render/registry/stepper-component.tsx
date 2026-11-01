@@ -35,20 +35,15 @@ import {
 } from '@/presentation/design/stepper-anatomy-classes'
 import { renderButton } from '@/presentation/render/elements/button-renderer'
 import { omitInternalMarkers } from '@/presentation/render/props/internal-marker-props'
+import { keyOf } from '@/presentation/render/resolve/component-rewrite'
 import { localizeChildLabel } from './island-child-label'
 import { stepRail, type StepperStep } from './stepper-rail'
 import type { ComponentRenderer } from './component-dispatch-config'
-import type { Component } from '@/domain/models/app/pages/components'
+import type { ComponentOfType } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
 
-/** The stepper's own root keys, narrowed off the ~60-branch component union. */
-interface StepperRoot {
-  readonly steps?: readonly StepperStep[]
-  readonly orientation?: 'horizontal' | 'vertical'
-  readonly linear?: boolean
-  readonly finishLabel?: string
-  readonly onFinish?: { readonly type?: string; readonly path?: string }
-}
+/** What the last step runs: the stepper's own `onFinish`, as its schema declares it. */
+type FinishAction = ComponentOfType<'stepper'>['onFinish']
 
 /** Past this many steps the rail compacts to "Step n of m" at every width. */
 const COMPACT_ABOVE = 5
@@ -62,18 +57,18 @@ const buttonProps = (variant: StepperButtonVariant) => ({
 })
 
 /** The button that runs `onFinish`, drawn by the button renderer itself. */
-function finishButton(root: StepperRoot, label: string): ReactElement {
-  const action = root.onFinish
+function finishButton(action: FinishAction, label: string): ReactElement {
+  // A `navigate` finish is a click that leaves; every other finish is the action the button runs.
+  const navigate = keyOf(action, 'type') === 'navigate'
+  const path = keyOf(action, 'path')
   const interactions =
-    action?.type === 'navigate' && typeof action.path === 'string'
-      ? { click: { navigate: action.path } }
-      : undefined
+    navigate && typeof path === 'string' ? { click: { navigate: path } } : undefined
   return renderButton({
     props: { type: 'button', ...buttonProps('default'), 'data-stepper-finish': '', hidden: true },
     content: label,
     children: [],
     interactions,
-    action: action?.type === 'navigate' ? undefined : (action as Component['action']),
+    action: navigate ? undefined : action,
   })
 }
 
@@ -155,12 +150,12 @@ function stepPanel(
 
 /** Back, Skip, Continue and the finish button, fitted to the first step. */
 function stepperFooter({
-  root,
+  onFinish,
   steps,
   finishLabel,
   part,
 }: {
-  readonly root: StepperRoot
+  readonly onFinish: FinishAction
   readonly steps: readonly StepperStep[]
   readonly finishLabel: string
   readonly part?: string
@@ -195,7 +190,7 @@ function stepperFooter({
       >
         Continue
       </button>
-      {finishButton(root, finishLabel)}
+      {finishButton(onFinish, finishLabel)}
     </div>
   )
 }
@@ -207,7 +202,18 @@ function stepperHostId(authored: unknown, steps: readonly StepperStep[]): string
     : `sv-stepper-${steps.map((step) => step.id).join('-')}`
 }
 
-export const stepperComponent: ComponentRenderer = ({
+/** The stepper's own options, read once, each with its default. */
+function stepperOptions(component: ComponentOfType<'stepper'> | undefined) {
+  return {
+    steps: component?.steps ?? [],
+    linear: component?.linear !== false,
+    vertical: component?.orientation === 'vertical',
+    finishLabel: component?.finishLabel ?? 'Finish',
+    onFinish: component?.onFinish,
+  }
+}
+
+export const stepperComponent: ComponentRenderer<'stepper'> = ({
   component,
   elementProps,
   renderedChildren,
@@ -215,10 +221,8 @@ export const stepperComponent: ComponentRenderer = ({
   languages,
   designStyles,
 }) => {
-  const root = (component ?? {}) as StepperRoot
-  const steps = (root.steps ?? []).map((step) => localizeStep(step, currentLang, languages))
-  const linear = root.linear !== false
-  const vertical = root.orientation === 'vertical'
+  const { linear, vertical, finishLabel, onFinish, ...options } = stepperOptions(component)
+  const steps = options.steps.map((step) => localizeStep(step, currentLang, languages))
   const compactOnly = steps.length > COMPACT_ABOVE
   const parts = designStyles?.parts ?? {}
   const { 'aria-label': ariaLabel, ...hostProps } = omitInternalMarkers(elementProps)
@@ -244,9 +248,9 @@ export const stepperComponent: ComponentRenderer = ({
           stepPanel(step, index, renderedChildren[index], parts['panel'])
         )}
         {stepperFooter({
-          root,
+          onFinish,
           steps,
-          finishLabel: localizeChildLabel(root.finishLabel ?? 'Finish', currentLang, languages),
+          finishLabel: localizeChildLabel(finishLabel, currentLang, languages),
           part: parts['footer'],
         })}
       </div>

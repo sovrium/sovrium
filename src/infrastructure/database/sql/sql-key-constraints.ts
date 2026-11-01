@@ -17,6 +17,7 @@ import {
 } from './sql-field-predicates'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Whether a field gets a plain btree `UNIQUE` table constraint.
@@ -247,15 +248,12 @@ const generateRelationshipConstraint = (
  */
 const USER_FIELD_ON_DELETE = ' ON DELETE SET NULL'
 
-/**
- * Generate FOREIGN KEY constraints for user fields, relationship fields, and composite foreign keys
- * Exported for use in migration system to sync FK constraints
- */
-export const generateForeignKeyConstraints = (
-  tableName: string,
-  fields: readonly Fields[number][],
-  tableUsesView?: ReadonlyMap<string, boolean>,
-  compositeForeignKeys?: readonly {
+/** The part of a table its foreign keys are generated from. */
+export interface ForeignKeyTable {
+  readonly name: string
+  readonly fields: readonly Fields[number][]
+  /** Composite foreign keys; absent when the caller reconciles single-column keys only. */
+  readonly foreignKeys?: readonly {
     readonly name: string
     readonly fields: readonly string[]
     readonly referencedTable: string
@@ -263,7 +261,18 @@ export const generateForeignKeyConstraints = (
     readonly onDelete?: string
     readonly onUpdate?: string
   }[]
+}
+
+/**
+ * Generate FOREIGN KEY constraints for user fields, relationship fields, and composite foreign keys
+ * Exported for use in migration system to sync FK constraints
+ */
+export const generateForeignKeyConstraints = (
+  dialect: DatabaseDialect,
+  table: ForeignKeyTable,
+  tableUsesView?: ReadonlyMap<string, boolean>
 ): readonly string[] => {
+  const { name: tableName, fields, foreignKeys: compositeForeignKeys } = table
   // Generate foreign keys for user fields (type: 'user')
   // References the Better Auth user table — `auth.user` on PostgreSQL (the
   // table lives in the dedicated `auth` schema), `auth_user` on SQLite (no
@@ -276,7 +285,7 @@ export const generateForeignKeyConstraints = (
   // right outcome — and it is what keeps an assigned account erasable at all.
   const userFieldConstraints = fields.filter(isSingleUser).map((field) => {
     const constraintName = `${tableConstraintPrefix(tableName)}_${field.name}_fkey`
-    return `CONSTRAINT ${constraintName} FOREIGN KEY (${quoteSqlIdentifier(field.name)}) REFERENCES ${qualifiedAuthTable('user')}(id)${USER_FIELD_ON_DELETE}`
+    return `CONSTRAINT ${constraintName} FOREIGN KEY (${quoteSqlIdentifier(field.name)}) REFERENCES ${qualifiedAuthTable(dialect, 'user')}(id)${USER_FIELD_ON_DELETE}`
   })
 
   // Generate foreign keys for relationship fields (type: 'relationship')

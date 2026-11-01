@@ -32,8 +32,8 @@
  */
 
 import { and, eq, inArray, like, lt, sql, type SQL } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /** The `storage_provider` prefix of a row whose bytes are not stored yet. */
 export const CLAIM_PROVIDER_PREFIX = 'claim:'
@@ -63,9 +63,13 @@ export const isClaim = (): SQL => {
 export const notClaimed = (): SQL => sql`not (${isClaim()})`
 
 /** Release every claim at `key` older than {@link CLAIM_STALE_AFTER_MS}, as of `nowMs`. */
-export const releaseStaleClaim = async (key: string, nowMs: number): Promise<void> => {
+export const releaseStaleClaim = async (
+  client: PortableDb,
+  key: string,
+  nowMs: number
+): Promise<void> => {
   const files = fileStorageMetadataTable()
-  await db
+  await client
     .delete(files)
     .where(
       and(
@@ -77,9 +81,9 @@ export const releaseStaleClaim = async (key: string, nowMs: number): Promise<voi
 }
 
 /** Whether the row at `key` is a claim that has not been settled. */
-export const isClaimed = async (key: string): Promise<boolean> => {
+export const isClaimed = async (client: PortableDb, key: string): Promise<boolean> => {
   const files = fileStorageMetadataTable()
-  const rows = await db
+  const rows = await client
     .select({ key: files.key })
     .from(files)
     .where(and(eq(files.key, key), isClaim()))
@@ -99,9 +103,9 @@ export interface CatalogClaim {
  * update matches the claim's own marker, so a claim released as stale and
  * taken again by another writer is never settled by this one.
  */
-export const settleClaim = async (claim: CatalogClaim): Promise<boolean> => {
+export const settleClaim = async (client: PortableDb, claim: CatalogClaim): Promise<boolean> => {
   const files = fileStorageMetadataTable()
-  const settled = await db
+  const settled = await client
     .update(files)
     .set({ storageProvider: claim.provider })
     .where(and(eq(files.key, claim.key), eq(files.storageProvider, claim.marker)))
@@ -110,9 +114,9 @@ export const settleClaim = async (claim: CatalogClaim): Promise<boolean> => {
 }
 
 /** Remove the claim, and only it: its bytes could not be stored. */
-export const releaseClaim = async (claim: CatalogClaim): Promise<void> => {
+export const releaseClaim = async (client: PortableDb, claim: CatalogClaim): Promise<void> => {
   const files = fileStorageMetadataTable()
-  await db
+  await client
     .delete(files)
     .where(and(eq(files.key, claim.key), eq(files.storageProvider, claim.marker)))
 }
@@ -121,9 +125,12 @@ export const releaseClaim = async (claim: CatalogClaim): Promise<void> => {
  * Remove the row a claim settled into: its bytes were staged but could not be
  * moved to the key, so the row would describe a file that is not there.
  */
-export const withdrawSettledClaim = async (claim: CatalogClaim): Promise<void> => {
+export const withdrawSettledClaim = async (
+  client: PortableDb,
+  claim: CatalogClaim
+): Promise<void> => {
   const files = fileStorageMetadataTable()
-  await db
+  await client
     .delete(files)
     .where(and(eq(files.key, claim.key), eq(files.storageProvider, claim.provider)))
 }
@@ -132,9 +139,12 @@ export const withdrawSettledClaim = async (claim: CatalogClaim): Promise<void> =
 const CLAIM_LOOKUP_CHUNK = 500
 
 /** The keys among `chunk` a claim holds. */
-const claimedAmong = async (chunk: readonly string[]): Promise<readonly string[]> => {
+const claimedAmong = async (
+  client: PortableDb,
+  chunk: readonly string[]
+): Promise<readonly string[]> => {
   const files = fileStorageMetadataTable()
-  const rows = await db
+  const rows = await client
     .select({ key: files.key })
     .from(files)
     .where(and(inArray(files.key, [...chunk]), isClaim()))
@@ -142,10 +152,15 @@ const claimedAmong = async (chunk: readonly string[]): Promise<readonly string[]
 }
 
 /** `keys` without the ones a claim holds: a listing names no file whose bytes are not stored. */
-export const withoutClaimedKeys = async (keys: readonly string[]): Promise<readonly string[]> => {
+export const withoutClaimedKeys = async (
+  client: PortableDb,
+  keys: readonly string[]
+): Promise<readonly string[]> => {
   const chunks = Array.from({ length: Math.ceil(keys.length / CLAIM_LOOKUP_CHUNK) }, (_, n) =>
     keys.slice(n * CLAIM_LOOKUP_CHUNK, (n + 1) * CLAIM_LOOKUP_CHUNK)
   )
-  const held = new Set((await Promise.all(chunks.map(claimedAmong))).flat())
+  const held = new Set(
+    (await Promise.all(chunks.map((chunk) => claimedAmong(client, chunk)))).flat()
+  )
   return held.size === 0 ? keys : keys.filter((key) => !held.has(key))
 }

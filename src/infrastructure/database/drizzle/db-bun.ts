@@ -5,20 +5,26 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { drizzle as drizzlePg } from 'drizzle-orm/bun-sql'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import {
+  ensurePrivateDirectory,
+  restrictSqliteFiles,
+} from '@/infrastructure/filesystem/private-modes'
 import { logError } from '@/infrastructure/logging/logger'
 import { recordDbQueryIssued } from '@/infrastructure/telemetry/db-query-counter'
+import { resetTableColumnCache } from '../sql/dialect-introspection'
 import { acceptsRuntimeSettings, postgresClientOptions } from '../sql/postgres-client-options'
 import { requestPoolSize } from '../sql/postgres-connection-budget'
 import { applySqlitePragmas } from '../sql/sqlite-pragmas'
 import { primeSqliteVec, resetSqliteVecCache } from '../sql/sqlite-vec-extension'
-import { UnsupportedInSqliteError } from '../unsupported-in-sqlite'
+import { setActiveDialectKind } from './active-dialect'
+import { isSqliteDialect, resetDialectCache } from './dialect-schema'
 import { makeSerializedSqliteClient } from './sqlite-serialized-client'
 import { refuseSharedDbInTransactionBody } from './transaction-body-guard'
+import type { PortableDb } from './portable-db'
 import type { Logger } from 'drizzle-orm'
 
 /**
@@ -43,56 +49,26 @@ import type { Logger } from 'drizzle-orm'
  *     when no `DATABASE_URL` is configured (the zero-config, frugal-by-default
  *     engine). WAL journaling, foreign-key enforcement, and a busy timeout are
  *     enabled before the Drizzle wrapper is built.
- *
- * The `db` proxy preserves the eager-import API (`import { db } from
- * '@/infrastructure/database'` keeps working) by deferring property access to
- * `getDb()` on every read. Better Auth's `drizzleAdapter` consumes `db` the
- * same way and continues to work unchanged.
  */
 
 /**
- * Public database facade.
- *
- * `DrizzleDB` is intentionally the PostgreSQL client type (`drizzle-orm/bun-sql`).
- * It is the canonical seam every `db` importer (~36 files) and the `Database`
- * Effect Context.Tag are typed against — the Postgres query-builder surface
- * (`select` / `insert` / `update` / `delete` / `transaction` / `query` / `$with`
- * / `with` / `execute`) is the contract repositories and CRUD code are written
- * to.
- *
- * In SQLite mode the runtime object is a drizzle SQLite client (async result
- * mode, transactions serialised — `sqlite-serialized-client.ts`). Its
- * query-builder surface is structurally compatible for the portable subset
- * (`select` / `insert` / `update` / `delete` / `transaction` / `query` / `$with`
- * / `with`), so it is cast to `DrizzleDB` at the seam inside `getDb()`. The two
- * genuinely Postgres-only members are raw `execute()` and the materialized-view
- * helper; SQLite callers must not reach them. New code that requires guaranteed
- * Postgres semantics uses `getPgDb()` (below), which throws on SQLite.
- *
- * ## No `schema` map, and why that is not a loss
- *
- * Drizzle v1 removed `schema` from every driver config outright
- * (`DrizzlePgConfig = Omit<DrizzleConfig, 'schema'>`), and the first type
- * parameter of `drizzle()` is now the RELATIONS config rather than the table
- * map — which is why `ReturnType<typeof drizzlePg<typeof schemaPg>>` stopped
- * type-checking rather than merely changing meaning. The table map only ever
- * powered the relational query builder (`db.query.*`), which this codebase has
- * never called: the surface every repository is written against (`select` /
- * `insert` / `update` / `delete` / `transaction` / `execute`) does not read it.
- * Nothing is given up. If RQB is ever wanted, v1 feeds it a `relations` object
- * built by `defineRelations` — a different artifact from the deleted
- * `relations()` graph, and not a revival of it.
+ * The handle of a built client, kept beside it because closing it is
+ * engine-specific and the portable surface names no driver.
  */
-export type DrizzleDB = ReturnType<typeof drizzlePg>
+interface BuiltClient {
+  readonly client: PortableDb
+  /** End the connections: finishes in-flight statements on PostgreSQL. Idempotent. */
+  readonly close: () => Promise<void> | void
+}
 
-let cached: DrizzleDB | undefined
+let cached: BuiltClient | undefined
 
 /**
  * The PostgreSQL URL of a `cached` pool built WITHOUT the runtime settings
  * (`postgres-client-options.ts`), because no probe had yet seen the database
  * accept them. The start probes before anything reads the database, so this
  * stays `undefined` on a normal boot; it is the safety net for a reader that
- * reaches `db` first. Once a probe accepts, the next `getDb()` rebuilds the
+ * reaches the client first. Once a probe accepts, the next `getDb()` rebuilds the
  * pool with the settings and CLOSES the early one: a second pool left open
  * would hold its connections on top of the instance's `DATABASE_POOL_MAX`.
  */
@@ -130,11 +106,11 @@ const countingLogger: Logger = {
  * The SQLite branch opens the `bun:sqlite` database (creating the file if it
  * does not exist), applies the standard production PRAGMAs, then wraps it with
  * the `bun-sqlite` Drizzle driver. The resulting client is cast to the
- * `DrizzleDB` facade — the query-builder surface used by every `db` consumer is
+ * `PortableDb` facade — the query-builder surface used by every `db` consumer is
  * structurally compatible across the two dialects.
  */
-const buildClient = (): DrizzleDB => {
-  const config = parseDatabaseDialectConfig()
+const buildClient = (): BuiltClient => {
+  const config = parseDatabaseDialectConfig(process.env)
 
   if (config.dialect === 'postgres') {
     // `max` is passed EXPLICITLY rather than left to bun:sql's implicit default,
@@ -176,7 +152,7 @@ const buildClient = (): DrizzleDB => {
     // by `rollup.spec.ts` ROLLUP-007 (`toBe('4')`) and by the `toFiniteCount` /
     // `Number()` coercions the read paths depend on.
     pg.$client.options.bigint = false
-    return pg
+    return { client: pg, close: () => pg.$client.close() }
   }
 
   // SQLite — open the file (create on first boot), then harden the connection.
@@ -185,7 +161,7 @@ const buildClient = (): DrizzleDB => {
   // the in-memory sentinel (no filesystem path).
   builtPoolSize = undefined
   if (config.path !== ':memory:') {
-    mkdirSync(dirname(config.path), { recursive: true })
+    ensurePrivateDirectory(dirname(config.path))
   }
   // Phase 2 RAG acceleration: when `RAG_SQLITE_VEC=on`, open the
   // sqlite-vec accelerated connection FIRST. `Database.setCustomSQLite` (needed
@@ -195,22 +171,25 @@ const buildClient = (): DrizzleDB => {
 
   primeSqliteVec(config.path)
   const client = new BunSqlite(config.path, { create: true })
+  // Private before the WAL switch below, so the journal SQLite creates there
+  // takes the same mode; a journal left by an earlier run is set after it.
+  if (config.path !== ':memory:') restrictSqliteFiles(config.path)
   // Foreign keys, WAL journaling and the busy timeout, from the one module that
   // spells them. A local copy is a trap: with `busy_timeout` LAST, the WAL
   // switch runs unprotected against the very lock the timeout exists for.
 
   applySqlitePragmas(client)
+  if (config.path !== ':memory:') restrictSqliteFiles(config.path)
 
   // Not the stock `drizzle-orm/bun-sqlite` client: its `transaction()` is
   // synchronous, so an async body committed at its first `await`. This client
   // opens transactions by hand and serialises them against every other
   // statement on the one shared connection — see `sqlite-serialized-client.ts`.
   const sqliteDb = makeSerializedSqliteClient(client, countingLogger)
-  // The SQLite client exposes the same portable query-builder surface
-  // (select/insert/update/delete/transaction/query/$with/with) the DrizzleDB
-  // facade contracts. Postgres-only members (execute, materialized views) are
-  // not reachable in SQLite mode — callers route through getPgDb() for those.
-  return sqliteDb as unknown as DrizzleDB
+  // The one place the portable claim is made for SQLite: its builders share the
+  // subset `PortableDb` names, but drizzle types them per dialect, so no
+  // assignment can state it. `schema-column-parity.test.ts` holds the tables.
+  return { client: sqliteDb as unknown as PortableDb, close: () => client.close() }
 }
 
 /**
@@ -221,18 +200,53 @@ const buildClient = (): DrizzleDB => {
  * and every connection is ended); both are idempotent. A failure to close is
  * logged and otherwise ignored: the client is already out of the memo, so the
  * caller has nothing left to act on, and the worst outcome is the leak this
- * close exists to prevent.
+ * close exists to prevent. The returned promise therefore never rejects.
  */
-const closeRetiredClient = (client: DrizzleDB): void => {
-  const handle: unknown = client.$client
+const closeRetiredClient = (built: BuiltClient): Promise<void> =>
   Promise.resolve()
-    .then(() => (handle instanceof BunSqlite ? handle.close() : client.$client.close()))
+    .then(built.close)
     .catch((cause: unknown) =>
       logError(
         '[database] could not close a database client dropped from the cache; its connections may stay open',
         cause
       )
     )
+
+/**
+ * How many times {@link resetDbCache} has retired the client. A layer acquired
+ * in an older generation (an in-process harness re-booting while the previous
+ * server still stops) releases nothing, rather than closing the NEXT server's.
+ */
+const generation = new Map<'count', number>([['count', 0]])
+
+/** The current client generation (see {@link resetDbCache}). */
+export const dbClientGeneration = (): number => generation.get('count') ?? 0
+
+/**
+ * Forget the client and every memo built beside it, handing back the client
+ * that was dropped so the caller decides how to close it.
+ */
+const forgetClient = (): BuiltClient | undefined => {
+  const retired = cached
+  cached = undefined
+  builtWithoutSettings = undefined
+  builtPoolSize = undefined
+  // The sqlite-vec acceleration, the table selectors' dialect and the column
+  // cache, in lock-step with the connection: a rebuilt one re-resolves them.
+  resetSqliteVecCache()
+  resetDialectCache()
+  resetTableColumnCache()
+  return retired
+}
+
+/**
+ * Close the client because the last `Database` layer holding it released, and
+ * WAIT for the close, so a stop ends with its connections ended. Unlike
+ * {@link resetDbCache} it starts no new generation. Never rejects.
+ */
+export const releaseDbClient = async (): Promise<void> => {
+  const retired = forgetClient()
+  if (retired !== undefined) await closeRetiredClient(retired)
 }
 
 /**
@@ -243,14 +257,15 @@ const closeRetiredClient = (client: DrizzleDB): void => {
  */
 export const hasBuiltDbClient = (): boolean => cached !== undefined
 
-export const getDb = (): DrizzleDB => {
+export const getDb = (): PortableDb => {
   if (cached !== undefined && !settingsArrivedSinceBuild() && !budgetChangedSinceBuild()) {
-    return cached
+    return cached.client
   }
   const retired = cached
-  cached = buildClient()
-  if (retired !== undefined) closeRetiredClient(retired)
-  return cached
+  const built = buildClient()
+  cached = built
+  if (retired !== undefined) void closeRetiredClient(retired)
+  return built.client
 }
 
 /**
@@ -266,10 +281,14 @@ export const getDb = (): DrizzleDB => {
  * doesn't evict it because it isn't a mock.
  *
  * Tests that pin `DATABASE_URL` to a dedicated file MUST call this in `beforeAll`
- * (after setting the env var, before the first `db`/`getDb()` access) so the
+ * (after setting the env var, before the first `getDb()` access) so the
  * client points at their database, and again in `afterAll` so they don't leave a
  * stale client pointing at a now-deleted temp file for the next test. Production
- * never calls this — the memo is built once at boot and reused.
+ * never calls this: there the running `Database` layer owns the client and
+ * closes it when the server stops (`database-lease.ts`).
+ *
+ * A reset starts a new client GENERATION: a layer acquired before it owns
+ * nothing any more, and its later release closes nothing.
  *
  * The dropped client is CLOSED, not merely forgotten. A process that boots the
  * server several times (an in-process test harness, one boot per story) would
@@ -282,59 +301,28 @@ export const getDb = (): DrizzleDB => {
  * @internal Test-isolation hook for the module-level memo.
  */
 export const resetDbCache = (): void => {
-  const retired = cached
-  cached = undefined
-  if (retired !== undefined) closeRetiredClient(retired)
-  builtWithoutSettings = undefined
-  builtPoolSize = undefined
-  // Keep the Phase 2 sqlite-vec acceleration memo in lock-step: a test that
-  // re-points DATABASE_URL / toggles `RAG_SQLITE_VEC` must re-resolve
-  // acceleration against the new connection rather than reuse a stale handle.
-  resetSqliteVecCache()
+  const retired = forgetClient()
+  generation.set('count', dbClientGeneration() + 1)
+  // The leases of the old generation own nothing now; the next one to be
+  // acquired publishes the dialect again.
+  setActiveDialectKind(undefined)
+  if (retired !== undefined) void closeRetiredClient(retired)
 }
 
 /**
- * Typed PostgreSQL escape hatch.
+ * A client forwarding every property read to the memoised one (built on first
+ * read), so a holder reaches a REBUILT pool instead of keeping a closed one.
+ * `assertUsable` runs first, so a released holder fails by name instead of
+ * quietly reopening a pool.
  *
- * Returns the `db` client typed as the full PostgreSQL `DrizzleDB`, and throws
- * when the active dialect is SQLite. Use this — not `db` directly — for raw
- * `execute(sql\`…\`)` and any other genuinely Postgres-only operation, so the
- * SQLite-degradation boundary is explicit at the call site.
- *
- * @public Forward-prep: the canonical typed boundary for Postgres-only raw SQL
- * (see the dual-dialect plan). The pre-existing Postgres-only `db.execute(…)`
- * callsites outside the dual-dialect feature scope (FTS, analytics, RAG,
- * bytea storage, MCP tools, GDPR account erasure) are the intended adoption
- * sites — each should migrate to `getPgDb()` so the
- * degradation boundary is explicit. Tracked as a follow-up, not part of this
- * branch's scope. Until then this export has no callers but is deliberately
- * retained as the public seam.
- *
- * @throws {UnsupportedInSqliteError} when the active dialect is SQLite
+ * @param assertUsable - throws when the holder may no longer reach the client
  */
-export const getPgDb = (): DrizzleDB => {
-  if (parseDatabaseDialectConfig().dialect !== 'postgres') {
-    throw new UnsupportedInSqliteError({
-      feature: 'raw-sql',
-      message:
-        'db.execute / raw SQL requires the PostgreSQL runtime. This operation is not available on the SQLite (zero-config) runtime.',
-    })
-  }
-  return getDb()
-}
-
-/** Whether the active runtime is SQLite — read only by the transaction-body guard. */
-const isSqliteDialect = (): boolean => parseDatabaseDialectConfig().dialect === 'sqlite'
-
-/**
- * Lazy proxy preserving the eager `db` import API across ~36 static importers.
- * Each property access defers to `getDb()`; subsequent accesses reuse the
- * cached client.
- */
-export const db: DrizzleDB = new Proxy({} as DrizzleDB, {
-  get: (_target, prop) => {
-    // A transaction body reaching the shared client would deadlock on SQLite.
-    refuseSharedDbInTransactionBody(isSqliteDialect)
-    return Reflect.get(getDb(), prop)
-  },
-})
+export const makeForwardingClient = (assertUsable: () => void): PortableDb =>
+  new Proxy({} as PortableDb, {
+    get: (_target, prop) => {
+      assertUsable()
+      // A transaction body reaching the shared client would deadlock on SQLite.
+      refuseSharedDbInTransactionBody(isSqliteDialect)
+      return Reflect.get(getDb(), prop)
+    },
+  })

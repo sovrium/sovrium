@@ -8,6 +8,7 @@
 import {
   resolveInterpreterString,
   resolveInterpreterStringOverrides,
+  resolveTranslationTokensDeep,
 } from '@/domain/models/app/languages/translation-resolver'
 import { callerTableOf, fieldEntriesForReader } from './caller-table-inputs'
 import { resolveRecordDrawerFields, type DerivedRecordField } from './resolve-record-drawer-fields'
@@ -139,13 +140,21 @@ function resolveRowExpandDrawerProps(params: {
   // The grid's reader is the drawer's: an entry she may not read is not named,
   // one she may not write is drawn as its value (`caller-table-inputs.ts`).
   const derived = fieldEntriesForReader(synthesized, table, callerTableOf(component ?? {}))
+  // A `$t:` label — the field's own, for an entry the grid has no column for —
+  // is printed in the page language, as the standalone drawer prints it.
+  const translate = (value: unknown) =>
+    resolveTranslationTokensDeep(value, currentLang ?? languages?.default, languages)
   return {
     id: rowExpandDrawerId(component),
-    title: expand.title ?? resolveInterpreterString('recordDrawer.title', currentLang, languages),
+    title: translate(
+      expand.title ?? resolveInterpreterString('recordDrawer.title', currentLang, languages)
+    ),
     role: 'dialog',
     table: dataSource?.table,
-    recordFields: withColumnLabels(narrowFields(derived, expand.fields), comp['columns']).map(
-      withStructuredRendering
+    recordFields: translate(
+      withColumnLabels(narrowFields(derived, expand.fields), comp['columns']).map(
+        withStructuredRendering
+      )
     ),
     canEdit: expand.canEdit !== false,
     saveLabel: resolveInterpreterString('recordDrawer.save', currentLang, languages),

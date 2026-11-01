@@ -6,7 +6,6 @@
  */
 
 import type { Design } from '@/domain/models/app/design'
-import type { Component } from '@/domain/models/app/pages/components'
 import type { Interactions } from '@/domain/models/app/pages/components/interactions/interactions'
 
 /**
@@ -14,7 +13,7 @@ import type { Interactions } from '@/domain/models/app/pages/components/interact
  * Replaces 5 parameters with a single config object
  */
 export interface TestIdConfig {
-  readonly type: Component['type']
+  readonly type: string
   readonly componentName?: string
   readonly componentInstanceIndex?: number
   readonly substitutedProps?: Record<string, unknown>
@@ -26,7 +25,7 @@ export interface TestIdConfig {
  * Replaces 12 parameters with a single config object
  */
 export interface ElementPropsConfig {
-  readonly type: Component['type']
+  readonly type: string
   readonly substitutedProps: Record<string, unknown> | undefined
   readonly finalClassName: string | undefined
   readonly styleWithShadow: Record<string, unknown> | undefined

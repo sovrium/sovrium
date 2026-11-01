@@ -14,8 +14,8 @@ import {
   authPage,
   footerLink,
   ifDeclared,
-} from '@/library/manifest/auth-block-kit'
-import { asComponent, param, stringParam, THEME_NOTE } from '@/library/manifest/block-kit'
+} from '@/library/kit/auth-block-kit'
+import { asComponent, param, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /**
@@ -59,7 +59,7 @@ export const entry = defineLibraryEntry({
   notes: [
     AUTH_PLACE_NOTE,
     AUTH_GATE_NOTE,
-    'The form draws "Forgot your password?" in its Password label row only when one of your pages sends the reset link — the `auth-password-reset` block, or any form with `action: { type: auth, method: resetPassword }` — and links it to that page. Install that page too, or the link stays off.',
+    'The form draws "Forgot your password?" in its Password label row only when one of your pages sends the reset link — the `auth-password-reset` block, or any form with `action: { type: auth, method: resetPassword }` — and outgoing mail is configured, and links it to that page. Install that page and configure mail too, or the link stays off.',
     'A wrong email or password reads as one message that never says whether the account exists. While the form is sending, its fields are inert and the button says so.',
     'An account with two-step on is sent to `twoStepPath` (`/two-step`) for its code once its password is right — install the `auth-two-factor` block on that page. An app without `auth.twoFactor` never sends anyone there.',
     THEME_NOTE,
@@ -90,7 +90,7 @@ export const entry = defineLibraryEntry({
       name,
       authPage([
         appMark(p('iconName')),
-        authHeading('Sign in', 'Welcome back. Use the email you signed up with.'),
+        authHeading('Sign in', 'Welcome back. Use the email address of your account.'),
         {
           type: 'form',
           action: {

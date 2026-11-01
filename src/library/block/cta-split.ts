@@ -20,7 +20,7 @@ import {
   THEME_NOTE,
   when,
   wrap,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** The closing call to action: heading on the left, actions on the right, over a hairline. */

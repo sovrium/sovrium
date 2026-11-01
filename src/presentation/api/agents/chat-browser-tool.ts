@@ -7,12 +7,18 @@
 
 import { Effect } from 'effect'
 import { runBrowserUse } from '@/application/use-cases/agents/browser-use'
-import { BROWSER_USE_TOOL } from '@/application/use-cases/automations/action-handlers/browser-agent-tools'
+import { BROWSER_USE_TOOL } from '@/application/use-cases/automations/action-handlers/browser/agent-tools'
 import { buildChatToolDefinitions } from '@/domain/models/app/agents/ai-chat-tools'
 import { logError } from '@/infrastructure/logging/logger'
 import type { AgentTurnBinding } from './agent-chat'
 import type { ChatToolScope } from './chat-tool-calling'
-import type { ChatToolCall, ChatToolDefinition } from '@/application/ports/services/ai-service'
+import type { BrowserSessionRepository } from '@/application/ports/repositories/automations/browser-session-repository'
+import type {
+  AiService,
+  ChatToolCall,
+  ChatToolDefinition,
+} from '@/application/ports/services/ai-service'
+import type { BrowserDriver } from '@/application/ports/services/browser-driver'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
@@ -49,30 +55,31 @@ export const buildTurnTools = (
  * Run a tool call that is not a table tool: `browser_use` for an agent granted
  * it, an unknown-tool error for anything else.
  */
-export const executeOtherTool = async (
+export const executeOtherTool = (
   call: ChatToolCall,
   input: ChatToolScope,
   action: ChatAction
-): Promise<{ readonly content: string; readonly action: ChatAction; readonly denied: boolean }> => {
+): Effect.Effect<
+  { readonly content: string; readonly action: ChatAction; readonly denied: boolean },
+  never,
+  AiService | BrowserDriver | BrowserSessionRepository
+> => {
   const agent = call.name === 'browser_use' ? browserAgentOf(input.app, input.agentName) : undefined
   if (agent === undefined) {
-    return { content: `Error: unknown tool "${call.name}".`, action, denied: false }
+    return Effect.succeed({ content: `Error: unknown tool "${call.name}".`, action, denied: false })
   }
   const args =
     call.arguments !== null && typeof call.arguments === 'object'
       ? (call.arguments as Readonly<Record<string, unknown>>)
       : {}
-  const content = await Effect.runPromise(
-    runBrowserUse(agent, args).pipe(
-      Effect.provide(input.services),
-      Effect.tapCause((cause) =>
-        Effect.sync(() => {
-          logError('[ai-chat] browser_use stopped on a defect', cause, { agent: agent.name })
-        })
-      ),
-      // effect-swallow: a defect in the browser ends this one tool call, not the chat turn; the model reads that the browser stopped.
-      Effect.catchCause(() => Effect.succeed('error: the browser agent stopped'))
-    )
+  return runBrowserUse(agent, args).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => {
+        logError('[ai-chat] browser_use stopped on a defect', cause, { agent: agent.name })
+      })
+    ),
+    // effect-swallow: a defect in the browser ends this one tool call, not the chat turn; the model reads that the browser stopped.
+    Effect.catchCause(() => Effect.succeed('error: the browser agent stopped')),
+    Effect.map((content) => ({ content, action, denied: false }))
   )
-  return { content, action, denied: false }
 }

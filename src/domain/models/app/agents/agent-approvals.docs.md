@@ -1,6 +1,6 @@
 # Agent Permissions & Approval
 
-> Two different questions — who may set an agent in motion, and which of its actions stop and wait for a person once it is running.
+> Two different questions: who may set an agent in motion, and which of its actions stop and wait for a person once it is running.
 
 ## Who may invoke
 
@@ -19,31 +19,34 @@ agents:
 | Value             | Admits                                                                       |
 | ----------------- | ---------------------------------------------------------------------------- |
 | omitted           | Any signed-in caller, and nobody else                                        |
-| `authenticated`   | Any signed-in caller — the same rule, said out loud                          |
+| `authenticated`   | Any signed-in caller: the same rule, said out loud                           |
 | `all`             | Everyone, anonymous callers included; the explicit opt-in for a public agent |
 | `[admin, member]` | Callers holding a listed role; `admin` satisfies any role array              |
+| `none`            | Nobody: the agent runs only from automation `agent` steps and its schedule   |
 
-**Omitting the grant does not leave the agent open.** An agent with no declared grant is reachable by any signed-in caller and by nobody else; an anonymous request is refused. A genuinely public agent — a support bot on a marketing page — has to say so.
+**Omitting the grant does not leave the agent open.** An agent with no declared grant is reachable by any signed-in caller and by nobody else; an anonymous request is refused. A genuinely public agent, such as a support bot on a marketing page, has to say so.
 
 That default costs a deployment nothing, because an app declaring agents without authentication is refused at startup: there is always a way to hold a session.
 
 ### A refusal answers 404
 
-A caller the grant does not admit gets `404` — never `403`, never `401` — and the body names no agent. The agent's name sits in the URL, so an answer distinguishing "exists, but not for you" from "no such agent" would let anyone map your deployment one guess at a time. The two responses are byte-identical.
+A caller the grant does not admit gets `404` (never `403`, never `401`), and the body names no agent. The agent's name sits in the URL, so an answer distinguishing "exists, but not for you" from "no such agent" would let anyone map your deployment one guess at a time. The two responses are byte-identical.
 
 The practical consequence, worth knowing before you debug one: on these routes the 404 **is** the permission error. There is no 403 to go looking for.
 
 ### It governs reading as well as invoking
 
-The grant covers every surface that sets the agent in motion — a chat panel, the execute endpoint, the manual schedule trigger, an automation — and also the surfaces that read it **back**: its definition, its schedule, its token usage, its pending approvals.
+The grant covers every surface that sets the agent in motion (a chat panel, the execute endpoint, the manual schedule trigger, an automation) and also the surfaces that read it **back**: its definition, its schedule, its token usage, its pending approvals.
 
 Those readbacks serve the system prompt, the task prompt and the tools allowlist, which is precisely the material somebody would want in order to aim a prompt injection at the agent.
 
 Listing the agents requires a session in every case, including on a deployment where some agent is public. `all` opens one agent to invocation; it does not open your inventory to enumeration. A caller who clears that gate still sees only the agents they may individually trigger.
 
+`none` closes every one of those surfaces to everyone, admins included, so no person can chat with the agent or call it: it works only inside your automations and on its own schedule. It is the grant an agent needs to hold `code.runTypescript` (see [agent tools](/en/docs/agent-tools)). Its definition, its usage and its pending requests are closed to people too, so nobody can decide a request it queues: such a request expires at its timeout. Give an agent like this no `approval`, and put the step that needs a person in the automation instead.
+
 One surface sits outside the grant on purpose: the agent's own cron. A timer is not an external caller, so restricting who may invoke an agent does not stop it running on its own.
 
-The grant does **not** govern what the agent may then do — that remains its role plus its allowlist. A viewer allowed to trigger an admin-role agent is triggering something more privileged than themselves, so read the grant as delegation and set it deliberately.
+The grant does **not** govern what the agent may then do. That remains its role plus its allowlist. A viewer allowed to trigger an admin-role agent is triggering something more privileged than themselves, so read the grant as delegation and set it deliberately.
 
 ## Approval
 
@@ -55,7 +58,7 @@ Approval applies to each **tool call** the agent makes, on every surface: a chat
 
 <!-- sovrium:options AgentApprovalEscalationSchema -->
 
-`mode` is `none`, `all`, or `selective` — which requires the `required` list, itself a subset of the agent's actions. `timeout` is in seconds and defaults to 3600.
+`mode` is `none`, `all`, or `selective`, which requires the `required` list, itself a subset of the agent's actions. `timeout` is in seconds and defaults to 3600.
 
 ```yaml
 approval:
@@ -69,23 +72,27 @@ approval:
 
 Read that as a timeline. The agent decides to send an email and the request goes to a human. Ten minutes later nobody has acted, so it escalates. Twenty minutes after that the timeout hits and the request expires unexecuted.
 
-**`after` must be less than `timeout`.** An escalation scheduled at or past the expiry never fires — the request dies before anyone is asked. Leave enough room after the escalation for the escalated-to role to actually respond: an escalation at 600 with a timeout at 660 is technically valid and practically useless.
+**`after` must be less than `timeout`.** An escalation scheduled at or past the expiry never fires: the request dies before anyone is asked. Leave enough room after the escalation for the escalated-to role to actually respond: an escalation at 600 with a timeout at 660 is technically valid and practically useless.
 
 ### Who sees and decides a request
 
-A pending request carries the action the agent queued — the table, the record and the values it is about to write — so it follows the trigger grant. Listing, reading, approving and rejecting are open to the callers the agent's `permissions.trigger` admits and to admins; everyone else, signed in or not, gets the `404` an undeclared agent gets, before the request id is even looked up. A caller outside the grant cannot tell a real request from a made-up one.
+A pending request carries the action the agent queued (the table, the record and the values it is about to write), so it follows the trigger grant. Listing, reading, approving and rejecting are open to the callers the agent's `permissions.trigger` admits and to admins; everyone else, signed in or not, gets the `404` an undeclared agent gets, before the request id is even looked up. A caller outside the grant cannot tell a real request from a made-up one.
 
 Inside the grant, deciding needs one thing more: the approver's role level must be at least the agent's `role`. A viewer allowed to trigger a member-role agent sees its requests but is refused the decision with `404`. A decision always needs a session, even on an agent whose grant is `all`: an anonymous caller is answered `401` there.
 
+### What a chat always holds
+
+When an agent answers a person, some calls wait whatever `approval` says. An email, a web request, a file upload or a file deletion is always held, and the person who asked can reject it but cannot approve it herself (`403`), unless her role has admin rights: someone else decides it here. A record created, changed or deleted is held for her own confirmation in the chat, unless the agent declares `mode: none`. The same agent run by an automation or its schedule is held only where its `approval` says.
+
 ## Choosing a mode
 
-| Mode        | Right when                                                                   |
-| ----------- | ---------------------------------------------------------------------------- |
-| `none`      | Every action the agent can take is reversible and low-stakes                 |
-| `selective` | Most work is routine but a few actions leave the building — the usual answer |
-| `all`       | A new agent you do not yet trust, or one whose whole remit is consequential  |
+| Mode        | Right when                                                                  |
+| ----------- | --------------------------------------------------------------------------- |
+| `none`      | Every action the agent can take is reversible and low-stakes                |
+| `selective` | Most work is routine but a few actions leave the building: the usual answer |
+| `all`       | A new agent you do not yet trust, or one whose whole remit is consequential |
 
-The discipline for `selective` is to ask of each action: if the model gets this wrong, can I undo it? An update on an audited table is recoverable. A sent email is not — the message is gone. Neither is a ban, from the banned user's point of view.
+The discipline for `selective` is to ask of each action: if the model gets this wrong, can I undo it? An update on an audited table is recoverable. A sent email is not, because the message is gone. Neither is a ban, from the banned user's point of view.
 
 Running `all` for a fortnight after deploying a new agent is a cheap way to learn what it actually does before narrowing. The approval queue doubles as a log of intentions.
 

@@ -13,7 +13,7 @@ import {
   PLACE_NOTE,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** A button that slides in a side panel holding a form which adds a record. */

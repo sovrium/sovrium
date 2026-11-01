@@ -81,7 +81,7 @@ export const fetchRemoteSchema = async (url: string): Promise<AppEncoded> => {
     // Try to detect format from Content-Type header, then URL extension
     const format = detectFormatFromContentType(contentType) || detectFormatFromUrl(url)
 
-    return parseSchemaContent(content, format)
+    return parseSchemaContent(content, format, Bun.YAML)
   } catch (error) {
     throw new Error(
       `Failed to fetch or parse schema from ${url}: ${error instanceof Error ? error.message : String(error)}`,

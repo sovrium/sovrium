@@ -16,6 +16,7 @@
 import { Effect } from 'effect'
 import { ValidationError } from '@/domain/errors'
 import { signatureOverwriteOf } from '@/domain/models/app/tables/fields/field-types/media/signature-write-once-validation'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { DatabaseError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
@@ -26,7 +27,7 @@ export const refuseSignatureOverwrite = (input: {
   readonly held: Effect.Effect<Readonly<Record<string, unknown>> | null | undefined, DatabaseError>
 }): Effect.Effect<void, ValidationError | DatabaseError> =>
   Effect.gen(function* () {
-    const tableFields = (input.app?.tables?.find((t) => t.name === input.tableName)?.fields ??
+    const tableFields = (findTableByName(input.app?.tables, input.tableName)?.fields ??
       []) as readonly { readonly name: string; readonly type: string }[]
     const named = tableFields.some(
       (field) => field.type === 'signature' && Object.hasOwn(input.fields, field.name)

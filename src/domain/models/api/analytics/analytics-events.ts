@@ -6,9 +6,9 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime, uuid } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { withDefault } from '../combinators/schema-defaults'
+import { looseIsoDateTime, uuid } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import { withDefault } from '../schema-defaults'
 
 // ============================================================================
 // Query Parameters Schema (GET /api/analytics/events)
@@ -84,10 +84,20 @@ export const analyticsEventResponseSchema = Schema.Struct({
   org_id: Schema.NullOr(
     Schema.String.annotate({ description: 'Organization the event was recorded under, if any' })
   ),
-  /** SHA-256 hashed visitor identifier */
-  visitor_hash: Schema.String.annotate({ description: 'SHA-256 hashed visitor identifier' }),
-  /** SHA-256 hashed session identifier */
-  session_hash: Schema.String.annotate({ description: 'SHA-256 hashed session identifier' }),
+  /** Server-computed visitor identifier, rotated daily */
+  visitor_hash: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'Server-computed visitor identifier, rotated daily, used to count unique visitors without a cookie; null under the audience-only profile',
+    })
+  ),
+  /** Server-computed session identifier */
+  session_hash: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'Server-computed session identifier, used to group events into visits; null under the audience-only profile',
+    })
+  ),
   /** When the event was recorded */
   timestamp: looseIsoDateTime({ description: 'ISO 8601 timestamp of when the event was recorded' }),
   /** Arbitrary event properties */

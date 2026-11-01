@@ -30,11 +30,11 @@ import {
   isUniqueInEachLanguage,
   languageUniqueIndexName,
 } from '@/domain/models/app/tables/translatable-unique-service'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { LIVE_ROWS_PREDICATE } from './sql-key-constraints'
 import { recordLanguagesOf } from './sql-translatable-columns'
-import { languageValueDdl } from './translatable-value-sql'
+import { languageValueDdlOn } from './translatable-value-sql'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /** One per-language unique index a table declares. */
 export interface DeclaredLanguageIndex {
@@ -59,17 +59,23 @@ export const declaredLanguageIndexes = (
 /** The `CREATE UNIQUE INDEX` of one language of one field, on `relation`. */
 export const languageUniqueIndexStatement = (
   relation: string,
-  index: Pick<DeclaredLanguageIndex, 'field' | 'code'>
+  index: Pick<DeclaredLanguageIndex, 'field' | 'code'>,
+  dialect: DatabaseDialect
 ): string => {
   const sanitized = sanitizeTableName(relation)
-  const target = isSqliteRuntime() ? sanitized : `public.${sanitized}`
-  const expression = languageValueDdl(quoteSqlIdentifier(index.field), index.code)
+  const target = dialect === 'sqlite' ? sanitized : `public.${sanitized}`
+  const expression = languageValueDdlOn(dialect, quoteSqlIdentifier(index.field), index.code)
   return `CREATE UNIQUE INDEX IF NOT EXISTS ${languageUniqueIndexName(relation, index.field, index.code)} ON ${target} (${expression}) WHERE ${LIVE_ROWS_PREDICATE}`
 }
 
 /** The per-language unique indexes of every translatable unique field of `table`. */
-export const generateLanguageUniqueIndexes = (table: Table): readonly string[] =>
-  declaredLanguageIndexes(table).map((index) => languageUniqueIndexStatement(table.name, index))
+export const generateLanguageUniqueIndexes = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] =>
+  declaredLanguageIndexes(table).map((index) =>
+    languageUniqueIndexStatement(table.name, index, dialect)
+  )
 
 /** How many duplicated values a refusal names. */
 const MAX_LISTED = 3
@@ -78,19 +84,26 @@ const MAX_LISTED = 3
 const MAX_VALUE_LENGTH = 80
 
 /** The ids of a group, as text, in id order. */
-const groupIds = (): string =>
-  isSqliteRuntime() ? `group_concat(id, ', ')` : `string_agg(id::text, ', ' ORDER BY id::text)`
+const groupIds = (dialect: DatabaseDialect): string =>
+  dialect === 'sqlite' ? `group_concat(id, ', ')` : `string_agg(id::text, ', ' ORDER BY id::text)`
 
 /**
  * The values `expression` holds on two live records or more of `relation`,
  * each with the ids holding it — at most {@link MAX_LISTED}.
  */
-export const sharedValuesQuery = (relation: string, expression: string): string =>
-  `SELECT ${expression} AS dup_value, ${groupIds()} AS dup_ids FROM ${quoteSqlIdentifier(relation)} WHERE ${expression} IS NOT NULL AND ${LIVE_ROWS_PREDICATE} GROUP BY ${expression} HAVING COUNT(*) > 1 ORDER BY COUNT(*) DESC LIMIT ${MAX_LISTED}`
+export const sharedValuesQuery = (
+  relation: string,
+  expression: string,
+  dialect: DatabaseDialect
+): string =>
+  `SELECT ${expression} AS dup_value, ${groupIds(dialect)} AS dup_ids FROM ${quoteSqlIdentifier(relation)} WHERE ${expression} IS NOT NULL AND ${LIVE_ROWS_PREDICATE} GROUP BY ${expression} HAVING COUNT(*) > 1 ORDER BY COUNT(*) DESC LIMIT ${MAX_LISTED}`
 
 /** One language's value of `field`, as the per-language index reads it. */
-export const languageValueExpression = (field: string, code: string): string =>
-  languageValueDdl(quoteSqlIdentifier(field), code)
+export const languageValueExpression = (
+  dialect: DatabaseDialect,
+  field: string,
+  code: string
+): string => languageValueDdlOn(dialect, quoteSqlIdentifier(field), code)
 
 /** A shared value, as a probe returns it. */
 export interface SharedValue {

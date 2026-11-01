@@ -6,11 +6,11 @@
  */
 
 import { Effect } from 'effect'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import {
   listEventsResponseSchema,
   type ListEventsResponse,
 } from '@/domain/models/api/analytics/analytics-events'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import type { AnalyticsEventRow } from '@/application/ports/repositories/analytics/analytics-repository'
 
 /**
@@ -18,11 +18,18 @@ import type { AnalyticsEventRow } from '@/application/ports/repositories/analyti
  * `listEventsResponseSchema`, so the documented contract and the wire cannot
  * drift apart. The keys are snake_case, as the endpoint has always answered.
  * A page the schema refuses fails, and the route answers it as a failed read.
+ *
+ * With `withholdIdentifiers`, every event answers its visitor and session
+ * identifiers as `null`, the keys still present, so no two listed events can be
+ * tied to the same visitor.
  */
-export const toEventsResponse = (page: {
-  readonly events: readonly AnalyticsEventRow[]
-  readonly pagination: ListEventsResponse['pagination']
-}): Effect.Effect<ListEventsResponse, unknown> => {
+export const toEventsResponse = (
+  page: {
+    readonly events: readonly AnalyticsEventRow[]
+    readonly pagination: ListEventsResponse['pagination']
+  },
+  options: { readonly withholdIdentifiers: boolean }
+): Effect.Effect<ListEventsResponse, unknown> => {
   const shaped = decodeSafe(listEventsResponseSchema)({
     pagination: page.pagination,
     events: page.events.map((event) => ({
@@ -31,8 +38,8 @@ export const toEventsResponse = (page: {
       event_type: event.eventType,
       event_name: event.eventName,
       org_id: event.orgId,
-      visitor_hash: event.visitorHash,
-      session_hash: event.sessionHash,
+      visitor_hash: options.withholdIdentifiers ? null : event.visitorHash,
+      session_hash: options.withholdIdentifiers ? null : event.sessionHash,
       timestamp: new Date(event.timestamp).toISOString(),
       properties: event.properties,
     })),

@@ -6,9 +6,9 @@
  */
 
 import { Schema } from 'effect'
-import { booleanFlag, coercedNumber } from '@/domain/models/api/combinators/coerce'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { withDefault } from '../../combinators/schema-defaults'
+import { booleanFlag, coercedNumber } from '@/domain/kernel/config-parsing/coerce'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import { withDefault } from '../../schema-defaults'
 import { formSubmissionAdminItemSchema } from './submissions-list'
 
 /**

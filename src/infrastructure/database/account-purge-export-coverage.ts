@@ -33,7 +33,7 @@ export type ExportStatus = 'exported' | 'withheld' | 'gap'
  * records, form submissions, audit acts, chat files, the AI footprint, favourites and recent
  * items, while erasure still hard-deletes more — comments, row-level grants, the activity feed,
  * uploaded files. Closing that asymmetry means EXPANDING the published export contract in
- * `src/domain/models/api/account/account.ts`, which is a schema-surface decision and not this
+ * `src/domain/models/api/auth/account/account.ts`, which is a schema-surface decision and not this
  * change's to make.
  *
  * What this map does make impossible is the asymmetry GROWING silently. The guard asserts the set

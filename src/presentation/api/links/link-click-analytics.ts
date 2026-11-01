@@ -25,10 +25,16 @@
 import { Effect } from 'effect'
 import { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import { parseUserAgent } from '@/application/use-cases/analytics/ua-parser'
+import { visitorIdentifiers } from '@/application/use-cases/analytics/visitor-hash'
 import {
-  computeSessionHash,
-  computeVisitorHash,
-} from '@/application/use-cases/analytics/visitor-hash'
+  SHARED_IDENTIFIERS,
+  profiledProperties,
+  resolveAnalyticsProfile,
+} from '@/domain/models/app/analytics/analytics-profile-service'
+import {
+  requestDeclinesTracking,
+  resolvePrivacySignals,
+} from '@/domain/models/app/analytics/privacy-signals-service'
 import { PROXY_COUNTRY_HEADERS, parseAcceptLanguage } from '@/domain/models/app/links/link-resolver'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
@@ -44,9 +50,6 @@ const analyticsEnabled = (app: App): boolean =>
 const sessionTimeout = (app: App): number =>
   typeof app.analytics === 'object' ? (app.analytics.sessionTimeout ?? 30) : 30
 
-const respectsDoNotTrack = (app: App): boolean =>
-  typeof app.analytics === 'object' ? (app.analytics.respectDoNotTrack ?? true) : true
-
 /**
  * How many clicks this link has already been credited with.
  *
@@ -60,8 +63,8 @@ const respectsDoNotTrack = (app: App): boolean =>
  * store nothing is being written to, and refusing to serve would be worse than
  * not capping.
  */
-const countClicks = async (c: Context, appName: string, slug: string): Promise<number> => {
-  const program = Effect.gen(function* () {
+const countClicks = (appName: string, slug: string) =>
+  Effect.gen(function* () {
     const repository = yield* AnalyticsRepository
     const result = yield* repository.listEvents({
       appName,
@@ -70,15 +73,10 @@ const countClicks = async (c: Context, appName: string, slug: string): Promise<n
       limit: 1,
     })
     return result.pagination.total
-  })
-
-  return Effect.runPromise(
-    provideDomain(c, program).pipe(
-      // effect-swallow: 0 is the documented answer for "the store cannot say" — see the doc comment above, which decides that a cap unenforceable against an unreadable analytics store must not stop the redirect. It DOES mean an exhausted link keeps resolving while analytics is down; that trade is the stated one.
-      Effect.orElseSucceed(() => 0)
-    )
+  }).pipe(
+    // effect-swallow: 0 is the documented answer for "the store cannot say" — see the doc comment above, which decides that a cap unenforceable against an unreadable analytics store must not stop the redirect. It DOES mean an exhausted link keeps resolving while analytics is down; that trade is the stated one.
+    Effect.orElseSucceed(() => 0)
   )
-}
 
 /**
  * The click count the resolver needs — counted only when a cap exists.
@@ -86,12 +84,8 @@ const countClicks = async (c: Context, appName: string, slug: string): Promise<n
  * A link with no `maxClicks` can never be exhausted, so querying the analytics
  * store for it would be a per-redirect round trip bought for nothing.
  */
-export const creditedClicks = async (
-  c: Context,
-  appName: string,
-  link: ResolvableLink,
-  slug: string
-): Promise<number> => (link.lifecycle?.maxClicks === undefined ? 0 : countClicks(c, appName, slug))
+export const creditedClicks = (appName: string, link: ResolvableLink, slug: string) =>
+  link.lifecycle?.maxClicks === undefined ? Effect.succeed(0) : countClicks(appName, slug)
 
 /**
  * The campaign attribution to record, read off the RESOLVED DESTINATION.
@@ -132,6 +126,28 @@ const mergedUtm = (destination: string): Readonly<Record<string, string>> => {
 }
 
 /**
+ * Every property a click can be stored with, before the analytics profile
+ * decides which of them the row keeps.
+ */
+const clickProperties = (
+  input: { readonly slug: string; readonly destination: string; readonly targetIndex: number },
+  userAgent: string,
+  referrer: string | undefined
+): Readonly<Record<string, unknown>> => {
+  const agent = parseUserAgent(userAgent)
+  return {
+    slug: input.slug,
+    destination: input.destination,
+    targetIndex: input.targetIndex,
+    deviceType: agent.deviceType,
+    browserName: agent.browserName,
+    osName: agent.osName,
+    ...(referrer === undefined ? {} : { referrerUrl: referrer }),
+    ...mergedUtm(input.destination),
+  }
+}
+
+/**
  * Record one click, fire-and-forget.
  *
  * Property KEYS deliberately mirror a page view's, which is what lets the six
@@ -148,39 +164,43 @@ export const recordClick = (
   }
 ): void => {
   if (!analyticsEnabled(app)) return
-  if (respectsDoNotTrack(app) && c.req.header('DNT') === '1') return
+  // `DNT: 1` or `Sec-GPC: 1`: a click or a QR scan alike stores nothing
+  if (requestDeclinesTracking(resolvePrivacySignals(app.analytics), (name) => c.req.header(name)))
+    return
 
   const userAgent = c.req.header('user-agent') ?? ''
+  const timeZone = resolveOperatorTimezone(process.env)
+  const profile = resolveAnalyticsProfile(app.analytics)
 
   const program = Effect.gen(function* () {
     const repository = yield* AnalyticsRepository
-    // effect-promise: total -- both hash helpers wrap `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
-    const visitorHash = yield* Effect.promise(() =>
-      computeVisitorHash(getRequestClientIp(c), userAgent, app.name, resolveOperatorTimezone())
-    )
-    // effect-promise: total -- both hash helpers wrap `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
-    const sessionHash = yield* Effect.promise(() =>
-      computeSessionHash(visitorHash, sessionTimeout(app), resolveOperatorTimezone())
-    )
-    const agent = parseUserAgent(userAgent)
+    // Under `audience-only` every click shares one visitor and session
+    // identifier, so none can be tied back to the visitor who made it; the
+    // count `maxClicks` reads is kept.
+    const { visitorHash, sessionHash } =
+      profile === 'full'
+        ? yield* visitorIdentifiers({
+            address: getRequestClientIp(c),
+            userAgent,
+            timeZone,
+            sessionTimeoutMinutes: sessionTimeout(app),
+            profile: 'full',
+          })
+        : SHARED_IDENTIFIERS
+    const eventType = input.isScan ? 'qr_scan' : 'link_click'
     const referrer = c.req.header('referer') ?? c.req.header('referrer')
 
     yield* repository.recordEvent({
       appName: app.name,
-      eventType: input.isScan ? 'qr_scan' : 'link_click',
+      eventType,
       eventName: input.slug,
       visitorHash,
       sessionHash,
-      properties: {
-        slug: input.slug,
-        destination: input.destination,
-        targetIndex: input.targetIndex,
-        deviceType: agent.deviceType,
-        browserName: agent.browserName,
-        osName: agent.osName,
-        ...(referrer === undefined ? {} : { referrerUrl: referrer }),
-        ...mergedUtm(input.destination),
-      },
+      properties: profiledProperties(
+        profile,
+        eventType,
+        clickProperties(input, userAgent, referrer)
+      ),
     })
   })
 

@@ -113,6 +113,8 @@ const PREVIEW_HELP_TEXT = [
   '  --host <url>                  The cloud (default: the one you signed in to)',
   '  --yes                         Create a free address without asking (needed in a script)',
   '  --env <file>                  Set the variables the config declares from that file first',
+  '  --allow-production-env        Accept an --env file with DATABASE_URL or a *_SECRET,',
+  '                                *_TOKEN, *_KEY or *_PASSWORD (refused otherwise)',
   '  --no-wait                     Return once the preview is recorded, with its address',
   '  --help, -h                    Show this help message',
   '',

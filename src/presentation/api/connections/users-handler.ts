@@ -8,14 +8,16 @@
 import { Data, Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
+import { getUserRole, getUserRoles } from '@/application/use-cases/tables/user-role'
+import { connectionUsersResponseSchema } from '@/domain/models/api/connections'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { logError } from '@/infrastructure/logging/logger'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
 import { notFound, requireSession } from '@/presentation/api/runtime/auth-helpers'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { connectionError } from './error-envelopes'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -61,19 +63,6 @@ const findConnection = (app: App, name: string): ConnectionDef | undefined => {
   return list.find((conn) => conn.name === name)
 }
 
-const resolveUserRole = async (c: Context, userId: string): Promise<string> => {
-  const { getUserRole } = await import('@/application/use-cases/tables/user-role')
-  return runDomainPromise(c, getUserRole(userId))
-}
-
-const resolveUserRoles = async (
-  c: Context,
-  userIds: readonly string[]
-): Promise<ReadonlyMap<string, string>> => {
-  const { getUserRoles } = await import('@/application/use-cases/tables/user-role')
-  return runDomainPromise(c, getUserRoles(userIds))
-}
-
 /**
  * Map a token row's `expiresAt` to the same status string the
  * `/status` endpoint emits.
@@ -104,52 +93,14 @@ const deriveAdminStatus = (expiresAt: Date | undefined): 'connected' | 'expired'
  * SAME table for the SAME column keyed only by id, so the width is not
  * necessary work — it is one query written N times.
  */
-const dropAdminUsers = async <T extends { readonly userId: string }>(
-  c: Context,
-  app: App,
-  entries: readonly T[]
-): Promise<readonly T[]> => {
-  const roles = await resolveUserRoles(
-    c,
-    entries.map((entry) => entry.userId)
+const dropAdminUsers = <T extends { readonly userId: string }>(app: App, entries: readonly T[]) =>
+  Effect.map(getUserRoles(entries.map((entry) => entry.userId)), (roles) =>
+    entries.filter((entry) => !isAdminEquivalent(roles.get(entry.userId) ?? '', app))
   )
-  return entries.filter((entry) => !isAdminEquivalent(roles.get(entry.userId) ?? '', app))
-}
 
-export async function handleListUsers(c: Context, app: App) {
-  const auth = requireSession(c)
-  if (!auth.ok) return auth.response
-  const { session } = auth
-  const name = c.req.param('name')
-  if (name === undefined) return connectionError(c, 400, 'connection_name_required')
-  const conn = findConnection(app, name)
-  if (conn === undefined) return notFound(c, 'Connection not found')
-
-  // Z-3 enumeration-prevention: non-admin callers receive 404 (same
-  // wire shape as "connection doesn't exist") rather than 403, so the
-  // endpoint leaks no signal about which admin-only connections exist.
-  // Mirrors `gateAdminForAppScope` for `app`-scoped /authorize, /status,
-  // /disconnect routes; this listing endpoint is admin-only regardless
-  // of the connection's `scope` (per-user roster is sensitive even for
-  // user-scope connections — a member should not enumerate peers).
-  const role = await resolveUserRole(c, session.userId)
-  if (!isAdminEquivalent(role, app)) return notFound(c, 'Connection not found')
-
-  // [internal ref]: only OAuth2 connections have per-user token rows. Returning
-  // `{users: []}` for apiKey/basic/bearer is misleading — it looks like
-  // "no users have authorized" rather than "this endpoint doesn't apply
-  // to this connection type". Mirror the /authorize endpoint's `error`
-  // code (`connection_not_oauth2`, 400) and add a `message` field so
-  // callers get a clear human-readable signal. The check runs AFTER the
-  // admin gate so non-admins still get 404 (no leakage about connection
-  // type to non-admins).
-  if (conn.type !== 'oauth2') {
-    return connectionError(c, 400, 'connection_not_oauth2', {
-      message: 'This endpoint applies only to OAuth2 connections.',
-    })
-  }
-
-  const program = Effect.gen(function* () {
+/** Every user holding a token of the connection called `name`. */
+const listConnectionUsers = (name: string) =>
+  Effect.gen(function* () {
     const connRepo = yield* ConnectionRepository
     const row = yield* connRepo
       .findByName(name)
@@ -165,16 +116,57 @@ export async function handleListUsers(c: Context, app: App) {
       )
   })
 
-  const result = await runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))
-  if (result._tag === 'Failure') {
-    logError('[connections] list users failed', result.failure)
-    return connectionError(c, 500, 'list_users_failed')
-  }
-  const memberEntries = await dropAdminUsers(c, app, result.success)
-  const users = memberEntries.map((entry) => ({
-    userId: entry.userId,
-    status: deriveAdminStatus(entry.expiresAt),
-    expiresAt: entry.expiresAt?.toISOString() ?? null,
-  }))
-  return c.json({ users }, 200)
+export function handleListUsers(c: Context, app: App): Promise<Response> {
+  return runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const auth = requireSession(c)
+        if (!auth.ok) return auth.response
+        const { session } = auth
+        const name = c.req.param('name')
+        if (name === undefined) return connectionError(c, 400, 'connection_name_required')
+        const conn = findConnection(app, name)
+        if (conn === undefined) return notFound(c, 'Connection not found')
+
+        // Z-3 enumeration-prevention: non-admin callers receive 404 (same
+        // wire shape as "connection doesn't exist") rather than 403, so the
+        // endpoint leaks no signal about which admin-only connections exist.
+        // Mirrors `gateAdminForAppScope` for `app`-scoped /authorize, /status,
+        // /disconnect routes; this listing endpoint is admin-only regardless
+        // of the connection's `scope` (per-user roster is sensitive even for
+        // user-scope connections — a member should not enumerate peers).
+        const role = yield* getUserRole(session.userId)
+        if (!isAdminEquivalent(role, app)) return notFound(c, 'Connection not found')
+
+        // [internal ref]: only OAuth2 connections have per-user token rows. Returning
+        // `{users: []}` for apiKey/basic/bearer is misleading — it looks like
+        // "no users have authorized" rather than "this endpoint doesn't apply
+        // to this connection type". Mirror the /authorize endpoint's `error`
+        // code (`connection_not_oauth2`, 400) and add a `message` field so
+        // callers get a clear human-readable signal. The check runs AFTER the
+        // admin gate so non-admins still get 404 (no leakage about connection
+        // type to non-admins).
+        if (conn.type !== 'oauth2') {
+          return connectionError(c, 400, 'connection_not_oauth2', {
+            message: 'This endpoint applies only to OAuth2 connections.',
+          })
+        }
+
+        const result = yield* listConnectionUsers(name).pipe(Effect.result)
+        if (result._tag === 'Failure') {
+          logError('[connections] list users failed', result.failure)
+          return connectionError(c, 500, 'list_users_failed')
+        }
+        const memberEntries = yield* dropAdminUsers(app, result.success)
+        const users = memberEntries.map((entry) => ({
+          userId: entry.userId,
+          status: deriveAdminStatus(entry.expiresAt),
+          expiresAt: entry.expiresAt?.toISOString() ?? null,
+        }))
+        return yield* respondWith(c, Effect.succeed({ users }), connectionUsersResponseSchema)
+      })
+    )
+  )
 }

@@ -52,7 +52,7 @@ export type SelfSeedGate = 'off' | 'additive' | 'reset'
  *
  * @public
  */
-export const parseSovriumSelfSeed = (env: Env = process.env): SelfSeedGate => {
+export const parseSovriumSelfSeed = (env: Env): SelfSeedGate => {
   const raw = env[SOVRIUM_SELF_SEED_VAR]?.trim() ?? ''
   if (raw === '') return 'off'
   return raw === 'reset' ? 'reset' : 'additive'

@@ -32,13 +32,14 @@
  * around already-sanitised user content.
  */
 
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import type { MarkdownDirective } from '@/domain/kernel/markdown/markdown-renderer'
 import type { Design } from '@/domain/models/app/design'
 
 /**
  * The regex must match the EXACT shape `createRenderer` emits for directive
  * placeholders. The non-greedy `[\s\S]*?` stops at the FIRST `</div>` after
- * the opening — safe because markdown-it (`html: false`) never emits nested
+ * the opening — safe because markdown-it drops raw author HTML and never emits nested
  * `<div>` elements itself, and directive nesting is not part of the
  * the pages layout markdown pages requirement spec surface.
  *
@@ -62,19 +63,6 @@ const stripOuterParagraph = (html: string): string => {
   if (match === null) return trimmed
   return match[1] ?? trimmed
 }
-
-/**
- * Escape user-supplied text for safe inclusion in an HTML attribute value.
- * Used only for `name`/etc. attributes derived from author-controlled
- * directive headers — the structural HTML around them is server-built.
- */
-const escapeAttr = (value: string): string =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 
 /**
  * Resolve a design color token for the `alert`/`info` variant family. Returns
@@ -138,7 +126,8 @@ const renderCallout = (
 ): string => {
   const type = normaliseCalloutType(attrs['type'])
   const infoColor = type === 'info' ? themeColor(design, 'info') : undefined
-  const styleAttr = infoColor !== undefined ? ` style="border-color:${escapeAttr(infoColor)}"` : ''
+  const styleAttr =
+    infoColor !== undefined ? ` style="border-color:${escapeHtmlAttribute(infoColor)}"` : ''
   const classes = `md-callout alert ${type} border-l-4 rounded-r-md px-4 py-3 ${CALLOUT_ACCENT_CLASSES[type]}`
   return `<div role="alert" data-component="alert" data-type="${type}" class="${classes}"${styleAttr}>${innerHtml}</div>`
 }
@@ -185,7 +174,7 @@ const renderCta = (innerHtml: string): string => {
  */
 const renderIcon = (attrs: Readonly<Record<string, string>>, _innerHtml: string): string => {
   const name = attrs['name'] ?? ''
-  const nameAttr = name.length > 0 ? ` data-icon-name="${escapeAttr(name)}"` : ''
+  const nameAttr = name.length > 0 ? ` data-icon-name="${escapeHtmlAttribute(name)}"` : ''
   return `<svg data-component="icon" data-slot="icon" class="md-icon"${nameAttr} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"></svg>`
 }
 

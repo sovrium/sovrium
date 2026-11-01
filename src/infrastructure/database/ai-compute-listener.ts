@@ -6,16 +6,21 @@
  */
 
 import { Context, Effect, Layer } from 'effect'
-import { Client } from 'pg'
 import { AiService } from '@/application/ports/services/ai-service'
-// eslint-disable-next-line boundaries/dependencies -- The NOTIFY listener is a boot-time composition root that wires the shared refinement use case into the Postgres LISTEN/NOTIFY callback, exactly analogous to how infrastructure-scheduling wires `run-cron-automation` into the cron callback (boundaries.config.ts grants that the use-case allowance for the same reason). The use case is the dispatch contract; the listener is the only point where a `pg_notify` event can be observed.
-import { refineAiComputeField } from '@/application/use-cases/ai-compute/refine-field'
-import { pinPostgresSslMode } from '@/domain/kernel/sql/postgres-ssl-mode'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { AiLive } from '@/infrastructure/ai/layer'
+import { Database, type DatabaseService } from '@/infrastructure/database/drizzle/layer'
 import { isAiComputeFieldType } from '@/infrastructure/database/generators/ai-field-triggers'
 import { AiComputeStatusRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-compute-status-repository-live'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
+import {
+  makePgNotifyListenerLayer,
+  type PgNotifyListenerDriver,
+  type PgNotifyListenerStatus,
+  type PgNotifySubscription,
+} from './pg-notify-listener'
+import type { AiComputeRefine } from '@/application/ports/contracts/ai-compute-refine'
 import type { App } from '@/domain/models/app'
 import type { AiComputeKind } from '@/domain/models/app/tables/ai-compute-baseline'
 import type { AiComputeRequestConfig } from '@/domain/models/app/tables/ai-compute-build-request'
@@ -72,110 +77,51 @@ const CHANNEL = 'sovrium_ai_compute'
  * a PostgreSQL-only feature; the SQLite refinement is enqueued from the write
  * seam directly.
  *
- * ## The connection is a scoped resource (standing rule E3)
- *
- * This was a mutable class with `start()` / `stop()` and a `private stopped`
- * flag, threaded from `collectInfraPhases` through `createServer`'s return value
- * into `createStopEffect`. Four hops for one connection, and the release
- * happened on the graceful path only. It is now an `Effect.acquireRelease` over
- * the `pg` `Client` inside a `Layer.effect` — which is Effect 4's SCOPED layer
- * constructor; there is no `Layer.scoped`. The scope belongs to the server's
- * domain `ManagedRuntime` (`infrastructure/server/domain-runtime.ts`), disposed
- * in `createStopEffect` after the socket drain, so the connection closes on
- * success, on failure and on interruption alike.
- *
- * The service value carries {@link AiComputeListenerStatus} rather than nothing:
- * a layer providing `never` cannot be named in a merged list, and "did this boot
- * actually LISTEN?" is the one fact a caller (or a test) wants from it.
+ * The connection itself — a scoped `pg` client, `LISTEN`/`UNLISTEN`, the
+ * connect deadline — is `makePgNotifyListenerLayer` (`pg-notify-listener.ts`),
+ * shared with the knowledge listener; this module keeps the gate and the
+ * payload handling.
  */
-export class AiComputeListener extends Context.Service<
-  AiComputeListener,
-  AiComputeListenerStatus
->()('AiComputeListener') {}
-
-/** What a built listener layer reports about itself. */
-export interface AiComputeListenerStatus {
-  /** `true` only when a `pg` connection is open and `LISTEN` succeeded. */
-  readonly listening: boolean
-}
-
-const INERT: AiComputeListenerStatus = { listening: false }
+export class AiComputeListener extends Context.Service<AiComputeListener, PgNotifyListenerStatus>()(
+  'AiComputeListener'
+) {}
 
 /**
  * Does this app have any reason to listen?
  *
- * Mirrors the old `resolveAiComputeListener`: a Postgres URL, at least one
- * AI-compute field in the schema, and a configured AI provider. Each miss is a
- * silent skip — the synchronous PL/pgSQL trigger still writes the baseline, so
- * an unconfigured provider degrades rather than fails.
+ * A Postgres URL, at least one AI-compute field in the schema, and a
+ * configured AI provider. Each miss is a silent skip — the synchronous
+ * PL/pgSQL trigger still writes the baseline, so an unconfigured provider
+ * degrades rather than fails.
  */
-const shouldListen = (app: App | undefined): Effect.Effect<boolean> =>
+const shouldListen = (
+  app: App | undefined,
+  refine: AiComputeRefine
+): Effect.Effect<PgNotifySubscription | undefined, never, Database> =>
   Effect.gen(function* () {
-    if (app === undefined) return false
+    if (app === undefined) return undefined
     // The listener needs PL/pgSQL triggers + `pg_notify` — Postgres only.
-    const dialect = parseDatabaseDialectConfig()
-    if (dialect.dialect !== 'postgres' || !dialect.databaseUrl) return false
+    const dialect = parseDatabaseDialectConfig(yield* ProcessEnv)
+    if (dialect.dialect !== 'postgres' || !dialect.databaseUrl) return undefined
     const hasAiComputeField = (app.tables ?? []).some((table) =>
       table.fields.some((field) => isAiComputeFieldType(field.type))
     )
-    if (!hasAiComputeField) return false
+    if (!hasAiComputeField) return undefined
     const aiService = yield* AiService
-    return aiService.isConfigured()
+    if (!aiService.isConfigured()) return undefined
+    const appId = app.name
+    const database = yield* Database
+    return {
+      databaseUrl: dialect.databaseUrl,
+      onPayload: (raw: string) => handlePayload(refine, database, appId, raw),
+    }
   }).pipe(Effect.provide(AiLive))
 
 /**
- * Open the connection and subscribe, or resolve `undefined`.
- *
- * Never rejects: a listener that cannot connect is a degraded AI-compute
- * pipeline, not a failed boot — the trigger's baseline is still written. The
- * `catch` therefore has to be here rather than in the caller, because this
- * thunk is the acquire half of an `Effect.acquireRelease` and a rejecting
- * acquire would take the whole layer build down with it.
+ * The `pg` boundary, injectable so the acquire/release contract can be unit
+ * tested without `mock.module`. Nothing in production passes a driver.
  */
-const connect = async (
-  databaseUrl: string,
-  handle: (raw: string) => void
-): Promise<Client | undefined> => {
-  const client = new Client({ connectionString: pinPostgresSslMode(databaseUrl) })
-  try {
-    await client.connect()
-    client.on('notification', (msg) => {
-      if (msg.channel !== CHANNEL || !msg.payload) return
-      handle(msg.payload)
-    })
-    client.on('error', () => {
-      // Connection errors are recoverable on the next restart; silently ignore
-      // so the server does not crash while tests tear down.
-    })
-    await client.query(`LISTEN ${CHANNEL}`)
-    return client
-  } catch {
-    await client.end().catch(() => undefined)
-    return undefined
-  }
-}
-
-/** `UNLISTEN` then close. Best-effort on both, and never rejects. */
-const disconnect = async (client: Client): Promise<void> => {
-  await client.query(`UNLISTEN ${CHANNEL}`).catch(() => undefined)
-  await client.end().catch(() => undefined)
-}
-
-/**
- * The `pg` boundary as one injectable pair.
- *
- * Exported, and taken as a parameter by {@link makeAiComputeListenerLayer},
- * so the acquire/release contract can be driven by a unit test without
- * `mock.module` — which contaminates Bun's process-global module cache for
- * every later test file (`@docs/infrastructure/testing/bun-test.md`). Nothing
- * in production passes anything but {@link liveDriver}.
- */
-export interface AiComputeListenerDriver {
-  readonly open: (databaseUrl: string, handle: (raw: string) => void) => Promise<Client | undefined>
-  readonly close: (client: Client) => Promise<void>
-}
-
-const liveDriver: AiComputeListenerDriver = { open: connect, close: disconnect }
+export type AiComputeListenerDriver = PgNotifyListenerDriver
 
 /**
  * The live listener, scoped to the layer that builds it.
@@ -183,51 +129,39 @@ const liveDriver: AiComputeListenerDriver = { open: connect, close: disconnect }
  * `app` is optional so the layer is nameable from a runtime built without a
  * config (`createDomainRuntime(undefined)`, which the unit tests use): with no
  * app there is nothing to listen for, and the layer resolves inert.
+ *
+ * `refine` is the application's refinement worker (`refineAiComputeField`),
+ * handed in by the server's composition root so this listener imports no
+ * use-case of its own. The status store reads the `Database` of the runtime
+ * that holds the listener, so a payload landing after a stop reopens nothing.
  */
 export const makeAiComputeListenerLayer = (
   app: App | undefined,
-  driver: AiComputeListenerDriver = liveDriver
-): Layer.Layer<AiComputeListener> =>
-  Layer.effect(
-    AiComputeListener,
-    Effect.gen(function* () {
-      if (!(yield* shouldListen(app)) || app === undefined) return INERT
-      const dialect = parseDatabaseDialectConfig()
-      const databaseUrl = dialect.dialect === 'postgres' ? dialect.databaseUrl : ''
-      const appId = app.name
+  refine: AiComputeRefine,
+  driver?: AiComputeListenerDriver
+): Layer.Layer<AiComputeListener, never, Database> =>
+  makePgNotifyListenerLayer(AiComputeListener, {
+    channel: CHANNEL,
+    label: '[ai-compute]',
+    shouldListen: shouldListen(app, refine),
+    // Silent beyond a debug line — the synchronous trigger still computes values without us.
+    onOpenFailure: () => logDebug('[ai-compute] listener could not connect — baseline only'),
+    ...(driver === undefined ? {} : { driver }),
+  })
 
-      const client = yield* Effect.acquireRelease(
-        // effect-promise: total -- `connect` catches its own rejections and resolves `undefined`; see its doc comment.
-        Effect.promise(() =>
-          driver.open(databaseUrl, (raw) => {
-            // Fire-and-forget: refinement is best-effort and must never crash
-            // the server on a transient provider failure.
-            void handlePayload(appId, raw).catch((error: unknown) => {
-              logError('[ai-compute] payload handler error', error)
-            })
-          })
-        ),
-        // effect-promise: total -- `disconnect` swallows both cleanup rejections.
-        (open) => (open === undefined ? Effect.void : Effect.promise(() => driver.close(open)))
-      )
-
-      if (client === undefined) {
-        // Silent — the synchronous trigger still computes values without us.
-        logDebug('[ai-compute] listener could not connect — baseline only')
-        return INERT
-      }
-      return { listening: true }
-    })
-  )
-
-const handlePayload = async (appId: string, raw: string): Promise<void> => {
+const handlePayload = async (
+  refine: AiComputeRefine,
+  database: DatabaseService,
+  appId: string,
+  raw: string
+): Promise<void> => {
   const payload = parsePayload(raw)
   if (!payload || payload.record_id === undefined || payload.record_id === null) return
 
   const kind = resolveKind(payload.kind)
   const config = toRequestConfig(payload)
 
-  const program = refineAiComputeField({
+  const program = refine({
     appId,
     tableName: payload.table,
     recordId: String(payload.record_id),
@@ -240,7 +174,12 @@ const handlePayload = async (appId: string, raw: string): Promise<void> => {
 
   const result = await Effect.runPromise(
     program.pipe(
-      Effect.provide(Layer.mergeAll(AiLive, AiComputeStatusRepositoryLive)),
+      Effect.provide(
+        Layer.mergeAll(
+          AiLive,
+          Layer.provide(AiComputeStatusRepositoryLive, Layer.succeed(Database, database))
+        )
+      ),
       Effect.result
     )
   )

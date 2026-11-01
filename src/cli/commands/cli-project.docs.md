@@ -2,7 +2,7 @@
 
 > Scaffold a project, build it to static files, print its schema, check a config before you ship it, and write the types for a TypeScript config.
 
-Five commands operate on a project rather than on a running server. Each answers `--help` with its own option list, which is the authoritative one; what follows is what the options are _for_. Two more move a whole install — `sovrium backup` writes the database, the key, the config and the uploads to one archive, and `sovrium restore` puts it back; see **Back Up and Restore**.
+Five commands operate on a project rather than on a running server. Each answers `--help` with its own option list, which is the authoritative one; what follows is what the options are _for_. Two more move a whole install: `sovrium backup` writes the database, the key, the config and the uploads to one archive, and `sovrium restore` puts it back; see **Back Up and Restore**. `sovrium reindex` rebuilds the AI knowledge index from the shell; see **Rebuilding the AI Knowledge Index**.
 
 ## `sovrium init`
 
@@ -10,7 +10,7 @@ Five commands operate on a project rather than on a running server. Each answers
 Usage: sovrium init [dir] [options]
 ```
 
-Scaffold a new project into the given directory, or into the current one when none is passed. Every scaffold writes a config file, a `CLAUDE.md` written for that template's domain, Sovrium's agent skills under `.claude/skills/` (as `sovrium skills` writes them — see **Agent Skills**), an `.env.example`, a `.gitignore`, and a `public/` directory for static assets. The bare `hello-world` default gets the same set.
+Scaffold a new project into the given directory, or into the current one when none is passed. Every scaffold writes a config file, a `CLAUDE.md` written for that template's domain, Sovrium's agent skills under `.claude/skills/` (as `sovrium skills` writes them; see **Agent Skills**), an `.env.example`, a `.gitignore`, and a `public/` directory for static assets. The bare `hello-world` default gets the same set.
 
 ```bash
 sovrium init ./my-app                          # blank starter
@@ -21,9 +21,11 @@ sovrium init ./my-app --typescript
 
 `--name` is written into the scaffolded config and defaults to the directory name. `--force` allows an existing config file to be overwritten.
 
-`--template` takes a bundled template name — `sovrium templates` lists the bundled names, and an unknown one exits `1` and prints the list — or a **GitHub repository** in any of the forms `owner/repo`, `gh:owner/repo` or `https://github.com/owner/repo`, each with an optional `#ref` naming a branch, tag or SHA. Only `github.com` is supported.
+`--template` takes a bundled template name (`sovrium templates` lists the bundled names, and an unknown one exits `1` and prints the list) or a **GitHub repository** in any of the forms `owner/repo`, `gh:owner/repo` or `https://github.com/owner/repo`, each with an optional `#ref` naming a branch, tag or SHA. Only `github.com` is supported.
 
-`--from-url <url>` forks one published YAML or JSON config over HTTPS — the format comes from the URL's path (`.yaml`, `.yml` or `.json`), or from the response's `Content-Type` when the path has no extension — and `--git` initialises a repository and lands the scaffold as one commit. Both are described below.
+**A project you did not write may contain code.** An `app.ts` config is a program that `sovrium start` runs, and an automation's `code` step runs TypeScript on every trigger, with the access the project has, whatever the config's format. Before it creates a project from a GitHub repository, a published document (`--from-url`) or a bundle (`--from-bundle`), `init` names each one it finds: the file, or the automation and the step. A GitHub repository that contains code is refused with exit `1`, writing nothing, until you have read it and run the command again with `--allow-code`. A document or a bundle is created, the paragraph printed beside where it came from.
+
+`--from-url <url>` forks one published YAML or JSON config over HTTPS (the format comes from the URL's path, `.yaml`, `.yml` or `.json`, or from the response's `Content-Type` when the path has no extension), and `--git` initialises a repository and lands the scaffold as one commit. The fork, what it refuses and how to inspect or pin a document first are described in **Forking a Published Config**; `--git` below.
 
 `--from-bundle <source>` opens an archive written by `sovrium bundle` (from an `https:` link, a `file:` URL or a path) as a new project, after checking every file and its publisher; see **Opening a Bundle**.
 
@@ -31,68 +33,7 @@ sovrium init ./my-app --typescript
 
 **`init` never clobbers what it does not own.** An existing `.gitignore`, `.env.example` or `public/` is left verbatim. The config file is the one thing `init` owns, and even that is only overwritten with `--force`.
 
-### `--from-url` — fork one published config
-
-`--template owner/repo` fetches a whole repository. `--from-url` fetches a **single** config document: the shape a gallery, a blog post or a colleague can publish without owning a repository at all.
-
-```bash
-sovrium init ./contact-book --from-url https://example.com/starters/contact-book.yaml
-```
-
-The URL is fetched exactly as given. A query string — a signed link's signature, a download name — is sent unchanged and never decides the format: only the path's extension does, and failing that the `Content-Type` (`application/yaml`, `application/x-yaml`, `text/yaml` or `application/json`). What is _recorded_ is not: a signed link is written down without what signs it.
-
-The document is fetched once, at scaffold time, and written into the project byte for byte — comments, key order and all. Nothing ever re-fetches it. That is the difference between a file you have and a file whose author can still change what your app does.
-
-Beside it lands `.sovrium-template.json`, recording where the config came from:
-
-```json
-{
-  "source": "https://example.com/starters/contact-book.yaml",
-  "sha256": "9d950eca6a366fa932ceb930b0a288818cc66921f606decb2f749529148921f7",
-  "file": "app.yaml",
-  "fetchedAt": "2026-09-22T21:18:36.449Z"
-}
-```
-
-It is meant to be committed. Provenance goes in a sidecar rather than a header comment because a comment does not survive the first rewrite, and a JSON config cannot carry one at all.
-
-So when the URL carried a signature or a bearer token (an `X-Amz-*`, `X-Goog-*` or Azure SAS query, a `token`, `access_token`, `key`, `apikey`, `auth` or `sig` parameter, or credentials before the host), `source` records it with those parameters removed, the others kept in order, and the sidecar adds `"signedSource": true`, so you know the recorded address is not the whole one. An unsigned fork's sidecar is unchanged. A refused fetch names the address the same way, never its signature.
-
-Every refusal below exits `1` **before a single file is written**, so a rejected fork leaves nothing behind to clean up:
-
-| Refused                                                                               | Why                                                                                                                                   |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| A plain `http://` URL                                                                 | The document becomes your whole application, so whoever can rewrite it in flight chooses what your project is                         |
-| A URL ending in `.ts`                                                                 | A TypeScript config is a program. Downloading one from a URL to run it is a different thing from copying a document                   |
-| A URL whose path has no `.yaml`/`.yml`/`.json` and whose `Content-Type` names neither | The format is what decides whether the fork lands as `app.yaml` or `app.json`. Checked after the fetch, still before the first write  |
-| A document over 1 MB                                                                  | A config is a few kilobytes. The limit applies while the document is read, so an oversized one is abandoned rather than buffered      |
-| A config carrying a remote `$ref`                                                     | Following it would leave the fork incomplete and every later boot dependent on a host you did not choose                              |
-| A config the schema rejects                                                           | The document is decoded before the first write. A half-scaffolded project whose config does not boot is worse than no project         |
-| A redirect chain over five hops                                                       | A published document is served directly or behind a redirect or two. A longer chain is a loop, or a redirector                        |
-| A redirect to a non-`https` address                                                   | You chose the address you typed; the publisher chose where it goes next. A cleartext hop hands the document to whoever is on the path |
-
-```console
-$ sovrium init ./my-app --from-url http://example.com/app.yaml
-Error: --from-url requires an https:// address, and "http://example.com/app.yaml" is not one.
-This document becomes your whole application, so it is fetched over TLS or not at all.
-```
-
-#### Redirects are followed, and each one is checked
-
-Published templates redirect — `raw.githubusercontent.com` answers a `302` — so a link that redirects still works, and the provenance sidecar records the URL **you** gave rather than wherever it ended up. But the address you typed is the only one you chose, so each hop is put through the same checks again: it must be `https`, and it must not point at a private, loopback or link-local host. Up to five hops are followed; past that the chain is refused.
-
-Without this, every rule in the table above would be decided against the first URL while the bytes came from the last one.
-
-```console
-$ sovrium init ./my-app --from-url https://example.com/starter.yaml
-Error: https://example.com/starter.yaml redirected to http://cdn.example.net/starter.yaml, which is not https, so nothing was fetched.
-A redirect hop is chosen by the publisher rather than by you, and a cleartext hop hands
-the document to whoever is on the path. Ask them for an https address.
-```
-
-A document the schema rejects is reported without printing its own values back at you, unlike `sovrium validate` on a file you wrote. These bytes came from somebody else, and a publisher who controls them should not get to choose what lands in your terminal. You still get the position and the expected shape.
-
-### `--git` — start the project under version control
+### `--git`: start the project under version control
 
 ```bash
 sovrium init ./my-app --template crm --git
@@ -106,7 +47,7 @@ Sovrium <local@sovrium>
 Initial commit from sovrium init
 ```
 
-That identity is passed per invocation rather than read from your git config, because a machine that has never run `git config --global user.email` is exactly the machine this flag is for — and there an inherited identity is no identity and the commit simply fails. `local@sovrium` has no TLD on purpose: it cannot be mistaken for a real mailbox. The `.gitignore` that `init` writes is what keeps the data directory and `.env` out of that commit.
+That identity is passed per invocation rather than read from your git config, because a machine that has never run `git config --global user.email` is exactly the machine this flag is for, and there an inherited identity is no identity and the commit simply fails. `local@sovrium` has no TLD on purpose: it cannot be mistaken for a real mailbox. The `.gitignore` that `init` writes is what keeps the data directory and `.env` out of that commit.
 
 **A convenience, never a prerequisite.** On a host with no `git` the scaffold still succeeds, exits `0`, writes no repository, and says what was skipped:
 
@@ -123,7 +64,7 @@ Going back to an earlier version of an app does not depend on git either: under 
 Usage: sovrium build [config] [options]
 ```
 
-Generate a static site — HTML, CSS and assets — from your configuration, ready for any static host.
+Generate a static site (HTML, CSS and assets) from your configuration, ready for any static host.
 
 ```bash
 sovrium build app.yaml
@@ -137,13 +78,13 @@ SOVRIUM_OUTPUT_DIR=./out \
   sovrium build app.yaml
 ```
 
-Build options come from `SOVRIUM_` environment variables rather than flags, because they are deployment facts rather than per-invocation choices. Output goes to `SOVRIUM_OUTPUT_DIR` when set; otherwise to a `dist/` directory beside the config file. It also writes the app's stylesheet to `output.css` in the data directory (`.sovrium/output.css` unless `SOVRIUM_DATA_DIR` moves it, or `SOVRIUM_CSS_FILE` names the exact path) with a first line recording the engine version and design that built it, so a production `sovrium start` can serve that file instead of compiling — whatever the app declares. A file whose first line names another engine version or design is set aside with one warning. The operator console compiles its own stylesheet and never reads this file.
+Build options come from `SOVRIUM_` environment variables rather than flags, because they are deployment facts rather than per-invocation choices. Output goes to `SOVRIUM_OUTPUT_DIR` when set; otherwise to a `dist/` directory beside the config file. It also writes the app's stylesheet to `output.css` in the data directory (`.sovrium/output.css` unless `SOVRIUM_DATA_DIR` moves it, or `SOVRIUM_CSS_FILE` names the exact path) with a first line recording the engine version and design that built it, so a production `sovrium start` can serve that file instead of compiling, whatever the app declares. A file whose first line names another engine version or design is set aside with one warning. The operator console compiles its own stylesheet and never reads this file.
 
-With `SOVRIUM_GENERATE_SITEMAP=true` the build also reads the database it runs against (`DATABASE_URL`) for the records of each collection page an anonymous visitor could open, lists them in `sitemap.xml` exactly as the running server's `/sitemap.xml` does, and writes each listed record's page as its own HTML file — `blog/pricing-change.html` for `/blog/pricing-change` — so a static host answers every address the sitemap advertises. In an app that declares `languages`, it lists each page once per language, in every `languages.supported` language unless `SOVRIUM_LANGUAGES` names fewer. Past 5 000 addresses it writes `sitemap-1.xml`, `sitemap-2.xml`, … beside an index. The rules that decide which records are listed are in **SEO & Crawlers**.
+With `SOVRIUM_GENERATE_SITEMAP=true` the build also reads the database it runs against (`DATABASE_URL`) for the records of each collection page an anonymous visitor could open, lists them in `sitemap.xml` exactly as the running server's `/sitemap.xml` does, and writes each listed record's page as its own HTML file (`blog/pricing-change.html` for `/blog/pricing-change`), so a static host answers every address the sitemap advertises. In an app that declares `languages`, it lists each page once per language, in every `languages.supported` language unless `SOVRIUM_LANGUAGES` names fewer. Past 5 000 addresses it writes `sitemap-1.xml`, `sitemap-2.xml`, … beside an index. The rules that decide which records are listed are in **SEO & Crawlers**.
 
-An app that declares `languages` is written one directory per language, each page at the address the running server gives it. A page whose path names no language is written in every language — `/about` becomes `en/about.html` and `fr/about.html`, each composed in its own language. A page whose path already names its language is written once, there: `/fr/pricing` becomes `fr/pricing.html` and nothing else. A page with one path per language, such as `{ en: /manifesto, fr: /manifeste }`, becomes `en/manifesto.html` and `fr/manifeste.html`. The root `index.html` is the home page in the default language. Every absolute address the build derives, in `sitemap.xml` and `robots.txt` as in the pages' canonical and alternate links, starts with `SOVRIUM_BASE_URL`, even when the shell also sets `BASE_URL`. Under `SOVRIUM_BASE_PATH` it starts with that path too: `SOVRIUM_BASE_URL=https://acme.example` with `SOVRIUM_BASE_PATH=/docs` publishes `https://acme.example/docs/…`, and a base URL that already ends with the path, such as `https://acme.example/docs`, is not given it twice. So every address the sitemap and the pages' `hreflang` alternates name is a file in the output.
+An app that declares `languages` is written one directory per language, each page at the address the running server gives it. A page whose path names no language is written in every language: `/about` becomes `en/about.html` and `fr/about.html`, each composed in its own language. A page whose path already names its language is written once, there: `/fr/pricing` becomes `fr/pricing.html` and nothing else. A page with one path per language, such as `{ en: /manifesto, fr: /manifeste }`, becomes `en/manifesto.html` and `fr/manifeste.html`. The root `index.html` is the home page in the default language. Every absolute address the build derives, in `sitemap.xml` and `robots.txt` as in the pages' canonical and alternate links, starts with `SOVRIUM_BASE_URL`, even when the shell also sets `BASE_URL`. Under `SOVRIUM_BASE_PATH` it starts with that path too: `SOVRIUM_BASE_URL=https://acme.example` with `SOVRIUM_BASE_PATH=/docs` publishes `https://acme.example/docs/…`, and a base URL that already ends with the path, such as `https://acme.example/docs`, is not given it twice. So every address the sitemap and the pages' `hreflang` alternates name is a file in the output.
 
-Every script a built page loads is written beside the pages, under the name the page asks for — `assets/client.js`, `assets/scroll-animation.js` and so on — together with every module those scripts import, under `assets/client-chunks/`, and the part of the interactive-component bundle the pages reach under `assets/islands/` — the `island-entry-*.js` module a page loads and the files it imports, and the chunk of each interactive component a page uses, the built-in ⌘K palette included; a component no page uses is not written — so a static host answers each `<script src>` and `modulepreload` link in the output and each file it loads in turn. A build carries no development tooling: the live-reload client that `sovrium start` adds to its pages in local development is neither loaded by a built page nor written to the output, whatever `NODE_ENV` is set to.
+Every script a built page loads is written beside the pages, under the name the page asks for (`assets/client.js`, `assets/scroll-animation.js` and so on), together with every module those scripts import, under `assets/client-chunks/`, and the part of the interactive-component bundle the pages reach under `assets/islands/`. That part is the `island-entry-*.js` module a page loads and the files it imports, and the chunk of each interactive component a page uses, the built-in ⌘K palette included; a component no page uses is not written. So a static host answers each `<script src>` and `modulepreload` link in the output and each file it loads in turn. A build carries no development tooling: the live-reload client that `sovrium start` adds to its pages in local development is neither loaded by a built page nor written to the output, whatever `NODE_ENV` is set to.
 
 ## `sovrium schema`
 
@@ -160,7 +101,7 @@ sovrium schema --output app.schema.json
 
 The document is self-contained, with a top-level `$schema` declaration, so any JSON-Schema-aware editor or validator consumes it as-is.
 
-`--output <dir>/<name>.json` also writes, beside it, `<name>.index.json` — the same schema with each top-level key pointing at its own file — and `<name>/<key>.json`, one schema per top-level key, sharing their definitions through `<name>/_defs.json`. Point a `$ref` partial that holds one section, such as a `tables.yaml`, at the file for its key. The full file is unchanged, and printing to stdout writes nothing.
+`--output <dir>/<name>.json` also writes, beside it, `<name>.index.json` (the same schema with each top-level key pointing at its own file) and `<name>/<key>.json`, one schema per top-level key, sharing their definitions through `<name>/_defs.json`. Point a `$ref` partial that holds one section, such as a `tables.yaml`, at the file for its key. The full file is unchanged, and printing to stdout writes nothing.
 
 ## `sovrium validate`
 
@@ -168,7 +109,7 @@ The document is self-contained, with a top-level `$schema` declaration, so any J
 Usage: sovrium validate <config>
 ```
 
-Decode a config file and report what is wrong. It accepts `.json`, `.yaml`, `.yml` and `.ts`, resolving `$ref` includes first. Prints `Valid configuration: <name>` and exits `0`, or a tree of errors and exits `1`. Run it in CI ahead of a deploy — it is the same decoder the server runs at boot.
+Decode a config file and report what is wrong. It accepts `.json`, `.yaml`, `.yml` and `.ts`, resolving `$ref` includes first. Prints `Valid configuration: <name>` and exits `0`, or a tree of errors and exits `1`. Run it in CI ahead of a deploy: it is the same decoder the server runs at boot.
 
 ## `sovrium types`
 
@@ -188,7 +129,7 @@ Two files land, and they are treated differently on purpose:
 - **`sovrium.d.ts` is rewritten on every run**, because it describes the schema of the binary that wrote it. Re-run the command after upgrading.
 - **`tsconfig.json` is written only when absent.** Once a project has one it is yours, and replacing it is not an acceptable side effect of asking for types. When one already exists the command says so, and names the single thing that has to stay true of it: `sovrium.d.ts` must remain in the TypeScript program.
 
-Author the config with a **type-only** import — the declaration exports no runtime value, because the binary does not resolve bare-package specifiers:
+Author the config with a **type-only** import. The declaration exports no runtime value, because the binary does not resolve bare-package specifiers:
 
 ```ts
 import type { AppConfig } from 'sovrium'

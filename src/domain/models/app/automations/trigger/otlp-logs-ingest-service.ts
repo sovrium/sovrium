@@ -17,6 +17,7 @@
  */
 
 import { Option, Schema } from 'effect'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   otlpExportLogsRequestSchema,
   type OtlpExportLogsRequest,
@@ -30,9 +31,6 @@ type LogRecord = NonNullable<
   NonNullable<NonNullable<ResourceLogs['scopeLogs']>[number]['logRecords']>[number]
 >
 
-const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 /** A 64-bit integer as a number when it is safe, else as it came. */
 const intValueOf = (raw: unknown): unknown => {
   const number = typeof raw === 'string' ? Number(raw) : raw
@@ -41,7 +39,7 @@ const intValueOf = (raw: unknown): unknown => {
 
 /** The `values` list of an `arrayValue` or a `kvlistValue`, or none. */
 const valuesOf = (container: unknown): readonly unknown[] =>
-  isObject(container) && Array.isArray(container['values'])
+  isRecord(container) && Array.isArray(container['values'])
     ? (container['values'] as readonly unknown[])
     : []
 
@@ -62,7 +60,7 @@ const ANY_VALUE_READERS: ReadonlyArray<readonly [string, (raw: unknown) => unkno
  * object for a `kvlistValue`. Anything unrecognised is kept as it came.
  */
 export function anyValueOf(value: unknown): unknown {
-  if (!isObject(value)) return value
+  if (!isRecord(value)) return value
   const reader = ANY_VALUE_READERS.find(([member]) => member in value)
   return reader === undefined ? value : reader[1](value[reader[0]])
 }

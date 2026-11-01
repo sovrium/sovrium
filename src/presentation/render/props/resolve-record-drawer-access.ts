@@ -36,6 +36,12 @@ import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-r
 import { reverseRelationsOf } from '@/domain/models/app/tables/reverse-relations-service'
 import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
 import {
+  componentFields,
+  entryAsComponent,
+  mapComponentChildren,
+  rewriteComponent,
+} from '@/presentation/render/resolve/component-rewrite'
+import {
   drawerLanguagesFor,
   withDrawerLanguages,
   type DrawerLanguages,
@@ -291,33 +297,30 @@ export function markDrawerFieldAccess(
   caller: DrawerCaller = {}
 ): readonly Component[] {
   const mark = (component: Component): Component => {
-    const record = component as Readonly<Record<string, unknown>>
-    const { children } = record
-    const withChildren = Array.isArray(children)
-      ? {
-          ...record,
-          children: (children as readonly (Component | string)[]).map((child) =>
-            typeof child === 'string' ? child : mark(child)
-          ),
-        }
-      : record
+    const record = componentFields(component)
+    const withChildren = Array.isArray(component.children)
+      ? mapComponentChildren(component, (children) =>
+          children.map((child) =>
+            typeof child === 'string' ? child : mark(entryAsComponent(child))
+          )
+        )
+      : component
     const tableName = drawerTable(record)
-    if (tableName === undefined) return withChildren as Component
+    if (tableName === undefined) return withChildren
     const access = withDrawerLanguages(
       fieldAccessFor(fieldAccessReaderOf(app, session, caller), tableName),
       drawerLanguagesFor(caller.hostApp ?? app, tableName)
     )
     const host = isGenericSheet(record) ? hostFactsFor(app, tableName, session, caller) : undefined
-    if (access === undefined && host === undefined) return withChildren as Component
+    if (access === undefined && host === undefined) return withChildren
     const props = (record['props'] as Readonly<Record<string, unknown>> | undefined) ?? {}
-    return {
-      ...withChildren,
+    return rewriteComponent(withChildren, {
       props: {
         ...props,
         ...(access === undefined ? {} : { [DRAWER_FIELD_ACCESS_KEY]: access }),
         ...(host === undefined ? {} : { [DRAWER_HOST_KEY]: host }),
       },
-    } as Component
+    })
   }
   return components.map(mark)
 }

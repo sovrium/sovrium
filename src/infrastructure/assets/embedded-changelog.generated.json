@@ -3,6 +3,1473 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.46.0",
+      "date": "2026-11-01",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.45.0...v0.46.0",
+      "sections": [
+        {
+          "kind": "breaking",
+          "heading": "BREAKING CHANGES",
+          "entries": [
+            {
+              "scope": "analytics",
+              "text": "store only audience fields by default with analytics.profile"
+            },
+            {
+              "scope": "pages",
+              "text": "refuse a record gate on a contentDir page, and hold record gates in breakpoint children and on pages with no record"
+            },
+            {
+              "scope": "design",
+              "text": "refuse a part name a component does not have under design.components"
+            },
+            {
+              "scope": "auth",
+              "text": "a directory sync lifts only its own deactivations, manages verified accounts only, and needs a 32-character token"
+            },
+            {
+              "scope": "automations",
+              "text": "a connection's credential goes only to the service it was declared for"
+            },
+            {
+              "scope": "ai",
+              "text": "an agent's record changes in a chat ask for confirmation like the generic chat"
+            },
+            {
+              "scope": "ai",
+              "text": "an agent people can chat with may not run code; the code step stays for automations"
+            },
+            {
+              "scope": "automations",
+              "text": "a public webhook has a request budget, keeps a bounded copy of each call and forgets runs after 90 days by default"
+            },
+            {
+              "scope": "tables",
+              "text": "record writes answer once committed; webhook deliveries continue in the background"
+            },
+            {
+              "scope": "buckets",
+              "text": "a public bucket accepts uploads from administrators unless it says otherwise"
+            },
+            {
+              "scope": "tables",
+              "text": "an app without sign-in serves only the tables that open themselves to everyone"
+            },
+            {
+              "scope": "auth",
+              "text": "require a verified email when a federated provider is declared"
+            },
+            {
+              "scope": "auth",
+              "text": "close sign-up unless the config opens it"
+            },
+            {
+              "scope": "tables",
+              "text": "declare business rules on a table and refuse the single-select conditions key"
+            }
+          ]
+        },
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "add a consent banner that holds back analytics and page scripts until the visitor accepts"
+            },
+            {
+              "scope": "pages",
+              "text": "let a page or component depend on the app keeping full analytics"
+            },
+            {
+              "scope": "analytics",
+              "text": "answer aggregate-only, rounded analytics reads under the audience-only profile"
+            },
+            {
+              "scope": "pages",
+              "text": "let visitors turn the measurement of their visits off and on"
+            },
+            {
+              "scope": "pages",
+              "text": "let a button follow what a data component on its page last read"
+            },
+            {
+              "scope": "analytics",
+              "text": "honour Global Privacy Control in built-in analytics"
+            },
+            {
+              "scope": "pages",
+              "text": "show a component only when an $app value holds"
+            },
+            {
+              "scope": "image",
+              "text": "let an image inline an SVG drawing from public files so it follows the app's colours"
+            },
+            {
+              "scope": "design-system",
+              "text": "export the code-block syntax colours in the design-system bundle"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a command item's description under its label"
+            },
+            {
+              "scope": "data-table",
+              "text": "empty guidance, row count noun, second line, short ids and copy"
+            },
+            {
+              "scope": "pages",
+              "text": "KPI legend under the value, and guidance in a chart's empty region"
+            },
+            {
+              "scope": "admin",
+              "text": "filter the account directory on who can open the console"
+            },
+            {
+              "scope": "pages",
+              "text": "draw an irreversible confirm's verb as a solid destructive fill"
+            },
+            {
+              "scope": "auth",
+              "text": "say what to do next after a refused password on a sign-in form"
+            },
+            {
+              "scope": "admin",
+              "text": "leave the reads out of the audit log on request"
+            },
+            {
+              "scope": "design",
+              "text": "style every markdown article once with design.components.markdown"
+            },
+            {
+              "scope": "design",
+              "text": "style every text drawn as one element with design.components.text.elements"
+            },
+            {
+              "scope": "theming",
+              "text": "colour code blocks by syntax role from the design's own colour tokens"
+            },
+            {
+              "scope": "pages",
+              "text": "draw the docs zones and search inside the sidebar when asked"
+            },
+            {
+              "scope": "pages",
+              "text": "a list drawn through a row template follows its filter bar"
+            },
+            {
+              "scope": "pages",
+              "text": "mark the section being read in every table of contents"
+            },
+            {
+              "scope": "pages",
+              "text": "style the docs outline's active link with the tocLinkActive part"
+            },
+            {
+              "scope": "pages",
+              "text": "an image can show its own file in the dark scheme"
+            },
+            {
+              "scope": "design",
+              "text": "name the code block's copy button as a stylable part"
+            },
+            {
+              "scope": "brand",
+              "text": "rename Sovrium Academy to Sovrium Builder"
+            },
+            {
+              "scope": "pages",
+              "text": "accept repeat on a collection page and on a single-mode container"
+            },
+            {
+              "scope": "auth",
+              "text": "the account owner is emailed when a key or a passkey is added"
+            },
+            {
+              "scope": "pages",
+              "text": "give a comments thread its own title, and hide it while empty for readers who cannot comment"
+            },
+            {
+              "scope": "pages",
+              "text": "let each page publish its own RSS feed at an address of its own"
+            },
+            {
+              "scope": "cli",
+              "text": "`sovrium reindex` rebuilds the AI knowledge index from the command line"
+            },
+            {
+              "scope": "auth",
+              "text": "the two-factor lockout tells the person by email and an administrator can clear it"
+            },
+            {
+              "scope": "admin",
+              "text": "show the instance's uptime, AI provider and health on the overview"
+            },
+            {
+              "scope": "admin",
+              "text": "show who sent each form submission, a preview of its answers, and the record and runs it started"
+            },
+            {
+              "scope": "admin",
+              "text": "filter the audit log by actor, action, period and search, and export the rows you select"
+            },
+            {
+              "scope": "admin",
+              "text": "let a record sheet read nested values and follow a navigate action"
+            },
+            {
+              "scope": "admin",
+              "text": "judge the instance's health on the overview read"
+            },
+            {
+              "scope": "install",
+              "text": "verify the release signature before installing"
+            },
+            {
+              "scope": "admin",
+              "text": "name who sent each form submission, the record it created and the runs it started"
+            },
+            {
+              "scope": "admin",
+              "text": "narrow the audit log by period and search, and list its actors and actions"
+            },
+            {
+              "scope": "tables",
+              "text": "let a url button's address name the record it is pressed on"
+            },
+            {
+              "scope": "tables",
+              "text": "give calendar feed events a place and a link"
+            },
+            {
+              "scope": "auth",
+              "text": "ask for the person's name on a sign-up form"
+            },
+            {
+              "scope": "pages",
+              "text": "show lock states on edit forms and return a refused kanban card to its stored lane"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a grid's delete action disabled on a record a lock rule keeps, with the lock's message"
+            },
+            {
+              "scope": "pages",
+              "text": "show locked fields as disabled and surface the rule's message in the form, drawer, grid, kanban and calendar"
+            },
+            {
+              "scope": "tables",
+              "text": "enforce business rules on every record write and report locked fields on reads"
+            },
+            {
+              "scope": "cli",
+              "text": "generate a typed client for the records API"
+            },
+            {
+              "scope": "cli",
+              "text": "import a Supabase project"
+            },
+            {
+              "scope": "api",
+              "text": "allow a configured list of origins on the records API"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "keep a confirmation opened while a region was being refreshed"
+            },
+            {
+              "scope": "admin",
+              "text": "ask the links pages' 24-hour period for daily figures"
+            },
+            {
+              "scope": "theming",
+              "text": "nothing keeps animating on an idle page under reduced motion"
+            },
+            {
+              "scope": "admin",
+              "text": "let the account's role badge wrap instead of clipping"
+            },
+            {
+              "scope": "admin",
+              "text": "say so when an erasure request is refused"
+            },
+            {
+              "scope": "admin",
+              "text": "point an account's access section to Access › Reach"
+            },
+            {
+              "scope": "admin",
+              "text": "name the overview's empty attention line as the console shows it"
+            },
+            {
+              "scope": "admin",
+              "text": "Request erasure stays hidden while an erasure is pending"
+            },
+            {
+              "scope": "pages",
+              "text": "accept a read gate whose grid is placed from a template with a key"
+            },
+            {
+              "scope": "admin",
+              "text": "records actions wait for a working read, and the palette offers only pages that exist"
+            },
+            {
+              "scope": "analytics",
+              "text": "start fresh visitor identifiers each day and on every restart"
+            },
+            {
+              "scope": "tables",
+              "text": "a grid that fits on one page no longer announces its count line as page navigation"
+            },
+            {
+              "scope": "admin",
+              "text": "the sidebar version reads v and its number as text, and nothing when none is declared"
+            },
+            {
+              "scope": "pages",
+              "text": "match nothing when a page data filter value resolves empty or to text its column cannot hold"
+            },
+            {
+              "scope": "pages",
+              "text": "the search palette offers each destination once"
+            },
+            {
+              "scope": "analytics",
+              "text": "stop claiming the built-in analytics settles GDPR consent"
+            },
+            {
+              "scope": "pages",
+              "text": "a menu's link rows read in the same ink as its other rows"
+            },
+            {
+              "scope": "desktop",
+              "text": "register sovrium:// links on Linux without update-desktop-database, and close a second Windows launch during startup"
+            },
+            {
+              "scope": "auth",
+              "text": "offer Forgot your password? only when the instance can send mail"
+            },
+            {
+              "scope": "pages",
+              "text": "keep tab and step labels with their gated bodies, and repeat in every child list of a record-bound component"
+            },
+            {
+              "scope": "tables",
+              "text": "name an empty grid's guidance line with the empty-description slot"
+            },
+            {
+              "scope": "tables",
+              "text": "mark a column's second line as its caption"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a single-space text that separates two inline siblings"
+            },
+            {
+              "scope": "admin",
+              "text": "console lists count their rows and drop the View menu they do not need"
+            },
+            {
+              "scope": "islands",
+              "text": "never swallow a press held for an island that fails to load"
+            },
+            {
+              "scope": "api",
+              "text": "check field read permissions on every node of a records filter"
+            },
+            {
+              "scope": "admin",
+              "text": "the audit log reads in words and hides reads until asked"
+            },
+            {
+              "scope": "api",
+              "text": "refuse a records filter value its field cannot hold with a 400 naming the field"
+            },
+            {
+              "scope": "admin",
+              "text": "account actions protect your own account and name the person they affect"
+            },
+            {
+              "scope": "admin",
+              "text": "Footprint gets its own page, Analytics loses its tabs, empty lists say what fills them"
+            },
+            {
+              "scope": "pages",
+              "text": "a mistyped filter-bar condition leaves a row-template list empty instead of failing the page"
+            },
+            {
+              "scope": "admin",
+              "text": "the command palette opens on the console's pages and names only declared data"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a text with element kbd as a kbd"
+            },
+            {
+              "scope": "design",
+              "text": "let a type-scale step's letter spacing replace a heading's default tracking"
+            },
+            {
+              "scope": "admin",
+              "text": "sign-in, sign-out and reset pages say what happened and what to do next"
+            },
+            {
+              "scope": "islands",
+              "text": "keep the first press made on an island before it is live"
+            },
+            {
+              "scope": "theming",
+              "text": "paint a code block placed in a breakpoint's responsive children like any other"
+            },
+            {
+              "scope": "pages",
+              "text": "resolve relative dates in the conditions a filter bar publishes to a row-template list"
+            },
+            {
+              "scope": "pages",
+              "text": "word the console search palette from what the app declares"
+            },
+            {
+              "scope": "pages",
+              "text": "a text whose content resolves to nothing draws no element"
+            },
+            {
+              "scope": "pages",
+              "text": "a control publishing an empty value keeps the grid's static query value"
+            },
+            {
+              "scope": "i18n",
+              "text": "keep rendered Markdown through the language script, and navigate on a language switch"
+            },
+            {
+              "scope": "i18n",
+              "text": "stop a translated new-tab link drawing a visible space"
+            },
+            {
+              "scope": "assets",
+              "text": "serve captions as text/vtt and answer HEAD and range requests correctly on public files"
+            },
+            {
+              "scope": "pages",
+              "text": "apply a component's record gate at the top level of a collection page"
+            },
+            {
+              "scope": "media",
+              "text": "honour a default track and hold a video or iframe at its aspect ratio"
+            },
+            {
+              "scope": "admin",
+              "text": "mark the reader's own row in the account directory"
+            },
+            {
+              "scope": "pages",
+              "text": "put Cancel before the verb in every confirm"
+            },
+            {
+              "scope": "admin",
+              "text": "name local file storage by its folder, not its host path"
+            },
+            {
+              "scope": "pages",
+              "text": "keep row checkboxes where Export selected is offered, and hold the top pager while a grid first reads"
+            },
+            {
+              "scope": "pages",
+              "text": "a data table whose rows fit on one page draws no pager"
+            },
+            {
+              "scope": "theming",
+              "text": "a scaleUp animation with no easing settles without overshooting"
+            },
+            {
+              "scope": "pages",
+              "text": "overlays open and close without motion under reduced motion"
+            },
+            {
+              "scope": "theming",
+              "text": "raise the default focus ring and status text to WCAG AA"
+            },
+            {
+              "scope": "pages",
+              "text": "let a page name its own main region beside its sidebar and header"
+            },
+            {
+              "scope": "design-system",
+              "text": "the exported theme stylesheet declares the app's font families"
+            },
+            {
+              "scope": "design",
+              "text": "a heading carrying a type-scale step takes that step's weight"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the docs tabs when the sidebar groups are collapsed"
+            },
+            {
+              "scope": "design",
+              "text": "set headings in the body face when a design declares no title face"
+            },
+            {
+              "scope": "design-system",
+              "text": "name the default language beside the voice pronoun in exports"
+            },
+            {
+              "scope": "server",
+              "text": "keep the request on error reports from API handlers"
+            },
+            {
+              "scope": "admin",
+              "text": "console pages keep a clean outline and offer a way on from a failure"
+            },
+            {
+              "scope": "admin",
+              "text": "destructive actions state their consequence"
+            },
+            {
+              "scope": "admin",
+              "text": "overview leads with one line when nothing needs attention"
+            },
+            {
+              "scope": "admin",
+              "text": "console text follows the type scale, and theme lives in the account menu"
+            },
+            {
+              "scope": "admin",
+              "text": "stop the conversation title skipping a heading level"
+            },
+            {
+              "scope": "admin",
+              "text": "show an interrupted reply's footnote in the console's language"
+            },
+            {
+              "scope": "admin",
+              "text": "name the conversation viewer's landmarks in the console's language"
+            },
+            {
+              "scope": "design-system",
+              "text": "ship only the Geist faces the component kit still draws"
+            },
+            {
+              "scope": "design-system",
+              "text": "mark every exported measure token as declared or inherited"
+            },
+            {
+              "scope": "design-system",
+              "text": "drop the spaced em dash from the exported design brief and component kit"
+            },
+            {
+              "scope": "design-system",
+              "text": "drop the spaced em dash from component catalogue copy"
+            },
+            {
+              "scope": "pages",
+              "text": "mount islands placed in component slots and through references"
+            },
+            {
+              "scope": "cli",
+              "text": "check translatable seed values only in the tables a run writes"
+            },
+            {
+              "scope": "cli",
+              "text": "plan only the tables in --table scope and document the backslash escape"
+            },
+            {
+              "scope": "cli",
+              "text": "order seeded tables without counting many-to-many links as a cycle"
+            },
+            {
+              "scope": "cli",
+              "text": "look up a seed reference into a table outside --table on that file's merge key"
+            },
+            {
+              "scope": "cli",
+              "text": "match an upsert merge key on a translatable field in every language"
+            },
+            {
+              "scope": "cli",
+              "text": "watch a missing file a refused $ref names and reload once it exists"
+            },
+            {
+              "scope": "ai",
+              "text": "field refinement counts the calls it starts and reads its budget through the environment port"
+            },
+            {
+              "scope": "auth",
+              "text": "a sign-in by link or code refuses to start without its second-step hook"
+            },
+            {
+              "scope": "auth",
+              "text": "a display name is cleaned once, whichever road opens the account"
+            },
+            {
+              "scope": "api",
+              "text": "name the too-many-code-attempts answer in the error catalogue"
+            },
+            {
+              "scope": "auth",
+              "text": "signing out forgets the language chosen in that browser"
+            },
+            {
+              "scope": "auth",
+              "text": "a sign-in through Google or another provider follows the SSO-owned-domain rule"
+            },
+            {
+              "scope": "auth",
+              "text": "changing the account email first asks the current address and needs a recent sign-in"
+            },
+            {
+              "scope": "pages",
+              "text": "the history panel shows its empty-state message when a record has no change"
+            },
+            {
+              "scope": "desktop",
+              "text": "the screens shown while an address is checked no longer call it a bundle"
+            },
+            {
+              "scope": "ai",
+              "text": "knowledge search returns a document's passages only to people who may use the agent that declares it"
+            },
+            {
+              "scope": "ai",
+              "text": "an SVG attached to a chat is downloaded, never rendered on the app's origin"
+            },
+            {
+              "scope": "auth",
+              "text": "device-code and passkey challenges are budgeted and their expired rows are swept"
+            },
+            {
+              "scope": "auth",
+              "text": "sign-in codes and links share one send budget per address, and repeated wrong codes lock the address for a while"
+            },
+            {
+              "scope": "pages",
+              "text": "draw the favorites star only for a signed-in reader"
+            },
+            {
+              "scope": "pages",
+              "text": "fill neighbour record references inside a translated value"
+            },
+            {
+              "scope": "pages",
+              "text": "drop HTML comments and raw HTML from markdown pages instead of printing them"
+            },
+            {
+              "scope": "automations",
+              "text": "credentials and secret bodies never follow a redirect to another site"
+            },
+            {
+              "scope": "pages",
+              "text": "answer 404 for a content directory that does not exist and warn at validate"
+            },
+            {
+              "scope": "ai",
+              "text": "speech-to-text, attachments, knowledge search and field refinement share the per-person budget the chat already has"
+            },
+            {
+              "scope": "automations",
+              "text": "a spreadsheet that inflates past its declared size is refused before it fills memory"
+            },
+            {
+              "scope": "migrations",
+              "text": "refuse a required field without a default on a populated table"
+            },
+            {
+              "scope": "pages",
+              "text": "read a feed heading's date in any position and write it at UTC midnight"
+            },
+            {
+              "scope": "pages",
+              "text": "filter a server-drawn list on a many-to-many field by its linked records"
+            },
+            {
+              "scope": "auth",
+              "text": "sign-in links and codes are stored hashed and expire within an hour"
+            },
+            {
+              "scope": "auth",
+              "text": "a sign-in link, code or reset request answers in the same time for a known and an unknown address"
+            },
+            {
+              "scope": "auth",
+              "text": "a link or code sign-up obeys the avatar, name, language and notification rules"
+            },
+            {
+              "scope": "auth",
+              "text": "signing in by link or by code asks for the second step like a password does"
+            },
+            {
+              "scope": "ai",
+              "text": "an agent's email, web and file actions wait for approval when a person is chatting"
+            },
+            {
+              "scope": "install",
+              "text": "check the release signature on stock macOS instead of skipping it"
+            },
+            {
+              "scope": "desktop",
+              "text": "sign the macOS engine with the JIT entitlement alone"
+            },
+            {
+              "scope": "desktop",
+              "text": "refuse an update whose signature names another version"
+            },
+            {
+              "scope": "docker",
+              "text": "bind the image's server to every interface by name"
+            },
+            {
+              "scope": "automations",
+              "text": "a webhook's deduplication memory stays bounded"
+            },
+            {
+              "scope": "automations",
+              "text": "a webhook opened from another site never runs as the signed-in visitor"
+            },
+            {
+              "scope": "tables",
+              "text": "webhook retries are bounded and one slow receiver no longer delays the others"
+            },
+            {
+              "scope": "auth",
+              "text": "a password reset or turning on two-step verification signs out every other session and revokes the account's API keys"
+            },
+            {
+              "scope": "auth",
+              "text": "an API key can call the records API, never the account's own settings"
+            },
+            {
+              "scope": "tables",
+              "text": "cap webhook retry attempts and floor the first retry delay"
+            },
+            {
+              "scope": "cli",
+              "text": "give the generated client's requests a timeout"
+            },
+            {
+              "scope": "pages",
+              "text": "give a content-directory page's synthesised sharing card an og:url equal to its canonical"
+            },
+            {
+              "scope": "pages",
+              "text": "resolve frontmatter references in declared Open Graph and Twitter titles and descriptions"
+            },
+            {
+              "scope": "records",
+              "text": "an upsert row that stops matching inside the write is judged as the record it creates"
+            },
+            {
+              "scope": "desktop",
+              "text": "the import consent says when a project contains code"
+            },
+            {
+              "scope": "cli",
+              "text": "`sovrium init --from-url --inspect` reports what the project contains"
+            },
+            {
+              "scope": "records",
+              "text": "deleting a trashed record for good fires no second delete event"
+            },
+            {
+              "scope": "auth",
+              "text": "one membership per person and organisation, kept by a unique index"
+            },
+            {
+              "scope": "records",
+              "text": "business rules judge a trashed record before its permanent delete"
+            },
+            {
+              "scope": "records",
+              "text": "a record's files are purged only after its delete is committed"
+            },
+            {
+              "scope": "records",
+              "text": "batch refusals name the fields the caller is allowed to read"
+            },
+            {
+              "scope": "records",
+              "text": "an upsert judges every row it matches, including one matched late"
+            },
+            {
+              "scope": "automations",
+              "text": "browser steps keep WebSockets away from an allowed host whose name resolves to a private address"
+            },
+            {
+              "scope": "cli",
+              "text": "a remote config, bundle or import source is checked against the private-network rule on every redirect hop"
+            },
+            {
+              "scope": "auth",
+              "text": "two-factor code checks share the per-address rate window"
+            },
+            {
+              "scope": "cli",
+              "text": "`sovrium dev --external-database` asks for no password on an app that declares no sign-in"
+            },
+            {
+              "scope": "auth",
+              "text": "magic-link and email-code sign-up follow the rule that an SSO-owned domain signs in through SSO only"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse a browser step whose settings fail its schema before running it"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse a file step whose settings fail its schema before running it"
+            },
+            {
+              "scope": "automations",
+              "text": "let a record update step name its row by id, as documented"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse a document step whose settings fail its schema before running it"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse a PDF step whose settings fail its schema before running it"
+            },
+            {
+              "scope": "auth",
+              "text": "let an administrator read the organisation's groups whenever they joined"
+            },
+            {
+              "scope": "cli",
+              "text": "rebuild an administrator's organisation membership as a seed run makes it"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse an action whose settings fail its schema before running it"
+            },
+            {
+              "scope": "auth",
+              "text": "decide proxy trust from one parser"
+            },
+            {
+              "scope": "server",
+              "text": "create the data directory private from the first file it holds"
+            },
+            {
+              "scope": "tables",
+              "text": "a lock rule binds a restore as it binds a delete"
+            },
+            {
+              "scope": "tables",
+              "text": "judge an upsert's updates under the same lock as any update"
+            },
+            {
+              "scope": "tables",
+              "text": "a closed table answers the same way whatever the request body"
+            },
+            {
+              "scope": "server",
+              "text": "keep the database and stored files private to the service account"
+            },
+            {
+              "scope": "server",
+              "text": "answer only the hosts a local server is meant to serve"
+            },
+            {
+              "scope": "security",
+              "text": "refuse state changes from a foreign origin on every route"
+            },
+            {
+              "scope": "buckets",
+              "text": "a public bucket on an app without sign-in refuses the deletes and overwrites it does not open to everyone"
+            },
+            {
+              "scope": "server",
+              "text": "cap request bodies per route instead of per upload size"
+            },
+            {
+              "scope": "tables",
+              "text": "make webhook delivery retries interruptible on shutdown"
+            },
+            {
+              "scope": "tables",
+              "text": "stop the presence reaper and connection recheck with the server they belong to"
+            },
+            {
+              "scope": "templates",
+              "text": "stop the sign-in page assuming its reader signed up"
+            },
+            {
+              "scope": "connections",
+              "text": "refuse test tokens on any public deployment"
+            },
+            {
+              "scope": "tables",
+              "text": "judge a record under one lock whatever spelling of its id a write uses"
+            },
+            {
+              "scope": "tables",
+              "text": "judge business rules against the row as it is written"
+            },
+            {
+              "scope": "automations",
+              "text": "free an automation's concurrency slot when a queued run is interrupted"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the pinned save bar and per-column sections on a main-aside form"
+            },
+            {
+              "scope": "pages",
+              "text": "keep every line of a multi-line field when an edit form opens and saves"
+            },
+            {
+              "scope": "pages",
+              "text": "follow a navigate item pressed in a table's action column"
+            },
+            {
+              "scope": "ai",
+              "text": "rebuilding the knowledge index needs an administrator"
+            },
+            {
+              "scope": "auth",
+              "text": "the first-admin link works on an app that declares agents"
+            },
+            {
+              "scope": "cli",
+              "text": "sovrium client writes only the tables and fields its audience may read"
+            },
+            {
+              "scope": "cli",
+              "text": "the config write tool refuses a path through a linked folder"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse a visitor's comment edit or delete before reading the comment"
+            },
+            {
+              "scope": "cli",
+              "text": "a preview refuses production credentials unless asked"
+            },
+            {
+              "scope": "docker",
+              "text": "run the image in production mode"
+            },
+            {
+              "scope": "cli",
+              "text": "say when a template or bundle contains code before creating the project"
+            },
+            {
+              "scope": "desktop",
+              "text": "sign the app shell with the minimum entitlements"
+            },
+            {
+              "scope": "auth",
+              "text": "an API key cannot change notification preferences or delete the account"
+            },
+            {
+              "scope": "auth",
+              "text": "list other accounts only where the app needs to pick a person"
+            },
+            {
+              "scope": "desktop",
+              "text": "a link can only create a project from a bundled template"
+            },
+            {
+              "scope": "cli",
+              "text": "sovrium dev never seeds a known password into an external database"
+            },
+            {
+              "scope": "ai",
+              "text": "cap chat requests and message length by default on a metered provider"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse an upsert the caller may not make before reading any record"
+            },
+            {
+              "scope": "pages",
+              "text": "drop plain-http allowed origins on any public deployment, not only under NODE_ENV=production"
+            },
+            {
+              "scope": "tables",
+              "text": "clean rich text and check formats on every road that writes a record"
+            },
+            {
+              "scope": "ai",
+              "text": "a confirmation token works only for the person it was issued to"
+            },
+            {
+              "scope": "forms",
+              "text": "accept files only for the fields a form declares"
+            },
+            {
+              "scope": "server",
+              "text": "warn when a public origin runs with a relaxed posture"
+            },
+            {
+              "scope": "pages",
+              "text": "show a neighbouring record's values as text inside page content"
+            },
+            {
+              "scope": "tables",
+              "text": "a url field accepts only web addresses"
+            },
+            {
+              "scope": "email",
+              "text": "require TLS on the mail connection unless the server is local"
+            },
+            {
+              "scope": "server",
+              "text": "decide every security behaviour from the deployment posture"
+            },
+            {
+              "scope": "templates",
+              "text": "the business starter admits new people by invitation"
+            },
+            {
+              "scope": "email",
+              "text": "never print sign-in links on a public deployment"
+            },
+            {
+              "scope": "pages",
+              "text": "keep dates and every multi-select choice when saving an edit form"
+            },
+            {
+              "scope": "automations",
+              "text": "a code step sees only the variables the config declares"
+            },
+            {
+              "scope": "connections",
+              "text": "use PKCE on every OAuth connection unless the provider refuses it"
+            },
+            {
+              "scope": "automations",
+              "text": "judge outbound requests by the address a name resolves to"
+            },
+            {
+              "scope": "auth",
+              "text": "sign every session out when a password is reset"
+            },
+            {
+              "scope": "auth",
+              "text": "keep API keys off organisation changes and invitations"
+            },
+            {
+              "scope": "auth",
+              "text": "let only administrators register OAuth clients"
+            },
+            {
+              "scope": "pages",
+              "text": "show an inviter's name as text and keep page values out of declared scripts"
+            },
+            {
+              "scope": "auth",
+              "text": "expire API keys by default and keep them off the admin plane"
+            },
+            {
+              "scope": "auth",
+              "text": "refuse password accounts on a domain an identity provider owns"
+            },
+            {
+              "scope": "pages",
+              "text": "show a tab panel's text as text"
+            },
+            {
+              "scope": "auth",
+              "text": "keep group membership and organisation changes to administrators"
+            },
+            {
+              "scope": "pages",
+              "text": "show route and query values as text inside HTML content"
+            },
+            {
+              "scope": "database",
+              "text": "create the agent-user columns through migrations"
+            },
+            {
+              "scope": "telemetry",
+              "text": "put a deadline on OTLP exports and PostgreSQL listener connects"
+            },
+            {
+              "scope": "tables",
+              "text": "let the server finish AI field work started by a record write"
+            },
+            {
+              "scope": "pages",
+              "text": "check every address the browser is sent to from a page action"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse an email suppression behind a form trigger inside a branch"
+            },
+            {
+              "scope": "ai",
+              "text": "use the provider's default model when AI_MODEL is unset"
+            },
+            {
+              "scope": "auth",
+              "text": "stop seeding OAuth2 connection tokens when a user signs up"
+            },
+            {
+              "scope": "admin",
+              "text": "count only the record-trigger runs on the table a submission wrote into"
+            },
+            {
+              "scope": "auth",
+              "text": "keep a no-auth app from loading better-auth for the ended-session redirect"
+            },
+            {
+              "scope": "automations",
+              "text": "say when an email link is dropped for its scheme"
+            },
+            {
+              "scope": "admin",
+              "text": "export the nested columns of a selected console grid"
+            },
+            {
+              "scope": "admin",
+              "text": "keep the audit log's server-side search results on screen"
+            },
+            {
+              "scope": "tables",
+              "text": "answer an empty view page in the shape of any other page"
+            },
+            {
+              "scope": "pages",
+              "text": "render the footer badge as a line, not a second footer"
+            },
+            {
+              "scope": "pages",
+              "text": "let a markdown table wider than its column scroll inside it"
+            },
+            {
+              "scope": "tables",
+              "text": "keep a view's withheld fields out of a url button's address"
+            },
+            {
+              "scope": "pages",
+              "text": "say through aria-pressed whether a reader's own-row toggle is on"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a page's leading header before its main landmark"
+            },
+            {
+              "scope": "tables",
+              "text": "allow a public view on a table with row-level read rules"
+            },
+            {
+              "scope": "pages",
+              "text": "fold a kanban column to its heading's width on a phone too"
+            },
+            {
+              "scope": "pages",
+              "text": "show the whole period title of an event calendar on a phone"
+            },
+            {
+              "scope": "pages",
+              "text": "fill every month, quarter, year and week of a chart with fillEmpty"
+            },
+            {
+              "scope": "tables",
+              "text": "tell when a formula's read grant is narrowed by what it reads"
+            },
+            {
+              "scope": "pages",
+              "text": "make a toggleElement button a keyboard disclosure"
+            },
+            {
+              "scope": "theming",
+              "text": "expose the theme toggle state and give it a usable target"
+            },
+            {
+              "scope": "pages",
+              "text": "announce a section as a region only when it is named"
+            },
+            {
+              "scope": "tables",
+              "text": "tell when a formula reading the clock is frozen at save time"
+            },
+            {
+              "scope": "pages",
+              "text": "print list columns on SQLite as on PostgreSQL on a page bound to one record"
+            },
+            {
+              "scope": "pages",
+              "text": "read a datetime the same way, in the field's time zone, on every surface"
+            },
+            {
+              "scope": "pages",
+              "text": "send a sign-in redirect to the page in the visitor's language"
+            },
+            {
+              "scope": "pages",
+              "text": "draw the not-found page for the signed-in reader on unknown addresses"
+            },
+            {
+              "scope": "design",
+              "text": "keep diff signs off the frame edge and added lines at AA contrast"
+            },
+            {
+              "scope": "seo",
+              "text": "resolve translation keys in llms.txt and head its sections with the sidebar's group labels"
+            },
+            {
+              "scope": "pages",
+              "text": "refresh cached pages when a form they place by formRef changes"
+            },
+            {
+              "scope": "pages",
+              "text": "make code blocks that scroll sideways reachable by keyboard"
+            },
+            {
+              "scope": "seo",
+              "text": "read a content article's sitemap lastmod from its front matter, never its file time"
+            },
+            {
+              "scope": "pages",
+              "text": "fill invitation tokens inside a translated value"
+            },
+            {
+              "scope": "pages",
+              "text": "resolve a translated field label in a row-expand panel"
+            },
+            {
+              "scope": "pages",
+              "text": "read the select placeholder key in a crud form's empty row"
+            },
+            {
+              "scope": "languages",
+              "text": "translate the overlay placeholder, the code copy button and the summary colon"
+            },
+            {
+              "scope": "languages",
+              "text": "draw the guest comment form, grid checkbox cells, a drawer's empty thread and the sign-up refusal in the page language"
+            },
+            {
+              "scope": "seo",
+              "text": "name content-directory languages by their locale and list index alternates in the sitemap"
+            },
+            {
+              "scope": "seed",
+              "text": "name the record and field when an upsert merge key is empty"
+            },
+            {
+              "scope": "seo",
+              "text": "name and link breadcrumb sections, date and language synthesised articles, and use the index's canonical"
+            },
+            {
+              "scope": "design",
+              "text": "write only the pages named by --page in a split config"
+            },
+            {
+              "scope": "seo",
+              "text": "resolve translation keys and app references inside authored structured data"
+            },
+            {
+              "scope": "seo",
+              "text": "take the sharing card's locale and title from the page when it declares none"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the marquee gap at the seam where the band loops"
+            },
+            {
+              "scope": "seo",
+              "text": "resolve record values in sharing card titles and image descriptions"
+            },
+            {
+              "scope": "pages",
+              "text": "mark a sidebar footer link to the current page as current"
+            },
+            {
+              "scope": "seo",
+              "text": "resolve app references in the sharing address and share attachments as file addresses"
+            },
+            {
+              "scope": "pages",
+              "text": "mark the destination's sidebar entry after a swap from a fetched entry's page"
+            },
+            {
+              "scope": "automations",
+              "text": "send one email per restart for the runs it interrupted"
+            },
+            {
+              "scope": "design",
+              "text": "keep the sidebar ink on an entry the browser un-marks"
+            },
+            {
+              "scope": "pages",
+              "text": "apply a list's list part classes when its rows are drawn from children"
+            },
+            {
+              "scope": "automations",
+              "text": "hold back repeated failure emails when the run history cannot be written"
+            },
+            {
+              "scope": "automations",
+              "text": "give an update run's previousRecord its many-to-many links"
+            },
+            {
+              "scope": "api",
+              "text": "list a created record's many-to-many links in its 201 answer"
+            },
+            {
+              "scope": "api",
+              "text": "refuse a created record's undeclared field with a 400 naming it"
+            },
+            {
+              "scope": "auth",
+              "text": "send magic-link and reset links with one token and true wording"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a container among a board card's children"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a form picker's suggestions on a popover surface"
+            },
+            {
+              "scope": "pages",
+              "text": "narrow a form's select field to the options it lists"
+            },
+            {
+              "scope": "auth",
+              "text": "keep a session through browser updates and say when one ended"
+            },
+            {
+              "scope": "api",
+              "text": "store an inline attachment sent by an update, as a create does"
+            },
+            {
+              "scope": "pages",
+              "text": "send a form's fields as the input of the automation it runs"
+            },
+            {
+              "scope": "pages",
+              "text": "show a save's toast when it reloads the page it was made on"
+            },
+            {
+              "scope": "pages",
+              "text": "follow onSuccess navigate after a crud update button writes"
+            },
+            {
+              "scope": "forms",
+              "text": "answer a form posted without JavaScript on its own page"
+            },
+            {
+              "scope": "pages",
+              "text": "drive a form's relationship picker from the keyboard"
+            },
+            {
+              "scope": "pages",
+              "text": "confirm a delete on a record page before removing the record"
+            },
+            {
+              "scope": "forms",
+              "text": "announce a form's success page and move the focus to its title"
+            },
+            {
+              "scope": "forms",
+              "text": "set form reasons at the label size and draw inputs with the input token"
+            },
+            {
+              "scope": "forms",
+              "text": "keep a hidden prefill drawn from a translated column"
+            },
+            {
+              "scope": "languages",
+              "text": "a page write fills the language the page was shown in"
+            },
+            {
+              "scope": "forms",
+              "text": "name a taken value by its label in the page language"
+            },
+            {
+              "scope": "forms",
+              "text": "read a translated takenMessage in the language the form was served in"
+            },
+            {
+              "scope": "forms",
+              "text": "write a form's format refusals and rate-limit notice in the page language"
+            },
+            {
+              "scope": "migrations",
+              "text": "convert a field renamed and made translatable in the same edit"
+            },
+            {
+              "scope": "migrations",
+              "text": "repair SQLite update triggers an earlier release left on renamed tables"
+            },
+            {
+              "scope": "cli",
+              "text": "complete the scaffold's reporting section"
+            },
+            {
+              "scope": "cli",
+              "text": "prefill the domain, kind and verification of a crash report and print its signature search"
+            },
+            {
+              "scope": "mcp",
+              "text": "offer write tools only to roles the table admits"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse a single-id update on a composite-key table before reading the row"
+            },
+            {
+              "scope": "tables",
+              "text": "name a locked field by its label in the default lock message"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse an update whose record cannot be read before its rules are judged, and keep unreadable fields out of a refusal"
+            },
+            {
+              "scope": "ai",
+              "text": "report a business rule's message when the chat cannot create a record"
+            },
+            {
+              "scope": "forms",
+              "text": "refuse a hosted-form edit that breaks a business rule with a 400"
+            },
+            {
+              "scope": "ai",
+              "text": "report a business rule's message when the chat cannot change a record"
+            },
+            {
+              "scope": "automations",
+              "text": "fail a run that breaks a business rule without retrying it"
+            },
+            {
+              "scope": "api",
+              "text": "let a refused delete report its rule without naming a field"
+            }
+          ]
+        },
+        {
+          "kind": "performance",
+          "heading": "Performance Improvements",
+          "entries": [
+            {
+              "scope": "islands",
+              "text": "mount an island when it can be seen or used"
+            },
+            {
+              "scope": "ai",
+              "text": "a chat attachment's text is extracted once, not on every turn"
+            },
+            {
+              "scope": "pages",
+              "text": "send tab panels once, as markup, instead of inside the tabs island props"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.45.0",
       "date": "2026-10-26",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.44.0...v0.45.0",

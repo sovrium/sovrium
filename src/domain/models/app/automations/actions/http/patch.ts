@@ -44,7 +44,7 @@ export const HttpPatchActionSchema = Schema.Struct({
     ),
     body: Schema.optional(
       Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.Unknown)]).pipe(
-        Schema.annotate({ description: 'Request body — string or JSON object' })
+        Schema.annotate({ description: 'Request body: string or JSON object' })
       )
     ),
     contentType: Schema.optional(
@@ -84,7 +84,7 @@ export const HttpPatchActionSchema = Schema.Struct({
     identifier: 'HttpPatchAction',
     title: 'HTTP PATCH Action',
     description:
-      'Send PATCH requests to external services — partial resource update with JSON default',
+      'Send PATCH requests to external services: partial resource update with JSON default',
   })
 )
 

@@ -63,6 +63,7 @@ import { Effect, Queue, Stream } from 'effect'
 import { addChannelListener } from '@/infrastructure/realtime/channel-manager'
 import { DEV_RELOAD_CHANNEL } from '@/infrastructure/realtime/dev-reload-channel'
 import { runEffectSse } from '@/presentation/api/runtime/effect-sse'
+import { layerResponse } from '@/presentation/api/runtime/replace-response'
 import type { Hono, MiddlewareHandler } from 'hono'
 
 /** SSE endpoint path. Namespaced under `/__sovrium_dev/` to avoid app routes. */
@@ -264,8 +265,10 @@ const injectDevReloadTag: MiddlewareHandler = async (c, next) => {
   const headers = new Headers(c.res.headers)
   headers.delete('Content-Length')
   const body = at === -1 ? html : `${html.slice(0, at)}${DEV_RELOAD_TAG}${html.slice(at)}`
-  // eslint-disable-next-line no-param-reassign -- Hono's middleware contract replaces the response by assignment
-  c.res = new Response(body, { status: c.res.status, statusText: c.res.statusText, headers })
+  layerResponse(
+    c,
+    new Response(body, { status: c.res.status, statusText: c.res.statusText, headers })
+  )
 }
 
 /**

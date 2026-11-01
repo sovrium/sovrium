@@ -12,6 +12,7 @@ import {
 } from '@/presentation/design/table-default-classes'
 import { AddRow } from './add-row'
 import { DataRow, type DataRowContext } from './data-row'
+import { EmptyCopy } from './empty-copy'
 import { GroupedTableBodyRows } from './group-body'
 import { InlineExpansionRow } from './inline-expand/inline-expand-row'
 import { VISIBLE_WIDTH_VAR } from './island/scroll-edges'
@@ -155,7 +156,12 @@ export function TableBodyRows({
             colSpan={allColumns.length}
             className={computeTableEmptyStateClasses()}
           >
-            <div style={HELD_TO_VIEW}>{emptyMessage}</div>
+            <div style={HELD_TO_VIEW}>
+              <EmptyCopy
+                message={emptyMessage}
+                guided={!searched && !narrowed}
+              />
+            </div>
           </td>
         </tr>
         {addRow && <AddRow config={addRow} />}

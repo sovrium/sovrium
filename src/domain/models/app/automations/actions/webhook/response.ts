@@ -37,7 +37,7 @@ export const WebhookResponseActionSchema = Schema.Struct({
     ),
     body: Schema.optional(
       Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.Unknown)]).pipe(
-        Schema.annotate({ description: 'Response body — string or JSON object' })
+        Schema.annotate({ description: 'Response body: string or JSON object' })
       )
     ),
     headers: Schema.optional(

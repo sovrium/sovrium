@@ -274,7 +274,7 @@ export const automationIntegrations = defineSection({
       slug: 'automation-link-actions',
       title: 'Link Actions',
       description:
-        'Mint, re-point and retire tracked short links from a workflow — the three operators, the address a later step can send, and the three refusals that fail the step.',
+        'Mint, re-point and retire tracked short links from a workflow: the three operators, the address a later step can send, and the refusals that fail the step.',
       keywords: [
         'sovrium',
         'automation link action',

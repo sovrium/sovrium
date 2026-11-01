@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { readFile, writeFile, rm, mkdir } from 'node:fs/promises'
+import { readFile, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { defaultLockDir } from '@/domain/models/process-env/data-dir'
+import { ensurePrivateDirectory } from '@/infrastructure/filesystem/private-modes'
 
 const LOCK_FILE_NAME = 'lock'
 
@@ -17,7 +18,7 @@ const LOCK_FILE_NAME = 'lock'
  * otherwise defaults to the consolidated data dir (`<SOVRIUM_DATA_DIR>`,
  * default `./.sovrium/`).
  */
-const getLockDir = (): string => process.env.SOVRIUM_LOCK_DIR || defaultLockDir()
+const getLockDir = (): string => process.env.SOVRIUM_LOCK_DIR || defaultLockDir(process.env)
 
 /**
  * Lock file data stored on disk for server management
@@ -64,10 +65,11 @@ export const lockFilePathIn = (lockDir: string): string => join(lockDir, LOCK_FI
  * Write a lock file to disk.
  *
  * Creates the lock directory first — the consolidated data dir
- * (`./.sovrium/`) may not exist yet on a fresh project.
+ * (`./.sovrium/`) may not exist yet on a fresh project, and is then created
+ * private to the service account.
  */
 export const writeLockFile = async (data: LockFileData): Promise<void> => {
-  await mkdir(getLockDir(), { recursive: true })
+  ensurePrivateDirectory(getLockDir())
   await writeFile(getLockFilePath(), JSON.stringify(data), 'utf-8')
 }
 

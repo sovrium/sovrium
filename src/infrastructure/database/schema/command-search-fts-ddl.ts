@@ -21,8 +21,8 @@
  *
  * The contract (see the user story) is that a row written by RAW SQL is findable
  * by the very next palette request, with no application step in between. That
- * rules out the materialized `system.search_index` in `search/fts-manager.ts`,
- * which is populated by application code on write. Each engine reaches freshness
+ * rules out a materialized index such as `system.search_index`, which only
+ * application code on write could keep current. Each engine reaches freshness
  * its own way:
  *
  *   PostgreSQL  a GIN index over `to_tsvector('simple', …)` of the row's OWN

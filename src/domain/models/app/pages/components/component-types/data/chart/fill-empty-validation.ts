@@ -15,6 +15,7 @@
  * reads which interval and which range collide. Pure.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   FILL_BUCKET_CEILING,
   FILL_STEP_MS,
@@ -23,9 +24,6 @@ import {
 } from './fill-empty-service'
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every object at any depth. */
 function collectNodes(node: unknown): readonly RawRecord[] {

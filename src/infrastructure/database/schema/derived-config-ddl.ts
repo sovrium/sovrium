@@ -49,6 +49,7 @@ import { buildColumnStatements } from '../schema-migration/column-detection'
 import { isPhysicalColumnField } from '../sql/sql-field-predicates'
 import { buildTablePrimaryKeyTypesMap, generateCreateTableSQL } from '../table-operations'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /** One derived statement and the table it operates on. */
 export interface DerivedDdlStatement {
@@ -96,8 +97,10 @@ export const deriveConfigDdl = (params: {
   readonly previousTables: readonly PriorTable[] | undefined
   readonly currentTables: readonly Table[]
   readonly hasAuthConfig: boolean
+  /** The engine the statements are written for: the one the server runs on. */
+  readonly dialect: DatabaseDialect
 }): readonly DerivedDdlStatement[] => {
-  const { previousTables, currentTables, hasAuthConfig } = params
+  const { previousTables, currentTables, hasAuthConfig, dialect } = params
   if (previousTables === undefined) return []
 
   const before = new Map(previousTables.map((table) => [table.name, table] as const))
@@ -111,6 +114,7 @@ export const deriveConfigDdl = (params: {
         {
           table: table.name,
           statement: generateCreateTableSQL(table, {
+            dialect,
             tablePrimaryKeyTypes,
             tableUsesView: new Map([[table.name, shouldUseView(table)]]),
             skipForeignKeys: false,
@@ -129,6 +133,7 @@ export const deriveConfigDdl = (params: {
     if (columnsToAdd.length === 0) return []
 
     const { addStatements } = buildColumnStatements({
+      dialect,
       tableName: getPhysicalTableName(table),
       columnsToDrop: [],
       columnsToAdd,

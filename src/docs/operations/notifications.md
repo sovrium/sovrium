@@ -1,11 +1,11 @@
 # Operator Notifications
 
-> The two emails an instance sends its operators on its own — an alert when an automation fails, and a weekly summary of the whole instance — who receives them, what they contain, and every variable that shapes them.
+> The two emails an instance sends its operators on its own (an alert when an automation fails, and a weekly summary of the whole instance): who receives them, what they contain, and every variable that shapes them.
 
 A running instance tells its operators about itself by email, without anybody opening the console. There are two such emails:
 
-- **Automation alerts** — sent when an automation fails after its last retry, times out, is interrupted by a server restart, or is paused or resumed.
-- **Weekly summary** — once a week, what the automations, the data and the instance did, compared with the week before, and what is waiting on an operator.
+- **Automation alerts**: sent when an automation fails after its last retry, times out, is interrupted by a server restart, or is paused or resumed.
+- **Weekly summary**: once a week, what the automations, the data and the instance did, compared with the week before, and what is waiting on an operator.
 
 Both are free and built into the binary. Both need working email delivery, configured with the `SMTP_*` variables, and both are better with `BASE_URL` set: it is what makes the links in them absolute. Without it the emails still go out, with no links.
 
@@ -13,7 +13,7 @@ Both are free and built into the binary. Both need working email delivery, confi
 
 Each email has its own audience, resolved the same way:
 
-1. Every admin-tier account of the app — every role the operator console admits — that is not banned and has left that email **on** in its profile. Only apps that declare an `auth:` block have accounts.
+1. Every admin-tier account of the app (every role the operator console admits) that is not banned and has left that email **on** in its profile. Only apps that declare an `auth:` block have accounts.
 2. Every address listed in `SOVRIUM_NOTIFY_TO`, whatever the app declares. For an app with no `auth:` block, these addresses are the whole audience.
 
 An address that appears in both is written to once. Each account owns its own two switches, **Automation alerts** and **Weekly summary**, on its profile page in the console (`/_admin/profile`); both start on, and switching one off silences that email for that account alone. Every operator email links back to that page.
@@ -22,18 +22,18 @@ An address that appears in both is written to once. Each account owns its own tw
 
 The first final failure of an automation is emailed at once, naming the automation, the run and the error. Further failures of the same automation within the next hour are held back and collected into **one hourly summary** that says how many more times it failed, its last error, and when it recovered if a later run succeeded. A summary lost to a restart is not caught up: every automation in it already had its first failure emailed.
 
-A run that was still in progress when the server stopped is closed at the next boot as failed with the error `Interrupted: the server stopped during this run`, and alerted like any other failure. Pausing or resuming an automation from the console emails the other recipients, naming who did it.
+A run that was still in progress when the server stopped is closed at the next boot as failed with the error `Interrupted: the server stopped during this run`. A restart is one event, so it sends one email, naming each automation that had runs interrupted and how many. Pausing or resuming an automation from the console emails the other recipients, naming who did it.
 
-With `SOVRIUM_AUTOMATION_AUTOPAUSE=<n>`, the platform pauses an automation itself after `n` final failures in a row, and says so by email. Unset — the default — nothing is ever paused automatically.
+With `SOVRIUM_AUTOMATION_AUTOPAUSE=<n>`, the platform pauses an automation itself after `n` final failures in a row, and says so by email. Unset (the default), nothing is ever paused automatically.
 
 ## The weekly summary
 
-The summary goes out on `SOVRIUM_NOTIFY_DIGEST_CRON` — Mondays at 08:00 by default — read in the operator timezone, `SOVRIUM_TIMEZONE`. Its period starts exactly where the previous summary ended, so consecutive summaries leave no gap and count nothing twice; every date in it is written on the operator's calendar and the email names the zone. It reports:
+The summary goes out on `SOVRIUM_NOTIFY_DIGEST_CRON` (Mondays at 08:00 by default), read in the operator timezone, `SOVRIUM_TIMEZONE`. Its period starts exactly where the previous summary ended, so consecutive summaries leave no gap and count nothing twice; every date in it is written on the operator's calendar and the email names the zone. It reports:
 
-- **Automations** — runs, failures (of which timed out and interrupted), the success rate, the five automations that failed most with each one's last error, summarised, and every paused automation, automatic pauses marked.
-- **Data** — rows per table and the distinct rows written during the week, accounts created, accounts that signed in, form submissions, and files uploaded with their size.
-- **Instance** — the size of the database and of file storage, how many connections are healthy — an OAuth2 connection nobody has authorized yet is not, engine version changes, and error and critical audit entries grouped by action, the five most frequent.
-- **Waiting on you** — unset environment variables, connections to connect or reconnect (an expired token, an OAuth2 connection nobody has authorized, or a token nothing can renew; never one about to be refreshed on its own), pending invitations.
+- **Automations**: runs, failures (of which timed out and interrupted), the success rate, the five automations that failed most with each one's last error, summarised, and every paused automation, automatic pauses marked.
+- **Data**: rows per table and the distinct rows written during the week, accounts created, accounts that signed in, form submissions, and files uploaded with their size.
+- **Instance**: the size of the database and of file storage, how many connections are healthy (an OAuth2 connection nobody has authorized yet is not), engine version changes, and error and critical audit entries grouped by action, the five most frequent.
+- **Waiting on you**: unset environment variables, connections to connect or reconnect (an expired token, an OAuth2 connection nobody has authorized, or a token nothing can renew; never one about to be refreshed on its own), pending invitations.
 
 Every summary is kept, so the next one can show row counts and sizes as changes against it. The first summary an instance ever sends covers the seven days before it and is marked as a **baseline week**: there is nothing to compare with yet.
 
@@ -55,4 +55,4 @@ Every summary is kept, so the next one can show row counts and sizes as changes 
 | `SOVRIUM_TIMEZONE`             | `UTC`       | The zone the summary is scheduled in and its dates are written in                         |
 | `BASE_URL`                     | unset       | The public origin every link in these emails is built from                                |
 
-Every one of them is validated at boot. A wrong value — `SOVRIUM_NOTIFY_DIGEST=daily`, a cron expression with six fields, an entry of `SOVRIUM_NOTIFY_TO` that is not an email address — refuses to start the server, naming the variable and the value, rather than failing silently the week the email is due. Changing one takes effect on the next restart.
+Every one of them is validated at boot. A wrong value (`SOVRIUM_NOTIFY_DIGEST=daily`, a cron expression with six fields, an entry of `SOVRIUM_NOTIFY_TO` that is not an email address) refuses to start the server, naming the variable and the value, rather than failing silently the week the email is due. Changing one takes effect on the next restart.

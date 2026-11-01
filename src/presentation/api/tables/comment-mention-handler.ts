@@ -11,10 +11,13 @@ import { listMentionableUsersProgram } from '@/application/use-cases/tables/comm
 import { NotFoundError } from '@/domain/errors'
 import { mentionableUsersResponseSchema } from '@/domain/models/api/tables/comments'
 import { isAuthenticatedSession } from '@/domain/models/app/auth/guest-session'
-import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { requireSession } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runEffect } from '@/presentation/api/runtime/run-effect'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { notFoundResponse, resolveTableForListing } from './comment-handler-shared'
 import { checkRecordReadGate } from './record-read-gate'
 import type { App } from '@/domain/models/app'
@@ -41,34 +44,40 @@ export async function handleListMentionable(c: Context, app: App): Promise<Respo
   if (!auth.ok) return auth.response
   const { session } = getTableContext(c)
   if (!isAuthenticatedSession(session.userId)) return notFoundResponse(c)
-
-  const tableId = c.req.param('tableId')!
-  const recordId = c.req.param('recordId')!
-  const table = await resolveTableForListing(c, app, tableId)
-  if (table instanceof Response) return table
-  // The CALLER must be able to read the record — row-level rule included —
-  // before the picker names anyone who can.
-  const gateError = await checkRecordReadGate(c, app, table, recordId)
-  if (gateError) return gateError
-
-  const term = c.req.query('q')?.trim().slice(0, MAX_TERM_LENGTH)
-  const program = Effect.gen(function* () {
-    const comments = yield* CommentRepository
-    const readable = yield* comments.checkRecordExists({
-      session,
-      tableName: table.name,
-      recordId,
-    })
-    if (!readable) return yield* Effect.fail(new NotFoundError('Record not found'))
-    const users = yield* listMentionableUsersProgram({
-      app,
-      table,
-      recordId,
-      session,
-      term: term === '' ? undefined : term,
-    })
-    return { users }
-  })
-
-  return runEffect(c, provideDomain(c, program), mentionableUsersResponseSchema)
+  return runHandlerEffect(c, answerFailures(c, mentionableResponse(c, app)))
 }
+
+/** Gate and answer the mention picker's candidates, as one program. */
+const mentionableResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const { session } = getTableContext(c)
+    const tableId = c.req.param('tableId')!
+    const recordId = c.req.param('recordId')!
+    const table = yield* resolveTableForListing(c, app, tableId)
+    if (table instanceof Response) return table
+    // The CALLER must be able to read the record — row-level rule included —
+    // before the picker names anyone who can.
+    const gateError = yield* checkRecordReadGate(c, app, table, recordId)
+    if (gateError) return gateError
+
+    const term = c.req.query('q')?.trim().slice(0, MAX_TERM_LENGTH)
+    const program = Effect.gen(function* () {
+      const comments = yield* CommentRepository
+      const readable = yield* comments.checkRecordExists({
+        session,
+        tableName: table.name,
+        recordId,
+      })
+      if (!readable) return yield* Effect.fail(new NotFoundError('Record not found'))
+      const users = yield* listMentionableUsersProgram({
+        app,
+        table,
+        recordId,
+        session,
+        term: term === '' ? undefined : term,
+      })
+      return { users }
+    })
+
+    return yield* respondWith(c, program, mentionableUsersResponseSchema)
+  })

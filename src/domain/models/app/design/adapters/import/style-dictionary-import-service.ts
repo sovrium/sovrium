@@ -15,11 +15,11 @@
  * Style Dictionary has no modes, so the tree is the light mode only.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   adapterError,
   adapterOk,
   flattenTree,
-  isObject,
   mergeTrees,
   parseColor,
   parseJson,
@@ -52,7 +52,7 @@ const documentsOf = (source: ImportSource): readonly JsonObject[] =>
   source.files
     .filter((file) => file.path.endsWith('.json'))
     .map((file) => parseJson(file.text))
-    .filter(isObject)
+    .filter(isRecord)
 
 const tokensOf = (document: JsonObject): readonly CanonicalToken[] => {
   const dtcg = treeHasKey(document, (key) => key === '$value')

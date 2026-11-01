@@ -6,6 +6,7 @@
  */
 
 import { isProductionNodeEnv } from '@/domain/models/process-env/dev-mode'
+import { isPublicOriginEnv } from '@/domain/models/process-env/public-origin'
 
 /**
  * The process environment, read through an alias: the build's `define`
@@ -14,20 +15,29 @@ import { isProductionNodeEnv } from '@/domain/models/process-env/dev-mode'
 const { env } = process
 
 /**
+ * Whether plain-http origins are dropped: the deployment is reachable from
+ * elsewhere (`BASE_URL`, else the bind address, names a host that is not
+ * loopback), or `NODE_ENV` says production. The binary and the container image
+ * never set `NODE_ENV`, so the address is what decides; `NODE_ENV=production`
+ * still drops them behind a loopback bind, as it always has.
+ */
+const dropsPlainHttp = (): boolean => isPublicOriginEnv(env) || isProductionNodeEnv(env['NODE_ENV'])
+
+/**
  * The `onSuccess.allowOrigins` list a page is handed: the config's list, less
- * any plain-`http://` origin when the server runs in production.
+ * any plain-`http://` origin when the server is a public deployment.
  *
  * The config admits `http://localhost` so a developer can test a checkout on
  * their own machine; a deployed app must never send a reader to a plain-http
  * address. The page cannot tell which mode the server runs in, so the server
  * decides here, and the browser's check (`toAllowedOriginAddress`) only ever
- * sees the origins this mode allows. `undefined` when nothing is left.
+ * sees the origins this deployment allows. `undefined` when nothing is left.
  */
 export function servedAllowOrigins(
   allowOrigins: readonly string[] | undefined
 ): readonly string[] | undefined {
   if (allowOrigins === undefined) return undefined
-  const served = isProductionNodeEnv(env['NODE_ENV'])
+  const served = dropsPlainHttp()
     ? allowOrigins.filter((origin) => origin.startsWith('https://'))
     : allowOrigins
   return served.length === 0 ? undefined : served

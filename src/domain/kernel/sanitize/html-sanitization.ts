@@ -15,7 +15,7 @@
  * scheme obfuscation, and unconsidered schemes (`data:`, `vbscript:`) — are
  * closed by construction rather than patched case-by-case.
  *
- * Two entry points:
+ * Three entry points:
  *  - `sanitizeRichTextHTML` — allowlist sanitiser for HTML that is rendered
  *    into the page (rich-text WYSIWYG columns rendered via
  *    `dangerouslySetInnerHTML`, and `customHTML` page components). Keeps a
@@ -24,6 +24,10 @@
  *  - `stripHtmlToText` — removes ALL markup, returning text content only.
  *    For inputs where HTML must never survive (the auth `name` field, the
  *    `{{stripHtml}}` template helper).
+ *
+ *  - `sanitizeSvgDrawing` — allowlist sanitiser for one SVG file the operator
+ *    shipped, written into the page so it can read the page's colours. Its own
+ *    profile: nothing of it reaches the two above.
  *
  * Runs in pure JS with no DOM dependency, so it is safe to call from both
  * server (Bun/Node SSR) and client.
@@ -35,6 +39,9 @@
  */
 
 import sanitizeHtml from 'sanitize-html'
+import { readSvgDrawing, svgDrawingProfile, type SvgDrawing } from './svg-drawing-profile'
+
+export type { SvgDrawing } from './svg-drawing-profile'
 
 /**
  * Tags permitted in rendered rich-text / customHTML. Structural and
@@ -252,6 +259,88 @@ export function sanitizeRichTextHTML(
 ): string {
   const profile = options.profile === 'email' ? EMAIL_OPTIONS : RICH_TEXT_OPTIONS
   return normaliseVoidElements(sanitizeHtml(input, profile))
+}
+
+/** A link the sanitizer kept as text but stripped of its address, because of its scheme. */
+export interface DroppedLink {
+  /** The scheme the address used, without its colon (`sovrium`, `javascript`), lower case. */
+  readonly scheme: string
+  /** The link's visible text, whitespace collapsed. */
+  readonly text: string
+}
+
+/** The scheme an address names, read as a browser reads it: inner whitespace and controls ignored. */
+const schemeOf = (href: string): string | undefined =>
+  /^([a-z][a-z0-9+.-]*):/i
+    .exec([...href].filter((char) => char.charCodeAt(0) > 0x20).join(''))?.[1]
+    ?.toLowerCase()
+
+/** What the watch learned of one link: its address as written, then its verdict once it closes. */
+type LinkWatch =
+  { readonly written: string | undefined } | { readonly verdict: DroppedLink | 'kept' }
+
+/**
+ * {@link sanitizeRichTextHTML}, plus the links it refused to keep an address
+ * for, in document order. It is the SAME pass with the SAME options, watched
+ * by two hooks that change nothing: the `<a>` transform notes each link's
+ * address as written (then runs the profile's own transform), and the
+ * exclusive filter — which keeps every element — notes, as the link closes,
+ * its text and whether its `href` survived the scheme allowlist. So the HTML
+ * is byte-identical to {@link sanitizeRichTextHTML}'s. A link whose address
+ * names no scheme (a protocol-relative `//host`) is not reported.
+ */
+export function sanitizeRichTextHTMLReportingLinks(
+  input: string,
+  options: { readonly profile?: SanitizeProfile } = {}
+): { readonly html: string; readonly droppedLinks: readonly DroppedLink[] } {
+  const profile = options.profile === 'email' ? EMAIL_OPTIONS : RICH_TEXT_OPTIONS
+  const own = profile.transformTags?.['a']
+  // Keyed by the attribute object a link's frame carries from the transform
+  // on; a Map keeps insertion order, which is the order the links open in.
+  const watch = new Map<sanitizeHtml.Attributes, LinkWatch>()
+  // eslint-disable-next-line functional/prefer-immutable-types -- sanitize-html options are mutable by library design (see RICH_TEXT_OPTIONS)
+  const watched: sanitizeHtml.IOptions = {
+    ...profile,
+    transformTags: {
+      ...profile.transformTags,
+      a: (tagName, attribs) => {
+        const out =
+          typeof own === 'function' ? own(tagName, attribs) : { tagName, attribs: { ...attribs } }
+        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- an observation of this one parse, local to the call
+        watch.set(out.attribs, { written: attribs['href'] })
+        return out
+      },
+    },
+    exclusiveFilter: (frame) => {
+      const seen = frame.tag === 'a' ? watch.get(frame.attribs) : undefined
+      if (seen === undefined || !('written' in seen)) return false
+      const scheme = seen.written === undefined ? undefined : schemeOf(seen.written)
+      const dropped = scheme !== undefined && frame.attribs['href'] === undefined
+      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- an observation of this one parse, local to the call
+      watch.set(frame.attribs, {
+        verdict: dropped ? { scheme, text: frame.text.replace(/\s+/g, ' ').trim() } : 'kept',
+      })
+      return false
+    },
+  }
+  const html = normaliseVoidElements(sanitizeHtml(input, watched))
+  const droppedLinks = [...watch.values()].flatMap((seen) =>
+    'verdict' in seen && seen.verdict !== 'kept' ? [seen.verdict] : []
+  )
+  return { html, droppedLinks }
+}
+
+/**
+ * Sanitise one SVG file for writing into a page, or `undefined` when the file
+ * has no `<svg>` at its root, whatever its name says. Same parser, its own
+ * allowlist: see `svg-drawing-profile.ts`.
+ *
+ * @param idPrefix - written on every `id` and `url(#id)`, so that a file cannot
+ *   pick an id the page holds, nor reach one.
+ */
+export function sanitizeSvgDrawing(source: string, idPrefix: string): SvgDrawing | undefined {
+  const { options, root } = svgDrawingProfile(idPrefix)
+  return readSvgDrawing(sanitizeHtml(source, options).trim(), root())
 }
 
 /**

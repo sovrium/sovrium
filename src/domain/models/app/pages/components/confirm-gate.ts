@@ -60,7 +60,7 @@ import { Schema } from 'effect'
 export const ConfirmRoleSchema = Schema.Literals(['alertdialog', 'dialog']).annotate({
   title: 'Confirm Role',
   description:
-    'ARIA role of the confirm surface: "alertdialog" (default — the destructive gate, drawn inline beside its trigger, or as a modal when a button’s confirm carries an input) or "dialog" (a focusable, input-gated confirm such as type-to-confirm).',
+    'ARIA role of the confirm surface: "alertdialog" (default: the destructive gate, drawn inline beside its trigger, or as a modal when a button’s confirm carries an input) or "dialog" (a focusable, input-gated confirm such as type-to-confirm).',
 })
 
 /** Type-to-confirm input descriptor: the confirm affordance is disabled until the value matches. */
@@ -137,14 +137,27 @@ export const ConfirmObjectSchema = Schema.Struct({
   cancelLabel: Schema.optional(
     Schema.String.annotate({
       description:
-        "Cancel-button label, overriding the language-resolved interpreter default (the `confirmGate.cancel` string — 'Cancel' in English, 'Annuler' in French). Supports $t:key.",
+        "Cancel-button label, overriding the language-resolved interpreter default (the `confirmGate.cancel` string: 'Cancel' in English, 'Annuler' in French). Supports $t:key.",
       examples: ['Annuler', 'Keep my account'],
+    })
+  ),
+  /**
+   * States that the gated action cannot be undone. The confirm verb then draws as a
+   * solid destructive fill; absent or `false`, it keeps the destructive tint (red
+   * text on a light red background) that a reversible action draws.
+   */
+  irreversible: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Marks the gated action as one that cannot be undone. The confirm button is then drawn as a solid destructive fill, so the one action with no way back carries the heaviest weight; a reversible action keeps the destructive tint.',
+      defaultNote: 'false: the confirm button keeps the destructive tint',
+      examples: [true],
     })
   ),
 }).annotate({
   title: 'Confirm Object',
   description:
-    'Rich destructive-confirm descriptor: a body message plus an optional separate title, dialog role, type-to-confirm input (matchValue supports $session.<field>), and confirm/cancel label overrides.',
+    'Rich destructive-confirm descriptor: a body message plus an optional separate title, dialog role, type-to-confirm input (matchValue supports $session.<field>), confirm/cancel label overrides, and an irreversible flag that gives the confirm button its heaviest weight.',
 })
 
 /**
@@ -155,7 +168,7 @@ export const ConfirmGateSchema = Schema.Union([Schema.String, ConfirmObjectSchem
   identifier: 'ConfirmGate',
   title: 'Confirm Gate',
   description:
-    'Confirmation gate before an action fires. A string is the prompt (shown in an inline alertdialog whose confirm affordance re-uses the trigger label — back-compat). An object adds a separate title, dialog role, a type-to-confirm input (matchValue supports the $session.<field> token), and confirm/cancel label overrides.',
+    'Confirmation gate before an action fires. A string is the prompt (shown in an inline alertdialog whose confirm affordance re-uses the trigger label, for back-compat). An object adds a separate title, dialog role, a type-to-confirm input (matchValue supports the $session.<field> token), and confirm/cancel label overrides.',
 })
 
 /** @public */

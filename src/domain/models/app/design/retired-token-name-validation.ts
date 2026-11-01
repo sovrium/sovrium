@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The retired `--sv-*` colour names, refused where a page NAMES a token.
  *
@@ -49,9 +51,6 @@ interface NamedToken {
   readonly key: string
   readonly token: string
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * The keys of one node that name a COLOUR token.

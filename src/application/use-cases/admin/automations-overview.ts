@@ -34,102 +34,38 @@
 import { Effect } from 'effect'
 import {
   AdminAutomationsRepository,
-  type AdminAutomationOverviewRow,
   type AdminAutomationRunRow,
-  type AdminAutomationStatusRow,
   type AdminAutomationsDatabaseError,
 } from '@/application/ports/repositories/automations/admin-automations-repository'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { adminNestedSteps } from '@/application/use-cases/automations/run/nested-step-record'
-import {
-  bucketRowsByTimestamp,
-  buildDenseBucketGrid,
-  coerceTimestampToMs,
-  DAY_MS,
-  intervalStepMs,
-} from '@/domain/kernel/time/time-series-bucketing'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
+import { DAY_MS } from '@/domain/kernel/time/durations'
 import {
   automationsOverviewResponseSchema,
   automationsRunsDetailWithStepsResponseSchema,
   automationsRunsListResponseSchema,
   type AdminRunStep,
   type AutomationsOverviewResponse,
-  type AutomationsOverviewSeriesPoint,
   type AutomationsRunsDetailWithStepsResponse,
   type AutomationsRunsListResponse,
 } from '@/domain/models/api/admin/automations'
 import {
   resolvePeriodWindow,
   type PeriodPreset,
-  type PeriodWindow,
 } from '@/domain/models/api/admin/envelope/period-preset'
 import { type RunStatus } from '@/domain/models/api/automations'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { entityLabelFor } from '@/domain/models/app/auth/readable-name-service'
 import { routineRunSources } from '@/domain/models/app/automations/routine-run-service'
 import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
+import { buildAutomationsSeries, rowTimestampMs, tallyRuns } from './automations-overview-tally'
 import { buildAdminRunItem, runFailureAttribution, toIso } from './automations-run-item'
 import { runsResultFacts, tallyRunCounts } from './automations-run-labels'
 import { failedStepOf, readStepLogs, stepTimingOf } from './automations-run-step-facts'
 import { encodeRunsCursor, runsListFilters } from './automations-runs-query'
 import type { ConsoleLanguage } from './operator-language'
+import type { SubmissionRunsFilter } from '@/application/ports/repositories/automations/submission-runs-repository'
 import type { App } from '@/domain/models/app'
-
-// ─── Overview series helpers ────────────────────────────────────────────────────
-
-/** Normalize a run's `startedAt ?? createdAt` timestamp to epoch-ms. */
-function rowTimestampMs(row: AdminAutomationOverviewRow): number {
-  return coerceTimestampToMs(row.startedAt ?? row.createdAt)
-}
-
-/** A bucket's counts: the runs about something, the routine ones, and the failures. */
-interface RunTally {
-  readonly runs: number
-  readonly routineRuns: number
-  readonly failures: number
-}
-
-const EMPTY_TALLY: RunTally = { runs: 0, routineRuns: 0, failures: 0 }
-
-/** Add one run to a tally: a routine run counts apart, a failure is never routine. */
-function tallyRun(acc: RunTally, row: AdminAutomationStatusRow): RunTally {
-  return {
-    runs: acc.runs + (row.routine ? 0 : 1),
-    routineRuns: acc.routineRuns + (row.routine ? 1 : 0),
-    failures: acc.failures + (row.status === 'failed' ? 1 : 0),
-  }
-}
-
-/**
- * Bucket the period-scoped overview rows into the dense
- * `{ runs, routineRuns, failures }` response series via the shared
- * time-series helpers.
- */
-function buildAutomationsSeries(
-  window: PeriodWindow,
-  rows: ReadonlyArray<AdminAutomationOverviewRow>
-): readonly AutomationsOverviewSeriesPoint[] {
-  const stepMs = intervalStepMs(window.interval)
-  const bucketMap = bucketRowsByTimestamp({
-    rows,
-    getTimestamp: (row) => row.startedAt ?? row.createdAt,
-    stepMs,
-    initial: EMPTY_TALLY,
-    accumulate: tallyRun,
-  })
-  return buildDenseBucketGrid({
-    fromIso: window.from,
-    toIso: window.to,
-    stepMs,
-    rowsByBucket: bucketMap,
-    emptyValue: EMPTY_TALLY,
-  })
-}
-
-/** Tally a flat row list: the 24h tiles. */
-function tallyRuns(rows: ReadonlyArray<AdminAutomationStatusRow>): RunTally {
-  return rows.reduce(tallyRun, EMPTY_TALLY)
-}
 
 // ─── Overview use case ──────────────────────────────────────────────────────────
 
@@ -151,11 +87,9 @@ export type AutomationsOverviewOutcome =
  *   - the fixed-24h `{ status }` scan (only when period is wider than 24h) →
  *     totals.runs_24h / failures_24h.
  *
- * `totals.automations` is the count of configured automations from the live App
- * (resolved by the route's `resolveApp` thunk so a draft-publish swap is
- * reflected without restart — the live-migration-on-publish design).
+ * `totals.automations` is the count of configured automations in `app`.
  */
-export const BuildAutomationsOverview = (
+export const buildAutomationsOverview = (
   app: App,
   period: PeriodPreset
 ): Effect.Effect<
@@ -245,6 +179,8 @@ export interface AdminRunsListInput {
   /** A numbered page (1-based), read when no `cursor` is: the runs past `(page - 1) * limit`. */
   readonly page?: number | undefined
   readonly limit: number
+  /** Only the runs some form submissions started, resolved by the read from `?submissionId=`. */
+  readonly submissionRuns?: SubmissionRunsFilter | undefined
 }
 
 /** The runs-list build: `Ok` carries the body; `ValidationFailed` maps to a 500. */
@@ -282,18 +218,16 @@ function deriveRunsNextCursor(
   return encodeRunsCursor(toIso(lastRow.createdAt) ?? new Date().toISOString(), lastRow.id)
 }
 
-export const BuildAdminRunsList = (
+export const buildAdminRunsList = (
   app: App,
   input: AdminRunsListInput,
   language: ConsoleLanguage
 ): Effect.Effect<AdminRunsListOutcome, AdminAutomationsDatabaseError, AdminAutomationsRepository> =>
   Effect.gen(function* () {
     const repo = yield* AdminAutomationsRepository
-
     const filters = runsListFilters(app, input)
     const rows = yield* repo.listAdminRuns(filters)
     const counts = tallyRunCounts(yield* repo.countAdminRunsByStatus(filters))
-
     const pageRows = rows.slice(0, input.limit)
     // How far each run got: ONE grouped count over the page's step rows.
     const steps = yield* repo.countStepsByRunIds(pageRows.map((row) => row.id))
@@ -385,7 +319,7 @@ function stepLabels(app: App, automationName: string): (name: string) => string 
  * per the spec contract. The body includes the per-step I/O list, fetched via
  * the {@link AutomationRunRepository} (the persisted `input`/`output` per step).
  */
-export const BuildAdminRunDetail = (
+export const buildAdminRunDetail = (
   app: App,
   runId: string,
   language: ConsoleLanguage

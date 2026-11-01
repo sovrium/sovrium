@@ -8,11 +8,14 @@
 import { OPERATOR_FIX_GUIDANCE, operatorFixOf } from '@/domain/errors/operator-fixable-error'
 import {
   buildFailureReport,
+  CRASH_BUG_KIND,
   failureName,
   failureStack,
   redactValues,
+  reportDomainOf,
   scrubReportText,
   secretEnvValues,
+  signatureSearchUrl,
 } from '@/domain/kernel/url/issue-report-failure'
 import { hasStackFrames, reportedStackFrames } from '@/domain/kernel/url/issue-report-url'
 import { readIssueReportFacts, readReportScrub } from '@/infrastructure/logging/issue-report-facts'
@@ -37,6 +40,16 @@ import { keepLastCliFailure } from '@/infrastructure/logging/issue-report-store'
  */
 const reportText = (text: string, stack: string | undefined): string =>
   hasStackFrames(text) ? text : [text, ...reportedStackFrames(stack)].join('\n')
+
+/**
+ * What a person reads beside a failure report's address: where to search for
+ * its signature first, and the two choices to check on the form — an address
+ * may set them and the page still show them unselected.
+ */
+export const failureReportGuidance = (surface: string, signature: string): readonly string[] => [
+  `Search first, among every issue open and closed: ${signatureSearchUrl(signature)}`,
+  `On the form, check the Domain (${reportDomainOf(surface)}) and the Kind of bug (${CRASH_BUG_KIND}).`,
+]
 
 /**
  * Build the prefilled bug report for `error`, keep it for
@@ -67,6 +80,7 @@ export const offerFailureReport = (input: {
     'If this looks like a bug in Sovrium, report it. This address opens the issue form',
     'already filled in, with secrets and local paths removed; nothing is sent until you submit it:',
     `  ${report.url}`,
+    ...failureReportGuidance(input.command, report.signature),
     'Run `sovrium report --last-error` to print the address again.',
   ].join('\n')
 }

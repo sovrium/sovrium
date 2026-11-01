@@ -120,7 +120,7 @@ const sha256Hex = (bytes: Uint8Array): string => {
 /** The three assets of a release, checked in order: sha256, then signature. */
 export const downloadVerified = async (version: string): Promise<Uint8Array> => {
   const archiveName = `sovrium-${version}-${releaseTargetFor(process.platform, process.arch)}.tar.gz`
-  const archiveUrl = releaseAssetUrl(version, archiveName)
+  const archiveUrl = releaseAssetUrl(version, archiveName, process.env)
   const [archive, checksum, signature] = await Promise.all([
     fetchAsset(archiveUrl, version, MAX_ARCHIVE_BYTES),
     fetchAsset(archiveUrl.replace(/\.tar\.gz$/, '.sha256'), version, MAX_NOTE_BYTES),
@@ -137,7 +137,11 @@ export const downloadVerified = async (version: string): Promise<Uint8Array> => 
   }
   const keys = (() => {
     try {
-      return releaseKeysFor({ host: resolveReleaseDownloadHost(), now: Date.now() })
+      return releaseKeysFor({
+        host: resolveReleaseDownloadHost(process.env),
+        now: Date.now(),
+        env: process.env,
+      })
     } catch (cause) {
       throw new EngineRefusal(`instance: engine ${version}: ${describe(cause)}`)
     }

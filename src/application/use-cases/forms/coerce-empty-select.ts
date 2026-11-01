@@ -36,6 +36,7 @@
  * the column's CHECK constraint would reject.
  */
 
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -76,7 +77,7 @@ const refusesEmptyText = (field: TableFieldShape): boolean =>
  * short-circuits.
  */
 const collectTypedColumnNames = (app: Readonly<App>, tableName: string): ReadonlySet<string> => {
-  const table = app.tables?.find((t) => t.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   if (table === undefined) return new Set()
   const fields = (table.fields ?? []) as ReadonlyArray<TableFieldShape>
   return new Set(

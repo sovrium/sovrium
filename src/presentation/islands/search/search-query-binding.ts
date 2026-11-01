@@ -101,7 +101,7 @@ interface DebouncedDispatch {
 
 /**
  * Encapsulates the debounce timer ref so callers never pass refs around.
- * Mirrors `useDebounce` in `page-search/use-page-search.ts`, with the delay
+ * Mirrors `useDebounce` in `use-page-search.ts`, with the delay
  * supplied per call rather than at hook setup: the bound path only learns it
  * once the publisher is resolved, so a setup-time delay would fit neither
  * caller.

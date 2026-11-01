@@ -20,7 +20,7 @@ import {
   THEME_NOTE,
   when,
   wrap,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** Three plans side by side, the middle one marked as the most chosen. */

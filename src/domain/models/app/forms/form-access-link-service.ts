@@ -30,11 +30,8 @@ export const formLinkWindowMs = (window: string): number => {
 }
 
 /** True while `now` is still inside `window` from `startedAtMs` (epoch milliseconds). */
-export const isWithinFormLinkWindow = (
-  startedAtMs: number,
-  window: string,
-  now: number = Date.now()
-): boolean => now < startedAtMs + formLinkWindowMs(window)
+export const isWithinFormLinkWindow = (startedAtMs: number, window: string, now: number): boolean =>
+  now < startedAtMs + formLinkWindowMs(window)
 
 /** The instant (epoch milliseconds) a link opened at `startedAtMs` stops working. */
 export const formLinkExpiry = (startedAtMs: number, window: string): number =>
@@ -65,13 +62,49 @@ const ATTACHMENT_COLUMN_TYPES: ReadonlySet<string> = new Set([
   'multiple-attachments',
 ])
 
-/** True when a field takes a file, which a draft never keeps. */
-const takesFile = (field: AccessFieldShape, columns: ReadonlyMap<string, string>): boolean => {
+/**
+ * True when a field takes a file: a standalone `attachment` input, or a
+ * table-bound field over a `single-attachment` / `multiple-attachments` column.
+ * `columns` maps the bound table's column names to their types. A draft never
+ * keeps such a field, and a submission takes a file under no other field.
+ */
+export const isFileField = (
+  field: AccessFieldShape,
+  columns: ReadonlyMap<string, string>
+): boolean => {
   if (field.kind === 'standalone') return field.inputType === 'attachment'
   if (field.kind === 'table-field') {
     return ATTACHMENT_COLUMN_TYPES.has(columns.get(field.column ?? '') ?? '')
   }
   return false
+}
+
+/** The bound table's column types by column name; empty for a standalone form. */
+export const boundColumnTypes = (
+  form: AccessFormShape,
+  tables: ReadonlyArray<AccessTableShape> | undefined
+): ReadonlyMap<string, string> => {
+  const table = tables?.find((t) => t.name === form.submitTo.table)
+  return new Map((table?.fields ?? []).map((field) => [field.name, field.type]))
+}
+
+/**
+ * The names a submission may post a file under: the submit name (the column of
+ * a table-bound field, the name of a standalone one) of every field that takes
+ * a file. Every other name takes no file.
+ */
+export const fileFieldNames = (
+  form: AccessFormShape,
+  tables: ReadonlyArray<AccessTableShape> | undefined
+): ReadonlySet<string> => {
+  const columns = boundColumnTypes(form, tables)
+  return new Set(
+    form.fields.flatMap((field): ReadonlyArray<string> => {
+      if (!isFileField(field, columns)) return []
+      const name = field.kind === 'table-field' ? field.column : field.name
+      return name === undefined || name === '' ? [] : [name]
+    })
+  )
 }
 
 /** A value a draft can hold: a scalar, or a list of scalars. */
@@ -95,11 +128,10 @@ export const draftableAnswers = (
   tables: ReadonlyArray<AccessTableShape> | undefined,
   answers: Readonly<Record<string, unknown>>
 ): Readonly<Record<string, unknown>> => {
-  const table = tables?.find((t) => t.name === form.submitTo.table)
-  const columns = new Map((table?.fields ?? []).map((field) => [field.name, field.type]))
+  const columns = boundColumnTypes(form, tables)
   const keepable = new Set(
     form.fields.flatMap((field): ReadonlyArray<string> => {
-      if (takesFile(field, columns)) return []
+      if (isFileField(field, columns)) return []
       if (field.kind === 'table-field' && field.column !== undefined) return [field.column]
       if (field.kind === 'standalone' && field.name !== undefined) return [field.name]
       return []
@@ -121,15 +153,9 @@ export const keptFileAnswers = (
   stored: Readonly<Record<string, unknown>>,
   edited: Readonly<Record<string, unknown>>
 ): Readonly<Record<string, unknown>> => {
-  const table = tables?.find((t) => t.name === form.submitTo.table)
-  const columns = new Map((table?.fields ?? []).map((field) => [field.name, field.type]))
-  const fileNames = form.fields.flatMap((field): ReadonlyArray<string> => {
-    if (!takesFile(field, columns)) return []
-    return [field.column ?? field.name ?? '']
-  })
   return Object.fromEntries(
-    fileNames
-      .filter((name) => name !== '' && edited[name] === undefined && stored[name] !== undefined)
+    [...fileFieldNames(form, tables)]
+      .filter((name) => edited[name] === undefined && stored[name] !== undefined)
       .map((name) => [name, stored[name]])
   )
 }

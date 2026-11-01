@@ -9,8 +9,8 @@ import { Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
 import { EmailSender } from '@/application/ports/services/email-sender'
 import { ServerOrigin } from '@/application/ports/services/server-origin'
-import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
 import { isValidEmail } from '@/domain/kernel/sanitize/email-validation'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import {
   DEFAULT_DRAFT_EXPIRES_IN,
   draftableAnswers,
@@ -40,7 +40,7 @@ const resumeMail = (config: {
   return {
     subject: `Continue your form: ${config.title}`,
     text: `Your answers to "${config.title}" are saved.\n\nContinue where you left off:\n${config.link}\n\nThis link works once, until ${until}. If you did not ask for it, you can ignore this message.`,
-    html: `<p>Your answers to <strong>${escapeHtml(config.title)}</strong> are saved.</p><p><a href="${escapeHtml(config.link)}">Continue where you left off</a></p><p>This link works once, until ${escapeHtml(until)}. If you did not ask for it, you can ignore this message.</p>`,
+    html: `<p>Your answers to <strong>${escapeHtmlAttribute(config.title)}</strong> are saved.</p><p><a href="${escapeHtmlAttribute(config.link)}">Continue where you left off</a></p><p>This link works once, until ${escapeHtmlAttribute(until)}. If you did not ask for it, you can ignore this message.</p>`,
   }
 }
 

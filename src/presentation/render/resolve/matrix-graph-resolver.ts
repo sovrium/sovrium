@@ -59,6 +59,12 @@
  */
 
 import {
+  componentField,
+  componentFields,
+  keyOf,
+  synthesizedComponent,
+} from '@/presentation/render/resolve/component-rewrite'
+import {
   tablesKeyOf,
   tablesSourceOf,
   tablesSourceOfKey,
@@ -86,10 +92,10 @@ interface MatrixSystemBinding {
 type Envelopes = ReadonlyMap<string, Readonly<Record<string, unknown>> | undefined>
 
 const isMatrix = (node: unknown): node is Component =>
-  typeof node === 'object' && node !== null && (node as Component).type === 'matrix'
+  typeof node === 'object' && keyOf(node, 'type') === 'matrix'
 
 const bindingOf = (component: Component): MatrixSystemBinding | undefined =>
-  component.dataSource?.system as MatrixSystemBinding | undefined
+  keyOf(componentField(component, 'dataSource'), 'system') as MatrixSystemBinding | undefined
 
 /**
  * Append a binding's STATIC query parameters to its endpoint.
@@ -117,7 +123,7 @@ const requestUrlOf = (component: Component): string | undefined => {
 
 /** The key a matrix's envelope is read under: its endpoint URL, or its table source. */
 const envelopeKeyOf = (component: Component): string | undefined => {
-  const tables = tablesSourceOf(component.dataSource)
+  const tables = tablesSourceOf(componentField(component, 'dataSource'))
   return tables === undefined ? requestUrlOf(component) : tablesKeyOf(tables)
 }
 
@@ -126,10 +132,10 @@ const collectUrls = (node: unknown): readonly string[] => {
   if (Array.isArray(node)) return node.flatMap(collectUrls)
   if (typeof node !== 'object' || node === null) return []
   if (isMatrix(node)) {
-    const key = envelopeKeyOf(node as Component)
+    const key = envelopeKeyOf(node)
     return key === undefined ? [] : [key]
   }
-  return collectUrls((node as { readonly children?: unknown }).children)
+  return collectUrls(keyOf(node, 'children'))
 }
 
 /** Read each distinct URL once, in parallel, borrowing the caller's identity. */
@@ -170,7 +176,7 @@ const attachView = (
 ): Component => {
   const component = localize === undefined ? source : localize(source)
   const system = bindingOf(component)
-  const { dataSource: _spent, ...rest } = component as Component & { dataSource?: unknown }
+  const { dataSource: _spent, ...rest } = componentFields(component)
   const url = envelopeKeyOf(component)
   const envelope = url === undefined ? undefined : envelopes.get(url)
   const matrixView: MatrixView =
@@ -183,7 +189,7 @@ const attachView = (
             ...(system?.nodesKey === undefined ? {} : { nodesKey: system.nodesKey }),
             ...(system?.edgesKey === undefined ? {} : { edgesKey: system.edgesKey }),
           })
-  return { ...(rest as Component), matrixView } as Component
+  return synthesizedComponent({ ...rest, matrixView })
 }
 
 /** Walk one node, attaching the drawing to any matrix at or below it. */
@@ -196,12 +202,12 @@ const mapNode = (
     const mapped = node.map((child) => mapNode(child, envelopes, localize))
     return mapped.every((child, index) => child === node[index]) ? node : mapped
   }
-  if (isMatrix(node)) return attachView(node as Component, envelopes, localize)
+  if (isMatrix(node)) return attachView(node, envelopes, localize)
   if (typeof node !== 'object' || node === null) return node
-  const { children } = node as { readonly children?: unknown }
+  const { children } = componentFields(node)
   if (children === undefined) return node
   const mapped = mapNode(children, envelopes, localize)
-  return mapped === children ? node : { ...(node as Record<string, unknown>), children: mapped }
+  return mapped === children ? node : { ...node, children: mapped }
 }
 
 /**

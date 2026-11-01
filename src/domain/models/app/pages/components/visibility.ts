@@ -519,13 +519,13 @@ export const VisibilitySchema = Schema.Struct({
     Schema.Struct({
       /**
        * Field reference (e.g., $user.role, $user.twoFactorEnabled,
-       * $invitation.status). `$user.twoFactorEnabled` is `true` once the reader
+       * $app.version, $invitation.status). `$user.twoFactorEnabled` is `true` once the reader
        * has turned two-step verification on and `false` otherwise, on an app
        * that configures `auth.twoFactor`.
        */
       field: Schema.String.annotate({
         description:
-          'Field reference to evaluate: a signed-in user field (e.g., $user.role, or $user.twoFactorEnabled — true once the reader has turned two-step verification on, false otherwise), or, on a page declaring `invitation`, an invitation field (e.g., $invitation.status)',
+          'Field reference to evaluate: a signed-in user field (e.g., $user.role, or $user.twoFactorEnabled, which is true once the reader has turned two-step verification on, false otherwise), an app fact (e.g., $app.version, which reads as empty when the app declares none), or, on a page declaring `invitation`, an invitation field (e.g., $invitation.status)',
       }),
       /** Comparison operator */
       operator: Schema.Literals(['eq', 'neq']).annotate({
@@ -539,7 +539,7 @@ export const VisibilitySchema = Schema.Struct({
        */
       value: Schema.Union([Schema.String, Schema.Boolean]).annotate({
         description:
-          'Value to compare the field against: a string for a text field (e.g., admin), or true / false for a yes/no field (e.g., $user.twoFactorEnabled). The type is kept — the string "true" does not equal the boolean true.',
+          'Value to compare the field against: a string for a text field (e.g., admin), or true / false for a yes/no field (e.g., $user.twoFactorEnabled). The type is kept: the string "true" does not equal the boolean true.',
         examples: ['admin', true],
       }),
     }).annotate({
@@ -684,7 +684,7 @@ export const VisibilitySchema = Schema.Struct({
 }).annotate({
   title: 'Visibility',
   description:
-    'Conditional component visibility based on authentication state, user roles, a session field, or — inside a row template — the bound record',
+    'Conditional component visibility based on authentication state, user roles, a session field, or, inside a row template, the bound record',
 })
 
 /** @public */

@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { recordDbRowsReturned } from '@/infrastructure/telemetry/db-query-counter'
 import { extractRows } from './sql-utils'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 import type { SQL } from 'drizzle-orm'
 
 /**
@@ -21,7 +21,7 @@ import type { SQL } from 'drizzle-orm'
  * (`drizzle-orm/bun-sql`) **only** — the SQLite client (`drizzle-orm/bun-sqlite`)
  * has no `.execute()`; it exposes `.run()` / `.all()` / `.get()` / `.values()`.
  *
- * Routing every CRUD `.execute()` callsite through `executeRaw` makes the
+ * Routing every CRUD `.execute()` callsite through `executeRawOn` makes the
  * dynamic SQL layer dialect-agnostic:
  *
  *   - **PostgreSQL** — `.execute(query)`. `bun-sql` returns the rows array
@@ -33,7 +33,7 @@ import type { SQL } from 'drizzle-orm'
  * Both arms are normalized to a plain `Record<string, unknown>[]` via
  * `extractRows`, so callers get one stable shape regardless of dialect.
  *
- * The runner object passed in is either the `db` facade or a `tx` transaction
+ * The runner object passed in is either the client or a `tx` transaction
  * handle. It is typed structurally — the only requirement is that it carries
  * *either* an `execute` *or* an `all` method — so this helper works with both
  * the Postgres and SQLite Drizzle clients without importing their concrete
@@ -42,9 +42,9 @@ import type { SQL } from 'drizzle-orm'
 
 /**
  * Minimal structural shape of a Drizzle client / transaction handle that
- * `executeRaw` can drive. A Postgres handle carries `execute`; a SQLite handle
+ * `executeRawOn` can drive. A Postgres handle carries `execute`; a SQLite handle
  * carries `all`. Both are optional here because the concrete handle only ever
- * has one of them; `executeRaw` picks whichever the active dialect needs.
+ * has one of them; `executeRawOn` picks whichever the active dialect needs.
  */
 export interface RawSqlRunner {
   readonly execute?: (query: Readonly<SQL>) => Promise<unknown> | unknown
@@ -60,23 +60,24 @@ const counted = (
 }
 
 /**
- * Execute a raw Drizzle `sql` query against either dialect and return a
- * normalized rows array.
+ * Execute a raw Drizzle `sql` query on the connection of `dialect` and return
+ * a normalized rows array: PostgreSQL runs it through `execute()`, SQLite
+ * through `all()`.
  *
  * Every result's length is reported to the per-request row count
  * (`X-Sovrium-Db-Rows`), which is how a read that loads a whole table is told
  * apart from one that reads a page: both cost one statement.
  *
- * @param runner - the `db` facade or a `tx` transaction handle
+ * @param dialect - the engine `runner` speaks
+ * @param runner - the client or a `tx` transaction handle
  * @param query  - a Drizzle `sql` template query
  * @returns the result rows as a plain `Record<string, unknown>[]`
  */
-export const executeRaw = async (
+export const executeRawOn = async (
+  dialect: DatabaseDialect,
   runner: Readonly<RawSqlRunner>,
   query: Readonly<SQL>
 ): Promise<ReadonlyArray<Record<string, unknown>>> => {
-  const { dialect } = parseDatabaseDialectConfig()
-
   if (dialect === 'postgres') {
     if (typeof runner.execute !== 'function') {
       throw new TypeError('executeRaw: PostgreSQL runner is missing an execute() method')
@@ -93,15 +94,16 @@ export const executeRaw = async (
 }
 
 /**
- * Typed variant of {@link executeRaw}. Centralizes the single `as` cast that
- * the per-callsite result typing requires, mirroring the now-superseded
- * `typedExecute` helper.
+ * Typed variant of {@link executeRawOn}. Centralizes the single `as` cast that
+ * the per-callsite result typing requires.
  *
- * @param runner - the `db` facade or a `tx` transaction handle
+ * @param dialect - the engine `runner` speaks
+ * @param runner - the client or a `tx` transaction handle
  * @param query  - a Drizzle `sql` template query
  * @returns the result rows typed as `readonly T[]`
  */
-export const executeRawTyped = async <T = Record<string, unknown>>(
+export const executeRawTypedOn = async <T = Record<string, unknown>>(
+  dialect: DatabaseDialect,
   runner: Readonly<RawSqlRunner>,
   query: Readonly<SQL>
-): Promise<readonly T[]> => (await executeRaw(runner, query)) as readonly T[]
+): Promise<readonly T[]> => (await executeRawOn(dialect, runner, query)) as readonly T[]

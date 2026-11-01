@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { DATE_FIELD_TYPES, readStoredDate } from '@/domain/models/app/tables/stored-value-service'
 import type { CrudFormAction, ResolvedFieldDef } from './crud-form-types'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
@@ -77,6 +78,10 @@ interface CrudIslandPropsInput {
   /** The author's `props.className`, merged over the form's layout classes. */
   readonly className?: string | undefined
   readonly buttonLabel?: string
+  /** A delete button's own `confirm`, the gate drawn before it deletes. */
+  readonly confirmGate?: Readonly<Record<string, unknown>>
+  /** The gate's Cancel word in the page language, when the confirm names none. */
+  readonly confirmCancelLabel?: string
   readonly variant?: string
   readonly layout?: string
   /** `layout: main-aside` — the aside column's width and the fields it holds. */
@@ -93,6 +98,26 @@ interface CrudIslandPropsInput {
   readonly pendingLabel?: string
   /** An edit form's accessible name, its table's singular label resolved. */
   readonly formName?: string
+  /** Save an edit by the script, so a refusal lands beside its field (a table with rules). */
+  readonly submitInPlace?: boolean
+}
+
+/**
+ * The record the island is handed, each `date` field as its `YYYY-MM-DD` day:
+ * the shape the server-drawn control holds and the records API answers. A day
+ * PostgreSQL returned is a `Date`, which serialises as its UTC-midnight instant.
+ */
+function islandRecordOf(
+  fields: readonly ResolvedFieldDef[],
+  record: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  if (record === undefined) return undefined
+  const days = fields.filter((field) => DATE_FIELD_TYPES.has(field.type) && field.name in record)
+  if (days.length === 0) return record
+  return {
+    ...record,
+    ...Object.fromEntries(days.map(({ name }) => [name, readStoredDate(record[name])])),
+  }
 }
 
 export function buildCrudIslandProps(ctx: CrudIslandPropsInput): string {
@@ -111,7 +136,7 @@ export function buildCrudIslandProps(ctx: CrudIslandPropsInput): string {
     operation: ctx.operation,
     table: ctx.action.table,
     fields: ctx.fields,
-    record: ctx.record,
+    record: islandRecordOf(ctx.fields, ctx.record),
     recordId: ctx.recordId,
     redirectUrl: onSuccess?.navigate,
     successToast: onSuccess?.toast,
@@ -122,6 +147,8 @@ export function buildCrudIslandProps(ctx: CrudIslandPropsInput): string {
     confirm: ctx.action.confirm,
     confirmMessage: ctx.action.confirmMessage,
     buttonLabel: ctx.buttonLabel,
+    confirmGate: ctx.confirmGate,
+    confirmCancelLabel: ctx.confirmCancelLabel,
     variant: ctx.variant,
     layout: ctx.layout,
     ...(ctx.aside === undefined ? {} : { aside: ctx.aside }),
@@ -132,6 +159,7 @@ export function buildCrudIslandProps(ctx: CrudIslandPropsInput): string {
     uiStrings: ctx.uiStrings,
     pendingLabel: ctx.pendingLabel,
     formName: ctx.formName,
+    ...(ctx.submitInPlace === true ? { submitInPlace: true } : {}),
     'data-testid': ctx.testId,
     id: ctx.id,
     className: ctx.className,

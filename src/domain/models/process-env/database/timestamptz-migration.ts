@@ -99,7 +99,7 @@ const isEnabled = (raw: string | undefined): boolean => {
  * pure, directly testable function.
  */
 export const parseTimestamptzMigrationEnvConfig = (
-  processEnv: Readonly<Record<string, string | undefined>> = process.env
+  processEnv: Readonly<Record<string, string | undefined>>
 ): TimestamptzMigrationEnvConfig =>
   Schema.decodeSync(TimestamptzMigrationEnvSchema)({
     migration: processEnv[TIMESTAMPTZ_MIGRATION_ENV_VAR],

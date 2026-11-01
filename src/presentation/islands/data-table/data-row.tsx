@@ -23,6 +23,7 @@ import {
   dataCellAttributes,
 } from './data-cell-attributes'
 import {
+  cellLocked,
   editorOpener,
   isEditingThisCell,
   singleGestureControl,
@@ -88,6 +89,7 @@ function renderCellContent({
           value={editingCell!.value}
           field={field}
           rowId={rowId}
+          record={cell.row.original as Record<string, unknown>}
           ctx={ctx}
         />
       ),
@@ -245,6 +247,7 @@ function DataCell({
         positioned: fillHandle !== undefined || editing,
         isCursor,
       })}
+      {...(cellLocked(cell, meta) && { 'aria-readonly': 'true' })}
       {...(suppressRowClick &&
         (isEditable || meta?.actions === true) && { onClick: stopClickPropagation })}
       {...(onDoubleClick && {

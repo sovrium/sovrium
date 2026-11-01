@@ -6,7 +6,7 @@
  */
 
 import { Context, Effect, Layer } from 'effect'
-import { AuthError } from '../../errors/auth-error'
+import { AuthError } from './auth-error'
 import type { createAuthInstance } from './auth'
 
 // Re-export AuthError for convenience

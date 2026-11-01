@@ -7,8 +7,9 @@
 
 import { Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
-import { parseSovriumAutomationRunRetentionDays } from '@/domain/models/process-env/automations'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { pruneExpiredAutomationRuns } from '@/infrastructure/database/automation-run-retention'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
@@ -20,7 +21,7 @@ import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timez
  * A clone of `registerActivityLogRetentionScheduler` — the same in-process
  * `CronScheduler`, the same swallow-and-log posture, and the same relationship
  * to its token-gated trigger route, `POST /api/internal/automations/prune-runs`.
- * Unset, the variable keeps every run, so nothing is armed.
+ * Unset, the window is ninety days; the sweep is always armed.
  */
 
 /** Typed failure for a sweep; logged, then swallowed so the timer re-arms. */
@@ -38,46 +39,47 @@ const RUN_RETENTION_JOB_ID = 'automation-run-retention'
 
 /**
  * Arm the daily run-history sweep. Yields the scheduled job id, or `undefined`
- * when no window is set or the scheduler could not be armed (logged, non-fatal).
- *
- * @param env - the environment holding the window (validated at boot).
+ * when the scheduler could not be armed (logged, non-fatal).
+ * The window is read from `ProcessEnv` (validated at boot).
  */
-export const registerAutomationRunRetentionScheduler = (
-  env: Readonly<Record<string, string | undefined>>
-): Effect.Effect<string | undefined, never, CronScheduler> =>
-  Effect.gen(function* () {
-    if (parseSovriumAutomationRunRetentionDays(env) === undefined) return undefined
-    const scheduler = yield* CronScheduler
-    return yield* scheduler
-      .schedule(
-        RUN_RETENTION_CRON_EXPRESSION,
-        () =>
-          Effect.tryPromise({
-            try: () => pruneExpiredAutomationRuns(env),
-            catch: (cause) => new AutomationRunRetentionSweepError({ cause }),
-          }).pipe(
-            Effect.tapError((error) =>
-              Effect.sync(() => {
-                logError(
-                  describeSweepFailure(
-                    '[automation-run-retention] scheduled sweep failed',
-                    error.cause
-                  ),
+export const registerAutomationRunRetentionScheduler: Effect.Effect<
+  string | undefined,
+  never,
+  CronScheduler | Database
+> = Effect.gen(function* () {
+  const env = yield* ProcessEnv
+  const database = yield* Database
+  const scheduler = yield* CronScheduler
+  return yield* scheduler
+    .schedule(
+      RUN_RETENTION_CRON_EXPRESSION,
+      () =>
+        Effect.tryPromise({
+          try: () => pruneExpiredAutomationRuns(database, env),
+          catch: (cause) => new AutomationRunRetentionSweepError({ cause }),
+        }).pipe(
+          Effect.tapError((error) =>
+            Effect.sync(() => {
+              logError(
+                describeSweepFailure(
+                  '[automation-run-retention] scheduled sweep failed',
                   error.cause
-                )
-              })
-            ),
-            Effect.catch(() => Effect.void),
-            Effect.asVoid
+                ),
+                error.cause
+              )
+            })
           ),
-        { jobId: RUN_RETENTION_JOB_ID, timezone: resolveOperatorTimezone() }
+          Effect.catch(() => Effect.void),
+          Effect.asVoid
+        ),
+      { jobId: RUN_RETENTION_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
+    )
+    .pipe(
+      Effect.catch((err) =>
+        Effect.sync(() => {
+          logError('[automation-run-retention] failed to arm the run-history sweep', err)
+          return undefined
+        })
       )
-      .pipe(
-        Effect.catch((err) =>
-          Effect.sync(() => {
-            logError('[automation-run-retention] failed to arm the run-history sweep', err)
-            return undefined
-          })
-        )
-      )
-  }).pipe(Effect.withSpan('scheduling.register-automation-run-retention'))
+    )
+}).pipe(Effect.withSpan('scheduling.register-automation-run-retention'))

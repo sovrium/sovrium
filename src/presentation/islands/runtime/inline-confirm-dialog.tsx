@@ -79,6 +79,14 @@ export function InlineConfirmDialog({
       <span className="text-foreground-subtle text-sm">{prompt}</span>
       <button
         type="button"
+        aria-label={cancelLabel}
+        className={CANCEL_BUTTON_CLASS}
+        onClick={onCancel}
+      >
+        {cancelLabel}
+      </button>
+      <button
+        type="button"
         data-action-type={confirmDataActionType}
         className={CONFIRM_BUTTON_CLASS}
         onClick={() => {
@@ -87,14 +95,6 @@ export function InlineConfirmDialog({
         }}
       >
         {confirmLabel}
-      </button>
-      <button
-        type="button"
-        aria-label={cancelLabel}
-        className={CANCEL_BUTTON_CLASS}
-        onClick={onCancel}
-      >
-        {cancelLabel}
       </button>
     </div>
   )
@@ -107,9 +107,16 @@ export function InlineConfirmDialog({
 const OBJECT_CONTAINER_CLASS = 'border-border bg-card flex flex-col gap-2 rounded-md border p-3'
 const OBJECT_CONFIRM_BUTTON_CLASS =
   'bg-error-bg text-error-fg rounded-md px-3 py-1 text-md font-medium transition-opacity hover:opacity-90 disabled:opacity-50'
+/** The verb of a confirm whose action cannot be undone: the one solid red fill. */
+const OBJECT_IRREVERSIBLE_BUTTON_CLASS =
+  'bg-destructive text-destructive-foreground rounded-md px-3 py-1 text-md font-medium transition-opacity hover:opacity-90 disabled:opacity-50'
 const OBJECT_CANCEL_BUTTON_CLASS =
   'border-border text-foreground-subtle hover:bg-muted rounded-md border px-3 py-1 text-md transition-colors'
 const OBJECT_INPUT_CLASS = 'border-border rounded border px-2 py-1 text-md'
+
+/** The verb's weight: the solid fill for an action that cannot be undone, the tint otherwise. */
+const objectConfirmButtonClass = (config: ConfirmObject): string =>
+  config.irreversible === true ? OBJECT_IRREVERSIBLE_BUTTON_CLASS : OBJECT_CONFIRM_BUTTON_CLASS
 
 export interface ObjectConfirmDialogProps {
   /** The rich destructive-confirm descriptor (object form of a `confirm` gate). */
@@ -188,20 +195,20 @@ export function ObjectConfirmDialog({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          data-action-type={confirmDataActionType}
-          disabled={confirmDisabled}
-          className={OBJECT_CONFIRM_BUTTON_CLASS}
-          onClick={(event) => onConfirm(event.currentTarget)}
-        >
-          {texts.confirmLabel}
-        </button>
-        <button
-          type="button"
           aria-label={texts.cancelLabel}
           className={OBJECT_CANCEL_BUTTON_CLASS}
           onClick={onCancel}
         >
           {texts.cancelLabel}
+        </button>
+        <button
+          type="button"
+          data-action-type={confirmDataActionType}
+          disabled={confirmDisabled}
+          className={objectConfirmButtonClass(config)}
+          onClick={(event) => onConfirm(event.currentTarget)}
+        >
+          {texts.confirmLabel}
         </button>
       </div>
     </div>

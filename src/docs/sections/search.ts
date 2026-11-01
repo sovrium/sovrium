@@ -10,39 +10,17 @@ import { CommandPaletteSearchSchema } from '@/domain/models/app/pages/components
 import searchComponentsBody from '@/domain/models/app/pages/search-components.docs.md' with { type: 'file' }
 import searchOverviewBody from '@/domain/models/app/pages/search-overview.docs.md' with { type: 'file' }
 import { PaletteSchema } from '@/domain/models/app/palette'
+import commandPaletteBody from '@/domain/models/app/palette/palette.docs.md' with { type: 'file' }
 import fullTextSearchBody from '@/domain/models/app/tables/fields/field-types/full-text-search.docs.md' with { type: 'file' }
 import { defineArticle, defineSection } from './define'
 
 /**
  * Search — the section manifest.
  *
- * ─── WHY THE THREE FRAGMENTS SIT IN TWO DIFFERENT TREES ────────────────────
- *
- * Search has no property of its own: `app.search` does not exist, and the
- * placement rule sends each article to the narrowest thing it is true of.
- *
- *   - `search-overview` documents `dataSource.mode: 'search'` and
- *     `searchEngine`, both declared in `pages/components/data-source.ts`, so
- *     it lands in `pages/` beside `pages-data-binding.docs.md`, which
- *     documents the rest of that schema.
- *   - `search-components` spans five owners — `content/search-input.ts`,
- *     `data/list/list-display.ts`, `navigation/command-palette.ts`,
- *     `component-search.ts` and the root `palette` property — and `pages/` is
- *     the narrowest declared directory that contains four of the five.
- *   - `full-text-search` documents `indexed` (on `field-types/base-field.ts`)
- *     and `fullTextSearch` (on `field-types/text/long-text-field.ts` and
- *     `rich-text-field.ts`), so it sits at the `field-types/` root, which is
- *     the narrowest directory holding all three.
- *
- * ─── WHY TWO OF THE THREE CARRY NO DIRECTIVE ───────────────────────────────
- *
- * An option table belongs beside its property, once. `DataSourceSchema`,
- * `BaseFieldSchema` and `RichTextFieldSchema` are already expanded by
- * `pages-data-binding`, `field-types-overview` and `text-fields` respectively,
- * and `SearchEngineSchema` is a scalar enum the engine refuses to expand at
- * all. So `search-overview` and `full-text-search` are prose that names those
- * articles rather than re-tabulating them, and the three directives that DO
- * appear here are each the only expansion of their schema in the manual.
+ * Why the four fragments sit in three trees and two carry no directive:
+ * `[internal ref]`, § `search`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const section = defineSection({
   slug: 'search',
@@ -54,7 +32,7 @@ export const section = defineSection({
       slug: 'search-overview',
       title: 'Search Overview',
       description:
-        'The four places a query runs in Sovrium — a bound component, the records endpoint, the ⌘K palette and the static public-page index — and which one a given configuration reaches.',
+        'The four places a query runs: a bound component, the records endpoint, the ⌘K palette and the static public-page index, and which one a configuration reaches.',
       keywords: [
         'sovrium',
         'search',
@@ -100,7 +78,7 @@ export const section = defineSection({
       slug: 'search-components',
       title: 'Search Components',
       description:
-        'The components that put a search box on a page — `search-input` and its two roles, the `list` result display, and the ⌘K palette.',
+        'The components that put a search box on a page — `search-input` and its two roles, the `list` result display, and where the ⌘K palette is documented.',
       keywords: [
         'sovrium',
         'search-input',
@@ -109,8 +87,6 @@ export const section = defineSection({
         'static index',
         'list',
         'listDisplay',
-        'command palette',
-        'palette',
         'toolbar search',
         'bindTo',
         'highlight',
@@ -118,7 +94,7 @@ export const section = defineSection({
       order: 2620,
       sidebarLabel: 'Search Components',
       body: searchComponentsBody,
-      documents: [ListDisplaySchema, PaletteSchema, CommandPaletteSearchSchema],
+      documents: [ListDisplaySchema],
       stories: [
         'US-PAGES-SEARCH-003',
         'US-PAGES-SEARCH-004',
@@ -136,6 +112,28 @@ export const section = defineSection({
         'US-PAGES-PUBLIC-SEARCH-009',
         'US-PAGES-PUBLIC-SEARCH-010',
       ],
+    }),
+    defineArticle({
+      slug: 'command-palette',
+      title: 'Command Palette',
+      description:
+        'The ⌘K overlay on every page: what it searches and offers, the `palette` property that switches it off, and the `command` component that places your own.',
+      keywords: [
+        'sovrium',
+        'command palette',
+        'palette',
+        'cmd+k',
+        'ctrl+k',
+        'keyboard shortcut',
+        'command',
+        'custom search endpoint',
+        'opt out',
+      ],
+      order: 2630,
+      sidebarLabel: 'Command Palette',
+      body: commandPaletteBody,
+      documents: [PaletteSchema, CommandPaletteSearchSchema],
+      stories: ['US-PAGES-COMMAND-PALETTE'],
     }),
   ],
 })

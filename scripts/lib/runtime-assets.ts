@@ -496,7 +496,7 @@ export async function buildRuntimeAssets(distDir: string, srcDir: string): Promi
   //
   //    It is written next to the search index at `start` and at `build` of any
   //    site with a page-scoped search box. It used to be compiled from
-  //    `src/presentation/islands/page-search/runtime-entry.ts` at RUN time,
+  //    `src/presentation/islands/search/page-search-runtime-entry.ts` at RUN time,
   //    from a path resolved against the package root — which, in the compiled
   //    binary, is the folder the executable sits in. Nothing sits beside an
   //    installed binary, so `start` logged "Search index not built" and 404'd
@@ -507,7 +507,9 @@ export async function buildRuntimeAssets(distDir: string, srcDir: string): Promi
   //    page loads (and `Performance Budget` weighs them as such); this one is
   //    fetched only by sites that declare a page search box.
   const searchResult = await Bun.build({
-    entrypoints: [join(srcDir, 'presentation', 'islands', 'page-search', 'runtime-entry.ts')],
+    entrypoints: [
+      join(srcDir, 'presentation', 'islands', 'search', 'page-search-runtime-entry.ts'),
+    ],
     target: 'browser',
     format: 'iife',
     minify: true,

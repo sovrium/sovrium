@@ -6,7 +6,9 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { executeRawTypedOn } from '@/infrastructure/database/sql/dialect-execute'
+import { type RawSqlRunner } from './dialect-execute'
+import type { Dialect } from '../drizzle/layer'
 import type { SQL } from 'drizzle-orm'
 
 /**
@@ -22,8 +24,8 @@ import type { SQL } from 'drizzle-orm'
  * `isMissingUserAccessTable` working: that guard matches on the driver's error
  * text, and the driver quotes the name back exactly as the statement spelled it.
  */
-export const userAccessTableSql = (): Readonly<SQL> =>
-  isSqliteRuntime()
+export const userAccessTableSql = (dialect: Dialect): Readonly<SQL> =>
+  dialect.kind === 'sqlite'
     ? sql`${sql.identifier('system_user_access')}`
     : sql`${sql.identifier('system')}.${sql.identifier('user_access')}`
 
@@ -75,3 +77,54 @@ export const toRecordIdList = (value: unknown): readonly string[] => {
     return []
   }
 }
+
+/** One `user_access` row, as the batched reads select it. */
+export interface UserAccessRow {
+  readonly user_id: string
+  readonly role: string | null
+  readonly record_ids: unknown
+}
+
+/**
+ * The `user_access` rows of every one of `userIds` — for one scope table, or
+ * across all of them — in ONE query. Every value is bound. An empty `userIds`
+ * reads nothing; a missing `user_access` table reads as no rows.
+ */
+export const readUserAccessRowsOf = async (
+  { runner, dialect }: { readonly runner: Readonly<RawSqlRunner>; readonly dialect: Dialect },
+  userIds: readonly string[],
+  tableSlug: string | undefined,
+  role?: string
+): Promise<readonly UserAccessRow[]> => {
+  const ids = [...new Set(userIds)]
+  if (ids.length === 0) return []
+  const inUsers = sql`${sql.identifier('user_id')} IN (${sql.join(
+    ids.map((id) => sql`${id}`),
+    sql`, `
+  )})`
+  const inTable =
+    tableSlug === undefined
+      ? inUsers
+      : sql`${inUsers} AND ${sql.identifier('table_slug')} = ${tableSlug}`
+  const where =
+    role === undefined ? inTable : sql`${inTable} AND ${sql.identifier('role')} = ${role}`
+  const query = sql`SELECT ${sql.identifier('user_id')}, ${sql.identifier('role')}, ${sql.identifier('record_ids')} FROM ${userAccessTableSql(dialect)} WHERE ${where}`
+  try {
+    return await executeRawTypedOn<UserAccessRow>(dialect.kind, runner, query)
+  } catch (error) {
+    if (isMissingUserAccessTable(error)) return []
+    throw error
+  }
+}
+
+/** Merge per-row values into one list per user, optionally without repeats. */
+export const groupByUser = (
+  entries: readonly (readonly [string, readonly string[]])[],
+  options: { readonly distinct?: boolean } = {}
+): ReadonlyMap<string, readonly string[]> =>
+  new Map(
+    [...Map.groupBy(entries, ([userId]) => userId)].map(([userId, rows]) => {
+      const merged = rows.flatMap(([, values]) => values)
+      return [userId, options.distinct === true ? [...new Set(merged)] : merged] as const
+    })
+  )

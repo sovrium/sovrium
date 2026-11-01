@@ -1,33 +1,36 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://sovrium.com/logos/sovrium-icon-light.svg" />
-    <img src="https://sovrium.com/logos/sovrium-icon-dark.svg" alt="Sovrium" width="88" height="88" />
-  </picture>
+  <a href="https://sovrium.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://sovrium.com/github/banner-dark.png" />
+      <img src="https://sovrium.com/github/banner-light.png" alt="Sovrium: Own the system that runs your organization." width="800" />
+    </picture>
+  </a>
 </p>
 
-<h1 align="center">Sovrium</h1>
-
 <p align="center">
-  <strong>Write one config file. Run a complete web app.</strong><br />
-  Database, REST API, sign-in, pages, forms, automations, AI agents and an admin
+  <strong>Describe your tables, pages, permissions and automations in one file. Sovrium runs the application, on your own infrastructure.</strong><br />
+  Database, REST API, sign-in, pages, forms, automations, AI agents and an operator
   console, interpreted from YAML, JSON or TypeScript by a single binary you run
   wherever you like.
 </p>
 
 <p align="center">
-  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-BSL--1.1-blue" alt="License: Business Source License 1.1" /></a>
-  <a href="https://github.com/sovrium/sovrium/releases/latest"><img src="https://img.shields.io/github/v/release/sovrium/sovrium?label=release" alt="Latest release" /></a>
-  <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun_1.4-f472b6" alt="Runtime: Bun 1.4" /></a>
-  <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-6.0-3178c6" alt="TypeScript 6.0" /></a>
+  In beta: it runs today, and it is still changing. <a href="https://sovrium.com/en/changelog">See the changelog</a>.
 </p>
 
 <p align="center">
-  <a href="https://sovrium.com">Website</a> &middot;
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-BSL--1.1-1b1614?labelColor=716a66" alt="License: Business Source License 1.1" /></a>
+  <a href="https://github.com/sovrium/sovrium/releases/latest"><img src="https://img.shields.io/github/v/release/sovrium/sovrium?label=release&color=1b1614&labelColor=716a66" alt="Latest release" /></a>
+  <a href="#status"><img src="https://img.shields.io/badge/status-beta-1b1614?labelColor=716a66" alt="Status: beta" /></a>
+</p>
+
+<p align="center">
+  <a href="https://sovrium.com/download">Download</a> &middot;
+  <a href="#quick-start">Run your first app</a> &middot;
+  <a href="https://sovrium.com/en/diagnostic">Run the diagnostic with your AI</a> &middot;
+  <a href="https://sovrium.com/apps">Open an app</a> &middot;
   <a href="https://sovrium.com/docs">Docs</a> &middot;
-  <a href="#quick-start">Quick start</a> &middot;
-  <a href="#cli-reference">CLI</a> &middot;
-  <a href="#templates">Templates</a> &middot;
-  <a href="CHANGELOG.md">Changelog</a> &middot;
+  <a href="https://sovrium.com/en/changelog">Changelog</a> &middot;
   <a href="https://github.com/sovrium/sovrium/issues">Issues</a>
 </p>
 
@@ -35,7 +38,7 @@
 
 ## See it in ten seconds
 
-**1. Write a config.** Twenty lines of YAML:
+**1. Write a config.** A few lines of YAML:
 
 ```yaml
 # app.yaml
@@ -50,6 +53,7 @@ tables:
       - { id: 3, name: status, type: single-select, options: [Lead, Active, Lost] }
 
 auth:
+  allowSignUp: true
   strategies:
     - type: emailAndPassword
 
@@ -69,19 +73,24 @@ sovrium start app.yaml
 # → Admin console: http://localhost:3000/_admin/login
 ```
 
-**3. Here is what you now have** — every row observed on a running instance of exactly
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://sovrium.com/github/my-crm-dark.png" />
+  <img src="https://sovrium.com/github/my-crm-light.png" alt="The My CRM page served from that app.yaml: the My CRM heading above a sortable, filterable grid of five contacts with their name, email and status." width="100%" />
+</picture>
+
+**3. Here is what you now have.** Every row was observed on a running instance of exactly
 that file:
 
-| You get                    | Concretely                                                                                                                                                                       |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A database table, migrated | `contacts` in embedded SQLite (or PostgreSQL with `DATABASE_URL`): `name NOT NULL`, a unique index on `email`, a `CHECK` on `status`, timestamps and a soft-delete column        |
-| A REST API for it          | `GET` / `POST /api/tables/contacts/records`, `GET` / `PATCH` / `DELETE …/records/{recordId}`, plus batch, upsert, CSV import, aggregate, trash and restore, history and comments |
-| Validation on every write  | a missing `name` or an unknown `status` → `400`, a duplicate `email` → `409`                                                                                                     |
-| Sign-up and sign-in        | email and password under `/api/auth/*`, with sessions; `admin`, `member` and `viewer` roles; anything a caller may not see answers `404`, never `403`                            |
-| A server-rendered page     | `/` with the heading and a sortable, filterable grid of the contacts the visitor may read                                                                                        |
-| An admin console           | `/_admin`: records, automation runs, form submissions, users, files and analytics, for admins only                                                                               |
-| An API description         | OpenAPI 3.1 at `/api/openapi.json` and `/api/auth/openapi.json`, and an interactive explorer at `/api/scalar`, for admins only                                                   |
-| The basics a site needs    | `/sitemap.xml`, `/robots.txt`, `/api/health`, hardened response headers, CSRF protection and rate limiting                                                                       |
+| You get                    | Concretely                                                                                                                                                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A database table, migrated | `contacts` in embedded SQLite (or PostgreSQL with `DATABASE_URL`): `name NOT NULL`, a unique index on `email`, a `CHECK` on `status`, timestamps and a soft-delete column                                                            |
+| A REST API for it          | `GET` / `POST /api/tables/contacts/records`, `GET` / `PATCH` / `DELETE …/records/{recordId}`, plus batch, upsert, CSV import, aggregate, trash and restore, history and comments                                                     |
+| Validation on every write  | a missing `name` → `400`, an unknown `status` → `422`, a duplicate `email` → `409`                                                                                                                                                   |
+| Sign-up and sign-in        | email and password under `/api/auth/*`, with sessions (sign-up is open because the file sets `allowSignUp`; it is closed by default); `admin`, `member` and `viewer` roles; anything a caller may not see answers `404`, never `403` |
+| A server-rendered page     | `/` with the heading and a sortable, filterable grid of the contacts the visitor may read                                                                                                                                            |
+| An operator console        | `/_admin`: records, automation runs, form submissions, users, files and analytics, for admins only                                                                                                                                   |
+| An API description         | OpenAPI 3.1 at `/api/openapi.json` and `/api/auth/openapi.json`, and an interactive explorer at `/api/scalar`, for admins only                                                                                                       |
+| The basics a site needs    | `/sitemap.xml`, `/robots.txt`, `/api/health`, hardened response headers, CSRF protection and rate limiting                                                                                                                           |
 
 |                           | Without Sovrium                                                                    | With Sovrium                                   |
 | ------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------- |
@@ -131,7 +140,7 @@ operational console to run it.
   through, or an in-app editor. The configuration is code: it is written in a file,
   reviewed, committed and redeployed.
 
-Sovrium runs on your own machine or server. Sovrium Cloud is the optional managed hosting for teams that would rather not run it themselves.
+Sovrium runs on your own machine or server. Sovrium Cloud is the optional managed hosting for teams that would rather not run it themselves; its general availability is coming soon.
 
 ---
 
@@ -153,8 +162,8 @@ Each row is a part of the configuration you declare. The
 | **AI**                   | Bring a provider (Anthropic, OpenAI, Mistral, Google Gemini, local Ollama, or any OpenAI-compatible endpoint), routed local-first by default. AI fields, a chat over your data, agents bound to a role with tool allowlists, human approvals, schedules and usage limits, retrieval over your tables and documents, agent memory, speech-to-text.                                                                                                                                                                                                                                                |
 | **MCP**                  | Your app as a Model Context Protocol server over HTTP (tables, automations, actions, behind authentication), your agents as MCP clients of external servers, and `sovrium mcp` serving your config to a local AI client over stdio.                                                                                                                                                                                                                                                                                                                                                              |
 | **Files**                | Named buckets on the local disk, S3-compatible storage or PostgreSQL, with per-operation permissions, signed URLs and image transforms.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Operations**           | Embedded SQLite by default, PostgreSQL with one variable, automatic migrations on boot, backup and restore, a deployment bundle, GDPR export and erasure, privacy-first built-in analytics, an activity log, operator email alerts, and opt-in ecodesign levers (`ECO_*`).                                                                                                                                                                                                                                                                                                                       |
-| **Admin console**        | `/_admin` on every app with authentication: overview with instance health, records, automation runs (which step failed, how long each took, and whose fault it was), form submissions, users, files, connections, analytics, an audit log, API keys, your design system, and a Report a problem page that prefills a bug report. Admin-only and read-only towards the configuration, which stays code.                                                                                                                                                                                           |
+| **Operations**           | Embedded SQLite by default, PostgreSQL with one variable, automatic migrations on boot, backup and restore, a deployment bundle, GDPR export and erasure, built-in analytics, an activity log, operator email alerts, and opt-in ecodesign levers (`ECO_*`).                                                                                                                                                                                                                                                                                                                                     |
+| **Operator console**     | `/_admin` on every app with authentication: overview with instance health, records, automation runs (which step failed, how long each took, and whose fault it was), form submissions, users, files, connections, analytics, an audit log, API keys, your design system, and a Report a problem page that prefills a bug report. Admin-only and read-only towards the configuration, which stays code.                                                                                                                                                                                           |
 | **Import**               | `sovrium import` brings an app in from another tool: spreadsheets and CSV files, online databases, form builders, website builders and automation platforms. `fetch` reads the tool's API, read-only, into a local snapshot; the conversion then writes tables, seed records, forms, pages and automations into your config, every automation disabled until you enable it, with a report of what did not carry over.                                                                                                                                                                            |
 | **Library**              | Ready-made blocks, connections to external services and automation recipes inside the binary. `sovrium library add` copies one into your config as a file you own.                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
@@ -179,7 +188,7 @@ Each row is a part of the configuration you declare. The
 2. **Migrate.** On boot, Sovrium compares the declared tables with the database and
    applies the difference in a transaction.
 3. **Serve.** One process serves the pages, the API, authentication, file storage,
-   automations and the admin console. Under `--watch`, a saved change reloads the app.
+   automations and the operator console. Under `--watch`, a saved change reloads the app.
 
 ---
 
@@ -188,7 +197,7 @@ Each row is a part of the configuration you declare. The
 The standalone binary needs neither Node nor Bun.
 
 ```bash
-# macOS / Linux — install script (verifies the published sha256)
+# macOS / Linux: install script (verifies the release signature and the published sha256)
 curl -fsSL https://sovrium.com/install | sh
 
 # Homebrew (macOS / Linux)
@@ -209,6 +218,11 @@ Intel), Windows (installer) and Linux (AppImage or `.deb`), from the
 engine in a window: it creates a project folder from a template, runs the server for
 you and shows the app. The config it writes runs unchanged under `sovrium start`.
 See [The Sovrium App](https://sovrium.com/en/docs/desktop-app).
+The installers are not yet signed through Apple's or Microsoft's publisher programmes, so
+macOS and Windows warn the first time you open one; each ships with a detached `.sig` made
+with the Sovrium release key, and
+[Desktop troubleshooting](https://sovrium.com/en/docs/troubleshooting-desktop) shows how to
+check it first.
 
 > Already installed? `sovrium update` keeps you current whichever way you installed: it
 > replaces a raw binary, or hands over to `brew upgrade` / `scoop update`.
@@ -244,6 +258,8 @@ sovrium start app.yaml --watch
 - **A blank TypeScript starter**: `sovrium init my-app --typescript` writes a typed
   `app.ts` with its `tsconfig.json`. (`--typescript` cannot be combined with
   `--template`: a template ships its own config.)
+- **Sign-up**: closed unless the config sets `auth.allowSignUp: true`; people otherwise join
+  by invitation or are created by an administrator.
 - **The first admin**: set `AUTH_ADMIN_EMAIL` and `AUTH_ADMIN_PASSWORD` before the first
   start, or run `sovrium admin create you@example.com`. The three ways are in
   [Admin & Maintenance](https://sovrium.com/en/docs/cli-admin).
@@ -265,29 +281,29 @@ opened from the desktop app.
 
 <br />
 
-| Template             | What it is                                                                    |
-| -------------------- | ----------------------------------------------------------------------------- |
-| `hello-world`        | The one-page starter: the first page after `sovrium init`.                    |
-| `landing-page`       | A bilingual product landing page with a demo request form.                    |
-| `marketing-site`     | A marketing website built from every marketing block of the library.          |
-| `blog`               | Essays with covers, moderated comments, RSS and scheduling.                   |
-| `docs-site`          | A documentation website from markdown files.                                  |
-| `knowledge-base`     | A private company handbook in markdown, with search and an assistant.         |
-| `api-only`           | A REST API called with a key, with per-role rules and one landing page.       |
-| `mcp-server`         | A team knowledge base that an assistant reads over MCP, with a key.           |
-| `crm`                | A sales pipeline with a forecast, contacts, tasks and an assistant.           |
-| `projects`           | A dashboard, a task board, a timeline by project and a deadline calendar.     |
-| `helpdesk`           | A public ticket form, a queue by who holds each ticket, and ratings.          |
-| `content-calendar`   | A month by channel, review approvals and campaigns.                           |
-| `people`             | An HR directory with salaries withheld, time off and admin approvals.         |
-| `events`             | Events with seats left, signup without an account, and a waitlist.            |
-| `assets`             | An asset register with holders, check-outs, locations and lifecycle.          |
-| `inventory`          | Products, stock per warehouse, orders and a reorder list.                     |
-| `expenses`           | Expense claims with receipts, in-app approval and repayment.                  |
-| `intranet`           | Must-read posts first, then news, people and resources.                       |
-| `automation-recipes` | Automations that run in your own app, with every run kept.                    |
-| `company-os`         | Pipeline, projects, tickets, team and time off over one client list.          |
-| `app-starter`        | A business-app skeleton: every sign-in method, dashboards, settings, records. |
+| Template                                                            | What it is                                                                    |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [`hello-world`](https://sovrium.com/apps/hello-world)               | The one-page starter: the first page after `sovrium init`.                    |
+| [`landing-page`](https://sovrium.com/apps/landing-page)             | A bilingual product landing page with a demo request form.                    |
+| [`marketing-site`](https://sovrium.com/apps/marketing-site)         | A marketing website built from every marketing block of the library.          |
+| [`blog`](https://sovrium.com/apps/blog)                             | Essays with covers, moderated comments, RSS and scheduling.                   |
+| [`docs-site`](https://sovrium.com/apps/docs-site)                   | A documentation website from markdown files.                                  |
+| [`knowledge-base`](https://sovrium.com/apps/knowledge-base)         | An organization's private handbook in markdown, with search and an assistant. |
+| [`api-only`](https://sovrium.com/apps/api-only)                     | A REST API called with a key, with per-role rules and one landing page.       |
+| [`mcp-server`](https://sovrium.com/apps/mcp-server)                 | A team knowledge base that an assistant reads over MCP, with a key.           |
+| [`crm`](https://sovrium.com/apps/crm)                               | A sales pipeline with a forecast, contacts, tasks and an assistant.           |
+| [`projects`](https://sovrium.com/apps/projects)                     | A dashboard, a task board, a timeline by project and a deadline calendar.     |
+| [`helpdesk`](https://sovrium.com/apps/helpdesk)                     | A public ticket form, a queue by who holds each ticket, and ratings.          |
+| [`content-calendar`](https://sovrium.com/apps/content-calendar)     | A month by channel, review approvals and campaigns.                           |
+| [`people`](https://sovrium.com/apps/people)                         | An HR directory with salaries withheld, time off and admin approvals.         |
+| [`events`](https://sovrium.com/apps/events)                         | Events with seats left, signup without an account, and a waitlist.            |
+| [`assets`](https://sovrium.com/apps/assets)                         | An asset register with holders, check-outs, locations and lifecycle.          |
+| [`inventory`](https://sovrium.com/apps/inventory)                   | Products, stock per warehouse, orders and a reorder list.                     |
+| [`expenses`](https://sovrium.com/apps/expenses)                     | Expense claims with receipts, in-app approval and repayment.                  |
+| [`intranet`](https://sovrium.com/apps/intranet)                     | Must-read posts first, then news, people and resources.                       |
+| [`automation-recipes`](https://sovrium.com/apps/automation-recipes) | Automations that run in your own app, with every run kept.                    |
+| [`company-os`](https://sovrium.com/apps/company-os)                 | Pipeline, projects, tickets, team and time off over one client list.          |
+| [`app-starter`](https://sovrium.com/apps/app-starter)               | A business-app skeleton: every sign-in method, dashboards, settings, records. |
 
 </details>
 
@@ -327,9 +343,11 @@ A config path is optional wherever it is shown in brackets: Sovrium finds `app.y
 | `sovrium validate <config>`   | Validate a config without starting anything                                                                                                                                     | `--json`                                                                                                     |
 | `sovrium schema`              | Print the JSON Schema every config is validated against                                                                                                                         | `--output <file>`                                                                                            |
 | `sovrium types`               | Write `sovrium.d.ts` and `tsconfig.json` for an `app.ts`                                                                                                                        | `--output <dir>`                                                                                             |
+| `sovrium client [config]`     | Write `sovrium-client.ts`, a typed client for the app's records API, naming only what its audience may read                                                                     | `--output <file>`, `--audience <role\|all>`, `--check`                                                       |
 | `sovrium seed [config]`       | Load `seed/<table>.yaml` data into the tables, here or on a hosted app                                                                                                          | `--mode if-empty\|upsert\|replace`, `--table`, `--dir`, `--dry-run`, `--app`                                 |
 | `sovrium import <file\|dir>`  | Import tables, records, forms, pages and automations from another tool; `fetch` snapshots it first                                                                              | `--from <tool>`, `--write`, `--apply`, `--only`, `--prefix`                                                  |
 | `sovrium migrate [config]`    | Bring the database schema forward without booting                                                                                                                               | `--dry-run`, `--check`, `--allow-destructive`                                                                |
+| `sovrium reindex [config]`    | Rebuild the AI knowledge index from the app's documents and tables                                                                                                              |                                                                                                              |
 | `sovrium library <verb>`      | `list`, `search`, `show` or `add` ready-made blocks, connections and recipes                                                                                                    | `--kind`, `--set key=value`, `--into`, `--as`                                                                |
 | `sovrium render <asset>`      | Render a template asset (email, document) offline with sample data                                                                                                              |                                                                                                              |
 | `sovrium design-system`       | Export the design system as an agent brief, DTCG JSON or a portable bundle, with the app's pages drawn in it; `import` maps a design tool's tokens, or its reworked pages, back | `--format md\|json\|bundle`, `--pages`, `--seed`, `--prototype`, `--mode light\|dark`, `--output`, `--force` |
@@ -462,15 +480,13 @@ container.
 
 ## Free and paid
 
-<!-- O-013 O-014 (Sovrium Cloud) · O-004 to O-012 (Sovrium Partner) -->
+<!-- O-004 to O-012, O-015 (Sovrium Partner) · PR-002, no offer record (Sovrium Builder) · O-013 O-014 (Sovrium Cloud) -->
 
-The Sovrium engine, the desktop app and local AI editing with your own key are free; Sovrium Cloud sells managed hosting, collaborative and managed-AI editing — the hosted config-editing plane — because the line is whose compute runs it, and the self-hosted product never ships a visual or AI config editor.
+The engine, the desktop app and AI editing with your own key are free. Partner builds and migrates your tools with you, Builder trains you to build them yourself, and Cloud hosts your apps and gives your team a shared editor with managed AI. You pay for someone else’s compute or time, never for a feature.
 
-| Free, self-hosted                                  | Paid services around the engine                                                                   |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| The engine, with every feature: no edition, no key | **Sovrium Cloud**: managed hosting, collaborative and managed-AI editing                          |
-| The desktop app                                    | **Sovrium Partner**: designs, with your team, the internal tool that serves it, from how you work |
-| Local AI editing with your own provider and key    |                                                                                                   |
+- **[Sovrium Partner](https://partner.sovrium.com)**: experts who build and migrate your tools with you.
+- **[Sovrium Builder](https://builder.sovrium.com)**: training to build your own tools, and depend on no one.
+- **[Sovrium Cloud](https://cloud.sovrium.com)** (coming soon): managed hosting you can walk out of any time.
 
 ---
 
@@ -513,7 +529,7 @@ same manual ships inside the binary (`sovrium docs`).
 | Field types                   | [sovrium.com/en/docs/field-types-overview](https://sovrium.com/en/docs/field-types-overview)         |
 | Automations                   | [sovrium.com/en/docs/automations-overview](https://sovrium.com/en/docs/automations-overview)         |
 | AI and agents                 | [sovrium.com/en/docs/ai-overview](https://sovrium.com/en/docs/ai-overview)                           |
-| Admin console                 | [sovrium.com/en/docs/admin-dashboard](https://sovrium.com/en/docs/admin-dashboard)                   |
+| Operator console              | [sovrium.com/en/docs/admin-dashboard](https://sovrium.com/en/docs/admin-dashboard)                   |
 | Environment variables         | [sovrium.com/en/docs/env-vars](https://sovrium.com/en/docs/env-vars)                                 |
 | Bootstrapping the first admin | [sovrium.com/en/docs/cli-admin](https://sovrium.com/en/docs/cli-admin)                               |
 | Installation                  | [sovrium.com/en/docs/installation](https://sovrium.com/en/docs/installation)                         |
@@ -538,6 +554,10 @@ Runnable example configs ship in [`src/templates/`](src/templates/); `sovrium te
 ---
 
 ## Status
+
+Sovrium is **in beta**: it runs today, and it is still changing. The API may still change
+before 1.0, and the desktop installers are not signed yet
+([how to get past the warning](https://sovrium.com/en/docs/troubleshooting-desktop)).
 
 Sovrium is a **feature-complete MVP** under active production hardening. Every domain
 listed above is implemented; a small number of specs, scattered across domains, are
@@ -587,7 +607,7 @@ service. Commercial hosting licenses: license@sovrium.com.
 
 The name and logo are covered by the [trademark policy](TRADEMARK.md).
 
----
+<img src="https://sovrium.com/github/stripe.svg" alt="" width="100%" />
 
 <p align="center">
   <sub>&copy; 2025–2026 ESSENTIAL SERVICES &middot; Sovrium is a trademark of ESSENTIAL SERVICES.</sub>

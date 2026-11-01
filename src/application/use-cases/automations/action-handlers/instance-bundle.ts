@@ -20,6 +20,7 @@ import {
   manifestSignatureProblem,
   verifySignedBundle,
 } from '@/application/use-cases/server/signed-bundle'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   BUNDLE_MAX_STORED_BYTES,
   BUNDLE_MAX_UNPACKED_BYTES,
@@ -42,9 +43,6 @@ import type { StorageError } from '@/application/ports/services/storage-service'
  */
 
 const refuse = (message: string) => Effect.fail(new InstanceSupervisorError({ message }))
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
 
 const textOf = (value: unknown, name: string) =>
   typeof value === 'string' && value.trim() !== ''

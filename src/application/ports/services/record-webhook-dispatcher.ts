@@ -23,8 +23,10 @@ import type { Effect } from 'effect'
  *     already report each committed row change to the change stream, hand the
  *     same change to the scope's planner INSIDE their transaction and record
  *     the deliveries it plans in the same commit.
- *  2. `deliver` attempts the deliveries the write recorded, once it committed —
- *     awaited on a single-row road, in a tracked background fiber on a bulk one.
+ *  2. `deliver` attempts the deliveries the write recorded, once it committed,
+ *     in a tracked background fiber: the write answers without waiting for a
+ *     receiver. A caller may ask to wait ({@link RecordWebhookReceipt}), for
+ *     a bounded time only, after which the deliveries go on in the background.
  *     A failure is retried per the webhook's `retry` policy, parked when the
  *     next retry is far off, and picked up again by the sweep (`deliverDue`).
  *
@@ -107,6 +109,25 @@ export interface OutboxSweepReport {
 
 /** When a write waits for its deliveries. */
 export type DeliveryMode = 'await' | 'background'
+
+/**
+ * What the caller of a single-record write asked of its deliveries: whether to
+ * wait for them (`await`, bounded) or not (`background`), and where it hears
+ * the ids of the deliveries the write recorded, to hand them back. A write
+ * whose road names its own mode (an automation step, a bulk write) ignores it.
+ */
+export interface RecordWebhookReceiptShape {
+  readonly mode: DeliveryMode
+  readonly recorded: (deliveryIds: readonly string[]) => void
+}
+
+const NO_RECEIPT: RecordWebhookReceiptShape = { mode: 'background', recorded: () => undefined }
+
+/** The receipt in effect: by default, nobody waits and nobody hears the ids. */
+export const RecordWebhookReceipt = Context.Reference<RecordWebhookReceiptShape>(
+  'sovrium/RecordWebhookReceipt',
+  { defaultValue: () => NO_RECEIPT }
+)
 
 export class RecordWebhookDispatcher extends Context.Service<
   RecordWebhookDispatcher,

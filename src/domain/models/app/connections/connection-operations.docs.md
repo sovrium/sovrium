@@ -1,6 +1,6 @@
 # Connection Operations
 
-> The endpoints of a connected service declared once on its connection — method, path, typed parameters, body and pagination — and called by name from any automation step.
+> The endpoints of a connected service declared once on its connection (method, path, typed parameters, body and pagination) and called by name from any automation step.
 
 A connection can also declare the endpoints of its service as `operations`, against a `baseUrl`. Each operation names the method, the path and the parameters it takes, with where each one goes and its type; an automation step then calls it by name with `type: connection`, `operator: call`.
 
@@ -96,11 +96,11 @@ operations:
 
 A `file` parameter outside the body, `encoding` on any other type, and a `file` parameter without `encoding` in a `json` or `form` body, which has no part to carry it, refuse the config when it loads.
 
-A file is read with the app's own access to storage, so the caller of a trigger never chooses which file is sent: a `file` parameter whose value reads `{{trigger.…}}` — a webhook body, a manual run's input — refuses the config when it loads. Pass a file from an attachment field, a step's output or a literal key. The one trigger value accepted is an attachment field of the record that started a `record` trigger, `{{trigger.data.record.<attachment field>}}`.
+A file is read with the app's own access to storage, so the caller of a trigger never chooses which file is sent: a `file` parameter whose value reads `{{trigger.…}}`, such as a webhook body or a manual run's input, refuses the config when it loads. Pass a file from an attachment field, a step's output or a literal key. The one trigger value accepted is an attachment field of the record that started a `record` trigger, `{{trigger.data.record.<attachment field>}}`.
 
 In a run someone started by hand, a `file` parameter or body file named by key whose file sits in a table attachment field's bucket, or in a bucket whose `download` permission does not admit the person who started it, fails the step with `Resource not found`, as a key nothing holds does, unless this run wrote it, and nothing is sent. A starter with the admin role is not refused, and a key nothing holds is named in her step's error.
 
-`baseUrl` is a literal URL, `$env.VAR`, or `$token.FIELD` for a service that hands each customer their own API root with the token. Salesforce returns it as `instance_url`: keep it with the OAuth2 prop `tokenFields: [instance_url]` and set `baseUrl: $token.instance_url`. The kept fields are captured from every token response — the first exchange and each refresh — and stored encrypted with the token; a config whose `baseUrl` reads a field the connection does not keep is refused when it loads.
+`baseUrl` is a literal URL, `$env.VAR`, or `$token.FIELD` for a service that hands each customer their own API root with the token. Salesforce returns it as `instance_url`: keep it with the OAuth2 prop `tokenFields: [instance_url]` and set `baseUrl: $token.instance_url`. The kept fields are captured from every token response (the first exchange and each refresh) and stored encrypted with the token; a config whose `baseUrl` reads a field the connection does not keep is refused when it loads.
 
 A call is checked when the config loads: an unknown operation, a parameter the operation does not declare, a missing required parameter or a literal of the wrong type refuses the config, naming the step. A value produced by a template is checked when the step runs.
 
@@ -120,9 +120,9 @@ A parameter declared `object` or `array` filled with one whole template, such as
 
 What the next step reads:
 
-- `steps.<name>.data` is the decoded response body. With `paginate: all`, or `paginate: N` for at most N pages, it is instead the items of every page read, concatenated in order, following the operation's `pagination` (page number, offset, cursor, the `Link` header, or the id of the last item read — `style: lastItem`, which stops when `hasMorePath` reads false).
+- `steps.<name>.data` is the decoded response body. With `paginate: all`, or `paginate: N` for at most N pages, it is instead the items of every page read, concatenated in order, following the operation's `pagination` (page number, offset, cursor, the `Link` header, or the id of the last item read with `style: lastItem`, which stops when `hasMorePath` reads false). `N` is a whole number from 1 to 1000. Zero, a fraction or more than 1000 is never cut to 1000 pages: the configuration is refused when it loads, and a call from code fails its step before any request, naming `paginate`.
 - `steps.<name>.response.status` and `steps.<name>.response.headers` describe the last answer.
 
-A non-2xx answer fails the step, and its error names the operation and the status. A `429` or `503` answer carrying `Retry-After` is retried after the delay the service asked for, up to three times and never after a wait longer than a minute. Every request passes the same outbound-address guard and per-request timeout (`timeout`, 15 seconds by default) as the HTTP actions; so does every redirect it answers with, and a redirect to another host never carries the connection's credentials. An answer larger than 5 MiB fails the step without being downloaded further.
+A non-2xx answer fails the step, and its error names the operation and the status. A `429` or `503` answer carrying `Retry-After` is retried after the delay the service asked for, up to three times and never after a wait longer than a minute. Every request passes the same outbound-address guard and per-request timeout (`timeout`, from 1000 to 120000 milliseconds, 15 seconds by default) as the HTTP actions; so does every redirect it answers with, and a redirect to another host never carries the connection's credentials. An answer larger than 5 MiB fails the step without being downloaded further.
 
 <!-- sovrium:options ConnectionOperationSchema -->

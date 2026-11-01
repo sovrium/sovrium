@@ -11,7 +11,7 @@
  * edit and regenerate of a stored conversation held with one.
  */
 
-import { requireDomainContext } from '@/infrastructure/logging/request-effect'
+import { Effect } from 'effect'
 import { mayTriggerAgentNamed } from '@/presentation/api/agents/agent-trigger-guard'
 import { findDeclaredAgent, resolveAgentTurnBinding, type AgentTurnBinding } from './agent-chat'
 import { agentCaller, agentReader, type ChatReader } from './chat-read-scope'
@@ -51,16 +51,19 @@ export interface AgentTurnScope {
  * table she may not read or whose list admits her no row is named nowhere in
  * what the model is sent.
  */
-export const resolveDeclaredAgentTurnScope = async (
-  c: Context,
-  app: App,
-  agentName: string
-): Promise<AgentTurnScope | undefined> => {
-  const agent = findDeclaredAgent(app, agentName)
-  // Its trigger grant, as on every road into an agent; refused as undeclared.
-  if (agent === undefined || !(await mayTriggerAgentNamed(c, app, agentName))) return undefined
-  const reader = agentReader(agent.role, await agentCaller(c, app))
-  const tables = await toToolCallTables(requireDomainContext(c), app, reader)
-  const binding = resolveAgentTurnBinding(app, agent, tables)
-  return { binding, userRole: binding.role, effectiveRoles: [binding.role], reader }
-}
+export const resolveDeclaredAgentTurnScope = (c: Context, app: App, agentName: string) =>
+  Effect.gen(function* () {
+    const agent = findDeclaredAgent(app, agentName)
+    // Its trigger grant, as on every road into an agent; refused as undeclared.
+    if (agent === undefined || !(yield* mayTriggerAgentNamed(c, app, agentName))) return undefined
+    const reader = agentReader(agent.role, yield* agentCaller(c))
+    const tables = yield* toToolCallTables(app, reader)
+    const binding = resolveAgentTurnBinding(app, agent, tables)
+    const scope: AgentTurnScope = {
+      binding,
+      userRole: binding.role,
+      effectiveRoles: [binding.role],
+      reader,
+    }
+    return scope
+  })

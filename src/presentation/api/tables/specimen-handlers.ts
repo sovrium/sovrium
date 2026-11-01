@@ -49,7 +49,7 @@
  *
  * ─── THE GATE IS THE NAMESPACE'S, NOT THE ADMIN TIER'S ─────────────────────
  *
- * `/api/tables/*` attaches a session and requires one (`api-routes.ts`), and
+ * `/api/tables/*` attaches a session and requires one (`middleware/api-auth-guards.ts`), and
  * this route inherits exactly that. It is a wider audience than the
  * admin-tier-gated sibling endpoint, and deliberately so: the payload is a
  * platform constant identical on every instance, and holding a route inside
@@ -57,8 +57,8 @@
  * caller ends up with a 404 nothing explains.
  */
 
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import { parseOptionalPositive } from '@/domain/kernel/format/query-cap-parsers'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { listRecordsResponseSchema } from '@/domain/models/api/tables/tables'
 import { windowSpecimenRows } from '@/domain/models/app/design/specimen-fixture'
 import type { SpecimenRow } from '@/domain/models/app/design/specimen-fixture'

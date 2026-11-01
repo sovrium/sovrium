@@ -14,6 +14,7 @@ import {
   type TokenExchangeRequest,
 } from '@/application/ports/services/oauth-token-client'
 import { SentinelTokens } from '@/application/ports/services/sentinel-tokens'
+import { tokenRequestRefusal } from '@/domain/models/app/connections/token-request-refusal-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveEnvInString } from '../resolve-env-vars'
 import { unsetEnvReference, type ConnectionDef } from './static-auth-header'
@@ -124,7 +125,7 @@ const requestAndStore = (
     if (!result.ok) {
       return {
         ok: false,
-        reason: `connection ${conn.name}: token request refused (${result.error})`,
+        reason: tokenRequestRefusal(conn.name, 'token request', result.error),
       } as const
     }
     const tokenRepo = yield* ConnectionTokenRepository
@@ -136,7 +137,7 @@ const requestAndStore = (
         grantFingerprint: fingerprint(config.request),
       })
       .pipe(
-        Effect.map(() => true),
+        Effect.as(true),
         // effect-swallow: the failure is RETURNED as `false` and turned into the step's refusal below; a token that cannot be stored is not used, or every call would ask the endpoint again.
         Effect.orElseSucceed(() => false)
       )

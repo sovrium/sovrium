@@ -32,6 +32,7 @@ import {
   paletteStrings,
   searchActionWords,
   searchKindWords,
+  searchPaletteHints,
   tableLabelsOf,
   type PaletteHints,
 } from './command-palette-words'
@@ -337,7 +338,7 @@ export const commandPaletteComponent: ComponentRenderer = (
   const specimenQuery = specimenQueryOf(config.component)
   if (search !== undefined && specimenQuery === undefined) {
     return renderSearchPalette(search, {
-      hints: paletteHints(config),
+      hints: searchPaletteHints(config),
       tableLabels: tableLabelsOf(config.component),
       groups: authoredGroupsOf(config),
       kinds: searchKindWords(config, search.kindLabels),

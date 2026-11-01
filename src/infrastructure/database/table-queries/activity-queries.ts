@@ -12,13 +12,13 @@ import {
   ActivityNotFoundError,
   type ActivityLogWithUser,
 } from '@/application/ports/repositories/analytics/activity-repository'
-import { Database } from '@/infrastructure/database'
 import {
   authUsersTable,
   resolveDialectSchema,
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * The audit table for the active dialect — `system.activity_logs` on Postgres,
@@ -38,11 +38,10 @@ const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
  * @returns Effect program that resolves to activity with user metadata or fails with error
  */
 export const getActivityById = (
+  db: PortableDb,
   activityId: string
-): Effect.Effect<ActivityLogWithUser, ActivityNotFoundError | ActivityDatabaseError, Database> =>
+): Effect.Effect<ActivityLogWithUser, ActivityNotFoundError | ActivityDatabaseError> =>
   Effect.gen(function* () {
-    const db = yield* Database
-
     // Resolve the dialect-correct auth users table per call — the user table
     // lives at `auth.user` on Postgres and `auth_user` on SQLite. Capturing it
     // locally keeps the leftJoin and the projection columns aligned.

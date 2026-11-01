@@ -13,7 +13,7 @@ import {
   PLACE_NOTE,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** shadcn's Sheet holding a form: a button slides it in from the right, its form adds a record. */

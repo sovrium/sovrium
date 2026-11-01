@@ -9,6 +9,7 @@ import { type ReactElement } from 'react'
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { synthesizedComponent } from '@/presentation/render/resolve/component-rewrite'
 import { computeFormClasses } from '../../design/forms-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { toUncontrolledFormProps } from '../props/uncontrolled-form-props'
@@ -20,6 +21,7 @@ import {
 } from './crud-form/crud-form-renderer'
 import { renderEndpointForm } from './crud-form/endpoint-form-renderer'
 import { renderStrategyAuthForm } from './enterprise-auth-form-renderer'
+import { withSessionEndedNotice } from './session-ended-notice'
 import type { AuthFormAction } from './auth-form-action'
 import type { CrudFormAction } from './crud-form/crud-form-types'
 import type { ElementProps } from './html-element-renderer'
@@ -102,14 +104,10 @@ function renderCrudFormVariant(config: RenderFormConfig): ReactElement {
 
 function renderAuthFormVariant(config: RenderFormConfig): ReactElement {
   const { props, action, tables, component, lang, languages, landingPath } = config
-  const byStrategy = renderStrategyAuthForm(props, action, {
-    landingPath,
-    component,
-    lang,
-    languages,
-  })
+  const context = { tables, component, lang, languages, landingPath }
+  const byStrategy = renderStrategyAuthForm(props, action, context)
   if (byStrategy !== undefined) return byStrategy
-  return renderAuthForm(props, action!, { tables, component, lang, languages, landingPath })
+  return withSessionEndedNotice(renderAuthForm(props, action!, context), action, context)
 }
 
 /**
@@ -164,10 +162,10 @@ function maybeApplySaveButtonDefault(config: RenderFormConfig): RenderFormConfig
   if (typeof existingProps['label'] === 'string') return config
   return {
     ...config,
-    component: {
+    component: synthesizedComponent({
       ...componentRecord,
       props: { ...existingProps, label: 'Save' },
-    } as RenderFormConfig['component'],
+    }),
   }
 }
 

@@ -44,13 +44,15 @@ export const PathBranchActionSchema: Schema.Codec<Action & { readonly type: 'pat
           condition: Schema.optional(ConditionGroupSchema),
           actions: Schema.Array(
             Schema.suspend((): Schema.Codec<Action, unknown> => {
-              // `require('..')` resolves to `actions/index.ts` (the top-level
-              // ActionSchema union); `require('.')` would resolve to
-              // `actions/path/index.ts`, which only re-exports
-              // PathBranchActionSchema and has no ActionSchema. Schema.suspend
-              // defers this lookup until decode time, after the module graph
-              // has fully loaded, so the circular import is safe.
-              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              // `require`, not a static import read lazily: a static import
+              // closes the cycle branch → action-union → path → path-action →
+              // branch, and evaluating this module or the `path` barrel before
+              // the union then throws a temporal-dead-zone ReferenceError (see
+              // `actions/loop/each.ts`, where it was measured). `'..'` is
+              // `actions/index.ts` (the top-level ActionSchema union); `'.'`
+              // would be `actions/path/index.ts`, which has no ActionSchema.
+              // Schema.suspend defers the lookup to decode time.
+              // eslint-disable-next-line @typescript-eslint/no-require-imports -- a deferred require is what breaks the import cycle with the ActionSchema union, as above
               const { ActionSchema } = require('..') as {
                 ActionSchema: Schema.Codec<Action, unknown>
               }

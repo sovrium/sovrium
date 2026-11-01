@@ -42,15 +42,18 @@ import {
 } from '@/domain/models/api/tables/records'
 import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { provideDomain } from '@/infrastructure/logging/request-effect'
+import { acceptsUploadBody } from '@/presentation/api/middleware/request-body-limit'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runEffect, runOnRequest } from '@/presentation/api/runtime/run-effect'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { validateRequest } from '@/presentation/api/runtime/validate-request'
 import { checkViewerPermission } from './batch-permission-helpers'
 import { guardBatchCreate, guardUpsert } from './batch-write-guards'
 import { getLinkReader } from './relationship-rules'
-import { projectReadPredicateClause, resolveGuardForTable } from './row-level-guard'
+import { guardForTable, projectReadPredicateClause } from './row-level-guard'
 import { maskUnreadableUniqueConflict } from './unique-conflict-mask'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
@@ -66,26 +69,24 @@ type ReadClause = Exclude<ReturnType<typeof projectReadPredicateClause>, string 
  * holds. Empty when she may read neither the table nor the field, and when her
  * row-level read rule leaves her nothing.
  */
-async function readableDuplicates(
-  c: Context,
-  app: App,
-  mergeOn: string,
-  rows: readonly ImportRow[]
-): Promise<ReadonlySet<string>> {
-  const { session, tableName } = getTableContext(c)
-  const scope = await readScopeFor(c, app, mergeOn)
-  const values = rows.map((row) => row.fields[mergeOn]).filter((v) => v !== undefined && v !== null)
-  if (scope === undefined || values.length === 0) return new Set()
-  const found = await runOnRequest(
-    c,
-    rawListRecordsProgram(session as UserSession, tableName, {
-      and: [{ field: mergeOn, operator: 'in', value: values }, ...scope],
-    })
-  )
-  return found._tag === 'Failure'
-    ? new Set()
-    : new Set(found.success.map((row) => String(row[mergeOn])))
-}
+const readableDuplicates = (c: Context, app: App, mergeOn: string, rows: readonly ImportRow[]) =>
+  Effect.gen(function* () {
+    const { session, tableName } = getTableContext(c)
+    const scope = yield* readScopeFor(c, app, mergeOn)
+    const values = rows
+      .map((row) => row.fields[mergeOn])
+      .filter((v) => v !== undefined && v !== null)
+    if (scope === undefined || values.length === 0) return new Set<string>()
+    // effect-swallow: a duplicate check that cannot read finds no duplicate; the write's own unique rule still holds.
+    const found = yield* Effect.result(
+      rawListRecordsProgram(session as UserSession, tableName, {
+        and: [{ field: mergeOn, operator: 'in', value: values }, ...scope],
+      })
+    )
+    return found._tag === 'Failure'
+      ? new Set<string>()
+      : new Set(found.success.map((row) => String(row[mergeOn])))
+  })
 
 /**
  * The extra clauses that keep a duplicate check inside what the caller may
@@ -93,27 +94,24 @@ async function readableDuplicates(
  * `undefined` when she may read neither the table nor the field, or when her
  * rule leaves her nothing.
  */
-async function readScopeFor(
-  c: Context,
-  app: App,
-  mergeOn: string
-): Promise<readonly ReadClause[] | undefined> {
-  const { session, tableName, userRole, userGroups } = getTableContext(c)
-  const table = app.tables?.find((t) => t.name === tableName)
-  const roles = buildEffectiveRoles(userRole, userGroups)
-  if (!hasReadPermissionForRoles(table, roles, app)) return undefined
-  if (!isFieldReadableByCaller(app, tableName, { role: userRole, groups: userGroups }, mergeOn)) {
-    return undefined
-  }
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-  if (guard === undefined) return []
-  const clause = projectReadPredicateClause(table?.rowLevelPermissions, guard.current)
-  if (clause === 'empty' || clause === undefined) return undefined
-  return typeof clause === 'object' ? [clause] : []
-}
+const readScopeFor = (c: Context, app: App, mergeOn: string) =>
+  Effect.gen(function* () {
+    const { session, tableName, userRole, userGroups } = getTableContext(c)
+    const table = app.tables?.find((t) => t.name === tableName)
+    const roles = buildEffectiveRoles(userRole, userGroups)
+    if (!hasReadPermissionForRoles(table, roles, app)) return undefined
+    if (!isFieldReadableByCaller(app, tableName, { role: userRole, groups: userGroups }, mergeOn)) {
+      return undefined
+    }
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
+    if (guard === undefined) return [] as readonly ReadClause[]
+    const clause = projectReadPredicateClause(table?.rowLevelPermissions, guard.current)
+    if (clause === 'empty' || clause === undefined) return undefined
+    return typeof clause === 'object' ? ([clause] as readonly ReadClause[]) : []
+  })
 
 /** Overwrite: an upsert on `mergeOn`, behind the upsert's gates. */
-async function importOverwrite(
+const importOverwrite = (
   c: Context,
   app: App,
   input: {
@@ -121,27 +119,29 @@ async function importOverwrite(
     readonly mergeOn: string
     readonly fireEvents: boolean
   }
-): Promise<Response> {
-  const { session, tableName, userRole } = getTableContext(c)
-  const validation = await guardUpsert(c, app, input.records, [input.mergeOn])
-  if (!validation.success) return validation.response
-  const program = upsertWithSideEffects({
-    ...{ session, tableName, app, processEnv: process.env, fireEvents: input.fireEvents },
-    requester: recordWriteRequester(session.userId, userRole),
-    recordsData: validation.strippedRecords.map((record) => record.fields),
-    fieldsToMergeOn: [input.mergeOn],
-    hiddenIds: validation.hiddenIds,
-    returnRecords: false,
-    linkReader: getLinkReader(c),
-  }).pipe(Effect.map(({ created, updated }) => ({ created, updated, skipped: 0 })))
-  const response = await runEffect(c, provideDomain(c, program), importRecordsResponseSchema)
-  const written = validation.strippedRecords.map((record) => record.fields)
-  const match = { fields: [input.mergeOn], hiddenIds: validation.hiddenIds }
-  return maskUnreadableUniqueConflict(c, app, { written, match }, response)
-}
+) =>
+  Effect.gen(function* () {
+    const { session, tableName, userRole, userGroups } = getTableContext(c)
+    const validation = yield* guardUpsert(c, app, input.records, [input.mergeOn])
+    if (!validation.success) return validation.response
+    const program = upsertWithSideEffects({
+      ...{ session, tableName, app, fireEvents: input.fireEvents },
+      requester: recordWriteRequester(session.userId, userRole),
+      userGroups,
+      recordsData: validation.strippedRecords.map((record) => record.fields),
+      fieldsToMergeOn: [input.mergeOn],
+      hiddenIds: validation.hiddenIds,
+      returnRecords: false,
+      linkReader: getLinkReader(c),
+    }).pipe(Effect.map(({ created, updated }) => ({ created, updated, skipped: 0 })))
+    const response = yield* respondWith(c, program, importRecordsResponseSchema)
+    const written = validation.strippedRecords.map((record) => record.fields)
+    const match = { fields: [input.mergeOn], hiddenIds: validation.hiddenIds }
+    return yield* maskUnreadableUniqueConflict(c, app, { written, match }, response)
+  })
 
 /** Create, or skip what is already there: a batch create, behind the batch create's gates. */
-async function importCreate(
+const importCreate = (
   c: Context,
   app: App,
   input: {
@@ -149,31 +149,36 @@ async function importCreate(
     readonly mergeOn?: string
     readonly fireEvents: boolean
   }
-): Promise<Response> {
-  const { session, tableName, userRole } = getTableContext(c)
-  const refusal = await guardBatchCreate(c, app, input.records)
-  if (refusal) return refusal
-  const { mergeOn } = input
-  const duplicates =
-    mergeOn === undefined
-      ? new Set<string>()
-      : await readableDuplicates(c, app, mergeOn, input.records)
-  const kept = input.records.filter(
-    (row) => mergeOn === undefined || !duplicates.has(String(row.fields[mergeOn]))
-  )
-  const skipped = input.records.length - kept.length
-  if (kept.length === 0) return c.json({ created: 0, updated: 0, skipped }, 200)
-  const program = batchCreateWithSideEffects({
-    ...{ session, tableName, app, processEnv: process.env, fireEvents: input.fireEvents },
-    requester: recordWriteRequester(session.userId, userRole),
-    linkReader: getLinkReader(c),
-    rows: kept.map((row) => row.fields),
-    returnRecords: false,
-    isSqlite: isSqliteRuntime(),
-  }).pipe(Effect.map(({ created }) => ({ created, updated: 0, skipped })))
-  const response = await runEffect(c, provideDomain(c, program), importRecordsResponseSchema)
-  return maskUnreadableUniqueConflict(c, app, { written: kept.map((row) => row.fields) }, response)
-}
+) =>
+  Effect.gen(function* () {
+    const { session, tableName, userRole, userGroups } = getTableContext(c)
+    const refusal = yield* guardBatchCreate(c, app, input.records)
+    if (refusal) return refusal
+    const { mergeOn } = input
+    const duplicates =
+      mergeOn === undefined
+        ? new Set<string>()
+        : yield* readableDuplicates(c, app, mergeOn, input.records)
+    const kept = input.records.filter(
+      (row) => mergeOn === undefined || !duplicates.has(String(row.fields[mergeOn]))
+    )
+    const skipped = input.records.length - kept.length
+    if (kept.length === 0) {
+      const nothing = Effect.succeed({ created: 0, updated: 0, skipped })
+      return yield* respondWith(c, nothing, importRecordsResponseSchema)
+    }
+    const program = batchCreateWithSideEffects({
+      ...{ session, tableName, app, fireEvents: input.fireEvents },
+      requester: recordWriteRequester(session.userId, userRole),
+      userGroups,
+      linkReader: getLinkReader(c),
+      rows: kept.map((row) => row.fields),
+      returnRecords: false,
+    }).pipe(Effect.map(({ created }) => ({ created, updated: 0, skipped })))
+    const response = yield* respondWith(c, program, importRecordsResponseSchema)
+    const written = kept.map((row) => row.fields)
+    return yield* maskUnreadableUniqueConflict(c, app, { written }, response)
+  })
 
 /** The grants an import strategy needs: an overwrite updates too. */
 const grantsFor = (strategy: string): ('create' | 'update')[] =>
@@ -191,12 +196,17 @@ export async function handleImportRecords(c: Context, app: App) {
   const table = app.tables?.find((t) => t.name === tableName)
   // The operator's switch, read from the configuration — never from the request.
   const fireEvents = table?.import?.fireEvents !== false
-  if (strategy === 'overwrite' && mergeOn !== undefined) {
-    return importOverwrite(c, app, { records, mergeOn, fireEvents })
-  }
-  return importCreate(c, app, {
-    records,
-    fireEvents,
-    ...(strategy === 'skip' && mergeOn !== undefined ? { mergeOn } : {}),
-  })
+  const program =
+    strategy === 'overwrite' && mergeOn !== undefined
+      ? importOverwrite(c, app, { records, mergeOn, fireEvents })
+      : importCreate(c, app, {
+          records,
+          fireEvents,
+          ...(strategy === 'skip' && mergeOn !== undefined ? { mergeOn } : {}),
+        })
+  return runHandlerEffect(c, answerFailures(c, program))
 }
+
+/** The import route's handler: it takes a file, so it keeps the upload-sized body limit. */
+export const importRecordsRoute = (app: App) =>
+  acceptsUploadBody((c: Context) => handleImportRecords(c, app))

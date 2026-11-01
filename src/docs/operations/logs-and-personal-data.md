@@ -2,7 +2,7 @@
 
 > What a Sovrium server writes to its logs, what it strips before a line leaves the process, what an operator must still treat as personal data, and how logs relate to retention and erasure.
 
-A running instance produces three streams of diagnostic output. Each is written by the engine, but every one of them is **stored by something you run**: a process manager, a log collector, an error-tracking service — any Sentry-compatible error backend and any OTLP/HTTP JSON log backend, a Sovrium app that receives telemetry included. Sovrium keeps no log file of its own and has no setting that deletes log lines. This article says what reaches each stream, so you can decide where to send it and how long to keep it.
+A running instance produces three streams of diagnostic output. Each is written by the engine, but every one of them is **stored by something you run**: a process manager, a log collector, an error-tracking service (any Sentry-compatible error backend and any OTLP/HTTP JSON log backend, a Sovrium app that receives telemetry included). Sovrium keeps no log file of its own and has no setting that deletes log lines. This article says what reaches each stream, so you can decide where to send it and how long to keep it.
 
 ## The three streams
 
@@ -20,7 +20,7 @@ These protections are on for every instance and have no switch to turn them off.
 
 **Credentials in log attributes.** Before a line's structured attributes leave the process, every attribute whose name contains `authorization`, `cookie`, `token`, `secret`, `password`, `api-key` / `api_key` or `private-key` / `private_key` (in any case) has its value replaced by `[redacted]`, and so does any value that starts with a `Bearer` or `Basic` scheme, whatever its name. The attribute itself stays, because "a token was sent" is often what you need to know; the token does not.
 
-**Messages carry no values.** A log message is a short, stable sentence that names the subsystem and the event. Values — ids, names, addresses — travel as attributes, where the rule above applies, rather than inside the sentence.
+**Messages carry no values.** A log message is a short, stable sentence that names the subsystem and the event. Values (ids, names, addresses) travel as attributes, where the rule above applies, rather than inside the sentence.
 
 **Error reports.** An error report copies only four request headers: `user-agent`, `accept`, `content-type` and `referer`. Cookies and the `Authorization` header are never copied, because a header is included only by being on that list. Every query-string value in the reported URL is replaced by `[REDACTED]`; the parameter names stay.
 
@@ -30,7 +30,7 @@ Redaction removes credentials. It does not make a log anonymous, and you should 
 
 - **Identifiers.** Attributes carry record ids, user ids and run ids, which identify a person once joined with the database.
 - **Request details in error reports.** The URL path can name a record (`/tables/contacts/records/42`), the `referer` can name the page a person came from, and the `user-agent` describes their device.
-- **Error causes.** The cause chain written to stderr, and the exception in an error report, contain whatever text the failing library put in its message. A database constraint error can quote the value that broke the constraint — an email address, a name.
+- **Error causes.** The cause chain written to stderr, and the exception in an error report, contain whatever text the failing library put in its message. A database constraint error can quote the value that broke the constraint, such as an email address or a name.
 - **What your proxy adds.** Access logs written by a reverse proxy in front of Sovrium (client address, full URL, timestamps) are outside the engine entirely, and usually the most identifying stream of all.
 
 ## Retention
@@ -41,9 +41,9 @@ Sovrium does not retain logs: a console line exists once it is written to stdout
 - the collector and backend behind the OTLP endpoint;
 - the project settings of the error-tracking service behind `SENTRY_DSN`.
 
-When the receiver is itself a Sovrium app, a report is kept only if one of that app's automations stores it, and then as an ordinary record in one of its tables: it lasts as long as the retention option on that table allows — indefinitely when the table sets none — and is deleted the way any record of that app is.
+When the receiver is itself a Sovrium app, a report is kept only if one of that app's automations stores it, and then as an ordinary record in one of its tables: it lasts as long as the retention option on that table allows (indefinitely when the table sets none), and is deleted the way any record of that app is.
 
-Pick a period that matches why you keep logs — diagnosing incidents rarely needs more than a few weeks — and write it into your record of processing.
+Pick a period that matches why you keep logs (diagnosing incidents rarely needs more than a few weeks), and write it into your record of processing.
 
 ## Erasure and logs
 
@@ -51,7 +51,7 @@ Erasing an account (see the GDPR & Privacy article) hard-deletes the person's da
 
 That is the usual position, and it is defensible when two things are true:
 
-1. Logs are kept for a short, stated period, after which they expire on their own — so an erased person's identifiers leave the logs within that period without further action.
+1. Logs are kept for a short, stated period, after which they expire on their own, so an erased person's identifiers leave the logs within that period without further action.
 2. Logs are not used to rebuild what erasure removed. A user id surviving in a log line is a pointer to nothing once the account is gone.
 
 If a data subject asks for erasure from the logs as well, apply it where the logs live: most collectors and tracking services can delete by search, and an error report can be deleted from the tracking service's issue view.

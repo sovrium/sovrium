@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  componentField,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+  type RenderProps,
+} from './component-rewrite'
 import { walkComponentSlots, type ComponentListEntry } from './component-slot-walk'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -13,8 +20,8 @@ type Node = Readonly<Record<string, unknown>>
 /** Whether `component` is a button whose `crud` action writes a record of `tableName`. */
 const actsOnTable = (component: Component, tableName: string): boolean => {
   if (component.type !== 'button') return false
-  const action = (component as { readonly action?: unknown }).action as Node | undefined
-  return action?.['type'] === 'crud' && action['table'] === tableName
+  const action = componentField(component, 'action')
+  return keyOf(action, 'type') === 'crud' && keyOf(action, 'table') === tableName
 }
 
 /**
@@ -32,18 +39,23 @@ export function bindPageRecordToButtons(
   record: Node,
   tableName: string
 ): Component {
-  if (component.dataSource !== undefined) return component
+  if (componentField(component, 'dataSource') !== undefined) return component
   if (actsOnTable(component, tableName)) {
-    const props = (component.props ?? {}) as Node
+    const props: RenderProps = component.props ?? {}
     return props['_record'] !== undefined
       ? component
-      : ({ ...component, props: { ...props, _record: { id: record['id'] } } } as Component)
+      : rewriteComponent(component, { props: { ...props, _record: { id: record['id'] } } })
   }
   const walk = (entries: readonly ComponentListEntry[]): readonly ComponentListEntry[] =>
     entries.map((entry) =>
-      typeof entry === 'string' ? entry : bindPageRecordToButtons(entry, record, tableName)
+      typeof entry === 'string'
+        ? entry
+        : bindPageRecordToButtons(entryAsComponent(entry), record, tableName)
     )
   return component.children === undefined
-    ? { ...component, ...walkComponentSlots(component, walk) }
-    : { ...component, ...walkComponentSlots(component, walk), children: walk(component.children) }
+    ? rewriteComponent(component, walkComponentSlots(component, walk))
+    : rewriteComponent(component, {
+        ...walkComponentSlots(component, walk),
+        children: walk(component.children),
+      })
 }

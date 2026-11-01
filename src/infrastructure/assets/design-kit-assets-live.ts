@@ -5,8 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { realpath } from 'node:fs/promises'
-import { resolve, sep } from 'node:path'
+import { sep } from 'node:path'
 import { Effect, Layer, Option } from 'effect'
 import {
   DesignKitAssetReadError,
@@ -15,6 +14,7 @@ import {
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import { webFontFileName } from '@/infrastructure/css/theme/fonts/web-font-files'
 import { readEmbeddedSample } from './embedded-static-assets'
+import { publicFilePath } from './public-file'
 import { EMBEDDED_WEB_FONTS } from './web-fonts'
 import type { DesignKitAssetFile } from '@/application/ports/services/design-kit-assets'
 
@@ -29,24 +29,13 @@ const COMPONENT_MANUAL_PREFIX = 'src/domain/models/app/pages/components/'
 
 const readFailure = (cause: unknown) => new DesignKitAssetReadError({ cause })
 
-/** Whether `target` is `root` or lies beneath it. */
-const isWithin = (root: string, target: string): boolean =>
-  target === root || target.startsWith(`${root}${sep}`)
-
-/**
- * The file a root-relative path names inside the public directory, or
- * `undefined` when it is missing or leaves the directory — through `..` or
- * through a symbolic link, since both sides are resolved first.
- */
+/** The file a root-relative path names inside the public directory (see {@link publicFilePath}). */
 const publicFileAt = async (
   publicDir: string,
   path: string
 ): Promise<DesignKitAssetFile | undefined> => {
-  if (!path.startsWith('/') || path.startsWith('//')) return undefined
-  const root = await realpath(publicDir).catch(() => undefined)
-  if (root === undefined) return undefined
-  const target = await realpath(resolve(root, `.${path}`)).catch(() => undefined)
-  if (target === undefined || target === root || !isWithin(root, target)) return undefined
+  const target = await publicFilePath(publicDir, path)
+  if (target === undefined) return undefined
   const file = Bun.file(target)
   if (!(await file.exists())) return undefined
   return {

@@ -6,6 +6,7 @@
  */
 
 import { deriveFieldLinkTableName } from '@/domain/models/app/tables/table-derived-name-validation'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -82,7 +83,7 @@ const reciprocalOf = (
   field: ManyToManyField
 ): ManyToManyField | undefined => {
   if (field.relatedTable === source.name) return undefined
-  const target = tables?.find((t) => t.name === field.relatedTable)
+  const target = findTableByName(tables, field.relatedTable)
   if (!target) return undefined
   const candidates = manyToManyTo(target, source.name)
   const named = namedReciprocal(field)
@@ -121,7 +122,7 @@ export const fieldLinkTable = (
   field: { readonly name: string; readonly relatedTable: string }
 ): string =>
   deriveFieldLinkTableName(
-    { name: tableName, fields: tables?.find((t) => t.name === tableName)?.fields ?? [] },
+    { name: tableName, fields: findTableByName(tables, tableName)?.fields ?? [] },
     field
   )
 
@@ -132,11 +133,11 @@ export const getManyToManyFieldSpecs = (
   tables: App['tables'],
   tableName: string
 ): readonly ManyToManyFieldSpec[] => {
-  const table = tables?.find((t) => t.name === tableName)
+  const table = findTableByName(tables, tableName)
   if (!table) return []
   return (table.fields as readonly SchemaField[]).filter(isManyToManyField).map((field) => {
     const reciprocal = reciprocalOf(tables, table, field)
-    const target = tables?.find((t) => t.name === field.relatedTable)
+    const target = findTableByName(tables, field.relatedTable)
     return {
       fieldName: field.name,
       relatedTable: field.relatedTable,
@@ -181,7 +182,7 @@ const backReferenceOf = (
   if (typeof field.reciprocalField === 'string' && field.reciprocalField !== '') {
     return field.reciprocalField
   }
-  const candidates = (tables?.find((t) => t.name === field.relatedTable)?.fields ?? []).filter(
+  const candidates = (findTableByName(tables, field.relatedTable)?.fields ?? []).filter(
     (other) =>
       other.type === 'relationship' &&
       'relatedTable' in other &&
@@ -201,7 +202,7 @@ export const getOneToManyFieldSpecs = (
   tables: App['tables'],
   tableName: string
 ): readonly OneToManyFieldSpec[] => {
-  const table = tables?.find((t) => t.name === tableName)
+  const table = findTableByName(tables, tableName)
   if (!table) return []
   return (table.fields as readonly SchemaField[]).filter(isOneToManyField).flatMap((field) => {
     const reciprocalField = backReferenceOf(tables, field, tableName)

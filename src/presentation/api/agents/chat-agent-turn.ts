@@ -10,9 +10,9 @@
  *
  * `/api/ai/chat` and its stream, agent-bound or not, run their turn on
  * `runAgentTurn`. This module builds the turn — the messages, the tools, the
- * model settings, who it runs as — and finishes the buffered one into the
- * `{ reply, actions, sessionId }` envelope. The stream forwards the same turn's
- * events (`chat-stream.ts`).
+ * model settings, who it runs as — which the turn's program
+ * (`application/use-cases/agents/chat-turn/run-chat-turn.ts`) runs, buffered
+ * or streamed (`chat-turn-run.ts`).
  *
  * What a chat turn adds to the runtime:
  *
@@ -26,49 +26,37 @@
  *    tool rounds.
  */
 
-import { Data, Effect } from 'effect'
+import { Effect } from 'effect'
+import { DynamicRecordRepository } from '@/application/ports/repositories/tables/dynamic-record-repository'
 import { AiService } from '@/application/ports/services/ai-service'
 import { dispatchAgentAction } from '@/application/use-cases/agents/agent-action-dispatch'
-import { runAgentTurnToEnd, type AgentTurnSpec } from '@/application/use-cases/agents/agent-runtime'
-import { buildAgentActionTools } from '@/domain/models/app/agents/agent-turn-service'
-import { storedToolCalls } from '@/domain/models/app/agents/stored-tool-call-service'
+import { type AgentTurnSpec } from '@/application/use-cases/agents/agent-runtime'
 import { logError } from '@/infrastructure/logging/logger'
-import {
-  provideDomain,
-  requireDomainContext,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
 import { errorBody } from '@/presentation/api/runtime/auth-helpers'
-import { actionTablesFor, agentAttribution, type AgentTurnBinding } from './agent-chat'
+import { agentActionToolsFor, agentAttribution, type AgentTurnBinding } from './agent-chat'
 import { recordChatActivity } from './chat-activity-log'
 import { buildTurnTools } from './chat-browser-tool'
-import { appendConversationTurn, getConversationHistory } from './chat-conversation-store'
-import {
-  applyRetentionPolicy,
-  loadDurableHistory,
-  persistChatTurnDurably,
-} from './chat-durable-memory'
 import {
   chatErrorCode,
   chatErrorMessage,
   chatErrorStatus,
   isTransientChatError,
   resolveChatErrorConfig,
-  type ChatTurnError,
+  type ChatProviderError,
 } from './chat-error-handling'
-import { turnCitations, withTurnKnowledge } from './chat-knowledge-citations'
 import { chatTableRoles } from './chat-read-scope'
 import {
   resolveMaxToolIterations,
   runChatTableTool,
   toToolCallTables,
   type ChatToolScope,
+  type ToolCallTable,
 } from './chat-tool-calling'
-import { respondWithActions, toolTurnActions, toolTurnReply } from './chat-tool-reply'
-import { finishChatTurn, type ChatTurnInput } from './chat-turn-completion'
-import { loadCarriedFiles, questionContent } from './chat-turn-parts'
+import { type ChatTurnInput } from './chat-turn-completion'
+import { questionContent } from './chat-turn-parts'
 import type { AgentCaller } from '@/application/ports/services/agent-approval-store'
 import type {
+  AiError,
   ChatInput,
   ChatMessage,
   ChatReply,
@@ -89,14 +77,13 @@ import type { Context } from 'hono'
  * allowlist can only ever subtract — it never grants an agent a table its role
  * cannot read.
  */
-const resolveTurnToolTables = async (
-  input: ChatTurnInput
-): Promise<Awaited<ReturnType<typeof toToolCallTables>>> => {
-  const allowlist = input.agent?.toolTables
-  return (await toToolCallTables(input.services, input.app, input.reader)).filter(
-    (table) => allowlist === undefined || allowlist.includes(table.name)
+const resolveTurnToolTables = (input: ChatTurnInput) =>
+  Effect.map(toToolCallTables(input.app, input.reader), (tables) =>
+    tables.filter(
+      (table) =>
+        input.agent?.toolTables === undefined || input.agent.toolTables.includes(table.name)
+    )
   )
-}
 
 /**
  * The per-agent provider overrides an agent-bound turn layers onto every model
@@ -142,56 +129,18 @@ const turnCaller = (input: ChatTurnInput): AgentCaller | undefined => {
 }
 
 /**
- * The prior exchanges a turn replays to the provider, or none.
- *
- * An agent-bound turn deliberately does NOT replay history — it never has, on
- * either agent transport. It is observable, too: fact extraction re-derives a
- * fact per turn, so a replayed history makes an agent re-learn its FIRST fact
- * every turn.
- */
-export const replayedHistory = async (
-  c: Context,
-  input: ChatTurnInput
-): Promise<ReadonlyArray<ChatMessage>> => {
-  if (!replaysHistory(input)) return []
-  // A signed-out caller's conversation is her browser's own, never the durable store's.
-  if (input.actorName === 'anonymous') return getConversationHistory(c, input.sessionId)
-  return loadDurableHistory(
-    { services: input.services, app: input.app, reader: input.reader },
-    { userId: input.actorName, sessionId: input.sessionId }
-  )
-}
-
-/** Whether a turn replays its conversation's earlier messages ({@link replayedHistory}). */
-const replaysHistory = (input: ChatTurnInput): boolean =>
-  input.agent === undefined || input.agent.builtIn === true
-
-/**
- * The files sent earlier in the conversation, for a turn that replays none of
- * its messages: a file stays readable for the rest of its conversation.
- */
-export const carriedFiles = async (input: ChatTurnInput): Promise<ReadonlyArray<MessagePart>> =>
-  replaysHistory(input) ? [] : loadCarriedFiles(input.services, input.actorName, input.sessionId)
-
-/**
  * One model call under the operator's retry policy: only TRANSIENT failures
  * (503/429) are retried, up to `AI_CHAT_MAX_RETRIES`, each retry one more
  * recorded provider request — so the adapter is told not to retry on its own.
  */
 const callWithRetries =
   (maxRetries: number | undefined) =>
-  (input: ChatInput): Effect.Effect<ChatReply, ChatTurnError, AiService> =>
+  (input: ChatInput): Effect.Effect<ChatReply, AiError, AiService> =>
     maxRetries === undefined
       ? Effect.flatMap(Effect.service(AiService), (ai) => ai.chat(input))
       : Effect.flatMap(Effect.service(AiService), (ai) => ai.chat({ ...input, retry: false })).pipe(
           Effect.retry({ while: isTransientChatError, times: maxRetries })
         )
-
-/** A chat tool that threw past its own error results. */
-class ChatToolFailure extends Data.TaggedError('ChatToolFailure')<{
-  readonly tool: string
-  readonly cause: unknown
-}> {}
 
 /**
  * A chat turn's own tools — its table lookups, its browser tool. A lookup
@@ -200,22 +149,17 @@ class ChatToolFailure extends Data.TaggedError('ChatToolFailure')<{
  * failed lookup rather than ending the turn.
  */
 const runTableTool =
-  (scope: ChatToolScope) =>
-  (call: ChatToolCall): Effect.Effect<OtherToolResult> =>
-    Effect.tryPromise({
-      try: () => runChatTableTool(call, scope),
-      catch: (cause) => new ChatToolFailure({ tool: call.name, cause }),
-    }).pipe(
-      Effect.tapError((cause) =>
+  (scope: ChatToolScope, dynamicRecords: DynamicRecordRepository['Service']) =>
+  (call: ChatToolCall): Effect.Effect<OtherToolResult, never, StepRequirements> =>
+    runChatTableTool(call, scope).pipe(
+      Effect.provideService(DynamicRecordRepository, dynamicRecords),
+      // effect-swallow: the model reads the failure as the tool's result and the turn goes on; the defect is logged here.
+      Effect.catchDefect((defect) =>
         Effect.sync(() => {
-          logError('[ai-chat] a chat tool failed', cause, { tool: call.name })
+          logError('[ai-chat] a chat tool failed', defect, { tool: call.name })
+          return { content: `Error: the "${call.name}" tool failed.`, denied: false }
         })
-      ),
-      // effect-swallow: the model reads the failure as the tool's result and the turn goes on; the cause is logged above.
-      Effect.orElseSucceed(() => ({
-        content: `Error: the "${call.name}" tool failed.`,
-        denied: false,
-      }))
+      )
     )
 
 /** How a chat turn runs: what it replays, and whether it streams. */
@@ -232,7 +176,7 @@ interface ChatTurnSpecOptions {
  */
 const turnToolDefinitions = (
   input: ChatTurnInput,
-  tables: Awaited<ReturnType<typeof resolveTurnToolTables>>,
+  tables: ReadonlyArray<ToolCallTable>,
   agent: Agent | undefined
 ): ReadonlyArray<ChatToolDefinition> => {
   const toolDefs = tables.map((table) => ({ name: table.name, columns: table.readableColumns }))
@@ -241,155 +185,95 @@ const turnToolDefinitions = (
     ...buildTurnTools(toolDefs, input.app, input.agent),
     ...(agent === undefined
       ? []
-      : buildAgentActionTools(agent, actionTablesFor(agent, input.app, turnCaller(input), listed))),
+      : agentActionToolsFor(agent, input.app, turnCaller(input), listed)),
   ]
 }
 
-/** The turn a chat request runs, buffered or streamed. */
-export const chatTurnSpec = async (
+/**
+ * A turn's tools: a declared agent's actions, through its gates, and the
+ * chat's own table lookups and browser, on the services the turn runs on.
+ */
+const turnTools = (
   input: ChatTurnInput,
-  options: ChatTurnSpecOptions
-): Promise<AgentTurnSpec<StepRequirements>> => {
-  const errorConfig = resolveChatErrorConfig()
-  const tables = await resolveTurnToolTables(input)
-  const agent = declaredAgent(input)
-  const caller = turnCaller(input)
+  turn: {
+    readonly tables: ReadonlyArray<ToolCallTable>
+    readonly agent: Agent | undefined
+    readonly caller: AgentCaller | undefined
+    readonly dynamicRecords: DynamicRecordRepository['Service']
+  }
+): AgentTurnSpec<StepRequirements>['tools'] => {
   const { app } = input
+  const { agent, caller } = turn
+  const agentName = agentAttribution(input.agent)
   return {
-    surface: 'chat',
-    agent,
-    app,
-    requestedById: input.actorName === 'anonymous' ? undefined : input.actorName,
-    chatActor: input.actorName,
-    caller,
-    tools: {
-      runAction: (action, props) =>
-        app === undefined || agent === undefined
-          ? Effect.succeed({ ok: false, error: `the action "${action}" is not available` })
-          : dispatchAgentAction({ app, agentName: agent.name, action, props, caller }),
-      runOther: runTableTool({
-        services: input.services,
-        tables,
+    runAction: (action, props) =>
+      app === undefined || agent === undefined
+        ? Effect.succeed({ ok: false, error: `the action "${action}" is not available` })
+        : dispatchAgentAction({ app, agentName: agent.name, action, props, caller }),
+    runOther: runTableTool(
+      {
+        tables: turn.tables,
         app,
         reader: input.reader,
-        ...(agentAttribution(input.agent) !== undefined && {
-          agentName: agentAttribution(input.agent),
-        }),
-      }),
-    },
-    messages: [
-      { role: 'system', content: input.systemPrompt },
-      ...options.history,
-      { role: 'user', content: questionContent(input.message, input.parts, options.carried ?? []) },
-    ],
-    toolDefinitions: turnToolDefinitions(input, tables, agent),
-    // `AI_CHAT_MAX_TOOL_ITERATIONS` counts tool ROUNDS; the runtime counts
-    // model calls, one more than the rounds they bracket.
-    maxSteps: resolveMaxToolIterations() + 1,
-    model: {
-      ...agentProviderOverrides(input.agent),
-      ...(errorConfig.timeoutMs !== undefined && { timeoutMs: errorConfig.timeoutMs }),
-    },
-    stream: options.stream,
-    callModel: callWithRetries(errorConfig.maxRetries),
+        ...(agentName !== undefined && { agentName }),
+      },
+      turn.dynamicRecords
+    ),
   }
 }
+
+/**
+ * The turn a chat request runs, buffered or streamed. Its own tools read on
+ * the services the turn runs on, which the agent runtime hands them with.
+ */
+export const chatTurnSpec = (input: ChatTurnInput, options: ChatTurnSpecOptions) =>
+  Effect.gen(function* () {
+    const errorConfig = resolveChatErrorConfig()
+    const tables = yield* resolveTurnToolTables(input)
+    // The one service its lookups read that a step's requirements do not hold.
+    const dynamicRecords = yield* DynamicRecordRepository
+    const agent = declaredAgent(input)
+    const caller = turnCaller(input)
+    const { app } = input
+    const spec: AgentTurnSpec<StepRequirements> = {
+      surface: 'chat',
+      agent,
+      app,
+      requestedById: input.actorName === 'anonymous' ? undefined : input.actorName,
+      chatActor: input.actorName,
+      caller,
+      tools: turnTools(input, { tables, agent, caller, dynamicRecords }),
+      messages: [
+        { role: 'system', content: input.systemPrompt },
+        ...options.history,
+        {
+          role: 'user',
+          content: questionContent(input.message, input.parts, options.carried ?? []),
+        },
+      ],
+      toolDefinitions: turnToolDefinitions(input, tables, agent),
+      // `AI_CHAT_MAX_TOOL_ITERATIONS` counts tool ROUNDS; the runtime counts
+      // model calls, one more than the rounds they bracket.
+      maxSteps: resolveMaxToolIterations() + 1,
+      model: {
+        ...agentProviderOverrides(input.agent),
+        ...(errorConfig.timeoutMs !== undefined && { timeoutMs: errorConfig.timeoutMs }),
+      },
+      stream: options.stream,
+      callModel: callWithRetries(errorConfig.maxRetries),
+    }
+    return spec
+  })
 
 /**
  * Render a chat-turn provider failure, and record it. `code` follows the
  * status: 502 is BAD_GATEWAY, 504 GATEWAY_TIMEOUT, and only the 503 keeps
  * SERVICE_UNAVAILABLE.
  */
-export const chatProviderFailure = async (
-  c: Context,
-  failure: ChatTurnError,
-  actorName: string
-): Promise<Response> => {
+export const chatProviderFailure = (c: Context, failure: ChatProviderError, actorName: string) => {
   const status = chatErrorStatus(failure)
-  await recordChatActivity(requireDomainContext(c), { action: 'ai.chat.error', actorName })
-  return c.json(errorBody({ error: chatErrorMessage(status), code: chatErrorCode(status) }), status)
-}
-
-/**
- * Persist an exchange (attributed to the agent, whichever transport carried
- * it), record it, and answer with the standard envelope.
- */
-const finishWithReply = async (
-  c: Context,
-  input: ChatTurnInput,
-  answer: {
-    readonly reply: string
-    readonly actions: ReturnType<typeof toolTurnActions>
-    readonly citations?: ReturnType<typeof turnCitations>
-    /** What the turn ran, one line per call — never its arguments or result. */
-    readonly toolCalls?: ReturnType<typeof storedToolCalls>
-  }
-): Promise<Response> => {
-  appendConversationTurn(c, input, input.message, answer.reply)
-  await persistChatTurnDurably(input.services, {
-    userId: input.actorName,
-    sessionId: input.sessionId,
-    userMessage: input.message,
-    assistantReply: answer.reply,
-    userParts: input.parts?.stored,
-    ...(answer.toolCalls !== undefined && { assistantToolCalls: answer.toolCalls }),
-    ...(agentAttribution(input.agent) !== undefined && {
-      agentName: agentAttribution(input.agent),
-    }),
-  })
-  await recordChatActivity(input.services, {
-    action: 'ai.chat.message',
-    actorName: input.actorName,
-  })
-  return respondWithActions(c, {
-    reply: answer.reply,
-    actions: answer.actions,
-    sessionId: input.sessionId,
-    rateLimitRemaining: input.rateLimitRemaining,
-    citations: answer.citations,
-  })
-}
-
-/**
- * Run one buffered chat turn and answer it.
- *
- * A turn that called tools answers with the model's final reply and one action
- * per tool call. A turn that called none completes as it always has: an
- * agent's prose is its answer, and a generic turn's prose goes through the
- * record-query / mutation / automation-trigger completion — never an agent's,
- * whose own phrasing must not be replaced by a table dump.
- */
-export const runChatTurn = async (c: Context, asked: ChatTurnInput): Promise<Response> => {
-  // Lazy retention sweep — delete this user's conversations older than
-  // `AI_MEMORY_MAX_AGE_DAYS` before the new turn lands.
-  await applyRetentionPolicy(asked.services, asked.actorName)
-  const history = await replayedHistory(c, asked)
-  const carried = await carriedFiles(asked)
-  // The agent's knowledge passages, numbered into its prompt; its answer cites them.
-  const { input, passages } = await withTurnKnowledge(asked)
-  const program = runAgentTurnToEnd(await chatTurnSpec(input, { history, stream: false, carried }))
-  // Under the request-edge root span, so each model call's `ai.request` span
-  // chains under it.
-  const result = await runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))
-  if (result._tag === 'Failure') {
-    return chatProviderFailure(c, result.failure, input.actorName)
-  }
-  const { toolResults, reply } = result.success
-  if (toolResults.length > 0) {
-    const answer = toolTurnReply(reply, toolResults)
-    return finishWithReply(c, asked, {
-      reply: answer,
-      actions: toolTurnActions(toolResults),
-      citations: turnCitations(answer, passages),
-      toolCalls: storedToolCalls(toolResults),
-    })
-  }
-  if (input.agent !== undefined) {
-    return finishWithReply(c, asked, {
-      reply,
-      actions: [],
-      citations: turnCitations(reply, passages),
-    })
-  }
-  return finishChatTurn(c, input, reply)
+  return Effect.as(
+    recordChatActivity({ action: 'ai.chat.error', actorName }),
+    c.json(errorBody({ error: chatErrorMessage(status), code: chatErrorCode(status) }), status)
+  )
 }

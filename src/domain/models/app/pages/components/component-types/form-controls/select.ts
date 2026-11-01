@@ -127,7 +127,7 @@ export const selectFields = {
       identifier: 'SelectEmptyOption',
       title: 'Select Empty Option',
       description:
-        "The unset choice, rendered first and submitting the empty string — the 'All' row a filter bar opens on. Refused with `multiple`, and refused beside a static option that already submits the empty string.",
+        "The unset choice, rendered first and submitting the empty string: the 'All' row a filter bar opens on. Refused with `multiple`, and refused beside a static option that already submits the empty string.",
     })
   ),
   defaultValue: Schema.optional(

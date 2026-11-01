@@ -6,6 +6,7 @@
  */
 
 import { cardPathClick, openCardDrawer } from '../runtime/card-click'
+import { renderToast } from '../runtime/toast'
 import {
   buildDropPatch,
   inclusiveDayEnd,
@@ -93,7 +94,9 @@ export function buildEventDropHandler(args: {
           )
     const patch = buildDropPatch({ dateField, endDateField, start, end })
     void persistEventDrop({ tableName, recordId, patch }).then((result) => {
-      if (!result.ok) info.revert()
+      if (result.ok) return
+      info.revert()
+      if (result.refusal !== undefined) renderToast(result.refusal, 'error')
     })
   }
 }

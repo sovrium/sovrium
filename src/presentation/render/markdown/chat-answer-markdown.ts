@@ -29,19 +29,27 @@ import { logError } from '@/infrastructure/logging/logger'
 import { highlightOrdinalFences } from '@/infrastructure/markdown/chat-fence-highlighter'
 import { renderChatMarkdown } from '@/infrastructure/markdown/chat-markdown-renderer'
 import { spliceChatCodeFrames } from '@/presentation/render/markdown/markdown-code-frames'
+import type { CodeHighlightOptions } from '@/infrastructure/markdown/shiki-highlighter'
 
 /** The highlighter rejected: its engine or a grammar failed to load. */
 class ChatHighlightError extends Data.TaggedError('ChatHighlightError')<{
   readonly cause: unknown
 }> {}
 
-/** Render, highlight, sanitize and frame an answer's Markdown; `''` for an empty answer. */
-export const renderChatAnswerHtml = (markdown: string): Effect.Effect<string> => {
+/**
+ * Render, highlight, sanitize and frame an answer's Markdown; `''` for an empty
+ * answer. `options.roleClasses` (set when the design declares `code`) adds each
+ * token's syntax role as a class.
+ */
+export const renderChatAnswerHtml = (
+  markdown: string,
+  options: CodeHighlightOptions = {}
+): Effect.Effect<string> => {
   if (markdown.length === 0) return Effect.succeed('')
   const { html, codeBlocks } = renderChatMarkdown(markdown)
   if (codeBlocks.length === 0) return Effect.succeed(sanitizeRichTextHTML(html))
   return Effect.tryPromise({
-    try: () => highlightOrdinalFences(html, codeBlocks),
+    try: () => highlightOrdinalFences(html, codeBlocks, options),
     catch: (cause) => new ChatHighlightError({ cause }),
   }).pipe(
     Effect.tapCause((cause) =>

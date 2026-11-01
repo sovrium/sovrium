@@ -30,6 +30,7 @@ import { newTabName } from '@/presentation/design/new-tab-attributes'
 import { omitInternalMarkers } from '@/presentation/render/props/internal-marker-props'
 import { fileItem } from './file-preview-item'
 import type { ComponentRenderer } from './component-dispatch-config'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 import type { Languages } from '@/domain/models/app/languages'
 import type { PreviewFile } from '@/presentation/render/resolve/file-preview-resolver'
 import type { ReactElement } from 'react'
@@ -225,7 +226,7 @@ const frameHeight = (file: PreviewFile, root: PreviewRoot): number | undefined =
 function itemStage(
   index: number,
   ctx: {
-    readonly parts: Readonly<Record<string, string>>
+    readonly parts: PartClassMap
     readonly listed: readonly Tool[]
     readonly toolCtx: ToolContext
   }
@@ -258,7 +259,7 @@ function stage(
     readonly root: PreviewRoot
     readonly alt: string | undefined
     readonly hostId: string
-    readonly parts: Readonly<Record<string, string>>
+    readonly parts: PartClassMap
     readonly words: Words
   }
 ): ReactElement | undefined {

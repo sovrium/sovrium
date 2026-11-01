@@ -34,7 +34,7 @@ children:
             element: p
             props:
               className: text-md text-muted-foreground
-            content: Welcome back. Use the email you signed up with.
+            content: Welcome back. Use the email address of your account.
       - type: form
         action:
           type: auth

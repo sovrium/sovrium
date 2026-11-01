@@ -13,9 +13,9 @@ import type { hc } from 'hono/client'
 /**
  * Narrowed RPC type for table record operations only.
  *
- * The full `ApiType` (all chained routes + middleware) exceeds TypeScript's
- * instantiation depth limit, causing `hc<ApiType>()` to return `unknown`.
- * This narrower type resolves cleanly.
+ * The typed client reads one slug's method chain at a time: these three table
+ * slugs are the only routes it calls. The `/api/*` composition as a whole is
+ * registered flat and carries no RPC type (`compose-api-routes.ts`).
  */
 type RecordRoutesType = ReturnType<typeof chainRecordRoutesMethods>
 

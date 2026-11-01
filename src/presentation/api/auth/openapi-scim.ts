@@ -14,7 +14,7 @@ import {
   scimPatchRequestSchema,
   scimUserRequestSchema,
   scimUserResponseSchema,
-} from '@/domain/models/api/scim'
+} from '@/domain/models/api/auth/scim'
 import {
   effectJsonBody,
   effectJsonResponse,

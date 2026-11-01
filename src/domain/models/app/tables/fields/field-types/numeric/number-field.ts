@@ -32,7 +32,7 @@ export const NumberFieldSchema = Schema.Struct({
   type: Schema.Literal('number').pipe(
     Schema.annotate({
       description:
-        "Constant value 'number' — an alias of 'decimal': same options, same storage, same behaviour",
+        "Constant value 'number', an alias of 'decimal': same options, same storage, same behaviour",
     })
   ),
 }).pipe(

@@ -131,7 +131,7 @@ export const MetaSchema = Schema.Struct({
     // `Schema.optional` would have built anyway.
     Schema.UndefinedOr(Schema.Unknown).annotate({
       description:
-        'Schema.org structured data describing this page, either in the shorthand form (organization, faqPage, …) or as a full Schema.org object.',
+        'Schema.org structured data describing this page, either in the shorthand form (organization, faqPage, …) or as a full Schema.org object. Passed through to the page as JSON-LD without validation; the shorthand keys are in `sovrium docs seo-structured-data`.',
     })
   ),
   preload: Schema.optional(PreloadSchema),

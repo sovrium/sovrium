@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, param, stringParam, THEME_NOTE } from '@/library/manifest/block-kit'
+import { asComponent, param, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
+import { RECORD_PAGE_NOTE, recordPanel } from '@/library/kit/record-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import { RECORD_PAGE_NOTE, recordPanel } from '@/library/manifest/record-block-kit'
 
 type Node = Readonly<Record<string, unknown>>
 
@@ -29,7 +29,7 @@ const phrase = (action: string, content: string): Node => ({
 
 /**
  * The sentence of one change: "Ana Lindqvist edited this record" when a
- * person made it, "Edited" alone when none did — an import, an automation.
+ * person made it, "Edited" alone when none did, such as an automation.
  */
 const sentence = (): Node => ({
   type: 'flex',
@@ -106,7 +106,7 @@ export const entry = defineLibraryEntry({
   notes: [
     RECORD_PAGE_NOTE,
     'The history comes from the record’s own change log, so there is no table to add. A reader sees the history of a record they may read, and nothing for one they may not.',
-    'A change no person made — a seeded or imported record, an automation — reads as the change alone ("Created"), naming no one.',
+    'A change no person made, such as one an automation made, reads as the change alone ("Created"), naming no one. Rows loaded by `sovrium seed` or `sovrium import` write no change, so a seeded record’s panel lists nothing until someone changes it.',
     'It shows the twenty latest changes and says that the record changed, not what changed: the fields before and after are left out, so the panel stays one line per change.',
     THEME_NOTE,
   ],

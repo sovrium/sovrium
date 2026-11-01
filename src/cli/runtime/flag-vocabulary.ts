@@ -6,68 +6,9 @@
  */
 
 /**
- * The CLI's flag vocabulary: how one flag's value is read off argv, which flags
- * take a value, which stand alone, and the first token that is neither.
+ * The CLI's flag vocabulary: which flags take a value, which stand alone, and
+ * the first token that is neither. How a flag is READ is `flag-schema.ts`.
  */
-
-export const hasFlag = (argv: readonly string[], long: string, short: string): boolean =>
-  argv.includes(long) || argv.includes(short)
-
-export const getFlagValue = (argv: readonly string[], flag: string): string | undefined => {
-  const index = argv.indexOf(flag)
-  return index !== -1 ? argv[index + 1] : undefined
-}
-
-/**
- * A value-flag's value, where a following FLAG counts as no value at all.
- *
- * `getFlagValue` returns the next token whatever it is, which would read
- * `docs --export --full` as an export into a directory named `--full`. For a
- * flag whose value is a path the caller will write into, that is the wrong
- * guess in the most expensive direction.
- */
-export const getFlagPathValue = (argv: readonly string[], flag: string): string | undefined => {
-  const value = getFlagValue(argv, flag)
-  return value === undefined || value.startsWith('-') ? undefined : value
-}
-
-/**
- * A value-flag read in both spellings, `--flag value` and `--flag=value`.
- *
- * `given` says the flag is on the command line; `value` is absent when it was
- * given none — at the end of the line, before another flag, or as `--flag=`.
- * A command that addresses something remote refuses that case rather than
- * falling back to a default: `--app` with no slug deploying to the linked app
- * is the wrong guess in the most expensive direction.
- */
-export const readValueFlag = (
-  argv: readonly string[],
-  flag: string
-): { readonly given: boolean; readonly value?: string } => {
-  const joined = argv.find((arg) => arg.startsWith(`${flag}=`))
-  if (joined !== undefined) {
-    const value = joined.slice(flag.length + 1)
-    return value === '' ? { given: true } : { given: true, value }
-  }
-  if (!argv.includes(flag)) return { given: false }
-  const next = argv[argv.indexOf(flag) + 1]
-  return next === undefined || next.startsWith('-') ? { given: true } : { given: true, value: next }
-}
-
-/**
- * Every value of a repeatable value-flag, in argv order.
- *
- * `getFlagValue` uses `indexOf`, which stops at the first occurrence — correct
- * for `--output`, wrong for `--table`. A trailing `--table` with no argument
- * contributes nothing rather than swallowing the next flag.
- */
-
-export const getFlagValues = (argv: readonly string[], flag: string): readonly string[] =>
-  argv.flatMap((arg, index) => {
-    if (arg !== flag) return []
-    const value = argv[index + 1]
-    return value === undefined || value.startsWith('-') ? [] : [value]
-  })
 
 export const FLAG_VALUE_OPTIONS = [
   '--output',
@@ -171,6 +112,9 @@ export const FLAG_VALUE_OPTIONS = [
   '--records',
   '--now',
   '--state',
+  // `sovrium client --audience <role|all>`. Both lists: absent here, the role
+  // would be read as the config path.
+  '--audience',
 ] as const
 
 /** Commands that use two-level noun-verb dispatch (verb in 2nd positional slot). */
@@ -199,7 +143,7 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   // `sovrium init --git`. Absent from this set, `findUnknownFlag` rejects it
   // outright — a refusal that reads like operator error rather than a gap.
   '--git',
-  // `sovrium init --from-bundle <source> --inspect`: judge the bundle and write no project.
+  // `sovrium init --from-url|--from-bundle <source> --inspect`: judge it and write nothing.
   '--inspect',
   // `sovrium init --from-bundle <source> --with-demo-data`: the admin and seed/, once.
   '--with-demo-data',
@@ -243,6 +187,14 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   '--no-wait',
   // `sovrium dev --no-open`: boot without opening the browser.
   '--no-open',
+  // `sovrium dev --external-database`: the DATABASE_URL database is meant for dev.
+  '--external-database',
+  // `sovrium admin create --password-stdin`: the password off the command line.
+  '--password-stdin',
+  // `sovrium init --allow-code`: create a remote template that contains code.
+  '--allow-code',
+  // `sovrium preview --allow-production-env`: an --env file with credentials.
+  '--allow-production-env',
   // `sovrium deploy --seed`: seed the app, if-empty, once it is live.
   '--seed',
   // `sovrium env push --overwrite | --redeploy`.
@@ -355,6 +307,8 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--records',
   '--now',
   '--state',
+  // `sovrium client --audience <role|all>`.
+  '--audience',
 ])
 
 /** Strip `=value` from `--flag=value` so the bare flag name can be matched. */

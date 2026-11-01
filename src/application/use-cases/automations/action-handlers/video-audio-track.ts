@@ -17,7 +17,7 @@ import {
   isStorageObjectTooLarge,
 } from '@/application/ports/services/storage-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { FILE_SOURCE_MAX_BYTES } from './file-support'
+import { FILE_SOURCE_MAX_BYTES } from './file/support'
 import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import type { ActionRunContext } from './shared'
 

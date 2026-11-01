@@ -54,12 +54,13 @@
  */
 
 import { readFileSync, rmSync } from 'node:fs'
-import { mkdir, rename, writeFile } from 'node:fs/promises'
+import { rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { ensurePrivateDirectory } from '@/infrastructure/filesystem/private-modes'
 import { logWarning } from '@/infrastructure/logging/logger'
 import { notifyDevError } from '@/infrastructure/realtime/dev-reload-channel'
 import { getLockFilePath } from '@/infrastructure/server/lock-file'
-import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
+import type { ConfigFinding } from '@/domain/kernel/config-parsing/decode-report-format'
 
 const STATUS_FILE_NAME = 'status.json'
 
@@ -198,7 +199,7 @@ export const publishServerStatus = async (patch: ServerStatusPatch): Promise<voi
   // each other's file.
   const temporary = `${path}.${String(process.pid)}.tmp`
   try {
-    await mkdir(dirname(path), { recursive: true })
+    ensurePrivateDirectory(dirname(path))
     await writeFile(temporary, JSON.stringify(document), 'utf-8')
     await rename(temporary, path)
   } catch (cause) {

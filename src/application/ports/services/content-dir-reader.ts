@@ -53,8 +53,12 @@ export interface ContentDirEntry {
   readonly description: string | undefined
   /** Resolved page URL (route prefix + slug, e.g. `/docs/getting-started`). */
   readonly path: string
-  /** The source file's modification time — the sitemap's `<lastmod>`. */
-  readonly modifiedAt?: Date
+  /**
+   * The date the front matter declares as the article's last edit (`updated`,
+   * else `lastmod`, else `dateModified`), as written — the sitemap's
+   * `<lastmod>` once normalised. Never the file's modification time.
+   */
+  readonly lastmod?: string
   /**
    * The article's own `access`, from its front matter. Absent means
    * the article follows its page alone; a public artefact skips any other.

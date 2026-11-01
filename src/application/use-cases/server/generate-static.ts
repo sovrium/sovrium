@@ -14,6 +14,7 @@ import {
 } from '@/application/ports/services/css-compiler'
 import { PageRenderer as PageRendererService } from '@/application/ports/services/page-renderer'
 import { ServerFactory as ServerFactoryService } from '@/application/ports/services/server-factory'
+import { StaticOutputWriter } from '@/application/ports/services/static-output-writer'
 import {
   StaticSiteGenerator as StaticSiteGeneratorService,
   type SSGGenerationError,
@@ -23,11 +24,11 @@ import { logDebug } from '@/infrastructure/logging'
 import { generateLlmsFiles } from './generate-llms-files'
 import { generateMarkdownTwinFiles } from './generate-markdown-twins'
 import {
-  fs,
   path,
   translationReplacer,
   writeCssFile,
   copyPublicAssets,
+  renderingWithPublicDir,
   formatHtmlFiles,
   applyHtmlOptimizations,
   generateSitemapFile,
@@ -42,11 +43,11 @@ import {
   generateSingleLanguageFiles,
 } from './static-language-generators'
 import type { StaticBuildServices } from './prebuild-search-index'
+import type { AuthConfigRequiredForUserFields } from '@/domain/errors/auth-config-required-error'
+import type { SchemaInitializationError } from '@/domain/errors/schema-initialization-error'
+import type { ServerCreationError } from '@/domain/errors/server-creation-error'
+import type { TransformPresetError } from '@/domain/errors/transform-preset-error'
 import type { App } from '@/domain/models/app'
-import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
-import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
-import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
-import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 
 /**
  * Options for static site generation
@@ -127,16 +128,16 @@ function validateAppSchema(app: unknown): Effect.Effect<App, AppValidationError,
 /**
  * Get required services from Effect context
  */
-function getServicesFromContext() {
-  return Effect.gen(function* () {
+const getServicesFromContext = () =>
+  Effect.gen(function* () {
     return {
       serverFactory: yield* ServerFactoryService,
       pageRenderer: yield* PageRendererService,
       cssCompiler: yield* CSSCompilerService,
       staticSiteGenerator: yield* StaticSiteGeneratorService,
+      fs: yield* StaticOutputWriter,
     }
   })
-}
 
 /**
  * Read the records the sitemap will list, once, when the build writes a
@@ -276,7 +277,7 @@ const isRecordPageFile =
  * @param generatedFiles - List of generated file paths
  * @param outputDir - Output directory path
  * @param options - Static generation options
- * @param fsModule - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ * @param fsModule - The static output writer (the `StaticOutputWriter` service)
  * @param isRecordPage - Whether a file is a listed record's page
  */
 function optimizeHtmlFiles(
@@ -388,7 +389,7 @@ export const generateStatic = (
       validatedApp,
       outputDir,
       replaceAppTokens,
-      services,
+      { ...services, serverFactory: renderingWithPublicDir(services.serverFactory, options) },
       recordPagePaths
     )
 
@@ -397,12 +398,11 @@ export const generateStatic = (
       outputDir,
       validatedApp,
       services.cssCompiler,
-      fs,
+      services.fs,
       options.emitPrecompiledCss ?? true
     )
     const assetFiles = yield* copyPublicAssets(options.publicDir, outputDir)
 
-    // Collect all generated files
     const generatedFiles = [...htmlFiles, cssFile, ...assetFiles] as readonly string[]
 
     // Step 6: Optimize HTML files
@@ -410,7 +410,7 @@ export const generateStatic = (
       generatedFiles,
       outputDir,
       options,
-      fs,
+      services.fs,
       isRecordPageFile(new Set(recordPagePaths), validatedApp.languages !== undefined)
     )
 
@@ -419,7 +419,7 @@ export const generateStatic = (
       validatedApp,
       outputDir,
       options,
-      fs,
+      services.fs,
       collectionRecords
     )
 

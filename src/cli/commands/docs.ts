@@ -51,8 +51,9 @@
  *    receive the table of contents and be left assuming their address was empty.
  */
 
-import { Effect, Console } from 'effect'
-import { printStderr } from '@/infrastructure/logging/cli-output'
+import { defineFlags, flag } from '@/cli/runtime/flag-schema'
+import { stopCommand, withFlagsAsync } from '@/cli/runtime/run-command'
+import { printLine } from '@/infrastructure/logging/cli-output'
 import { exportDocs } from './docs-export'
 import { renderDocsRequest } from './docs-render'
 import { resolveDocumentFormat, writeDocument } from './document-output'
@@ -92,19 +93,16 @@ export interface DocsCommandOptions {
 const resolveLang = (raw: string | undefined): void => {
   if (raw === undefined || raw.trim().toLowerCase() === SUPPORTED_LANG) return
 
-  printStderr(
+  return stopCommand(
+    1,
     `Error: Unsupported --lang "${raw}".\n\n` +
       `  The manual inside this binary is "${SUPPORTED_LANG}" only.\n` +
       `  Translations are published at https://sovrium.com/docs, not shipped here.`
   )
-  process.exit(1)
 }
 
 /** Stop with a refusal on stderr and exit 1. */
-const refuse = (message: string): never => {
-  printStderr(message)
-  process.exit(1)
-}
+const refuse = (message: string): never => stopCommand(1, message)
 
 /**
  * The other output mode an `--export` was combined with, if any.
@@ -158,9 +156,7 @@ const handleExport = async (options: DocsCommandOptions): Promise<void> => {
           force: options.force === true,
           engine: await getCurrentVersion(),
         })
-  return result.kind === 'refused'
-    ? refuse(result.reason)
-    : Effect.runSync(Console.log(result.notice))
+  return result.kind === 'refused' ? refuse(result.reason) : printLine(result.notice)
 }
 
 /**
@@ -189,9 +185,34 @@ export const handleDocsCommand = async (options: DocsCommandOptions): Promise<vo
   })
 
   if (rendered.refusal !== undefined) {
-    printStderr(rendered.refusal)
-    process.exit(1)
+    return stopCommand(1, rendered.refusal)
   }
 
   await writeDocument(rendered.content, options.outputPath, 'Manual')
 }
+
+/** The flags `sovrium docs` reads beyond the shared ones. */
+export const docsFlags = defineFlags({
+  full: flag.switch('--full'),
+  listSections: flag.switch('--list-sections'),
+  lang: flag.value('--lang'),
+  sections: flag.values('--section'),
+  exportRequested: flag.switch('--export'),
+  exportDir: flag.path('--export'),
+})
+
+/** `sovrium docs`, as the dispatcher runs it. */
+export const docsCommand = withFlagsAsync(docsFlags, ({ flags, ...args }) =>
+  handleDocsCommand({
+    args: args.positionalArgs ?? [],
+    format: args.format,
+    lang: flags.lang,
+    outputPath: args.outputPath,
+    full: flags.full,
+    listSections: flags.listSections,
+    sections: flags.sections,
+    exportRequested: flags.exportRequested,
+    exportDir: flags.exportDir,
+    force: args.forceFlag,
+  })
+)

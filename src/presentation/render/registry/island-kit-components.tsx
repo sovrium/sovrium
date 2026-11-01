@@ -46,12 +46,14 @@
  * component declared beside it would make the module a mixed export.
  */
 
+import { renderToStaticMarkup } from 'react-dom/server'
 import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
 import { buildFilterExpression } from '@/presentation/design/filter-expression'
+import { StaticMarkup } from '@/presentation/design/static-markup'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import {
   isOpenSpecimen,
-  renderOpenDateRangePanel,
+  openDateRangePanelElement,
 } from '@/presentation/render/resolve/open-specimen-markup'
 import { IslandSkeleton } from './island-kit-skeleton'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
@@ -175,8 +177,8 @@ const dateRangePickerComponent: ComponentRenderer = ({
   // the island's own `RangePanel` with the dialog role and the floating
   // position withheld. The island marker goes with it — a hydrated picker
   // would swap this subtree for a CLOSED trigger under a cell labelled `open`.
-  const openPanelHtml = isOpenSpecimen(rawProps)
-    ? renderOpenDateRangePanel({
+  const openPanel = isOpenSpecimen(rawProps)
+    ? openDateRangePanelElement({
         label: props['label'] as string | undefined,
         value: props['value'] as string | undefined,
         minDate: props['minDate'] as string | undefined,
@@ -190,17 +192,16 @@ const dateRangePickerComponent: ComponentRenderer = ({
       id={marker.id}
       className={marker.className}
       data-testid={marker.testId}
-      data-island={openPanelHtml === undefined ? 'date-range-picker' : undefined}
+      data-island={openPanel === undefined ? 'date-range-picker' : undefined}
       data-component-type={hostComponentType(elementProps)}
-      data-island-props={openPanelHtml === undefined ? JSON.stringify(props) : undefined}
-      data-specimen-open={openPanelHtml === undefined ? undefined : 'true'}
+      data-island-props={openPanel === undefined ? JSON.stringify(props) : undefined}
+      data-specimen-open={openPanel === undefined ? undefined : 'true'}
     >
       <IslandSkeleton
         label={props['label'] as string | undefined}
         minHeight="2.25em"
       />
-      {/* eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value */}
-      {openPanelHtml !== undefined && <div dangerouslySetInnerHTML={{ __html: openPanelHtml }} />}
+      {openPanel !== undefined && <StaticMarkup html={renderToStaticMarkup(openPanel)} />}
     </div>
   )
 }

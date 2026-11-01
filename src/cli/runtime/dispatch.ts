@@ -5,14 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  FLAG_VALUE_OPTIONS,
-  NOUN_VERB_COMMANDS,
-  getFlagPathValue,
-  getFlagValue,
-  getFlagValues,
-  hasFlag,
-} from './flag-vocabulary'
+import { defineFlags, flag, parseFlags, type FlagsOf } from './flag-schema'
+import { FLAG_VALUE_OPTIONS, NOUN_VERB_COMMANDS } from './flag-vocabulary'
 import type { ParsedArgs } from './parsed-args'
 
 /**
@@ -61,9 +55,15 @@ const extractNonFlagArgs = (argv: readonly string[]): readonly string[] =>
  * `--version`/`-v` always wins, regardless of position — there is no
  * subcommand-specific version output to defer to.
  */
+const EARLY_EXIT_FLAGS = defineFlags({
+  help: flag.switch('--help', '-h'),
+  version: flag.switch('--version', '-v'),
+})
+
 const detectEarlyExit = (argv: readonly string[]): ParsedArgs | undefined => {
   const firstPositional = argv.find((arg) => !arg.startsWith('-'))
-  if (hasFlag(argv, '--help', '-h') && firstPositional === undefined) {
+  const early = parseFlags(EARLY_EXIT_FLAGS, argv)
+  if (early.help && firstPositional === undefined) {
     return {
       command: '--help',
       configFile: undefined,
@@ -71,7 +71,7 @@ const detectEarlyExit = (argv: readonly string[]): ParsedArgs | undefined => {
       forceFlag: false,
     }
   }
-  if (hasFlag(argv, '--version', '-v')) {
+  if (early.version) {
     return {
       command: '--version',
       configFile: undefined,
@@ -83,61 +83,30 @@ const detectEarlyExit = (argv: readonly string[]): ParsedArgs | undefined => {
 }
 
 /**
- * Bundle of every parsed flag value, extracted so `parseArgs` stays under the
- * per-function statement cap. None of these affect positional-arg parsing —
- * they are pass-through values for the eventual `ParsedArgs` result.
+ * The flags the dispatcher reads for every command, declared once.
+ *
+ * None of these affect positional-arg parsing — they are pass-through values
+ * for the eventual `ParsedArgs` result. A flag only one verb reads belongs in
+ * that verb's own schema (`withFlags` in `run-command.ts`), not here.
  */
-interface ParsedFlags {
-  readonly watchMode: boolean
-  readonly forceFlag: boolean
-  readonly outputPath: string | undefined
-  readonly dataDir: string | undefined
-  readonly templateName: string | undefined
-  /**
-   * `string`    — explicit `--publicDir <path>`.
-   * `false`     — explicit `--no-publicDir` (opt-out).
-   * `undefined` — neither flag present; caller falls back to env / default.
-   */
-  readonly publicDir: string | false | undefined
-  readonly appName: string | undefined
-  readonly typescript: boolean
-  readonly gitInit: boolean
-  readonly fromUrl: string | undefined
-  readonly fromBundle: string | undefined
-  readonly expectSha256: string | undefined
-  readonly inspect: boolean
-  readonly withDemoData: boolean
-  readonly password: string | undefined
-  readonly seedDir: string | undefined
-  readonly mode: string | undefined
-  readonly seedTables: readonly string[]
-  readonly seedAs: string | undefined
-  readonly seedToday: string | undefined
-  readonly dryRun: boolean
-  readonly check: boolean
-  readonly allowDestructive: boolean
-  readonly json: boolean
-  readonly format: string | undefined
-  readonly full: boolean
-  readonly listSections: boolean
-  readonly lang: string | undefined
-  readonly docsSections: readonly string[]
-  readonly exportRequested: boolean
-  readonly exportDir: string | undefined
-  readonly projectDir: string | undefined
-  readonly libraryKind: string | undefined
-  readonly libraryCategory: string | undefined
-  readonly librarySets: readonly string[]
-  readonly libraryAs: string | undefined
-  readonly libraryInto: string | undefined
-  readonly noWire: boolean
-  readonly libraryTag: string | undefined
-  readonly libraryLimit: string | undefined
-  readonly libraryAll: boolean
-  readonly libraryYes: boolean
-  readonly libraryUpdate: boolean
-  readonly skillsTarget: string | undefined
-}
+const DISPATCH_FLAGS = defineFlags({
+  watchMode: flag.switch('--watch', '-w'),
+  forceFlag: flag.switch('--force'),
+  helpRequested: flag.switch('--help', '-h'),
+  outputPath: flag.value('--output'),
+  templateName: flag.value('--template'),
+  publicDirValue: flag.value('--publicDir'),
+  noPublicDir: flag.switch('--no-publicDir'),
+  appName: flag.value('--name'),
+  // `--mode` is read by `sovrium seed` and `sovrium design-system`, each its own way.
+  mode: flag.value('--mode'),
+  dryRun: flag.switch('--dry-run'),
+  check: flag.switch('--check'),
+  json: flag.switch('--json'),
+  format: flag.value('--format'),
+})
+
+type DispatchFlags = FlagsOf<typeof DISPATCH_FLAGS>
 
 /**
  * Resolve `--publicDir <path>` / `--no-publicDir` into a single tri-state:
@@ -145,194 +114,43 @@ interface ParsedFlags {
  * later "no" is a safer fallback than picking the first one), so an operator
  * who accidentally combines them still gets the disable behavior.
  */
-const resolvePublicDirFlag = (argv: readonly string[]): string | false | undefined => {
-  if (argv.includes('--no-publicDir')) return false
-  return getFlagValue(argv, '--publicDir')
-}
+const publicDirOf = (flags: DispatchFlags): string | false | undefined =>
+  flags.noPublicDir ? false : flags.publicDirValue
 
-/** The `sovrium library` flags that choose API operations and bound a search. */
-const parseLibraryOperationFlags = (
-  argv: readonly string[]
-): Pick<
-  ParsedFlags,
-  'libraryTag' | 'libraryLimit' | 'libraryAll' | 'libraryYes' | 'libraryUpdate'
-> => ({
-  libraryTag: getFlagValue(argv, '--tag'),
-  libraryLimit: getFlagValue(argv, '--limit'),
-  libraryAll: argv.includes('--all'),
-  libraryYes: argv.includes('--yes'),
-  libraryUpdate: argv.includes('--update'),
-})
-
-/** The `sovrium seed` flags; `--as` is shared with `library add`, `--mode` with `design-system`. */
-const parseSeedFlags = (
-  argv: readonly string[]
-): Pick<ParsedFlags, 'seedDir' | 'mode' | 'seedTables' | 'seedAs' | 'seedToday'> => ({
-  seedDir: getFlagValue(argv, '--dir'),
-  mode: getFlagValue(argv, '--mode'),
-  seedTables: getFlagValues(argv, '--table'),
-  seedAs: getFlagValue(argv, '--as'),
-  seedToday: getFlagValue(argv, '--today'),
-})
-
-const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
-  watchMode: hasFlag(argv, '--watch', '-w'),
-  forceFlag: argv.includes('--force'),
-  outputPath: getFlagValue(argv, '--output'),
-  dataDir: getFlagPathValue(argv, '--data-dir'),
-  templateName: getFlagValue(argv, '--template'),
-  publicDir: resolvePublicDirFlag(argv),
-  appName: getFlagValue(argv, '--name'),
-  typescript: argv.includes('--typescript'),
-  gitInit: argv.includes('--git'),
-  fromUrl: getFlagValue(argv, '--from-url'),
-  fromBundle: getFlagValue(argv, '--from-bundle'),
-  expectSha256: getFlagValue(argv, '--expect-sha256'),
-  inspect: argv.includes('--inspect'),
-  withDemoData: argv.includes('--with-demo-data'),
-  password: getFlagValue(argv, '--password'),
-  ...parseSeedFlags(argv),
-  dryRun: argv.includes('--dry-run'),
-  check: argv.includes('--check'),
-  allowDestructive: argv.includes('--allow-destructive'),
-  json: argv.includes('--json'),
-  format: getFlagValue(argv, '--format'),
-  full: argv.includes('--full'),
-  listSections: argv.includes('--list-sections'),
-  lang: getFlagValue(argv, '--lang'),
-  docsSections: getFlagValues(argv, '--section'),
-  exportRequested: argv.includes('--export'),
-  exportDir: getFlagPathValue(argv, '--export'),
-  projectDir: getFlagValue(argv, '--project'),
-  libraryKind: getFlagValue(argv, '--kind'),
-  libraryCategory: getFlagValue(argv, '--category'),
-  librarySets: getFlagValues(argv, '--set'),
-  libraryAs: getFlagValue(argv, '--as'),
-  libraryInto: getFlagValue(argv, '--into'),
-  noWire: argv.includes('--no-wire'),
-  ...parseLibraryOperationFlags(argv),
-  skillsTarget: getFlagValue(argv, '--target'),
-})
-
-/**
- * The switches only one verb reads — `library add`'s, `skills`' and `migrate`'s
- * `--allow-destructive` — carried into the result as parsed, each verb owning
- * its own refusal.
- */
-const verbSwitchesOf = (
-  flags: ParsedFlags
-): Pick<
+/** Every dispatcher flag as `ParsedArgs` carries it. */
+const flagArgsOf = (
+  flags: DispatchFlags
+): Omit<
   ParsedArgs,
-  | 'noWire'
-  | 'libraryTag'
-  | 'libraryLimit'
-  | 'libraryAll'
-  | 'libraryYes'
-  | 'libraryUpdate'
-  | 'skillsTarget'
-  | 'allowDestructive'
-> => ({
-  allowDestructive: flags.allowDestructive,
-  noWire: flags.noWire,
-  libraryTag: flags.libraryTag,
-  libraryLimit: flags.libraryLimit,
-  libraryAll: flags.libraryAll,
-  libraryYes: flags.libraryYes,
-  libraryUpdate: flags.libraryUpdate,
-  skillsTarget: flags.skillsTarget,
-})
-
-/** The `sovrium changelog` flags, read straight from argv. */
-const changelogArgsOf = (
-  argv: readonly string[]
-): Pick<ParsedArgs, 'changelogList' | 'changelogSinceRequested' | 'changelogSince'> => ({
-  changelogList: argv.includes('--list'),
-  changelogSinceRequested: argv.includes('--since'),
-  changelogSince: getFlagPathValue(argv, '--since'),
-})
-
-/** The `sovrium init --from-url` / `--from-bundle` flags, carried into the result as parsed. */
-const initSourceArgsOf = (
-  flags: ParsedFlags
-): Pick<ParsedArgs, 'fromUrl' | 'fromBundle' | 'expectSha256' | 'inspect' | 'withDemoData'> => ({
-  fromUrl: flags.fromUrl,
-  fromBundle: flags.fromBundle,
-  expectSha256: flags.expectSha256,
-  inspect: flags.inspect,
-  withDemoData: flags.withDemoData,
-})
-
-/** The `sovrium seed` flags, carried into the result as parsed. */
-const seedArgsOf = (
-  flags: ParsedFlags
-): Pick<ParsedArgs, 'seedDir' | 'mode' | 'seedTables' | 'seedAs' | 'seedToday'> => ({
-  seedDir: flags.seedDir,
-  mode: flags.mode,
-  seedTables: flags.seedTables,
-  seedAs: flags.seedAs,
-  seedToday: flags.seedToday,
-})
+  'command' | 'configFile' | 'subcommand' | 'positionalArg' | 'positionalArgs'
+> => {
+  const { publicDirValue: _value, noPublicDir: _none, ...rest } = flags
+  return { ...rest, publicDir: publicDirOf(flags) }
+}
 
 /**
  * Build the standard noun-verb result (everything that isn't an early-exit
  * or implicit-config-file shortcut). Split out of `parseArgs` to keep it
  * under the per-function line cap.
  */
-/* eslint-disable max-params -- `argv` (5th param) is needed to surface helpRequested without re-parsing */
 const buildStandardResult = (
   command: string,
   configFile: string | undefined,
-  flags: ParsedFlags,
-  nonFlagArgs: readonly string[],
-  argv: readonly string[]
+  flags: DispatchFlags,
+  nonFlagArgs: readonly string[]
 ): ParsedArgs => {
   // Noun-verb commands (admin/secret): 2nd positional is the verb,
   // 3rd is the verb's argument (admin email or secret scope).
   const isNounVerb = NOUN_VERB_COMMANDS.includes(command as (typeof NOUN_VERB_COMMANDS)[number])
-  const subcommand = isNounVerb ? nonFlagArgs[1] : undefined
-  const positionalArg = isNounVerb ? nonFlagArgs[2] : undefined
-  const helpRequested = argv.includes('--help') || argv.includes('-h')
-
   return {
+    ...flagArgsOf(flags),
     command,
     configFile,
-    watchMode: flags.watchMode,
-    outputPath: flags.outputPath,
-    dataDir: flags.dataDir,
-    templateName: flags.templateName,
-    subcommand,
-    appName: flags.appName,
-    typescript: flags.typescript,
-    gitInit: flags.gitInit,
-    ...initSourceArgsOf(flags),
-    forceFlag: flags.forceFlag,
-    publicDir: flags.publicDir,
-    positionalArg,
-    password: flags.password,
-    helpRequested,
-    ...seedArgsOf(flags),
-    dryRun: flags.dryRun,
-    check: flags.check,
-    json: flags.json,
-    format: flags.format,
-    full: flags.full,
-    listSections: flags.listSections,
-    lang: flags.lang,
-    docsSections: flags.docsSections,
-    exportRequested: flags.exportRequested,
-    exportDir: flags.exportDir,
+    subcommand: isNounVerb ? nonFlagArgs[1] : undefined,
+    positionalArg: isNounVerb ? nonFlagArgs[2] : undefined,
     positionalArgs: nonFlagArgs.slice(1),
-    projectDir: flags.projectDir,
-    libraryKind: flags.libraryKind,
-    libraryCategory: flags.libraryCategory,
-    librarySets: flags.librarySets,
-    libraryAs: flags.libraryAs,
-    libraryInto: flags.libraryInto,
-    ...verbSwitchesOf(flags),
-    ...changelogArgsOf(argv),
   }
 }
-/* eslint-enable max-params */
 
 /**
  * Parse CLI arguments into command, config file, and flags
@@ -341,7 +159,7 @@ export const parseArgs = (argv: readonly string[]): ParsedArgs => {
   const earlyExit = detectEarlyExit(argv)
   if (earlyExit) return earlyExit
 
-  const flags = parseAllFlags(argv)
+  const flags = parseFlags(DISPATCH_FLAGS, argv)
   const nonFlagArgs = extractNonFlagArgs(argv)
   const command = nonFlagArgs[0] || 'start'
   // For `admin create <email> [config]`, the optional config path is the 4th
@@ -359,14 +177,14 @@ export const parseArgs = (argv: readonly string[]): ParsedArgs => {
       templateName: flags.templateName,
       appName: flags.appName,
       forceFlag: flags.forceFlag,
-      publicDir: flags.publicDir,
+      publicDir: publicDirOf(flags),
       // Carried here too, not only in `buildStandardResult`: this branch is how
       // `sovrium app.yaml --help` parses, and without the flag the central
       // `--help` short-circuit in index.ts cannot see it — so asking for help
       // would boot a server instead.
-      helpRequested: hasFlag(argv, '--help', '-h'),
+      helpRequested: flags.helpRequested,
     }
   }
 
-  return buildStandardResult(command, configFile, flags, nonFlagArgs, argv)
+  return buildStandardResult(command, configFile, flags, nonFlagArgs)
 }

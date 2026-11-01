@@ -28,6 +28,7 @@
 
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { adminTierRoleNames } from '@/domain/models/app/auth/roles/role'
 import { parseSovriumNotifyTo } from '@/domain/models/process-env/notifications'
 import { logError } from '@/infrastructure/logging/logger'
@@ -60,15 +61,14 @@ const loadAccountRecipients = (
 /**
  * Resolve the recipients of one kind of operator email.
  *
- * `env` defaults to the process environment; `SOVRIUM_NOTIFY_TO` was validated
+ * `SOVRIUM_NOTIFY_TO` is read from the `ProcessEnv` service; it was validated
  * at boot, so a malformed value here is impossible in a running server.
  */
 export const resolveNotificationRecipients = (
   app: App,
-  preference: NotificationPreference,
-  env: Readonly<Record<string, string | undefined>> = process.env
+  preference: NotificationPreference
 ): Effect.Effect<readonly string[], never, AuthRepository> =>
   Effect.gen(function* () {
     const accounts = yield* loadAccountRecipients(app, preference)
-    return dedupeAddresses([...accounts, ...parseSovriumNotifyTo(env)])
+    return dedupeAddresses([...accounts, ...parseSovriumNotifyTo(yield* ProcessEnv)])
   }).pipe(Effect.withSpan('notifications.resolve-recipients'))

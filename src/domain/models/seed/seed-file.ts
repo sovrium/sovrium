@@ -173,7 +173,7 @@ export const SeedFileSchema = Schema.Struct({
   records: Schema.Array(SeedRecordSchema).pipe(
     Schema.annotate({
       description:
-        'Rows to seed, in any order — `sovrium seed` resolves cross-table dependencies itself. May be empty.',
+        'Rows to seed, in any order: `sovrium seed` resolves cross-table dependencies itself. May be empty.',
     })
   ),
 }).pipe(

@@ -30,6 +30,7 @@
  */
 
 import { Effect } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { TemplateEngine } from '@/application/ports/services/template-engine'
 import { announceRecordWrites } from '@/application/use-cases/tables/record-change-announcement'
 import { agentActionKey, needsAutomationRun } from '@/domain/models/app/agents/agent-turn-service'
@@ -72,6 +73,7 @@ export const dispatchAgentAction = (input: {
     const handler = defaultActionHandlers.get(actionKey(type, operator))
     if (handler === undefined) return declined(`the action "${input.action}" is not available`)
     const rawAction = { name: `agent:${input.action}`, type, operator, props: input.props }
+    const processEnv = yield* ProcessEnv
     const runContext: ActionRunContext = {
       previousSteps: {},
       triggerData: {},
@@ -79,7 +81,8 @@ export const dispatchAgentAction = (input: {
       authoredProps: input.props,
       // A model's arguments are values, never a template to render.
       propsFinal: true,
-      envLookup: buildEnvLookup(input.app.env, process.env),
+      envLookup: buildEnvLookup(input.app.env, processEnv),
+      env: processEnv,
       templates: yield* TemplateEngine,
     }
     const automation: AutomationContext = {

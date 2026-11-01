@@ -42,9 +42,9 @@
  */
 
 import { parsePositiveIntEnv } from '@/domain/models/process-env/positive-int-env'
-import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
 import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
+import { rateLimitedResponse } from '@/presentation/api/runtime/rate-limit-response'
 import type { MiddlewareHandler } from 'hono'
 
 const limiter = createSlidingWindowLimiter()
@@ -96,9 +96,9 @@ export const checkCommandSearchRateLimit = (clientIp: string): CommandSearchRate
 /**
  * Hono middleware enforcing the per-client-IP command-search rate limit.
  *
- * Mounted on `/api/command-search` UNCONDITIONALLY — on both the auth-configured
- * and the no-auth branch of `api-routes.ts` — because the route itself is
- * reachable either way. It runs BEFORE the handler so a rejected request never
+ * Mounted on `/api/command-search` UNCONDITIONALLY in `compose-api-routes.ts`,
+ * outside the auth guards and with or without `app.auth` — because the route
+ * itself is reachable either way. It runs BEFORE the handler so a rejected request never
  * reaches the per-table fan-out it is there to bound.
  */
 export const commandSearchRateLimitMiddleware: MiddlewareHandler = async (c, next) => {

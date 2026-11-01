@@ -19,6 +19,7 @@ import {
   selectRecordReaders,
   type AudienceRequirements,
 } from '@/application/use-cases/tables/comment-mention-programs'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { logError } from '@/infrastructure/logging/logger'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
@@ -45,7 +46,7 @@ export const addressesOfRecordReaders = (
   people: readonly ThreadPerson[]
 ): Effect.Effect<readonly string[], never, AudienceRequirements> =>
   Effect.gen(function* () {
-    const table = scope.app.tables?.find((candidate) => candidate.name === scope.tableName)
+    const table = findTableByName(scope.app.tables, scope.tableName)
     if (table === undefined || people.length === 0) return []
     const readers = yield* selectRecordReaders(
       { app: scope.app, table, recordId: scope.recordId, session: scope.session },

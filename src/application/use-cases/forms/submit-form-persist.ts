@@ -75,7 +75,6 @@ const writeBoundTableRecord = (input: {
   readonly form: Readonly<Form>
   readonly mapped: Readonly<Record<string, unknown>>
   readonly submitterUserId: string | undefined
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /** The language the visitor answered in: a translatable field's answer is filed under it. */
   readonly language: string | undefined
 }) =>
@@ -98,7 +97,6 @@ const writeBoundTableRecord = (input: {
       tableName,
       // As before the form took this road: no SQLite AI baseline merge here.
       isSqlite: false,
-      processEnv: input.processEnv,
       // A record automation reads the answers no column stores, beneath the
       // row as stored — the stamps and the defaults included.
       triggerValues: mapped,
@@ -130,7 +128,6 @@ export const persistSubmission = (input: {
   readonly submitterIpHash: string | undefined
   readonly userAgent: string | undefined
   readonly submitterUserId: string | undefined
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /** The language the visitor answered in, `?lang=` on the submission. */
   readonly language: string | undefined
 }) =>
@@ -155,7 +152,6 @@ export const persistSubmission = (input: {
 
     const linkedRecord = yield* writeBoundTableRecord({
       ...{ app, form, mapped, submitterUserId },
-      processEnv: input.processEnv,
       language: input.language,
     })
     const linkedRecordId = coerceLinkedRecordId(linkedRecord)

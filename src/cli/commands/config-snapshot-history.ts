@@ -62,6 +62,7 @@ import { cp, mkdir, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve } from 'node:path'
 import { parseDataDir } from '@/domain/models/process-env/data-dir'
 import { isPathWithin } from '@/domain/models/process-env/desktop'
+import { ensurePrivateDirectory } from '@/infrastructure/filesystem/private-modes'
 import { printJournalWarning } from '@/infrastructure/logging/cli-output'
 
 /**
@@ -106,7 +107,7 @@ const snapshotRelativePath = async (
 }
 
 /** Where a `--watch` boot keeps its accepted-config snapshots. */
-export const historyDir = (): string => join(parseDataDir(), 'history')
+export const historyDir = (): string => join(parseDataDir(process.env), 'history')
 
 /**
  * A directory name that is filesystem-safe AND sorts chronologically.
@@ -162,7 +163,7 @@ export const snapshotConfigGraph = async (
   try {
     const name = snapshotName(configHash)
     const target = join(historyDir(), name)
-
+    ensurePrivateDirectory(target)
     await Promise.all(
       files.map(async (file) => {
         // A `$ref` reaching above the config's own directory would otherwise

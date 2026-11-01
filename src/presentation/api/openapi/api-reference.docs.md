@@ -1,6 +1,6 @@
 # REST API Overview
 
-> The contract every endpoint obeys — the two credentials that authenticate, the one error envelope every failure uses, and the codes that say what to do about it.
+> The contract every endpoint obeys: the two credentials that authenticate, the one error envelope every failure uses, and the codes that say what to do about it.
 
 Sovrium exposes a REST API over tables, records, views, activity, analytics and authentication. Every endpoint accepts and returns JSON, enforces role and field-level permissions, and emits a single canonical error envelope.
 
@@ -14,16 +14,16 @@ The OpenAPI document an instance serves names your app in `info`: its `title`, `
 
 Authentication is session-based. A request touching a protected resource carries one of exactly **two** credential forms.
 
-| Credential     | How it travels              | When it applies                                       |
-| -------------- | --------------------------- | ----------------------------------------------------- |
-| Session cookie | `better-auth.session_token` | Always, once auth is configured — the browser default |
-| API key        | An `x-api-key` header       | When API keys are enabled for the app                 |
+| Credential     | How it travels              | When it applies                                      |
+| -------------- | --------------------------- | ---------------------------------------------------- |
+| Session cookie | `better-auth.session_token` | Always, once auth is configured; the browser default |
+| API key        | An `x-api-key` header       | When API keys are enabled for the app                |
 
-**`Authorization: Bearer` is not one of them.** A Bearer token — including a valid API key sent that way — resolves no session and answers `401`. The header is deliberately not a credential path here, so a long-lived key travels on exactly one audited route rather than two. When a request that should work is refused, check the header name before checking the key.
+**`Authorization: Bearer` is not one of them.** A Bearer token, including a valid API key sent that way, resolves no session and answers `401`. The header is deliberately not a credential path here, so a long-lived key travels on exactly one audited route rather than two. When a request that should work is refused, check the header name before checking the key.
 
 Access is governed by roles plus field-level permissions. Table permissions accept `all`, `authenticated`, or an arbitrary list of role names, so `admin`, `member` and `viewer` are the built-in defaults rather than a fixed set. An app with no auth block evaluates every request under a `guest` role.
 
-An authenticated request that lacks access to a resource answers **404**, never `403`, so the caller cannot tell "not found" from "no access". This holds even for "the caller can read this record but may not modify it" — the write boundary is not discoverable by probing. The few genuine `403`s live on CSV export and the form bulk handlers.
+An authenticated request that lacks access to a resource answers **404**, never `403`, so the caller cannot tell "not found" from "no access". This holds even for "the caller can read this record but may not modify it": the write boundary is not discoverable by probing. The few genuine `403`s live on CSV export and the form bulk handlers.
 
 ## The error envelope
 
@@ -37,7 +37,7 @@ Every 4xx and 5xx response uses one JSON shape, so a single decoder covers all o
 }
 ```
 
-`code` is drawn from a stable enum of twenty-six values. Fifteen are general-purpose: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `BAD_REQUEST`, `METHOD_NOT_ALLOWED`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`, `RATE_LIMITED`, `INTERNAL_ERROR`, `BAD_GATEWAY`, `SERVICE_UNAVAILABLE`, `GATEWAY_TIMEOUT` and `QUOTA_EXCEEDED`. Ten more name a situation whose repair differs from the nearest general code — which is the whole reason they exist.
+`code` is drawn from a stable enum of twenty-seven values. Fifteen are general-purpose: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `BAD_REQUEST`, `METHOD_NOT_ALLOWED`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`, `RATE_LIMITED`, `INTERNAL_ERROR`, `BAD_GATEWAY`, `SERVICE_UNAVAILABLE`, `GATEWAY_TIMEOUT` and `QUOTA_EXCEEDED`. Eleven more name a situation whose repair differs from the nearest general code, which is the whole reason they exist.
 
 The last one, `DATABASE_ERROR`, is declared but no route sends it. A query that fails answers `500` with `INTERNAL_ERROR` and a `requestId`, like any other unexpected failure, so treat the two alike. The value stays in the enum so a client that already matches on it keeps decoding.
 
@@ -47,6 +47,7 @@ The last one, `DATABASE_ERROR`, is declared but no route sends it. A query that 
 | `TRANSFORM_ERROR`            | `500`  | An image transform failed. The store is fine; the transform parameters are not |
 | `AI_PROVIDER_NOT_CONFIGURED` | `503`  | No AI provider is configured. Retrying will never help                         |
 | `TOO_MANY_CONNECTIONS`       | `429`  | Too many open realtime streams. Close one; sending more slowly frees nothing   |
+| `TOO_MANY_CODE_ATTEMPTS`     | `429`  | Failed codes locked this address. Even a right code waits for `Retry-After`    |
 | `NESTED_REPLY_REJECTED`      | `422`  | The comment replied to is itself a reply. Target the top-level comment instead |
 | `EMAIL_ALREADY_REGISTERED`   | `422`  | The invitee already has an account. Sign them in rather than re-inviting       |
 | `INVALID_TOKEN`              | `400`  | The invitation token is not one this server issued                             |
@@ -73,7 +74,7 @@ That attribution is limited to the single-record create path. A partial update, 
 
 ### A missing record
 
-Every records route answers a record or a table that does not exist — or one you may not see — with the same `404` body, whichever route you called:
+Every records route answers a record or a table that does not exist, or one you may not see, with the same `404` body, whichever route you called:
 
 ```json
 {
@@ -86,16 +87,16 @@ Every records route answers a record or a table that does not exist — or one y
 
 A read, an update, a delete, a restore, the history, the comment thread and the form routes all answer it, as does a malformed id or an unknown table, so one handler covers them all.
 
-Every 404 the API answers is `{ success: false, error: "Not Found", message, code: "NOT_FOUND" }`; `message` may say what was not found. That holds beyond the records routes — automations, forms, buckets, AI, auth and the admin routes, a route a caller is denied, and an `/api/` path no route matches, which answers this JSON rather than a page. The one exception is an unknown path under `/api/auth/`, which the authentication library answers itself with an empty `404`.
+Every 404 the API answers is `{ success: false, error: "Not Found", message, code: "NOT_FOUND" }`; `message` may say what was not found. That holds beyond the records routes: automations, forms, buckets, AI, auth and the admin routes, a route a caller is denied, and an `/api/` path no route matches, which answers this JSON rather than a page. The one exception is an unknown path under `/api/auth/`, which the authentication library answers itself with an empty `404`.
 
 ### The status map
 
 | Status | `code`                   | Meaning                                                                                            |
 | ------ | ------------------------ | -------------------------------------------------------------------------------------------------- |
-| `400`  | `VALIDATION_ERROR`       | Validation failure — `errors[]` only when a field is named                                         |
+| `400`  | `VALIDATION_ERROR`       | Validation failure; `errors[]` only when a field is named                                          |
 | `400`  | `BAD_REQUEST`            | Malformed request                                                                                  |
 | `401`  | `UNAUTHORIZED`           | No session, or an expired one                                                                      |
-| `403`  | `FORBIDDEN`              | Authenticated and denied — rare, see above                                                         |
+| `403`  | `FORBIDDEN`              | Authenticated and denied; rare, see above                                                          |
 | `404`  | `NOT_FOUND`              | Absent, or an access denial wearing the same answer                                                |
 | `405`  | `METHOD_NOT_ALLOWED`     | The verb is not one this route accepts; `allowed` lists those that are                             |
 | `409`  | `CONFLICT`               | A unique collision with a record the caller may read, single or batch, or a stale optimistic write |
@@ -113,13 +114,13 @@ Every 404 the API answers is `{ success: false, error: "Not Found", message, cod
 
 Batch size failures split across two codes: exceeding the per-operation maximum is a `400`, while a payload over the hard 1000-id guard is a `413`.
 
-**The three gateway codes are not interchangeable, and that is the point of having them.** `502` means an upstream replied and the reply was unusable, `504` that it never replied, and `503` that the service itself is down. All three used to ship as `SERVICE_UNAVAILABLE`, which told a client to wait when the repair was something else entirely. `AI_PROVIDER_NOT_CONFIGURED` shares the `503` status and is the one case where waiting never helps — an operator has to set a variable.
+**The three gateway codes are not interchangeable, and that is the point of having them.** `502` means an upstream replied and the reply was unusable, `504` that it never replied, and `503` that the service itself is down. All three used to ship as `SERVICE_UNAVAILABLE`, which told a client to wait when the repair was something else entirely. `AI_PROVIDER_NOT_CONFIGURED` shares the `503` status and is the one case where waiting never helps: an operator has to set a variable.
 
 **How a request is framed never changes its code.** A unique collision answers `409` whether it arrives as a single write or inside a batch, because one handler covers both. The other constraint classes answer `400` on every path, since those reject the value that was sent rather than colliding with a row that already exists.
 
 ## Configuration is code-only
 
-There is no runtime schema-editing API. Sovrium is a configuration-as-code interpreter: an app changes by editing its config file and re-deploying — the same file the CLI validates offline. The admin console reflects runtime **data**, never configuration, and schema changes apply on the next boot.
+There is no runtime schema-editing API. Sovrium is a configuration-as-code interpreter: an app changes by editing its config file and re-deploying, the same file the CLI validates offline. The admin console reflects runtime **data**, never configuration, and schema changes apply on the next boot.
 
 ## What holds everywhere
 

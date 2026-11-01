@@ -10,6 +10,7 @@ import {
   InstanceSupervisor,
   InstanceSupervisorError,
 } from '@/application/ports/services/instance-supervisor'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   INSTANCE_ENV_KEY_PATTERN,
   INSTANCE_REVISION_PATTERN,
@@ -33,9 +34,6 @@ import { starterFileGate } from './starter-file-gate'
  */
 
 const refuse = (message: string) => Effect.fail(new InstanceSupervisorError({ message }))
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
 
 /** A non-empty string prop, else a refusal naming it. */
 const textOf = (value: unknown, name: string) =>

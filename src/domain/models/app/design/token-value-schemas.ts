@@ -102,7 +102,7 @@ export const ladderRecord = <S extends Schema.Top>(
   Schema.Record(
     Schema.String.annotate({
       title: keyTitle,
-      description: 'Scale step name — becomes the suffix of the generated utility',
+      description: 'Scale step name. It becomes the suffix of the generated utility',
       examples: [...options.keyExamples],
     }),
     value

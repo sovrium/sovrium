@@ -110,9 +110,9 @@ export const computeTableElementClasses = (): string => TABLE_ELEMENT
  * `border` role, the same line every body row draws. A tint would put a filled
  * band across the top of a surface whose whole point is to be read as one plane.
  *
- * Exported as an empty-string computer anyway, rather than dropped: the part
- * has to stay addressable from `design.components.table.parts.headerRow` so an
- * author who WANTS the band can put one back.
+ * Kept as a computer, so the `<thead>` has one named seam. No part reaches it:
+ * the registry (`component-parts.ts`) names `header` for a static table's
+ * header CELLS, and nothing for the row.
  */
 export const computeTableHeaderRowClasses = (): string => ''
 

@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { CSSCompilationError } from '@/domain/errors/css-compilation-error'
 import { withCompileDiskCache } from '@/infrastructure/css/cache/compile-disk-cache'
 import {
   getOrComputeCachedCSS,
@@ -25,7 +26,6 @@ import {
   resolveNativeFreeCandidates,
 } from '@/infrastructure/css/native-free-compiler'
 import { loadCodeBlockDarkPalette } from '@/infrastructure/css/theme/code-block-theme-palette'
-import { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import { logDebug, logError, logWarning } from '@/infrastructure/logging/logger'
 import { isDevCacheDisabled, isProduction as checkIsProduction } from '@/infrastructure/process/env'
 import { SOVRIUM_PACKAGE_ROOT } from '@/infrastructure/process/package-paths'

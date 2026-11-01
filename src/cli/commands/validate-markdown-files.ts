@@ -5,9 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { stat } from 'node:fs/promises'
 import { isAbsolute, resolve } from 'node:path'
 import {
+  contentDirDeclarations,
   markdownFileDeclarations,
+  missingContentDirWarning,
   missingMarkdownFileWarning,
 } from '@/domain/models/app/pages/markdown-source-file-service'
 import type { MarkdownFileDeclaration } from '@/domain/models/app/pages/markdown-source-file-service'
@@ -18,11 +21,11 @@ import type { MarkdownFileDeclaration } from '@/domain/models/app/pages/markdown
  *
  * A warning and never a refusal: the server serves such a page without its
  * body rather than failing, so the config still validates and still bundles.
- * A `contentDir` is not checked — a directory with nothing in it yet is a
- * collection waiting for its first article, which is not a mistake.
+ * A `contentDir` is checked by {@link missingContentDirWarnings}.
  */
 export const missingMarkdownFileWarnings = async (
-  pages: Parameters<typeof markdownFileDeclarations>[0],
+  pages: Parameters<typeof markdownFileDeclarations>[0] &
+    Parameters<typeof contentDirDeclarations>[0],
   projectDir: string
 ): Promise<readonly string[]> => {
   const declarations = markdownFileDeclarations(pages)
@@ -35,7 +38,37 @@ export const missingMarkdownFileWarnings = async (
         .catch(() => false)
     )
   )
+  return [
+    ...declarations
+      .filter((_, index) => present[index] !== true)
+      .map((declaration) => missingMarkdownFileWarning(declaration)),
+    ...(await missingContentDirWarnings(pages, projectDir)),
+  ]
+}
+
+/**
+ * The warnings for every `contentDir` whose directory is not there. The server
+ * answers every address of such a page with its 404, so the config is not wrong
+ * (a translation may not be written yet) but the gap is worth one line. A
+ * directory that exists with nothing in it is not warned about.
+ */
+const missingContentDirWarnings = async (
+  pages: Parameters<typeof contentDirDeclarations>[0],
+  projectDir: string
+): Promise<readonly string[]> => {
+  const declarations = contentDirDeclarations(pages)
+  const present = await Promise.all(
+    declarations.map((declaration) =>
+      stat(
+        isAbsolute(declaration.directory)
+          ? declaration.directory
+          : resolve(projectDir, declaration.directory)
+      )
+        .then((entry) => entry.isDirectory())
+        .catch(() => false)
+    )
+  )
   return declarations
     .filter((_, index) => present[index] !== true)
-    .map((declaration) => missingMarkdownFileWarning(declaration))
+    .map((declaration) => missingContentDirWarning(declaration))
 }

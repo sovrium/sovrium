@@ -10,11 +10,13 @@
  * prefill context, and the form as its caller may see it.
  */
 
+import { Effect } from 'effect'
 import { findUserEmailById } from '@/application/use-cases/auth/find-user-email'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { formForReader } from '@/presentation/render/forms/form-ref-readers'
+import { awaitForm } from './form-program'
 import type { FormRequestSession } from './access-gate'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { ReadTableAsCaller } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -27,21 +29,27 @@ import type { Context } from 'hono'
  * undefined` so `$user.*` references resolve to empty rather than leaking
  * the literal token.
  */
-export async function buildPrefillContext(c: Context): Promise<{
-  readonly query: Readonly<Record<string, string>>
-  readonly user?: Readonly<Record<string, unknown>>
-}> {
+export const buildPrefillContext = (
+  c: Context
+): Effect.Effect<
+  {
+    readonly query: Readonly<Record<string, string>>
+    readonly user?: Readonly<Record<string, unknown>>
+  },
+  never,
+  AuthRepository
+> => {
   const query = c.req.query() as Record<string, string>
   const session = getSessionContext(c)
-  if (!session) return { query }
+  if (!session) return Effect.succeed({ query })
   // Hydrate the user record with the email address so `$user.email` prefills
   // resolve to the session user's email at render time.
   // A missing email (auth lookup failure) leaves the entry to render empty
   // rather than leaking the literal `$user.email` token (S1).
-  const email = await runDomainPromise(c, findUserEmailById(session.userId))
-  const user: Record<string, unknown> =
-    email !== undefined ? { id: session.userId, email } : { id: session.userId }
-  return { query, user }
+  return Effect.map(findUserEmailById(session.userId), (email) => ({
+    query,
+    user: email !== undefined ? { id: session.userId, email } : { id: session.userId },
+  }))
 }
 
 /**
@@ -52,7 +60,7 @@ export async function buildPrefillContext(c: Context): Promise<{
  * declared in an app without auth, on a table it does not declare, or where no
  * reader was injected.
  */
-export async function formForCaller(
+export const formForCaller = (
   c: Context,
   app: App,
   form: Readonly<Form>,
@@ -60,11 +68,14 @@ export async function formForCaller(
     readonly session: FormRequestSession | undefined
     readonly read: ((c: Context) => ReadTableAsCaller) | undefined
   }
-): Promise<Readonly<Form>> {
+): Effect.Effect<Readonly<Form>> => {
   const { table } = form.submitTo
   const { session, read } = ctx
-  if (!app.auth || read === undefined || table === undefined) return form
-  if (!(app.tables ?? []).some((candidate) => candidate.name === table)) return form
+  if (!app.auth || read === undefined || table === undefined) return Effect.succeed(form)
+  if (!(app.tables ?? []).some((candidate) => candidate.name === table)) return Effect.succeed(form)
   const caller = session === undefined ? undefined : { userId: session.userId, role: session.role }
-  return formForReader(form, app, await read(c)(app, table, caller))
+  return Effect.map(
+    awaitForm(() => read(c)(app, table, caller)),
+    (view) => formForReader(form, app, view)
+  )
 }

@@ -8,56 +8,33 @@
 /**
  * THE Hono composition root.
  *
- * One file assembles the application: middleware in mount order, then every
- * route family, then the last-resort error boundary. It is the only place that
- * knows both halves — which is what lets every route module stay ignorant of
- * the others.
+ * One file assembles the application, in its phases: the guard chain
+ * (`app-guard-chain.ts`), the request middleware (`app-request-middleware.ts`),
+ * the API route stack, the site stack (assets, links, redirects, pages), then
+ * the last-resort error boundary (`app-error-boundary.ts`). It is the only
+ * place that knows both halves — which is what lets every route module stay
+ * ignorant of the others — and the only infrastructure file that may import
+ * presentation, so every presentation piece a phase needs is handed to it
+ * from here.
  */
 
-import { Context, Effect } from 'effect'
+import { Context } from 'effect'
 import { Hono } from 'hono'
-import { HTTPException } from 'hono/http-exception'
-import { requestId } from 'hono/request-id'
 import { AssetStore } from '@/application/ports/services/asset-store'
-import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
-import { requestedPath } from '@/domain/kernel/url/requested-path'
-import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
 import { mountedInvitationPages } from '@/domain/models/app/pages/invitation-link-service'
 import { resolvesToDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
-import { selfFramedPaths } from '@/domain/models/app/pages/self-framed-paths-service'
-import { isDevPublicEnabled, parseDevNoticeEnvConfig } from '@/domain/models/process-env/dev-notice'
-import { parseFrameAncestors } from '@/domain/models/process-env/preview'
 import { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
 import { createInvitationServices } from '@/infrastructure/auth/better-auth/invitation-services'
-import { isIngestRequest } from '@/infrastructure/logging/ingest-request-scope'
-import { internalErrorLogSuffix } from '@/infrastructure/logging/internal-error-report'
-import { logDebug, logError } from '@/infrastructure/logging/logger'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { isLiveReloadEligible } from '@/infrastructure/process/env'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { adminMountsFor } from '@/infrastructure/server/admin-mounts'
-import {
-  apiErrorCodeForStatus,
-  apiErrorMessage,
-  isApiPath,
-} from '@/infrastructure/server/api-error-envelope'
-import { domainContextMiddleware, provideDomain } from '@/infrastructure/server/domain-runtime'
+import { attachErrorBoundary } from '@/infrastructure/server/app-error-boundary'
+import { mountGuardChain } from '@/infrastructure/server/app-guard-chain'
+import { mountRequestMiddleware } from '@/infrastructure/server/app-request-middleware'
+import { makeAuthHookPolicies } from '@/infrastructure/server/auth-hook-policies'
 import { resolveAuthContext } from '@/infrastructure/server/hono-auth-context'
-import { catalogRequestCacheMiddleware } from '@/infrastructure/server/middleware/catalog-request-cache'
-import { dbQueryCountMiddleware } from '@/infrastructure/server/middleware/db-query-count-header'
-import { hostRedirect } from '@/infrastructure/server/middleware/host-redirect'
-import { noindexPosture } from '@/infrastructure/server/middleware/noindex-posture'
-import { previewGate } from '@/infrastructure/server/middleware/preview-gate'
-import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
-import {
-  sameOriginFraming,
-  securityHeadersFor,
-} from '@/infrastructure/server/middleware/security-headers'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
 import { readStatusDocument } from '@/infrastructure/server/status-file'
-import { reportException } from '@/infrastructure/telemetry/error-reporter'
-import { createRequestTraceMiddleware } from '@/infrastructure/telemetry/performance-middleware'
-import { getTelemetryConfig } from '@/infrastructure/telemetry/telemetry-config'
-import { isOperatorActionable } from '@/infrastructure/telemetry/telemetry-sink'
 import { makeAdminReadHost } from '@/presentation/api/admin/admin-read-host'
 import { setupDesignSystemShareRoutes } from '@/presentation/api/admin/design-system-share-reader-routes'
 import { setupAdminMountRoutes } from '@/presentation/api/admin/mount-routes'
@@ -68,6 +45,7 @@ import { setupOauthConsentRoutes } from '@/presentation/api/auth/oauth-consent-r
 import { createApiRoutes } from '@/presentation/api/compose-api-routes'
 import { setupLinkRoutes } from '@/presentation/api/links/routes'
 import { setupMcpRoutes } from '@/presentation/api/mcp/routes'
+import { crossSiteRequestGuard } from '@/presentation/api/middleware/cross-site-request-guard'
 import { setupOpenApiRoutes } from '@/presentation/api/openapi/routes'
 import { setupIconGeometryRoutes } from '@/presentation/api/pages/icon-geometry-routes'
 import { setupInstallRoutes } from '@/presentation/api/pages/install-routes'
@@ -80,31 +58,6 @@ import { setupDevReloadRoute } from '@/presentation/api/server/dev-reload-routes
 import type { HonoAppConfig } from '@/application/ports/contracts/hono-app-config'
 import type { App } from '@/domain/models/app'
 import type { DomainContext } from '@/infrastructure/server/domain-runtime'
-import type { MiddlewareHandler } from 'hono'
-
-/** The request id the `hono/request-id` middleware set, if it ran. */
-const requestIdOf = (id: unknown): string | undefined => (typeof id === 'string' ? id : undefined)
-
-/**
- * Mount the per-request trace boundary when EITHER signal that reads it is
- * armed: Sentry performance sampling (`SENTRY_DSN` +
- * `SENTRY_TRACES_SAMPLE_RATE` in `(0,1]`), which turns the box into a
- * transaction envelope, or OTLP traces (`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`),
- * which needs the box so a handler running several Effect programs chains them
- * under ONE request root instead of opening a root per program. No-op when
- * neither is armed.
- */
-function mountPerformanceMiddleware(honoApp: Readonly<Hono>): void {
-  const { performance, traces } = getTelemetryConfig()
-  if (performance === undefined && traces === undefined) return
-  honoApp.use(
-    '*',
-    createRequestTraceMiddleware({
-      ...(performance !== undefined ? { transactionSampleRate: performance.sampleRate } : {}),
-      ...(traces !== undefined ? { traceSampleRatio: traces.sampleRatio } : {}),
-    })
-  )
-}
 
 /**
  * Everything `createHonoApp` takes beyond {@link HonoAppConfig}.
@@ -130,22 +83,20 @@ interface HonoAppExtras {
 }
 
 /**
- * Creates a Hono application with routes
+ * An `/api/*` path no API route claimed answers the canonical JSON 404 — unless
+ * the app itself declares a page there.
  *
- * Mounts the following routes:
- * - GET /api/* - API routes (health, tables, records) with RPC type safety
- * - GET /api/openapi.json - Generated OpenAPI specification (application endpoints)
- * - GET /api/auth/openapi.json - Generated OpenAPI specification (authentication endpoints)
- * - GET /api/scalar - Unified Scalar API documentation UI (shows both API and Auth tabs)
- * - POST/GET /api/auth/* - Better Auth authentication endpoints
- * - GET / - Homepage
- * - GET /assets/output.css - Compiled Tailwind CSS
- * - GET /test/error - Test error handler (non-production only)
- *
- * @param config - Configuration object with app data and render functions
- * @returns Configured Hono app instance
- * @knip-ignore - Used by both createServer and createHonoAppForSSG
+ * The prefix names the engine's HTTP API, not a forbidden spelling: a
+ * configuration may declare a page at `/api/v1/users/profile`, and that page is
+ * served (and emitted by a static build) like any other. So a declared page
+ * falls through to the page routes, which also own its access check.
  */
+const answerUnmatchedApiPaths =
+  (app: App) =>
+  (honoApp: Readonly<Hono>): Readonly<Hono> =>
+    honoApp.all('/api/*', (c, next) =>
+      resolvesToDeclaredPage(app, c.req.path) ? next() : c.json(notFoundBody(), 404)
+    )
 
 /**
  * The agent-schedule fire, re-exported from the ONE infrastructure file allowed
@@ -164,181 +115,27 @@ interface HonoAppExtras {
  * cluster has to move together. See `register-agent-schedules.ts` for that
  * measurement.
  */
-
-/**
- * An `/api/*` path no API route claimed answers the canonical JSON 404 — unless
- * the app itself declares a page there.
- *
- * The prefix names the engine's HTTP API, not a forbidden spelling: a
- * configuration may declare a page at `/api/v1/users/profile`, and that page is
- * served (and emitted by a static build) like any other. So a declared page
- * falls through to the page routes, which also own its access check.
- */
-const answerUnmatchedApiPaths =
-  (app: App) =>
-  (honoApp: Readonly<Hono>): Readonly<Hono> =>
-    honoApp.all('/api/*', (c, next) =>
-      resolvesToDeclaredPage(app, c.req.path) ? next() : c.json(notFoundBody(), 404)
-    )
-
 export { fireAgentSchedule }
 
-/** The origins `SOVRIUM_FRAME_ANCESTORS` names; the boot check already refused a bad value. */
-const framingOriginsOf = (
-  env: Readonly<Record<string, string | undefined>>
-): readonly string[] | undefined => {
-  const parsed = parseFrameAncestors(env['SOVRIUM_FRAME_ANCESTORS'])
-  return parsed._tag === 'Origins' ? parsed.origins : undefined
-}
+/** The auth context `resolveAuthContext` resolved for this app. */
+type AuthContext = Awaited<ReturnType<typeof resolveAuthContext>>
+
+type AppConfig = HonoAppConfig & HonoAppExtras
 
 /**
- * The preview gate when `SOVRIUM_PREVIEW_TOKEN` is set; else the noindex
- * posture when a dev-mode instance is public on purpose (`SOVRIUM_DEV_PUBLIC`);
- * else a pass-through. The gate already wears the posture on what it admits.
- * Its refusal is the platform's ordinary not-found answer of the request's
- * family, drawn WITHOUT the app: the app's own `/404` page can carry its name,
- * navigation, data bindings and analytics beacon, all of which a hidden
- * preview must not show to a request that has not been admitted.
+ * The API route stack, innermost first: every `<slug>/routes.ts` through
+ * `createApiRoutes`, then the OpenAPI documents, the auth middleware, the Better
+ * Auth routes, MCP, icon geometry and the install routes.
+ *
+ * Chained directly — this pattern is required for Hono RPC type inference.
  */
-const mountPreviewGate = (
-  renderNotFoundPage: HonoAppConfig['renderNotFoundPage']
-): MiddlewareHandler => {
-  const token = process.env['SOVRIUM_PREVIEW_TOKEN']
-  if (token === undefined || token === '') {
-    return isDevPublicEnabled(parseDevNoticeEnvConfig()) ? noindexPosture : (_c, next) => next()
-  }
-  return previewGate({
-    token,
-    notFound: async (c) =>
-      isApiPath(c.req.path) ? c.json(notFoundBody(), 404) : c.html(await renderNotFoundPage(), 404),
-  })
-}
-
-export async function createHonoApp(
-  config: HonoAppConfig & HonoAppExtras
-): Promise<Readonly<Hono>> {
-  const { app, renderNotFoundPage, renderErrorPage, configHash } = config
-
-  const { runtime, authInstance, getSession } = await resolveAuthContext(app, config.domainContext)
-
-  const honoApp = new Hono()
-  const frameAncestors = framingOriginsOf(process.env)
-
-  // Request correlation ID — mounted first so every downstream middleware,
-  // route handler, and error handler can read a single stable `c.get('requestId')`
-  // (and the response carries an `X-Request-Id` header); replaces ad-hoc
-  // per-handler `crypto.randomUUID()` minting. Chained with the security
-  // headers (HSTS, report-only CSP, Permissions-Policy, X-Frame-Options,
-  // nosniff, …) so every response carries them — config + rationale live in
-  // ./middleware/security-headers.
-  //
-  // The third link is the per-request DB query-count seam, mounted right after
-  // that pair so the AsyncLocalStorage box wraps EVERYTHING downstream —
-  // Better Auth's /api/auth/* handler, the getSession middleware, the
-  // analytics-purge middleware, and every route. The box opens
-  // UNCONDITIONALLY (it feeds the `db.query.per_request` histogram and the
-  // root-span `db.query.count` attribute); only the client-visible
-  // `X-Sovrium-Db-Queries` header is gated by `SOVRIUM_DB_QUERY_HEADER`
-  // (default OFF — anti-enumeration, see ./middleware/db-query-count-header).
-  // It is CHAINED onto the pair above rather than mounted as its own statement
-  // so `createHonoApp` stays inside the 20-statement `max-statements` ceiling;
-  // the resulting mount order is identical either way.
-  //
-  // The fourth link is the per-request CATALOG memo, chained for the same
-  // reason and needing the same total coverage: the `deleted_at` probes it
-  // collapses sit inside repository transactions with no request context of
-  // their own. It is unconditional and has no env toggle — it changes no
-  // answer, only how many round-trips producing it costs (measured: a record
-  // listing goes 9 → 8 statements). See ./middleware/catalog-request-cache.
-  //
-  // The domain services lead the chain. They are the services `createServer`
-  // resolved ONCE from its `ManagedRuntime`, and publishing them per request is
-  // what lets a handler write `provideDomain(c, program)` instead of rebuilding
-  // its folder's layers on every call. Nothing downstream depends on ordering
-  // here — the value is constant for the life of the server — but leading the
-  // chain means no route can be registered ahead of it. See ./domain-runtime.
-  honoApp
-    .use('*', domainContextMiddleware(config.domainContext))
-    .use('*', requestId())
-    .use('*', securityHeadersFor(frameAncestors))
-    .use('*', sameOriginFraming(selfFramedPaths(app), frameAncestors))
-    // The preview gate ([internal ref] D2): the first link that can ANSWER. Nothing
-    // above it answers (they only wrap), so it judges every request before a
-    // cache, a static file, auth, a realtime upgrade or a webhook can.
-    .use('*', mountPreviewGate(renderNotFoundPage))
-    .use('*', dbQueryCountMiddleware())
-    .use('*', catalogRequestCacheMiddleware())
-
-  // Per-request trace boundary (the infrastructure observability performance requirement /
-  // -TRACING). Mounted early so it spans the full downstream handling, but
-  // deliberately INSIDE `dbQueryCountMiddleware` above: it reads
-  // `currentDbQueryCount()` after `next()` resolves, and that read is only
-  // request-scoped while the query-count box is still open. Zero overhead when
-  // neither telemetry signal is armed.
-  mountPerformanceMiddleware(honoApp)
-
-  // Retired-host → canonical-path 301 redirect. Mounted EARLY (right after the
-  // request-id + security-headers chain, before every route) so it preempts all
-  // downstream routing and short-circuits with a path-preserving 301 when the
-  // incoming host matches `SOVRIUM_REDIRECT_HOST`. A complete no-op unless BOTH
-  // `SOVRIUM_REDIRECT_HOST` and `SOVRIUM_REDIRECT_HOST_TARGET` are set, so it has
-  // zero blast radius on every other deployment — see ./middleware/host-redirect.
-  honoApp.use('*', hostRedirect)
-
-  // X-Sovrium-Config response header middleware. Carries the SHA-256 hash of
-  // the file-loaded config so operators can identify which config a running
-  // server is serving from any HTTP response without hitting the admin API.
-  // Config is code-only — there is no runtime config-mutation surface and
-  // therefore no file-vs-DB drift to report; the header is just the plain
-  // hash. A reload builds a new app with the new hash, so the header only
-  // ever names a configuration the server accepted.
-  const currentConfigHash = configHash ?? ''
-  if (currentConfigHash) {
-    honoApp.use('*', async (c, next) => {
-      await next()
-      c.header('X-Sovrium-Config', currentConfigHash)
-    })
-  }
-
-  // Analytics retention cleanup middleware — purges stale page view records.
-  // Runs awaited on page requests to guarantee old data is removed before response.
-  const analyticsEnabled = app.analytics !== undefined && app.analytics !== false
-  if (analyticsEnabled) {
-    const retentionDays =
-      typeof app.analytics === 'object' ? app.analytics.retentionDays : undefined
-
-    honoApp.use('*', async (c, next) => {
-      await Effect.runPromise(
-        provideDomain(
-          c,
-          purgeOldAnalyticsData(app.name, retentionDays, resolveOperatorTimezone())
-        ).pipe(
-          Effect.tapCause((cause) =>
-            Effect.sync(() => {
-              logDebug('[analytics] retention purge failed', { cause: String(cause) })
-            })
-          ),
-          // effect-swallow: see the tap above. This runs awaited on EVERY page
-          // request, so it is logged at debug rather than error — and a
-          // housekeeping sweep must never be the reason a page fails to render.
-          Effect.catch(() => Effect.void)
-        )
-      )
-      return next()
-    })
-  }
-
-  // Request access log (debug level only, excludes /assets/*)
-  // Create base Hono app and chain API routes directly
-  // This pattern is required for Hono RPC type inference to work correctly
-  // Setup all routes by chaining the setup functions
-  //
-  // Bootstrap claim route — mounted unconditionally; handler returns 404
-  // when not in bootstrap mode. Mounted FIRST so it intercepts before
-  // the auth-routes middleware sees it as an admin path.
-  const honoWithLogger = honoApp.use('*', requestLogger)
-  const honoWithBootstrap = setupBootstrapRoutes(honoWithLogger, app)
-
+const mountApiStack = (
+  honoWithBootstrap: Readonly<Hono>,
+  config: AppConfig,
+  { runtime, authInstance, getSession }: AuthContext
+): Readonly<Hono> => {
+  const { app, configHash } = config
+  const database = Context.get(config.domainContext, Database)
   // Built HERE, at the composition root, and threaded into the auth route chain
   // — the same vector `authInstance` travels on.
   //
@@ -350,33 +147,101 @@ export async function createHonoApp(
   // There are no config-mutation REST routes (config-code-only, [internal ref]):
   // config changes ONLY by editing the app config file.
 
-  // Live SEO routes (/sitemap.xml, /robots.txt) are registered BEFORE the
-  // public-directory catch-all (inside setupStaticAssets) so the generated
-  // routes win over same-named static files, and they sit ahead of the page
-  // catch-all so they aren't treated as page paths.
-  // `setupStaticAssets` is async (it realpath()s `publicDir` once at mount
-  // time for the symlink-escape guard); the await sits inline so the rest of
-  // the pipeline stays a single expression. setupPageRoutes wraps the
-  // dev-live-reload + static-assets stack, which itself wraps SEO → MCP →
-  // auth → openapi → schema/bootstrap.
-  //
-  // `app.redirects` sits AFTER the static-assets stack and
-  // BEFORE the page routes — the one position where a real public-directory file
-  // still wins (a rule can never hijack `/install`) while a retired path still
-  // answers its redirect instead of the page catch-all's 404.
-  //
-  // `app.links` takes the same slot, just inside the
-  // redirect layer, for the same reason plus one that is MANDATORY rather than
-  // stylistic: `setupLanguageRoutes` (inside `setupPageRoutes`) registers
-  // `/:lang/*`, which matches `/l/abc`, and its handler renders a 404
-  // terminally instead of calling `next()`. Mounted after the page routes,
-  // every short link would 404.
-  //
-  // Every API route is registered by now, and the page routes below match any
-  // path (`/:lang/*`, `*`) and render the HTML not-found page. An `/api/*` path
-  // no route claimed is a machine request: it answers the one JSON 404 body
-  // every API road answers, before a page route can take it.
-  const honoWithRoutes = setupPageRoutes(
+  // The install routes sit at the top of this stack — after every API route,
+  // ahead of the static assets and the page catch-all — and NOT ahead of
+  // `createApiRoutes`: mounted there, the walk that serves three releases
+  // one after another on one port failed. The cause was not isolated;
+  // keep this slot until it is.
+  return setupInstallRoutes(
+    setupIconGeometryRoutes(
+      setupMcpRoutes(
+        setupAuthRoutes(
+          setupAuthMiddleware(
+            setupOpenApiRoutes(
+              createApiRoutes(app, honoWithBootstrap as Hono, authInstance, getSession),
+              app,
+              authInstance
+            ),
+            app
+          ),
+          app,
+          {
+            authInstance,
+            runtime,
+            emailHandlers,
+            // The admin-invitation store and engine over the same
+            // instance — built here so the invitation use-cases
+            // hold no query module and no engine type.
+            invitations: createInvitationServices(authInstance, {
+              database,
+              linkPages: () => mountedInvitationPages(adminMountsFor(app)),
+              // An acceptance starts the app's auth automations.
+              hookContext: {
+                appMeta: app,
+                domainContext: config.domainContext,
+                policies: makeAuthHookPolicies(database, config.domainContext),
+                database,
+              },
+            }),
+          }
+        ),
+        app,
+        {
+          domainContext: config.domainContext,
+          authInstance,
+          // The two file-backed facts the A8 config tools publish.
+          // Supplied HERE because this is the one composition root
+          // that may name both `infrastructure-server` and the
+          // presentation tree; a route may not reach the status
+          // file itself.
+          configHash: configHash ?? '',
+          readStatusDocument,
+          // The admin read tools answer against the same host the
+          // admin routes build, which belongs to the admin slug.
+          makeAdminReadHost,
+        }
+      )
+    ),
+    app
+  )
+}
+
+/**
+ * The site stack over the API stack: live SEO, static assets, dev reload, short
+ * links, the design-system share reader, OAuth consent, redirects, the unmatched
+ * `/api/*` answer, then the page routes.
+ *
+ * Live SEO routes (/sitemap.xml, /robots.txt) are registered BEFORE the
+ * public-directory catch-all (inside setupStaticAssets) so the generated
+ * routes win over same-named static files, and they sit ahead of the page
+ * catch-all so they aren't treated as page paths.
+ * `setupStaticAssets` is async (it realpath()s `publicDir` once at mount
+ * time for the symlink-escape guard); the await sits inline so the rest of
+ * the pipeline stays a single expression.
+ *
+ * `app.redirects` sits AFTER the static-assets stack and BEFORE the page
+ * routes — the one position where a real public-directory file still wins (a
+ * rule can never hijack `/install`) while a retired path still answers its
+ * redirect instead of the page catch-all's 404.
+ *
+ * `app.links` takes the same slot, just inside the redirect layer, for the same
+ * reason plus one that is MANDATORY rather than stylistic: `setupLanguageRoutes`
+ * (inside `setupPageRoutes`) registers `/:lang/*`, which matches `/l/abc`, and
+ * its handler renders a 404 terminally instead of calling `next()`. Mounted
+ * after the page routes, every short link would 404.
+ *
+ * Every API route is registered by now, and the page routes below match any
+ * path (`/:lang/*`, `*`) and render the HTML not-found page. An `/api/*` path
+ * no route claimed is a machine request: it answers the one JSON 404 body
+ * every API road answers, before a page route can take it.
+ */
+const mountSiteStack = async (
+  honoWithApi: Readonly<Hono>,
+  config: AppConfig,
+  { getSession, endedSession }: AuthContext
+): Promise<Readonly<Hono>> => {
+  const { app } = config
+  return setupPageRoutes(
     answerUnmatchedApiPaths(app)(
       setupRedirectRoutes(
         // The anonymous design-system share reader ([internal ref] A3 Part 2) sits in
@@ -391,67 +256,7 @@ export async function createHonoApp(
             setupLinkRoutes(
               setupDevReloadRoute(
                 await setupStaticAssets(
-                  setupSeoRoutes(
-                    // The install routes sit here — after every API route, ahead of the
-                    // static assets and the page catch-all — and NOT ahead of
-                    // `createApiRoutes`: mounted there, the walk that serves three releases
-                    // one after another on one port failed. The cause was not isolated;
-                    // keep this slot until it is.
-                    setupInstallRoutes(
-                      setupIconGeometryRoutes(
-                        setupMcpRoutes(
-                          setupAuthRoutes(
-                            setupAuthMiddleware(
-                              setupOpenApiRoutes(
-                                createApiRoutes(
-                                  app,
-                                  honoWithBootstrap as Hono,
-                                  authInstance,
-                                  getSession
-                                ),
-                                app,
-                                authInstance
-                              ),
-                              app
-                            ),
-                            app,
-                            {
-                              authInstance,
-                              runtime,
-                              emailHandlers,
-                              // The admin-invitation store and engine over the same
-                              // instance — built here so the invitation use-cases
-                              // hold no query module and no engine type.
-                              invitations: createInvitationServices(
-                                authInstance,
-                                () => mountedInvitationPages(adminMountsFor(app)),
-                                // An acceptance starts the app's auth automations.
-                                { appMeta: app, domainContext: config.domainContext }
-                              ),
-                            }
-                          ),
-                          app,
-                          {
-                            domainContext: config.domainContext,
-                            authInstance,
-                            // The two file-backed facts the A8 config tools publish.
-                            // Supplied HERE because this is the one composition root
-                            // that may name both `infrastructure-server` and the
-                            // presentation tree; a route may not reach the status
-                            // file itself.
-                            configHash: configHash ?? '',
-                            readStatusDocument,
-                            // The admin read tools answer against the same host the
-                            // admin routes build, which belongs to the admin slug.
-                            makeAdminReadHost,
-                          }
-                        )
-                      ),
-                      app
-                    ),
-                    app,
-                    config.fetchSitemapRecords
-                  ),
+                  setupSeoRoutes(honoWithApi, app, config.fetchSitemapRecords),
                   app,
                   config.publicDir,
                   Context.get(config.domainContext, AssetStore).realpaths
@@ -478,84 +283,45 @@ export async function createHonoApp(
     // permitted to hold both. Resolved ONCE here rather than per request, which
     // is also what stops the canonicalizer rebuilding its reserved-prefix list
     // on every request through two `use('*')` handlers.
-    { ...config, getSession, adminMounts: adminMountsFor(app) },
+    { ...config, getSession, endedSession, adminMounts: adminMountsFor(app) },
     // The console's mount registrar, supplied rather than imported — see
     // `MountRegistrar` in `page-routes.ts`. Its chain POSITION is unchanged;
     // only the import moved, onto the one file already permitted to hold it.
     setupAdminMountRoutes
   )
+}
 
-  // Add error handlers
-  return (
-    honoWithRoutes
-      // An `/api/*` path no route matches answers the one 404 body every API
-      // road answers, as JSON — never the HTML page a browser gets.
-      .notFound(async (c) =>
-        isApiPath(c.req.path)
-          ? c.json(notFoundBody(), 404)
-          : c.html(await renderNotFoundPage(app, undefined, requestedPath(c.req.url)), 404)
-      )
-      .onError(async (error, c) => {
-        // Report to the telemetry backend (fire-and-forget, no-op unless SENTRY_DSN
-        // is set) WITH request context, BEFORE logError — the reporter's WeakMap
-        // then dedups the same error object when the logError-with-cause path
-        // forwards it again.
-        //
-        // Gated on the SAME predicate that path uses, so the two agree instead of
-        // relying on the dedup to hide a disagreement. A 4xx that is the caller's
-        // own fault — the 400 a validator raises on a truncated body, the shape a
-        // public endpoint sees most — is answered correctly below and belongs in
-        // the log, not in the operator's paging surface. A 5xx (including
-        // `hono/timeout`'s 504) is reported here exactly as before.
-        // A failure while serving a telemetry ingest request is logged below
-        // and never reported: the app may be its own receiver ([internal ref] D2 a).
-        if (isOperatorActionable(error) && !isIngestRequest(c.req.raw)) {
-          void reportException(error, {
-            method: c.req.method,
-            url: c.req.url,
-            headers: Object.fromEntries(c.req.raw.headers.entries()),
-          })
-        }
+/**
+ * Creates the Hono application, phase by phase. The phase ORDER is the
+ * contract: guards, request middleware, bootstrap, API stack, site stack,
+ * error boundary.
+ */
+export async function createHonoApp(config: AppConfig): Promise<Readonly<Hono>> {
+  const { app, renderNotFoundPage, renderErrorPage, configHash } = config
 
-        // An `HTTPException` carries its OWN status (and, when the raiser supplied
-        // one, its own response). Honour it — this handler REPLACES Hono's default
-        // `.onError`, which does exactly that via `if ('getResponse' in err)`.
-        // Losing it collapses `hono/timeout`'s `HTTPException(504)` into a
-        // hard-coded 500, which is what a production incident looked like.
-        const status = error instanceof HTTPException ? error.status : 500
-        // A 500's request id goes to the caller, and the operator's log line
-        // names the id and either the fix (a failure the operator can fix) or
-        // the signature and `sovrium report --request-id` — never an issue address.
-        const internalRequestId = status === 500 ? requestIdOf(c.get('requestId')) : undefined
-        const kept = internalErrorLogSuffix(error, internalRequestId)
-        logError(
-          `[server] ${c.req.method} ${redactSecretPath(c.req.path)} → ${status}${kept}`,
-          error
-        )
+  const authContext = await resolveAuthContext(app, config.domainContext)
 
-        // Content negotiation by ROUTE FAMILY, not by `Accept` header: `/api/*` is
-        // a machine surface and must always answer with the canonical error
-        // envelope every other 4xx/5xx uses, so one client-side decoder covers
-        // every failure. Page routes keep the human-facing rendered error page.
-        if (isApiPath(c.req.path)) {
-          if (status === 404) return c.json(notFoundBody(apiErrorMessage(error, status)), 404)
-          return c.json(
-            {
-              success: false,
-              message: apiErrorMessage(error, status),
-              code: apiErrorCodeForStatus(status),
-              ...(internalRequestId === undefined ? {} : { requestId: internalRequestId }),
-            },
-            status
-          )
-        }
+  const guarded = mountGuardChain(new Hono(), {
+    app,
+    domainContext: config.domainContext,
+    renderNotFoundPage,
+    notFoundBody,
+    crossSiteGuardFor: crossSiteRequestGuard,
+  })
+  const honoWithLogger = mountRequestMiddleware(guarded, app, configHash)
 
-        // Non-API: an explicitly-bodied `HTTPException` wins (the raiser chose
-        // that response); anything else renders the error page.
-        if (error instanceof HTTPException && error.res !== undefined) {
-          return error.getResponse()
-        }
-        return c.html(await renderErrorPage(app, undefined, internalRequestId), status)
-      })
-  )
+  // Bootstrap claim route — mounted unconditionally; handler returns 404
+  // when not in bootstrap mode. Mounted FIRST so it intercepts before
+  // the auth-routes middleware sees it as an admin path.
+  const honoWithBootstrap = setupBootstrapRoutes(honoWithLogger, app)
+
+  const honoWithApi = mountApiStack(honoWithBootstrap, config, authContext)
+  const honoWithRoutes = await mountSiteStack(honoWithApi, config, authContext)
+
+  return attachErrorBoundary(honoWithRoutes, {
+    app,
+    renderNotFoundPage,
+    renderErrorPage,
+    notFoundBody,
+  })
 }

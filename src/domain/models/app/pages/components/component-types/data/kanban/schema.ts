@@ -86,7 +86,7 @@ export const KanbanGroupBySchema = Schema.Struct({
       })
     ).annotate({
       description:
-        'A fixed width, in px or rem, for named columns from the md breakpoint up — typically the narrow closing columns of a pipeline. The other columns follow columnSizing.',
+        'A fixed width, in px or rem, for named columns from the md breakpoint up, typically the narrow closing columns of a pipeline. The other columns follow columnSizing.',
       examples: [{ Won: '6rem', Lost: '6rem' }],
     })
   ),
@@ -151,7 +151,7 @@ export const KanbanSwimlanesSchema = Schema.Struct({
   /** Field name whose distinct values become the board's lanes */
   field: Schema.String.annotate({
     description:
-      'Field name whose distinct values create kanban swimlanes — the board’s second grouping axis, crossing the columns (typically a select/status field)',
+      'Field name whose distinct values create kanban swimlanes: the board’s second grouping axis, crossing the columns (typically a select/status field)',
     examples: ['team', 'priority', 'category'],
   }),
   /**
@@ -221,7 +221,7 @@ export const KanbanCardFooterItemSchema = Schema.Struct({
       'currency',
     ]).annotate({
       description:
-        "How to format the field value in the footer — `currency` formats a number with the bound column's own currency, precision and separators",
+        "How to format the field value in the footer. `currency` formats a number with the bound column's own currency, precision and separators",
     })
   ),
 }).annotate({
@@ -282,7 +282,7 @@ export const KanbanCardSchema = Schema.Struct({
   colorField: Schema.optional(
     Schema.String.annotate({
       howTo:
-        'Nothing validates this name. A misspelling, or a field with no options, is not an error — the board simply stays monochrome and nothing reports the typo.',
+        'Nothing validates this name. A misspelling, or a field with no options, is not an error: the board simply stays monochrome and nothing reports the typo.',
       description: 'Field name whose values determine card background color',
       examples: ['priority', 'category'],
     })

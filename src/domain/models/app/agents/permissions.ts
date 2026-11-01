@@ -31,16 +31,30 @@ export const AgentPermissionsSchema = Schema.Struct({
   /** User type discriminator — always 'agent' for AI agents */
   type: Schema.Literal('agent').pipe(
     Schema.annotate({
-      description: "User type discriminator — always 'agent' for AI agents",
+      description: "User type discriminator, always 'agent' for AI agents",
     })
   ),
 
-  /** Who can trigger/invoke this agent (e.g., via chat, API, automations) */
+  /**
+   * Who can trigger/invoke this agent (e.g., via chat, API, automations).
+   *
+   * `'none'` is agent-only: no person may reach the agent, admins included.
+   * It is the one value under which an agent may hold `code.runTypescript`.
+   */
   trigger: Schema.optional(
-    PermissionValueSchema.pipe(
+    Schema.Union([
+      PermissionValueSchema,
+      Schema.Literal('none').pipe(
+        Schema.annotate({
+          description:
+            'No person may chat with, call or decide for this agent, admins included. It runs only from the `ai/agent` steps of automations and from its own `schedule`.',
+        })
+      ),
+    ]).pipe(
       Schema.annotate({
         description:
-          "Who can trigger this agent. 'all', 'authenticated', or role array ['admin', 'member'].",
+          "Who can trigger this agent: 'all', 'authenticated', a role list such as ['admin', 'member'], or 'none' for an agent only automations and its own schedule run. An admin passes any role list but not 'none'. An agent whose tools include `code.runTypescript` must declare 'none'.",
+        defaultNote: 'Any signed-in person may trigger the agent.',
       })
     )
   ),

@@ -312,7 +312,6 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Mc
       trigger: MANUAL_ENTRY,
       automationId,
       app,
-      processEnv: process.env,
       triggerData: { body: envelope.args },
       handlers: defaultActionHandlers,
       userId: caller.userId,

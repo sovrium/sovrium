@@ -31,7 +31,7 @@ import {
   type GroupMembershipOutcome,
 } from '@/application/use-cases/auth/group-membership'
 import { logError } from '@/infrastructure/logging/logger'
-import { unknownAccountOutcome } from './record-caller-gate'
+import { unknownAccountOutcome } from './record/caller-gate'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { App } from '@/domain/models/app'

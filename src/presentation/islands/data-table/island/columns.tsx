@@ -204,8 +204,11 @@ function buildLeadingColumns(
   showRowNumbers: boolean | undefined,
   rowNumberOffset: number | undefined
 ): DataTableColumnDef[] {
+  // A multi-select grid whose checked rows nothing can act on draws no
+  // checkbox (`showCheckboxes` is resolved at the island boundary).
   const selectionEnabled =
-    selectionConfig?.mode === 'single' || selectionConfig?.mode === 'multiple'
+    selectionConfig?.mode === 'single' ||
+    (selectionConfig?.mode === 'multiple' && selectionConfig.showCheckboxes !== false)
   return [
     ...(selectionEnabled ? [buildSelectionColumn(selectionConfig?.mode)] : []),
     ...(showRowNumbers === true ? [buildRowNumberColumn(rowNumberOffset ?? 0)] : []),

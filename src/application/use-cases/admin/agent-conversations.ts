@@ -34,6 +34,8 @@ import {
   type AdminAgentConversationsDatabaseError,
   type AdminAgentConversationsListFilters,
 } from '@/application/ports/repositories/agents/admin-agent-conversations-repository'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import {
   agentConversationsListResponseSchema,
   agentConversationDetailResponseSchema,
@@ -41,7 +43,6 @@ import {
   type AgentConversationMessage,
   type AgentConversationHeader,
 } from '@/domain/models/api/admin/agents/conversations'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import {
   withTableLabels,
   withToolLabels,
@@ -185,9 +186,12 @@ const PERIOD_DAYS: Readonly<Record<ConversationsPeriod, number>> = { '7d': 7, '3
  * development host, so a pinned host answers on its pinned day. The browser
  * computes no date.
  */
-function windowStart(input: Readonly<AgentConversationsListInput>): string | undefined {
+function windowStart(
+  input: Readonly<AgentConversationsListInput>,
+  env: Readonly<Record<string, string | undefined>>
+): string | undefined {
   if (input.period === undefined) return input.from
-  const start = serverNow().getTime() - PERIOD_DAYS[input.period] * 86_400_000
+  const start = serverNow(env).getTime() - PERIOD_DAYS[input.period] * 86_400_000
   const from = input.from === undefined ? Number.NEGATIVE_INFINITY : Date.parse(input.from)
   return new Date(Math.max(start, from)).toISOString()
 }
@@ -202,9 +206,10 @@ function windowStart(input: Readonly<AgentConversationsListInput>): string | und
  */
 function buildListFilters(
   input: Readonly<AgentConversationsListInput>,
-  decoded: { readonly value: string; readonly id: string } | null
+  decoded: { readonly value: string; readonly id: string } | null,
+  env: Readonly<Record<string, string | undefined>>
 ): AdminAgentConversationsListFilters {
-  const from = windowStart(input)
+  const from = windowStart(input, env)
   return {
     agentName: input.agentName,
     ...(from !== undefined ? { from } : {}),
@@ -244,7 +249,7 @@ export type AgentConversationsListOutcome =
  * island loads at most 200 threads per agent and never follows the cursor, so
  * before this, conversation 201 was reported as not existing.
  */
-export const BuildAgentConversations = (
+export const buildAgentConversations = (
   input: AgentConversationsListInput
 ): Effect.Effect<
   AgentConversationsListOutcome,
@@ -256,7 +261,7 @@ export const BuildAgentConversations = (
 
     const decoded = input.cursor ? decodeConversationsCursor(input.cursor) : null
 
-    const rows = yield* repo.listConversations(buildListFilters(input, decoded))
+    const rows = yield* repo.listConversations(buildListFilters(input, decoded, yield* ProcessEnv))
 
     const pageRows = rows.slice(0, input.limit)
     const items = pageRows.map((row) => buildConversationItem(row))
@@ -308,7 +313,7 @@ export type AgentConversationDetailOutcome =
  * different agent, or does not exist) resolves to `NotFound`. On a hit, every
  * message is loaded chronologically and shaped into the canonical transcript.
  */
-export const BuildAgentConversationDetail = (
+export const buildAgentConversationDetail = (
   agentName: string,
   conversationId: string,
   labelOf: TableLabelOf = () => undefined,
@@ -352,7 +357,7 @@ const EXPORT_PAGE = 200
  * the export walks the same `(updatedAt, id)` seek the cursor does until the
  * match stream ends.
  */
-export const ListAllAgentConversations = (
+export const listAllAgentConversations = (
   input: Omit<AgentConversationsListInput, 'cursor' | 'limit'>
 ): Effect.Effect<
   ReadonlyArray<AgentConversationListItem>,
@@ -361,6 +366,7 @@ export const ListAllAgentConversations = (
 > =>
   Effect.gen(function* () {
     const repo = yield* AdminAgentConversationsRepository
+    const env = yield* ProcessEnv
     const walk = (
       cursor: { readonly value: string; readonly id: string } | null,
       found: ReadonlyArray<AgentConversationListItem>
@@ -369,7 +375,7 @@ export const ListAllAgentConversations = (
       AdminAgentConversationsDatabaseError
     > =>
       Effect.flatMap(
-        repo.listConversations(buildListFilters({ ...input, limit: EXPORT_PAGE }, cursor)),
+        repo.listConversations(buildListFilters({ ...input, limit: EXPORT_PAGE }, cursor, env)),
         (rows) => {
           const items = [...found, ...rows.slice(0, EXPORT_PAGE).map(buildConversationItem)]
           const last = items.at(-1)

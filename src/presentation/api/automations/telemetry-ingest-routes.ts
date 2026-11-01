@@ -6,9 +6,10 @@
  */
 
 import { declaresTelemetryProtocol } from '@/domain/models/app/automations/trigger/webhook-telemetry-service'
+import { acceptsUploadBody } from '@/presentation/api/middleware/request-body-limit'
 import { handleOtlpLogs, handleSentryEnvelope } from './telemetry-ingest-handler'
 import type { App } from '@/domain/models/app'
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
 
 /**
  * The standard paths of each telemetry protocol an automation declares, and
@@ -20,10 +21,12 @@ import type { Hono } from 'hono'
  * ceiling (`api-ip-ceiling.ts`).
  */
 export const chainTelemetryIngestRoutes = <T extends Hono>(honoApp: T, app: App): T => {
+  // Its own streamed cap (`telemetry-ingest-body.ts`), not the 1 MiB `/api/*` one.
+  const sentryEnvelope = acceptsUploadBody((c: Context) => handleSentryEnvelope(c, app))
   const withSentry = declaresTelemetryProtocol(app.automations, 'sentry')
     ? (honoApp
-        .post('/api/:project/envelope', (c) => handleSentryEnvelope(c, app))
-        .post('/api/:project/envelope/', (c) => handleSentryEnvelope(c, app)) as T)
+        .post('/api/:project/envelope', sentryEnvelope)
+        .post('/api/:project/envelope/', sentryEnvelope) as T)
     : honoApp
   return declaresTelemetryProtocol(app.automations, 'otlp-logs')
     ? (withSentry.post('/v1/logs', (c) => handleOtlpLogs(c, app)) as T)

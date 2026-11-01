@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The grammar of the PUBLIC changelog, as data.
  *
@@ -365,9 +367,6 @@ const SECTION_KINDS: ReadonlySet<string> = new Set([
   'performance',
   'other',
 ])
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const isEntry = (value: unknown): value is ReleaseNoteEntry =>
   isRecord(value) &&

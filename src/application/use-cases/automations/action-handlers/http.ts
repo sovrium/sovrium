@@ -6,39 +6,67 @@
  */
 
 import { Effect } from 'effect'
+import { OutboundHttp, outboundText } from '@/application/ports/services/outbound-http'
 import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
+import { parseJsonResponseBody } from '@/domain/kernel/url/json-response-body'
 import { appendQueryObject } from '@/domain/kernel/url/query-string'
-import { guardedFetch, guardedText } from '@/infrastructure/egress/guarded-fetch'
 import { connectionHeaderRefusal, resolveConnectionHeaders, withAuthQuery } from './auth-headers'
+import { boundTarget } from './credential-binding'
+import { decodedHandler } from './decoded-handler'
 import { blockedRequestFailure, httpStatusFailure, requestFailure } from './http-failure'
-import { actionAttributes, numberProp, serializeActionBody, stringProp } from './shared'
-import type { ActionHandler, ActionOutcome, BodySerializationError } from './shared'
+import {
+  HttpDeleteSettings,
+  HttpGetSettings,
+  HttpPatchSettings,
+  HttpPostSettings,
+  HttpPutSettings,
+  HttpRequestSettings,
+} from './http-settings'
+import { actionAttributes, serializeActionBody } from './shared'
+import type { DecodedAction, TypedActionHandler } from './decoded-handler'
+import type { HttpBodyVerbAction, HttpCommonProps } from './http-settings'
+import type { ActionOutcome, AutomationContext, BodySerializationError } from './shared'
+import type { App } from '@/domain/models/app'
 
 /**
- * The declared `props.timeout` window, in ms. Mirrors the schema's
- * `Schema.between(1000, 120_000)` on all six `http/*` operators.
+ * Where a request goes and with which headers: the url with its `query`, and
+ * the `headers` merged with the credential of the named `connection`. A
+ * connection that cannot authenticate the request refuses it here.
  *
- * A decoded config can never land outside the window, but the code-action
- * dispatch path (`run/action-invokers.ts`) builds a synthetic action and
- * dispatches it WITHOUT schema validation, so an out-of-range number reaches
- * the handler unchecked. Clamping here — rather than falling back to the
- * default — keeps a `timeout: 200` closest to what the author asked for
- * instead of silently granting it the full 15s.
+ * Each header is sent as its text: a template naming a number fills one in,
+ * and the request has always carried it as its digits.
  */
-const HTTP_TIMEOUT_MIN_MS = 1000
-const HTTP_TIMEOUT_MAX_MS = 120_000
+const connectedTarget = (props: HttpCommonProps, app: App, automation: AutomationContext) =>
+  Effect.gen(function* () {
+    const url = appendQueryObject(props.url, props.query)
+    const baseHeaders = Object.fromEntries(
+      Object.entries(props.headers ?? {}).map(([name, value]) => [name, String(value)])
+    )
+    const merged =
+      props.connection !== undefined && props.connection !== ''
+        ? yield* resolveConnectionHeaders(app, automation, baseHeaders, props.connection)
+        : { headers: baseHeaders }
+    const refusal = connectionHeaderRefusal(merged)
+    if (refusal !== undefined) return refusal
+    return yield* boundTarget(app, props.connection, withAuthQuery(url, merged), merged)
+  })
 
 /**
  * The per-request timeout budget: `props.timeout` when declared, otherwise
- * {@link HTTP_REQUEST_TIMEOUT_MS}.
+ * {@link HTTP_REQUEST_TIMEOUT_MS}. The window (1000-120000 ms, a whole number)
+ * is the schema's, checked where the action is dispatched, so a script's
+ * `timeout: 200` is refused rather than quietly stretched to the minimum.
  *
  * 15 000 ms is the real fallback, not 30 000: a 30 000 ms default would
  * silently double the budget of every `http/*` action that declares nothing.
  */
-const timeoutMsOf = (props: Readonly<Record<string, unknown>>): number => {
-  const declared = numberProp(props, 'timeout', HTTP_REQUEST_TIMEOUT_MS)
-  return Math.min(Math.max(Math.trunc(declared), HTTP_TIMEOUT_MIN_MS), HTTP_TIMEOUT_MAX_MS)
-}
+const timeoutMsOf = (props: HttpCommonProps): number => props.timeout ?? HTTP_REQUEST_TIMEOUT_MS
+
+/** An empty url, which a template naming nothing can fill in. */
+const missingUrl = (operator: string): ActionOutcome => ({
+  status: 'failure',
+  error: `http.${operator} requires a url`,
+})
 
 /**
  * `http/request` handler — performs an outbound HTTP request, bounded by
@@ -56,47 +84,40 @@ const timeoutMsOf = (props: Readonly<Record<string, unknown>>): number => {
  * verbatim; JSON-shaped bodies are stringified on the way out — unless
  * `props.contentType` declares another encoding.
  */
-export const handleHttpRequest: ActionHandler = (action, app, automation) =>
+const runHttpRequest: TypedActionHandler<DecodedAction<typeof HttpRequestSettings>> = (
+  action,
+  app,
+  automation
+) =>
   Effect.gen(function* () {
-    const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-    const url = appendQueryObject(stringProp(props, 'url'), props['query'])
-    if (!url) return { status: 'failure', error: 'http.request requires a url' } as const
-
-    const method = String(props['method'] ?? 'GET')
-    const baseHeaders = (props['headers'] as Record<string, string> | undefined) ?? {}
-    const connectionName = stringProp(props, 'connection')
-
-    const merged =
-      connectionName !== ''
-        ? yield* resolveConnectionHeaders(app, automation, baseHeaders, connectionName)
-        : { headers: baseHeaders }
-
-    const refusal = connectionHeaderRefusal(merged)
-    if (refusal !== undefined) return refusal
+    const { props } = action
+    if (props.url === '') return missingUrl('request')
+    const target = yield* connectedTarget(props, app, automation)
+    if ('status' in target) return target
     // `http/request` declares `contentType` but has never defaulted a
     // Content-Type header of its own, so the shorthand is applied only when
     // the config asks for it — an absent `contentType` keeps the historical
     // serialize-and-send-no-header behaviour byte for byte.
     const bodyResult = yield* Effect.result(
-      applyContentTypeShorthand(props['body'], merged.headers, shorthandOf(props))
+      applyContentTypeShorthand(props.body, target.merged.headers, props.contentType)
     )
     if (bodyResult._tag === 'Failure') {
       return { status: 'failure', error: bodyResult.failure.message } as const
     }
     const { body, headers } = bodyResult.success
-    // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
-    return yield* Effect.promise(() =>
-      performHttpWithResponseOutput({
-        url: withAuthQuery(url, merged),
-        method,
-        headers,
-        body,
-        timeoutMs: timeoutMsOf(props),
-      })
-    )
+    return yield* performHttpWithResponseOutput({
+      url: target.url,
+      credentialHeaders: target.merged.credentialHeaders,
+      method: props.method,
+      headers,
+      body,
+      timeoutMs: timeoutMsOf(props),
+    })
   }).pipe(
     Effect.withSpan('automations.handle-http-request', { attributes: actionAttributes(action) })
   )
+
+export const handleHttpRequest = decodedHandler(HttpRequestSettings, runHttpRequest)
 
 /**
  * The hard cap on a captured response body, in BYTES: the body is read up to
@@ -110,47 +131,6 @@ export const handleHttpRequest: ActionHandler = (action, app, automation) =>
 const RESPONSE_BODY_CAP = 65_536
 
 /**
- * True when the `Content-Type` header (any casing — RFC 7230 §3.2 makes HTTP
- * field names case-insensitive) declares a JSON media type. Matches the
- * `application/json` family and the `+json` structured-syntax suffix
- * (RFC 6839, e.g. `application/vnd.api+json`).
- */
-const isJsonContentType = (headers: Readonly<Record<string, string>>): boolean => {
-  const entry = Object.entries(headers).find(([k]) => k.toLowerCase() === 'content-type')
-  const value = (entry?.[1] ?? '').toLowerCase()
-  return value.includes('application/json') || value.includes('+json')
-}
-
-/**
- * Attempt to expose a STRUCTURED, JSON-parsed `body` for the response so a
- * later step can read a field via `{{steps.X.body.<key>}}`
- * The parsed value is
- * only surfaced when the `Content-Type` declares JSON OR the raw text parses
- * as a JSON object/array — primitive JSON (a bare number/string/bool) is not
- * worth a dotted-path lookup and is left out so non-JSON responses keep the
- * raw-text-only contract (…-003 back-compat). Returns `undefined` when no
- * parsed body should be exposed.
- */
-const parseJsonResponseBody = (
-  body: string | undefined,
-  headers: Readonly<Record<string, string>>
-): unknown => {
-  if (body === undefined || body === '') return undefined
-  const looksJson = isJsonContentType(headers)
-  try {
-    // The response shape is arbitrary upstream JSON (no single schema
-    // applies); we expose it as an opaque object for dotted-path templating.
-    const parsed: unknown = JSON.parse(body)
-    if (typeof parsed === 'object' && parsed !== null) return parsed
-    // Bare JSON primitive — only surface it when the header explicitly says
-    // JSON; otherwise leave non-JSON responses untouched.
-    return looksJson ? parsed : undefined
-  } catch {
-    return undefined
-  }
-}
-
-/**
  * Perform an outbound HTTP request and surface the response as `output` so
  * subsequent steps can read it via `context.steps.<name>.response.{status,
  * headers, body}`. Used by the convenience operators (`http/get`, `http/post`
@@ -162,91 +142,84 @@ const parseJsonResponseBody = (
  * own the encoding + Content-Type decision so this helper stays
  * method-agnostic.
  */
-const performHttpWithResponseOutput = async (input: {
+const performHttpWithResponseOutput = (input: {
   readonly url: string
   readonly method: string
   readonly headers: Record<string, string>
   readonly body?: string | undefined
   readonly timeoutMs: number
-}): Promise<ActionOutcome> => {
-  const { url, method, headers, body: requestBody, timeoutMs } = input
-  // SSRF guard on the URL AND on every redirect hop: a misconfigured or
-  // hostile target can't steer the http/* action handler to internal services.
-  try {
-    const sent = await guardedFetch(
+  readonly credentialHeaders?: readonly string[] | undefined
+}): Effect.Effect<ActionOutcome, never, OutboundHttp> =>
+  Effect.gen(function* () {
+    const { url, method, headers, body: requestBody, timeoutMs, credentialHeaders } = input
+    const { guardedFetch } = yield* OutboundHttp
+    // SSRF guard on the URL AND on every redirect hop: a misconfigured or
+    // hostile target can't steer the http/* action handler to internal services.
+    return yield* guardedFetch(
       url,
       { method, headers, ...(requestBody !== undefined ? { body: requestBody } : {}) },
-      { timeoutMs, maxBodyBytes: RESPONSE_BODY_CAP }
+      { timeoutMs, maxBodyBytes: RESPONSE_BODY_CAP, credentialHeaders: credentialHeaders ?? [] }
+    ).pipe(
+      Effect.map((sent): ActionOutcome => {
+        // A refusal of the outbound guard: nothing was sent (`error.code: 'blocked'`).
+        if (!sent.ok) return blockedRequestFailure(sent.message)
+        const { response } = sent
+        const { truncated } = response
+        const body = outboundText(response)
+        const responseHeaders: Readonly<Record<string, string>> = Object.fromEntries(
+          response.headers.entries()
+        )
+        // `truncated` is emitted only when true: an absent key keeps the envelope
+        // of every under-cap response byte-identical to what it has always been.
+        const responseEnvelope = {
+          status: response.status,
+          headers: responseHeaders,
+          body,
+          ...(truncated ? { truncated: true } : {}),
+        }
+        // Expose a STRUCTURED, JSON-parsed `body` ALONGSIDE the raw-text
+        // `response.body` so a later step can read a field via
+        // `{{steps.X.body.<key>}}`. The raw text stays at
+        // `{{steps.X.response.body}}` for back-compat. Non-JSON responses leave
+        // `parsedBody` undefined → only the raw envelope is exposed.
+        const parsedBody = parseJsonResponseBody(body, responseHeaders)
+        const parsedBodyField = parsedBody !== undefined ? { body: parsedBody } : {}
+        if (!response.ok) {
+          return httpStatusFailure(response.status, body, {
+            response: responseEnvelope,
+            ...parsedBodyField,
+          })
+        }
+        return { status: 'success', output: { response: responseEnvelope, ...parsedBodyField } }
+      }),
+      // Sent and unanswered: a timeout, an unresolved host, a refused or
+      // reset connection, an untrusted certificate (`error.code`).
+      Effect.catchTag('OutboundTransportError', (failure) =>
+        Effect.succeed(requestFailure(failure.cause))
+      )
     )
-    // A refusal of the outbound guard: nothing was sent (`error.code: 'blocked'`).
-    if (!sent.ok) return blockedRequestFailure(sent.message)
-    const { response } = sent
-    const { truncated } = response
-    const body = guardedText(response)
-    const responseHeaders: Readonly<Record<string, string>> = Object.fromEntries(
-      response.headers.entries()
-    )
-    // `truncated` is emitted only when true: an absent key keeps the envelope
-    // of every under-cap response byte-identical to what it has always been.
-    const responseEnvelope = {
-      status: response.status,
-      headers: responseHeaders,
-      body,
-      ...(truncated ? { truncated: true } : {}),
-    }
-    // Expose a STRUCTURED, JSON-parsed `body` ALONGSIDE the raw-text
-    // `response.body` so a later step can read a field via
-    // `{{steps.X.body.<key>}}`. The raw text stays at
-    // `{{steps.X.response.body}}` for back-compat. Non-JSON responses leave
-    // `parsedBody` undefined → only the raw envelope is exposed.
-    const parsedBody = parseJsonResponseBody(body, responseHeaders)
-    const parsedBodyField = parsedBody !== undefined ? { body: parsedBody } : {}
-    if (!response.ok) {
-      return httpStatusFailure(response.status, body, {
-        response: responseEnvelope,
-        ...parsedBodyField,
-      })
-    }
-    return { status: 'success', output: { response: responseEnvelope, ...parsedBodyField } }
-  } catch (error) {
-    // Sent and unanswered: a timeout, an unresolved host, a refused or
-    // reset connection, an untrusted certificate (`error.code`).
-    return requestFailure(error)
-  }
-}
+  })
 
 /**
  * `http/get` handler — convenience operator over `performHttpWithResponseOutput`
- * with method preset to `GET`. The schema (`HttpGetActionSchema`) rejects a
- * `body` field at decode time so misuse surfaces in YAML validation; this
- * handler does not look at `props.body` even defensively.
+ * with method preset to `GET`. The schema (`HttpGetActionSchema`) refuses a
+ * `body`, on every road the action comes by; this handler never reads one.
  */
-export const handleHttpGet: ActionHandler = (action, app, automation) =>
+export const handleHttpGet = decodedHandler(HttpGetSettings, (action, app, automation) =>
   Effect.gen(function* () {
-    const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-    const url = appendQueryObject(stringProp(props, 'url'), props['query'])
-    if (!url) return { status: 'failure', error: 'http.get requires a url' } as const
-
-    const baseHeaders = (props['headers'] as Record<string, string> | undefined) ?? {}
-    const connectionName = stringProp(props, 'connection')
-
-    const merged =
-      connectionName !== ''
-        ? yield* resolveConnectionHeaders(app, automation, baseHeaders, connectionName)
-        : { headers: baseHeaders }
-
-    const refusal = connectionHeaderRefusal(merged)
-    if (refusal !== undefined) return refusal
-    // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
-    return yield* Effect.promise(() =>
-      performHttpWithResponseOutput({
-        url: withAuthQuery(url, merged),
-        method: 'GET',
-        headers: merged.headers,
-        timeoutMs: timeoutMsOf(props),
-      })
-    )
+    const { props } = action
+    if (props.url === '') return missingUrl('get')
+    const target = yield* connectedTarget(props, app, automation)
+    if ('status' in target) return target
+    return yield* performHttpWithResponseOutput({
+      url: target.url,
+      credentialHeaders: target.merged.credentialHeaders,
+      method: 'GET',
+      headers: target.merged.headers,
+      timeoutMs: timeoutMsOf(props),
+    })
   }).pipe(Effect.withSpan('automations.handle-http-get', { attributes: actionAttributes(action) }))
+)
 
 /**
  * Returns true when `headers` already declares a `Content-Type` value (any
@@ -271,15 +244,6 @@ const CONTENT_TYPE_BY_SHORTHAND = {
 } as const
 
 type ContentTypeShorthand = keyof typeof CONTENT_TYPE_BY_SHORTHAND
-
-const shorthandOf = (
-  props: Readonly<Record<string, unknown>>
-): ContentTypeShorthand | undefined => {
-  const raw = props['contentType']
-  return typeof raw === 'string' && raw in CONTENT_TYPE_BY_SHORTHAND
-    ? (raw as ContentTypeShorthand)
-    : undefined
-}
 
 /**
  * URL-encode a JSON-shaped body for `contentType: form`. Scalar values are
@@ -385,42 +349,29 @@ const buildPostRequestBody = (
  * ([internal ref]-{POST,PUT,PATCH}-002) and honour an explicit
  * Content-Type override (…-003). The only difference is the HTTP method.
  */
-const makeHttpBodyVerbHandler =
-  (method: 'POST' | 'PUT' | 'PATCH'): ActionHandler =>
+const runHttpBodyVerb =
+  (method: 'POST' | 'PUT' | 'PATCH'): TypedActionHandler<HttpBodyVerbAction> =>
   (action, app, automation) =>
     Effect.gen(function* () {
-      const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-      const url = appendQueryObject(stringProp(props, 'url'), props['query'])
-      if (!url)
-        return { status: 'failure', error: `http.${method.toLowerCase()} requires a url` } as const
-
-      const baseHeaders = (props['headers'] as Record<string, string> | undefined) ?? {}
-      const connectionName = stringProp(props, 'connection')
-
-      const merged =
-        connectionName !== ''
-          ? yield* resolveConnectionHeaders(app, automation, baseHeaders, connectionName)
-          : { headers: baseHeaders }
-
-      const refusal = connectionHeaderRefusal(merged)
-      if (refusal !== undefined) return refusal
+      const { props } = action
+      if (props.url === '') return missingUrl(method.toLowerCase())
+      const target = yield* connectedTarget(props, app, automation)
+      if ('status' in target) return target
       const bodyResult = yield* Effect.result(
-        buildPostRequestBody(props['body'], merged.headers, shorthandOf(props))
+        buildPostRequestBody(props.body, target.merged.headers, props.contentType)
       )
       if (bodyResult._tag === 'Failure') {
         return { status: 'failure', error: bodyResult.failure.message } as const
       }
       const { body, headers } = bodyResult.success
-      // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
-      return yield* Effect.promise(() =>
-        performHttpWithResponseOutput({
-          url: withAuthQuery(url, merged),
-          method,
-          headers,
-          body,
-          timeoutMs: timeoutMsOf(props),
-        })
-      )
+      return yield* performHttpWithResponseOutput({
+        url: target.url,
+        credentialHeaders: target.merged.credentialHeaders,
+        method,
+        headers,
+        body,
+        timeoutMs: timeoutMsOf(props),
+      })
     })
 
 /**
@@ -429,13 +380,13 @@ const makeHttpBodyVerbHandler =
  * JSON-shaped bodies, but honours an
  * explicit Content-Type override (POST-003).
  */
-export const handleHttpPost: ActionHandler = makeHttpBodyVerbHandler('POST')
+export const handleHttpPost = decodedHandler(HttpPostSettings, runHttpBodyVerb('POST'))
 
 /** `http/put` handler — like {@link handleHttpPost} but method preset to `PUT` (full resource replacement). */
-export const handleHttpPut: ActionHandler = makeHttpBodyVerbHandler('PUT')
+export const handleHttpPut = decodedHandler(HttpPutSettings, runHttpBodyVerb('PUT'))
 
 /** `http/patch` handler — like {@link handleHttpPost} but method preset to `PATCH` (partial resource update). */
-export const handleHttpPatch: ActionHandler = makeHttpBodyVerbHandler('PATCH')
+export const handleHttpPatch = decodedHandler(HttpPatchSettings, runHttpBodyVerb('PATCH'))
 
 /**
  * `http/delete` handler — convenience operator over `performHttpWithResponseOutput`
@@ -443,36 +394,25 @@ export const handleHttpPatch: ActionHandler = makeHttpBodyVerbHandler('PATCH')
  * one (e.g. bulk-deletion payloads) but does NOT default a Content-Type — the
  * caller sets one explicitly when needed.
  */
-export const handleHttpDelete: ActionHandler = (action, app, automation) =>
+export const handleHttpDelete = decodedHandler(HttpDeleteSettings, (action, app, automation) =>
   Effect.gen(function* () {
-    const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-    const url = appendQueryObject(stringProp(props, 'url'), props['query'])
-    if (!url) return { status: 'failure', error: 'http.delete requires a url' } as const
-
-    const baseHeaders = (props['headers'] as Record<string, string> | undefined) ?? {}
-    const connectionName = stringProp(props, 'connection')
-
-    const merged =
-      connectionName !== ''
-        ? yield* resolveConnectionHeaders(app, automation, baseHeaders, connectionName)
-        : { headers: baseHeaders }
-
-    const refusal = connectionHeaderRefusal(merged)
-    if (refusal !== undefined) return refusal
-    const bodyResult = yield* Effect.result(serializeActionBody(props['body']))
+    const { props } = action
+    if (props.url === '') return missingUrl('delete')
+    const target = yield* connectedTarget(props, app, automation)
+    if ('status' in target) return target
+    const bodyResult = yield* Effect.result(serializeActionBody(props.body))
     if (bodyResult._tag === 'Failure') {
       return { status: 'failure', error: bodyResult.failure.message } as const
     }
-    // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
-    return yield* Effect.promise(() =>
-      performHttpWithResponseOutput({
-        url: withAuthQuery(url, merged),
-        method: 'DELETE',
-        headers: merged.headers,
-        body: bodyResult.success,
-        timeoutMs: timeoutMsOf(props),
-      })
-    )
+    return yield* performHttpWithResponseOutput({
+      url: target.url,
+      credentialHeaders: target.merged.credentialHeaders,
+      method: 'DELETE',
+      headers: target.merged.headers,
+      body: bodyResult.success,
+      timeoutMs: timeoutMsOf(props),
+    })
   }).pipe(
     Effect.withSpan('automations.handle-http-delete', { attributes: actionAttributes(action) })
   )
+)

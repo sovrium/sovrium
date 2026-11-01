@@ -36,6 +36,7 @@ const COLUMN_FORMAT_LITERALS: Readonly<Record<ColumnFormat, true>> = {
   'time-ms': true,
   'yes-no': true,
   'check-cross': true,
+  'short-id': true,
 }
 
 /**

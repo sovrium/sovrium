@@ -10,6 +10,13 @@ import { dirname, join } from 'node:path'
 import { Effect } from 'effect'
 import { warnDeprecatedKeys } from '@/cli/runtime/config-deprecation-warnings'
 import { offerFailureReport } from '@/cli/runtime/failure-report'
+import {
+  lazyImportIndex,
+  lazyImportCli,
+  lazyImportLogger,
+  lazyImportStartupSummary,
+} from '@/cli/runtime/lazy-modules'
+import { stopCommand } from '@/cli/runtime/run-command'
 import { formatConfigRejection, isConfigRejectedError } from '@/domain/errors/config-rejected'
 import { isEngineFailureError } from '@/domain/errors/engine-failure-error'
 import { composePublishedOrigin } from '@/domain/kernel/url/published-origin'
@@ -22,7 +29,6 @@ import {
   readPublicDirEnv,
   resolveDefaultPublicDir,
 } from './option-parsing'
-import { lazyImportIndex, lazyImportCli, lazyImportLogger, lazyImportStartupSummary } from './utils'
 import { collectConfigAttribution } from './validate'
 import type { GenerateStaticOptions } from '@/application/use-cases/server/generate-static'
 import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
@@ -181,8 +187,7 @@ const exitOnBuildFailure = (
       `\n${offerFailureReport({ command: 'build', error: failure, text: formatRuntimeError(failure) })}`
     )
   }
-  // Terminate process - imperative statement required for CLI
-  process.exit(1)
+  return stopCommand(1)
 }
 
 /**
@@ -248,6 +253,7 @@ export const handleBuildCommand = async (
     durationLabel: formatDuration(durationMs),
   })
 
+  // Printing, synchronous like `printLine`: the summary is the last thing the build does.
   Effect.runSync(
     renderBuildSummary({
       app: { name: app.name, version: app.version, description: app.description },

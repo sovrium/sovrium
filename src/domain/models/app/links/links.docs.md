@@ -10,7 +10,7 @@ The `links` array declares short links that your own app serves and your own dat
 links:
   - slug: spring-promo
     to: https://example.com/pricing
-    title: Spring promo — pricing page
+    title: 'Spring promo: pricing page'
     tags:
       - q2-launch
     utm:
@@ -105,11 +105,11 @@ A scan is counted separately from a paste of the same link, so "did the flyer wo
 
 ## Tracking
 
-Clicks land in the same analytics store as your page views and honour the same settings: `respectDoNotTrack`, `excludedPaths` and `retentionDays` all apply, and no click is recorded at all unless analytics is enabled. Visitors are counted by the same cookieless hash used everywhere else; no click tracking writes a cookie.
+Clicks land in the same analytics store as your page views and honour the same settings: `respectDoNotTrack`, `respectGlobalPrivacyControl`, `excludedPaths` and `retentionDays` all apply, and no click is recorded at all unless analytics is enabled. Visitors are counted with the same server-computed daily identifier as page views; under `audience-only` short-link clicks share one identifier. No click tracking writes a cookie.
 
-Read the numbers in the operator console at `/_admin/links`: clicks over time, referrers, devices, campaigns and the raw click log, for all links together or one link at a time.
+Read the numbers in the operator console at `/_admin/links`: clicks over time, referrers, devices, campaigns and, under `analytics.profile: full`, the raw click log, for all links together or one link at a time. Referrers and campaigns of a click are stored only under `analytics.profile: full`.
 
-Every row of the admin catalog, `GET /api/admin/links`, and the detail of one link carry `clicks`: the clicks recorded for that link over the last 30 days, up to the moment of the read. The catalog takes an optional window instead — `from` and `to`, as ISO 8601 instants — which narrows the count and never which links are listed; a `from` later than `to` is answered 400. It is a window, not a lifetime total — a click outside it, or one your `retentionDays` already removed, is not counted — and a link nobody clicked reads `0`. The whole page is counted in one query, however many links it lists. A link's clicks over time, its referrers and its devices are read from the analytics endpoints, not from the catalog.
+Every row of the admin catalog, `GET /api/admin/links`, and the detail of one link carry `clicks`: the clicks recorded for that link over the last 30 days, up to the moment of the read. The catalog takes an optional window instead (`from` and `to`, as ISO 8601 instants), which narrows the count and never which links are listed; a `from` later than `to` is answered 400. It is a window, not a lifetime total: a click outside it, or one your `retentionDays` already removed, is not counted, and a link nobody clicked reads `0`. The whole page is counted in one query, however many links it lists. A link's clicks over time, its referrers and its devices are read from the analytics endpoints, not from the catalog.
 
 ## Creating links outside config
 
@@ -117,7 +117,7 @@ Links declared in config belong to the app. They ship with it and are versioned 
 
 Config always wins on every path. A console link and an automation-minted link both refuse a slug that `links[]` declares, and a config-declared link is read-only in the console: you can enable or disable it there, but editing or deleting it is refused. Configuration stays the source of truth for everything configuration declares.
 
-Runtime links answer to the same rules as declared ones. A slug must look like a slug, and a destination must be a root-relative path or an absolute `http(s)` URL — a `javascript:` or `data:` destination is refused with `400`, the same rule the config schema has always applied. Deleting a runtime link is soft: it stops resolving, and its click history stays in analytics.
+Runtime links answer to the same rules as declared ones. A slug must look like a slug, and a destination must be a root-relative path or an absolute `http(s)` URL. A `javascript:` or `data:` destination is refused with `400`, the same rule the config schema has always applied. Deleting a runtime link is soft: it stops resolving, and its click history stays in analytics.
 
 ## Validation
 

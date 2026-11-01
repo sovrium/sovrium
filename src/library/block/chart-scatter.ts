@@ -5,13 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  asComponent,
-  DATA_NOTE,
-  param,
-  PLACE_NOTE,
-  stringParam,
-} from '@/library/manifest/block-kit'
+import { asComponent, DATA_NOTE, param, PLACE_NOTE, stringParam } from '@/library/kit/block-kit'
 import {
   CHART_THEME_NOTE,
   chartCard,
@@ -19,7 +13,7 @@ import {
   chartCardHeader,
   lastSixMonths,
   SIX_MONTHS_NOTE,
-} from '@/library/manifest/chart-block-kit'
+} from '@/library/kit/chart-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** One point per record, placed by two number fields, in the chart gallery's card. */

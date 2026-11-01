@@ -11,34 +11,33 @@
  * A write tool is the records API's write over another transport, so it owes
  * the same contract — and the only way to keep owing it is to run the SAME
  * compositions rather than a list of them kept here. Before this seam the
- * create tool ran three of the create chain's rules and the update tool
- * skipped the field-condition lock, so a caller refused a value over REST
- * (a missing required field, a foreign attachment key, a record a condition
- * had locked) wrote it through MCP.
+ * create tool ran three of the create chain's rules, so a caller refused a
+ * value over REST (a missing required field, a foreign attachment key) wrote
+ * it through MCP. The table's business rules are not run here: the write
+ * itself judges them, on every road (`business-rule-gate.ts`).
  *
  *  - create: `validateRecordCreation` — readonly and computed columns,
  *    field-write permission, slug, required fields, formats, `multi-select`,
- *    `maxLinked`, attachment references and constraints, inline uploads and
- *    rich-text sanitising.
- *  - update: the field-condition lock on the stored row, the engine-managed
- *    and computed columns, then `checkRecordUpdateValues` and rich-text sanitising — what
- *    `PATCH /api/tables/:t/records/:id` runs after its gates.
+ *    `maxLinked`, attachment references and constraints, inline uploads.
+ *  - update: the engine-managed and computed columns, then
+ *    `checkRecordUpdateValues` — what `PATCH /api/tables/:t/records/:id` runs
+ *    after its gates.
+ *
+ * A `rich-text` value is cleaned, and every format checked, by the write
+ * itself on every road (`record-write-values.ts`).
  *
  * Every refusal is thrown as a JSON-RPC error carrying the records API's own
  * sentence; nothing of a stored row is echoed.
  */
 
 import { Effect } from 'effect'
-import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import {
   findComputedFieldWrites,
   readonlyFieldWriteMessage,
 } from '@/domain/models/app/tables/computed-field-write-validation'
-import { isRecordReadOnly } from '@/domain/models/app/tables/field-condition-evaluator-service'
-import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import {
-  createValidationLayer,
+  provideValidationContext,
   type FieldFormatError,
   type FieldPermissionError,
   type FieldStorageError,
@@ -47,11 +46,9 @@ import {
 import {
   checkRecordUpdateValues,
   findReadonlyUpdateField,
-  sanitizeRichTextFields,
   validateRecordCreation,
 } from '@/presentation/api/tables/record-rules'
 import { toolFailure } from './tool-call-helpers'
-import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App, Table } from '@/domain/models/app'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
@@ -107,14 +104,12 @@ export const applyCreateRules = (
   runRules(
     input,
     validateRecordCreation({ ...fields }).pipe(
-      Effect.provide(
-        createValidationLayer(input.app, input.table.name, {
-          role: input.userRole,
-          groups: input.userGroups,
-          signedOut: input.signedOut,
-          id: input.writerId,
-        })
-      )
+      provideValidationContext(input.app, input.table.name, {
+        role: input.userRole,
+        groups: input.userGroups,
+        signedOut: input.signedOut,
+        id: input.writerId,
+      })
     )
   )
 
@@ -134,43 +129,11 @@ export const applyUpdateRules = (
   return runRules(
     input,
     checkRecordUpdateValues(values).pipe(
-      Effect.andThen(sanitizeRichTextFields(values)),
-      Effect.provide(
-        createValidationLayer(input.app, input.table.name, {
-          role: input.userRole,
-          groups: input.userGroups,
-          signedOut: input.signedOut,
-        })
-      )
+      provideValidationContext(input.app, input.table.name, {
+        role: input.userRole,
+        groups: input.userGroups,
+        signedOut: input.signedOut,
+      })
     )
   )
-}
-
-/**
- * Refuse an update of a record a field `condition` has locked (`readOnly`),
- * judged on the row as it stands — the records API's 400, as invalid params.
- * Runs after the row-level gate, so a caller who may not reach the row learns
- * nothing from the lock.
- */
-export const refuseLockedRecord = async (
-  table: Table,
-  session: UserSession,
-  recordId: string,
-  app: App
-): Promise<void> => {
-  const hasConditions = table.fields.some(
-    (field) =>
-      'conditions' in field && Array.isArray(field.conditions) && field.conditions.length > 0
-  )
-  if (!hasConditions) return
-  const fetched = await Effect.runPromise(
-    Effect.result(provideTableLive(rawGetRecordProgram(session, table.name, recordId, app)))
-  )
-  if (fetched._tag === 'Failure' || !fetched.success) return
-  if (isRecordReadOnly(table.fields, fetched.success as Readonly<Record<string, unknown>>)) {
-    return toolFailure(
-      -32_602,
-      'Cannot update record: a field condition has made this record read-only'
-    )
-  }
 }

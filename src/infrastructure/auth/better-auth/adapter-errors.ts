@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { withCauseInMessage } from '@/infrastructure/errors/with-cause-in-message'
+import { withCauseInMessage } from '@/infrastructure/database/drizzle/with-cause-in-message'
 import type { drizzleAdapter } from 'better-auth/adapters/drizzle'
 
 type AuthAdapterFactory = ReturnType<typeof drizzleAdapter>

@@ -19,7 +19,7 @@
 
 import { chmodSync, lstatSync, rmSync } from 'node:fs'
 import { Effect } from 'effect'
-import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import { ServerCreationError } from '@/domain/errors/server-creation-error'
 import { logError } from '@/infrastructure/logging/logger'
 import { buildBunServeOptions } from '@/infrastructure/server/bun-listener'
 import type { Hono } from 'hono'

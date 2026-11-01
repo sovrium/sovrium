@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ============================================================================
 // Activity Log Schemas
@@ -48,15 +48,69 @@ export const activityLogSchema = Schema.Struct({
 
 /**
  * Activity log detail schema (single view, includes changes)
+ *
+ * The stored row, in its own key order: the list projects its fields one by one
+ * and this read spreads the row. A row whose author is gone reads with empty
+ * identifiers, not with no actor.
  */
 export const activityLogDetailSchema = Schema.Struct({
-  ...activityLogSchema.fields,
+  id: activityLogSchema.fields.id,
+  userId: Schema.String.annotate({
+    description: 'User who performed the action; empty when the account is gone',
+  }),
+  action: activityLogSchema.fields.action,
+  tableName: activityLogSchema.fields.tableName,
+  recordId: activityLogSchema.fields.recordId,
   changes: Schema.NullOr(
     Schema.Record(Schema.String, Schema.Unknown).annotate({
-      description: 'Field changes (null for delete actions)',
+      description: 'Field changes, limited to the fields the caller may read',
     })
   ),
-}).annotate({ title: 'sovrium:extends=ActivityLog|own=changes', identifier: 'ActivityLogDetail' })
+  createdAt: activityLogSchema.fields.createdAt,
+  user: activityLogSchema.fields.user,
+}).annotate({ identifier: 'ActivityLogDetail' })
+
+/**
+ * One entry of the agent activity feed: a human decision on a held call, or an
+ * action an agent took. Who started the run is kept for the audience rule and
+ * never reaches the wire.
+ */
+export const activityFeedEntrySchema = Schema.Union([
+  Schema.Struct({
+    action: Schema.Literals(['approval.approved', 'approval.rejected']).annotate({
+      description: 'How the held call was decided',
+    }),
+    approvalId: Schema.String.annotate({ description: 'The approval that was decided' }),
+    agentName: Schema.String.annotate({ description: 'The agent whose call was held' }),
+    actor: Schema.Struct({
+      id: Schema.String.annotate({ description: 'User who decided' }),
+      name: Schema.String.annotate({ description: 'User display name' }),
+      email: optionalField(
+        Schema.String.annotate({
+          description: "User email address. Present for an admin reader and on the reader's own",
+        })
+      ),
+    }).annotate({ description: 'Who decided' }),
+    id: Schema.String.annotate({ description: 'Feed entry identifier' }),
+    createdAt: Schema.String.annotate({ description: 'ISO 8601 timestamp of the decision' }),
+  }),
+  Schema.Struct({
+    id: Schema.String.annotate({ description: 'Feed entry identifier' }),
+    action: Schema.String.annotate({ description: 'What the agent did' }),
+    agentName: Schema.String.annotate({ description: 'The agent that acted' }),
+    actor: Schema.Struct({
+      type: Schema.Literal('agent'),
+      name: Schema.String.annotate({ description: 'The agent name' }),
+    }).annotate({ description: 'The action is attributed to the agent' }),
+    targetTable: optionalField(
+      Schema.String.annotate({ description: 'The table the action touched' })
+    ),
+    recordId: optionalField(
+      Schema.String.annotate({ description: 'The record the action touched' })
+    ),
+    createdAt: Schema.String.annotate({ description: 'ISO 8601 timestamp of the action' }),
+  }),
+]).annotate({ identifier: 'ActivityFeedEntry' })
 
 /**
  * Activity log pagination schema
@@ -82,6 +136,9 @@ export const listActivityLogsResponseSchema = Schema.Struct({
     description: 'List of activity log entries',
   }),
   pagination: activityPaginationSchema.annotate({ description: 'Pagination metadata' }),
+  entries: Schema.Array(activityFeedEntrySchema).annotate({
+    description: 'The agent activity feed: every decision and action the caller may read',
+  }),
 })
 
 /**

@@ -41,6 +41,7 @@ import {
   formatDayRelativeTime,
   formatZonedDate,
   MONTH_DAY,
+  relativeFormatterOf,
   toDate,
   YEAR,
 } from '../../../kernel/format/day-relative-time'
@@ -68,7 +69,7 @@ const formatShortDate = (
   value: unknown,
   locale: string,
   timeZone: string | undefined,
-  now: Readonly<Date> = new Date()
+  now: Readonly<Date>
 ): string =>
   formatDate(
     value,
@@ -150,9 +151,9 @@ function formatRelativeDate(value: unknown, locale: string, now: Readonly<Date>)
   if (date === undefined) return String(value)
   const diffDays = Math.floor((now.getTime() - date.getTime()) / 86_400_000)
   if (diffDays < 30) {
-    return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-diffDays, 'day')
+    return relativeFormatterOf(locale, { numeric: 'auto' }).format(-diffDays, 'day')
   }
-  const phrase = new Intl.RelativeTimeFormat(locale, { numeric: 'always' })
+  const phrase = relativeFormatterOf(locale, { numeric: 'always' })
   return diffDays < 365
     ? phrase.format(-Math.floor(diffDays / 30), 'month')
     : phrase.format(-Math.floor(diffDays / 365), 'year')
@@ -193,7 +194,7 @@ function formatRelativeTime(value: unknown, locale: string, now: Readonly<Date>)
   const date = toDate(value)
   if (date === undefined) return String(value)
   const { count, unit } = relativeOffset(date.getTime() - now.getTime())
-  const phrase = new Intl.RelativeTimeFormat(locale, { style: 'short', numeric: 'auto' })
+  const phrase = relativeFormatterOf(locale, { style: 'short', numeric: 'auto' })
   return count === 0 ? phrase.format(0, 'second') : phrase.format(count, unit)
 }
 
@@ -226,7 +227,7 @@ export interface CellFormatOptions {
    * unset. The server passes its own `now` so a development clock
    * (`SOVRIUM_DEV_CLOCK`) decides the year there too; a browser's clock is its own.
    */
-  readonly now?: Readonly<Date>
+  readonly now: Readonly<Date>
   /**
    * The unit a `duration` format reads a NUMBER in: `seconds` when the value is
    * bound to a `duration` field (its stored unit), milliseconds otherwise.
@@ -269,7 +270,7 @@ export function formatCellValue(
   value: unknown,
   format: ColumnFormat,
   locale: string,
-  options: CellFormatOptions = {}
+  options: CellFormatOptions
 ): string {
   const { currency: currencyOptions, timeZone, now, durationUnit } = options
   if (value === undefined || value === null) return ''
@@ -278,6 +279,10 @@ export function formatCellValue(
 
   const formatters: Readonly<Record<ColumnFormat, () => string>> = {
     truncate: () => (str.length > 50 ? `${str.slice(0, 50)}…` : str),
+    // A long identifier read at a glance: its first eight and last four
+    // characters. One no longer than the two halves together stays whole, so
+    // the ellipsis never stands in for nothing.
+    'short-id': () => (str.length > 12 ? `${str.slice(0, 8)}…${str.slice(-4)}` : str),
     currency: () => {
       const num = Number(value)
       return Number.isNaN(num) ? str : formatCurrencyValue(num, currencyOptions, tag)
@@ -298,10 +303,10 @@ export function formatCellValue(
       return Number.isNaN(num) ? str : formatByteCount(num, tag)
     },
     duration: () => formatElapsedDuration(value, tag, durationUnit) ?? str,
-    'relative-date': () => formatRelativeDate(value, tag, now ?? new Date()),
+    'relative-date': () => formatRelativeDate(value, tag, now),
     // Signed counterpart to the past-only `relative-date`, in the largest
     // whole unit: "5 min. ago", "in 3 hr.", « dans 5 j ».
-    'relative-time': () => formatRelativeTime(value, tag, now ?? new Date()),
+    'relative-time': () => formatRelativeTime(value, tag, now),
     'day-relative-time': () => formatDayRelativeTime(value, tag, timeZone, now),
     'day-relative-time-seconds': () => formatDayRelativeTime(value, tag, timeZone, now, true),
     'short-date': () => formatShortDate(value, tag, timeZone, now),

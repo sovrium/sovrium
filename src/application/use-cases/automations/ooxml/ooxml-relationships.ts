@@ -8,8 +8,8 @@
 import { entryText, textEntry } from './ooxml-package'
 import { stripExternalRelationships } from './ooxml-sanitize'
 import { parseXmlPart, serializePart } from './ooxml-tree'
-import type { ZipEntry } from '../action-handlers/file-zip'
-import type { ZipReadEntry } from '../action-handlers/file-zip-read'
+import type { ZipEntry } from '../action-handlers/file/zip'
+import type { ZipReadEntry } from '../action-handlers/file/zip-read'
 
 /**
  * The relationship parts of a whole package, external targets removed — the

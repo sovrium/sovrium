@@ -1,6 +1,6 @@
 # Shared Component Modules
 
-> The nine cross-cutting property modules every component type composes from — what each one means, which types carry it, and where its options are listed.
+> The nine cross-cutting property modules every component type composes from: what each one means, which types carry it, and where its options are listed.
 
 Component types do not each invent their own vocabulary. A small set of shared modules is spread into the types that opt into them, so `visibility` means the same thing on a `button` as on a `kanban`, and learning it once is enough.
 
@@ -12,33 +12,33 @@ Component types do not each invent their own vocabulary. A small set of shared m
   responsive: { md: { props: { className: 'text-sm' } } }
 ```
 
-| Module         | Present on                 | What it does                                                                                     |
-| -------------- | -------------------------- | ------------------------------------------------------------------------------------------------ |
-| `props`        | Every component            | Key-value bag rendered as HTML attributes — `className`, `variant`, and component-specific keys. |
-| `children`     | Container components       | Nested component definitions, or plain strings. Arbitrary depth.                                 |
-| `content`      | Content and layout         | Inline text or markdown, with reference substitution.                                            |
-| `dataSource`   | Sixteen data-bound types   | Binds to a table or to a system read endpoint. Listed per type, not subtracted — see below.      |
-| `visibility`   | Most components            | Whether the component is rendered at all — by session, role, capability, record or URL state.    |
-| `responsive`   | Most components            | Per-breakpoint property overrides.                                                               |
-| `interactions` | Interactive components     | Click, hover, scroll and entrance behaviour.                                                     |
-| `action`       | Form and button components | What running the component does — `crud`, `auth`, `navigate`, `automation`, `fetch`.             |
-| `i18n`         | Content components         | Per-language content variants.                                                                   |
+| Module         | Present on                 | What it does                                                                                    |
+| -------------- | -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `props`        | Every component            | Key-value bag rendered as HTML attributes: `className`, `variant`, and component-specific keys. |
+| `children`     | Container components       | Nested component definitions, or plain strings. Arbitrary depth.                                |
+| `content`      | Content and layout         | Inline text or markdown, with reference substitution.                                           |
+| `dataSource`   | Sixteen data-bound types   | Binds to a table or to a system read endpoint. Listed per type, not subtracted (see below).     |
+| `visibility`   | Most components            | Whether the component is rendered at all: by session, role, capability, record or URL state.    |
+| `responsive`   | Most components            | Per-breakpoint property overrides.                                                              |
+| `interactions` | Interactive components     | Click, hover, scroll and entrance behaviour.                                                    |
+| `action`       | Form and button components | What running the component does: `crud`, `auth`, `navigate`, `automation`, `fetch`.             |
+| `i18n`         | Content components         | Per-language content variants.                                                                  |
 
 `props` and `children` are the two universals. The rest are opt-in, and a type's own reference page is where you find out which of them it accepts.
 
-**Seven of these modules never appear in a per-type option table**: `props` and `children` together, `content`, `visibility`, `responsive`, `interactions`, `action` and `i18n`. A table lists what the type declares for itself, and those are subtracted before it is drawn. Printing them would add roughly a hundred and ninety rows to every one of the ninety types and bury the handful that are actually about that type — `button` has thirteen options of its own and two hundred and six once the modules are counted in.
+**Seven of these modules never appear in a per-type option table**: `props` and `children` together, `content`, `visibility`, `responsive`, `interactions`, `action` and `i18n`. A table lists what the type declares for itself, and those are subtracted before it is drawn. Printing them would add roughly a hundred and ninety rows to every one of the ninety types and bury the handful that are actually about that type. `button` has thirteen options of its own and two hundred and six once the modules are counted in.
 
-**`dataSource` is the exception, and deliberately so.** It is not subtracted, so it appears in full in the own table of each of the sixteen types that accept one — `chart`, `container`, `event-calendar`, `form`, `gallery`, `graph`, `kanban`, `kpi`, `list`, `matrix`, `record-field`, `record-picker`, `select`, `sheet`, `table` and `timeline`. Those types do not all mean the same thing by it — a `kpi` reads one aggregate where a `table` reads a page of rows — so the per-type description is worth the repetition, and the section below covers only what they have in common.
+**`dataSource` is the exception, and deliberately so.** It is not subtracted, so it appears in full in the own table of each of the sixteen types that accept one: `chart`, `container`, `event-calendar`, `form`, `gallery`, `graph`, `kanban`, `kpi`, `list`, `matrix`, `record-field`, `record-picker`, `select`, `sheet`, `table` and `timeline`. Those types do not all mean the same thing by it (a `kpi` reads one aggregate where a `table` reads a page of rows), so the per-type description is worth the repetition, and the section below covers only what they have in common.
 
 ## `props`
 
 An open bag. A key may hold a string, a number, a boolean, an object or an array, and a key present with no value is refused rather than ignored. Because it is open, it has no option table: what a given key means is decided by the type that reads it, and is documented on that type's page.
 
-`className` is the one key every type reads the same way — Tailwind classes appended after the component's own prestyle, so they win the cascade.
+`className` is the one key every type reads the same way: Tailwind classes appended after the component's own prestyle, so they win the cascade.
 
 ## `classes`
 
-Classes for the component's named **parts**, not just its root — the links of a `sidebar`, the title of each `list` row, the chips of a `table` column. It takes the same shape as an entry of `design.components`: `parts`, `variants`, `states` and `replace`, keyed by the same part names. Where `design.components.<type>` styles every instance of a type, `classes` styles this one, and it wins over it; `props.className` still wins over both on the root, and the accessibility floor is applied last either way.
+Classes for the component's named **parts**, not just its root: the links of a `sidebar`, the title of each `list` row, the chips of a `table` column. It takes the same shape as an entry of `design.components`: `parts`, `variants`, `states` and `replace`, keyed by the same part names. Where `design.components.<type>` styles every instance of a type, `classes` styles this one, and it wins over it; `props.className` still wins over both on the root, and the accessibility floor is applied last either way.
 
 ```yaml
 - type: sidebar
@@ -52,7 +52,7 @@ Classes for the component's named **parts**, not just its root — the links of 
 
 Naming the part is what replaces a descendant selector such as `[&_a[aria-current=page]]:bg-primary-subtle`: the part survives a change to the markup Sovrium draws, and the selector does not.
 
-**A prose part takes any margin utility.** `my-*`, `mt-*` and `mb-*` all space the prose parts — `heading1`, `paragraph`, `list`, `quote` and the rest a markdown text, a markdown page or a rich-text field draws. A step off the spacing scale paints nothing, whichever spelling it uses.
+**A prose part takes any margin utility.** `my-*`, `mt-*` and `mb-*` all space the prose parts: `heading1`, `paragraph`, `list`, `quote` and the rest a markdown text, a markdown page or a rich-text field draws. A step off the spacing scale paints nothing, whichever spelling it uses.
 
 ## `content`
 
@@ -64,15 +64,15 @@ Whether the component is rendered at all. Every gate is evaluated server-side: a
 
 <!-- sovrium:options VisibilitySchema -->
 
-The `unless…` keys are the negations of their siblings — `unlessDeclares` renders only where the app does NOT declare the capability, `unlessRuntime` only where it cannot run here. They exist so that an alternating body can carry both halves in one page: the catalogue where automations are declared, the honest empty state where they are not. Naming the same capability in both halves is refused when the config is decoded, because the component could then render nowhere.
+The `unless…` keys are the negations of their siblings. `unlessDeclares` renders only where the app does NOT declare the capability, `unlessRuntime` only where it cannot run here. They exist so that an alternating body can carry both halves in one page: the catalogue where automations are declared, the honest empty state where they are not. Naming the same capability in both halves is refused when the config is decoded, because the component could then render nowhere.
 
-`record` tests a field of the bound record with the shared condition operators, and accepts the presence flags `isEmpty: true` / `isNotEmpty: true` — a missing value, an empty text, an empty list and an empty object all count as empty, so `record: { field: phone, isNotEmpty: true }` renders only where a number exists. A checkbox compares as yes or no on either database: `record: { field: done, eq: true }` renders on the ticked records and `eq: false` on the others. `query` accepts the same flags against a page query value.
+`record` tests a field of the bound record with the shared condition operators, and accepts the presence flags `isEmpty: true` / `isNotEmpty: true`. A missing value, an empty text, an empty list and an empty object all count as empty, so `record: { field: phone, isNotEmpty: true }` renders only where a number exists. A checkbox compares as yes or no on either database: `record: { field: done, eq: true }` renders on the ticked records and `eq: false` on the others. `query` accepts the same flags against a page query value.
 
 `declares` asks what the app being served declares; `runtime` asks whether that declaration can actually run on this deployment. On a host declaring an agent with no AI provider configured, `declares: agents` renders and `runtime: ai` does not.
 
 ## `dataSource`
 
-Binds a component to rows. Either a database table or a system read endpoint — the full option list, the filter and sort vocabulary and the reference families live in Data Binding.
+Binds a component to rows. Either a database table or a system read endpoint. The full option list, the filter and sort vocabulary and the reference families live in Data Binding.
 
 The data-bound extra that rides with it is documented here, because no other page owns it. A data component draws no search box of its own: a `search-input` on the page with `publishes: { bindTo, param: q }` narrows every component subscribed to its channel with `dataSource.bindTo` and `sharedFilter: {}`, and a `search` key on a data component is refused at load, naming that replacement.
 
@@ -82,7 +82,7 @@ The data-bound extra that rides with it is documented here, because no other pag
 
 ## `responsive`, `interactions` and `action`
 
-`responsive` overrides properties per breakpoint; `interactions` declares click, hover, scroll and entrance behaviour; `action` declares what running a control does. All three are large enough to have their own reference pages — see Responsive Design, Interactions, and the action families under Interactivity.
+`responsive` overrides properties per breakpoint; `interactions` declares click, hover, scroll and entrance behaviour; `action` declares what running a control does. All three are large enough to have their own reference pages: see Responsive Design, Interactions, and the action families under Interactivity.
 
 ## `i18n`
 
@@ -92,9 +92,9 @@ Per-language variants of a component's content. An open map keyed by language co
 
 `content` and `props` values resolve four reference families at render time:
 
-- `$record.<field>` — the bound record, on a component with a record-binding ancestor.
-- `$vars.<key>` — page variables.
-- `$currentUser.<path>` — session context.
-- `$t:<key>` — a translation key from the app's language files.
+- `$record.<field>`: the bound record, on a component with a record-binding ancestor.
+- `$vars.<key>`: page variables.
+- `$currentUser.<path>`: session context.
+- `$t:<key>`: a translation key from the app's language files.
 
 A page rendered from markdown adds `$frontmatter.*`. What each one resolves to, and what happens when it resolves to nothing, is in Data Binding.

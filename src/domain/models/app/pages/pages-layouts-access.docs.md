@@ -8,9 +8,9 @@ Two page properties sit outside the component tree: `layout` wraps the body in c
 
 <!-- sovrium:options PageLayoutSchema depth=3 -->
 
-`layout` currently holds one key, `sidebar` — an **array** of sidebar sections rendered in the page's aside. Each section binds to a table and emits one entry per record, with `dataSource` and `template` both required. `template` is where the per-record expressions live: `label` and `href` both support `$record.<field>`, and `archivedField` names a field whose truthy value hides the entry.
+`layout` currently holds one key, `sidebar`: an **array** of sidebar sections rendered in the page's aside. Each section binds to a table and emits one entry per record, with `dataSource` and `template` both required. `template` is where the per-record expressions live: `label` and `href` both support `$record.<field>`, and `archivedField` names a field whose truthy value hides the entry.
 
-`activeIndicator` accepts exactly one value — `$currentUser.activeAssignment` — which marks the entry matching the tenant switcher's current scope.
+`activeIndicator` accepts exactly one value, `$currentUser.activeAssignment`, which marks the entry matching the tenant switcher's current scope.
 
 ```yaml
 name: my-app
@@ -38,7 +38,7 @@ pages:
 
 ## Data-bound sidebars
 
-A sidebar filtered on `$currentUser.assignments.<table>` renders only the records the signed-in user is assigned to; an unrestricted administrator sees them all. Unlike a page-level data source, a sidebar section that cannot resolve its `$currentUser` reference is **dropped silently** rather than failing the request — the page still renders, minus that section.
+A sidebar filtered on `$currentUser.assignments.<table>` renders only the records the signed-in user is assigned to; an unrestricted administrator sees them all. Unlike a page-level data source, a sidebar section that cannot resolve its `$currentUser` reference is **dropped silently** rather than failing the request: the page still renders, minus that section.
 
 A section lists what the records API would list the visitor, whatever its filter says: a section over a table she may not read lists nothing, and a readable one lists only the records the table's row-level read rule shows her, without the fields she may not read.
 
@@ -85,9 +85,9 @@ A component whose visibility is not met is left out of the server-rendered HTML 
 
 ### Gating on a field of the reader's account
 
-`condition` compares one field of the signed-in reader with a value, by `eq` or `neq`. The value keeps its type: a text field compares with a string, a yes/no field with `true` or `false`, and the string `'true'` never equals the boolean `true`. `$user.twoFactorEnabled` is such a yes/no field on an app that configures `auth.twoFactor` — `true` once the reader has turned two-step verification on — so one card can say which state the account is in: `condition: { field: $user.twoFactorEnabled, operator: eq, value: true }` keeps a block for a reader who is protected, `value: false` keeps one for a reader who is not, and a signed-out visitor receives neither.
+`condition` compares one field of the signed-in reader with a value, by `eq` or `neq`. The value keeps its type: a text field compares with a string, a yes/no field with `true` or `false`, and the string `'true'` never equals the boolean `true`. `$user.twoFactorEnabled` is such a yes/no field on an app that configures `auth.twoFactor` (`true` once the reader has turned two-step verification on), so one card can say which state the account is in: `condition: { field: $user.twoFactorEnabled, operator: eq, value: true }` keeps a block for a reader who is protected, `value: false` keeps one for a reader who is not, and a signed-out visitor receives neither.
 
-The condition is judged when the page is served, like every other gate here. A form that changes the field — turning two-step on or off — brings the page up to date by naming the page itself in its `onSuccess.navigate`.
+The condition is judged when the page is served, like every other gate here. A form that changes the field (turning two-step on or off) brings the page up to date by naming the page itself in its `onSuccess.navigate`.
 
 ## Gating one component on the caller's powers
 
@@ -105,21 +105,21 @@ pages:
         visibility: { capability: administer-accounts }
 ```
 
-Three powers, and only three: `admin-console` lets the caller reach the operator console at all, `administer-accounts` lets them create, ban and re-role users, and `edit-operations` lets them make the console's operational writes — retry a run, pause or resume an automation, create, re-point, disable or delete a link, connect or disconnect an account, and share the design system. `edit-operations` is held by exactly the console tier the server accepts those writes from (`admin-editor`, which an app's top role and the built-in `admin` resolve to).
+Three powers, and only three: `admin-console` lets the caller reach the operator console at all, `administer-accounts` lets them create, ban and re-role users, and `edit-operations` lets them make the console's operational writes: retry a run, pause or resume an automation, create, re-point, disable or delete a link, connect or disconnect an account, and share the design system. `edit-operations` is held by exactly the console tier the server accepts those writes from (`admin-editor`, which an app's top role and the built-in `admin` resolve to).
 
-They are genuinely different. A console viewer satisfies the first, reaches the console, and is refused on every account write and every operational write — so a surface painting a change-role or a retry control for them would be advertising something the backend answers with `404`.
+They are genuinely different. A console viewer satisfies the first, reaches the console, and is refused on every account write and every operational write. So a surface painting a change-role or a retry control for them would be advertising something the backend answers with `404`.
 
 **An unmet capability REMOVES the component, together with everything inside it.** It is not hidden with CSS and not rendered disabled: a hidden action column still ships every row action's endpoint to somebody forbidden to call it, which is a disclosure rather than a style, and a greyed-out control advertises a power that will be refused.
 
-Why not a role list? Because a name is not a power. Whether an `operator` may re-role somebody depends on the levels declared in the app's roles, on whether a higher role exists, and on whether the built-in names were reused — a computation over the whole auth config, not a string comparison. An app that declares its own roles can easily share no names at all with the built-ins.
+Why not a role list? Because a name is not a power. Whether an `operator` may re-role somebody depends on the levels declared in the app's roles, on whether a higher role exists, and on whether the built-in names were reused. That is a computation over the whole auth config, not a string comparison. An app that declares its own roles can easily share no names at all with the built-ins.
 
 The set is closed, so a typo is refused at startup rather than becoming a component that silently never renders. It composes with the other visibility keys by AND, and an anonymous visitor holds neither power without any `when: authenticated` written beside it.
 
-`visibility.unlessCapability` is the other half: the component renders only for a caller who does NOT hold the named power. Use it to tell a reader what they cannot do — a "read-only" notice for somebody without `edit-operations` — beside the control `capability` reserves for those who can. An anonymous visitor holds no power, so it renders for them; add `when: authenticated` when the notice only makes sense to somebody signed in. Naming the same power in both keys describes a component nobody can see.
+`visibility.unlessCapability` is the other half: the component renders only for a caller who does NOT hold the named power. Use it to tell a reader what they cannot do (a "read-only" notice for somebody without `edit-operations`) beside the control `capability` reserves for those who can. An anonymous visitor holds no power, so it renders for them; add `when: authenticated` when the notice only makes sense to somebody signed in. Naming the same power in both keys describes a component nobody can see.
 
 ### Reserving one column of a grid
 
-A grid's ACTION column takes the same two capabilities, on the column itself. A caller without the power receives the grid, the rows and every other column — and no trace of that one. The header is gone with it: a labelled column over empty cells announces a power the caller does not have, which is the greyed-out control in another spelling.
+A grid's ACTION column takes the same two capabilities, on the column itself. A caller without the power receives the grid, the rows and every other column, and no trace of that one. The header is gone with it: a labelled column over empty cells announces a power the caller does not have, which is the greyed-out control in another spelling.
 
 It is deliberately absent from a FIELD column. A field column renders data the grid already fetched over the wire, so hiding it hides nothing; field confidentiality belongs to the table's field permissions, enforced at the API. Writing `capability` on a field column is refused at startup.
 
@@ -141,19 +141,19 @@ pages:
         visibility: { unlessDeclares: automations }
 ```
 
-One authored page, two bodies. An automations directory on an app that declares none is not a `404` — it is a page with an honest empty state, which is exactly the case `access` and `requires` cannot express: both answer an unmet condition by making the page unreachable.
+One authored page, two bodies. An automations directory on an app that declares none is not a `404`. It is a page with an honest empty state, which is exactly the case `access` and `requires` cannot express: both answer an unmet condition by making the page unreachable.
 
 The vocabulary is the same closed set `requires` uses, so the two levels cannot drift into disagreeing about what "declares automations" means. A typo is refused at startup.
 
-The set includes the sign-in ways — `auth.passkeys`, `auth.magicLink`, `auth.oauth`, `auth.sso` — and `auth.signUp`, which holds unless `allowSignUp: false`. A sign-in page gates each alternative on the one it needs, so an app shows only the ways it actually offers, and a "Create an account" link disappears from an app that closed sign-up.
+The set includes the sign-in ways (`auth.passkeys`, `auth.magicLink`, `auth.oauth`, `auth.sso`) and `auth.signUp`, which holds only when `allowSignUp: true`. A sign-in page gates each alternative on the one it needs, so an app shows only the ways it actually offers, and a "Create an account" link disappears from an app that closed sign-up. `analytics.full` holds when the app declares `analytics` with `profile: full`, the profile that keeps every event whole. The default profile does not meet it, so a body that lists individual events takes `declares: analytics.full`, and its `unlessDeclares` half says what the app keeps instead.
 
 `auth.passwordReset` holds when the app signs in with email and password and one of its pages draws the form that asks for a reset link (`action: { type: auth, method: resetPassword }`), written on the page or placed through a template. An email sign-in form already draws its own "Forgot your password?" link to that page, so gate on it the other things that only make sense once a reset is offered.
 
-`auth.scopeTables` holds when the app limits the readers of a table to the accounts granted its records (`auth.scopeTables`). It is the one capability that can be asked about a single table. On a component bound to a table — its own `dataSource.table`, read after a `$param.table` binding has resolved to the table the address names — it holds only when that table is listed, so one page written for every table offers an affordance about grants on a scoped table and on no other. Anywhere no table is bound, including a page's `requires`, it holds when the app lists at least one. A sheet's footer button takes the same clause on the button itself; see **Overlays**.
+`auth.scopeTables` holds when the app limits the readers of a table to the accounts granted its records (`auth.scopeTables`). It is the one capability that can be asked about a single table. On a component bound to a table (its own `dataSource.table`, read after a `$param.table` binding has resolved to the table the address names), it holds only when that table is listed, so one page written for every table offers an affordance about grants on a scoped table and on no other. Anywhere no table is bound, including a page's `requires`, it holds when the app lists at least one. A sheet's footer button takes the same clause on the button itself; see **Overlays**.
 
 The two keys compose by AND, so declaring one capability and excluding another means "for apps that do the first and not the second". Naming the SAME capability in both is refused: it could never render on any instance.
 
-**The unmet half is EXCLUDED from the HTML, not hidden.** A body that alternates is not a style — shipping both and hiding one with CSS tells anyone reading the page source that the instance has a capability it does not have.
+**The unmet half is EXCLUDED from the HTML, not hidden.** A body that alternates is not a style. Shipping both and hiding one with CSS tells anyone reading the page source that the instance has a capability it does not have.
 
 ## Alternating a body on what the app can actually run
 
@@ -174,26 +174,26 @@ pages:
         visibility: { unlessRuntime: ai }
 ```
 
-The composer where a model is reachable, the search trigger everywhere else. That is something graceful degradation cannot do: the chat component already tells the truth about itself when no provider is configured, but a component can only degrade its own body — it cannot give way to a different control with a different label, a different keyboard affordance and a different endpoint.
+The composer where a model is reachable, the search trigger everywhere else. That is something graceful degradation cannot do: the chat component already tells the truth about itself when no provider is configured, but a component can only degrade its own body: it cannot give way to a different control with a different label, a different keyboard affordance and a different endpoint.
 
-The predicate is whether the deployment can serve a model. Every app carries the built-in System Agent — it reads the app's own tables — so an app declaring no AI surface at all still has an assistant to offer wherever a provider is configured, and takes the `runtime` branch there. It therefore replaces `declares: agents` for this shape rather than composing with it; write one key, not two.
+The predicate is whether the deployment can serve a model. Every app carries the built-in System Agent (it reads the app's own tables), so an app declaring no AI surface at all still has an assistant to offer wherever a provider is configured, and takes the `runtime` branch there. It therefore replaces `declares: agents` for this shape rather than composing with it; write one key, not two.
 
 The app half is broader than agents alone: an AI field on a table, an `ai` automation action, or a chat component anywhere on any page all count as "this app needs a model".
 
 The set of runtime capabilities is closed and currently has one member, `ai`. A value outside it is refused at startup rather than becoming a component that silently never appears. Naming the same capability in both halves is refused too: AI either runs on this deployment or it does not.
 
-**This is a component gate, never a page requirement.** A page's `requires` is decided once at startup and an unmet page is not registered at all — it returns `404` and leaves every sitemap. Deciding that on an environment variable would make a page appear and disappear with an operator's environment file, so `runtime` alternates a page's body and never its existence.
+**This is a component gate, never a page requirement.** A page's `requires` is decided once at startup and an unmet page is not registered at all: it returns `404` and leaves every sitemap. Deciding that on an environment variable would make a page appear and disappear with an operator's environment file, so `runtime` alternates a page's body and never its existence.
 
 ## What a denial returns
 
-An `access` block carrying `redirectTo` answers a visitor who has not signed in with a `302` to that path, with the original path appended as a `redirect` query parameter, and a sign-in form on that page sends her back to it once she has signed in. Only a path on this app is followed; a `redirect` naming another site, or the sign-in page itself, is ignored and the form's own destination is used, and a `callbackURL` on the same sign-in link wins over it. A person who is signed in but lacks the role is never redirected: signing in again would not help her, and the redirect would tell her the page exists. She gets `404`, as she does on a page without `redirectTo`, so the page's existence is not disclosed.
+An `access` block carrying `redirectTo` answers a visitor who has not signed in with a `302` to that path, with the original path appended as a `redirect` query parameter, and a sign-in form on that page sends her back to it once she has signed in. Only a path on this app is followed; a `redirect` naming another site, or the sign-in page itself, is ignored and the form's own destination is used, and a `callbackURL` on the same sign-in link wins over it. A person who is signed in but lacks the role is never redirected: signing in again would not help her, and the redirect would tell her the page exists. She gets `404`, as she does on a page without `redirectTo`, so the page's existence is not disclosed. In an app with `languages`, a page read under a language prefix sends the visitor to that language's version of the `redirectTo` page when it has one, so `/fr/…` leads to the French sign-in page.
 
-**`access` never answers `401`.** It redirects or hides. The only source of a `401` on a page is an unresolvable `$currentUser` reference in a data source — two different mechanisms with two different answers.
+**`access` never answers `401`.** It redirects or hides. The only source of a `401` on a page is an unresolvable `$currentUser` reference in a data source: two different mechanisms with two different answers.
 
 ## Related reading
 
-- **Pages Overview** — the full page property table.
-- **Data Binding** — `$currentUser` scoping and its `401`.
-- **Auth, Roles & RBAC** — the role names `access` accepts.
-- **Groups** — the `group:` references `access` accepts.
-- **Layout Components** — the sidebar component rendered inside the body.
+- **Pages Overview**: the full page property table.
+- **Data Binding**: `$currentUser` scoping and its `401`.
+- **Auth, Roles & RBAC**: the role names `access` accepts.
+- **Groups**: the `group:` references `access` accepts.
+- **Layout Components**: the sidebar component rendered inside the body.

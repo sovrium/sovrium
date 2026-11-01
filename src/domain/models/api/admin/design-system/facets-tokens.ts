@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { flatTokenRowSchema } from './component-types'
 
 // ---------------------------------------------------------------------------
@@ -36,7 +36,7 @@ import { flatTokenRowSchema } from './component-types'
  */
 export const designTokenSummarySchema = Schema.Struct({
   total: Schema.Int.annotate({
-    description: 'How many rows this response carries — the same number as `total` beside it',
+    description: 'How many rows this response carries: the same number as `total` beside it',
   }),
   inherited: Schema.Int.annotate({
     description: 'How many of those rows the platform supplied rather than the operator',
@@ -46,7 +46,7 @@ export const designTokenSummarySchema = Schema.Struct({
   }),
   locked: Schema.Int.annotate({
     description:
-      'How many of those rows config cannot change at all. Zero for every group published today — the counter is what notices if that stops being true.',
+      'How many of those rows config cannot change at all. Zero for every group published today. The counter is what notices if that stops being true.',
   }),
   // ─── THE ONE [internal ref] FACT A COLOUR ROW CANNOT CARRY ────────────────────
   //
@@ -96,7 +96,7 @@ export const designTokenSummarySchema = Schema.Struct({
 export const discardedDeclarationSchema = Schema.Struct({
   kind: Schema.Literals(['inert', 'unmappable']).annotate({
     description:
-      'Why this declaration is not a token. `inert` — valid and read by no renderer. `unmappable` — shipped and working, with no faithful DTCG form.',
+      'Why this declaration is not a token. `inert`: valid and read by no renderer. `unmappable`: shipped and working, with no faithful DTCG form.',
   }),
   path: Schema.String.annotate({
     description:
@@ -104,7 +104,7 @@ export const discardedDeclarationSchema = Schema.Struct({
     examples: ['design.typeScale.families.body.lineHeight'],
   }),
   declared: Schema.String.annotate({
-    description: 'The declared value as text — what the operator actually wrote',
+    description: 'The declared value as text: what the operator actually wrote',
     examples: ['1.6', '0.02em'],
   }),
   reason: optionalField(
@@ -166,7 +166,7 @@ export const designTokenQuerySchema = Schema.Struct({
   group: optionalField(
     Schema.String.annotate({
       description:
-        "Restrict to one top-level group of the DTCG document. Omit for the whole system — which is what the 'Votre design' counters mean.",
+        "Restrict to one top-level group of the DTCG document. Omit for the whole system, which is what the 'Votre design' counters mean.",
       examples: ['color', 'easing'],
     })
   ),
@@ -220,7 +220,7 @@ export const designTokenRowSchema = Schema.Struct({
   ...flatTokenRowSchema.fields,
   leaf: Schema.String.annotate({
     description:
-      'The last segment of `path` — the token’s own name, without its group. Published because a page cannot split a string, and a per-token testid or anchor needs exactly this.',
+      'The last segment of `path`: the token’s own name, without its group. Published because a page cannot split a string, and a per-token testid or anchor needs exactly this.',
     examples: ['background', 'signature'],
   }),
   // ─── THE FIVE COLOUR-ONLY FIELDS, AND WHY THEY ARE ON THIS ROW ───────────
@@ -237,14 +237,14 @@ export const designTokenRowSchema = Schema.Struct({
   hex: optionalField(
     Schema.String.annotate({
       description:
-        'The row’s colour as sRGB hex, upper-case: six digits for an opaque colour, eight for a translucent one, the last two its alpha (`#FFFFFF1A` for white at 10 %). ABSENT for a non-colour row, and absent for a colour sRGB cannot hold — a clamped hex presented as an equal is worse than none.',
+        'The row’s colour as sRGB hex, upper-case: six digits for an opaque colour, eight for a translucent one, the last two its alpha (`#FFFFFF1A` for white at 10 %). ABSENT for a non-colour row, and absent for a colour sRGB cannot hold. A clamped hex presented as an equal is worse than none.',
       examples: ['#FAFAFA'],
     })
   ),
   gamut: optionalField(
     Schema.Literals(['srgb', 'wide']).annotate({
       description:
-        'Whether sRGB can hold this colour. `wide` is what makes an absent `hex` mean "out of gamut" rather than "not a colour" — the two are different facts and only this field tells them apart.',
+        'Whether sRGB can hold this colour. `wide` is what makes an absent `hex` mean "out of gamut" rather than "not a colour". The two are different facts and only this field tells them apart.',
     })
   ),
   // ─── THE CONTRAST TRIPLE ──────────────────────────────────────────────────
@@ -274,7 +274,7 @@ export const designTokenRowSchema = Schema.Struct({
   contrastLevel: optionalField(
     Schema.Literals(['AAA', 'AA', 'fail']).annotate({
       description:
-        'The WCAG grade at body-text size — the literal a page stamps into an addressable attribute. `fail` rather than an absence, because "this pair fails" and "this pair was not measured" are different facts a reader must be able to tell apart.',
+        'The WCAG grade at body-text size: the literal a page stamps into an addressable attribute. `fail` rather than an absence, because "this pair fails" and "this pair was not measured" are different facts a reader must be able to tell apart.',
     })
   ),
   // ─── THE DARK HALF, AND WHY IT IS NOT THE LIGHT HALF RE-READ ─────────────
@@ -297,27 +297,27 @@ export const designTokenRowSchema = Schema.Struct({
   darkInk: optionalField(
     Schema.String.annotate({
       description:
-        'The same choice made against `darkValue`, for the dark scheme — a translucent `darkValue` laid over the dark `background` first, so the dark `border` (white at 10 %) takes the white ink its near-black appearance needs.',
+        'The same choice made against `darkValue`, for the dark scheme. A translucent `darkValue` is laid over the dark `background` first, so the dark `border` (white at 10 %) takes the white ink its near-black appearance needs.',
       examples: ['#0A0A0A'],
     })
   ),
   darkValue: optionalField(
     Schema.String.annotate({
       description:
-        'What a COLOUR row paints in the dark scheme, as CSS spells it: the declared `design.darkColors` counterpart, else the light value of a BRAND colour (primary, secondary, accent, ring, a chart colour) declared for light only, or of a colour the platform has no dark default for, else the platform (shadcn) default: the light text for the text drawn on a kept brand colour, the dark default the token falls back to otherwise — which a neutral such as `background`, `foreground` or `card` takes even when declared for light only. `darkSource` says which. ABSENT on a non-colour row.',
+        'What a COLOUR row paints in the dark scheme, as CSS spells it: the declared `design.darkColors` counterpart, else the light value of a BRAND colour (primary, secondary, accent, ring, a chart colour) declared for light only, or of a colour the platform has no dark default for, else the platform (shadcn) default: the light text for the text drawn on a kept brand colour, the dark default the token falls back to otherwise, which a neutral such as `background`, `foreground` or `card` takes even when declared for light only. `darkSource` says which. ABSENT on a non-colour row.',
       examples: ['oklch(0.145 0 0)'],
     })
   ),
   darkSource: optionalField(
     Schema.Literals(['declared', 'light', 'platform']).annotate({
       description:
-        'Who chose `darkValue`: `declared` — the app wrote a dark counterpart; `light` — the app declared this colour for light only and it keeps that value in dark (a brand colour, or one the platform has no dark default for); `platform` — a platform default: the dark one for a colour nobody declared and for a neutral declared for light only, the light text for the text drawn on a kept brand colour. ABSENT on a non-colour row.',
+        'Who chose `darkValue`: `declared`: the app wrote a dark counterpart; `light`: the app declared this colour for light only and it keeps that value in dark (a brand colour, or one the platform has no dark default for); `platform`: a platform default, meaning the dark one for a colour nobody declared and for a neutral declared for light only, the light text for the text drawn on a kept brand colour. ABSENT on a non-colour row.',
     })
   ),
   darkHex: optionalField(
     Schema.String.annotate({
       description:
-        '`darkValue` as sRGB hex, upper-case: six digits when opaque, eight when translucent, the last two its alpha (`#FFFFFF1A`). ABSENT on a non-colour row, and absent for a colour sRGB cannot hold — on `hex`’s terms exactly.',
+        '`darkValue` as sRGB hex, upper-case: six digits when opaque, eight when translucent, the last two its alpha (`#FFFFFF1A`). ABSENT on a non-colour row, and absent for a colour sRGB cannot hold, on `hex`’s terms exactly.',
       examples: ['#101010'],
     })
   ),
@@ -330,7 +330,7 @@ export const designTokenRowSchema = Schema.Struct({
   darkContrastAgainst: optionalField(
     Schema.String.annotate({
       description:
-        'The leaf name of the DARK ground this counterpart was measured against. Carried rather than assumed, for `contrastAgainst`’s reason — and it is a different measurement, because the dark background is a different colour.',
+        'The leaf name of the DARK ground this counterpart was measured against. Carried rather than assumed, for `contrastAgainst`’s reason. It is also a different measurement, because the dark background is a different colour.',
       examples: ['background'],
     })
   ),
@@ -362,7 +362,7 @@ export const designTokenRowSchema = Schema.Struct({
   // total.
   darkContrastLevel: Schema.Literals(['AAA', 'AA', 'fail', 'unmeasured']).annotate({
     description:
-      'The WCAG grade of `darkValue`, or `unmeasured` when there is none to grade — a colour that did not resolve, the ground itself, or a row that is not a colour. REQUIRED on every row: it is the gate a page reads to hide a dark badge, and `visibility.record` has no presence operator to test an absence with.',
+      'The WCAG grade of `darkValue`, or `unmeasured` when there is none to grade: a colour that did not resolve, the ground itself, or a row that is not a colour. REQUIRED on every row: it is the gate a page reads to hide a dark badge, and `visibility.record` has no presence operator to test an absence with.',
   }),
   // ─── THE TWO TYPOGRAPHY-ONLY FIELDS ──────────────────────────────────────
   //
@@ -398,7 +398,7 @@ export const designTokenRowSchema = Schema.Struct({
   fontSize: optionalField(
     Schema.String.annotate({
       description:
-        'This step’s declared font size, with its unit — the `fontSize` member of the typography composite, addressable on its own. ABSENT for every row that is not a `typography.*` token.',
+        'This step’s declared font size, with its unit: the `fontSize` member of the typography composite, addressable on its own. ABSENT for every row that is not a `typography.*` token.',
       examples: ['2.75rem', '0.8125rem'],
     })
   ),
@@ -415,7 +415,7 @@ export const designTokenRowSchema = Schema.Struct({
   lineHeight: optionalField(
     Schema.Finite.annotate({
       description:
-        'This step’s declared line height as a unitless ratio. A NUMBER, on `contrastRatio`’s terms — the page composes any formatting. ABSENT for a non-typography row, and for a declared step that named no leading.',
+        'This step’s declared line height as a unitless ratio. A NUMBER, on `contrastRatio`’s terms; the page composes any formatting. ABSENT for a non-typography row, and for a declared step that named no leading.',
       examples: [1.1, 1.6],
     })
   ),
@@ -442,7 +442,7 @@ export const designTokenFacetResponseSchema = Schema.Struct({
   // belong to, which is what being discarded means.
   discarded: Schema.Array(discardedDeclarationSchema).annotate({
     description:
-      'Declarations this app made that did not become tokens — validated and read by nothing, or shipped with no faithful DTCG form. EMPTY, never absent, and never narrowed by `group`.',
+      'Declarations this app made that did not become tokens: validated and read by nothing, or shipped with no faithful DTCG form. EMPTY, never absent, and never narrowed by `group`.',
   }),
 }).annotate({
   strictKeys: true,

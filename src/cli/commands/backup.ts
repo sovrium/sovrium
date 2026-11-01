@@ -20,24 +20,22 @@
  */
 
 import { resolve } from 'node:path'
-import { Effect, Console } from 'effect'
+import { Effect } from 'effect'
 import {
   createBackup,
+  type BackupRefusal,
   type BackupDatabaseSource,
   type BackupKeySource,
   type BackupStorageSource,
 } from '@/application/use-cases/server/backup-programs'
+import { CliRefusal, fromAsyncValue, refuseCommand, type CliStop } from '@/cli/runtime/run-command'
 import { defaultEncryptionKeyPath } from '@/domain/models/process-env/data-dir'
 import { BackupWorkspaceLive } from '@/infrastructure/filesystem/backup-workspace-live'
-import {
-  formatBytes,
-  inflect,
-  printFailure,
-  printStderr,
-} from '@/infrastructure/logging/cli-output'
+import { formatBytes, inflect, printLine, printStderr } from '@/infrastructure/logging/cli-output'
 import { readInstallSources } from '../runtime/install-sources'
 import { discoverConfigFile } from './app-prelude'
 import { getCurrentVersion } from './update'
+import type { BackupIoError } from '@/application/ports/services/backup-workspace'
 import type { BackupManifest } from '@/application/use-cases/server/backup-manifest'
 
 /** Everything `sovrium backup` reads from the command line. */
@@ -68,7 +66,7 @@ const readSources = (): Sources => {
   const { database, storage } = sources
   const encryptionKey: BackupKeySource = process.env.SOVRIUM_ENCRYPTION_KEY
     ? { source: 'environment' }
-    : { source: 'file', path: defaultEncryptionKeyPath() }
+    : { source: 'file', path: defaultEncryptionKeyPath(process.env) }
   const storageSource: BackupStorageSource =
     storage.provider === 's3'
       ? { provider: 's3', bucket: storage.bucket }
@@ -78,11 +76,8 @@ const readSources = (): Sources => {
   return { database, encryptionKey, storage: storageSource }
 }
 
-const fail = (headline: string, guidance: string, detail?: readonly string[]): never => {
-  printFailure({ headline, guidance, ...(detail === undefined ? {} : { detail }) })
-  process.exit(1)
-  return undefined as never
-}
+const fail = (headline: string, guidance: string, detail?: readonly string[]): never =>
+  refuseCommand({ headline, guidance, ...(detail === undefined ? {} : { detail }) })
 
 /** The stderr notes: what the archive deliberately does not hold, and what to keep safe. */
 const omissionNotes = (manifest: BackupManifest): readonly string[] => [
@@ -99,8 +94,8 @@ const omissionNotes = (manifest: BackupManifest): readonly string[] => [
       ]),
 ]
 
-/** Handle `sovrium backup`. Exits 1 on any refusal; returns on success. */
-export const handleBackupCommand = async (options: BackupCommandOptions): Promise<void> => {
+/** What `createBackup` is asked for, once the config and the sources are known to be there. */
+const backupRequest = async (options: BackupCommandOptions) => {
   const configFile = options.configFile ?? (await discoverConfigFile())
   const configPath = resolve(configFile)
   if (!(await Bun.file(configPath).exists())) {
@@ -117,34 +112,39 @@ export const handleBackupCommand = async (options: BackupCommandOptions): Promis
       [sources.error]
     )
   }
-
-  const outcome = await Effect.runPromise(
-    createBackup({
-      configPath,
-      outputPath: options.outputPath === undefined ? undefined : resolve(options.outputPath),
-      workingDirectory: process.cwd(),
-      engineVersion: await getCurrentVersion(),
-      now: new Date(),
-      ...sources,
-    }).pipe(Effect.provide(BackupWorkspaceLive), Effect.result)
-  )
-
-  if (outcome._tag === 'Failure') {
-    const { failure } = outcome
-    return failure._tag === 'BackupRefusal'
-      ? fail(`${failure.reason} — nothing was written.`, failure.guidance)
-      : fail(
-          `Sovrium could not ${failure.action} — nothing was written.`,
-          'Check that the path exists and is readable, then run the command again.',
-          [failure.cause instanceof Error ? failure.cause.message : String(failure.cause)]
-        )
+  return {
+    configPath,
+    outputPath: options.outputPath === undefined ? undefined : resolve(options.outputPath),
+    workingDirectory: process.cwd(),
+    engineVersion: await getCurrentVersion(),
+    now: new Date(),
+    ...sources,
   }
+}
 
-  const { archivePath, archiveBytes, manifest } = outcome.success
-  Effect.runSync(
-    Console.log(
+/** The refusal a failed backup ends with. */
+const refusalOf = (failure: BackupRefusal | BackupIoError): CliRefusal =>
+  failure._tag === 'BackupRefusal'
+    ? new CliRefusal({
+        headline: `${failure.reason} — nothing was written.`,
+        guidance: failure.guidance,
+      })
+    : new CliRefusal({
+        headline: `Sovrium could not ${failure.action} — nothing was written.`,
+        guidance: 'Check that the path exists and is readable, then run the command again.',
+        detail: [failure.cause instanceof Error ? failure.cause.message : String(failure.cause)],
+      })
+
+/** Handle `sovrium backup`. Exits 1 on any refusal; returns on success. */
+export const handleBackupCommand = (options: BackupCommandOptions): Effect.Effect<void, CliStop> =>
+  Effect.gen(function* () {
+    const request = yield* fromAsyncValue(() => backupRequest(options))
+    const { archivePath, archiveBytes, manifest } = yield* createBackup(request).pipe(
+      Effect.provide(BackupWorkspaceLive),
+      Effect.mapError(refusalOf)
+    )
+    printLine(
       `Backup written to ${archivePath} (${inflect(manifest.files.length, 'file')}, ${formatBytes(archiveBytes)}).`
     )
-  )
-  omissionNotes(manifest).forEach((note) => printStderr(note))
-}
+    omissionNotes(manifest).forEach((note) => printStderr(note))
+  })

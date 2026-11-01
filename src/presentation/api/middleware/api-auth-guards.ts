@@ -28,13 +28,13 @@ import {
   requireAuth,
   requireAuthOrGuestComment,
 } from '@/presentation/api/middleware/auth'
+import { applyDataApiCors } from '@/presentation/api/middleware/data-api-cors'
 import { chainMcpClientRouteGuards } from '@/presentation/api/middleware/mcp-client-guards'
 import {
   applyActivityRateLimitMiddleware,
   applyRequestGuards,
   applyTablesRateLimitMiddleware,
 } from '@/presentation/api/middleware/request-guards'
-import { getLiveApp } from '@/presentation/api/runtime/live-app-store'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { Hono } from 'hono'
@@ -60,14 +60,14 @@ const ANALYTICS_ADMIN_REPORT_PATHS = [
  */
 const chainAnalyticsReportGuards = (
   hono: SessionHono,
-  resolveAppForTier: () => App,
+  app: App,
   auth?: Readonly<ReturnType<typeof createAuthInstance>>
 ): SessionHono => {
   const gated = ANALYTICS_ADMIN_REPORT_PATHS.reduce<SessionHono>(
     (acc, path) =>
       (auth ? acc.use(path, authMiddleware(auth)) : acc)
         .use(path, requireAuth())
-        .use(path, requireAdmin(resolveAppForTier)),
+        .use(path, requireAdmin(app)),
     hono
   )
   return auth ? gated.use('/api/analytics/targets', authMiddleware(auth)) : gated
@@ -83,8 +83,10 @@ export const applyApiAuthGuards = (
   // (Streaming routes are exempted from the timeout — see applyRequestGuards.)
   // The per-address ceiling, ahead of EVERY session lookup below — generous
   // enough that each per-route limit keeps refusing first. See api-ip-ceiling.ts.
+  // The listed origins' CORS answer and cross-site guard lead the chain, so a
+  // preflight is answered before any guard or session lookup. See data-api-cors.ts.
   const honoWithGuards = applyApiIpCeiling(
-    applyRequestGuards(honoWithHealth),
+    applyRequestGuards(applyDataApiCors(honoWithHealth)),
     app,
     auth !== undefined
   )
@@ -114,12 +116,10 @@ export const applyApiAuthGuards = (
   // `/api/tables/*` path still gets the normal 401-on-no-session contract.
   // The bare `/api/tables` list endpoint stays under `requireAuth()` — it
   // returns the table catalog which is never public.
-  const resolveAppForGuestCommentExemption = (): App => (getLiveApp() as App | undefined) ?? app
-  // F6 dashboard-tier model: thread the live App into the admin-route tier
-  // guards so a custom top role (e.g. partner's `engineer`) resolves to
-  // `admin-editor` implicitly. Reads the published live App when present
-  // Falling back to the boot `app`.
-  const resolveAppForTier = (): App => (getLiveApp() as App | undefined) ?? app
+  //
+  // F6 dashboard-tier model: the admin-route tier guards read the App so a
+  // custom top role (e.g. partner's `engineer`) resolves to `admin-editor`
+  // implicitly.
   // A form with a custom `path` answers on a second, arbitrary URL that no
   // wildcard below covers (`/forms/*` and `/api/forms/*` miss e.g.
   // `/partner-order`). Without the session attached there, every caller
@@ -144,7 +144,7 @@ export const applyApiAuthGuards = (
     ? honoWithFormPathAuth
         // The session on `/api/tables*` is already extracted, ahead of the rate limit.
         .use('/api/tables', requireAuth())
-        .use('/api/tables/*', requireAuthOrGuestComment(resolveAppForGuestCommentExemption))
+        .use('/api/tables/*', requireAuthOrGuestComment(app))
         .use('/api/activity', authMiddleware(auth))
         .use('/api/activity', requireAuth())
         .use('/api/activity/*', authMiddleware(auth))
@@ -164,10 +164,10 @@ export const applyApiAuthGuards = (
   // The MCP client status and tool catalogue are admin reads too (both mirrors).
   const honoWithAdminGuards = chainMcpClientRouteGuards(
     auth
-      ? chainAdminRouteGuards(honoWithPreAdminGuards, auth, resolveAppForTier)
-      : chainAdminRouteGuardsWithoutAuth(honoWithPreAdminGuards, resolveAppForTier),
+      ? chainAdminRouteGuards(honoWithPreAdminGuards, auth, app)
+      : chainAdminRouteGuardsWithoutAuth(honoWithPreAdminGuards, app),
     auth,
-    resolveAppForTier
+    app
   )
 
   // The analytics report gates exist only where the reports do. With no live
@@ -175,7 +175,7 @@ export const applyApiAuthGuards = (
   // left standing there would answer an anonymous probe 401 instead of the
   // 404 every other caller gets — confirming a surface the app never mounted.
   const honoWithAnalyticsGuards = analyticsIsEnabled(app)
-    ? chainAnalyticsReportGuards(honoWithAdminGuards, resolveAppForTier, auth)
+    ? chainAnalyticsReportGuards(honoWithAdminGuards, app, auth)
     : honoWithAdminGuards
 
   const honoWithAuth = auth

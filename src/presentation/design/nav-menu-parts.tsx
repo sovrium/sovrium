@@ -74,7 +74,7 @@ export function NavChevronDown(): ReactElement {
   // SSR placeholders; the trigger carries the `group` marker (via
   // `computeNavMenuTriggerClasses` for nav-menu, or an explicit `group` for the
   // dropdown-menu label trigger). These literal classes are captured by the
-  // `@tailwindcss/oxide` scan into `BUILTIN_CSS_CANDIDATES` (generated-css-assets.ts),
+  // `@tailwindcss/oxide` scan into `BUILTIN_CSS_CANDIDATES` (generated-css-assets.generated.ts),
   // so no `arbitrary-var-safelist.ts` entry is needed (that safelist only covers
   // `v('sv-X', T.Y)` template-literal arbitrary values in `*-default-classes.ts`).
   return (

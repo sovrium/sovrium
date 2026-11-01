@@ -19,6 +19,8 @@
  * the `max-lines` cap.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 interface JsonSchemaLike {
   readonly type?: string
   readonly properties?: Readonly<Record<string, JsonSchemaLike>>
@@ -28,9 +30,6 @@ interface JsonSchemaLike {
   readonly maximum?: number
   readonly format?: string
 }
-
-const isObject = (v: unknown): v is Readonly<Record<string, unknown>> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
 
 const validateString = (value: unknown, schema: JsonSchemaLike): string | undefined => {
   if (typeof value !== 'string') return 'must be a string'
@@ -69,7 +68,7 @@ export const validateAgainstSchema = (
 ): ReadonlyArray<string> => {
   const s = schema as JsonSchemaLike
   if (s.type !== 'object' || s.properties === undefined) return []
-  const obj = isObject(value) ? value : {}
+  const obj = isRecord(value) ? value : {}
   const required = s.required ?? []
   const missing = required
     .filter((key) => obj[key] === undefined || obj[key] === null || obj[key] === '')

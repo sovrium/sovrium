@@ -23,10 +23,13 @@
  * ─── AND THE PARTS ARE NAMED, NOT CLASSED ──────────────────────────────────
  *
  * `data-avatar-image`, `data-avatar-initials`, `data-avatar-status`,
- * `data-avatar-item` and `data-avatar-overflow` name the anatomy — the same
- * vocabulary `design.components.avatar.parts` restyles and the same one
- * `swatch` established with `data-token-chip`. A stylesheet or a spec
- * addressing them by class would pin the recipe rather than the anatomy.
+ * `data-avatar-item` and `data-avatar-overflow` name the anatomy, the same
+ * way `swatch` does with `data-token-chip`. A stylesheet or a spec addressing
+ * them by class would pin the recipe rather than the anatomy. They are not
+ * parts of `design.components.avatar`: the part registry
+ * (`component-parts.ts`) lists none for `avatar`, so that key styles the root
+ * alone, and an inner part becomes styleable only once this renderer reads it
+ * and the registry names it.
  *
  * Beside them, each part carries shadcn/ui's `data-slot` (`avatar`,
  * `avatar-image`, `avatar-fallback`, `avatar-badge`, `avatar-group`,

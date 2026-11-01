@@ -57,6 +57,15 @@
 
 import { ISLAND_COMPONENT_TYPES } from '@/presentation/render/registry/island-component-types'
 import { isListIslandMode } from '@/presentation/render/registry/list-island-mode'
+import {
+  componentField,
+  componentFields,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+  synthesizedComponent,
+  type ComponentNode,
+} from '@/presentation/render/resolve/component-rewrite'
 import { expandDataSourceChildren } from '@/presentation/render/resolve/data-source-rows'
 import { rowsWithText } from '@/presentation/render/resolve/system-record-text'
 import type { Page } from '@/domain/models/app/pages'
@@ -99,15 +108,15 @@ interface SystemBinding {
  * The remaining case is the one with no other home: a plain layout node with
  * children, which is what a console card grid is.
  */
-function isSystemRowTemplate(node: unknown): node is Component & { dataSource: object } {
+function isSystemRowTemplate(node: unknown): node is Component {
   if (typeof node !== 'object' || node === null) return false
-  const component = node as Component
-  const system = component.dataSource?.system as SystemBinding | undefined
+  const { dataSource, children, type } = componentFields(node)
+  const system = keyOf(dataSource, 'system') as SystemBinding | undefined
   if (system?.endpoint === undefined) return false
-  if (!Array.isArray(component.children) || component.children.length === 0) return false
-  if ((component.dataSource as { mode?: string }).mode === 'single') return false
-  if (ISLAND_COMPONENT_TYPES.has(component.type as string)) return false
-  return !isListIslandMode(component)
+  if (!Array.isArray(children) || children.length === 0) return false
+  if (keyOf(dataSource, 'mode') === 'single') return false
+  if (typeof type === 'string' && ISLAND_COMPONENT_TYPES.has(type)) return false
+  return !isListIslandMode(entryAsComponent(node as ComponentNode))
 }
 
 /**
@@ -153,7 +162,7 @@ async function expandTemplate(
   fetchSystemRows: SystemRowsFetcher | undefined,
   depth: number
 ): Promise<Component> {
-  const system = component.dataSource?.system as SystemBinding
+  const system = keyOf(componentField(component, 'dataSource'), 'system') as SystemBinding
   const rows =
     fetchSystemRows === undefined
       ? []
@@ -162,30 +171,29 @@ async function expandTemplate(
           system.rowsKey ?? DEFAULT_ROWS_KEY
         ).catch(() => [])
 
-  const { dataSource: _spent, ...rest } = component as Component & { dataSource?: unknown }
+  const { dataSource: _spent, ...rest } = componentFields(component)
+  const unbound = synthesizedComponent(rest)
 
-  // ZERO ROWS RENDER ZERO ROWS — never the template.
+  // ZERO ROWS RENDER ZERO ROWS — never the template, and a list says its
+  // `listDisplay.emptyMessage` instead.
   //
-  // `expandDataSourceChildren` short-circuits on an empty record set and returns
-  // the component with its children UNTOUCHED, which for a DB list is the
-  // established behaviour and is not changed here. For a system template it is a
-  // leak: nothing substitutes, so `$record.key` reaches the browser as literal
-  // text and a per-row `data-testid="row-$record.key"` becomes a real attribute
-  // naming a record that does not exist. An endpoint legitimately answers with
-  // an empty list — an app declaring no `env` block is the ordinary case, not an
-  // error — so this is a state every such page reaches.
-  //
-  // Emptied HERE rather than in the shared expansion so the DB path keeps its
-  // exact behaviour: this arm is the new one, and it is the one whose contract
-  // says a template is a template.
-  if (rows.length === 0) return { ...(rest as Component), children: [] }
+  // For a system template, drawing the template once would be a leak: nothing
+  // substitutes, so `$record.key` reaches the browser as literal text and a
+  // per-row `data-testid="row-$record.key"` becomes a real attribute naming a
+  // record that does not exist. An endpoint legitimately answers with an empty
+  // list (an app declaring no `env` block is the ordinary case, not an error),
+  // so this is a state every such page reaches. The shared expansion handles
+  // it the way the DB path does: no child, plus the empty-state markers the
+  // list renderer reads, so a record with no change says "No change recorded
+  // yet." rather than drawing a bare heading.
+  if (rows.length === 0) return expandDataSourceChildren(unbound, [])
 
   // The children of an INNER template are left unsubstituted here: they have not
   // met their own rows yet, and consuming their `$record.` against this row
   // would blank them before the inner read ever runs. `deep` at the last
   // permitted level, so a leaf template keeps today's behaviour exactly.
   const expanded = expandDataSourceChildren(
-    rest as Component,
+    unbound,
     [...rows].slice(0, MAX_EXPANDED_ROWS),
     undefined,
     {
@@ -206,7 +214,7 @@ async function expandTemplate(
   // worth its cost.
   const children = await mapNode(expanded.children, fetchSystemRows, depth + 1)
   const listed = asRowList(expanded, depth)
-  return children === expanded.children ? listed : ({ ...listed, children } as Component)
+  return children === expanded.children ? listed : rewriteComponent(listed, { children })
 }
 
 /**
@@ -217,7 +225,7 @@ async function expandTemplate(
  */
 function asRowList(expanded: Component, depth: number): Component {
   if (depth !== 1 || expanded.type === 'list') return expanded
-  return { ...expanded, props: { ...(expanded.props ?? {}), role: 'list' } } as Component
+  return rewriteComponent(expanded, { props: { ...(expanded.props ?? {}), role: 'list' } })
 }
 
 /**
@@ -240,13 +248,13 @@ async function mapNode(
     return mapped.every((child, i) => child === node[i]) ? node : mapped
   }
   if (typeof node !== 'object' || node === null) return node
-  if (isSystemRowTemplate(node)) return expandTemplate(node as Component, fetchSystemRows, depth)
+  if (isSystemRowTemplate(node)) return expandTemplate(node, fetchSystemRows, depth)
 
-  const { children } = node as { readonly children?: unknown }
+  const { children } = componentFields(node)
   if (children === undefined) return node
   const mappedChildren = await mapNode(children, fetchSystemRows, depth)
   if (mappedChildren === children) return node
-  return { ...(node as Record<string, unknown>), children: mappedChildren }
+  return { ...node, children: mappedChildren }
 }
 
 /**

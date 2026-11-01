@@ -40,7 +40,7 @@ export class StoragePublicAccessEnvError extends Data.TaggedError('StoragePublic
  */
 export const validateStoragePublicAccessEnv: Effect.Effect<void, StoragePublicAccessEnvError> =
   Effect.try({
-    try: () => resolveStoragePublicAccess(),
+    try: () => resolveStoragePublicAccess(process.env),
     catch: (cause) =>
       new StoragePublicAccessEnvError({
         message: cause instanceof Error ? cause.message : String(cause),

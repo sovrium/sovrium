@@ -144,7 +144,7 @@ export function replayPendingFiles(
  * {@link PENDING_FILE_REPLAY_TIMEOUT_MS}, so a chunk that never loads leaves no
  * observer behind.
  */
-function whenIslandReady(el: HTMLElement, apply: () => void): void {
+export function whenIslandReady(el: HTMLElement, apply: () => void): void {
   if (el.dataset.islandReady === 'true') {
     apply()
     return

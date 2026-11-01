@@ -45,7 +45,7 @@
  * @see src/presentation/render/registry/matrix-twin.tsx — the same contract on the other lens
  */
 
-import type { GraphTwinRowView } from '@/presentation/render/resolve/graph-projection'
+import type { GraphTwinRowView } from '@/presentation/render/resolve/graph-view'
 import type { ReactElement } from 'react'
 
 const HEADER_CELL = 'border-b border-border py-1 pr-3 text-left font-medium text-muted-foreground'

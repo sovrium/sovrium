@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveSignUpAllowed } from '../sign-up-service'
 import type { SsoProvider, SsoRoleMapping } from './sso'
 
 /**
@@ -74,8 +75,11 @@ export const resolveSsoRole = (
   return isAdminTierRole(fallback) ? fallbackRole : fallback
 }
 
-/** Whether a first sign-in through `provider` may create an account. */
+/**
+ * Whether a first sign-in through `provider` may create an account: the
+ * provider's own `allowSignUp`, then `auth.allowSignUp`, then closed.
+ */
 export const ssoSignUpAllowed = (
   provider: Pick<SsoProvider, 'allowSignUp'>,
   appAllowSignUp: boolean | undefined
-): boolean => provider.allowSignUp ?? appAllowSignUp ?? true
+): boolean => resolveSignUpAllowed(provider.allowSignUp, appAllowSignUp)

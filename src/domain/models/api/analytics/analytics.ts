@@ -6,8 +6,8 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { withDefault } from '../combinators/schema-defaults'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import { withDefault } from '../schema-defaults'
 
 // ============================================================================
 // Collection Schema (POST /api/analytics/collect)
@@ -16,7 +16,7 @@ import { withDefault } from '../combinators/schema-defaults'
 /**
  * Longest page path or referrer URL the collector stores, in characters.
  *
- * The collect endpoint takes anonymous traffic, so every byte it accepts is a
+ * The collect endpoint takes unauthenticated requests, so every byte it accepts is a
  * byte anyone can write into `analytics_events`. 2048 matches the URL length
  * browsers and proxies reliably carry; a longer value is refused with 400,
  * never truncated, so what is stored is always what the browser sent.
@@ -100,7 +100,7 @@ export type AnalyticsCollectPayload = typeof analyticsCollectSchema.Type
  * excluding a page means "do not measure activity here", and a click is activity
  * here.
  *
- * Every field is length-capped like the page-view body: the beacon is anonymous,
+ * Every field is length-capped like the page-view body: the beacon is unauthenticated,
  * so an over-long value is refused with 400 and nothing is stored.
  */
 export const analyticsClickSchema = Schema.Struct({
@@ -110,7 +110,7 @@ export const analyticsClickSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(ANALYTICS_URL_MAX_LENGTH))),
   /** Destination hostname — recorded as the event name so grouping needs no extraction */
   hostname: Schema.String.annotate({
-    description: `Destination hostname — recorded as the event name, at most ${ANALYTICS_HOSTNAME_MAX_LENGTH} characters`,
+    description: `Destination hostname, recorded as the event name, at most ${ANALYTICS_HOSTNAME_MAX_LENGTH} characters`,
   }).pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(ANALYTICS_HOSTNAME_MAX_LENGTH))),
   /** Path of the page the click happened on */
   pagePath: Schema.String.annotate({
@@ -136,7 +136,10 @@ export const analyticsQuerySchema = Schema.Struct({
   to: Schema.String.annotate({ description: 'End of date range (ISO 8601 datetime)' }),
   /** Time series granularity */
   granularity: Schema.Literals(['hour', 'day', 'week', 'month'])
-    .annotate({ description: 'Time series granularity' })
+    .annotate({
+      description:
+        'Time series granularity. Under the audience-only analytics profile, hour is refused with 400 and the finest series is a day',
+    })
     .pipe(withDefault('day')),
 })
 
@@ -266,7 +269,7 @@ export const analyticsTargetsResponseSchema = Schema.Struct({
     Schema.Struct({
       name: Schema.String.annotate({
         description:
-          "The target's index as recorded on the click event, stringified — `targetIndex` is written from the first click of every link, including single-destination ones, so a split is readable back through data that predates the experiment.",
+          "The target's index as recorded on the click event, stringified. `targetIndex` is written from the first click of every link, including single-destination ones, so a split is readable back through data that predates the experiment.",
       }),
       count: Schema.Int.annotate({ description: 'Clicks attributed to this target' }),
       percentage: Schema.Finite.annotate({ description: 'Share of this link’s clicks (0-100)' }),

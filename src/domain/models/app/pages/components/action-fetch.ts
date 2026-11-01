@@ -25,7 +25,7 @@ import {
 export const FetchToastResponseSchema = Schema.Struct({
   type: Schema.Literal('toast').annotate({
     description:
-      'What the component does once the action returns — navigate away, reset the form, show a message or a success page, send the reader to their role landing, or raise a toast.',
+      'What the component does once the action returns: navigate away, reset the form, show a message or a success page, send the reader to their role landing, or raise a toast.',
   }),
   /** Message to display. Supports $variable references. */
   message: Schema.String.annotate({
@@ -51,7 +51,7 @@ export const FetchToastResponseSchema = Schema.Struct({
   actionLabel: Schema.optional(
     Schema.String.annotate({
       description:
-        'Label of an action button drawn inside the toast. With actionUrl, the button posts once to that URL. On an onError toast with no actionUrl, it is a Retry: pressing it dismisses the toast and runs the same action again — the same request, then its own onSuccess or onError — without asking its confirmation a second time.',
+        'Label of an action button drawn inside the toast. With actionUrl, the button posts once to that URL. On an onError toast with no actionUrl, it is a Retry. Pressing it dismisses the toast and runs the same action again (the same request, then its own onSuccess or onError) without asking its confirmation a second time.',
       examples: ['Undo', 'Retry'],
     })
   ),
@@ -118,7 +118,7 @@ const FetchSuccessStatusSchema = Schema.Struct({
    */
   message: Schema.String.annotate({
     description:
-      'Persistent status message written into the target region. Supports $variable references, and $response.<field> — a dot path into the JSON body the action returned (rendered as text; an absent path resolves to the empty string).',
+      'Persistent status message written into the target region. Supports $variable references, and $response.<field>, a dot path into the JSON body the action returned (rendered as text; an absent path resolves to the empty string).',
     examples: ['Export généré', 'Saved', 'Your link: $response.token'],
   }),
 }).annotate({
@@ -189,7 +189,7 @@ const FetchSuccessRefetchSchema = Schema.Union([
 const FetchSuccessReloadSchema = Schema.Boolean.annotate({
   title: 'Fetch Success Reload',
   description:
-    'When true, the browser reloads the page after a successful request so the SERVER recomposes it — the effect refetch cannot express, because refetch re-queries one region and skips any region holding a mounted island. Use it when the request changes something the server read at render time (the active language, the chrome). Refused at decode alongside status or refetch (both are same-page effects the reload subsumes); the required toast message is NOT displayed, because the reload replaces the document that would have shown it.',
+    'When true, the browser reloads the page after a successful request so the SERVER recomposes it. Refetch cannot express this effect, because refetch re-queries one region and skips any region holding a mounted island. Use it when the request changes something the server read at render time (the active language, the chrome). Refused at decode alongside status or refetch (both are same-page effects the reload subsumes); the required toast message is NOT displayed, because the reload replaces the document that would have shown it.',
   examples: [true],
 })
 
@@ -240,7 +240,7 @@ const FetchSuccessCloseSchema = Schema.Boolean.annotate({
 const FetchSuccessNavigateSchema = Schema.String.annotate({
   title: 'Fetch Success Navigate',
   description:
-    'Address the browser goes to once the request succeeds. Supports $response.<field> (a dot path into the JSON body the request returned; absent resolves to empty), $record.<field> where the control has a record, and a $t: key. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so an `http://` or `https://` address is refused — use a link to send the reader to another site. Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read. A lone `$response.<path>` is checked when it is followed: an address on this site, or one on an origin `allowOrigins` lists. Refused beside reload, status and refetch, and on a fetch action whose mode is not fetch.',
+    'Address the browser goes to once the request succeeds. Supports $response.<field> (a dot path into the JSON body the request returned; absent resolves to empty), $record.<field> where the control has a record, and a $t: key. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so an `http://` or `https://` address is refused: use a link to send the reader to another site. Any other address (`javascript:`, `data:`, `mailto:`, or one starting with `//`) is refused when the config is read. A lone `$response.<path>` is checked when it is followed: an address on this site, or one on an origin `allowOrigins` lists. Refused beside reload, status and refetch, and on a fetch action whose mode is not fetch.',
   examples: ['/invoices/$response.id', '/orders/$record.id/receipt', '$response.url'],
 }).pipe(Schema.check(successNavigateCheck))
 
@@ -356,7 +356,7 @@ export const FetchSuccessResponseSchema = Schema.Struct(fetchSuccessResponseFiel
   Schema.annotate({
     title: 'Fetch Success Response',
     description:
-      'Success handler for a fetch action: the toast slot plus optional effects — a persistent inline status region (status), a sibling data-bound refetch (refetch), a full-page reload (reload) that recomposes the page server-side, closing the overlay the control sits in (close), and going to another address (navigate). They run in that order: toast, status and refetch, close, then the page is left. reload is mutually exclusive with status, refetch, close and navigate; navigate is mutually exclusive with status and refetch.',
+      'Success handler for a fetch action: the toast slot plus optional effects: a persistent inline status region (status), a sibling data-bound refetch (refetch), a full-page reload (reload) that recomposes the page server-side, closing the overlay the control sits in (close), and going to another address (navigate). They run in that order: toast, status and refetch, close, then the page is left. reload is mutually exclusive with status, refetch, close and navigate; navigate is mutually exclusive with status and refetch.',
   }),
   Schema.check(Schema.makeFilter(fetchSuccessExitConflict))
 )
@@ -397,7 +397,7 @@ const FetchErrorStatusSchema = Schema.Struct({
   retryLabel: Schema.optional(
     Schema.String.annotate({
       description:
-        'Label of a button drawn inside the alert. Pressing it clears the alert and runs the same action again — the same request, then its own onSuccess or onError — without asking its confirmation a second time. Without it the alert holds no button. Accepts a $t: key.',
+        'Label of a button drawn inside the alert. Pressing it clears the alert and runs the same action again (the same request, then its own onSuccess or onError) without asking its confirmation a second time. Without it the alert holds no button. Accepts a $t: key.',
       examples: ['Retry', '$t:common.retry'],
     })
   ),
@@ -449,7 +449,7 @@ const FetchErrorResponseSchema = Schema.Struct({
   Schema.annotate({
     title: 'Fetch Error Response',
     description:
-      'Failure handler for a fetch action: either the error toast (type: toast with a message, optionally a Retry through actionLabel), or status — a persistent inline role="alert" message written under the control, with an optional retryLabel button that runs the same action again. The two are mutually exclusive.',
+      'Failure handler for a fetch action: either the error toast (type: toast with a message, optionally a Retry through actionLabel), or status, a persistent inline role="alert" message written under the control, with an optional retryLabel button that runs the same action again. The two are mutually exclusive.',
   }),
   Schema.check(Schema.makeFilter(fetchErrorResponseConflict))
 )

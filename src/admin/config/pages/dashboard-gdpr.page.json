@@ -206,7 +206,7 @@
                           "element": "p",
                           "props": {
                             "id": "gdpr-export-status",
-                            "className": "text-foreground-subtle text-sm empty:hidden! [&[role=alert]]:flex [&[role=alert]]:items-center [&[role=alert]]:gap-2.5 [&[role=alert]]:rounded-lg [&[role=alert]]:border [&[role=alert]]:border-destructive/40 [&[role=alert]]:px-3 [&[role=alert]]:py-2.5 [&[role=alert]]:text-foreground [&[role=alert]]:before:content-['!'] [&[role=alert]]:before:inline-flex [&[role=alert]]:before:size-4 [&[role=alert]]:before:shrink-0 [&[role=alert]]:before:items-center [&[role=alert]]:before:justify-center [&[role=alert]]:before:rounded-full [&[role=alert]]:before:border-[1.5px] [&[role=alert]]:before:border-destructive [&[role=alert]]:before:text-[10px] [&[role=alert]]:before:font-bold [&[role=alert]]:before:text-destructive [&[role=alert]>button]:ml-auto [&[role=alert]>button]:inline-flex [&[role=alert]>button]:h-6 [&[role=alert]>button]:shrink-0 [&[role=alert]>button]:items-center [&[role=alert]>button]:rounded-md [&[role=alert]>button]:border [&[role=alert]>button]:border-border [&[role=alert]>button]:bg-background [&[role=alert]>button]:px-2 [&[role=alert]>button]:text-xs [&[role=alert]>button]:no-underline [&[role=alert]>button]:hover:bg-muted",
+                            "className": "text-foreground-subtle text-sm empty:hidden! [&[role=alert]]:flex [&[role=alert]]:items-center [&[role=alert]]:gap-2.5 [&[role=alert]]:rounded-lg [&[role=alert]]:border [&[role=alert]]:border-destructive/40 [&[role=alert]]:px-3 [&[role=alert]]:py-2.5 [&[role=alert]]:text-foreground [&[role=alert]]:before:content-['!'] [&[role=alert]]:before:inline-flex [&[role=alert]]:before:size-4 [&[role=alert]]:before:shrink-0 [&[role=alert]]:before:items-center [&[role=alert]]:before:justify-center [&[role=alert]]:before:rounded-full [&[role=alert]]:before:border-[1.5px] [&[role=alert]]:before:border-destructive [&[role=alert]]:before:text-xs [&[role=alert]]:before:font-bold [&[role=alert]]:before:text-destructive [&[role=alert]>button]:ml-auto [&[role=alert]>button]:inline-flex [&[role=alert]>button]:h-6 [&[role=alert]>button]:shrink-0 [&[role=alert]>button]:items-center [&[role=alert]>button]:rounded-md [&[role=alert]>button]:border [&[role=alert]>button]:border-border [&[role=alert]>button]:bg-background [&[role=alert]>button]:px-2 [&[role=alert]>button]:text-xs [&[role=alert]>button]:no-underline [&[role=alert]>button]:hover:bg-muted",
                             "data-testid": "gdpr-export-status"
                           },
                           "content": ""
@@ -220,7 +220,7 @@
                   "key": "gdpr-heading-2",
                   "element": "div",
                   "props": {
-                    "className": "grid grid-cols-1 gap-y-2.5 border-b border-border py-4 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0"
+                    "className": "grid grid-cols-1 gap-y-2.5 my-3 rounded-xl px-4 py-3 ring-1 ring-foreground/10 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0"
                   },
                   "children": [
                     {
@@ -244,16 +244,34 @@
                           "key": "gdpr-heading-2-2-1",
                           "element": "div",
                           "props": {
-                            "className": "grid grid-cols-1 items-start gap-x-6 gap-y-2 sm:grid-cols-[minmax(0,26rem)_max-content]"
+                            "className": "grid grid-cols-1 items-start gap-x-6 gap-y-2 sm:grid-cols-[minmax(0,1fr)_max-content]"
                           },
                           "children": [
                             {
-                              "type": "text",
-                              "element": "p",
+                              "type": "container",
+                              "key": "gdpr-erase-notice",
+                              "element": "div",
                               "props": {
-                                "className": "text-foreground-subtle text-sm"
+                                "className": "flex min-w-0 flex-col gap-0.5"
                               },
-                              "content": "$t:admin.locked.audit.gdpr.erasureNotice"
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-foreground text-sm"
+                                  },
+                                  "content": "$t:admin.locked.audit.gdpr.erasureNotice"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-muted-foreground text-xs"
+                                  },
+                                  "content": "$t:admin.locked.audit.gdpr.erasureFinal"
+                                }
+                              ]
                             },
                             {
                               "type": "button",
@@ -281,6 +299,11 @@
                                 "body": {
                                   "confirm": true
                                 },
+                                "onError": {
+                                  "type": "toast",
+                                  "variant": "destructive",
+                                  "message": "$t:admin.gdpr.erase.failed"
+                                },
                                 "onSuccess": {
                                   "type": "toast",
                                   "variant": "success",
@@ -290,6 +313,10 @@
                                     "message": "$t:admin.gdpr.erase.scheduled"
                                   }
                                 }
+                              },
+                              "hiddenWhenRead": {
+                                "component": "gdpr-pending-grid",
+                                "state": ["loading", "nonEmpty"]
                               }
                             }
                           ]
@@ -386,7 +413,8 @@
                               }
                             ],
                             "emptyMessage": "$t:admin.gdpr.pending.empty",
-                            "viewOptions": "toolbar"
+                            "viewOptions": "toolbar",
+                            "emptyDescription": "$t:admin.gdpr.pending.empty.guidance"
                           }
                         }
                       ]

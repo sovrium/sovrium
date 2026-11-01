@@ -35,8 +35,6 @@ export interface RetryAutomationRunOptions {
   readonly runId: string
   /** The live app schema (carries the automation definition + env contract). */
   readonly app: App
-  /** Process env passed through to the replay engine (env-var resolution). */
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /** Acting admin's user id, threaded into the new run's audit context. */
   readonly userId?: string
 }
@@ -60,7 +58,7 @@ export const retryAutomationRun = (
   AutomationRunRepository | ExecuteAutomationRunRequirements | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
-    const { runId, app, processEnv, userId } = options
+    const { runId, app, userId } = options
 
     const repo = yield* AutomationRunRepository
     // No `mapError`: a read that FAILED is not a read that found nothing. Only
@@ -74,7 +72,6 @@ export const retryAutomationRun = (
       name: run.automationName,
       runId,
       app,
-      processEnv,
       ...(userId !== undefined ? { userId } : {}),
     })
   }).pipe(Effect.withSpan('automations.retry-automation-run'))

@@ -6,15 +6,13 @@
  */
 
 import { and, eq, isNotNull, isNull, lt, or } from 'drizzle-orm'
+import { DAY_MS } from '@/domain/kernel/time/durations'
 import { retentionDaysOf } from '@/domain/models/app/notifications/notifications-service'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { notifications as notificationsPg } from '@/infrastructure/database/drizzle/schema/notifications'
 import { notifications as notificationsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/notifications'
 import type { App } from '@/domain/models/app'
-
-/** One day, in milliseconds. */
-const DAY_MS = 86_400_000
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Delete, for good, the notifications past `notifications.retention.days` (90
@@ -23,7 +21,10 @@ const DAY_MS = 86_400_000
  * many days ago. A notification she lists and has not read is never deleted.
  * Answers how many it deletes; an app without notifications deletes none.
  */
-export const purgeReadNotifications = async (app: Pick<App, 'notifications'>): Promise<number> => {
+export const purgeReadNotifications = async (
+  db: PortableDb,
+  app: Pick<App, 'notifications'>
+): Promise<number> => {
   if (app.notifications === undefined) return 0
   const notifications = resolveDialectSchema(notificationsPg, notificationsSqlite)
   const cutoff = new Date(Date.now() - retentionDaysOf(app.notifications) * DAY_MS)

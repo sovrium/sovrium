@@ -8,7 +8,7 @@
 /**
  * Where the footer badge goes on a page laid out as a window-high shell.
  *
- * `badge: { placement: footer }` draws the badge as a `<footer>` line after
+ * `badge: { placement: footer }` draws the badge as a plain line after
  * `<main>`. On a page whose content is a shell exactly one window high — a
  * `flex h-screen overflow-hidden` row of a sidebar column beside an inset that
  * scrolls on its own — that line lands BELOW the shell: the document grows a

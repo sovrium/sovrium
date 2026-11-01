@@ -1,6 +1,6 @@
 # Date Actions
 
-> Timezone- and locale-aware date work inside an automation — eight operators over a closed token set, and the omissions that keep it eight.
+> Timezone- and locale-aware date work inside an automation: eight operators over a closed token set, and the omissions that keep it eight.
 
 Render an instant, read one back out of a string, shift it, measure between two, snap to a calendar boundary.
 
@@ -32,7 +32,7 @@ Render an instant, read one back out of a string, shift it, measure between two,
 
 `instant` is always an ISO 8601 **string**, never a date object: a step output is persisted to run history as JSON, re-read by templates and returned in webhook bodies, and an object survives none of those hops with its type intact.
 
-`timezone` is an IANA identifier and defaults to the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset). An instant carries no zone of its own — `timezone` is what the instant is _read in_. A fixed offset is accepted but cannot express daylight saving, so prefer a named zone anywhere that observes it. `locale` is a BCP-47 tag defaulting to `en-US`, and it affects only the month and weekday **name** tokens; a purely numeric pattern ignores it.
+`timezone` is an IANA identifier and defaults to the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset). An instant carries no zone of its own: `timezone` is what the instant is _read in_. A fixed offset is accepted but cannot express daylight saving, so prefer a named zone anywhere that observes it. `locale` is a BCP-47 tag defaulting to `en-US`, and it affects only the month and weekday **name** tokens; a purely numeric pattern ignores it.
 
 ## The pattern token set is closed
 
@@ -53,7 +53,7 @@ Render an instant, read one back out of a string, shift it, measure between two,
 | `DD`   | Legacy alias of `dd`           | yes       |
 | `D`    | Legacy alias of `d`            | no        |
 
-An unrecognised token is an **error**, not a pass-through. Every ASCII letter outside a quoted literal must belong to a token above, which is the format's own rule — letters are reserved. Quote a literal letter: `"yyyy-MM-dd'T'HH:mm:ss"`. Non-letters pass through untouched.
+An unrecognised token is an **error**, not a pass-through. Every ASCII letter outside a quoted literal must belong to a token above, which is the format's own rule: letters are reserved. Quote a literal letter: `"yyyy-MM-dd'T'HH:mm:ss"`. Non-letters pass through untouched.
 
 Closing the set is what keeps this surface finite and testable. The moment a forty-token vocabulary is implied, all forty are owed.
 
@@ -76,7 +76,7 @@ A string that does not match the pattern **succeeds** the step with `valid: fals
 - **Retry.** A failed step is retried per its retry policy. Retrying a deterministic verdict burns the budget and delays the run for a result that cannot change.
 - **Control flow.** A failed step stops the branch unless `continueOnError` is set, so a downstream filter meant to route the invalid rows would never run. Returning data keeps the decision where an author can act on it.
 
-A malformed **pattern** is the opposite case — an author error rather than data — and does fail the step.
+A malformed **pattern** is the opposite case (an author error rather than data) and does fail the step.
 
 ```yaml
 - name: routeInvalid
@@ -90,17 +90,17 @@ A malformed **pattern** is the opposite case — an author error rather than dat
 
 ## Calendar units and elapsed time are different
 
-`add` and `subtract` take at least one duration component; declaring none is a configuration error. The counts are plural while unit names elsewhere are singular — quantities against names.
+`add` and `subtract` take at least one duration component; declaring none is a configuration error. The counts are plural while unit names elsewhere are singular: quantities against names.
 
-| Component | Resolved as                                                 |
-| --------- | ----------------------------------------------------------- |
-| `years`   | **Calendar** — daylight-saving aware, wall clock preserved  |
-| `months`  | **Calendar** — 31 January plus one month is 28 February     |
-| `weeks`   | **Calendar** — daylight-saving aware                        |
-| `days`    | **Calendar** — a day across a change is 23 or 25 real hours |
-| `hours`   | **Elapsed** — always 60 minutes                             |
-| `minutes` | **Elapsed** — unaffected by daylight saving                 |
-| `seconds` | **Elapsed** — unaffected by daylight saving                 |
+| Component | Resolved as                                                |
+| --------- | ---------------------------------------------------------- |
+| `years`   | **Calendar**: daylight-saving aware, wall clock preserved  |
+| `months`  | **Calendar**: 31 January plus one month is 28 February     |
+| `weeks`   | **Calendar**: daylight-saving aware                        |
+| `days`    | **Calendar**: a day across a change is 23 or 25 real hours |
+| `hours`   | **Elapsed**: always 60 minutes                             |
+| `minutes` | **Elapsed**: unaffected by daylight saving                 |
+| `seconds` | **Elapsed**: unaffected by daylight saving                 |
 
 Adding `{ days: 1 }` to noon in a zone that springs forward lands on noon the next day, 23 real hours later. Adding `{ hours: 24 }` lands on 13:00, 24 real hours later. Both are correct answers to different questions, and the split is what keeps an `add` in hours and a later `diff` in hours agreeing.
 
@@ -121,7 +121,7 @@ Larger units apply before smaller ones, so month-end clamping happens first: 31 
 
 `unit` is singular: `year`, `month`, `week`, `day`, `hour`, `minute`, `second` or `millisecond`. The result is negative when `to` precedes `from`, and truncated toward zero, so a 47-hour gap is one day rather than two. Calendar units are counted against the zone; elapsed ones are not.
 
-Because the answer carries a sign, there are no comparison operators in this family — compare the result in a filter or a branch condition instead.
+Because the answer carries a sign, there are no comparison operators in this family. Compare the result in a filter or a branch condition instead.
 
 ## `startOf` and `endOf`
 

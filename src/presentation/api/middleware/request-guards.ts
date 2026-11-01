@@ -16,7 +16,6 @@
  * and it is stated where they are applied, in `api-auth-guards.ts`.
  */
 
-import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
 import { timeout } from 'hono/timeout'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
@@ -26,7 +25,6 @@ import {
   parseSpeechEnv,
 } from '@/domain/models/process-env/ai/speech'
 import { parsePositiveIntEnv } from '@/domain/models/process-env/positive-int-env'
-import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import {
   getActivityRateLimitRetryAfter,
   getTablesRateLimitRetryAfter,
@@ -36,7 +34,9 @@ import {
   recordTablesRateLimitRequest,
 } from '@/presentation/api/auth/auth-route-utils'
 import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
+import { apiBodyLimit, apiBodyLimitBytes } from '@/presentation/api/middleware/request-body-limit'
 import { redirectRefusedFormPost } from '@/presentation/api/runtime/form-flash'
+import { rateLimitedResponse } from '@/presentation/api/runtime/rate-limit-response'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
 
@@ -222,22 +222,16 @@ const ROUTE_TIMEOUTS: readonly RouteTimeout[] = [
 ]
 
 /**
- * Apply a global request timeout to `/api/*` and a body-size guard to the
- * record-mutation route group.
+ * Apply a global request timeout and a body-size guard to `/api/*`.
  *
  * - **Timeout** (`hono/timeout`): default 30 s, override via `API_TIMEOUT_MS`.
  *   A route listed in `ROUTE_TIMEOUTS` runs under its own ceiling instead, or
  *   none at all for a streaming response.
- * - **Body limit** (`hono/body-limit`): default 25 MB, override via
- *   `API_BODY_LIMIT_BYTES`. Mounted on the record-mutation route group
- *   (`/api/tables/*`) only — these carry JSON record payloads.
- *
- *   File-upload route groups (`/api/buckets/*`, `/api/forms/*`) are
- *   **deliberately excluded**: the buckets subsystem enforces its own
- *   streaming-aware size limit (per-bucket `maxFileSize` → `STORAGE_MAX_FILE_SIZE`
- *   env → 100 MB default, returning HTTP 413), and the streaming upload server
- *   is designed to accept large files (>50 MB). A blanket Hono `body-limit`
- *   there would override that contract and reject legitimate large uploads.
+ * - **Body limit** (`request-body-limit.ts`): default 1 MiB, override via
+ *   `API_BODY_LIMIT_BYTES`, on every `/api/*` route, sign-in included. A route
+ *   that takes a file declares it (`acceptsUploadBody`) and keeps the listener's
+ *   upload-sized ceiling; the buckets, forms, attachment and import handlers
+ *   enforce their own file limits on top of it, streaming.
  *
  * Mounted before auth/rate-limiting so oversized or slow requests are
  * rejected as early as possible.
@@ -245,8 +239,7 @@ const ROUTE_TIMEOUTS: readonly RouteTimeout[] = [
 
 export const applyRequestGuards = (honoApp: Hono): Hono => {
   const timeoutMs = parsePositiveIntEnv(process.env['API_TIMEOUT_MS']) ?? 30_000
-  const bodyLimitBytes =
-    parsePositiveIntEnv(process.env['API_BODY_LIMIT_BYTES']) ?? 25 * 1024 * 1024
+  const bodyLimitBytes = apiBodyLimitBytes()
 
   // Every timeout is built by `gatewayTimeout`, a FACTORY rather than
   // `timeout(timeoutMs)`'s default exception. That default is a
@@ -270,5 +263,5 @@ export const applyRequestGuards = (honoApp: Hono): Hono => {
       if (route === undefined) return defaultTimeout(c, next)
       return route.middleware === undefined ? next() : route.middleware(c, next)
     })
-    .use('/api/tables/*', bodyLimit({ maxSize: bodyLimitBytes }))
+    .use('/api/*', apiBodyLimit(bodyLimitBytes))
 }

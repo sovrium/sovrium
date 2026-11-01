@@ -54,3 +54,14 @@ export const computeCodeBlockFilenameClasses = (): string => 'truncate'
 /** The copy control: a ghost icon button pushed to the trailing edge. */
 export const computeCodeBlockCopyClasses = (): string =>
   `${computePartButtonClasses({ variant: 'ghost', size: 'icon-xs' })} ms-auto cursor-pointer`
+
+/**
+ * The command `<pre>`'s own behaviour classes, shared by the `code` component
+ * and the markdown fences. A `<pre>` wider than its content is flagged
+ * `data-scrollable` by the body-end scroll-region runtime, which also gives it
+ * a tab stop: the focus ring is drawn inside its edge (the frame clips
+ * anything outside), and a fade over the trailing edge shows the line goes on.
+ * Scrolled to the end, the flag reads `end` and the fade is lifted.
+ */
+export const computeCodeBlockContentClasses = (): string =>
+  'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-[scrollable=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-2.5rem),transparent)] rtl:data-[scrollable=true]:[mask-image:linear-gradient(to_left,#000_calc(100%-2.5rem),transparent)]'

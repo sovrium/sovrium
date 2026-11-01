@@ -6,7 +6,6 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   McpAuditDatabaseError,
   McpAuditRepository,
@@ -14,16 +13,18 @@ import {
   type McpToolCallAuditEntry,
   type McpToolCallAuditRow,
 } from '@/application/ports/repositories/mcp/mcp-audit-repository'
-import { db } from '@/infrastructure/database'
+import {
+  layerOverDatabase,
+  type Dialect,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   answeredRows,
   rawListStatement,
 } from '@/infrastructure/database/repositories/mcp/mcp-internals-repository-live'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import { executeRaw, executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
-import { sqliteSystemTableName, systemTableRef } from '@/infrastructure/database/sql/dialect-sql'
-import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { executeRawOn, executeRawTypedOn } from '@/infrastructure/database/sql/dialect-execute'
+import { sqliteSystemTableName } from '@/infrastructure/database/sql/dialect-sql'
 import type { McpInternalListQuery } from '@/application/ports/repositories/mcp/mcp-internals-repository'
 
 /** Wrap a DB promise, adapting failures to `McpAuditDatabaseError`. */
@@ -54,10 +55,11 @@ const wrap = makeDbWrap((cause) => new McpAuditDatabaseError({ cause }))
  * with, and decodes to garbage through `timestamp_ms`. That failure is silent,
  * which is why it is called out rather than left to be rediscovered.
  */
-const auditCreatedAt = () => (isSqliteRuntime() ? sql`${Date.now()}` : sql.raw('now()'))
+const auditCreatedAt = (dialect: Dialect) =>
+  dialect.kind === 'sqlite' ? sql`${Date.now()}` : sql.raw('now()')
 
-export const McpAuditRepositoryLive = Layer.succeed(McpAuditRepository, {
-  recordToolCall: (entry: McpToolCallAuditEntry) =>
+const members: MembersOverDatabase<typeof McpAuditRepository> = {
+  recordToolCall: (db, dialect) => (entry: McpToolCallAuditEntry) =>
     wrap(async () => {
       // Latency is wall-clock; round to the nearest integer ms because the
       // database column is INTEGER and `Date.now()` returns integer ms but a
@@ -67,13 +69,12 @@ export const McpAuditRepositoryLive = Layer.succeed(McpAuditRepository, {
       // round to 0 on cold paths in CI).
       const roundedLatency = Math.max(1, Math.round(entry.latencyMs))
 
-      // drizzle-orm + bun-sql binds parameter values as TEXT, which produces
-      // "column is of type jsonb but expression is of type text" errors when
-      // sent into a JSONB column. `jsonbLiteral` inlines the value as a
-      // typed `'…'::jsonb` literal — see `sql-utils.ts` for the full rationale.
-      const inputLiteral = jsonbLiteral(entry.inputArgs)
-      const outputLiteral =
-        entry.result === undefined ? sql.raw('NULL') : jsonbLiteral(entry.result)
+      // A plain bound string would not land in a JSONB column as structure.
+      // `bindJsonb` binds the value with the cast that makes PostgreSQL parse
+      // it as JSON — see `sql-utils.ts` for the full rationale.
+      const inputJson = dialect.sql.bindJsonb(entry.inputArgs)
+      const outputJson =
+        entry.result === undefined ? sql.raw('NULL') : dialect.sql.bindJsonb(entry.result)
       const errorMessageFragment =
         entry.errorMessage === undefined ? sql.raw('NULL') : sql`${entry.errorMessage}`
       const errorCodeFragment =
@@ -85,19 +86,20 @@ export const McpAuditRepositoryLive = Layer.succeed(McpAuditRepository, {
       // `TypeError: db.execute is not a function` — and because the DISPATCHER
       // swallows an audit failure to keep the live request alive, that threw
       // silently and left the trail empty on the zero-config default engine.
-      await executeRaw(
+      await executeRawOn(
+        dialect.kind,
         db,
-        sql`INSERT INTO ${systemTableRef('ai_tool_calls')}
+        sql`INSERT INTO ${dialect.sql.systemTableRef('ai_tool_calls')}
             (id, created_at, tool_name, caller_type, caller_id, caller_role, input, output, error_message, error_code, latency_ms, transport)
             VALUES (
               ${crypto.randomUUID()},
-              ${auditCreatedAt()},
+              ${auditCreatedAt(dialect)},
               ${entry.toolName},
               ${entry.callerType},
               ${entry.callerId},
               ${entry.callerRole},
-              ${inputLiteral},
-              ${outputLiteral},
+              ${inputJson},
+              ${outputJson},
               ${errorMessageFragment},
               ${errorCodeFragment},
               ${roundedLatency},
@@ -106,7 +108,7 @@ export const McpAuditRepositoryLive = Layer.succeed(McpAuditRepository, {
       )
     }),
 
-  listToolCalls: (query: McpInternalListQuery) =>
+  listToolCalls: (db, dialect) => (query: McpInternalListQuery) =>
     wrap(async () =>
       // The 12-column projection is load-bearing and must stay explicit: it is
       // the only thing that distinguishes this tier-1 read from the generic
@@ -120,11 +122,14 @@ export const McpAuditRepositoryLive = Layer.succeed(McpAuditRepository, {
       // both driver result shapes, which is why no `.rows` unwrap follows.
       // On SQLite the creation time is answered as an ISO instant, as on PostgreSQL.
       answeredRows(
+        dialect,
         sqliteSystemTableName('ai_tool_calls'),
-        await executeRawTyped<McpToolCallAuditRow>(
+        await executeRawTypedOn<McpToolCallAuditRow>(
+          dialect.kind,
           db,
           rawListStatement(
-            systemTableRef('ai_tool_calls'),
+            dialect,
+            dialect.sql.systemTableRef('ai_tool_calls'),
             sql.join(
               TOOL_CALL_LEDGER_COLUMNS.map((column) => sql.identifier(column)),
               sql`, `
@@ -134,4 +139,6 @@ export const McpAuditRepositoryLive = Layer.succeed(McpAuditRepository, {
         )
       )
     ),
-})
+}
+
+export const McpAuditRepositoryLive = layerOverDatabase(McpAuditRepository, members)

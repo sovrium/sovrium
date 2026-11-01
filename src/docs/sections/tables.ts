@@ -23,9 +23,14 @@ import {
 } from '@/domain/models/app/tables/permissions'
 import { PrimaryKeySchema } from '@/domain/models/app/tables/primary-key'
 import { TableRetentionSchema } from '@/domain/models/app/tables/retention'
+import { BusinessRuleSchema } from '@/domain/models/app/tables/rules'
+import { LockRuleSchema } from '@/domain/models/app/tables/rules-lock'
+import { TransitionRuleSchema } from '@/domain/models/app/tables/rules-transition'
+import { ValidateRuleSchema } from '@/domain/models/app/tables/rules-validate'
 import tableCalendarFeedBody from '@/domain/models/app/tables/table-calendar-feed.docs.md' with { type: 'file' }
 import tablePermissionsBody from '@/domain/models/app/tables/table-permissions.docs.md' with { type: 'file' }
 import tableRetentionBody from '@/domain/models/app/tables/table-retention.docs.md' with { type: 'file' }
+import tableRulesBody from '@/domain/models/app/tables/table-rules.docs.md' with { type: 'file' }
 import tableValidationBody from '@/domain/models/app/tables/table-validation.docs.md' with { type: 'file' }
 import tablesOverviewBody from '@/domain/models/app/tables/tables-overview.docs.md' with { type: 'file' }
 import {
@@ -221,6 +226,34 @@ export const tables = defineSection({
       ],
     }),
     defineArticle({
+      slug: 'table-rules',
+      title: 'Table Rules',
+      description:
+        'Business rules on record writes: locks, status transitions and validations, refused with your own message on every write path, admins and automations included.',
+      keywords: [
+        'sovrium',
+        'business rules',
+        'lock',
+        'read-only',
+        'transition',
+        'workflow',
+        'validation',
+        'status',
+        'record state',
+      ],
+      order: 2055,
+      sidebarLabel: 'Rules',
+      body: tableRulesBody,
+      documents: [BusinessRuleSchema, LockRuleSchema, TransitionRuleSchema, ValidateRuleSchema],
+      stories: [
+        'US-TABLES-BUSINESS-RULES-EDITABILITY-HINTS',
+        'US-TABLES-BUSINESS-RULES-LOCK-RULES',
+        'US-TABLES-BUSINESS-RULES-TRANSITION-RULES',
+        'US-TABLES-BUSINESS-RULES-VALIDATE-RULES',
+        'US-TABLES-BUSINESS-RULES-WRITE-PATHS',
+      ],
+    }),
+    defineArticle({
       slug: 'table-webhooks',
       title: 'Table Webhooks',
       description:
@@ -254,7 +287,7 @@ export const tables = defineSection({
       slug: 'table-retention',
       title: 'Table Retention',
       description:
-        'Keep a Sovrium table to a fixed window: a daily sweep deletes for good the rows older than the days the table declares, in batches, without firing automations — and keep a busy table out of the activity log.',
+        'Keep a table to a fixed window: a daily sweep deletes old rows for good, in batches, firing no automation. A busy table can also stay out of the activity log.',
       keywords: [
         'sovrium',
         'retention',
@@ -276,7 +309,7 @@ export const tables = defineSection({
       slug: 'table-calendar-feed',
       title: 'Calendar Feed',
       description:
-        'Publish a Sovrium table as an iCalendar feed each reader subscribes to from Proton, Google or Apple Calendar, through a private address that lists only the rows and fields they may read.',
+        'Publish a table as an iCalendar feed each reader subscribes to from Proton, Google or Apple Calendar, at a private address listing only what they may read.',
       keywords: [
         'sovrium',
         'calendar',

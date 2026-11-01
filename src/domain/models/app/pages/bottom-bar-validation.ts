@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * What a `navigation-menu` drawn as a phone's tab bar (`layout: bottom-bar`)
  * may hold: at most five top-level items, none of them a sub-menu.
@@ -42,8 +44,4 @@ export function bottomBarViolations(
       )
       return [...tooMany, ...subMenus]
     })
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

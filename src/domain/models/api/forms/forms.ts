@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * Form name schema — kebab-case, URL-safe, matches FormNameSchema in the
@@ -38,6 +38,13 @@ export const formSummarySchema = Schema.Struct({
   accessLevel: Schema.Literals(['public', 'authenticated', 'role-restricted']),
   isOpen: Schema.Boolean,
 }).annotate({ identifier: 'FormSummary' })
+
+/** Response of a form step: where the submitter goes next. */
+export const formStepAdvanceResponseSchema = Schema.Struct({
+  nextStepId: Schema.NullOr(
+    Schema.String.annotate({ description: 'Next step id, or null when complete' })
+  ),
+})
 
 /**
  * TypeScript types inferred from the schemas.

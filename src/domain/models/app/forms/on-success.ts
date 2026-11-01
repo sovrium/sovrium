@@ -45,7 +45,7 @@ export const SuccessPageActionSchema = Schema.Struct({
   url: Schema.optional(
     Schema.String.annotate({
       description:
-        'Where the button navigates, required when the action is `navigate`. Accepts a `$t:` key and the same submit-time variables as a redirect URL. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
+        'Where the button navigates, required when the action is `navigate`. Accepts a `$t:` key and the same submit-time variables as a redirect URL. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address (`javascript:`, `data:`, `mailto:`, or one starting with `//`) is refused when the config is read.',
     }).pipe(Schema.check(formAddressCheck))
   ),
 }).annotate({
@@ -80,7 +80,7 @@ export const FormSuccessToastSchema = Schema.Struct({
   identifier: 'FormSuccessToast',
   title: 'Form Success Toast',
   description:
-    'A brief confirmation shown beside the primary success effect — before the redirect leaves, or as the form clears.',
+    'A brief confirmation shown beside the primary success effect: before the redirect leaves, or as the form clears.',
 })
 
 /**
@@ -137,7 +137,7 @@ export const SuccessPageOnSuccessSchema = Schema.Struct({
   buttonHref: Schema.optional(
     Schema.String.annotate({
       description:
-        'Where that single link button goes. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
+        'Where that single link button goes. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address (`javascript:`, `data:`, `mailto:`, or one starting with `//`) is refused when the config is read.',
     }).pipe(Schema.check(formAddressCheck))
   ),
   /**
@@ -196,7 +196,7 @@ export const RedirectOnSuccessSchema = Schema.Struct({
    */
   url: Schema.String.annotate({
     description:
-      'Where the visitor is sent after a successful submission. Template variables such as `$record.<column>` are replaced with the values that were submitted. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
+      'Where the visitor is sent after a successful submission. Template variables such as `$record.<column>` are replaced with the values that were submitted. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address (`javascript:`, `data:`, `mailto:`, or one starting with `//`) is refused when the config is read.',
   }).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(formAddressCheck)),
   /**
    * Delay before the navigation fires, in seconds. Default 2 — gives the

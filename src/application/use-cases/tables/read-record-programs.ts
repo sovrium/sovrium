@@ -33,9 +33,11 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { buildAiComputeProjections } from '@/application/use-cases/ai-compute/status-projection'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { buildAiComputeProjections } from '@/application/use-cases/ai/status-projection'
 import { NotFoundError, ValidationError } from '@/domain/errors'
 import { filterFieldsReadableByAny } from '@/domain/models/app/tables/field-read-filter-service'
+import { transformRecord } from '@/domain/models/app/tables/record-transformer-service'
 import { callersOfRow, type RowGrants } from '@/domain/models/app/tables/row-read-admission-service'
 import { singleRecordAddressRefusal } from '@/domain/models/app/tables/single-record-address'
 import { enrichRecordWithAttachmentUrls } from './attachment-url-enricher'
@@ -47,14 +49,14 @@ import {
 } from './hidden-lookup-omission'
 import { relatedReaderOf } from './linked-row-visibility'
 import { processRecords, applyPagination } from './list-helpers'
+import { locksReaderContext } from './locks-block'
 import { lookupReadMasks } from './lookup-read-masks'
 import { preserveIdType } from './preserve-id-type'
-import { toDisplayFields } from './record-display-fields'
+import { displayedFieldsOf, displayZoneOf } from './record-display-fields'
 import { enrichRecordsWithRelatedLabels, mergeManyToManyFields } from './record-link-enrichment'
-import { transformRecord } from './record-transformer'
+import { toGetRecordResponse } from './record-read-response'
 import { filterToReaderRows, grantsForReadableRow, readerRowsOf } from './row-read-admission'
 import { readManyToManyLinks } from './to-many-link-reads'
-import type { TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -66,6 +68,8 @@ import type {
 import type { DatabaseError } from '@/domain/errors'
 import type { ListRecordsResponse, GetRecordResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
+import type { TransformedRecord } from '@/domain/models/app/tables/record-transformer-service'
+import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
 
 interface ListTrashConfig {
   readonly session: Readonly<UserSession>
@@ -169,6 +173,8 @@ interface GetRecordConfig {
 
 /** What shaping a stored row needs to know about its reader — no address of its own. */
 type RecordReaderConfig = Omit<GetRecordConfig, 'recordId' | 'includeDeleted' | 'admits'> & {
+  /** The context the business rules are judged in, their hops loaded (`locks-block.ts`). */
+  readonly rulesContext?: CurrentUserContext | undefined
   /** Keep write-only values: an automation run nobody started, and no other reader. */
   readonly readsWriteOnly?: boolean
   /** The rows a scope grant names, each read under the roles it gives as well. */
@@ -226,7 +232,7 @@ const readRawRecord = (config: GetRecordConfig) =>
 
 /** One stored row, filtered to its reader's fields and transformed — the pure half of the shape. */
 const transformForReader = (
-  config: RecordReaderConfig,
+  config: RecordReaderConfig & { readonly env: Readonly<Record<string, string | undefined>> },
   record: Readonly<Record<string, unknown>>
 ) => {
   const { tableName, app, userRole } = config
@@ -240,6 +246,7 @@ const transformForReader = (
     tableName,
     format: config.format,
     timezone: config.timezone,
+    ...displayZoneOf(config.format, config.env),
     language: config.language,
   })
   // B-01: same attachment-URL enrichment as the list path.
@@ -247,42 +254,14 @@ const transformForReader = (
     app,
     tableName,
     origin: config.origin ?? '',
+    env: config.env,
   })
-  const fields =
-    config.format === 'display' ? toDisplayFields(transformed.fields, config) : transformed.fields
+  const fields = displayedFieldsOf(transformed.fields, config)
   // Preserve TEXT primary keys (e.g. scope tables in `auth.scopeTables`) as
   // strings; only coerce when the value *looks* numeric. Avoids NaN for opaque
   // string ids.
   const id = preserveIdType(record['id'] as string | number)
   return { transformed, fields, id, writeOnly: storedRowBlocks({ ...config, record }) }
-}
-
-/** Assemble one records-API single-record answer from its already-read parts. */
-const toGetRecordResponse = (parts: {
-  readonly id: string | number
-  readonly transformed: TransformedRecord
-  readonly fields: Readonly<TransformedRecord['fields']>
-  readonly aiCompute: unknown
-  readonly display: unknown
-  readonly writeOnly: ReturnType<typeof storedRowBlocks>
-}): GetRecordResponse => {
-  const { id, transformed, fields, aiCompute, display } = parts
-  // Fields at the root as flat aliases too (the same pattern as
-  // `createRecordProgram`), so `record.fieldName` reads as `record.fields.fieldName`.
-  return {
-    ...fields,
-    // A record id reads as a string on every records-API response.
-    id: String(id),
-    fields,
-    createdAt: transformed.createdAt,
-    updatedAt: transformed.updatedAt,
-    ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
-    ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
-    ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
-    ...(aiCompute ? { _aiCompute: aiCompute } : {}),
-    ...(display === undefined ? {} : { _display: display }),
-    ...parts.writeOnly,
-  }
 }
 
 /**
@@ -317,7 +296,10 @@ export const shapeRecordsForReader = (
       role: config.userRole,
       groups: config.userGroups ?? [],
     }
-    const shaped = records.map((record) => transformForReader(config, record))
+    // The business rules are judged with their relationship hops loaded once.
+    const rulesContext = yield* locksReaderContext(config)
+    const reading = { ...config, rulesContext, env: yield* ProcessEnv }
+    const shaped = records.map((record) => transformForReader(reading, record))
     const ids = shaped.map(({ id }) => id)
     const links = yield* readManyToManyLinks(app, tableName, ids, { reader, fields: config.fields })
     const linked = shaped.map(({ id, fields }) => ({
@@ -396,4 +378,21 @@ export function rawGetRecordProgram(
     yield* refuseWhenNoSingleIdAddress(app, tableName)
     return yield* repo.getRecord(session, tableName, recordId)
   }).pipe(Effect.withSpan('tables.raw-get-record-program'))
+}
+
+/**
+ * {@link rawGetRecordProgram}, reaching a row in the trash as well as a live
+ * one: the row a permanent delete or a purge removes, whichever it is.
+ */
+export function rawGetRecordIncludingTrashProgram(
+  session: Readonly<UserSession>,
+  tableName: string,
+  recordId: string,
+  app: App
+): Effect.Effect<Record<string, unknown> | null, DatabaseError | ValidationError, TableRepository> {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+    yield* refuseWhenNoSingleIdAddress(app, tableName)
+    return yield* repo.getRecord(session, tableName, recordId, true)
+  }).pipe(Effect.withSpan('tables.raw-get-record-including-trash-program'))
 }

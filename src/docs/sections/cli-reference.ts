@@ -23,7 +23,7 @@ export const cliReferenceArticles: readonly DocArticle[] = [
     slug: 'cli-render',
     title: 'Previewing a Template',
     description:
-      'Render one template asset the way an automation would, with its sample data or yours, and print it or write it to a file — offline, with no server and no database.',
+      'Render one template asset the way an automation would, with its sample data or yours, and print it or write it to a file, offline with no server or database.',
     keywords: [
       'sovrium render',
       'preview',
@@ -44,7 +44,7 @@ export const cliReferenceArticles: readonly DocArticle[] = [
     slug: 'cli-changelog',
     title: 'Release Notes',
     description:
-      'Read what changed in the version you run, in any earlier version, or since the version you upgraded from — breaking changes first, from the binary, with no network.',
+      'Read what changed in the version you run, an earlier one, or since the version you upgraded from, breaking changes first, from the binary with no network.',
     keywords: [
       'sovrium changelog',
       'release notes',
@@ -65,7 +65,7 @@ export const cliReferenceArticles: readonly DocArticle[] = [
     slug: 'cli-templates',
     title: 'Templates',
     description:
-      'List the templates your Sovrium binary carries — grouped by category, or as one JSON document for a script — and pick one for sovrium init --template without guessing a name.',
+      'List the templates your binary carries, by category or as one JSON document, and pick one for sovrium init --template without guessing a name.',
     keywords: [
       'sovrium templates',
       'templates',

@@ -16,8 +16,8 @@
  * through here instead.
  */
 
-import { appWordOf } from './flow-app-catalogue-service'
-import type { AutomationSourceTool } from './flow-step-mappings'
+import { appWordOf } from './flow/app-catalogue-service'
+import type { AutomationSourceTool } from './flow/step-mappings'
 import type { ImportSourceTool } from './import-source'
 
 /** Each tool as its makers write its name. */
@@ -29,6 +29,7 @@ const TOOL_DISPLAY_NAMES: Readonly<Record<ImportSourceTool, string>> = {
   xlsx: 'Excel',
   baserow: 'Baserow',
   'retool-database': 'Retool Database',
+  supabase: 'Supabase',
   webflow: 'Webflow',
   'zapier-tables': 'Zapier Tables',
   zite: 'Zite',

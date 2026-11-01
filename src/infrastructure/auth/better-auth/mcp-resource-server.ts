@@ -6,7 +6,6 @@
  */
 
 import { and, eq } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
 import {
   authOauthClientResourcesTable,
   authOauthClientsTable,
@@ -16,10 +15,11 @@ import {
   mcpResourceIdentifier,
   mcpResourceServerCredentials,
 } from './mcp-resource-identity'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Seeding for the MCP protected resource — the half of this concern that holds
- * a live `db` handle.
+ * a live database client.
  *
  * The PURE half (origin, resource identifier, issuer, the derived client
  * credentials, the secret hasher) moved to `./mcp-resource-identity` in W5b of
@@ -43,8 +43,11 @@ import {
 export const seedMcpResourceServerClient = async (options: {
   readonly hasAuth: boolean
   readonly mcpEnabled: boolean
+  /** The client the boot's `Database` service carries. */
+  readonly client: PortableDb
 }): Promise<void> => {
   if (!options.hasAuth || !options.mcpEnabled) return
+  const db = options.client
 
   const { clientId, clientSecret } = mcpResourceServerCredentials()
   const resource = mcpResourceIdentifier()

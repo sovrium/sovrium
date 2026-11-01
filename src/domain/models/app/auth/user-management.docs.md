@@ -2,7 +2,7 @@
 
 > Where the first administrator comes from on a fresh database, and the admin API every later user passes through.
 
-Users are provisioned and managed without ever touching the database. Each operation is role-gated and audit-logged, and the whole surface exists only when authentication is configured — there is no separate flag.
+Users are provisioned and managed without ever touching the database. Each operation is role-gated and audit-logged, and the whole surface exists only when authentication is configured. There is no separate flag.
 
 ## Where the first admin comes from
 
@@ -25,9 +25,9 @@ AUTH_ADMIN_NAME=System Administrator
 
 On first boot against a fresh database the admin is provisioned with a verified address and full access. The name is optional and defaults to "Administrator"; the password must meet the minimum length.
 
-On later startups the path **no-ops**. It never creates a duplicate and never modifies an existing user, even where the address already maps to a different role — so leaving the variables set in a deployment is safe. Success is logged without the password.
+On later startups the path **no-ops**. It never creates a duplicate and never modifies an existing user, even where the address already maps to a different role, so leaving the variables set in a deployment is safe. Success is logged without the password.
 
-The path is gated on a configured auth block, and is a no-op once any user exists: when no account holds the `AUTH_ADMIN_EMAIL` address either, startup warns that it was ignored, and `sovrium admin create <email>` creates it. `AUTH_ADMIN_EMAIL` set with no password — and without the Sovrium Cloud variables below — provisions nothing, and the server says so in a startup warning.
+The path is gated on a configured auth block, and is a no-op once any user exists: when no account holds the `AUTH_ADMIN_EMAIL` address either, startup warns that it was ignored, and `sovrium admin create <email>` creates it. `AUTH_ADMIN_EMAIL` set with no password, and without the Sovrium Cloud variables below, provisions nothing, and the server says so in a startup warning.
 
 ### The one-time token
 
@@ -42,7 +42,7 @@ curl -X POST http://localhost:3000/api/admin/bootstrap/claim \
 Three properties make the window safe to leave open:
 
 - Only the **hash** is persisted; the plaintext is printed to stdout exactly once and never logged.
-- The token expires after an hour and can be claimed **once** — a replay answers `401`.
+- The token expires after an hour and can be claimed **once**: a replay answers `401`.
 - Once any admin exists the route answers **404**, so even a leaked valid token cannot reopen the window.
 
 This is the path that makes "run the binary on a fresh server, open the URL, build the app live" possible.
@@ -68,7 +68,7 @@ The first three go together: setting only some of them refuses to boot, naming t
 
 ## The admin API
 
-Every user-lifecycle operation runs through it. Each endpoint needs an authenticated admin session: an unauthenticated request answers `401`, and a non-admin session answers `404` — the admin surface is invisible to anyone who cannot use it, so its existence is not discoverable.
+Every user-lifecycle operation runs through it. Each endpoint needs an authenticated admin session: an unauthenticated request answers `401`, and a non-admin session answers `404`. The admin surface is invisible to anyone who cannot use it, so its existence is not discoverable.
 
 | Operation      | Endpoint                                   | Notes                                                         |
 | -------------- | ------------------------------------------ | ------------------------------------------------------------- |
@@ -85,7 +85,7 @@ Every user-lifecycle operation runs through it. Each endpoint needs an authentic
 
 Creating a user answers `400` for a missing or malformed address, a missing password, or an address that already exists.
 
-An assigned role must be one the app knows about — a built-in, an operator role, or a name declared in the roles array — and anything else is refused with the valid roles listed, rather than stored verbatim. A user holds exactly one role, spelled exactly: a comma-separated list, a list of several roles, surrounding spaces, a different letter case, or an empty value are refused the same way.
+An assigned role must be one the app knows about (a built-in, an operator role, or a name declared in the roles array), and anything else is refused with the valid roles listed, rather than stored verbatim. A user holds exactly one role, spelled exactly: a comma-separated list, a list of several roles, surrounding spaces, a different letter case, or an empty value are refused the same way.
 
 A role change that would remove the last admin able to sign in is refused outright. That refusal is the one worth knowing about before you need it: it is what stops a routine demotion from locking everybody out of the instance.
 
@@ -95,14 +95,14 @@ Two demotions that land at the same moment cannot both pass: the count is taken 
 
 ### What gets recorded
 
-Every role change, impersonation, ban, lifted ban and admin-set password leaves an entry in the audit log (`GET /api/admin/audit-log`): `user.role.changed` with the previous and the new role, `user.impersonation.started` and `user.impersonation.stopped`, `user.banned` with when the ban ends (`expiresAt`, `null` for a ban without an end), `user.unbanned`, and `user.password.set`. Each names the admin who acted and the account by its id. A request that is refused — a self-ban, an unknown user, a password that is too short or too long — records nothing, and so does a write that changes nothing: setting the role a user already holds, or lifting a ban from an account that was not banned. Re-banning a banned account does record, since its end and reason were rewritten.
+Every role change, impersonation, ban, lifted ban and admin-set password leaves an entry in the audit log (`GET /api/admin/audit-log`): `user.role.changed` with the previous and the new role, `user.impersonation.started` and `user.impersonation.stopped`, `user.banned` with when the ban ends (`expiresAt`, `null` for a ban without an end), `user.unbanned`, and `user.password.set`. Each names the admin who acted and the account by its id. A request that is refused (a self-ban, an unknown user, a password that is too short or too long) records nothing, and so does a write that changes nothing: setting the role a user already holds, or lifting a ban from an account that was not banned. Re-banning a banned account does record, since its end and reason were rewritten.
 
 The ban reason is never on the audit log: it is free text written about the person, it stays on the account, and it goes when the account is erased. Nothing derived from a password is ever recorded either.
 
-The entries stay when the account they name is erased — they record what an admin did — and they carry no email address or name, only an id that then resolves to no one. When the admin who acted is erased, their entries stay too, as acts with the admin's tier, and lose both their id and their address.
+The entries stay when the account they name is erased, because they record what an admin did, and they carry no email address or name, only an id that then resolves to no one. When the admin who acted is erased, their entries stay too, as acts with the admin's tier, and lose both their id and their address.
 
 A refused password set changes nothing at all: the target's sessions are only ended when the new password was actually written.
 
 ## Creating a user is not onboarding one
 
-`create-user` requires you to invent the password and transmit it yourself, and sends the person nothing. For onboarding a real human, issue an invitation instead — it lets them set their own password and never puts a credential in a chat message.
+`create-user` requires you to invent the password and transmit it yourself, and sends the person nothing. For onboarding a real human, issue an invitation instead: it lets them set their own password and never puts a credential in a chat message.

@@ -53,7 +53,7 @@ export const calendarFields = {
   colorField: Schema.optional(
     Schema.String.annotate({
       description:
-        'Field whose values colour each event. A value whose option declares no colour is given one from a fixed fallback palette, hashed from the value — unlike a table’s rowColorField, which fills only from declared option colours. The hash is stable per value and distinct values may collide.',
+        'Field whose values colour each event. A value whose option declares no colour is given one from a fixed fallback palette, hashed from the value, unlike a table’s rowColorField, which fills only from declared option colours. The hash is stable per value and distinct values may collide.',
       examples: ['status', 'priority'],
     })
   ),

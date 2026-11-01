@@ -44,21 +44,24 @@ import {
 import { FORMULA_ENGINE_VERSION } from '../formula/formula-engine-version'
 import { qualifiedSystemTable, systemObjectExistsSql, nowSqlLiteral } from '../sql/dialect-ddl'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
-import { isSqliteRuntime } from '../unsupported-in-sqlite'
 import { upgradeFormReferencedAttachments } from './apply-schema-defaults'
 import type { App } from '@/domain/models/app'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
- * Table name constants derived from Drizzle schema.
+ * A system table's name derived from the Drizzle schema, on the statement's engine.
  *
  * `getTableName()` returns the bare table name (`schema_checksum`); the
  * dialect-aware `qualifiedSystemTable()` then prepends `system.` on PostgreSQL
  * (a real schema) or `system_` on SQLite (a flat-prefix table — SQLite has no
  * schemas). This keeps every raw SQL string below dialect-agnostic.
  */
-const MIGRATION_HISTORY_TABLE = qualifiedSystemTable(getTableName(sovriumMigrationHistory))
-const MIGRATION_LOG_TABLE = qualifiedSystemTable(getTableName(sovriumMigrationLog))
-const SCHEMA_CHECKSUM_TABLE = qualifiedSystemTable(getTableName(sovriumSchemaChecksum))
+const systemTable = (tx: TransactionLike, table: Parameters<typeof getTableName>[0]): string =>
+  qualifiedSystemTable(tx.dialect, getTableName(table))
+
+/** Whether the checksum table exists, as a catalogue query on the statement's engine. */
+const checksumExistsSql = (tx: TransactionLike) =>
+  systemObjectExistsSql(tx.dialect, 'schema_checksum')
 
 /**
  * Create schema snapshot object from app configuration
@@ -149,8 +152,8 @@ const calculateChecksum = (tables: readonly object[]): string => {
  * quoted literal this replaced. On SQLite the column holds text, and the bound
  * string is stored as-is.
  */
-const jsonTextParam = (position: number): string =>
-  isSqliteRuntime() ? `$${position}` : `CAST(CAST($${position} AS text) AS jsonb)`
+const jsonTextParam = (dialect: DatabaseDialect, position: number): string =>
+  dialect === 'sqlite' ? `$${position}` : `CAST(CAST($${position} AS text) AS jsonb)`
 
 /**
  * Generate checksum for the current schema state
@@ -176,7 +179,7 @@ export const recordMigration = (
     // Get the next version number
     const versionQuery = `
       SELECT COALESCE(MAX(version), 0) + 1 as next_version
-      FROM ${MIGRATION_HISTORY_TABLE}
+      FROM ${systemTable(tx, sovriumMigrationHistory)}
     `
     const versionResult = yield* executeSQL(tx, versionQuery)
     // executeSQL returns an array directly, not {rows, rowCount}
@@ -189,8 +192,8 @@ export const recordMigration = (
     // @effect-diagnostics effect/preferSchemaOverJson:off
     const schemaJson = JSON.stringify(schemaSnapshot)
     const insertSQL = `
-      INSERT INTO ${MIGRATION_HISTORY_TABLE} (version, checksum, schema)
-      VALUES ($1, $2, ${jsonTextParam(3)})
+      INSERT INTO ${systemTable(tx, sovriumMigrationHistory)} (version, checksum, schema)
+      VALUES ($1, $2, ${jsonTextParam(tx.dialect, 3)})
     `
     yield* executeSQL(tx, insertSQL, [nextVersion, checksum, schemaJson])
     logDebug('[migrations] migration recorded', { version: String(nextVersion) })
@@ -207,7 +210,7 @@ export const logRollbackOperation = (
   Effect.gen(function* () {
     // The reason is an error message, which can quote config text: bound.
     const insertSQL = `
-      INSERT INTO ${MIGRATION_LOG_TABLE} (operation, reason, status)
+      INSERT INTO ${systemTable(tx, sovriumMigrationLog)} (operation, reason, status)
       VALUES ('ROLLBACK', $1, 'COMPLETED')
     `
     yield* executeSQL(tx, insertSQL, [reason])
@@ -230,17 +233,15 @@ export const storeSchemaChecksum = (
     // @effect-diagnostics effect/preferSchemaOverJson:off
     const fullSchemaJson = JSON.stringify(schemaSnapshot, undefined, 2)
 
-    // Use INSERT ... ON CONFLICT to update existing singleton row or create new one
-    // IMPORTANT: Use same JSON formatting (2-space indent) as calculateChecksum for consistency
-    // `NOW()` (Postgres) / `CURRENT_TIMESTAMP` (SQLite) — both dialects support
-    // `INSERT ... ON CONFLICT (id) DO UPDATE SET col = excluded.col`.
-    const now = nowSqlLiteral()
+    // Upsert the singleton row (`INSERT ... ON CONFLICT (id)`, on both engines), with the
+    // same JSON formatting (2-space indent) as calculateChecksum for consistency.
+    const now = nowSqlLiteral(tx.dialect)
     // The formula engine that computed the values this migration left behind
     // (see `formula-engine-version.ts`): stored beside the checksum, so the
     // next boot knows whether they need recomputing although the config did not move.
     const upsertSQL = `
-      INSERT INTO ${SCHEMA_CHECKSUM_TABLE} (id, checksum, schema, updated_at, formula_engine_version)
-      VALUES ('singleton', $1, ${jsonTextParam(2)}, ${now}, ${FORMULA_ENGINE_VERSION})
+      INSERT INTO ${systemTable(tx, sovriumSchemaChecksum)} (id, checksum, schema, updated_at, formula_engine_version)
+      VALUES ('singleton', $1, ${jsonTextParam(tx.dialect, 2)}, ${now}, ${FORMULA_ENGINE_VERSION})
       ON CONFLICT (id)
       DO UPDATE SET checksum = EXCLUDED.checksum, schema = EXCLUDED.schema, updated_at = ${now},
         formula_engine_version = EXCLUDED.formula_engine_version
@@ -257,9 +258,8 @@ export const getPreviousSchema = (
   tx: TransactionLike
 ): Effect.Effect<{ readonly tables: readonly object[] } | undefined, SQLExecutionError> =>
   Effect.gen(function* () {
-    // Retrieve previous schema from singleton row
-    // Table is guaranteed to exist after Drizzle migrations
-    const selectSQL = `SELECT schema FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
+    // The singleton row; the table is guaranteed to exist after Drizzle migrations
+    const selectSQL = `SELECT schema FROM ${systemTable(tx, sovriumSchemaChecksum)} WHERE id = 'singleton'`
     const result = yield* executeSQL(tx, selectSQL)
 
     if (!result || result.length === 0) {
@@ -287,7 +287,7 @@ export const getStoredFormulaEngineVersion = (
   Effect.gen(function* () {
     const result = yield* executeSQL(
       tx,
-      `SELECT formula_engine_version FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
+      `SELECT formula_engine_version FROM ${systemTable(tx, sovriumSchemaChecksum)} WHERE id = 'singleton'`
     )
     const row = result[0] as { formula_engine_version?: number | string | null } | undefined
     return row === undefined ? undefined : Number(row.formula_engine_version ?? 0)
@@ -303,7 +303,7 @@ export const getStoredChecksum = (
 ): Effect.Effect<string | undefined, SQLExecutionError> =>
   Effect.gen(function* () {
     // Check if the checksum table exists first (dialect-aware catalog query).
-    const tableExistsResult = yield* executeSQL(tx, systemObjectExistsSql('schema_checksum'))
+    const tableExistsResult = yield* executeSQL(tx, checksumExistsSql(tx))
     const tableExists = (tableExistsResult[0] as { exists: boolean } | undefined)?.exists
 
     if (!tableExists) {
@@ -312,7 +312,7 @@ export const getStoredChecksum = (
     }
 
     // Retrieve checksum from singleton row
-    const selectSQL = `SELECT checksum FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
+    const selectSQL = `SELECT checksum FROM ${systemTable(tx, sovriumSchemaChecksum)} WHERE id = 'singleton'`
     const result = yield* executeSQL(tx, selectSQL)
 
     if (!result || result.length === 0) {
@@ -329,7 +329,7 @@ export const getStoredChecksum = (
  */
 const checksumTableExists = (tx: TransactionLike): Effect.Effect<boolean, SQLExecutionError> =>
   Effect.gen(function* () {
-    const tableExistsResult = yield* executeSQL(tx, systemObjectExistsSql('schema_checksum'))
+    const tableExistsResult = yield* executeSQL(tx, checksumExistsSql(tx))
     return (tableExistsResult[0] as { exists: boolean } | undefined)?.exists ?? false
   })
 
@@ -343,7 +343,7 @@ const getStoredChecksumData = (
   SQLExecutionError
 > =>
   Effect.gen(function* () {
-    const selectSQL = `SELECT checksum, schema FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
+    const selectSQL = `SELECT checksum, schema FROM ${systemTable(tx, sovriumSchemaChecksum)} WHERE id = 'singleton'`
     const result = yield* executeSQL(tx, selectSQL)
 
     if (!result || result.length === 0) {

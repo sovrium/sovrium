@@ -46,7 +46,7 @@ import { RatingGlyph } from '@/presentation/design/rating-glyph'
 import { toLocalInputValue } from '@/presentation/design/zoned-datetime'
 import { ariaRequired, FIELD_LABEL_CLASS, fieldWrapperAttributes } from './form-field-chrome'
 import { DescriptionText, HelpText } from './form-help-text'
-import type { ResolvedFormField } from './form-field-elements'
+import type { ResolvedFormField } from './form-resolved-field'
 
 /**
  * The mark beside a required field's label. `aria-hidden` because the control
@@ -255,5 +255,8 @@ export function zonedValue(
 ): string | undefined {
   if (field.inputElement !== 'datetime-local' || value === undefined) return value
   if (WALL_CLOCK_MINUTE.test(value)) return value
-  return toLocalInputValue(value, field.column?.timeZone ?? parseSovriumTimezone().zoneId)
+  return toLocalInputValue(
+    value,
+    field.column?.timeZone ?? parseSovriumTimezone(process.env).zoneId
+  )
 }

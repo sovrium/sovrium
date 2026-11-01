@@ -117,7 +117,7 @@ export const configuration = defineSection({
       slug: 'env-vars-project',
       title: 'Environment Variables: Project and Data Directories',
       description:
-        'The four path variables a supervising process sets — the project root a config is discovered in and jailed to, the named config file, the EOF stop request, and the data directory runtime artefacts are written under.',
+        'The four path variables a supervisor sets: the project root a config is found in and jailed to, the config file, the EOF stop request and the data directory.',
       keywords: [
         'sovrium',
         'environment variables',
@@ -143,7 +143,7 @@ export const configuration = defineSection({
       slug: 'env-vars-hosting',
       title: 'Environment Variables: Hosting Under a Supervisor',
       description:
-        'What changes when an app runs under systemd, a container orchestrator or a socket-activation proxy: a busy port that refuses, a Unix socket listener, an exit when idle, JSON logs, and the switches of an app that supervises the others.',
+        'Running under systemd, a container orchestrator or a socket proxy: a busy port that refuses, a Unix socket, exit when idle, JSON logs and supervisor switches.',
       keywords: [
         'sovrium',
         'environment variables',
@@ -199,7 +199,7 @@ export const configuration = defineSection({
       slug: 'env-vars-ai',
       title: 'Environment Variables: AI and Speech',
       description:
-        'The AI provider and its model, the limits on every chat turn and on the files a chat reads, how long conversations are kept, document retrieval, and speech-to-text.',
+        'The AI provider and model, the limits on each chat turn and on the files a chat reads, how long conversations are kept, document retrieval and speech-to-text.',
       keywords: [
         'sovrium',
         'AI_PROVIDER',
@@ -222,7 +222,7 @@ export const configuration = defineSection({
       slug: 'env-vars-documents',
       title: 'Environment Variables: Document Rendering',
       description:
-        'The browser that turns HTML templates into PDFs and images — a local Chrome, a Chrome sidecar or Gotenberg — the limits on every render, and what a template is allowed to load.',
+        'The browser that renders HTML templates to PDFs and images (local Chrome, a Chrome sidecar or Gotenberg), the limits on each render, what a template may load.',
       keywords: [
         'sovrium',
         'RENDERER_PROVIDER',
@@ -245,7 +245,7 @@ export const configuration = defineSection({
       slug: 'env-vars-browser',
       title: 'Environment Variables: Browser Automation',
       description:
-        'The browser that browser automation steps drive — off on a server until switched on — the one Chrome it shares with document rendering, its limits, and what it may reach.',
+        'The browser that automation steps drive, off on a server until switched on: the Chrome it shares with document rendering, its limits and what it may reach.',
       keywords: [
         'sovrium',
         'BROWSER_PROVIDER',
@@ -306,7 +306,7 @@ export const configuration = defineSection({
       slug: 'config-validation',
       title: 'Validating a Config',
       description:
-        'The decode that runs without a database, a port or an environment — the four classes of error it reports, and the contract that nothing in a config is silently ignored.',
+        'The decode that runs without a database, port or environment: the four classes of error it reports, and the rule that nothing in a config is silently ignored.',
       keywords: [
         'sovrium validate',
         'validation',

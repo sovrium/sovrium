@@ -13,6 +13,7 @@
  * run history in clear.
  */
 
+import { MutableRef } from 'effect'
 import type { StepLogEntry } from './shared'
 
 /** Render one logged argument: strings verbatim, anything else as JSON. */
@@ -40,19 +41,22 @@ export const createCodeLogCollector = (): {
   readonly log: Readonly<Record<StepLogEntry['level'], (...args: ReadonlyArray<unknown>) => void>>
   readonly entries: () => readonly StepLogEntry[]
 } => {
-  // A mutable buffer is the point: user code calls `context.log.*` as a side
-  // effect from inside the sandbox, and the only way to observe those calls
-  // afterwards is to record them somewhere the caller can read back.
-  // eslint-disable-next-line functional/prefer-immutable-types -- the collector's buffer; see above
-  const buffer: StepLogEntry[] = []
+  // A cell is the point: user code calls `context.log.*` as a side effect from
+  // inside the sandbox, synchronously, and the only way to observe those calls
+  // afterwards is to record them somewhere the caller can read back. Each entry
+  // replaces the list, never edits it.
+  const buffer = MutableRef.make<readonly StepLogEntry[]>([])
   const append =
     (level: StepLogEntry['level']) =>
-    (...args: ReadonlyArray<unknown>): void => {
-      if (buffer.length >= MAX_ENTRIES) return
-      const message = args.map(renderArgument).join(' ').slice(0, MAX_MESSAGE_LENGTH)
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, no-restricted-syntax -- the collector's buffer; see above
-      buffer.push({ level, message })
-    }
+    (...args: ReadonlyArray<unknown>) =>
+      MutableRef.update(buffer, (entries) =>
+        entries.length >= MAX_ENTRIES
+          ? entries
+          : [
+              ...entries,
+              { level, message: args.map(renderArgument).join(' ').slice(0, MAX_MESSAGE_LENGTH) },
+            ]
+      )
   return {
     log: {
       debug: append('debug'),
@@ -60,6 +64,6 @@ export const createCodeLogCollector = (): {
       warn: append('warn'),
       error: append('error'),
     },
-    entries: () => [...buffer],
+    entries: () => MutableRef.get(buffer),
   }
 }

@@ -28,9 +28,9 @@
  */
 
 import { Schema } from 'effect'
-import { fieldErrorSchema } from '@/domain/models/api/combinators/error'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import { fieldErrorSchema } from '@/domain/models/api/error'
 
 /**
  * The slug a mutation targets.
@@ -162,7 +162,7 @@ export const createLinkRequestSchema = Schema.Struct({
   destination: optionalField(
     Schema.String.annotate({
       description:
-        'Single destination. Mutually exclusive with `targets` — exactly one is required.',
+        'Single destination. Mutually exclusive with `targets`: exactly one is required.',
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   targets: optionalField(

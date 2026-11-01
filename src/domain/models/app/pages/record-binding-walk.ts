@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The record-binding walk families 6 and 14 of `page-binding-validation.ts`
  * share.
@@ -17,9 +19,6 @@
  * Structural rather than typed, for the reason its callers record: a typed
  * traversal of a ~58-branch component union goes stale in silence.
  */
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * Every component node of a page, each paired with whether some PROPER ancestor
@@ -42,6 +41,7 @@ export function boundNodesOf(page: Readonly<Record<string, unknown>>): readonly 
     isRecord(page['dataSource']) || isRecord(page['collection']) || isRecord(page['contentDir'])
   return [
     ...walkWithBinding(page['components'], pageBindsRecord),
+    // Finds no node on a decoded page, whose layout schema holds no component.
     ...walkWithBinding(page['layout'], pageBindsRecord),
   ]
 }

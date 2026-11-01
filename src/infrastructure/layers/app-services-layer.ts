@@ -6,6 +6,10 @@
  */
 
 import { Effect, Layer } from 'effect'
+import { ServerCreationError } from '@/domain/errors/server-creation-error'
+import { AgentApprovalStoreLive } from '@/infrastructure/ai/agents/agent-approval-store-live'
+import { AgentGuardLive } from '@/infrastructure/ai/agents/agent-guard-live'
+import { KnowledgeIndexLive } from '@/infrastructure/ai/knowledge-index-live'
 import { AiLive } from '@/infrastructure/ai/layer'
 import { LocalAiProbeLive } from '@/infrastructure/ai/local-ai-probe-live'
 import { SpeechServiceLive } from '@/infrastructure/ai/speech/speech-service-live'
@@ -13,11 +17,12 @@ import { DesignKitAssetsLive } from '@/infrastructure/assets/design-kit-assets-l
 import { accountProvisionerFor } from '@/infrastructure/auth/better-auth/account-provisioner-live'
 import { NoAuthLayer } from '@/infrastructure/auth/better-auth/auth-service'
 import { invitationIssuerFor } from '@/infrastructure/auth/better-auth/invitation-issuer-live'
+import { FailureAlertHoldBackLive } from '@/infrastructure/automations/failure-alert-hold-back-live'
 import { TypeScriptValidatorLive } from '@/infrastructure/automations/typescript-validator'
 import { OAuthStateStoreLive } from '@/infrastructure/connections/oauth-state-store-live'
 import { CSSCompilerLive } from '@/infrastructure/css/css-compiler-live'
 import { DatabaseMigratorLive } from '@/infrastructure/database/drizzle/database-migrator-live'
-import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { AdminDigestSnapshotRepositoryLive } from '@/infrastructure/database/repositories/admin/admin-digest-snapshot-repository-live'
 import { AuditLogRepositoryLive } from '@/infrastructure/database/repositories/admin/audit-log-repository-live'
 import { BootLedgerRepositoryLive } from '@/infrastructure/database/repositories/admin/boot-ledger-repository-live'
@@ -34,6 +39,7 @@ import { AdminAutomationsRepositoryLive } from '@/infrastructure/database/reposi
 import { AutomationPauseRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-pause-repository-live'
 import { AutomationRunOutcomeRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-outcome-repository-live'
 import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
+import { SubmissionRunsRepositoryLive } from '@/infrastructure/database/repositories/automations/submission-runs-repository-live'
 import { AdminBucketFilesRepositoryLive } from '@/infrastructure/database/repositories/buckets/admin-bucket-files-repository-live'
 import { CommandSearchRepositoryLive } from '@/infrastructure/database/repositories/command-search-repository-live'
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
@@ -50,15 +56,14 @@ import { TablesOverviewRepositoryLive } from '@/infrastructure/database/reposito
 import { UserEntityListRepositoryLive } from '@/infrastructure/database/repositories/tables/user-entity-list-repository-live'
 import { UsersDirectoryRepositoryLive } from '@/infrastructure/database/repositories/tables/users-directory-repository-live'
 import { UsersOverviewRepositoryLive } from '@/infrastructure/database/repositories/tables/users-overview-repository-live'
+import { RetentionSweepsLive } from '@/infrastructure/database/retention-sweeps-live'
 import { DevToolsLayerOptional } from '@/infrastructure/devtools'
 import { EmailSenderLive } from '@/infrastructure/email/email-sender-live'
-import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import { SubmissionRateLimiterLive } from '@/infrastructure/forms/submission-rate-limiter-live'
 import { PageRendererLive } from '@/infrastructure/layers/page-renderer-layer'
 import { LoggerLive, logError } from '@/infrastructure/logging/logger'
 import { ContentDirReaderLive } from '@/infrastructure/markdown/content-dir-reader-live'
-import { AgentApprovalStoreLive } from '@/infrastructure/process/agent-approval-store-live'
-import { AgentGuardLive } from '@/infrastructure/process/agent-guard-live'
+import { InstanceHealthProbeLive } from '@/infrastructure/process/instance-health-probe-live'
 import { CronSchedulerLive } from '@/infrastructure/scheduling/cron-scheduler-live'
 import { PageCacheLive } from '@/infrastructure/server/cache/page-cache-live'
 import { StaticSiteGeneratorLive } from '@/infrastructure/server/static-site-generator-live'
@@ -85,8 +90,12 @@ import type { Auth } from '@/infrastructure/auth/better-auth/auth-service'
  * typed `catch` below names it, and `Effect.orDie` keeps it fatal rather than
  * widening `createAppServicesLayer`'s `Layer.Error` with a boot error no consumer of a
  * route handler could do anything about.
+ *
+ * The engine takes its client at construction, so the `Database` is read as the
+ * layer builds, from whichever root composes it: the server's owning one for a
+ * server's runtime, the unowned one for the boot and the CLI.
  */
-const authLayerFor = (authConfig?: AuthConfig): Layer.Layer<Auth> =>
+const authLayerFor = (authConfig?: AuthConfig): Layer.Layer<Auth, never, Database> =>
   authConfig
     ? Layer.unwrap(
         Effect.tryPromise({
@@ -101,7 +110,9 @@ const authLayerFor = (authConfig?: AuthConfig): Layer.Layer<Auth> =>
             )
           },
         }).pipe(
-          Effect.map((module) => module.createAuthLayer(authConfig)),
+          Effect.flatMap((module) =>
+            Effect.map(Database, (database) => module.createAuthLayer(authConfig, database))
+          ),
           Effect.orDie
         )
       )
@@ -121,15 +132,16 @@ export const PageRendererWithDeps = PageRendererLive.pipe(
 )
 
 // Ports whose live implementation READS the `Database` service rather than
-// opening its own handle (`Layer.effect` + `yield* Database`, as against the
-// `Layer.succeed` majority that call `getDb()` internally).
+// reaching the client by themselves (`Layer.effect` + `yield* Database`).
 //
-// `Layer.mergeAll` does not wire its members into one another, so a merged
-// `Database`-reading layer would export its service AND re-publish `Database`
-// as an unmet requirement of the whole app layer — which is what the retired
-// per-folder runners were quietly doing with their own `Layer.provide`.
-// `DatabaseLive` is merged below as well, so `Database` itself stays available
-// to handlers; Effect memoises it, so naming it twice builds it once.
+// They are NOT given a `Database` here: the requirement stays open on the whole
+// app layer, and each of its two roots satisfies it with the database that root
+// owns. A server's domain runtime provides the owning `DatabaseLive`
+// (`domain-runtime.ts`), so its repositories share the pool that runtime
+// acquires and releases; the boot-time and CLI composition (`app-layer.ts`)
+// provides the owning-nothing `DatabaseUnownedLive`, because no server owns the
+// client there. Providing a `Database` in this file would hand the server's
+// runtime a second, unowned one.
 const DatabaseBackedRepositories = Layer.mergeAll(
   // `LinkRepository` — the links console and the `link/*` automation steps
   // call the same use-cases, so the port belongs to the app rather than to
@@ -138,7 +150,7 @@ const DatabaseBackedRepositories = Layer.mergeAll(
   // the console route read it off the request instead of relying on the
   // automation runtime to have happened to bring it along.
   LinkRepositoryLive
-).pipe(Layer.provide(DatabaseLive))
+)
 
 // The application-layer ports that took over a direct infrastructure import, one
 // line each. All of them are `Layer.succeed`, so naming them costs the boot nothing.
@@ -155,8 +167,20 @@ const DatabaseBackedRepositories = Layer.mergeAll(
 //   - `DesignKitAssets` — the fonts the portable design-system bundle copies.
 //   - `AgentGuard` / `AgentApprovalStore` — the agent runtime's limit counters
 //     and its paused turns, process state every agent surface shares.
+//   - `FailureAlertHoldBack` — the failure-alert hold-back kept in memory for
+//     failures the run history did not record; read by the internal stuck-run
+//     sweep and roll-up routes.
+//   - `SubmissionRunsRepository` — the automation runs a form submission started.
+//   - `InstanceHealthProbe` — the bounded probes behind the console's Instance card.
+//   - `RetentionSweeps` / `KnowledgeIndex` — the retention and erasure sweeps and
+//     the knowledge re-embed, for the routes that run them on demand.
 const PortAdapters = Layer.mergeAll(
+  RetentionSweepsLive,
+  KnowledgeIndexLive,
+  SubmissionRunsRepositoryLive,
+  InstanceHealthProbeLive,
   DesignKitAssetsLive,
+  FailureAlertHoldBackLive,
   AgentApprovalStoreLive,
   AgentGuardLive,
   AuditLogRepositoryLive,
@@ -170,17 +194,16 @@ const PortAdapters = Layer.mergeAll(
 // The ports built over the app's ONE auth engine: `AccountProvisioner` (the
 // first-admin bootstrap and `sovrium admin create`) and `InvitationIssuer` (the
 // pending invitations a seed run issues).
-const authPortsFor = (authLayer: Layer.Layer<Auth>) =>
+const authPortsFor = (authLayer: Layer.Layer<Auth, never, Database>) =>
   Layer.mergeAll(accountProvisionerFor(authLayer), invitationIssuerFor(authLayer))
 
 // `Auth`, plus the `AccountProvisioner` port built over that same instance (the
 // first-admin bootstrap creates accounts through the engine, never through a
 // row insert). One layer value, named twice, is built once.
-const appLayerWithAuth = (authLayer: Layer.Layer<Auth>) =>
+const appLayerWithAuth = (authLayer: Layer.Layer<Auth, never, Database>) =>
   Layer.mergeAll(
     authLayer,
     authPortsFor(authLayer),
-    DatabaseLive,
     PageRendererWithDeps,
     CSSCompilerLive,
     StaticSiteGeneratorLive,
@@ -309,15 +332,17 @@ const appLayerWithAuth = (authLayer: Layer.Layer<Auth>) =>
 
 /**
  * The application's services — every live adapter a use-case or a request
- * reads, EXCEPT the one that builds servers.
+ * reads, EXCEPT the one that builds servers, and EXCEPT the database itself.
  *
  * Two roots compose it, and the split between them is what keeps the import
  * graph one-directional:
  *
  *  - the server's own domain `ManagedRuntime` (`server/domain-runtime.ts`),
- *    which every request runs on;
- *  - `createAppLayer` (`layers/app-layer.ts`), the boot-time composition that
- *    adds `ServerFactoryLive` on top for `startServer` and the static build.
+ *    which every request runs on, and which provides the `Database` this layer
+ *    requires with the owning `DatabaseLive`;
+ *  - `createAppLayer` (`layers/app-layer.ts`), the boot-time and CLI
+ *    composition that adds `ServerFactoryLive` on top for `startServer` and the
+ *    static build, and provides the `Database` with `DatabaseUnownedLive`.
  *
  * `ServerFactoryLive` cannot live here: it builds render apps and listeners,
  * which build a domain runtime from THIS layer, so naming the factory here would

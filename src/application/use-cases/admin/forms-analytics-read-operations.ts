@@ -37,6 +37,7 @@ import {
   type AdminReadOperation,
 } from '@/application/use-cases/admin/admin-read-operation'
 import { declaredForm, notFound } from '@/application/use-cases/admin/forms-read-decoding'
+import { DAY_MS } from '@/domain/kernel/time/durations'
 import { fillMissingDays } from '@/domain/kernel/time/time-series-bucketing'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
@@ -46,8 +47,6 @@ import {
 } from '@/domain/models/api/admin/forms'
 import type { AdminFormSubmissionRow } from '@/application/ports/repositories/forms/admin-forms-repository'
 import type { Form } from '@/domain/models/app/forms'
-
-const DAY_MS = 24 * 60 * 60 * 1000
 
 /** How far back each recognised window reaches; anything else is the 30-day default. */
 const WINDOW_MS: Readonly<Record<string, number>> = { '24h': DAY_MS, '7d': 7 * DAY_MS }

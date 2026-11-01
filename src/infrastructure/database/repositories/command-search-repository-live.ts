@@ -6,15 +6,18 @@
  */
 
 import { and, eq, isNull, sql, type SQL } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   CommandSearchRepository,
   CommandSearchDatabaseError,
   type TableSearchMatch,
 } from '@/application/ports/repositories/command-search-repository'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type Dialect,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { userFavorites as userFavoritesPg } from '@/infrastructure/database/drizzle/schema/favorites'
 import { userFavorites as userFavoritesSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/favorites'
 import {
@@ -26,14 +29,15 @@ import {
   toSqliteFtsMatch,
 } from '@/infrastructure/database/schema/command-search-fts-ddl'
 import { makeDbWrap, passingFilterRefusal } from '@/infrastructure/database/sql/db-effect'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { containsInsensitive } from '@/infrastructure/database/sql/dialect-sql-helpers'
 import {
-  allLanguagesTextSql,
-  languageValueSql,
+  allLanguagesTextSqlOn,
+  languageValueSqlOn,
 } from '@/infrastructure/database/sql/translatable-value-sql'
 import { buildUserFilterConditions } from '@/infrastructure/database/table-queries/query-helpers/aggregation-helpers'
+import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
 
 const userFavorites = resolveDialectSchema(userFavoritesPg, userFavoritesSqlite)
 
@@ -61,6 +65,7 @@ const wrap = makeDbWrap((error) => new CommandSearchDatabaseError({ cause: error
  * label out of nothing.
  */
 const labelExpression = (
+  dialect: Dialect,
   columns: readonly string[],
   languages: Readonly<Record<string, string>>
 ): Readonly<SQL> => {
@@ -69,7 +74,7 @@ const labelExpression = (
     const language = languages[column]
     return language === undefined
       ? sql`${sql.identifier(column)}`
-      : languageValueSql(column, language)
+      : languageValueSqlOn(dialect.kind, column, language)
   }
   const [onlyColumn] = columns
   if (columns.length === 1 && onlyColumn !== undefined) return text(onlyColumn)
@@ -82,12 +87,15 @@ const labelExpression = (
  * it holds, never on its language codes.
  */
 const likePredicateOf = (
+  dialect: Dialect,
   columns: readonly string[],
   query: string,
   languages: Readonly<Record<string, string>>
 ): SQL => {
   const searched = (column: string): SQL =>
-    languages[column] === undefined ? sql`${sql.identifier(column)}` : allLanguagesTextSql(column)
+    languages[column] === undefined
+      ? sql`${sql.identifier(column)}`
+      : allLanguagesTextSqlOn(dialect.kind, column)
   return sql.join(
     columns.map((column) => containsInsensitive(searched(column), query)),
     sql` OR `
@@ -108,15 +116,19 @@ const likePredicateOf = (
  * inherently unselective, so paying one scan for it is the correct trade.
  */
 const ftsCandidatePredicate = (
+  dialect: Dialect,
   physicalTable: string,
-  columns: readonly string[],
-  query: string,
-  mapColumns: readonly string[]
+  search: {
+    readonly columns: readonly string[]
+    readonly query: string
+    readonly mapColumns: readonly string[]
+  }
 ): Readonly<SQL> | undefined => {
+  const { columns, query, mapColumns } = search
   const tokens = toFtsTokens(query)
   if (tokens.length === 0) return undefined
 
-  if (parseDatabaseDialectConfig().dialect === 'sqlite') {
+  if (dialect.kind === 'sqlite') {
     // Expressed as `id IN (SELECT …)` rather than a JOIN on purpose: the FTS5
     // mirror carries columns of the SAME NAMES as the base table, so a joined
     // shape would make every unqualified reference in the label expression
@@ -142,19 +154,17 @@ const ftsCandidatePredicate = (
   return sql`${sql.raw(pgSearchVectorExpression(columns, mapColumns))} @@ to_tsquery('simple', ${toPgTsQuery(tokens)})`
 }
 
-/**
- * Command Search Repository Implementation
- *
- * Two raw query concerns for the command-palette search:
- *
- *   - `loadFavoriteIds` — Drizzle query-builder select of the caller's
- *     favorited `record` entity ids (soft-deleted excluded).
- *   - `searchTable` — a raw, portable case-insensitive text search across a
- *     table's text columns. A failing/unreadable table search resolves to `[]`
- *     (the error channel is `never`) so a broken table never aborts the search.
- */
-export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository, {
-  loadFavoriteIds: (userId) =>
+/** The reader's row-level read rule as one condition, or `undefined` when none narrows the scan. */
+const rulePredicateOf = (
+  dialect: Dialect,
+  rowFilter: QueryFilterNode | undefined
+): Readonly<SQL> | undefined =>
+  rowFilter === undefined
+    ? undefined
+    : buildUserFilterConditions(dialect.kind, { and: [rowFilter] })[0]
+
+const members: MembersOverDatabase<typeof CommandSearchRepository> = {
+  loadFavoriteIds: (db) => (userId) =>
     wrap(async () => {
       const rows = await db
         .select({ entityId: userFavorites.entityId })
@@ -169,98 +179,114 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
       return new Set(rows.map((row) => row.entityId))
     }),
 
-  searchTable: ({ physicalTable, columns, query, excludeDeleted, rowFilter, ...input }) =>
-    // Never fails, and now actually so. This was an `Effect.promise`, whose
-    // rejection is a DEFECT rather than a typed error — `orElseSucceed` only
-    // handles the error channel, so the "any DB failure resolves to []" comment
-    // that sat here described a guarantee the code did not have, and a real
-    // SQLite arity error escaped it as a 500. `tryPromise` routes both a
-    // rejection AND a synchronous throw in the evaluator into the error channel,
-    // which `orElseSucceed` then absorbs; an `async` body has no third way to
-    // fail. A single bad table is skipped, the rest of the search proceeds.
-    Effect.tryPromise({
-      try: async (): Promise<readonly TableSearchMatch[]> => {
-        // Build an OR of case-insensitive LIKE predicates across each text
-        // column. Column names come from the validated schema (not user input),
-        // and the query text is bound as a SQL parameter, so this is
-        // injection-safe. `containsInsensitive` owns the portable spelling (PG
-        // has `ILIKE`, SQLite does not) AND the metacharacter escaping, so a
-        // reader searching for `50%` gets the rows containing `50%` rather than
-        // every row containing `50`.
-        //
-        // This stays the SEMANTIC AUTHORITY under the hybrid below. The FTS
-        // candidate set only narrows what this predicate is asked to verify, so
-        // the literal-metacharacter contract is inherited rather than
-        // re-derived.
-        const languages = input.languageColumns ?? {}
-        const likePredicate = likePredicateOf(columns, query, languages)
+  searchTable:
+    (db, dialect) =>
+    ({ physicalTable, columns, query, excludeDeleted, rowFilter, ...input }) =>
+      // Never fails, and now actually so. This was an `Effect.promise`, whose
+      // rejection is a DEFECT rather than a typed error — `orElseSucceed` only
+      // handles the error channel, so the "any DB failure resolves to []" comment
+      // that sat here described a guarantee the code did not have, and a real
+      // SQLite arity error escaped it as a 500. `tryPromise` routes both a
+      // rejection AND a synchronous throw in the evaluator into the error channel,
+      // which `orElseSucceed` then absorbs; an `async` body has no third way to
+      // fail. A single bad table is skipped, the rest of the search proceeds.
+      Effect.tryPromise({
+        try: async (): Promise<readonly TableSearchMatch[]> => {
+          // Build an OR of case-insensitive LIKE predicates across each text
+          // column. Column names come from the validated schema (not user input),
+          // and the query text is bound as a SQL parameter, so this is
+          // injection-safe. `containsInsensitive` owns the portable spelling (PG
+          // has `ILIKE`, SQLite does not) AND the metacharacter escaping, so a
+          // reader searching for `50%` gets the rows containing `50%` rather than
+          // every row containing `50`.
+          //
+          // This stays the SEMANTIC AUTHORITY under the hybrid below. The FTS
+          // candidate set only narrows what this predicate is asked to verify, so
+          // the literal-metacharacter contract is inherited rather than
+          // re-derived.
+          const languages = input.languageColumns ?? {}
+          const likePredicate = likePredicateOf(dialect, columns, query, languages)
 
-        // Soft-deleted rows are not search results. `deleted_at` is an
-        // INTRINSIC column every `CREATE TABLE` emits, but the probe mirrors
-        // `crud-read.ts`: a view-backed relation, or a table created before the
-        // column existed, would otherwise turn every search on it into an
-        // error. Absent the column there is nothing to exclude, so skipping the
-        // predicate is correct rather than permissive.
-        const hasDeletedAt = excludeDeleted
-          ? await columnExists(db, physicalTable, 'deleted_at')
-          : false
-        const livePredicate =
-          excludeDeleted && hasDeletedAt ? sql`${sql.identifier('deleted_at')} IS NULL` : undefined
+          // Soft-deleted rows are not search results. `deleted_at` is an
+          // INTRINSIC column every `CREATE TABLE` emits, but the probe mirrors
+          // `crud-read.ts`: a view-backed relation, or a table created before the
+          // column existed, would otherwise turn every search on it into an
+          // error. Absent the column there is nothing to exclude, so skipping the
+          // predicate is correct rather than permissive.
+          const hasDeletedAt = excludeDeleted
+            ? await columnExists(dialect.kind, db, physicalTable, 'deleted_at')
+            : false
+          const livePredicate =
+            excludeDeleted && hasDeletedAt
+              ? sql`${sql.identifier('deleted_at')} IS NULL`
+              : undefined
 
-        // The reader's row-level read rule, rendered by the records list's own
-        // WHERE builder so the two cannot disagree on what a rule admits (stored
-        // booleans, `IN (NULL)` inside a group, and the rest). It narrows the
-        // scan itself, before `LIMIT`: a hidden row is never a candidate.
-        const [rulePredicate] =
-          rowFilter === undefined ? [] : buildUserFilterConditions({ and: [rowFilter] })
+          // The reader's row-level read rule, rendered by the records list's own
+          // WHERE builder so the two cannot disagree on what a rule admits (stored
+          // booleans, `IN (NULL)` inside a group, and the rest). It narrows the
+          // scan itself, before `LIMIT`: a hidden row is never a candidate.
+          const rulePredicate = rulePredicateOf(dialect, rowFilter)
 
-        const conjoin = (...parts: ReadonlyArray<Readonly<SQL> | undefined>): Readonly<SQL> =>
-          sql.join(
-            parts.filter((part): part is Readonly<SQL> => part !== undefined),
-            sql` AND `
-          )
+          const conjoin = (...parts: ReadonlyArray<Readonly<SQL> | undefined>): Readonly<SQL> =>
+            sql.join(
+              parts.filter((part): part is Readonly<SQL> => part !== undefined),
+              sql` AND `
+            )
 
-        const run = async (
-          candidate: Readonly<SQL> | undefined
-        ): Promise<ReadonlyArray<Record<string, unknown>>> =>
-          executeRaw(
-            db,
-            sql`SELECT id, ${labelExpression(columns, languages)} AS __label
+          const run = async (
+            candidate: Readonly<SQL> | undefined
+          ): Promise<ReadonlyArray<Record<string, unknown>>> =>
+            executeRawOn(
+              dialect.kind,
+              db,
+              sql`SELECT id, ${labelExpression(dialect, columns, languages)} AS __label
                 FROM ${sql.identifier(physicalTable)}
                 WHERE ${conjoin(livePredicate, rulePredicate, candidate, sql`(${likePredicate})`)}
                 LIMIT 25`
-          )
+            )
 
-        const candidate = ftsCandidatePredicate(
-          physicalTable,
-          columns,
-          query,
-          columns.filter((column) => languages[column] !== undefined)
+          const candidate = ftsCandidatePredicate(dialect, physicalTable, {
+            columns,
+            query,
+            mapColumns: columns.filter((column) => languages[column] !== undefined),
+          })
+          // The index is an ACCELERATOR, so its absence is not a failure: a table
+          // created before this feature shipped, one whose reconciliation was
+          // skipped, and a view-backed relation the index cannot serve all land in
+          // the `catch`. Re-running without the candidate gate returns the SAME
+          // rows this table has always returned, just by an unindexed scan.
+          //
+          // The unaccelerated query is never wrapped, so ITS failure still reaches
+          // the error channel for `orElseSucceed` to absorb per-table — a real
+          // database problem is not disguised as an empty search.
+          const rows =
+            candidate === undefined
+              ? await run(undefined)
+              : await run(candidate).catch(() => run(undefined))
+
+          return rows.map((row) => ({
+            id: String(row['id']),
+            label: typeof row['__label'] === 'string' ? row['__label'] : String(row['id']),
+          }))
+        },
+        catch: passingFilterRefusal((error) => new CommandSearchDatabaseError({ cause: error })),
+      }).pipe(
+        // effect-swallow: one table out of many, in a command palette that merges every source it can read. No matches from an unreadable table is the same answer a reader with no access to it gets, and it must not blank the whole palette. A filter operator no compiler knows is not swallowed: it travels up as itself.
+        Effect.catchTag('CommandSearchDatabaseError', () =>
+          Effect.succeed<readonly TableSearchMatch[]>([])
         )
-        // The index is an ACCELERATOR, so its absence is not a failure: a table
-        // created before this feature shipped, one whose reconciliation was
-        // skipped, and a view-backed relation the index cannot serve all land in
-        // the `catch`. Re-running without the candidate gate returns the SAME
-        // rows this table has always returned, just by an unindexed scan.
-        //
-        // The unaccelerated query is never wrapped, so ITS failure still reaches
-        // the error channel for `orElseSucceed` to absorb per-table — a real
-        // database problem is not disguised as an empty search.
-        const rows =
-          candidate === undefined
-            ? await run(undefined)
-            : await run(candidate).catch(() => run(undefined))
+      ),
+}
 
-        return rows.map((row) => ({
-          id: String(row['id']),
-          label: typeof row['__label'] === 'string' ? row['__label'] : String(row['id']),
-        }))
-      },
-      catch: passingFilterRefusal((error) => new CommandSearchDatabaseError({ cause: error })),
-    }).pipe(
-      // effect-swallow: one table out of many, in a command palette that merges every source it can read. No matches from an unreadable table is the same answer a reader with no access to it gets, and it must not blank the whole palette. A filter operator no compiler knows is not swallowed: it travels up as itself.
-      Effect.catchTag('CommandSearchDatabaseError', () =>
-        Effect.succeed<readonly TableSearchMatch[]>([])
-      )
-    ),
-})
+/**
+ * Command Search Repository Implementation
+ *
+ * Two raw query concerns for the command-palette search:
+ *
+ *   - `loadFavoriteIds` — Drizzle query-builder select of the caller's
+ *     favorited `record` entity ids (soft-deleted excluded).
+ *   - `searchTable` — a raw, portable case-insensitive text search across a
+ *     table's text columns. A failing/unreadable table search resolves to `[]`
+ *     (the error channel is `never`) so a broken table never aborts the search.
+ */
+export const CommandSearchRepositoryLive = layerOverDatabase(CommandSearchRepository, members)

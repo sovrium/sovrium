@@ -8,6 +8,7 @@
 import {
   findDeclaredDirection,
   findDeclaredLanguage,
+  servedPageLanguage,
 } from '@/domain/models/app/languages/language-detection'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
@@ -26,7 +27,9 @@ export type PageLangConfig = {
  *
  * Split from {@link resolvePageLanguage} so the two questions this file answers
  * stay separable: which input wins, and how the winner is spelled. Keeping both
- * chains in one body also put that function over its complexity budget.
+ * chains in one body also put that function over its complexity budget. The
+ * order itself is {@link servedPageLanguage}'s, which a write posted from the
+ * page reads too, so a page saves in the language it was shown in.
  */
 function winningLanguage(
   page: Page,
@@ -34,7 +37,12 @@ function winningLanguage(
   detectedLanguage: string | undefined,
   urlLanguage: string | undefined
 ): string {
-  return urlLanguage ?? page.meta?.lang ?? detectedLanguage ?? languages?.default ?? 'en-US'
+  return servedPageLanguage({
+    languages,
+    addressed: urlLanguage,
+    pageLang: page.meta?.lang,
+    detected: detectedLanguage,
+  })
 }
 
 /** HOW the winner is spelled: the app's own declaration, else as authored. */

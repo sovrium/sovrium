@@ -20,6 +20,8 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import { OutboundHttp, outboundText } from '@/application/ports/services/outbound-http'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { readICalendar, type IcsReadEvent } from '@/domain/kernel/format/icalendar-reader'
 import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import {
@@ -29,12 +31,12 @@ import {
   rowHoldsValues,
   type ImportIcsMap,
 } from '@/domain/models/app/automations/actions/calendar/import-ics-service'
-import { guardedFetch, guardedText } from '@/infrastructure/egress/guarded-fetch'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { buildGuestSession } from '../build-guest-session'
 import { blockedRequestFailure, httpStatusFailure, requestFailure } from './http-failure'
-import { asRecord, resolvedProps, upsertItem, type GateRequirements } from './record-batch'
-import { errorMessageOf } from './record-filters'
+import { asRecord, resolvedProps, upsertItem, type GateRequirements } from './record/batch'
+import { errorMessageOf } from './record/filters'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext, AutomationContext } from './shared'
 import type { App, Table } from '@/domain/models/app'
@@ -49,28 +51,31 @@ const FEED_BODY_CAP = 10 * 1024 * 1024
 const fetchableUrl = (url: string): string => url.trim().replace(/^webcal:\/\//i, 'https://')
 
 /** The feed's body, or the outcome failing the step. */
-const fetchFeed = async (url: string): Promise<{ readonly body: string } | ActionOutcome> => {
-  try {
-    const sent = await guardedFetch(
+const fetchFeed = (
+  url: string
+): Effect.Effect<{ readonly body: string } | ActionOutcome, never, OutboundHttp> =>
+  OutboundHttp.use(({ guardedFetch }) =>
+    guardedFetch(
       url,
       { method: 'GET', headers: { Accept: 'text/calendar, */*;q=0.5' } },
       { timeoutMs: HTTP_REQUEST_TIMEOUT_MS, maxBodyBytes: FEED_BODY_CAP }
     )
-    if (!sent.ok) {
-      return blockedRequestFailure(
-        `The feed address is not allowed by the outbound guard (${sent.reason}): ${sent.message}`
-      )
-    }
-    const body = guardedText(sent.response)
-    if (!sent.response.ok) return httpStatusFailure(sent.response.status, body, {})
-    if (sent.response.truncated) {
-      return { status: 'failure', error: `The feed is larger than ${FEED_BODY_CAP} bytes` }
-    }
-    return { body }
-  } catch (error) {
-    return requestFailure(error)
-  }
-}
+  ).pipe(
+    Effect.map((sent): { readonly body: string } | ActionOutcome => {
+      if (!sent.ok) {
+        return blockedRequestFailure(
+          `The feed address is not allowed by the outbound guard (${sent.reason}): ${sent.message}`
+        )
+      }
+      const body = outboundText(sent.response)
+      if (!sent.response.ok) return httpStatusFailure(sent.response.status, body, {})
+      if (sent.response.truncated) {
+        return { status: 'failure', error: `The feed is larger than ${FEED_BODY_CAP} bytes` }
+      }
+      return { body }
+    }),
+    Effect.catchTag('OutboundTransportError', ({ cause }) => Effect.succeed(requestFailure(cause)))
+  )
 
 interface ImportPlan {
   readonly table: Table
@@ -171,7 +176,7 @@ const writeRows = (input: {
 /** The plan for a step, or the reason it cannot run. */
 const planOf = (app: App, props: Readonly<Record<string, unknown>>): ImportPlan | string => {
   const tableName = stringProp(props, 'table')
-  const table = app.tables?.find((t) => t.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   if (table === undefined) return `calendar.importIcs: table '${tableName}' does not exist`
   const matchField = stringProp(props, 'matchField')
   if (matchField === '') return 'calendar.importIcs requires a matchField'
@@ -221,10 +226,11 @@ export const handleCalendarImportIcs: ActionHandler = (action, app, automation, 
     const plan = planOf(app, props)
     if (typeof plan === 'string') return { status: 'failure', error: plan } as const
 
-    // effect-promise: total -- `fetchFeed` catches every rejection and returns it as a failure outcome.
-    const fetched = yield* Effect.promise(() => fetchFeed(url))
+    const fetched = yield* fetchFeed(url)
     if (!('body' in fetched)) return fetched
-    const read = readICalendar(fetched.body, { defaultTimeZone: resolveOperatorTimezone() })
+    const read = readICalendar(fetched.body, {
+      defaultTimeZone: parseSovriumTimezone(yield* ProcessEnv).zoneId,
+    })
     if (!read.ok) {
       return { status: 'failure', error: 'The feed is not an iCalendar calendar' } as const
     }

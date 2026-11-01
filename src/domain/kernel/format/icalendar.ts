@@ -64,6 +64,10 @@ export interface IcsWriteEvent {
   readonly end?: IcsTime | undefined
   readonly summary?: string | undefined
   readonly description?: string | undefined
+  /** The event's place, written as TEXT. */
+  readonly location?: string | undefined
+  /** The event's link, written as a URI value: never text-escaped. */
+  readonly url?: string | undefined
 }
 
 /** A published calendar. */
@@ -129,6 +133,10 @@ const timeLine = (name: string, time: IcsTime): string =>
 const textLine = (name: string, value: string | undefined): readonly string[] =>
   value === undefined || value === '' ? [] : [`${name}:${escapeIcsText(value)}`]
 
+/** A URI property (RFC 5545 §3.3.13), or nothing when the value is empty or spans lines. */
+const uriLine = (name: string, value: string | undefined): readonly string[] =>
+  value === undefined || value === '' || /[\r\n]/.test(value) ? [] : [`${name}:${value}`]
+
 const eventLines = (event: IcsWriteEvent): readonly string[] => [
   'BEGIN:VEVENT',
   `UID:${escapeIcsText(event.uid)}`,
@@ -137,6 +145,8 @@ const eventLines = (event: IcsWriteEvent): readonly string[] => [
   ...(event.end === undefined ? [] : [timeLine('DTEND', event.end)]),
   ...textLine('SUMMARY', event.summary),
   ...textLine('DESCRIPTION', event.description),
+  ...textLine('LOCATION', event.location),
+  ...uriLine('URL', event.url),
   `LAST-MODIFIED:${formatIcsUtc(event.stampMs)}`,
   'END:VEVENT',
 ]

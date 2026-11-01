@@ -19,11 +19,11 @@ import {
   RELATED_TEXT_OPERATOR,
 } from '@/domain/models/app/tables/related-text-filter-service'
 import { LIST_MEMBER_OPERATOR } from '@/domain/models/app/tables/user-list-field-service'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { escapeSqlString } from '../sql/sql-utils'
 import { linkedRecordsFragment } from './linked-records-fragment'
 import { notLoggedCreatorFragment } from './logged-creator-fragment'
 import { relatedTextFragment } from './related-text-fragment'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * The operators only the server writes into a filter, after rewriting a
@@ -35,33 +35,39 @@ import { relatedTextFragment } from './related-text-fragment'
  */
 
 /**
- * "The list column holds `value`": membership in a `text[]` on PostgreSQL, in a
- * JSON array on SQLite. The value is bound; an empty or absent list matches
- * nothing.
+ * "The list column holds `value`" on `dialect`: membership in a `text[]` on
+ * PostgreSQL, in a JSON array on SQLite. The value is bound; an empty or
+ * absent list matches nothing.
  */
-export const listMemberFragment = (
+export const listMemberFragmentOn = (
+  dialect: DatabaseDialect,
   column: Readonly<ReturnType<typeof sql.identifier>>,
   value: unknown
 ): Readonly<SQL> => {
   const member = String(value)
-  return isSqliteRuntime()
+  return dialect === 'sqlite'
     ? sql`(json_valid(${column}) AND EXISTS (SELECT 1 FROM json_each(${column}) WHERE json_each.value = ${member}))`
     : sql`(${member} = ANY(${column}))`
 }
 
 /**
- * {@link listMemberFragment} spelled for a view definition, where nothing can
+ * {@link listMemberFragmentOn} spelled for a view definition, where nothing can
  * be bound: the same membership test, with `quotedMember` an already escaped
  * SQL string literal and `column` an already quoted column expression. Both
  * spellings sit here so the rule is stated once, side by side.
  */
-export const listMemberDdlCondition = (column: string, quotedMember: string): string =>
-  isSqliteRuntime()
+const listMemberDdlCondition = (
+  dialect: DatabaseDialect,
+  column: string,
+  quotedMember: string
+): string =>
+  dialect === 'sqlite'
     ? `(json_valid(${column}) AND EXISTS (SELECT 1 FROM json_each(${column}) WHERE json_each.value = ${quotedMember}))`
     : `(${quotedMember} = ANY(${column}))`
 
 /** The fragment of a server-written condition on `field`, or `undefined` for any other operator. */
 export const serverOperatorFragment = (
+  dialect: DatabaseDialect,
   field: string,
   operator: string,
   value: unknown
@@ -69,7 +75,9 @@ export const serverOperatorFragment = (
   if (operator === RELATED_TEXT_OPERATOR && isRelatedTextValue(value)) {
     return relatedTextFragment(field, value)
   }
-  if (operator === LIST_MEMBER_OPERATOR) return listMemberFragment(sql.identifier(field), value)
+  if (operator === LIST_MEMBER_OPERATOR) {
+    return listMemberFragmentOn(dialect, sql.identifier(field), value)
+  }
   if (operator === LINKED_RECORDS_OPERATOR && isLinkedRecordsValue(value)) {
     return linkedRecordsFragment(value)
   }
@@ -85,11 +93,12 @@ export const serverOperatorFragment = (
  * `contains` on a list of people, rewritten into membership by the filter walker.
  */
 export const serverOperatorDdlCondition = (
+  dialect: DatabaseDialect,
   field: string,
   operator: string,
   value: unknown
 ): string | undefined => {
   if (operator !== LIST_MEMBER_OPERATOR) return undefined
   // sql-literal: ddl -- a view definition is stored, so its configured value cannot be bound
-  return listMemberDdlCondition(field, `'${escapeSqlString(String(value))}'`)
+  return listMemberDdlCondition(dialect, field, `'${escapeSqlString(String(value))}'`)
 }

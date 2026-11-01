@@ -35,10 +35,12 @@
  * a shared workstation.
  */
 
+import { Effect } from 'effect'
 import { getCookie, setCookie } from 'hono/cookie'
 import { resolveFormOptionSources } from '@/application/use-cases/forms/resolve-form-option-sources'
 import { findFormByName } from '@/application/use-cases/forms/submit-form'
 import { withoutWithheldAnswers } from '@/application/use-cases/forms/submit-form-field-shaping'
+import { formStepAdvanceResponseSchema } from '@/domain/models/api/forms'
 import {
   buildConditionValueMap,
   fieldSubmitIdentifier,
@@ -51,13 +53,14 @@ import {
   resolveNextStepId,
   isStepVisible,
 } from '@/domain/models/app/forms/multi-step-flow'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { answerNotFound, shapedJson } from '@/presentation/api/runtime/run-effect'
 import {
   denyFormAccess,
   evaluateFormAccessForRequest,
   resolveFormOptionVisitor,
 } from './access-gate'
 import { formForCaller } from './form-page-context'
+import { awaitForm, runFormProgram } from './form-program'
 import { generateDraftSessionId, mergeDraft, readDraft, replaceDraft } from './step-draft-store'
 import type { ReadTableAsCaller } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
@@ -153,47 +156,45 @@ async function readJsonBody(c: Context): Promise<Record<string, unknown>> {
  * does. A status-only gate would not be enough here — the endpoint answers
  * with a bare fragment, so the denial must also carry none of the step.
  */
-export async function handleGetStepFragment(
+export const handleGetStepFragment = (
   c: Context,
   app: App,
   renderer: StepFragmentRenderer
-): Promise<Response> {
-  const name = c.req.param('name')
-  const stepId = c.req.param('stepId')
-  if (!name || !stepId) return c.notFound()
-  const form = findFormByName(app, name)
-  if (!form) return c.notFound()
-  const { decision, session } = await evaluateFormAccessForRequest(c, form)
-  const denied = denyFormAccess(c, form.name, decision, 'html')
-  if (denied !== undefined) return denied
-  const step = findStep(form, stepId)
-  if (!step) return c.notFound()
-  // The step offers what the whole form page offers this caller, and no other field.
-  const shown = await formForCaller(c, app, form, { session, read: renderer.readTableAsCaller })
-  const sessionId = ensureDraftSession(c)
-  const draft = readDraft(sessionId, name)
-  // A step asking a table-backed question carries the same choices as the
-  // full page does (`respondWithForm`), read on this request.
-  const optionSets = await runRequestEffect(
+): Promise<Response> =>
+  runFormProgram(
     c,
-    provideDomain(
-      c,
-      resolveFormOptionSources({
-        app,
-        form: shown,
-        visitor: await resolveFormOptionVisitor(c, session),
+    Effect.gen(function* () {
+      const name = c.req.param('name')
+      const stepId = c.req.param('stepId')
+      if (!name || !stepId) return yield* answerNotFound(c)
+      const form = findFormByName(app, name)
+      if (!form) return yield* answerNotFound(c)
+      const { decision, session } = yield* evaluateFormAccessForRequest(c, form)
+      const denied = denyFormAccess(c, form.name, decision, 'html')
+      if (denied !== undefined) return yield* awaitForm(() => denied)
+      const step = findStep(form, stepId)
+      if (!step) return yield* answerNotFound(c)
+      // The step offers what the whole form page offers this caller, and no other field.
+      const shown = yield* formForCaller(c, app, form, {
+        session,
+        read: renderer.readTableAsCaller,
       })
-    )
+      const sessionId = ensureDraftSession(c)
+      const draft = readDraft(sessionId, name)
+      // A step asking a table-backed question carries the same choices as the
+      // full page does (`respondWithForm`), read on this request.
+      const visitor = yield* resolveFormOptionVisitor(session)
+      const optionSets = yield* resolveFormOptionSources({ app, form: shown, visitor })
+      // The step speaks the language its page was served in (the runtime forwards it).
+      const activeLang = c.req.query('lang')
+      const html = renderer.renderStepFragment(app, shown, stepId, {
+        draftValues: draft,
+        optionSets,
+        ...(activeLang !== undefined && activeLang !== '' ? { activeLang } : {}),
+      })
+      return c.html(html)
+    })
   )
-  // The step speaks the language its page was served in (the runtime forwards it).
-  const activeLang = c.req.query('lang')
-  const html = renderer.renderStepFragment(app, shown, stepId, {
-    draftValues: draft,
-    optionSets,
-    ...(activeLang !== undefined && activeLang !== '' ? { activeLang } : {}),
-  })
-  return c.html(html)
-}
 
 /**
  * `POST /api/forms/:name/steps/:stepId/advance` — validate the current
@@ -209,48 +210,54 @@ export async function handleGetStepFragment(
  * read or merged. The response body reveals the flow's step graph, so a
  * denied caller must not reach the resolver.
  */
-export async function handlePostStepAdvance(
+export const handlePostStepAdvance = (
   c: Context,
   app: App,
   read: ((c: Context) => ReadTableAsCaller) | undefined
-): Promise<Response> {
-  const name = c.req.param('name')
-  const stepId = c.req.param('stepId')
-  if (!name || !stepId) return c.notFound()
-  const form = findFormByName(app, name)
-  if (!form) return c.notFound()
-  const { decision, session } = await evaluateFormAccessForRequest(c, form)
-  const denied = denyFormAccess(c, form.name, decision, 'json')
-  if (denied !== undefined) return denied
-  const step = findStep(form, stepId)
-  if (!step) return c.notFound()
+): Promise<Response> =>
+  runFormProgram(
+    c,
+    Effect.gen(function* () {
+      const name = c.req.param('name')
+      const stepId = c.req.param('stepId')
+      if (!name || !stepId) return yield* answerNotFound(c)
+      const form = findFormByName(app, name)
+      if (!form) return yield* answerNotFound(c)
+      const { decision, session } = yield* evaluateFormAccessForRequest(c, form)
+      const denied = denyFormAccess(c, form.name, decision, 'json')
+      if (denied !== undefined) return yield* awaitForm(() => denied)
+      const step = findStep(form, stepId)
+      if (!step) return yield* answerNotFound(c)
 
-  // The step is checked over the fields the form offers this caller, and a
-  // value for one it does not offer her is kept nowhere.
-  const shown = await formForCaller(c, app, form, { session, read })
-  const body = withoutWithheldAnswers(await readJsonBody(c), form, shown)
-  const sessionId = ensureDraftSession(c)
-  const merged = { ...readDraft(sessionId, name), ...body }
+      // The step is checked over the fields the form offers this caller, and a
+      // value for one it does not offer her is kept nowhere.
+      const shown = yield* formForCaller(c, app, form, { session, read })
+      const body = withoutWithheldAnswers(yield* awaitForm(() => readJsonBody(c)), form, shown)
+      const sessionId = ensureDraftSession(c)
+      const merged = { ...readDraft(sessionId, name), ...body }
 
-  const offending = findFirstStepValidationError(shown, step.fields, merged)
-  if (offending !== undefined) {
-    const message = `${offending} is required`
-    return c.json(
-      {
-        error: 'validation_failed',
-        message,
-        fieldErrors: [{ name: offending, message }],
-      },
-      400
-    )
-  }
+      const offending = findFirstStepValidationError(shown, step.fields, merged)
+      if (offending !== undefined) {
+        const message = `${offending} is required`
+        return c.json(
+          {
+            error: 'validation_failed',
+            message,
+            fieldErrors: [{ name: offending, message }],
+          },
+          400
+        )
+      }
 
-  mergeDraft(sessionId, name, body)
+      mergeDraft(sessionId, name, body)
 
-  return c.json({
-    nextStepId: resolveVisibleNextStepId(form, stepId, merged) ?? null,
-  })
-}
+      return shapedJson(
+        c,
+        { nextStepId: resolveVisibleNextStepId(form, stepId, merged) ?? null },
+        formStepAdvanceResponseSchema
+      )
+    })
+  )
 
 /**
  * Resolve the id of the next step the submitter should see, or `undefined`
@@ -288,19 +295,23 @@ function resolveVisibleNextStepId(
  * are — it writes state keyed to the caller's own draft cookie, and a denied
  * caller must not reach it.
  */
-export async function handlePostDraftReset(c: Context, app: App): Promise<Response> {
-  const name = c.req.param('name')
-  if (!name) return c.notFound()
-  const form = findFormByName(app, name)
-  if (!form) return c.notFound()
-  const { decision } = await evaluateFormAccessForRequest(c, form)
-  const denied = denyFormAccess(c, form.name, decision, 'json')
-  if (denied !== undefined) return denied
+export const handlePostDraftReset = (c: Context, app: App): Promise<Response> =>
+  runFormProgram(
+    c,
+    Effect.gen(function* () {
+      const name = c.req.param('name')
+      if (!name) return yield* answerNotFound(c)
+      const form = findFormByName(app, name)
+      if (!form) return yield* answerNotFound(c)
+      const { decision } = yield* evaluateFormAccessForRequest(c, form)
+      const denied = denyFormAccess(c, form.name, decision, 'json')
+      if (denied !== undefined) return yield* awaitForm(() => denied)
 
-  const body = await readJsonBody(c)
-  replaceDraft(ensureDraftSession(c), name, body)
-  return c.body(null, 204)
-}
+      const body = yield* awaitForm(() => readJsonBody(c))
+      replaceDraft(ensureDraftSession(c), name, body)
+      return c.body(null, 204)
+    })
+  )
 
 /**
  * Fold the per-session step draft UNDER a multi-step form's final submission

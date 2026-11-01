@@ -32,7 +32,7 @@ const EMPTY = -1
 const createGrid = (size: number): Grid =>
   Array.from({ length: size }, () => Array.from({ length: size }, () => EMPTY))
 
-/* eslint-disable functional/no-expression-statements, functional/immutable-data, functional/no-loop-statements, functional/no-let */
+/* eslint-disable functional/no-expression-statements, functional/immutable-data, functional/no-loop-statements, functional/no-let -- the placement passes write single modules of a readonly-rowed Grid in place, as the Grid note says; rebuilding it per module would be quadratic */
 
 /**
  * The finder module at offset (r, c) from a finder's top-left corner.
@@ -336,4 +336,4 @@ export const buildMatrix = (
   return Object.freeze(best.masked.map((row) => Object.freeze(row.map((cell) => cell === 1))))
 }
 
-/* eslint-enable functional/no-expression-statements, functional/immutable-data, functional/no-loop-statements, functional/no-let */
+/* eslint-enable functional/no-expression-statements, functional/immutable-data, functional/no-loop-statements, functional/no-let -- end of the placement passes */

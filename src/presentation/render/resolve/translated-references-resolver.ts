@@ -10,20 +10,27 @@ import { resolveTranslationPattern } from '@/domain/models/app/languages/transla
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 
-/** A reference a page pass fills: the page's record, the app's facts, a route segment. */
-const BODY_REFERENCE = /\$(?:record|app|param)\./
+/**
+ * A reference a page pass fills: the page's record, its collection neighbours
+ * (`$collection.previous|next|resume`), the app's facts, a route segment.
+ */
+const BODY_REFERENCE = /\$(?:record|app|param|collection)\./
 
-/** The head fills `$app.*` and `$param.*` itself, per language; only the record is the page's. */
-const HEAD_REFERENCE = /\$record\./
+/** The head fills `$app.*` and `$param.*` itself; the record and its neighbours are the page's. */
+const HEAD_REFERENCE = /\$record\.|\$collection\./
 
-/** `card` with its `description` passed through `translate`, when it has one. */
-const withTranslatedDescription = <T extends { readonly description?: string | undefined }>(
-  card: T,
-  translate: (text: string) => string
-): T =>
-  typeof card.description === 'string'
-    ? { ...card, description: translate(card.description) }
-    : card
+/** The text values of a sharing card, each resolved as the matching `meta` value. */
+const CARD_TEXT_KEYS = ['title', 'description', 'imageAlt'] as const
+
+type CardText = { readonly [K in (typeof CARD_TEXT_KEYS)[number]]?: string | undefined }
+
+/** `card` with each of its text values passed through `translate`, when it has one. */
+const withTranslatedText = <T extends CardText>(card: T, translate: (text: string) => string): T =>
+  CARD_TEXT_KEYS.reduce<T>(
+    (current, key) =>
+      typeof current[key] === 'string' ? { ...current, [key]: translate(current[key]) } : current,
+    card
+  )
 
 /**
  * Translate, ahead of the reference passes, every `$t:` value whose translation
@@ -34,17 +41,21 @@ const withTranslatedDescription = <T extends { readonly description?: string | u
  * Translation normally happens at render, after the passes have run; a
  * reference that only appears once the key is translated would then stay
  * verbatim. So the order is reversed for exactly those values: translate first
- * (in the served language), then let the record, `$app.*` and `$param.*`
- * passes fill what the translation brought. A row template (a
+ * (in the served language), then let the record, `$collection.*`, `$app.*`
+ * and `$param.*` passes fill what the translation brought. The collection pass
+ * then sees the translated text as it sees literal content: it writes each
+ * neighbour value as text, and drops a component whose translation names a
+ * neighbour the record does not have. A row template (a
  * `contentFrom.template` naming a key) is translated once here and filled per
  * row by its own pass.
  *
  * Every other `$t:` value is left as the key, so the renderer's own
  * translation — and its per-language data — is unchanged. A `meta.title`, a
- * `meta.description` or a sharing card's description is translated here only
- * for a `$record.*` reference: the head fills `$app.*` and `$param.*` in every
- * language itself, and a title naming the page's record is composed for the
- * served language. So the three descriptions resolve alike.
+ * `meta.description` or a sharing card's title, description or image text is
+ * translated here only for a `$record.*` reference: the head fills `$app.*`
+ * and `$param.*` in every language itself, and a title naming the page's
+ * record is composed for the served language. So every card value resolves as
+ * the matching `meta` value does.
  */
 export function translateReferencedKeys(
   page: Page,
@@ -73,10 +84,10 @@ export function translateReferencedKeys(
         ...(typeof meta.title === 'string' && { title: head(meta.title) }),
         ...(typeof meta.description === 'string' && { description: head(meta.description) }),
         ...(meta.openGraph !== undefined && {
-          openGraph: withTranslatedDescription(meta.openGraph, head),
+          openGraph: withTranslatedText(meta.openGraph, head),
         }),
         ...(meta.twitter !== undefined && {
-          twitter: withTranslatedDescription(meta.twitter, head),
+          twitter: withTranslatedText(meta.twitter, head),
         }),
       },
     }),

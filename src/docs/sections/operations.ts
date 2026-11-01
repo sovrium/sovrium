@@ -13,20 +13,17 @@ import logsAndPersonalDataBody from '@/docs/operations/logs-and-personal-data.md
 import migrationsBody from '@/docs/operations/migrations.md' with { type: 'file' }
 import notificationsBody from '@/docs/operations/notifications.md' with { type: 'file' }
 import securityHardeningBody from '@/docs/operations/security-hardening.md' with { type: 'file' }
+import securityModelBody from '@/docs/operations/security-model.md' with { type: 'file' }
 import { defineArticle, defineSection } from './define'
 
 /**
  * Operations — the section manifest.
  *
- * Seven articles about running a deployed instance: policy rather than
- * configuration. Each spans the whole engine — a migration touches every
- * table, a security header every response — so none of them is about one
- * property directory and all five sit in the cross-cutting tree.
- *
- * Like every `src/docs/` article they carry no `sovrium:options` directive.
- * The env-var tables here are HAND-WRITTEN on purpose: an environment variable
- * is not an `AppSchema` node, so no walk can produce one, and the operator
- * posture is deliberately outside the app config (ADR 013).
+ * Why every article sits in the cross-cutting tree with hand-written
+ * env-var tables:
+ * `[internal ref]`, § `operations`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const section = defineSection({
   slug: 'operations',
@@ -38,7 +35,7 @@ export const section = defineSection({
       slug: 'database-infrastructure',
       title: 'Database Infrastructure',
       description:
-        'SQLite as the zero-config default, PostgreSQL through DATABASE_URL, the data directory, the page-render cache, memory sizing in a container, and the standalone binary.',
+        'SQLite as the zero-config default, PostgreSQL through DATABASE_URL, the data directory, the page-render cache, memory sizing in a container, and the binary.',
       keywords: [
         'sovrium',
         'database',
@@ -152,6 +149,33 @@ export const section = defineSection({
       ],
     }),
     defineArticle({
+      slug: 'security-model',
+      title: 'Security Model',
+      description:
+        "Who can reach your data and through which door: the database stays private, every read and write passes the engine's checks, and owner-only rows take one line.",
+      keywords: [
+        'sovrium',
+        'security model',
+        'threat model',
+        'row level security',
+        'RLS',
+        'row-level permissions',
+        'owner-only rows',
+        'created-by',
+        '$currentUser',
+        'database exposure',
+        'anti-enumeration',
+        'defense in depth',
+      ],
+      order: 1625,
+      sidebarLabel: 'Security Model',
+      body: securityModelBody,
+      documents: [],
+      // The row-level stories are cited by Table Permissions, which owns the
+      // rules; this article explains the model they sit in.
+      stories: [],
+    }),
+    defineArticle({
       slug: 'gdpr-privacy',
       title: 'GDPR & Privacy',
       description:
@@ -227,7 +251,7 @@ export const section = defineSection({
       slug: 'notifications',
       title: 'Operator Notifications',
       description:
-        'The two emails an instance sends its operators on its own — automation alerts and a weekly summary — their audience, their content, and every variable that shapes them.',
+        'The two emails an instance sends its operators on its own, automation alerts and a weekly summary: who gets them, what they say, the variables that shape them.',
       keywords: [
         'sovrium',
         'notifications',

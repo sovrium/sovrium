@@ -14,7 +14,6 @@ import {
   pgWordSearchIndexName,
   pgWordSearchVectorExpression,
 } from '@/infrastructure/database/schema/word-search-ddl'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   isLiveUniqueField,
   isRelationshipField,
@@ -30,6 +29,7 @@ import {
 } from '../sql/sql-translatable-columns'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * The table reference used in a `CREATE INDEX ... ON <ref>` statement.
@@ -37,8 +37,8 @@ import type { Fields } from '@/domain/models/app/tables/fields'
  * PostgreSQL qualifies the table with the `public` schema; SQLite has no
  * schemas, so the bare table name is used.
  */
-const indexTableRef = (sanitized: string): string =>
-  isSqliteRuntime() ? sanitized : `public.${sanitized}`
+const indexTableRef = (sanitized: string, dialect: DatabaseDialect): string =>
+  dialect === 'sqlite' ? sanitized : `public.${sanitized}`
 
 /**
  * Generate standard indexes for indexed fields.
@@ -78,9 +78,9 @@ export const standardIndexName = (
   return `idx_${sanitizeTableName(tableName)}_${suffix}`
 }
 
-const generateStandardIndexes = (table: Table): readonly string[] => {
+const generateStandardIndexes = (table: Table, dialect: DatabaseDialect): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
-  const sqlite = isSqliteRuntime()
+  const sqlite = dialect === 'sqlite'
   return table.fields
     .filter(
       (field): field is Fields[number] & { indexed: true } => 'indexed' in field && !!field.indexed
@@ -95,7 +95,7 @@ const generateStandardIndexes = (table: Table): readonly string[] => {
       if (isUniqueInEachLanguage(field)) return translatableIndexDrops(table.name, field, indexName)
       // A translatable field is indexed per language, on each language's value.
       if (declaresTranslatable(field))
-        return translatableIndexStatements(table.name, field, indexName)
+        return translatableIndexStatements(table.name, field, indexName, dialect)
       if (sqlite) {
         return [
           `CREATE INDEX IF NOT EXISTS ${indexName} ON ${sanitized} (${quoteSqlIdentifier(field.name)})`,
@@ -111,9 +111,9 @@ const generateStandardIndexes = (table: Table): readonly string[] => {
 /**
  * Generate unique indexes for autonumber fields
  */
-const generateAutonumberIndexes = (table: Table): readonly string[] => {
+const generateAutonumberIndexes = (table: Table, dialect: DatabaseDialect): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
-  const tableRef = indexTableRef(sanitized)
+  const tableRef = indexTableRef(sanitized, dialect)
   return table.fields
     .filter((field) => field.type === 'autonumber')
     .map((field) => {
@@ -129,8 +129,11 @@ const generateAutonumberIndexes = (table: Table): readonly string[] => {
  *
  * @public
  */
-export const generateLiveUniqueIndexes = (table: Table): readonly string[] => {
-  const tableRef = indexTableRef(sanitizeTableName(table.name))
+export const generateLiveUniqueIndexes = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
+  const tableRef = indexTableRef(sanitizeTableName(table.name), dialect)
   return table.fields
     .filter(isLiveUniqueField(table))
     .map(
@@ -144,10 +147,13 @@ export const generateLiveUniqueIndexes = (table: Table): readonly string[] => {
  * NOTE: POINT type doesn't support btree UNIQUE constraints or GiST UNIQUE indexes
  * PostgreSQL requires EXCLUDE USING gist for uniqueness on geometric types using ~= operator
  */
-const generateGeolocationConstraints = (table: Table): readonly string[] => {
+const generateGeolocationConstraints = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
   // `EXCLUDE USING gist` is a PostgreSQL-only constraint; SQLite has neither
   // GiST nor exclusion constraints, so geolocation uniqueness degrades there.
-  if (isSqliteRuntime()) return []
+  if (dialect === 'sqlite') return []
   const sanitized = sanitizeTableName(table.name)
   return table.fields
     .filter(
@@ -168,8 +174,11 @@ const generateGeolocationConstraints = (table: Table): readonly string[] => {
  * to `501 requires-postgres` on SQLite (plan decision §4), so no FTS index is
  * emitted there.
  */
-const generateFullTextSearchIndexes = (table: Table): readonly string[] => {
-  if (isSqliteRuntime()) return []
+const generateFullTextSearchIndexes = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
+  if (dialect === 'sqlite') return []
   const sanitized = sanitizeTableName(table.name)
   return table.fields
     .filter(
@@ -188,8 +197,8 @@ const generateFullTextSearchIndexes = (table: Table): readonly string[] => {
  * for byte (`schema/word-search-ddl.ts`). SQLite needs none: the full-text
  * mirror `fts__<table>` already holds every long-text column.
  */
-const generateWordSearchIndexes = (table: Table): readonly string[] => {
-  if (isSqliteRuntime()) return []
+const generateWordSearchIndexes = (table: Table, dialect: DatabaseDialect): readonly string[] => {
+  if (dialect === 'sqlite') return []
   const sanitized = sanitizeTableName(table.name)
   return wordSearchFields(table).map(
     (field) =>
@@ -203,8 +212,11 @@ const generateWordSearchIndexes = (table: Table): readonly string[] => {
  * index. Keyed on the current config rather than the stored one, so an index
  * left behind by any earlier boot is collected too; a no-op where none exists.
  */
-export const generateWordSearchIndexDrops = (table: Table): readonly string[] => {
-  if (isSqliteRuntime()) return []
+export const generateWordSearchIndexDrops = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
+  if (dialect === 'sqlite') return []
   const sanitized = sanitizeTableName(table.name)
   const declared = new Set(wordSearchFields(table))
   return table.fields
@@ -218,9 +230,9 @@ export const generateWordSearchIndexDrops = (table: Table): readonly string[] =>
  * Custom indexes are plain b-tree indexes on a column list — portable across
  * both dialects; only the table reference is schema-qualified on Postgres.
  */
-const generateCustomIndexes = (table: Table): readonly string[] => {
+const generateCustomIndexes = (table: Table, dialect: DatabaseDialect): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
-  const tableRef = indexTableRef(sanitized)
+  const tableRef = indexTableRef(sanitized, dialect)
   return (
     table.indexes?.map((index) => {
       const uniqueClause = index.unique ? 'UNIQUE ' : ''
@@ -237,10 +249,10 @@ const generateCustomIndexes = (table: Table): readonly string[] => {
  * - WHERE deleted_at IS NULL (active records)
  * - WHERE deleted_at IS NOT NULL (deleted records)
  */
-const generateDeletedAtIndex = (table: Table): readonly string[] => {
+const generateDeletedAtIndex = (table: Table, dialect: DatabaseDialect): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
   const indexName = `idx_${sanitized}_deleted_at`
-  return isSqliteRuntime()
+  return dialect === 'sqlite'
     ? [`CREATE INDEX IF NOT EXISTS ${indexName} ON ${sanitized} (deleted_at)`]
     : [`CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING btree (deleted_at)`]
 }
@@ -250,9 +262,9 @@ const generateDeletedAtIndex = (table: Table): readonly string[] => {
  * Foreign key columns benefit from indexes for JOIN operations and referential integrity checks
  * This improves query performance when filtering or joining on relationships
  */
-const generateForeignKeyIndexes = (table: Table): readonly string[] => {
+const generateForeignKeyIndexes = (table: Table, dialect: DatabaseDialect): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
-  const sqlite = isSqliteRuntime()
+  const sqlite = dialect === 'sqlite'
   const fkIndexSql = (fieldName: string): string => {
     const indexName = `idx_${sanitized}_${fieldName}_fk`
     return sqlite
@@ -273,15 +285,18 @@ const generateForeignKeyIndexes = (table: Table): readonly string[] => {
 /**
  * Generate CREATE INDEX statements for indexed fields and autonumber fields
  */
-export const generateIndexStatements = (table: Table): readonly string[] => [
-  ...generateStandardIndexes(table),
-  ...generateAutonumberIndexes(table),
-  ...generateLiveUniqueIndexes(table),
-  ...generateLanguageUniqueIndexes(table),
-  ...generateGeolocationConstraints(table),
-  ...generateFullTextSearchIndexes(table),
-  ...generateWordSearchIndexes(table),
-  ...generateCustomIndexes(table),
-  ...generateForeignKeyIndexes(table),
-  ...generateDeletedAtIndex(table),
+export const generateIndexStatements = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => [
+  ...generateStandardIndexes(table, dialect),
+  ...generateAutonumberIndexes(table, dialect),
+  ...generateLiveUniqueIndexes(table, dialect),
+  ...generateLanguageUniqueIndexes(table, dialect),
+  ...generateGeolocationConstraints(table, dialect),
+  ...generateFullTextSearchIndexes(table, dialect),
+  ...generateWordSearchIndexes(table, dialect),
+  ...generateCustomIndexes(table, dialect),
+  ...generateForeignKeyIndexes(table, dialect),
+  ...generateDeletedAtIndex(table, dialect),
 ]

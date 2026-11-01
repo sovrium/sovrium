@@ -86,7 +86,11 @@ export function InputOTPSlot({
   )
 }
 
-/** A rule between two groups of boxes. */
+/**
+ * A rule between two groups of boxes.
+ *
+ * @public The shadcn anatomy is ported whole; the `input-otp` island draws one group today.
+ */
 export function InputOTPSeparator(props: ComponentProps<'div'>): ReactElement {
   return (
     <div

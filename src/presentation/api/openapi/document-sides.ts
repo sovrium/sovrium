@@ -16,7 +16,7 @@
  */
 
 import { Schema } from 'effect'
-import { toJsonSchemaDocument } from '@/domain/models/api/combinators/json-schema-document'
+import { toJsonSchemaDocument } from '@/domain/kernel/config-parsing/json-schema-document'
 import { findInputMarker } from './markers'
 import { REF_SIBLING_METADATA } from './normalize'
 import type { JsonSchema } from './markers'

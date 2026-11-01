@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computePartButtonClasses } from './button-variant-classes'
+import { computePartButtonClasses, PART_BUTTON_SM } from './button-variant-classes'
+import { computeSolidDestructiveButtonClasses } from './destructive-solid-button-classes'
 
 /**
  * Whether an action is destructive — what decides the weight of the button that
@@ -26,13 +27,27 @@ export const isDestructiveAction = (variant: unknown, action: unknown): boolean 
   return typeof method === 'string' && method.toUpperCase() === 'DELETE'
 }
 
-/** The classes of a confirm's affirming button, at the gate's `sm` size, in its weight. */
-export const computeConfirmAffirmClasses = (destructive: boolean): string =>
-  computePartButtonClasses({ variant: destructive ? 'destructive' : 'default', size: 'sm' })
+/**
+ * The classes of a confirm's affirming button, at the gate's `sm` size, in its
+ * weight: a solid destructive fill when the action cannot be undone, the
+ * destructive tint for any other destructive action, the default button
+ * otherwise.
+ */
+export const computeConfirmAffirmClasses = (destructive: boolean, irreversible = false): string =>
+  irreversible
+    ? computeSolidDestructiveButtonClasses(PART_BUTTON_SM)
+    : computePartButtonClasses({ variant: destructive ? 'destructive' : 'default', size: 'sm' })
+
+/** Whether a confirm declares that its action cannot be undone (`confirm.irreversible`). */
+const isIrreversibleConfirm = (confirm: unknown): boolean =>
+  typeof confirm === 'object' &&
+  confirm !== null &&
+  (confirm as Readonly<Record<string, unknown>>)['irreversible'] === true
 
 /**
  * The affirming button of an OBJECT-form confirm, in the weight of the action it
- * confirms (`data-confirm-class`): destructive for a destructive action, the
+ * confirms (`data-confirm-class`): a solid destructive fill for a confirm declared
+ * `irreversible`, the destructive tint for any other destructive action, the
  * default button otherwise. Decided on the server, because the gate is built by the
  * always-loaded client runtime, which carries no variant table.
  */
@@ -43,7 +58,8 @@ export const confirmWeightAttribute = (
   if (confirm === null || typeof confirm !== 'object') return {}
   return {
     'data-confirm-class': computeConfirmAffirmClasses(
-      isDestructiveAction(componentRaw['variant'], componentRaw['action'])
+      isDestructiveAction(componentRaw['variant'], componentRaw['action']),
+      isIrreversibleConfirm(confirm)
     ),
   }
 }

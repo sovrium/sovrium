@@ -19,6 +19,7 @@
 
 import { Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { sweepBrowserArtifacts } from '@/application/use-cases/automations/sweep-browser-artifacts'
 import { browserArtifactRetentionDays } from '@/domain/models/process-env/browser'
 import { logError } from '@/infrastructure/logging/logger'
@@ -53,11 +54,11 @@ const sweepOnce = (
   )
 
 export const registerBrowserArtifactSweepScheduler = (
-  app: App,
-  processEnv: Readonly<Record<string, string | undefined>>
+  app: App
 ): Effect.Effect<string | undefined, never, CronScheduler | SweepRequirements> =>
   Effect.gen(function* () {
     if (!usesBrowser(app)) return undefined
+    const processEnv = yield* ProcessEnv
     const services = yield* Effect.context<SweepRequirements>()
     const scheduler = yield* CronScheduler
     yield* scheduler.runOnce(() => sweepOnce(processEnv).pipe(Effect.provide(services)), {
@@ -66,7 +67,7 @@ export const registerBrowserArtifactSweepScheduler = (
     return yield* scheduler
       .schedule(SWEEP_CRON_EXPRESSION, () => sweepOnce(processEnv).pipe(Effect.provide(services)), {
         jobId: SWEEP_JOB_ID,
-        timezone: resolveOperatorTimezone(),
+        timezone: resolveOperatorTimezone(process.env),
       })
       .pipe(
         Effect.catch((err) =>

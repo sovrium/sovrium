@@ -92,7 +92,7 @@ export const AiAccessOperationSchema = Schema.Literals([
   'delete',
 ]).annotate({
   description:
-    'One CRUD operation to expose as a tool — `read` and `list` are the two reads, `create`, `update` and `delete` the three writes.',
+    'One CRUD operation to expose as a tool: `read` and `list` are the two reads, `create`, `update` and `delete` the three writes.',
 })
 
 export type AiAccessOperation = typeof AiAccessOperationSchema.Type
@@ -121,7 +121,7 @@ export const AiAccessConfigSchema = Schema.Struct({
     Schema.String.pipe(
       Schema.annotate({
         description:
-          'Hand-written description shown to the AI client. Overrides auto-generated descriptions. The single biggest UX lever for steering AI behavior — explain when to use this tool, what context the AI needs, and any non-obvious constraints.',
+          'Hand-written description shown to the AI client. Overrides auto-generated descriptions. The single biggest UX lever for steering AI behavior: explain when to use this tool, what context the AI needs, and any non-obvious constraints.',
       }),
       Schema.check(Schema.isMaxLength(2000))
     )
@@ -130,7 +130,7 @@ export const AiAccessConfigSchema = Schema.Struct({
     Schema.Array(AiAccessOperationSchema).pipe(
       Schema.annotate({
         description:
-          'Subset of CRUD operations to expose. Defaults to all 5 (read, list, create, update, delete) for tables. Automations and actions ignore this field — they expose a single invocation tool.',
+          'Subset of CRUD operations to expose. Defaults to all 5 (read, list, create, update, delete) for tables. Automations and actions ignore this field; they expose a single invocation tool.',
       }),
       Schema.check(Schema.isMinLength(1))
     )
@@ -172,7 +172,7 @@ export const AiAccessConfigSchema = Schema.Struct({
     identifier: 'AiAccessConfig',
     title: 'AI Access Configuration (rich form)',
     description:
-      'Object form for entities needing custom AI exposure config. Supplying any config IS the enable signal — no separate enabled field.',
+      'Object form for entities needing custom AI exposure config. Supplying any config IS the enable signal; there is no separate enabled field.',
   })
 )
 

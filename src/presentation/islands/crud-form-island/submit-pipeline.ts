@@ -72,7 +72,12 @@ function resolveFormInputData(
 async function submitAutomationForm(ctx: SubmitContext): Promise<void> {
   const name = ctx.automationName
   if (!name) throw new Error('Automation name is required')
-  const resolvedInput = resolveFormInputData(ctx.inputData ?? {}, ctx.values)
+  // A form naming no `inputData` sends what its fields hold, each typed as its
+  // field is: the form's data is the run's input.
+  const resolvedInput =
+    ctx.inputData === undefined
+      ? toWireFields(ctx.fields, ctx.values, ctx.uiStrings)
+      : resolveFormInputData(ctx.inputData, ctx.values)
   const response = await fetch(`/api/automations/${encodeURIComponent(name)}/form-action`, {
     method: 'POST',
     headers: automationPressHeaders(),

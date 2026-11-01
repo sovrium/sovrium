@@ -28,8 +28,8 @@ import {
 import { relsSourceOf, removedIdsOf, type PackageRelationships } from './ooxml-relationships'
 import { partMayNeedCleaning, sanitizePartRoot } from './ooxml-sanitize'
 import { parseXmlPart, serializeElement, serializePart, type XmlElement } from './ooxml-tree'
-import type { ZipEntry } from '../action-handlers/file-zip'
-import type { ZipReadEntry } from '../action-handlers/file-zip-read'
+import type { ZipEntry } from '../action-handlers/file/zip'
+import type { ZipReadEntry } from '../action-handlers/file/zip-read'
 
 /**
  * Fill a Word template (`.docx`, or a `.dotx` template — the output is always a

@@ -11,7 +11,7 @@ import {
   StorageService,
   isStorageObjectTooLarge,
 } from '@/application/ports/services/storage-service'
-import { storageReadOrUndefined } from '@/application/use-cases/storage/storage-failure-log'
+import { storageReadOrUndefined } from '@/application/use-cases/buckets/storage-failure-log'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import { oversizedRecordingRefusal } from '@/domain/models/process-env/ai/speech'
 import { logError } from '@/infrastructure/logging/logger'
@@ -22,8 +22,8 @@ import {
   resolveTranscribeSource,
   type TranscribeSource,
 } from './ai-transcribe-source'
-import { FILE_SOURCE_MAX_BYTES } from './file-support'
-import { CALLER_REFUSAL } from './record-caller-gate'
+import { FILE_SOURCE_MAX_BYTES } from './file/support'
+import { CALLER_REFUSAL } from './record/caller-gate'
 import { actionAttributes, stringProp } from './shared'
 import { starterFileGate, starterStanding, type StarterFileGate } from './starter-file-gate'
 import {

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { ResolvedFormField } from './form-field-elements'
+import type { ResolvedFormField } from './form-resolved-field'
 import type { CalculationField } from '@/domain/models/app/forms'
 
 /**

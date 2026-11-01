@@ -133,7 +133,7 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
 
 // ─── Derived Status ──────────────────────────────────────────────────────────
 
@@ -157,7 +157,7 @@ import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
  */
 export const pendingInvitationStatusSchema = Schema.Literals(['pending', 'expired']).annotate({
   description:
-    'Derived lifecycle state: `pending` (still acceptable) or `expired` (TTL lapsed, link dead). Computed from `expiresAt` at read time, not stored. Accepted invitations are absent entirely — acceptance consumes the row.',
+    'Derived lifecycle state: `pending` (still acceptable) or `expired` (TTL lapsed, link dead). Computed from `expiresAt` at read time, not stored. Accepted invitations are absent entirely: acceptance consumes the row.',
 })
 
 /** @public */
@@ -197,7 +197,7 @@ export const pendingInvitationSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isMinLength(1))),
   role: Schema.String.annotate({
     description:
-      'Role the invited account currently holds (`auth.user.role`), and therefore the role it will carry on acceptance. Read live from the user row rather than copied onto the invitation, so an operator who changes the role before acceptance sees the change reflected here. Always a member of this app’s assignable role vocabulary — `invite-user` refuses anything else before minting a token.',
+      'Role the invited account currently holds (`auth.user.role`), and therefore the role it will carry on acceptance. Read live from the user row rather than copied onto the invitation, so an operator who changes the role before acceptance sees the change reflected here. Always a member of this app’s assignable role vocabulary: `invite-user` refuses anything else before minting a token.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   roleLabel: Schema.String.annotate({
     description:
@@ -206,7 +206,7 @@ export const pendingInvitationSchema = Schema.Struct({
   invitedBy: Schema.NullOr(
     Schema.String.annotate({
       description:
-        'Current e-mail of the operator who issued the invitation, resolved from the stored inviter user id by joining `auth.user`. `null` when the inviter was not recorded — the case for invitations issued before inviter capture existed, whose `verification.value` holds a bare user id rather than the JSON envelope. `null` means "not recorded", never "invited by nobody".',
+        'Current e-mail of the operator who issued the invitation, resolved from the stored inviter user id by joining `auth.user`. `null` when the inviter was not recorded. That is the case for invitations issued before inviter capture existed, whose `verification.value` holds a bare user id rather than the JSON envelope. `null` means "not recorded", never "invited by nobody".',
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   status: pendingInvitationStatusSchema,
@@ -247,7 +247,7 @@ export const pendingInvitationSchema = Schema.Struct({
 export const adminInvitationsListResponseSchema = Schema.Struct({
   items: Schema.Array(pendingInvitationSchema).annotate({
     description:
-      'Every OUTSTANDING invitation — both `pending` and `expired`. Accepted and revoked invitations are absent, their rows having been consumed or deleted.',
+      'Every OUTSTANDING invitation, both `pending` and `expired`. Accepted and revoked invitations are absent, their rows having been consumed or deleted.',
   }),
 }).annotate({
   strictKeys: true,
@@ -288,7 +288,7 @@ export const adminInvitationsListResponseSchema = Schema.Struct({
 export const adminInvitationResendResponseSchema = Schema.Struct({
   invitation: pendingInvitationSchema.annotate({
     description:
-      'The invitation in its post-resend state — same `id`, refreshed `expiresAt`, `status` back to `pending`. Carries no token, by the same rule that keeps it out of the list.',
+      'The invitation in its post-resend state: same `id`, refreshed `expiresAt`, `status` back to `pending`. Carries no token, by the same rule that keeps it out of the list.',
   }),
 }).annotate({
   strictKeys: true,
@@ -318,11 +318,11 @@ export const adminInvitationResendResponseSchema = Schema.Struct({
  */
 export const adminInvitationRevokeResponseSchema = Schema.Struct({
   id: Schema.String.annotate({
-    description: 'The invitation id that was revoked — echoes the `:id` path segment.',
+    description: 'The invitation id that was revoked. Echoes the `:id` path segment.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   revoked: Schema.Literal(true).annotate({
     description:
-      'Always `true`. Revocation failure is signalled by HTTP status (404 — never 403, per S1 anti-enumeration), never by a `false` here.',
+      'Always `true`. Revocation failure is signalled by HTTP status (404, never 403, per S1 anti-enumeration), never by a `false` here.',
   }),
 }).annotate({
   strictKeys: true,

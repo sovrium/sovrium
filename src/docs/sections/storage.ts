@@ -74,7 +74,7 @@ export const buckets = defineSection({
       slug: 'buckets-permissions',
       title: 'Bucket Permissions',
       description:
-        'The five per-operation access rules a bucket can declare — upload, download, sign, signUpload, delete — what each one gates, and what an omitted entry falls back to.',
+        'The five per-operation rules a bucket can declare (upload, download, sign, signUpload, delete), what each gates, and what an omitted entry falls back to.',
       keywords: [
         'sovrium',
         'bucket permissions',

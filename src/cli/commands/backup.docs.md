@@ -1,8 +1,8 @@
 # Back Up and Restore
 
-> Write everything an install needs into one archive with `sovrium backup`, and put it back on any machine with `sovrium restore` — the key that decrypts your stored credentials travels with the rows.
+> Write everything an install needs into one archive with `sovrium backup`, and put it back on any machine with `sovrium restore`. The key that decrypts your stored credentials travels with the rows.
 
-Two commands, one archive. `sovrium backup` reads the install a `sovrium start` would boot — same config, same `DATABASE_URL`, same data directory — and writes a single gzipped tar. `sovrium restore` is its inverse, and checks everything before it writes anything.
+Two commands, one archive. `sovrium backup` reads the install a `sovrium start` would boot (same config, same `DATABASE_URL`, same data directory) and writes a single gzipped tar. `sovrium restore` is its inverse, and checks everything before it writes anything.
 
 ## `sovrium backup`
 
@@ -38,7 +38,7 @@ It is an ordinary `.tar.gz`: `tar -xzf` opens it on any machine, with or without
 
 **The `.env` file is never included.** An archive is the file most likely to end up on a shared drive, so the secrets in `.env` stay in your own secret store. The manifest's `excluded` list records the omission and the command says so on stderr.
 
-**Treat the archive as a master credential.** It holds every row of your data and, when the key lives in the data directory, the `encryption-key` file. With that key, whoever holds the archive can decrypt every stored credential and — unless `AUTH_SECRET` is set separately — sign a session as any user, admins included. Encrypt the archive before it leaves the machine (with `age` or `gpg`, for example), restrict who can read it, and never put it on a shared drive.
+**Treat the archive as a master credential.** It holds every row of your data and, when the key lives in the data directory, the `encryption-key` file. With that key, whoever holds the archive can decrypt every stored credential and, unless `AUTH_SECRET` is set separately, sign a session as any user, admins included. Encrypt the archive before it leaves the machine (with `age` or `gpg`, for example), restrict who can read it, and never put it on a shared drive.
 
 The archive is written readable by your account only (mode `0600`).
 
@@ -65,7 +65,7 @@ Files stored in the database travel inside the dump; files in an S3 bucket are l
 Usage: sovrium restore <file> [options]
 ```
 
-Run it from the project directory. The config tree goes into the current directory; the database, the key and the uploads go into the data directory — `--data-dir` when given, else `SOVRIUM_DATA_DIR`, else `./.sovrium`. The key is written readable by its owner only.
+Run it from the project directory. The config tree goes into the current directory; the database, the key and the uploads go into the data directory: `--data-dir` when given, else `SOVRIUM_DATA_DIR`, else `./.sovrium`. The key is written readable by its owner only.
 
 ```console
 $ sovrium restore /backups/atelier-2026-10-06.tar.gz
@@ -84,13 +84,13 @@ The next `sovrium start` boots on what was restored and decrypts the credentials
 
 Each refusal exits `1` with `— nothing was restored.` and writes nothing. They are checked in this order:
 
-| Refused                                                                            | Way forward                                                    |
-| ---------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| The file is not a Sovrium backup                                                   | Pass an archive written by `sovrium backup`                    |
-| The backup was taken by a newer Sovrium                                            | Restore it with that version or later (`sovrium update`)       |
-| A server is running on the data directory                                          | Stop it with `sovrium stop` — `--force` does not override this |
-| The data directory is not empty, or a config file the archive holds already exists | Pass `--force` to replace them                                 |
-| An entry does not match its sha256                                                 | Restore from another copy; the archive is damaged              |
+| Refused                                                                            | Way forward                                                   |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| The file is not a Sovrium backup                                                   | Pass an archive written by `sovrium backup`                   |
+| The backup was taken by a newer Sovrium                                            | Restore it with that version or later (`sovrium update`)      |
+| A server is running on the data directory                                          | Stop it with `sovrium stop`; `--force` does not override this |
+| The data directory is not empty, or a config file the archive holds already exists | Pass `--force` to replace them                                |
+| An entry does not match its sha256                                                 | Restore from another copy; the archive is damaged             |
 
 **Every checksum is verified before the first write**, so a damaged archive never leaves half a restore behind. The running-server check reads the same lock file `sovrium stop` does, and `--force` deliberately cannot override it: overwriting a live database file is corruption, not a convenience.
 
@@ -128,9 +128,9 @@ Building the schema reads the backup's config, so **a config written as code (`.
 Error: The backup's config project/app.ts is code, and a SQLite backup is restored into PostgreSQL only from a YAML or JSON config — nothing was restored.
 ```
 
-The schema build runs in a child process that receives only the database URL, its own scratch directories and the system basics (`PATH`, `HOME`, `TMPDIR`, `TZ`, `LANG`, `DATABASE_POOL_MAX`, `NODE_EXTRA_CA_CERTS`) — none of your storage, mail, AI, auth or encryption secrets.
+The schema build runs in a child process that receives only the database URL, its own scratch directories and the system basics (`PATH`, `HOME`, `TMPDIR`, `TZ`, `LANG`, `DATABASE_POOL_MAX`, `NODE_EXTRA_CA_CERTS`), and none of your storage, mail, AI, auth or encryption secrets.
 
-If anything fails once the PostgreSQL schema build has started — the build, a value that cannot be converted, or writing a file after the rows were copied — the restore names what stopped it and **empties the PostgreSQL database again**, so the advised retry is not refused. It removes only what it created: a schema the database already had (some hosts ship an `auth` schema of their own) is kept, and objects an extension owns are never touched. If the database cannot be emptied, for instance because another session holds a lock, the message says to recreate it before retrying.
+If anything fails once the PostgreSQL schema build has started (the build, a value that cannot be converted, or writing a file after the rows were copied), the restore names what stopped it and **empties the PostgreSQL database again**, so the advised retry is not refused. It removes only what it created: a schema the database already had (some hosts ship an `auth` schema of their own) is kept, and objects an extension owns are never touched. If the database cannot be emptied, for instance because another session holds a lock, the message says to recreate it before retrying.
 
 Pressing Ctrl-C, or sending `SIGTERM`, interrupts the restore cleanly: the schema build is stopped, the database is emptied again, the temporary copy of the data is removed, and the command exits with `130` (or `143`) saying the restore was interrupted and nothing was restored. A second signal while that cleanup runs is ignored.
 

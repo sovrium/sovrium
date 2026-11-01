@@ -73,6 +73,11 @@ import {
   CANONICAL_READ_POLICY,
   readPrincipalFromSession,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
+import {
+  translatableFieldNamesOf,
+  translatedCondition,
+} from '@/domain/models/app/tables/translatable-query-service'
 import { submittedKeysOf } from './submit-form-offered-links'
 import { recordSourceOf, type PageRecordSource } from './submit-form-pin-sources'
 import type { FormOptionVisitor } from './resolve-form-option-sources'
@@ -160,7 +165,7 @@ const pageReadGate = (
       if (scope === undefined || scope.clause === 'nothing') return undefined
       return { clause: scope.clause, readsColumn: scope.readsColumn }
     }
-    const table = app.tables?.find((candidate) => candidate.name === tableName)
+    const table = findTableByName(app.tables, tableName)
     const visitor = { userId: GUEST_USER_ID, role: SIGNED_OUT_VISITOR_ROLE, isUnrestricted: false }
     const scope = rowRuleScopeOf(table, app.tables)
     const rowContext = yield* loadCurrentUserContext(visitor, table?.rowLevelPermissions, scope)
@@ -237,14 +242,14 @@ const recordHolds = (
   key: string
 ): Effect.Effect<boolean, TableReadError, TableRepository> =>
   Effect.gen(function* () {
-    const primaryKey = app.tables?.find((table) => table.name === read.tableName)?.primaryKey
+    const primaryKey = findTableByName(app.tables, read.tableName)?.primaryKey
     const rows = yield* (yield* TableRepository).listRecords({
       session: buildGuestSession(),
       tableName: read.tableName,
       app,
       filter: {
         and: [
-          { field: read.column, operator: 'in', value: [key] },
+          holdsKeyCondition(app, read, key),
           ...(read.clause === undefined ? [] : [read.clause]),
           ...(read.pageClause === undefined ? [] : [read.pageClause]),
         ],
@@ -253,8 +258,30 @@ const recordHolds = (
       limit: 1,
       ...(primaryKey === undefined ? {} : { primaryKey }),
     })
-    return rows.some((row) => submittedKeysOf(row[read.column]).includes(key))
+    return rows.some((row) => heldKeysOf(row[read.column]).includes(key))
   })
+
+/**
+ * The condition a record holding `key` in `read.column` meets. A translatable
+ * column holds one text per language, and a page renders the one of its own
+ * language: any language's text is a value it could have rendered.
+ */
+const holdsKeyCondition = (app: App, read: RecordRead, key: string): QueryFilterNode => {
+  const plain = { field: read.column, operator: 'in', value: [key] }
+  if (!translatableFieldNamesOf(app, read.tableName).has(read.column)) return plain
+  const languages = (app.languages?.supported ?? []).map(({ code }) => code)
+  return {
+    or: languages.map((language) =>
+      translatedCondition(read.column, { operator: 'in', value: [key] }, language)
+    ),
+  }
+}
+
+/** The keys a stored value holds: every language's text of a translatable map. */
+const heldKeysOf = (value: unknown): readonly string[] =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? Object.values(value).flatMap(submittedKeysOf)
+    : submittedKeysOf(value)
 
 /**
  * Whether every key submitted for `pin` is one the server could have rendered
@@ -348,7 +375,7 @@ export const findUnpinnedHiddenField = (input: {
 }): Effect.Effect<string | undefined, TableReadError, Requirements> =>
   Effect.gen(function* () {
     const { app, form, mapped, visitor, submitterUserId } = input
-    const table = app.tables?.find((candidate) => candidate.name === form.submitTo.table)
+    const table = findTableByName(app.tables, form.submitTo.table)
     if (table === undefined) return undefined
     const named = hiddenPinsOf(app, form)
       .map((pin) => ({ pin, keys: submittedKeysOf(mapped[pin.column]) }))

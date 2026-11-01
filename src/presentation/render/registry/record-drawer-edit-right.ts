@@ -32,7 +32,7 @@ export const drawerCanEdit = (
     { readonly system?: unknown; readonly table?: unknown } | undefined
   if (dataSource?.system !== undefined || comp['canEdit'] === false) return false
   if (callerReadOnly(tables, dataSource?.table)) return false
-  return writesAny(entries, callerTableOf(comp as Parameters<typeof callerTableOf>[0]))
+  return writesAny(entries, callerTableOf(comp))
 }
 
 /**

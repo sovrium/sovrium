@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeHtmlDoubleQuotedAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { cn } from '@/presentation/design/class-merge'
 import {
   resolveComponentStyle,
@@ -12,6 +13,7 @@ import {
 } from '@/presentation/design/resolve-component-classes'
 import { FIELD_LABEL_CLASS } from './form-field-chrome'
 import type { ComponentStyle, Design } from '@/domain/models/app/design'
+import type { ComponentPartName } from '@/domain/models/app/design/component-parts'
 
 /**
  * The parts of a hosted form an author's `classes` reach by name, written onto
@@ -44,7 +46,13 @@ const tagWithClassToken = (tag: string, token: string): RegExp =>
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-const PART_TAGS: Readonly<Record<string, RegExp>> = {
+/** A form part found by an opening tag of the markup, named as the registry names it. */
+type TaggedFormPart = Extract<
+  ComponentPartName<'form'>,
+  'title' | 'description' | 'body' | 'label' | 'submit'
+>
+
+const PART_TAGS: Readonly<Record<TaggedFormPart, RegExp>> = {
   title: tagWithClassToken('h[1-6]', 'form-title'),
   description: tagWithClassToken('p', 'form-description'),
   body: /<form(?=[\s>])[^>]*>/g,
@@ -69,27 +77,29 @@ const SELECT_TRIGGER_TAG = /<button(?=\s)[^>]*\sdata-slot="select-trigger"[^>]*>
 const SELECT_ISLAND_PROPS =
   /(\sdata-island="form-field"\sdata-island-props=")\{(&quot;kind&quot;:&quot;select&quot;)/g
 
-/** Escape the characters an HTML attribute value cannot hold. */
-const escapeAttribute = (value: string): string =>
-  value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;')
-
 /** One opening tag, `classes` merged after its own class list (later wins). */
 const withClasses = (tag: string, classes: string): string => {
   const existing = CLASS_ATTRIBUTE.exec(tag)
   if (existing) {
     // The tag's own list is already escaped; only the author's classes are not.
-    return tag.replace(CLASS_ATTRIBUTE, ` class="${cn(existing[1], escapeAttribute(classes))}"`)
+    return tag.replace(
+      CLASS_ATTRIBUTE,
+      ` class="${cn(existing[1], escapeHtmlDoubleQuotedAttribute(classes))}"`
+    )
   }
   const end = tag.endsWith('/>') ? tag.length - 2 : tag.length - 1
-  return `${tag.slice(0, end).trimEnd()} class="${escapeAttribute(classes)}"${tag.slice(end)}`
+  return `${tag.slice(0, end).trimEnd()} class="${escapeHtmlDoubleQuotedAttribute(classes)}"${tag.slice(end)}`
 }
 
 /** One attribute added to the first `<form>` tag. */
 const withFormAttribute = (html: string, name: string, value: string): string =>
-  html.replace(/<form(?=[\s>])/, `<form ${name}="${escapeAttribute(value)}"`)
+  html.replace(/<form(?=[\s>])/, `<form ${name}="${escapeHtmlDoubleQuotedAttribute(value)}"`)
 
 /** The classes a part receives: the author's, then its floor. */
-const partClasses = (styles: ComponentDesignResolution, part: string): string =>
+const partClasses = (
+  styles: ComponentDesignResolution,
+  part: Exclude<ComponentPartName<'form'>, 'root'>
+): string =>
   [styles.parts[part], styles.partFloors[part]].filter((c) => c !== undefined && c !== '').join(' ')
 
 /** The Selects of `html` sized by the `input` part — see {@link SELECT_TRIGGER_TAG}. */
@@ -101,7 +111,7 @@ const withSelectInputClasses = (html: string, input: string): string =>
     .replace(
       SELECT_ISLAND_PROPS,
       (_match, opening: string, kind: string) =>
-        `${opening}{&quot;triggerClassName&quot;:${escapeAttribute(JSON.stringify(input))},${kind}`
+        `${opening}{&quot;triggerClassName&quot;:${escapeHtmlDoubleQuotedAttribute(JSON.stringify(input))},${kind}`
     )
 
 /**
@@ -116,7 +126,9 @@ export const applyFormPartClasses = (
   styles: ComponentDesignResolution | undefined
 ): string => {
   if (styles === undefined || Object.keys(styles.parts).length === 0) return html
-  const tagged = Object.entries(PART_TAGS).reduce((current, [part, pattern]) => {
+  const tagged = (
+    Object.entries(PART_TAGS) as ReadonlyArray<readonly [TaggedFormPart, RegExp]>
+  ).reduce((current, [part, pattern]) => {
     const classes = partClasses(styles, part)
     if (classes === '') return current
     return current.replace(pattern, (tag) => withClasses(tag, classes))

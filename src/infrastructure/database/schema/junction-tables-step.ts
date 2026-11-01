@@ -12,7 +12,6 @@
  */
 
 import { Effect } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logDebug } from '@/infrastructure/logging/logger'
 import {
   executeSQLStatements,
@@ -27,6 +26,7 @@ import {
 } from '../sql/sql-junction-tables'
 import { buildTablePrimaryKeyTypesMap } from '../table-operations'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /** A link table to ensure: its DDL, then (PostgreSQL) the keys a rebuild may have dropped. */
 interface JunctionTableSpec {
@@ -38,18 +38,24 @@ interface JunctionTableSpec {
 /** Collect junction table specs for many-to-many relationships (functional construction with deduplication) */
 export const collectJunctionTableSpecs = (
   sortedTables: readonly Table[],
-  tableUsesView: ReadonlyMap<string, boolean>
+  tableUsesView: ReadonlyMap<string, boolean>,
+  dialect: DatabaseDialect
 ): ReadonlyMap<string, JunctionTableSpec> => {
-  const keyTypes = buildTablePrimaryKeyTypesMap(sortedTables) // key columns typed as their keys
+  const tablePrimaryKeyTypes = buildTablePrimaryKeyTypesMap(sortedTables) // keys typed as their keys
   const junctionSpecs = sortedTables.flatMap((table) => {
     const manyToManyFields = table.fields.filter(isManyToManyRelationship)
     return manyToManyFields.map((field) => {
       const junctionTableName = generateJunctionTableName(table, field)
-      const ddl = generateJunctionTableDDL(table, field, tableUsesView, keyTypes)
+      const ddl = generateJunctionTableDDL(table, field, {
+        dialect,
+        tableUsesView,
+        tablePrimaryKeyTypes,
+      })
       // PostgreSQL: a rebuild of either end dropped the link table's keys (CASCADE).
-      const restoreKeys = isSqliteRuntime()
-        ? []
-        : generateJunctionForeignKeyRestoreSQL(table, field, tableUsesView)
+      const restoreKeys =
+        dialect === 'sqlite'
+          ? []
+          : generateJunctionForeignKeyRestoreSQL(table, field, tableUsesView)
       return [junctionTableName, { name: junctionTableName, ddl, restoreKeys }] as const
     })
   })
@@ -66,10 +72,10 @@ export const createJunctionTables = (
     logDebug('[schema] creating junction tables', {
       tables: Array.from(junctionTableSpecs.keys()).join(', '),
     })
-    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
+    // One after the other: every statement runs on the one transaction connection.
     yield* Effect.forEach(
       Array.from(junctionTableSpecs.values()),
       (spec) => executeSQLStatements(tx, [spec.ddl, ...spec.restoreKeys]),
-      { concurrency: 'unbounded' }
+      { discard: true }
     )
   })

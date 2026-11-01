@@ -61,18 +61,17 @@ const collectPageTwins = (
   })
 
 /** Write one twin, creating its directory first. */
-const writeTwin = (twin: MarkdownTwin, outputDir: string, fs: FileSystemLike) =>
-  Effect.tryPromise({
-    try: () => {
-      const target = `${outputDir}/${twin.relativePath}`
-      return fs
-        .mkdir(target.slice(0, target.lastIndexOf('/')), { recursive: true })
-        .then(() => fs.writeFile(target, twin.body, 'utf-8'))
-        .then(() => twin.relativePath)
-    },
-    catch: (error) =>
-      new StaticGenerationError({ message: `Failed to write ${twin.relativePath}`, cause: error }),
-  })
+const writeTwin = (twin: MarkdownTwin, outputDir: string, fs: FileSystemLike) => {
+  const target = `${outputDir}/${twin.relativePath}`
+  return fs.makeDirectory(target.slice(0, target.lastIndexOf('/'))).pipe(
+    Effect.andThen(fs.writeFile(target, twin.body)),
+    Effect.as(twin.relativePath),
+    Effect.mapError(
+      ({ cause }) =>
+        new StaticGenerationError({ message: `Failed to write ${twin.relativePath}`, cause })
+    )
+  )
+}
 
 /** Read every page's twins, then write them. */
 const writeAllTwins = (pages: readonly Page[], outputDir: string, fs: FileSystemLike) =>

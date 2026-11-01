@@ -6,7 +6,6 @@
  */
 
 import { inArray, sql, type Column, type SQL } from 'drizzle-orm'
-import { isInValueSet } from '@/infrastructure/database/sql/value-set-membership'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import { buildUserFilterConditions } from './aggregation-helpers'
 import type {
@@ -14,6 +13,8 @@ import type {
   ActivityLogFilters,
 } from '@/application/ports/repositories/analytics/activity-log-repository'
 import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The SQL that admits activity entries to a reader, one table at a time.
@@ -55,13 +56,14 @@ export const adaptRuleToColumns = (
  * all, and to pass `rule` when one is given: not in the trash.
  */
 export const liveRowCondition = (
+  dialect: DatabaseDialect,
   columns: ReadonlySet<string>,
   rule: QueryFilterNode | undefined
 ): Readonly<SQL> => {
   const ruleConditions =
     rule === undefined
       ? []
-      : buildUserFilterConditions({ and: [adaptRuleToColumns(rule, columns)] })
+      : buildUserFilterConditions(dialect, { and: [adaptRuleToColumns(rule, columns)] })
   const live = columns.has('deleted_at') ? [sql`${sql.identifier('deleted_at')} IS NULL`] : []
   const conditions = [...ruleConditions, ...live]
   return conditions.length === 0 ? sql`(1 = 1)` : sql`(${sql.join(conditions, sql` AND `)})`
@@ -72,11 +74,12 @@ export const liveRowCondition = (
  * `tableName` that pass `rule`.
  */
 export const admittedRecordIds = (
+  dialect: DatabaseDialect,
   tableName: string,
   columns: ReadonlySet<string>,
   rule: QueryFilterNode
 ): Readonly<SQL> =>
-  sql`SELECT CAST(${sql.identifier('id')} AS TEXT) FROM ${tableIdentifier(tableName)} WHERE ${liveRowCondition(columns, rule)}`
+  sql`SELECT CAST(${sql.identifier('id')} AS TEXT) FROM ${tableIdentifier(tableName)} WHERE ${liveRowCondition(dialect, columns, rule)}`
 
 /** The activity-log columns the admission reads. */
 export interface ActivityColumns {
@@ -89,6 +92,7 @@ export interface ActivityColumns {
  * `columnsOf` answers, for each `rule` table, the columns it holds.
  */
 export const admissionCondition = (
+  dialect: Dialect,
   admission: readonly ActivityTableAdmission[],
   activity: ActivityColumns,
   columnsOf: (tableName: string) => ReadonlySet<string>
@@ -99,8 +103,8 @@ export const admissionCondition = (
     if (scope.rows === 'all') return []
     const rows =
       scope.rows === 'rule'
-        ? sql`${activity.recordId} IN (${admittedRecordIds(scope.tableName, columnsOf(scope.tableName), scope.rule)})`
-        : isInValueSet(activity.recordId, scope.recordIds)
+        ? sql`${activity.recordId} IN (${admittedRecordIds(dialect.kind, scope.tableName, columnsOf(scope.tableName), scope.rule)})`
+        : dialect.sql.isInValueSet(activity.recordId, scope.recordIds)
     return [sql`(${activity.tableName} = ${scope.tableName} AND ${rows})`]
   })
   const branches = [...wholeTables, ...narrowed]

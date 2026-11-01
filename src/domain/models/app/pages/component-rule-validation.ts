@@ -18,11 +18,56 @@
  * @see ./page-binding-validation.ts — the caller, and the other ten families
  */
 
+import { objectNodes } from '@/domain/kernel/config-parsing/config-node-walk'
+import { arrayOf, isRecord } from '@/domain/kernel/config-parsing/plain-object'
+import {
+  inlineSvgPathRefusal,
+  isLiteralPublicSvgPath,
+} from './components/component-types/content/image'
+import { inlineSvgSources } from './inline-svg-declaration-service'
 import {
   RESERVED_TOKEN_NAMESPACES,
   isTokenNamespace,
   scopedTokensIn,
 } from './substitute-record-vars'
+
+// ---------------------------------------------------------------------------
+// The drawing an image names
+// ---------------------------------------------------------------------------
+
+/**
+ * A node drawing `inlineSvg` writes one file into the page and names nothing
+ * else: `props.src`, `props.srcDark` and `props.srcset` would each be a second
+ * file with no element left to show it, and silently losing one is the failure.
+ */
+export function inlineSvgSourceViolations(
+  nodes: readonly Record<string, unknown>[],
+  label: string
+): readonly string[] {
+  return nodes.flatMap((node) => {
+    const { inlineSvg, props } = node
+    if (typeof inlineSvg !== 'string' || !isRecord(props)) return []
+    return ['src', 'srcDark', 'srcset']
+      .filter((key) => props[key] !== undefined)
+      .map(
+        (key) =>
+          `${label}: an image names one file: inlineSvg "${inlineSvg}" cannot sit beside props.${key}. Keep inlineSvg to draw the file in the page's colours, or props.${key} for an <img>.`
+      )
+  })
+}
+
+/**
+ * The schema holds `inlineSvg` to a literal path only where it types the node.
+ * A breakpoint's children and a card slot decode as open records, and a row's
+ * record would choose the file there, so the whole config is read here.
+ */
+export function inlineSvgLiteralViolations(config: unknown): readonly string[] {
+  if (!isRecord(config)) return []
+  const app = { pages: arrayOf(config['pages']), components: arrayOf(config['components']) }
+  return inlineSvgSources(app as Parameters<typeof inlineSvgSources>[0])
+    .filter((source) => !isLiteralPublicSvgPath(source))
+    .map((source) => inlineSvgPathRefusal(source))
+}
 
 // ---------------------------------------------------------------------------
 // 10. The current-item marker
@@ -199,7 +244,7 @@ export function systemRowTemplateViolations(
       )
     })
     .flatMap((node) =>
-      walk(node['children'])
+      objectNodes(node['children'])
         .map((child) => child['type'])
         .filter(
           (type): type is string =>
@@ -300,7 +345,7 @@ function contentFromNestingViolations(
       )
     })
     .flatMap((node) =>
-      walk(node['children'])
+      objectNodes(node['children'])
         .filter((child) => isRecord(child['contentFrom']))
         .map(
           () =>
@@ -380,7 +425,7 @@ export function systemRowTemplateDepthViolations(
 ): readonly string[] {
   const nestedTemplates = (
     node: Readonly<Record<string, unknown>>
-  ): readonly Record<string, unknown>[] => walk(node['children']).filter(isSystemRowTemplate)
+  ): readonly Record<string, unknown>[] => objectNodes(node['children']).filter(isSystemRowTemplate)
 
   return nodes
     .filter(isSystemRowTemplate)
@@ -401,10 +446,11 @@ export function systemRowTemplateDepthViolations(
  *
  * `repeat` renders a container's children once per element of an array a
  * record already carries. That is resolvable in two places -- the client-side
- * slot of a record-bound `drawer`, where a record has been fetched, and a page
- * bound to ONE record (`{ system }` or `{ table, mode: 'single' }`), where the
- * binding pass has the record before the first byte -- and every other position
- * is inert config with no visible symptom. So the position is a decode rule
+ * slot of a record-bound `drawer`, where a record has been fetched, and wherever
+ * the server holds ONE record before the first byte: a page bound by
+ * `{ system }` or `{ table, mode: 'single' }`, a `collection` page, and a
+ * component bound by `{ table, mode: 'single' }` (on itself or an ancestor) --
+ * and every other position is inert config with no visible symptom. So the position is a decode rule
  * rather than a runtime fallback, for the reason family 1 already gives: it
  * fails silently at runtime and is decidable offline.
  *
@@ -412,8 +458,9 @@ export function systemRowTemplateDepthViolations(
  * whether the node is inside a record-bound drawer's `children`, inside a row
  * template, and which repeats enclose it and under what names:
  *
- *  1. a `repeat` in neither position -- nothing would iterate it; and on a bound
- *     page, one inside a `dataSource` row template, where `$record.` is the ROW;
+ *  1. a `repeat` in neither position -- nothing would iterate it; and one inside
+ *     a `dataSource` row template, where `$record.` is the ROW, whichever
+ *     single-record binding encloses or carries it;
  *  2. `repeat.as` naming a namespace the grammar already reads, or no
  *     identifier at all; a repeat nested under one with NO `as` (`$record.`
  *     would name a key on two elements at once); an `as` an enclosing repeat
@@ -457,7 +504,7 @@ export function repeatPlacementViolations(
   const root: RepeatContext = {
     inDrawerSlot: false,
     inRowTemplate: false,
-    pageBound: isPageBoundToOneRecord(page['dataSource']),
+    oneRecord: isPageBoundToOneRecord(page),
     repeats: [],
     declaredNames: declaredRepeatNames([page['components'], page['layout']]),
   }
@@ -478,8 +525,11 @@ interface RepeatContext {
   readonly inDrawerSlot: boolean
   /** Some ancestor reads rows of its own — a `dataSource` row template. */
   readonly inRowTemplate: boolean
-  /** The PAGE is bound to one record (`{ system }` or `{ table, mode: 'single' }`). */
-  readonly pageBound: boolean
+  /**
+   * The nearest record scope is ONE record the server reads before the first
+   * byte: the page's own binding, or a single-mode component enclosing this node.
+   */
+  readonly oneRecord: boolean
   /** The enclosing repeats, outermost first. */
   readonly repeats: readonly RepeatFrame[]
   /** Every usable `repeat.as` on the page — the namespaces a stray token can name. */
@@ -491,15 +541,26 @@ function isRecordBoundDrawer(node: Readonly<Record<string, unknown>>): boolean {
   return node['type'] === 'sheet' && isRecord(node['dataSource'])
 }
 
+/** A `dataSource` reading ONE row of a table: `{ table, mode: 'single' }`. */
+function isSingleTableBinding(dataSource: unknown): boolean {
+  return (
+    isRecord(dataSource) &&
+    typeof dataSource['table'] === 'string' &&
+    dataSource['mode'] === 'single'
+  )
+}
+
 /**
- * A page-level `dataSource` that binds the page to ONE record: the `{ system }`
- * detail arm, or `{ table, mode: 'single' }`. Both resolve before the first byte
- * is written, which is what makes the page a place a `repeat` can iterate.
+ * A page bound to ONE record: a page-level `dataSource` of the `{ system }`
+ * detail arm or `{ table, mode: 'single' }`, or a `collection` page. Each
+ * resolves before the first byte is written, which is what makes the page a
+ * place a `repeat` can iterate.
  */
-function isPageBoundToOneRecord(dataSource: unknown): boolean {
+function isPageBoundToOneRecord(page: Readonly<Record<string, unknown>>): boolean {
+  if (isRecord(page['collection'])) return true
+  const { dataSource } = page
   if (!isRecord(dataSource)) return false
-  if (isRecord(dataSource['system'])) return true
-  return typeof dataSource['table'] === 'string' && dataSource['mode'] === 'single'
+  return isRecord(dataSource['system']) || isSingleTableBinding(dataSource)
 }
 
 /** A node's `repeat.as`, when it declares a string one. */
@@ -517,7 +578,7 @@ function isUsableRepeatName(name: string): boolean {
 /** Every usable `repeat.as` declared anywhere under `roots`. */
 function declaredRepeatNames(roots: readonly unknown[]): ReadonlySet<string> {
   return new Set(
-    walk(roots)
+    objectNodes(roots)
       .map(repeatName)
       .filter((name): name is string => name !== undefined && isUsableRepeatName(name))
   )
@@ -543,10 +604,13 @@ function walkRepeatContext(
   if (!isRecord(value)) return []
   const repeats = isRecord(value['repeat'])
   const opensSlot = isRecordBoundDrawer(value)
+  const single = isSingleTableBinding(value['dataSource'])
   const inside: RepeatContext = {
     ...context,
     inDrawerSlot: context.inDrawerSlot || opensSlot,
-    inRowTemplate: context.inRowTemplate || (!opensSlot && isRecord(value['dataSource'])),
+    inRowTemplate:
+      context.inRowTemplate || (!opensSlot && !single && isRecord(value['dataSource'])),
+    oneRecord: context.oneRecord || single,
     repeats: repeats ? [...context.repeats, { as: repeatName(value) }] : context.repeats,
   }
   return [
@@ -567,7 +631,11 @@ function repeatNodeViolations(
 ): readonly string[] {
   const repeats = isRecord(node['repeat'])
   return [
-    ...repeatPositionViolations(repeats, context, label),
+    ...repeatPositionViolations(
+      repeats,
+      { ...context, oneRecord: context.oneRecord || isSingleTableBinding(node['dataSource']) },
+      label
+    ),
     ...(repeats ? repeatNestingViolations(repeatName(node), context, label) : []),
     ...repeatVisibilityViolations(node, repeats || context.repeats.length > 0, label),
     ...itemGateViolations(node, context, label),
@@ -582,14 +650,14 @@ function repeatPositionViolations(
   label: string
 ): readonly string[] {
   if (!repeats || context.inDrawerSlot) return []
-  if (context.pageBound && context.inRowTemplate) {
+  if (context.oneRecord && context.inRowTemplate) {
     return [
-      `${label} declares \`repeat\` inside a row template — there \`$record.\` is the ROW the enclosing \`dataSource\` reads, not the record the page is bound to, so the array the repeat names is a different one on every row and the page position does not reach it. Move the \`repeat\` out of the row template, directly under the page, or iterate the rows themselves with the \`dataSource\`.`,
+      `${label} declares \`repeat\` inside a row template — there \`$record.\` is the ROW the enclosing \`dataSource\` reads, not one record read before the page is sent, so the array the repeat names is a different one on every row and the position does not reach it. Move the \`repeat\` out of the row template, directly under the page or under a container bound with \`{ table, mode: 'single' }\`, or iterate the rows themselves with the \`dataSource\`.`,
     ]
   }
-  if (context.pageBound) return []
+  if (context.oneRecord) return []
   return [
-    `${label} declares \`repeat\` on a container that is neither inside a record-bound \`drawer\`'s \`children\` nor on a page bound to one record — \`repeat\` iterates an array carried by a record that has already been read, and there is no record anywhere else, so nothing would iterate it and the container would render its template exactly once. In v1 those are the supported positions: nest it under a \`drawer\` declaring a \`dataSource\`, bind the page itself with \`{ system }\` or \`{ table, mode: 'single' }\`, or read the rows yourself with a \`dataSource\` row template.`,
+    `${label} declares \`repeat\` on a container that is neither inside a record-bound \`drawer\`'s \`children\` nor under one record read on the server — \`repeat\` iterates an array carried by a record that has already been read, and there is no record anywhere else, so nothing would iterate it and the container would render its template exactly once. In v1 those are the supported positions: nest it under a \`drawer\` declaring a \`dataSource\`, bind the page itself with \`{ system }\` or \`{ table, mode: 'single' }\` or make it a \`collection\` page, bind the container (or one around it) with \`{ table, mode: 'single' }\`, or read the rows yourself with a \`dataSource\` row template.`,
   ]
 }
 
@@ -719,21 +787,4 @@ function containsRecordReference(value: unknown): boolean {
   if (typeof value === 'string') return value.includes('$record.')
   if (Array.isArray(value)) return value.some(containsRecordReference)
   return isRecord(value) && Object.values(value).some(containsRecordReference)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-/**
- * Depth-first collection of every object node reachable from `value`.
- *
- * A local copy of the caller's walk, deliberately: this module imports nothing
- * from `page-binding-validation.ts`, so the dependency runs one way and there is
- * no cycle to get wrong at module-initialisation time.
- */
-function walk(value: unknown): readonly Record<string, unknown>[] {
-  if (Array.isArray(value)) return value.flatMap(walk)
-  if (!isRecord(value)) return []
-  return [value, ...Object.values(value).flatMap(walk)]
 }

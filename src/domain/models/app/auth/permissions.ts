@@ -45,7 +45,7 @@ export const PermissionValueSchema = Schema.Union([
   Schema.Array(
     Schema.String.annotate({
       description:
-        'One role name that has access — a built-in role or one declared in `auth.roles`.',
+        'One role name that has access: a built-in role or one declared in `auth.roles`.',
       examples: ['admin', 'editor', 'member', 'viewer'],
     })
   ).pipe(

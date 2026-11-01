@@ -24,6 +24,7 @@
  * and does so only when the answer is a unique conflict.
  */
 
+import { Effect } from 'effect'
 import {
   recordsByIdProgram,
   uniqueConflictAnswerProgram,
@@ -31,78 +32,80 @@ import {
 } from '@/application/use-cases/tables/unique-conflict-answer-program'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { isUniqueConflictAnswer } from '@/presentation/api/runtime/unique-conflict-answer'
 import { RESTORE_UNIQUE_CONFLICT_PREFIX } from './error-handlers'
-import { resolveGuardForTable } from './row-level-guard'
+import { guardForTable } from './row-level-guard'
 import { readRuleAdmits } from './row-level-read-helpers'
 import { callerReadsTable } from './table-read-gate'
 import type { App, Table } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 /** Whether a response is the conflict a taken unique value answers. */
-const isUniqueConflict = async (response: Response): Promise<boolean> => {
-  if (response.status !== 409) return false
-  const body = (await response
-    .clone()
-    .json()
-    .catch(() => undefined)) as { readonly code?: unknown; readonly message?: unknown } | undefined
-  if (body?.code !== 'CONFLICT' || typeof body.message !== 'string') return false
-  return (
-    isUniqueConflictAnswer({ code: body.code, message: body.message }) ||
-    body.message.startsWith(RESTORE_UNIQUE_CONFLICT_PREFIX)
-  )
-}
+const isUniqueConflict = (response: Response) =>
+  Effect.gen(function* () {
+    if (response.status !== 409) return false
+    // effect-promise: total -- an unreadable body is caught here and read as none.
+    const read = yield* Effect.promise(() =>
+      response
+        .clone()
+        .json()
+        .catch(() => undefined)
+    )
+    const body = read as { readonly code?: unknown; readonly message?: unknown } | undefined
+    if (body?.code !== 'CONFLICT' || typeof body.message !== 'string') return false
+    return (
+      isUniqueConflictAnswer({ code: body.code, message: body.message }) ||
+      body.message.startsWith(RESTORE_UNIQUE_CONFLICT_PREFIX)
+    )
+  })
 
 /** Whether the conflict may be answered to this caller as it stands. */
-const callerMaySeeConflict = async (
-  c: Context,
-  app: App,
-  table: Table,
-  write: UniqueWrite
-): Promise<boolean> => {
-  const { session, userRole, userGroups } = getTableContext(c)
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-  const readRule = guard?.current.isUnrestricted === true ? undefined : readRuleAdmits(guard, table)
-  const reader = {
-    role: userRole,
-    groups: userGroups,
-    readsTable: await callerReadsTable(c, app, table),
-    rowReadable: readRule,
-  }
-  const answer = await runOnRequest(
-    c,
-    uniqueConflictAnswerProgram({ session, app, table, write, reader })
-  )
-  return answer._tag === 'Success' && answer.success === 'conflict'
-}
+const callerMaySeeConflict = (c: Context, app: App, table: Table, write: UniqueWrite) =>
+  Effect.gen(function* () {
+    const { session, userRole, userGroups } = getTableContext(c)
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
+    const readRule =
+      guard?.current.isUnrestricted === true ? undefined : readRuleAdmits(guard, table)
+    const reader = {
+      role: userRole,
+      groups: userGroups,
+      readsTable: yield* callerReadsTable(c, app, table),
+      rowReadable: readRule,
+    }
+    const answer = yield* Effect.result(
+      uniqueConflictAnswerProgram({ session, app, table, write, reader })
+    )
+    return answer._tag === 'Success' && answer.success === 'conflict'
+  })
 
 /**
  * The response a write answers, with a unique conflict the caller may not see
  * replaced by the out-of-reach `404`. Any other response passes unchanged, and
- * costs nothing. `write` may be given lazily, for a road that must read the
- * written values back (a restore).
+ * costs nothing. `write` may be given as a program, for a road that must read
+ * the written values back (a restore).
  */
-export async function maskUnreadableUniqueConflict(
+export const maskUnreadableUniqueConflict = <R = never>(
   c: Context,
   app: App,
-  write: UniqueWrite | (() => Promise<UniqueWrite>),
+  write: UniqueWrite | Effect.Effect<UniqueWrite, never, R>,
   response: Response
-): Promise<Response> {
-  if (!(await isUniqueConflict(response))) return response
-  const table = app.tables?.find((t) => t.name === getTableContext(c).tableName)
-  if (table === undefined) return notFound(c)
-  const resolved = typeof write === 'function' ? await write() : write
-  return (await callerMaySeeConflict(c, app, table, resolved)) ? response : notFound(c)
-}
+) =>
+  Effect.gen(function* () {
+    if (!(yield* isUniqueConflict(response))) return response
+    const table = app.tables?.find((t) => t.name === getTableContext(c).tableName)
+    if (table === undefined) return notFound(c)
+    const resolved = Effect.isEffect(write) ? yield* write : write
+    return (yield* callerMaySeeConflict(c, app, table, resolved)) ? response : notFound(c)
+  })
 
 /** What restoring `ids` would write back: the stored values of the trashed records. */
-export const restoredWrite =
-  (c: Context, ids: readonly string[]) => async (): Promise<UniqueWrite> => {
-    const { session, tableName } = getTableContext(c)
-    const rows = await runOnRequest(c, recordsByIdProgram({ session, tableName, ids }))
-    return { written: rows._tag === 'Success' ? rows.success : [], excludeIds: ids }
-  }
+export const restoredWrite = (c: Context, ids: readonly string[]) => {
+  const { session, tableName } = getTableContext(c)
+  return Effect.match(recordsByIdProgram({ session, tableName, ids }), {
+    onFailure: (): UniqueWrite => ({ written: [], excludeIds: ids }),
+    onSuccess: (written): UniqueWrite => ({ written, excludeIds: ids }),
+  })
+}
 
 /** What a batch update writes: each item's fields, over the records it names. */
 export const updatedWrite = (

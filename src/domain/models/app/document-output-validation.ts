@@ -8,7 +8,7 @@
 import { isRecord, type Raw } from '@/domain/kernel/config-parsing/plain-object'
 import { declaredBucketNames, SYSTEM_BUCKET_NAME } from './buckets/bucket-identity'
 import { resolveFieldBucket } from './buckets/field-bucket'
-import { validateFileUploadBuckets } from './file-upload-bucket-validation'
+import { validateFileUploadBuckets } from './buckets/file-upload-bucket-validation'
 import { validateChatAttachmentBuckets } from './pages/components/component-types/ai/ai-chat-attachments-validation'
 import type { App } from './app'
 
@@ -93,7 +93,7 @@ const issuesOf = (app: App, where: string, found: StepOutput): readonly string[]
 /**
  * One message per `output` that names a bucket and no record, or whose
  * `bucket` contradicts its `attachTo` field's — and one per `file/upload` step
- * naming a bucket the app does not declare (`file-upload-bucket-validation.ts`),
+ * naming a bucket the app does not declare (`buckets/file-upload-bucket-validation.ts`),
  * and one per `ai-chat` whose `attachments.bucket` is undeclared.
  */
 export const validateDocumentOutputBuckets = (app: App): readonly string[] => [

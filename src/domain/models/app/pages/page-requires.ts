@@ -6,8 +6,12 @@
  */
 
 import { pageRoutePatterns, primaryPagePath } from '@/domain/kernel/matching/localized-path'
-import { analyticsIsEnabled } from '@/domain/models/app/analytics/analytics-enabled'
+import {
+  analyticsIsEnabled,
+  analyticsKeepsEveryEvent,
+} from '@/domain/models/app/analytics/analytics-enabled'
 import { TEMPLATE_ASSET_KINDS, resolveAssetKind } from '@/domain/models/app/assets/asset'
+import { isSignUpOpen } from '@/domain/models/app/auth/sign-up-service'
 import {
   componentTreeHasMatch,
   placedTemplatesOf,
@@ -146,8 +150,8 @@ const CAPABILITY_PREDICATES: Readonly<
     (app.auth?.strategies ?? []).some((strategy) => strategy.type === 'magicLink'),
   'auth.oauth': (app) => (app.auth?.strategies ?? []).some((strategy) => strategy.type === 'oauth'),
   'auth.sso': (app) => (app.auth?.sso?.length ?? 0) > 0,
-  // `allowSignUp` defaults to open, so only an explicit `false` closes it
-  'auth.signUp': (app) => app.auth !== undefined && app.auth.allowSignUp !== false,
+  // Sign-up is closed unless the config opens it with `allowSignUp: true`
+  'auth.signUp': (app) => isSignUpOpen(app.auth),
   'auth.passwordReset': passwordResetIsOffered,
   'auth.scopeTables': scopeTablesAreDeclared,
   tables: (app) => (app.tables?.length ?? 0) > 0,
@@ -158,9 +162,10 @@ const CAPABILITY_PREDICATES: Readonly<
   buckets: (app) => (app.buckets?.length ?? 0) > 0,
   connections: (app) => (app.connections?.length ?? 0) > 0,
   // `!== undefined` here served the page to an instance whose every
-  // analytics endpoint 404s. The shared predicate is the one `api-routes.ts`
+  // analytics endpoint 404s. The shared predicate is the one `api-auth-guards.ts`
   // gates those endpoints on, `false` included.
   analytics: analyticsIsEnabled,
+  'analytics.full': analyticsKeepsEveryEvent,
   decisions: (app) => (app.decisions?.length ?? 0) > 0,
   pages: (app) => (app.pages?.length ?? 0) > 0,
   components: (app) => (app.components?.length ?? 0) > 0,

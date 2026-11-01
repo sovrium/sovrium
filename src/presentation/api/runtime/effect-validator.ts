@@ -7,7 +7,7 @@
 
 import { Result, Schema } from 'effect'
 import { validator } from 'hono/validator'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import type { Context, Env, ValidationTargets } from 'hono'
 
 /**

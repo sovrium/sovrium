@@ -29,12 +29,10 @@
  * Pure: no I/O, no schema import.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { isSystemFieldName } from '@/domain/models/app/tables/system-fields'
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** One declared table, reduced to what the rules read: its fields by name. */
 type TableIndex = ReadonlyMap<string, ReadonlyMap<string, RawRecord>>

@@ -122,7 +122,7 @@ const lift =
   (...keys: readonly string[]) =>
   ({ baseElementPropsWithType, component }: BuilderArgs): Record<string, unknown> => ({
     ...baseElementPropsWithType,
-    ...Object.fromEntries(keys.map((key) => [key, (component as Record<string, unknown>)[key]])),
+    ...Object.fromEntries(keys.map((key): [string, unknown] => [key, Reflect.get(component, key)])),
   })
 
 /** A record gallery's keys: `gallery`, and `carousel`, which declares no grid ones. */
@@ -174,9 +174,8 @@ const TYPE_BUILDERS: {
       // Inline buttons, or one `…` menu per row, for the action column.
       rowActions: component.rowActions,
       ...gridDrawingProps(component),
-      // Row fill by declared option colour: the field the author named, plus the
-      // `optionValue → hex` map resolved from `app.tables`. A filled row
-      // suppresses its stripe and moves hover/selection off the fill channel.
+      // Row fill by declared option colour: the field named, plus the `optionValue → hex`
+      // map from `app.tables`; a filled row moves hover/selection off the fill channel.
       rowColorField: component.rowColorField,
       rowColorFieldColors: resolved.colorFieldColors,
       emptyMessage: component.emptyMessage,
@@ -200,7 +199,7 @@ const TYPE_BUILDERS: {
       // The view switcher, on a table that declares views (`viewSwitcher.allLabel`).
       ...viewSwitcherProps(resolved, currentLang, languages, callerTableOf(component)?.views),
       // The grid's interpreter-provided strings in the page language.
-      ...dataTableInterpreterStrings(currentLang, languages),
+      ...dataTableInterpreterStrings(currentLang, languages, component),
     }
   },
 
@@ -267,6 +266,7 @@ const TYPE_BUILDERS: {
     ...baseElementPropsWithType,
     dataSource: component.dataSource,
     label: component.label,
+    description: component.description,
     kpiAggregate: component.kpiAggregate,
     kpiFormat: component.kpiFormat,
     valueCurrency: resolved.valueCurrency,

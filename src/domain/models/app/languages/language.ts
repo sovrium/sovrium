@@ -99,7 +99,7 @@ export const LanguagesSchema = Schema.Struct({
     Schema.Boolean.annotate({
       title: 'Persist Language Selection',
       description:
-        'Remember the reader’s language choice (default: true). Remembered in BOTH halves at once: the browser, and the `sovrium_language` cookie the SERVER reads — so the next document is composed in the chosen language rather than repainted after it arrives. `false` disables both sides: the switcher writes nothing, and a cookie or account preference that arrives anyway is ignored. It never disables the language feature itself — a `/{lang}/` address still works.',
+        'Remember the reader’s language choice (default: true). Remembered in BOTH halves at once: the browser, and the `sovrium_language` cookie the SERVER reads, so the next document is composed in the chosen language rather than repainted after it arrives. `false` disables both sides: the switcher writes nothing, and a cookie or account preference that arrives anyway is ignored. It never disables the language feature itself: a `/{lang}/` address still works.',
     })
   ),
   translations: Schema.optional(TranslationsSchema),

@@ -325,7 +325,7 @@ export const V1_ROOT_LIGHT = `:root {
 
     /* Humane fg — literal, no author alias */
 
-    /* shadcn 4.22.1, base-nova neutral, light — scripts/baselines/shadcn-registry */
+    /* shadcn 4.23.0, base-nova neutral, light — scripts/baselines/shadcn-registry */
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -343,7 +343,7 @@ export const V1_ROOT_LIGHT = `:root {
     --destructive: oklch(0.5 0.245 27.325);
     --border: oklch(0.922 0 0);
     --input: oklch(0.65 0 0);
-    --ring: oklch(0.708 0 0);
+    --ring: oklch(0.556 0 0);
     --chart-1: #d4d4d4;
     --chart-2: #737373;
     --chart-3: #525252;
@@ -357,7 +357,7 @@ export const V1_ROOT_LIGHT = `:root {
     --sidebar-accent: oklch(0.97 0 0);
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar-ring: oklch(0.556 0 0);
   }`
 
 export const V1_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
@@ -367,16 +367,17 @@ export const V1_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
 
     --sv-border-strong: var(--sv-neutral-700);
     --sv-border-inverse: var(--sv-neutral-50);
-    /* fg-subtle is a TEXT token, so it is pinned slightly lighter than
-       --sv-neutral-500 (oklch L 0.56) to clear WCAG AA (>= 4.5:1) on
-       bg-background in dark mode while staying clearly darker than fg-muted. */
-    --sv-fg-subtle: oklch(0.59 0 0);
+    /* fg-subtle is a TEXT token, so it is pinned lighter than
+       --sv-neutral-500 (oklch L 0.56) to clear WCAG AA (>= 4.5:1) on the
+       lighter of the two dark grounds it sits on: 4.73:1 on bg-card (0.205),
+       5.22:1 on bg-background, still clearly darker than fg-muted (0.708). */
+    --sv-fg-subtle: oklch(0.61 0 0);
     /* fg-disabled sat on neutral-700, the SAME step as border-strong, so
        disabled ink and the strongest rule in the system were one colour,
        and disabled text read at 1.95:1 on the page, below the 2.48:1 its
        light counterpart gets. 0.475 is the reference drawing verbatim
        (oklch(0.475 0 0) renders #5c5c5c, the drawing hex): it clears
-       border-strong by 0.100 L, stays 0.115 L under fg-subtle, and lifts
+       border-strong by 0.100 L, stays 0.135 L under fg-subtle, and lifts
        disabled ink to 2.98:1 — still plainly disabled, no longer illegible.
        (Founder call, 2026-09-10.) */
     --sv-fg-disabled: oklch(0.475 0 0);
@@ -411,7 +412,7 @@ export const V1_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
     --sv-info-solid: #398ad6;
     --sv-info-solid-fg: var(--sv-neutral-50);
 
-    /* shadcn 4.22.1, base-nova neutral, dark — scripts/baselines/shadcn-registry */
+    /* shadcn 4.23.0, base-nova neutral, dark — scripts/baselines/shadcn-registry */
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
@@ -520,14 +521,19 @@ export const ROLE_TOKEN_BRIDGE = `:root {
     /* Success — an authored 'success' reaches the -solid slot only, through the author bridge */
     --sv-success-bg: var(--sv-success-100);
     --sv-success-border: var(--sv-success-300);
-    --sv-success-fg: var(--sv-success-700);
+    /* success-fg is badge and alert TEXT on the green tint, so it sits a
+       step under success-700 (4.18:1 on the 15% badge tint): the same hue
+       at 0.49 L reads 4.95:1 on that tint and 5.85:1 on white. */
+    --sv-success-fg: oklch(0.49 0.14 150.069);
     --sv-success-solid: var(--sv-success-600);
     --sv-success-solid-fg: var(--sv-neutral-50);
 
     /* Warning */
     --sv-warning-bg: var(--sv-warning-100);
     --sv-warning-border: var(--sv-warning-300);
-    --sv-warning-fg: var(--sv-warning-700);
+    /* warning-fg is TEXT on the amber tint for the same reason: warning-700
+       reads 4.48:1 on the 15% badge tint, 0.53 L on its hue reads 4.99:1. */
+    --sv-warning-fg: oklch(0.53 0.155 48.998);
     --sv-warning-solid: var(--sv-warning-500);
     --sv-warning-solid-fg: var(--sv-warning-950);
 
@@ -593,7 +599,7 @@ export const NEUTRAL_FLOOR_ROOT_LIGHT = `:root {
     --sv-info-700: var(--sv-neutral-700);
     --sv-info-950: var(--sv-neutral-950);
 
-    /* shadcn 4.22.1, base-nova neutral, light — scripts/baselines/shadcn-registry */
+    /* shadcn 4.23.0, base-nova neutral, light — scripts/baselines/shadcn-registry */
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -611,7 +617,7 @@ export const NEUTRAL_FLOOR_ROOT_LIGHT = `:root {
     --destructive: oklch(0.5 0.245 27.325);
     --border: oklch(0.922 0 0);
     --input: oklch(0.65 0 0);
-    --ring: oklch(0.708 0 0);
+    --ring: oklch(0.556 0 0);
     --chart-1: #d4d4d4;
     --chart-2: #737373;
     --chart-3: #525252;
@@ -625,7 +631,7 @@ export const NEUTRAL_FLOOR_ROOT_LIGHT = `:root {
     --sidebar-accent: oklch(0.97 0 0);
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar-ring: oklch(0.556 0 0);
   }`
 
 export const NEUTRAL_FLOOR_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
@@ -669,7 +675,7 @@ export const NEUTRAL_FLOOR_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
     --sv-info-solid: var(--sv-info-500);
     --sv-info-solid-fg: var(--sv-neutral-50);
 
-    /* shadcn 4.22.1, base-nova neutral, dark — scripts/baselines/shadcn-registry */
+    /* shadcn 4.23.0, base-nova neutral, dark — scripts/baselines/shadcn-registry */
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);

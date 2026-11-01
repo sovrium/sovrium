@@ -93,6 +93,13 @@ export const acceptedPreferenceLanguages = (
   return { ...host, supported: [...host.supported, ...mounted.supported] }
 }
 
+/** The one 400 an undeclared language answers, on every door that refuses it. */
+export const languageRefusal = (): APIError =>
+  new APIError('BAD_REQUEST', {
+    message:
+      'That language is not one this app declares. Choose one of its supported languages, or send `language: null` to clear the preference.',
+  })
+
 /**
  * Refuse a language the app does not declare, with a 400. `null` (clear the
  * preference) and an absent field both pass.
@@ -144,8 +151,5 @@ export function applyLanguagePreferenceGuard(
     return
   }
 
-  throw new APIError('BAD_REQUEST', {
-    message:
-      'That language is not one this app declares. Choose one of its supported languages, or send `language: null` to clear the preference.',
-  })
+  throw languageRefusal()
 }

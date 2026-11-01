@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Which overlays a component tree ADDRESSES — the ids its triggers open.
  *
@@ -30,9 +32,6 @@ const OVERLAY_TYPES: ReadonlySet<string> = new Set([
 ])
 
 type NodeRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is NodeRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The id an overlay is addressed by, when the node is one. */
 export function overlayIdOf(node: unknown): string | undefined {

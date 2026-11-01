@@ -6,7 +6,6 @@
  */
 
 import { and, desc, eq, getTableColumns, inArray, sql } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AutomationRunDatabaseError,
   AutomationRunRepository,
@@ -17,9 +16,12 @@ import {
   type PersistedStep,
   type RunRecordRef,
 } from '@/application/ports/repositories/automations/automation-run-repository'
-import { db } from '@/infrastructure/database'
 import * as park from '@/infrastructure/database/automation-run-park'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   automationDefinitions as automationDefinitionsPg,
   automationRunRefs as automationRunRefsPg,
@@ -34,6 +36,7 @@ import {
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { listAllRuns, readableByFilters, toIso, toRun } from './automation-run-list-repository-live'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const automationDefinitions = resolveDialectSchema(
   automationDefinitionsPg,
@@ -119,6 +122,7 @@ const stepValues = (runId: string, steps: readonly CreateStepInput[]) =>
  * kept as it is, so a run finalised twice indexes nothing twice.
  */
 const insertRunRefs = async (
+  db: PortableDb,
   runId: string,
   input: {
     readonly refs?: readonly RunRecordRef[]
@@ -171,7 +175,7 @@ const finalisedColumns = (
   ...(input.error !== undefined ? { error: input.error } : {}),
 })
 
-const findRunById = async (id: string): Promise<PersistedRun | undefined> => {
+const findRunById = async (db: PortableDb, id: string): Promise<PersistedRun | undefined> => {
   const rows = await db
     .select({ run: automationRuns, definitionName: automationDefinitions.name })
     .from(automationRuns)
@@ -182,10 +186,10 @@ const findRunById = async (id: string): Promise<PersistedRun | undefined> => {
   return head ? toRun(head.run, head.definitionName) : undefined
 }
 
-export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository, {
-  findById: (id) => wrap(() => findRunById(id)),
+const members: MembersOverDatabase<typeof AutomationRunRepository> = {
+  findById: (db) => (id) => wrap(() => findRunById(db, id)),
 
-  listByAutomationName: (automationName, readableBy) =>
+  listByAutomationName: (db, dialect) => (automationName, readableBy) =>
     wrap(async () => {
       const rows = await db
         .select({
@@ -195,15 +199,19 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         .from(automationRuns)
         .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
         .where(
-          and(eq(automationDefinitions.name, automationName), ...readableByFilters(readableBy))
+          and(
+            eq(automationDefinitions.name, automationName),
+            ...readableByFilters(readableBy, dialect)
+          )
         )
         .orderBy(desc(automationRuns.createdAt))
       return rows.map((row) => toRun(row.run, row.definitionName))
     }),
 
-  listAll: (options: ListRunsOptions) => wrap(async () => listAllRuns(options)),
+  listAll: (db, dialect) => (options: ListRunsOptions) =>
+    wrap(async () => listAllRuns(db, dialect, options)),
 
-  findStepsByRunId: (runId) =>
+  findStepsByRunId: (db) => (runId) =>
     wrap(async () => {
       const rows = await db
         .select()
@@ -213,7 +221,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
       return rows.map(toStep)
     }),
 
-  create: (input) =>
+  create: (db) => (input) =>
     wrap(async () => {
       const [runRow] = await db
         .insert(automationRuns)
@@ -232,11 +240,11 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
       if (steps.length > 0) {
         await db.insert(automationRunSteps).values(stepValues(runRow.id, steps))
       }
-      await insertRunRefs(runRow.id, input)
+      await insertRunRefs(db, runRow.id, input)
       return toRun(runRow, runRow.definitionName ?? '')
     }),
 
-  updateStatus: (input) =>
+  updateStatus: (db) => (input) =>
     wrap(async () => {
       // Plain UPDATE: `status` is `text` with no CHECK, so any engine label is accepted.
       const [updated] = await db
@@ -250,19 +258,21 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
       return updated === undefined ? undefined : toRun(updated, updated.definitionName ?? '')
     }),
 
-  recordStepOutput: ({ runId, stepIndex, output }) =>
-    wrap(async () => {
-      const updated = await db
-        .update(automationRunSteps)
-        .set({ output: output as object })
-        .where(
-          and(eq(automationRunSteps.runId, runId), eq(automationRunSteps.stepIndex, stepIndex))
-        )
-        .returning({ id: automationRunSteps.id })
-      return updated.length > 0
-    }),
+  recordStepOutput:
+    (db) =>
+    ({ runId, stepIndex, output }) =>
+      wrap(async () => {
+        const updated = await db
+          .update(automationRunSteps)
+          .set({ output: output as object })
+          .where(
+            and(eq(automationRunSteps.runId, runId), eq(automationRunSteps.stepIndex, stepIndex))
+          )
+          .returning({ id: automationRunSteps.id })
+        return updated.length > 0
+      }),
 
-  recordDefect: (id, defect) =>
+  recordDefect: (db) => (id, defect) =>
     wrap(async () => {
       await db
         .update(automationRuns)
@@ -274,7 +284,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         .where(eq(automationRuns.id, id))
     }),
 
-  finaliseRun: (input) =>
+  finaliseRun: (db) => (input) =>
     wrap(async () => {
       const [updated] = await db
         .update(automationRuns)
@@ -288,30 +298,32 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
       if (steps.length > 0) {
         await db.insert(automationRunSteps).values(stepValues(updated.id, steps))
       }
-      await insertRunRefs(updated.id, input)
+      await insertRunRefs(db, updated.id, input)
       return toRun(updated, updated.definitionName ?? '')
     }),
 
-  clearRunHistory: (runId) =>
+  clearRunHistory: (db) => (runId) =>
     wrap(async () => {
       await db.delete(automationRunSteps).where(eq(automationRunSteps.runId, runId))
       await db.update(automationRuns).set({ triggerData: null }).where(eq(automationRuns.id, runId))
     }),
 
-  deleteRun: (runId) =>
+  deleteRun: (db) => (runId) =>
     wrap(async () => {
       await db.delete(automationRunSteps).where(eq(automationRunSteps.runId, runId))
       await db.delete(automationRuns).where(eq(automationRuns.id, runId))
     }),
 
-  hasWaitingDelayRuns: wrap(park.hasWaitingDelayRuns),
-  listDueDelayedRuns: (input) => wrap(() => park.listDueDelayedRuns(input)),
-  claimDelayedRun: (input) =>
+  hasWaitingDelayRuns: (db) => wrap(() => park.hasWaitingDelayRuns(db)),
+  listDueDelayedRuns: (db) => (input) => wrap(() => park.listDueDelayedRuns(db, input)),
+  claimDelayedRun: (db) => (input) =>
     wrap(async () => {
-      const claimed = await park.claimDelayedRun(input)
-      const run = claimed === undefined ? undefined : await findRunById(input.id)
+      const claimed = await park.claimDelayedRun(db, input)
+      const run = claimed === undefined ? undefined : await findRunById(db, input.id)
       return run === undefined ? undefined : { run, cursor: claimed?.cursor }
     }),
-  cancelWaitingRun: (input) => wrap(() => park.cancelWaitingRun(input)),
-  updateStep: (input) => wrap(() => park.updateRunStep(input)),
-})
+  cancelWaitingRun: (db) => (input) => wrap(() => park.cancelWaitingRun(db, input)),
+  updateStep: (db) => (input) => wrap(() => park.updateRunStep(db, input)),
+}
+
+export const AutomationRunRepositoryLive = layerOverDatabase(AutomationRunRepository, members)

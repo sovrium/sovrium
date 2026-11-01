@@ -7,14 +7,14 @@
 
 import { sql } from 'drizzle-orm'
 import { findConstraintViolation } from '@/domain/errors/driver-failure'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { type DrizzleTransaction } from '@/infrastructure/database'
 import { getBaseTableName } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { INSERTED_ID_SETTING } from '@/infrastructure/database/lookup/lookup-view-triggers'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { validateColumnName, tableIdentifier } from '../statement/validation'
 import { encodeColumnValue } from './column-value-encoding'
 import { rowAfterTriggers } from './record-fetch-helpers'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
+import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Check if an error is a uniqueness conflict, on EITHER dialect.
@@ -69,6 +69,7 @@ export function isForeignKeyViolation(error: unknown): boolean {
  * whereas guessing `text[]` for a JSONB column would silently corrupt data.
  */
 export function buildInsertClauses(
+  dialect: DatabaseDialect,
   fields: Readonly<Record<string, unknown>>,
   arrayColumnTypes: Readonly<Record<string, string>>
 ): Readonly<{ columnsClause: unknown; valuesClause: unknown }> {
@@ -84,7 +85,9 @@ export function buildInsertClauses(
     validateColumnName(key)
     return sql.identifier(key)
   })
-  const valueParams = entries.map(([key, value]) => encodeColumnValue(value, arrayColumnTypes[key]))
+  const valueParams = entries.map(([key, value]) =>
+    encodeColumnValue(dialect, value, arrayColumnTypes[key])
+  )
 
   // Build INSERT query using sql.join for columns and values
   const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
@@ -130,19 +133,19 @@ export function buildInsertClauses(
  * never has a nullish id).
  */
 async function resolveViewBackedInsertRow(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect: { kind: dialect } }: TransactionOn,
   tableName: string
 ): Promise<Record<string, unknown> | undefined> {
-  const { dialect } = parseDatabaseDialectConfig()
   const idQuery =
     dialect === 'postgres'
       ? sql`SELECT current_setting(${INSERTED_ID_SETTING}, true) AS id`
       : sql`SELECT id FROM ${tableIdentifier(getBaseTableName(tableName))} ORDER BY rowid DESC LIMIT 1`
-  const idRows = await executeRaw(tx, idQuery)
+  const idRows = await executeRawOn(dialect, tx, idQuery)
   const newId = idRows[0]?.id
   // A custom setting once set in a session reads `''`, not NULL, outside the transaction that set it.
   if (newId === null || newId === undefined || newId === '') return undefined
-  const rows = await executeRaw(
+  const rows = await executeRawOn(
+    dialect,
     tx,
     sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id = ${newId} LIMIT 1`
   )
@@ -170,14 +173,15 @@ const INSERTED_ID_COLUMN = INSERTED_ID_SETTING
  * its own row, which reads the same. No match: `undefined`.
  */
 async function rereadViewTriggerRow(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   id: unknown,
   insertedId: unknown
 ): Promise<Record<string, unknown> | undefined> {
   if (id === null || id === undefined || typeof insertedId !== 'string') return undefined
   if (insertedId !== String(id)) return undefined
-  const rows = await executeRaw(
+  const rows = await executeRawOn(
+    dialect.kind,
     tx,
     sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id = ${id} LIMIT 1`
   )
@@ -191,24 +195,28 @@ async function rereadViewTriggerRow(
  * through {@link rereadViewTriggerRow}.
  */
 export async function insertAndResolveRow(
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   tableName: string,
-  columnsClause: unknown,
-  valuesClause: unknown
+  {
+    columnsClause,
+    valuesClause,
+  }: { readonly columnsClause: unknown; readonly valuesClause: unknown }
 ): Promise<Readonly<Record<string, unknown>>> {
+  const { tx, dialect } = on
   // A record carrying nothing but its many-to-many links has no column to
   // write: it is inserted with every column at its default, then linked.
   const insertBody =
     columnsClause === undefined
       ? sql`DEFAULT VALUES`
       : sql`(${columnsClause}) VALUES (${valuesClause})`
-  const isPostgres = parseDatabaseDialectConfig().dialect === 'postgres'
+  const isPostgres = dialect.kind !== 'sqlite'
   // Evaluated per row after the view's trigger ran, so it reads the id that
   // trigger recorded — or a stale or empty value on a plain table.
   const returning = isPostgres
     ? sql`*, current_setting(${INSERTED_ID_SETTING}, true) AS ${sql.identifier(INSERTED_ID_COLUMN)}`
     : sql`*`
-  const insertResult = await executeRaw(
+  const insertResult = await executeRawOn(
+    dialect.kind,
     tx,
     sql`INSERT INTO ${tableIdentifier(tableName)} ${insertBody} RETURNING ${returning}`
   )
@@ -221,12 +229,12 @@ export async function insertAndResolveRow(
   // avoids reading the trigger's inserted id / `<table>_base` against a plain
   // composite-key table that has no `_base` companion (SQLite "no such table").
   if ('id' in raw && raw.id === null) {
-    const resolved = await resolveViewBackedInsertRow(tx, tableName)
+    const resolved = await resolveViewBackedInsertRow(on, tableName)
     if (resolved) return resolved
   }
   if (isPostgres && 'id' in raw) {
-    const reread = await rereadViewTriggerRow(tx, tableName, raw.id, insertedId)
+    const reread = await rereadViewTriggerRow({ tx, dialect }, tableName, raw.id, insertedId)
     if (reread) return reread
   }
-  return rowAfterTriggers(tx, tableName, raw)
+  return rowAfterTriggers(on, tableName, raw)
 }

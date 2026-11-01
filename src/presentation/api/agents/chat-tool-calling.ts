@@ -45,6 +45,7 @@ import {
   readScopeOf,
   resolveChatRowScope,
   type ChatReader,
+  type ChatReadRequirements,
   type ChatRowScope,
 } from './chat-read-scope'
 import { keepListedTables } from './chat-reader-rows'
@@ -55,10 +56,12 @@ import {
   buildStructuredQuery,
   type StructuredQueryValidation,
 } from './chat-tool-structured-query'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { DynamicRecordRepository } from '@/application/ports/repositories/tables/dynamic-record-repository'
 import type { ChatToolCall } from '@/application/ports/services/ai-service'
+import type { StepRequirements } from '@/application/use-cases/automations/run/types'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /**
  * Table shape carrying the permissions block (table-level RBAC re-check) plus
@@ -90,11 +93,10 @@ export interface ToolCallTable {
  * carries its role-readable column projection so the tool enums and result
  * rows are field-level scoped.
  */
-export const toToolCallTables = async (
-  services: DomainContext,
+export const toToolCallTables = (
   app: App | undefined,
   reader: ChatReader
-): Promise<ReadonlyArray<ToolCallTable>> => {
+): Effect.Effect<ReadonlyArray<ToolCallTable>, never, DataSourceRepository> => {
   const tables = projectAppTables(app)
   const readable = tables.flatMap((table) => {
     // The records route's own effective roles for this table: the account role,
@@ -113,13 +115,11 @@ export const toToolCallTables = async (
       },
     ]
   })
-  return keepListedTables(services, app, readable, reader)
+  return keepListedTables(app, readable, reader)
 }
 
 /** What a chat turn's table tools read with. */
 export interface ChatToolScope {
-  /** The server's resolved services, taken off the request that started the turn. */
-  readonly services: DomainContext
   /** Tables the acting principal may reach — drives per-table RBAC. */
   readonly tables: ReadonlyArray<ToolCallTable>
   /** The app the tables come from — the records gates read its declarations. */
@@ -132,6 +132,13 @@ export interface ChatToolScope {
   /** The declared agent the turn is bound to, when it is agent-bound. */
   readonly agentName?: string
 }
+
+/**
+ * What a chat turn's own tools need from the server: its table lookups, its
+ * browser. All but the dynamic-record reader are a step's requirements, which
+ * the agent runtime runs every tool with.
+ */
+export type ChatToolRequirements = StepRequirements | DynamicRecordRepository
 
 /**
  * Default tool-calling iteration cap when `AI_CHAT_MAX_TOOL_ITERATIONS` is
@@ -199,58 +206,60 @@ const projectRow = (
  * failing call yields an error string fed back to the model (never throws) so
  * the provider can recover gracefully.
  */
-const executeToolCall = async (
+const executeToolCall = (
   call: ChatToolCall,
   input: ChatToolScope
-): Promise<ToolExecution> => {
-  const parsed = parseToolName(call.name)
-  // The tool carries the table's tool-safe name (`query_Open_Deals`); the
-  // action and every message name the table as the config does.
-  const table = input.tables.find((candidate) => toolSafeTableName(candidate.name) === parsed.table)
-  const tableName = table?.name ?? parsed.table
-  const action: ChatAction = {
-    type: 'query',
-    ...(tableName !== undefined && { table: tableName }),
-    description: `Tool ${call.name} executed.`,
-  }
-
-  // Not a table tool: `browser_use` for an agent granted it, else an unknown-tool error.
-  if (parsed.kind === 'unknown') return executeOtherTool(call, input, action)
-
-  // RBAC gate — the role must be able to read the target table
-  // An unknown table or a denied role both yield an
-  // error tool result; no query is run.
-  const scope = await toolRowScope(table, input)
-  if (table === undefined || scope.kind === 'refused') {
-    return {
-      content: `Error: permission denied — you cannot access the "${tableName ?? call.name}" data.`,
-      action,
-      denied: true,
+): Effect.Effect<ToolExecution, never, ChatToolRequirements> =>
+  Effect.gen(function* () {
+    const parsed = parseToolName(call.name)
+    // The tool carries the table's tool-safe name (`query_Open_Deals`); the
+    // action and every message name the table as the config does.
+    const table = input.tables.find(
+      (candidate) => toolSafeTableName(candidate.name) === parsed.table
+    )
+    const tableName = table?.name ?? parsed.table
+    const action: ChatAction = {
+      type: 'query',
+      ...(tableName !== undefined && { table: tableName }),
+      description: `Tool ${call.name} executed.`,
     }
-  }
 
-  const run = { services: input.services, app: input.app, reader: input.reader }
-  return parsed.kind === 'count'
-    ? executeCount({ ...run, call, table, action, scope })
-    : executeQuery({ ...run, call, table, action, scope })
-}
+    // Not a table tool: `browser_use` for an agent granted it, else an unknown-tool error.
+    if (parsed.kind === 'unknown') return yield* executeOtherTool(call, input, action)
+
+    // RBAC gate — the role must be able to read the target table
+    // An unknown table or a denied role both yield an
+    // error tool result; no query is run.
+    const scope = yield* toolRowScope(table, input)
+    if (table === undefined || scope.kind === 'refused') {
+      return {
+        content: `Error: permission denied — you cannot access the "${tableName ?? call.name}" data.`,
+        action,
+        denied: true,
+      }
+    }
+
+    const run = { app: input.app, reader: input.reader }
+    return yield* parsed.kind === 'count'
+      ? executeCount({ ...run, call, table, action, scope })
+      : executeQuery({ ...run, call, table, action, scope })
+  })
 
 /**
  * The rows of the tool's table the reader may read: refused without the
  * table's read grant (over the records route's effective roles), otherwise the
  * records read gate's row-level answer.
  */
-const toolRowScope = async (
+const toolRowScope = (
   table: ToolCallTable | undefined,
   input: ChatToolScope
-): Promise<ChatRowScope> =>
+): Effect.Effect<ChatRowScope, never, ChatReadRequirements> =>
   table !== undefined && passesChatTableGate(input.app, input.tables, table, input.reader)
-    ? resolveChatRowScope(input.services, input.app, table.name, input.reader)
-    : { kind: 'refused' }
+    ? resolveChatRowScope(input.app, table.name, input.reader)
+    : Effect.succeed({ kind: 'refused' })
 
 /** One validated tool call, with the rows its reader may read. */
 interface ToolCallRun {
-  readonly services: DomainContext
   /** The app the table comes from — its lookups are judged by its declarations. */
   readonly app: App | undefined
   /** Who the call reads as — the lookups are judged for the person it answers. */
@@ -262,46 +271,47 @@ interface ToolCallRun {
 }
 
 /** Execute a validated structured `query_<table>` call. */
-const executeQuery = async (run: ToolCallRun): Promise<ToolExecution> => {
-  const { call, table, action, scope } = run
-  const validation: StructuredQueryValidation = buildStructuredQuery(
-    callArgs(call),
-    table.readableColumns,
-    table.withheldColumns
-  )
-  if (!validation.ok) {
-    return {
-      content: `Error: invalid query arguments — ${validation.error}`,
-      action,
-      denied: false,
+const executeQuery = (
+  run: ToolCallRun
+): Effect.Effect<ToolExecution, never, ChatToolRequirements> =>
+  Effect.gen(function* () {
+    const { call, table, action, scope } = run
+    const validation: StructuredQueryValidation = buildStructuredQuery(
+      callArgs(call),
+      table.readableColumns,
+      table.withheldColumns
+    )
+    if (!validation.ok) {
+      return {
+        content: `Error: invalid query arguments — ${validation.error}`,
+        action,
+        denied: false,
+      }
     }
-  }
-  const { inputs } = validation
-  // A row-level rule that admits no row answers no row, as the records API does.
-  if (scope.kind === 'nothing') {
-    return { content: JSON.stringify({ rows: [] }), action, denied: false }
-  }
-  // `Effect.result` turns a failure into the error tool-result fed back to the
-  // model (never throws / never 500s, an AI chat tool spec).
-  const result = await Effect.runPromise(
-    toolQueryProgram({
+    const { inputs } = validation
+    // A row-level rule that admits no row answers no row, as the records API does.
+    if (scope.kind === 'nothing') {
+      return { content: JSON.stringify({ rows: [] }), action, denied: false }
+    }
+    // `Effect.result` turns a failure into the error tool-result fed back to the
+    // model (never throws / never 500s, an AI chat tool spec).
+    const result = yield* toolQueryProgram({
       app: run.app,
       tableName: table.name,
       reader: run.reader,
       readScope: readScopeOf(scope),
       inputs,
-    }).pipe(Effect.provide(run.services), Effect.result)
-  )
-  if (result._tag === 'Failure') return lookupFailed(call, result.failure, action)
-  // Project every returned row to the columns asked for (or every readable
-  // one), the role-readable columns only — field-level scoping
-  // defence-in-depth — before handing it to the model.
-  const shown = (inputs.columns ?? table.readableColumns).filter((column) =>
-    table.readableColumns.includes(column)
-  )
-  const rows = result.success.map((row) => projectRow(row, shown))
-  return { content: JSON.stringify({ rows }), action, denied: false }
-}
+    }).pipe(Effect.result)
+    if (result._tag === 'Failure') return lookupFailed(call, result.failure, action)
+    // Project every returned row to the columns asked for (or every readable
+    // one), the role-readable columns only — field-level scoping
+    // defence-in-depth — before handing it to the model.
+    const shown = (inputs.columns ?? table.readableColumns).filter((column) =>
+      table.readableColumns.includes(column)
+    )
+    const rows = result.success.map((row) => projectRow(row, shown))
+    return { content: JSON.stringify({ rows }), action, denied: false }
+  })
 
 /**
  * A lookup the database did not answer: the cause is logged for the operator,
@@ -315,41 +325,44 @@ const lookupFailed = (call: ChatToolCall, failure: unknown, action: ChatAction):
 }
 
 /** Execute a validated structured `count_<table>` call. */
-const executeCount = async (run: ToolCallRun): Promise<ToolExecution> => {
-  const { services, call, table, action, scope } = run
-  const validation = buildStructuredCount(callArgs(call), table.readableColumns)
-  if (!validation.ok) {
-    return {
-      content: `Error: invalid count arguments — ${validation.error}`,
-      action,
-      denied: false,
+const executeCount = (
+  run: ToolCallRun
+): Effect.Effect<ToolExecution, never, ChatToolRequirements> =>
+  Effect.gen(function* () {
+    const { call, table, action, scope } = run
+    const validation = buildStructuredCount(callArgs(call), table.readableColumns)
+    if (!validation.ok) {
+      return {
+        content: `Error: invalid count arguments — ${validation.error}`,
+        action,
+        denied: false,
+      }
     }
-  }
-  if (scope.kind === 'nothing') {
-    return { content: JSON.stringify({ count: 0 }), action, denied: false }
-  }
-  const result = await Effect.runPromise(
-    toolCountProgram({
+    if (scope.kind === 'nothing') {
+      return { content: JSON.stringify({ count: 0 }), action, denied: false }
+    }
+    const result = yield* toolCountProgram({
       app: run.app,
       tableName: table.name,
       reader: run.reader,
       readScope: readScopeOf(scope),
       conditions: validation.inputs.conditions,
-    }).pipe(Effect.provide(services), Effect.result)
-  )
-  if (result._tag === 'Failure') return lookupFailed(call, result.failure, action)
-  return { content: JSON.stringify({ count: result.success }), action, denied: false }
-}
+    }).pipe(Effect.result)
+    if (result._tag === 'Failure') return lookupFailed(call, result.failure, action)
+    return { content: JSON.stringify({ count: result.success }), action, denied: false }
+  })
 
 /** Run one table tool for the agent runtime, as the result it hands the model. */
-export const runChatTableTool = async (
+export const runChatTableTool = (
   call: ChatToolCall,
   scope: ChatToolScope
-): Promise<{ readonly content: string; readonly denied: boolean; readonly table?: string }> => {
-  const execution = await executeToolCall(call, scope)
-  return {
+): Effect.Effect<
+  { readonly content: string; readonly denied: boolean; readonly table?: string },
+  never,
+  ChatToolRequirements
+> =>
+  Effect.map(executeToolCall(call, scope), (execution) => ({
     content: execution.content,
     denied: execution.denied,
     ...(execution.action.table !== undefined && { table: execution.action.table }),
-  }
-}
+  }))

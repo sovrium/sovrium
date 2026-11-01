@@ -21,6 +21,7 @@
 
 import { readFile } from 'node:fs/promises'
 import { Effect, Option, Schema } from 'effect'
+import { CliRefusal } from '@/cli/runtime/run-command'
 import { parseDotenvText } from '@/domain/kernel/config-parsing/dotenv-text'
 import {
   PLATFORM_ENV_NAME_PATTERN,
@@ -28,7 +29,7 @@ import {
   envValueProblem,
 } from '@/domain/models/api/automations/cloud/app-env'
 import { inflect } from '@/infrastructure/logging/cli-output'
-import { CliRefusal, callCloud, describeUnreachable, say } from './cloud-session'
+import { callCloud, describeUnreachable, say } from './cloud-session'
 import type { SignedInCloud } from './cloud-sign-in'
 import type { DotenvEntry } from '@/domain/kernel/config-parsing/dotenv-text'
 import type { AppEnvResult, AppEnvVar } from '@/domain/models/api/automations/cloud/app-env'

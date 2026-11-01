@@ -12,7 +12,11 @@ import {
   admitReadFormFile,
   failGenerically,
   readOne,
+  refuseOverStorageQuota,
+  refuseUndeclaredFileFields,
   type AdmittedFormFile,
+  type FormStorageQuotaError,
+  type FormUndeclaredFileError,
   type FormUploadError,
   type FormUploadRefusedError,
 } from '@/presentation/api/forms/file-upload-admission'
@@ -299,9 +303,12 @@ const admitAllFiles = (
  * (`attachments[0]`, `attachments[1]`) are collapsed to a single
  * `attachments` array.
  *
- * Every file is first checked against its field's `accept` and `maxFileSize`
- * and its bucket's policy; one refusal fails the whole submission with
- * {@link FormUploadRefusedError} before anything is stored.
+ * A file is taken only under a field the form declares that takes a file; any
+ * other name fails the whole submission with {@link FormUndeclaredFileError}
+ * before a byte is read. Every file is then checked against its field's
+ * `accept` and `maxFileSize` and its bucket's policy, and all of them together
+ * against a set `STORAGE_MAX_TOTAL_SIZE`; one refusal fails the whole
+ * submission before anything is stored.
  *
  * A signed-in `submitter` is recorded as the uploader of every stored file.
  *
@@ -315,14 +322,22 @@ export const transformMultipartFiles = (
   submitter?: { readonly userId: string }
 ): Effect.Effect<
   Record<string, unknown>,
-  FormUploadError | FormUploadRefusedError,
+  FormUploadError | FormUploadRefusedError | FormUndeclaredFileError | FormStorageQuotaError,
   StorageService
 > =>
   Effect.gen(function* () {
     const grouped = groupFilesByField(body)
     if (grouped.length === 0) return { ...body }
 
+    yield* refuseUndeclaredFileFields(
+      app,
+      form,
+      grouped.map(([field]) => field)
+    )
     const admitted = yield* admitAllFiles(app, form, grouped)
+    yield* refuseOverStorageQuota(
+      admitted.reduce((sum, [, files]) => sum + files.reduce((n, f) => n + f.bytes.length, 0), 0)
+    )
 
     // Upload every admitted file in parallel. Each field writes through its own
     // bucket (column-level binding wins over the app-level fallback), and the

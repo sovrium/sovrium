@@ -31,8 +31,8 @@ import {
   handleAuthRotateOAuthClientSecret,
 } from './auth-oauth-client'
 import { handleAutomationCall, handleAutomationReturn } from './automation'
-import { handleBrowserRun } from './browser'
-import { handleBrowserAgent } from './browser-agent'
+import { handleBrowserAgent } from './browser/agent'
+import { handleBrowserRun } from './browser/browser'
 import { handleCalendarExportIcs } from './calendar-export-ics'
 import { handleCalendarImportIcs } from './calendar-import-ics'
 import { handleCodeRun } from './code'
@@ -43,7 +43,7 @@ import {
   handleCommentModerate,
   handleCommentUpdate,
 } from './comment-thread'
-import { handleConnectionCall } from './connection'
+import { handleConnectionCall } from './connection/connection'
 import { handleCryptoHash, handleCryptoHmac, handleCryptoSign, handleCryptoVerify } from './crypto'
 import {
   handleDataAggregate,
@@ -68,32 +68,32 @@ import {
 } from './date'
 import { handleDelayQueue, handleDelayWait, handleDelayWebhook } from './delay'
 import { handleDigestCollect, handleDigestRelease } from './digest'
-import { handleDocumentConvert } from './document-convert'
-import { handleDocumentGenerateDocx } from './document-docx'
-import { handleDocumentGenerateImage } from './document-image'
-import { handleDocumentGeneratePdf } from './document-pdf'
+import { handleDocumentConvert } from './document/convert'
+import { handleDocumentGenerateDocx } from './document/docx'
+import { handleDocumentGenerateImage } from './document/image'
+import { handleDocumentGeneratePdf } from './document/pdf'
 import { handleEmailSend } from './email'
 import { handleEmailStats, handleEmailSuppress } from './email-deliverability'
+import {
+  handleFileCompress,
+  handleFileExtractText,
+  handleFileTransformImage,
+} from './file/advanced'
+import { handleFileExtractAudio } from './file/extract-audio'
 import {
   handleFileDownload,
   handleFileGenerateCsv,
   handleFileParseCsv,
   handleFileUpload,
-} from './file'
-import {
-  handleFileCompress,
-  handleFileExtractText,
-  handleFileTransformImage,
-} from './file-advanced'
-import { handleFileExtractAudio } from './file-extract-audio'
+} from './file/file'
 import {
   handleFileCopy,
   handleFileDelete,
   handleFileGetMetadata,
   handleFileMove,
   handleFileSignUrl,
-} from './file-ops'
-import { handleDocumentGenerateXlsx, handleFileParseXlsx } from './file-xlsx'
+} from './file/ops'
+import { handleDocumentGenerateXlsx, handleFileParseXlsx } from './file/xlsx'
 import { handleFilterContinue } from './filter'
 import { handleFlowStop } from './flow'
 import { gatedFileOperator } from './gated-file-operator'
@@ -125,28 +125,28 @@ import { handleLinkCreate, handleLinkDelete, handleLinkUpdate } from './link'
 import { handleLoopEach } from './loop'
 import { handleNotificationCreate } from './notification'
 import { handlePathBranch } from './path'
-import { handlePdfFillForm } from './pdf-fill-form'
-import { handlePdfFromImages } from './pdf-from-images'
-import { handlePdfInspect } from './pdf-inspect'
-import { handlePdfStamp, handlePdfWatermark } from './pdf-marks'
-import { handlePdfMerge } from './pdf-merge'
-import { handlePdfPages } from './pdf-pages'
-import { handlePdfSplit } from './pdf-split'
+import { handlePdfFillForm } from './pdf/fill-form'
+import { handlePdfFromImages } from './pdf/from-images'
+import { handlePdfInspect } from './pdf/inspect'
+import { handlePdfStamp, handlePdfWatermark } from './pdf/marks'
+import { handlePdfMerge } from './pdf/merge'
+import { handlePdfPages } from './pdf/pages'
+import { handlePdfSplit } from './pdf/split'
+import { handleRecordAggregate } from './record/aggregate'
+import {
+  handleRecordBatchCreate,
+  handleRecordBatchUpdate,
+  handleRecordBatchUpsert,
+} from './record/batch'
+import { handleRecordBatchDelete } from './record/batch-delete'
 import {
   handleRecordCreate,
   handleRecordDelete,
   handleRecordList,
   handleRecordRead,
   handleRecordUpdate,
-} from './record'
-import { handleRecordAggregate } from './record-aggregate'
-import {
-  handleRecordBatchCreate,
-  handleRecordBatchUpdate,
-  handleRecordBatchUpsert,
-} from './record-batch'
-import { handleRecordBatchDelete } from './record-batch-delete'
-import { handleRecordUpsert } from './record-upsert'
+} from './record/record'
+import { handleRecordUpsert } from './record/upsert'
 import { actionKey } from './shared'
 import { handleSovriumValidateBundle, handleSovriumValidateConfig } from './sovrium'
 import { gatedFileList } from './starter-file-list'

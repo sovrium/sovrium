@@ -13,7 +13,14 @@ import type { ElementPropsConfig, TestIdConfig } from './props-builder-config'
 /**
  * Component types that should receive role="group" when used as component references with children
  */
-const CONTAINER_TYPES = ['div', 'container', 'flex', 'grid', 'card', 'badge'] as const
+const CONTAINER_TYPES: ReadonlySet<string> = new Set([
+  'div',
+  'container',
+  'flex',
+  'grid',
+  'card',
+  'badge',
+])
 
 /**
  * Elements whose native role is a landmark (or, for header/footer/section,
@@ -191,7 +198,7 @@ function buildComponentDataProps(config: ElementPropsConfig): Record<string, unk
     'data-component': config.componentName,
     'data-type': config.type,
     ...(config.hasChildren &&
-      CONTAINER_TYPES.includes(config.type) &&
+      CONTAINER_TYPES.has(config.type) &&
       !(config.element !== undefined && LANDMARK_ELEMENTS.has(config.element)) && {
         role: 'group',
       }),

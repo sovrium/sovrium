@@ -80,7 +80,7 @@ import {
 import { isAssignableRole } from '@/domain/models/app/auth/roles'
 import { roleChangeOf } from '@/domain/models/app/auth/roles/role-write-validation'
 import { logError } from '@/infrastructure/logging/logger'
-import { unknownAccountOutcome } from './record-caller-gate'
+import { unknownAccountOutcome } from './record/caller-gate'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { App } from '@/domain/models/app'

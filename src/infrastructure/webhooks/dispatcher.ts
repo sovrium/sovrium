@@ -66,10 +66,16 @@ export const deliverWebhook = async (
   // `302` to an internal address does not get the payload sent there. A refusal
   // is returned as a failure envelope shaped like a fetch error so existing
   // callers handle it through their success-flag branch without a throw path.
+  // The signature and every caller-built authentication header are credentials:
+  // a hop to another origin drops them.
   const sent = await guardedFetch(
     url,
     { method: 'POST', headers, body },
-    { timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS, maxBodyBytes: RESPONSE_BODY_CAP }
+    {
+      timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      maxBodyBytes: RESPONSE_BODY_CAP,
+      credentialHeaders: [...Object.keys(signatureHeader), ...Object.keys(extraHeaders ?? {})],
+    }
   )
   if (!sent.ok) {
     return { statusCode: 0, responseBody: '', duration: 0, success: false, error: sent.message }

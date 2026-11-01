@@ -30,7 +30,7 @@ import {
   rowOfSourceRef,
 } from '@/domain/models/app/agents/rag-chunk-read-gate'
 import { buildGuestSession } from '../build-guest-session'
-import { runReadAccess } from './record-caller-gate'
+import { runReadAccess } from './record/caller-gate'
 import type { AutomationContext } from './shared'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'

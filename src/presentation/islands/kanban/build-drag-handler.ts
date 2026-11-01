@@ -117,6 +117,9 @@ function reorderWithinCell(input: ReorderInput): readonly TableRecord[] | undefi
  * On a board that cannot persist, the local paint IS the move: the function
  * returns before the request rather than issuing one it would have to ignore.
  *
+ * A refused write puts the card where its record now is: the record as stored,
+ * read again (`persist-drop.ts`), which may have moved since the board drew it.
+ *
  * Once the write answers OK, the board's drop hook for the new column runs on
  * the moved record (`run-drop-hook.ts`); a failed write reverts and runs none.
  */
@@ -134,8 +137,14 @@ function moveToCell(
   if (!persist) return
   void persistKanbanDrop({ drag, tableName: tableName ?? '' }, activeId, updates).then((result) => {
     if (!result.ok) {
-      setLocalRecords(previous)
-      showErrorToast(drag)
+      // Back to the record as stored when it could be read again, else as drawn before.
+      const { stored } = result
+      setLocalRecords(
+        stored === undefined
+          ? previous
+          : previous.map((r) => (String(r['id'] ?? '') === activeId ? stored : r))
+      )
+      showErrorToast(drag, result.refusal)
       return
     }
     // A hook answers to the column a card was dropped INTO: a lane-only move

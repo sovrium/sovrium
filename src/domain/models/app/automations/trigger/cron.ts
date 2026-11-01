@@ -48,7 +48,7 @@ export const CronTriggerSchema = Schema.Struct({
     Schema.annotate({
       description:
         'Cron expression (e.g., "0 9 * * 1-5"). Standard 5-field or 6-field with seconds. ' +
-        'No @daily/@hourly/@weekly aliases — use the equivalent numeric expression instead.',
+        'No @daily/@hourly/@weekly aliases: use the equivalent numeric expression instead.',
     })
   ),
   timezone: Schema.optional(

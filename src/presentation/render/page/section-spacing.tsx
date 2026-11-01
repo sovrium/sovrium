@@ -46,7 +46,7 @@ function renderContainerElements(
       'type' in s &&
       s.type === 'container' &&
       (!('element' in s) || s.element === undefined || s.element === 'div') &&
-      (!('props' in s) || !(s.props as Record<string, unknown>)?.['data-testid'])
+      (!('props' in s) || !s.props?.['data-testid'])
   )
 
   return (
@@ -88,9 +88,7 @@ export function wrapWithSectionIfNeeded(
   children: ReactNode
 ): ReactElement {
   const hasSection = sections.some(
-    (s) =>
-      ('type' in s && s.type === 'section') ||
-      ('type' in s && s.type === 'container' && 'element' in s && s.element === 'section')
+    (s) => 'type' in s && s.type === 'container' && 'element' in s && s.element === 'section'
   )
   const sectionSpacing = design?.spacing?.section
   const shouldWrap = !hasSection && sectionSpacing

@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { LocalAiProbe } from '@/application/ports/services/local-ai-probe'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { appRequiresAi } from '@/domain/models/app/requires-ai'
 import {
   parseAiProviderPrecedence,
@@ -38,11 +39,11 @@ import type { App } from '@/domain/models/app'
  * answer with `Effect.provideService` instead of reaching the network.
  */
 export const validateEcoAiRouting = (
-  app: Readonly<App>,
-  processEnv: Readonly<Record<string, string | undefined>>
+  app: Readonly<App>
 ): Effect.Effect<void, AppValidationError, LocalAiProbe> =>
   Effect.gen(function* () {
     if (!appRequiresAi(app)) return
+    const processEnv = yield* ProcessEnv
 
     const precedence = parseAiProviderPrecedence(processEnv)
     if (precedence !== 'local-only') return

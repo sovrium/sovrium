@@ -34,7 +34,6 @@ import {
   readCalendarFeedToken,
   revokeCalendarFeedToken,
 } from '@/application/use-cases/tables/calendar-feed'
-import { resolveRequestBaseUrl } from '@/domain/kernel/url/request-base-url'
 import {
   calendarFeedTokenMintedSchema,
   calendarFeedTokenStatusSchema,
@@ -42,6 +41,7 @@ import {
 import { logError } from '@/infrastructure/logging/logger'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { resolveRequestBaseUrl } from '@/presentation/api/runtime/request-origin'
 import {
   respondWith,
   runHandlerEffect,
@@ -171,22 +171,14 @@ const handleFeed = async (c: Context, next: Next, app: App): Promise<Response | 
  * calendar app's cookie-less request never meets `validateTable`, the role
  * lookup or the read gate — the token is checked inside.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hono type inference with middleware requires flexible typing
-export function chainCalendarFeedReadRoute<T extends Hono<any, any, any>>(
-  honoApp: T,
-  resolveApp: () => App
-): T {
-  return honoApp.get(CALENDAR_FEED_ROUTE, (c, next) => handleFeed(c, next, resolveApp())) as T
+export function chainCalendarFeedReadRoute(honoApp: Hono, app: App): void {
+  honoApp.get(CALENDAR_FEED_ROUTE, (c, next) => handleFeed(c, next, app))
 }
 
 /** Register the three token routes, behind the table middleware chain. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hono type inference with middleware requires flexible typing
-export function chainCalendarFeedTokenRoutes<T extends Hono<any, any, any>>(
-  honoApp: T,
-  resolveApp: () => App
-): T {
-  return honoApp
-    .post(TOKEN_ROUTE, (c) => handleMint(c, resolveApp()))
-    .get(TOKEN_ROUTE, (c) => handleStatus(c, resolveApp()))
-    .delete(TOKEN_ROUTE, (c) => handleRevoke(c, resolveApp())) as T
+export function chainCalendarFeedTokenRoutes(honoApp: Hono, app: App): void {
+  honoApp
+    .post(TOKEN_ROUTE, (c) => handleMint(c, app))
+    .get(TOKEN_ROUTE, (c) => handleStatus(c, app))
+    .delete(TOKEN_ROUTE, (c) => handleRevoke(c, app))
 }

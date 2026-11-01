@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isPlainObject } from './plain-object'
+
 /**
  * A config key whose value is `undefined` is an absent key.
  *
@@ -25,12 +27,6 @@
  * Returns the input itself when it holds no `undefined`-valued key, so the
  * common case allocates nothing and keeps object identity.
  */
-
-const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> => {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
-  const prototype: unknown = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
-}
 
 const omitInArray = (value: readonly unknown[]): readonly unknown[] => {
   const next = value.map(omitUndefinedKeys)

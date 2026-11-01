@@ -299,7 +299,7 @@ export const BadgeVariantSchema = Schema.Literals([
   title: 'Badge Variant',
   defaultNote: 'default',
   description:
-    "The badge's tone, shadcn/ui's Badge variants: 'default', 'secondary', 'destructive', 'outline', 'ghost' (no fill until hovered) or 'link' (text styled as a link; give the badge an `href`). Three status tones extend shadcn's set the way the alert's do — 'success', 'warning' and 'info' — each tinted from the theme's status colour as 'destructive' is, so a status reads by colour as well as by word.",
+    "The badge's tone, shadcn/ui's Badge variants: 'default', 'secondary', 'destructive', 'outline', 'ghost' (no fill until hovered) or 'link' (text styled as a link; give the badge an `href`). Three status tones extend shadcn's set the way the alert's do ('success', 'warning' and 'info'), each tinted from the theme's status colour as 'destructive' is, so a status reads by colour as well as by word.",
 })
 
 // ---------------------------------------------------------------------------
@@ -374,7 +374,7 @@ export const NavItemSchema: Schema.Codec<NavItem> = Schema.Struct({
   /** Anchor target attribute (e.g. "_blank" for new tab) */
   target: Schema.optional(
     Schema.Literals(['_self', '_blank', '_parent', '_top']).annotate({
-      description: 'Anchor target — typically "_blank" for external links',
+      description: 'Anchor target, typically "_blank" for external links',
     })
   ),
   /** Anchor rel attribute (e.g. "noopener noreferrer") */

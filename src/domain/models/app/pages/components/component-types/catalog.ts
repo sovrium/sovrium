@@ -129,7 +129,7 @@ export type CatalogComponentCategory = (typeof CATALOG_COMPONENT_CATEGORIES)[num
  * on all N together, and no reader can tell which one it stopped describing.
  */
 export const EXCLUDED_TYPES: Readonly<Record<string, string>> = {
-  form: 'Renders a live submit control — over the fields you declare on it, or writing a record back to the table it binds; a preview frame may carry no write path (ADR-022 A3 clause 2).',
+  form: 'Renders a live submit control, over the fields you declare on it or writing a record back to the table it binds; a preview frame may carry no write path (ADR-022 A3 clause 2).',
   questionnaire:
     'Submits each answer through the form it names; a preview frame may carry no write path (ADR-022 A3 clause 2).',
 }
@@ -184,6 +184,8 @@ export const COMPONENT_TYPE_PURPOSES: Readonly<Record<string, string>> = {
     'A Button Group: several exclusive actions of equal weight, joined so they read as one control.',
   link: 'Navigation inside a run of text, underlined so it reads as a link at a glance.',
   'theme-toggle': 'The one control that flips the colour scheme and remembers the choice.',
+  'consent-choice':
+    "A visitor's own on-or-off choice about one purpose, such as audience measurement, kept in their browser.",
 
   // form-controls
   rating: 'A row of stars that reads a rating, and writes a whole one inside a form.',
@@ -238,7 +240,7 @@ export const COMPONENT_TYPE_PURPOSES: Readonly<Record<string, string>> = {
   questionnaire:
     'A questionnaire: one question per screen, answered by choosing, with a count of how many remain.',
   table:
-    'A Data Table: the records of a table as a grid — sorting, filtering, grouping, selection, paging — or the rows you write in the config.',
+    'A Data Table: the records of a table as a grid (sorting, filtering, grouping, selection, paging), or the rows you write in the config.',
 
   // layout
   'aspect-ratio':
@@ -276,14 +278,14 @@ export const COMPONENT_TYPE_PURPOSES: Readonly<Record<string, string>> = {
     'A collapsible region behind one trigger, shown or hidden in place, with no siblings to close.',
   marker: 'A marker line inside a thread or a list: a status, a system note, a labelled break.',
   message:
-    'A message: one turn of a conversation — who said it, when, on which side — around the bubble that holds it.',
+    'A message: one turn of a conversation, saying who said it, when and on which side, around the bubble that holds it.',
   avatar:
-    'An Avatar: a person or a thing as a small round mark — a picture, initials, or nothing at all.',
+    'An Avatar: a person or a thing as a small round mark, drawn as a picture, as initials, or as nothing at all.',
   'description-list': 'Pairs of a term and its detail, read down rather than across.',
   stepper:
     'One task split into ordered steps, each a body of its own, with a rail that shows progress.',
   empty: 'An Empty state: what a view says when it has nothing to show, and what to do about it.',
-  item: 'An Item: one row of a list — a leading mark, a title, a subtitle, a trailing value.',
+  item: 'An Item: one row of a list, with a leading mark, a title, a subtitle and a trailing value.',
   marquee: 'A strip of logos or words that scrolls sideways.',
   'record-field': 'One field of one record, drawn read-only in its own format.',
   'scroll-area': 'A Scroll Area: a region that scrolls inside the page with a thin scrollbar.',

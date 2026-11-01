@@ -66,13 +66,20 @@
  * @see ./graph-projection.ts — the drawing this attaches
  */
 
-import { projectGraph, type GraphView } from '@/presentation/render/resolve/graph-projection'
+import {
+  componentField,
+  componentFields,
+  keyOf,
+  synthesizedComponent,
+} from '@/presentation/render/resolve/component-rewrite'
+import { projectGraph } from '@/presentation/render/resolve/graph-projection'
 import {
   tablesKeyOf,
   tablesSourceOf,
   tablesSourceOfKey,
   type TablesEnvelopeReader,
 } from '@/presentation/render/resolve/graph-tables-envelope'
+import { type GraphView } from '@/presentation/render/resolve/graph-view'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { SystemRecordFetcher } from '@/presentation/render/resolve/page-system-record-binding'
@@ -94,10 +101,10 @@ interface GraphSystemBinding {
 type Envelopes = ReadonlyMap<string, Readonly<Record<string, unknown>> | undefined>
 
 const isGraph = (node: unknown): node is Component =>
-  typeof node === 'object' && node !== null && (node as Component).type === 'graph'
+  typeof node === 'object' && keyOf(node, 'type') === 'graph'
 
 const bindingOf = (component: Component): GraphSystemBinding | undefined =>
-  component.dataSource?.system as GraphSystemBinding | undefined
+  keyOf(componentField(component, 'dataSource'), 'system') as GraphSystemBinding | undefined
 
 /**
  * Append a binding's STATIC query parameters to its endpoint.
@@ -125,7 +132,7 @@ const requestUrlOf = (component: Component): string | undefined => {
 
 /** The key a graph's envelope is read under: its endpoint URL, or its table source. */
 const envelopeKeyOf = (component: Component): string | undefined => {
-  const tables = tablesSourceOf(component.dataSource)
+  const tables = tablesSourceOf(componentField(component, 'dataSource'))
   return tables === undefined ? requestUrlOf(component) : tablesKeyOf(tables)
 }
 
@@ -134,10 +141,10 @@ const collectUrls = (node: unknown): readonly string[] => {
   if (Array.isArray(node)) return node.flatMap(collectUrls)
   if (typeof node !== 'object' || node === null) return []
   if (isGraph(node)) {
-    const key = envelopeKeyOf(node as Component)
+    const key = envelopeKeyOf(node)
     return key === undefined ? [] : [key]
   }
-  return collectUrls((node as { readonly children?: unknown }).children)
+  return collectUrls(keyOf(node, 'children'))
 }
 
 /** Read each distinct URL once, in parallel, borrowing the caller's identity. */
@@ -181,7 +188,7 @@ const attachView = (
 ): Component => {
   const component = localize === undefined ? source : localize(source)
   const system = bindingOf(component)
-  const { dataSource: _spent, ...rest } = component as Component & { dataSource?: unknown }
+  const { dataSource: _spent, ...rest } = componentFields(component)
   const url = envelopeKeyOf(component)
   const envelope = url === undefined ? undefined : envelopes.get(url)
   const graphView: GraphView =
@@ -194,7 +201,7 @@ const attachView = (
             ...(system?.nodesKey === undefined ? {} : { nodesKey: system.nodesKey }),
             ...(system?.edgesKey === undefined ? {} : { edgesKey: system.edgesKey }),
           })
-  return { ...(rest as Component), graphView } as Component
+  return synthesizedComponent({ ...rest, graphView })
 }
 
 /** Walk one node, attaching the drawing to any graph at or below it. */
@@ -207,12 +214,12 @@ const mapNode = (
     const mapped = node.map((child) => mapNode(child, envelopes, localize))
     return mapped.every((child, index) => child === node[index]) ? node : mapped
   }
-  if (isGraph(node)) return attachView(node as Component, envelopes, localize)
+  if (isGraph(node)) return attachView(node, envelopes, localize)
   if (typeof node !== 'object' || node === null) return node
-  const { children } = node as { readonly children?: unknown }
+  const { children } = componentFields(node)
   if (children === undefined) return node
   const mapped = mapNode(children, envelopes, localize)
-  return mapped === children ? node : { ...(node as Record<string, unknown>), children: mapped }
+  return mapped === children ? node : { ...node, children: mapped }
 }
 
 /**

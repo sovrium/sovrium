@@ -13,9 +13,9 @@ import {
   isAllowedHost,
 } from '@/domain/models/app/automations/actions/browser/browser-host-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { storedJar } from '../automations/action-handlers/browser'
-import { runAgentLoop, type AgentEnd } from '../automations/action-handlers/browser-agent-loop'
-import { outputTypesOf } from '../automations/action-handlers/browser-agent-park'
+import { runAgentLoop, type AgentEnd } from '../automations/action-handlers/browser/agent-loop'
+import { outputTypesOf } from '../automations/action-handlers/browser/agent-park'
+import { storedJar } from '../automations/action-handlers/browser/browser'
 import type { BrowserSessionRepository } from '@/application/ports/repositories/automations/browser-session-repository'
 import type { Agent } from '@/domain/models/app/agents/agent'
 

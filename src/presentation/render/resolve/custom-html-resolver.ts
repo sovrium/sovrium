@@ -6,6 +6,7 @@
  */
 
 import { isAbsolute, resolve } from 'node:path'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import type {
   ComponentReference,
   SimpleComponentReference,
@@ -42,22 +43,6 @@ import type { Component } from '@/domain/models/app/pages/components'
  * root the CLI was invoked from), matching the convention used by the CLI
  * for loading config files.
  */
-
-/**
- * HTML-escape a string for safe inclusion in serialized HTML attribute or
- * text content. Defense-in-depth: `htmlSrc` originates from the trusted
- * app schema, but the placeholder is built into a raw HTML string that
- * later flows through `dangerouslySetInnerHTML`, so we escape the path
- * to keep the boundary tight regardless of upstream trust.
- */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
 
 /**
  * Read a file from disk under the project root.
@@ -106,7 +91,7 @@ async function resolveCustomHtmlComponent(component: Component): Promise<Compone
   //     div has dimensions (otherwise `toBeVisible()` fails on an empty div).
   //     The path is HTML-escaped because it is interpolated into a raw HTML
   //     string that later flows through `dangerouslySetInnerHTML`.
-  const escapedSrc = escapeHtml(htmlSrc)
+  const escapedSrc = escapeHtmlAttribute(htmlSrc)
   const nextContent =
     fileContent !== undefined
       ? fileContent

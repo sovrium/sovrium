@@ -8,14 +8,13 @@
 import { useContext, type ReactElement } from 'react'
 import { ClientEntryScript } from '@/presentation/render/page/client-script-paths'
 import { isSchemaAuthoredComponent } from '@/presentation/render/registry/synthesized-component-types'
-import { CARRIED_TOAST_READER_SCRIPT } from '@/presentation/render/scripts/carried-toast-reader-script'
-import { MARQUEE_PAUSE_SCRIPT } from '@/presentation/render/scripts/marquee-pause-script'
 import {
   renderInlineScriptTag,
   renderScriptTag,
   renderWindowConfig,
 } from '@/presentation/render/scripts/script-renderers'
-import { SIDEBAR_CURRENT_REVEAL_SCRIPT } from '@/presentation/render/scripts/sidebar-current-reveal-script'
+import { buildBodyEndEnhancerTail } from './body-end-enhancer-scripts'
+import { ConsentBanner } from './consent-banner'
 import { HeadReferencesContext } from './head-references'
 import { buildPageMetadataI18n } from './page-metadata-i18n'
 import type { GroupedScripts } from './page-scripts'
@@ -38,6 +37,8 @@ type PageBodyScriptsProps = {
   readonly position: 'start' | 'end'
   /** Rendered-markdown frontmatter for `$frontmatter.*` resolution in i18n meta. */
   readonly frontmatter?: Readonly<Record<string, string>>
+  /** The page language, for the consent banner's strings. */
+  readonly lang?: string
 }
 
 /**
@@ -59,6 +60,7 @@ function renderScripts(
           integrity: script.integrity,
           crossOrigin: script.crossorigin as 'anonymous' | 'use-credentials' | undefined,
           reactKey: `${keyPrefix}-${index}`,
+          consent: script.consent,
         })
       )}
       {inlineScripts.map((script, index) =>
@@ -66,6 +68,7 @@ function renderScripts(
           code: script.code,
           async: script.async,
           reactKey: `inline-${keyPrefix}-${index}`,
+          consent: script.consent,
         })
       )}
     </>
@@ -152,8 +155,9 @@ function ScrollAnimationScript({
   // Count only schema-authored components — the render-time-synthesized
   // `command-palette` is appended to every page and must not, on its own,
   // make an otherwise-empty page emit the scroll-animation script.
+  // An unexpanded reference carries no `type` and has always read as authored.
   const hasAuthoredComponents = (page.components ?? []).some((item) =>
-    isSchemaAuthoredComponent(item.type)
+    'type' in item ? isSchemaAuthoredComponent(item.type) : true
   )
   const needsAnimation = hasAuthoredComponents || design?.motion?.animations?.scaleUp
   if (!needsAnimation) return undefined
@@ -251,7 +255,7 @@ const autoResizeScript = `!function(){function grow(el){el.style.height='auto';e
  * serves the older `[data-modal-trigger]` contract, and making open idempotent
  * costs one statement.
  */
-const clickScript = `!function(){function openModal(id){window.__sovriumOpenModals=window.__sovriumOpenModals||{};window.__sovriumOpenModals[id]=true;var c=document.getElementById(id);if(!c)return;c.style.display="";var d=c.querySelector('[role="dialog"]');if(d){d.removeAttribute("hidden");d.setAttribute("aria-hidden","false");d.focus()}}function closeModal(c){if(c.querySelector('[data-pending="true"]'))return;c.style.display="none"}document.addEventListener("click",function(t){var e=t.target.closest("[data-click-animation], [data-click-navigate], [data-click-open-url], [data-click-scroll-to], [data-click-toggle-element], [data-click-submit-form], [data-click-modal], [data-modal-close], [data-backdrop]");if(!e)return;if(e.hasAttribute("data-modal-close")){var mc=e.closest("[data-modal-container]");if(mc)closeModal(mc);return}if(e.hasAttribute("data-backdrop")&&t.target===e){var mc2=e.closest("[data-modal-container]");if(mc2)closeModal(mc2);return}var n=e.getAttribute("data-click-animation"),a=e.getAttribute("data-click-navigate"),c=e.getAttribute("data-click-open-url"),i=e.getAttribute("data-click-open-in-new-tab")==="true",o=e.getAttribute("data-click-scroll-to"),l=e.getAttribute("data-click-toggle-element"),r=e.getAttribute("data-click-submit-form"),m=e.getAttribute("data-click-modal"),s=c||a,d=!!c;if(m){openModal(m)}else if(r){var f=document.querySelector(r),b=f&&f.querySelector("[type=submit]");f&&"FORM"===f.tagName&&!(b&&b.disabled)&&f.requestSubmit()}else if(l){var g=document.querySelector(l);if(g){var h="none"===window.getComputedStyle(g).display;g.style.display=h?"":"none"}}else if(o){var j=document.querySelector(o);j&&j.scrollIntoView({behavior:"smooth",block:"start"})}else if(n&&"none"!==n){var k="animate-click-"+n;if(e.classList.add(k),s){var done=!1;var cb=function(){done||(done=!0,e.classList.remove(k),d&&i?window.open(s,"_blank","noopener,noreferrer"):window.location.href=s)};e.addEventListener("animationend",cb,{once:!0});setTimeout(cb,300)}else{var cb2=function(){e.classList.remove(k)};e.addEventListener("animationend",cb2,{once:!0});setTimeout(cb2,300)}}else s&&(d&&i?window.open(s,"_blank","noopener,noreferrer"):window.location.href=s)});document.addEventListener("keydown",function(e){if(e.key==="Escape"){var open=document.querySelector('[data-modal-container]:not([style*="display: none"])');if(!open){var all=document.querySelectorAll("[data-modal-container]");for(var i=0;i<all.length;i++){if(all[i].style.display!=="none"){open=all[i];break}}}if(open)closeModal(open)}})}();`
+const clickScript = `!function(){var FOCUSABLE='a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';function disclosures(){return document.querySelectorAll("[data-click-toggle-element][aria-controls]")}function syncDisclosures(){var ts=disclosures();for(var q=0;q<ts.length;q++){var g=document.getElementById(ts[q].getAttribute("aria-controls"));if(g)ts[q].setAttribute("aria-expanded",window.getComputedStyle(g).display==="none"||g.hidden?"false":"true")}}function closeDisclosure(){var a=document.activeElement,ts=disclosures();for(var q=0;q<ts.length;q++){var b=ts[q],g=document.getElementById(b.getAttribute("aria-controls"));if(g&&window.getComputedStyle(g).display!=="none"&&(a===b||g.contains(a))){g.style.display="none";b.setAttribute("aria-expanded","false");b.focus();return!0}}return!1}syncDisclosures();function openModal(id){window.__sovriumOpenModals=window.__sovriumOpenModals||{};window.__sovriumOpenModals[id]=true;var c=document.getElementById(id);if(!c)return;c.style.display="";var d=c.querySelector('[role="dialog"]');if(d){d.removeAttribute("hidden");d.setAttribute("aria-hidden","false");d.focus()}}function closeModal(c){if(c.querySelector('[data-pending="true"]'))return;c.style.display="none"}document.addEventListener("click",function(t){var e=t.target.closest("[data-click-animation], [data-click-navigate], [data-click-open-url], [data-click-scroll-to], [data-click-toggle-element], [data-click-submit-form], [data-click-modal], [data-modal-close], [data-backdrop]");if(!e)return;if(e.hasAttribute("data-modal-close")){var mc=e.closest("[data-modal-container]");if(mc)closeModal(mc);return}if(e.hasAttribute("data-backdrop")&&t.target===e){var mc2=e.closest("[data-modal-container]");if(mc2)closeModal(mc2);return}var n=e.getAttribute("data-click-animation"),a=e.getAttribute("data-click-navigate"),c=e.getAttribute("data-click-open-url"),i=e.getAttribute("data-click-open-in-new-tab")==="true",o=e.getAttribute("data-click-scroll-to"),l=e.getAttribute("data-click-toggle-element"),r=e.getAttribute("data-click-submit-form"),m=e.getAttribute("data-click-modal"),s=c||a,d=!!c;if(m){openModal(m)}else if(r){var f=document.querySelector(r),b=f&&f.querySelector("[type=submit]");f&&"FORM"===f.tagName&&!(b&&b.disabled)&&f.requestSubmit()}else if(l){var g=document.querySelector(l);if(g){var h="none"===window.getComputedStyle(g).display;if(h&&g.getAttribute("role")==="dialog"){g.removeAttribute("hidden");g.removeAttribute("aria-hidden")}g.style.display=h?"":"none";if(e.hasAttribute("aria-controls")){e.setAttribute("aria-expanded",h?"true":"false");if(h&&g.getAttribute("role")==="dialog"){var ff=g.querySelector(FOCUSABLE);ff&&ff.focus()}}}}else if(o){var j=document.querySelector(o);j&&j.scrollIntoView({behavior:"smooth",block:"start"})}else if(n&&"none"!==n){var k="animate-click-"+n;if(e.classList.add(k),s){var done=!1;var cb=function(){done||(done=!0,e.classList.remove(k),d&&i?window.open(s,"_blank","noopener,noreferrer"):window.location.href=s)};e.addEventListener("animationend",cb,{once:!0});setTimeout(cb,300)}else{var cb2=function(){e.classList.remove(k)};e.addEventListener("animationend",cb2,{once:!0});setTimeout(cb2,300)}}else s&&(d&&i?window.open(s,"_blank","noopener,noreferrer"):window.location.href=s)});document.addEventListener("keydown",function(e){if(e.key==="Escape"&&closeDisclosure())return;if(e.key==="Escape"){var open=document.querySelector('[data-modal-container]:not([style*="display: none"])');if(!open){var all=document.querySelectorAll("[data-modal-container]");for(var i=0;i<all.length;i++){if(all[i].style.display!=="none"){open=all[i];break}}}if(open)closeModal(open)}})}();`
 
 /**
  * Design-toggle runtime (SECURITY: Safe - static code, no user input).
@@ -264,7 +268,7 @@ const clickScript = `!function(){function openModal(id){window.__sovriumOpenModa
  * stored value on the next page load so the choice survives navigation without
  * a flash. Concatenated into the single body-end inline script.
  */
-const themeToggleScript = `!function(){var root=document.documentElement,mq=window.matchMedia("(prefers-color-scheme: dark)"),follow=!1;document.addEventListener("click",function(t){var e=t.target.closest("[data-theme-toggle], [data-theme-set]");if(!e)return;var v=e.getAttribute("data-theme-set"),dark=v===null?!root.classList.contains("dark"):v==="system"?mq.matches:v==="dark";root.classList.toggle("dark",dark);try{if(v==="system"){window.localStorage.removeItem("theme");if(!follow){follow=!0;mq.addEventListener("change",function(m){var s=window.localStorage.getItem("theme");if(s!=="dark"&&s!=="light")root.classList.toggle("dark",m.matches)})}}else{window.localStorage.setItem("theme",dark?"dark":"light")}}catch(err){}})}();`
+const themeToggleScript = `!function(){var root=document.documentElement,mq=window.matchMedia("(prefers-color-scheme: dark)"),follow=!1,sync=function(){var p=root.classList.contains("dark")?"true":"false";document.querySelectorAll("[data-theme-toggle]").forEach(function(b){if(b.getAttribute("aria-pressed")!==p)b.setAttribute("aria-pressed",p)})};sync();new MutationObserver(sync).observe(root,{attributes:!0,attributeFilter:["class"]});if(document.body)new MutationObserver(sync).observe(document.body,{childList:!0,subtree:!0});document.addEventListener("click",function(t){var e=t.target.closest("[data-theme-toggle], [data-theme-set]");if(!e)return;var v=e.getAttribute("data-theme-set"),dark=v===null?!root.classList.contains("dark"):v==="system"?mq.matches:v==="dark";root.classList.toggle("dark",dark);try{if(v==="system"){window.localStorage.removeItem("theme");if(!follow){follow=!0;mq.addEventListener("change",function(m){var s=window.localStorage.getItem("theme");if(s!=="dark"&&s!=="light")root.classList.toggle("dark",m.matches)})}}else{window.localStorage.setItem("theme",dark?"dark":"light")}}catch(err){}})}();`
 
 /**
  * Code-block copy runtime (SECURITY: Safe - static code, no user input).
@@ -318,8 +322,9 @@ function renderBodyEndScripts(config: {
   readonly direction: 'ltr' | 'rtl'
   readonly scripts: GroupedScripts
   readonly frontmatter?: Readonly<Record<string, string>>
+  readonly lang?: string
 }): ReactElement {
-  const { page, design, languages, direction, scripts, frontmatter } = config
+  const { page, design, languages, direction, scripts, frontmatter, lang } = config
   return (
     <>
       {renderScripts(scripts.external.bodyEnd, scripts.inline.bodyEnd, 'body-end')}
@@ -332,37 +337,31 @@ function renderBodyEndScripts(config: {
           reactKey: 'window-app-config-body',
         })}
       {/*
-        Stateless behavioral enhancer scripts are concatenated into a single
-        <script> tag (rather than emitted as separate elements) to keep the
-        page-level inline-script count stable. A pages scripts spec asserts
-        `script:not([src])` matches exactly one element under strict mode;
-        adding a sibling <script> here would break that contract for a
-        non-feature reason. Every enhancer below is an IIFE, so their internals
-        never leak across the concatenation, and every one that binds a handler
-        binds it DELEGATED on `document` — which is what lets a control inside a
-        `tabs` panel work even though the panel mounts after hydration. Order is
-        therefore not load-bearing; keep it stable only to keep diffs readable:
-        clickScript (delegated click/modal), autoResizeScript (textarea grow),
-        themeToggleScript, copyCodeScript (code-block copy), MARQUEE_PAUSE_SCRIPT,
-        and the carried-toast reader — the one enhancer that is not delegated:
-        it shows, once, a success toast the previous page carried here as it
-        navigated, on every page whatever runtime or palette it ships — and
-        the sidebar reveal, which scrolls the current entry into its sidebar
-        and ships only on a page that draws a sidebar.
+        ONE inline enhancer script, never several: why, and the full order, are
+        on `buildBodyEndEnhancerTail` in `body-end-enhancer-scripts.ts`.
       */}
       <script
-        // eslint-disable-next-line sovrium/require-sanitized-html -- a concatenation of engine-authored enhancer script constants
+        // eslint-disable-next-line sovrium/require-sanitized-html -- engine-authored enhancer constants plus the engine-authored tail built in body-end-enhancer-scripts.ts
         dangerouslySetInnerHTML={{
           __html:
             clickScript +
             autoResizeScript +
             themeToggleScript +
             copyCodeScript +
-            MARQUEE_PAUSE_SCRIPT +
-            CARRIED_TOAST_READER_SCRIPT +
-            (scripts.revealsSidebarCurrent ? SIDEBAR_CURRENT_REVEAL_SCRIPT : ''),
+            buildBodyEndEnhancerTail(
+              scripts.revealsSidebarCurrent,
+              scripts.spiesToc,
+              scripts.consentChoice,
+              scripts.consent?.declaration
+            ),
         }}
       />
+      {scripts.consent && (
+        <ConsentBanner
+          consent={scripts.consent}
+          lang={lang}
+        />
+      )}
     </>
   )
 }
@@ -391,10 +390,11 @@ export function PageBodyScripts({
   scripts,
   position,
   frontmatter,
+  lang,
 }: PageBodyScriptsProps): Readonly<ReactElement> {
   if (position === 'start') {
     return renderScripts(scripts.external.bodyStart, scripts.inline.bodyStart, 'body-start')
   }
 
-  return renderBodyEndScripts({ page, design, languages, direction, scripts, frontmatter })
+  return renderBodyEndScripts({ page, design, languages, direction, scripts, frontmatter, lang })
 }

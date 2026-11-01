@@ -126,14 +126,15 @@ export const rewriteBasePathInHtml = (
           const filePath =
             file.startsWith('/') || file.startsWith(outputDir) ? file : `${outputDir}/${file}`
 
-          const content = yield* Effect.tryPromise({
-            try: () => fsModule.readFile(filePath, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: `Failed to read HTML file: ${file}`,
-                cause: error,
-              }),
-          })
+          const content = yield* fsModule.readFile(filePath).pipe(
+            Effect.mapError(
+              ({ cause: error }) =>
+                new StaticGenerationError({
+                  message: `Failed to read HTML file: ${file}`,
+                  cause: error,
+                })
+            )
+          )
 
           // Determine page path from filename (index.html → /, about.html → /about)
           const relativeFile = file.startsWith(outputDir) ? file.slice(outputDir.length + 1) : file
@@ -167,14 +168,15 @@ export const rewriteBasePathInHtml = (
             canonicalPagePath
           )
 
-          yield* Effect.tryPromise({
-            try: () => fsModule.writeFile(filePath, rewrittenContent, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: `Failed to write rewritten HTML file: ${file}`,
-                cause: error,
-              }),
-          })
+          yield* fsModule.writeFile(filePath, rewrittenContent).pipe(
+            Effect.mapError(
+              ({ cause: error }) =>
+                new StaticGenerationError({
+                  message: `Failed to write rewritten HTML file: ${file}`,
+                  cause: error,
+                })
+            )
+          )
         }),
       { concurrency: 'unbounded' }
     )

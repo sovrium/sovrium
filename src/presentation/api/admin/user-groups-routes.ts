@@ -46,13 +46,12 @@ import {
   adminUserGroupsUpdateRequestSchema,
   adminUserGroupsUpdateResponseSchema,
 } from '@/domain/models/api/admin/users/groups'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { badRequest, internalError, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext, requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
+import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import { validateRequest } from '@/presentation/api/runtime/validate-request'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -69,72 +68,80 @@ const admitsCaller = (callerId: string, userId: string, app: App) =>
   })
 
 /** The answer for a membership change that ran: the new membership, or the refusal. */
-const answerOutcome = (c: Context, userId: string, result: GroupMembershipOutcome): Response => {
+const answerOutcome = (
+  c: Context,
+  userId: string,
+  result: GroupMembershipOutcome
+): Effect.Effect<Response> => {
   if (result._tag === 'AtCapacity') {
-    return c.json(
-      {
-        success: false,
-        message: describeMembershipRefusal(result),
-        code: ApiErrorCode.VALIDATION_ERROR,
-      },
-      422
+    return Effect.succeed(
+      c.json(
+        {
+          success: false,
+          message: describeMembershipRefusal(result),
+          code: ApiErrorCode.VALIDATION_ERROR,
+        },
+        422
+      )
     )
   }
-  if (result._tag !== 'Changed') return badRequest(c, describeMembershipRefusal(result))
-  const body = decodeSafe(adminUserGroupsUpdateResponseSchema)({
-    userId,
-    groups: result.groups,
-    added: result.added,
-    removed: result.removed,
-  })
-  if (!body.success) return internalError(c, 'Failed to build the account groups response')
-  return c.json(body.data, 200)
+  if (result._tag !== 'Changed') {
+    return Effect.succeed(badRequest(c, describeMembershipRefusal(result)))
+  }
+  return respondWith(
+    c,
+    Effect.succeed({
+      userId,
+      groups: result.groups,
+      added: result.added,
+      removed: result.removed,
+    }),
+    adminUserGroupsUpdateResponseSchema
+  )
+}
+
+/** The answer to a read or write that did not finish: logged, and the route's own 500. */
+const answerFailed = (c: Context, what: string, failure: unknown): Response => {
+  logError(`[admin] user groups: ${what} failed`, failure, requestLogAttributes(c))
+  return internalError(c, 'Failed to set the account groups')
 }
 
 /** `PUT /api/admin/users/:userId/groups`. */
-async function handleSetUserGroups(c: Context, resolveApp: () => App) {
+function handleSetUserGroups(c: Context, app: App): Promise<Response> | Response {
   const session = getSessionContext(c)
   if (session === undefined) return notFound(c)
-  const app = resolveApp()
   const userId = c.req.param('userId') ?? ''
 
-  const admitted = await runRequestEffect(
+  return runHandlerEffect(
     c,
-    provideDomain(c, admitsCaller(session.userId, userId, app)).pipe(Effect.result)
-  )
-  if (admitted._tag === 'Failure') {
-    logError('[admin] user groups: caller check failed', admitted.failure, requestLogAttributes(c))
-    return internalError(c, 'Failed to set the account groups')
-  }
-  if (!admitted.success) return notFound(c)
+    Effect.gen(function* () {
+      const admitted = yield* Effect.result(admitsCaller(session.userId, userId, app))
+      if (admitted._tag === 'Failure') return answerFailed(c, 'caller check', admitted.failure)
+      if (!admitted.success) return notFound(c)
 
-  // Decoded only once the caller is admitted: a refused caller learns nothing,
-  // not even that its body would have been malformed.
-  const parsed = await validateRequest(c, adminUserGroupsUpdateRequestSchema)
-  if (!parsed.success) return parsed.response
+      // Decoded only once the caller is admitted: a refused caller learns nothing,
+      // not even that its body would have been malformed.
+      // effect-promise: total -- validateRequest catches every read and decode failure and answers it as a value
+      const parsed = yield* Effect.promise(() =>
+        validateRequest(c, adminUserGroupsUpdateRequestSchema)
+      )
+      if (!parsed.success) return parsed.response
 
-  const outcome = await runRequestEffect(
-    c,
-    provideDomain(
-      c,
-      changeUserGroups({
-        app,
-        userId,
-        plan: { mode: 'set', groups: parsed.data.groups },
-        author: { kind: 'user', userId: session.userId },
-      })
-    ).pipe(Effect.result)
+      const outcome = yield* Effect.result(
+        changeUserGroups({
+          app,
+          userId,
+          plan: { mode: 'set', groups: parsed.data.groups },
+          author: { kind: 'user', userId: session.userId },
+        })
+      )
+      if (outcome._tag === 'Failure') return answerFailed(c, 'write', outcome.failure)
+      return yield* answerOutcome(c, userId, outcome.success)
+    })
   )
-  if (outcome._tag === 'Failure') {
-    logError('[admin] user groups: write failed', outcome.failure, requestLogAttributes(c))
-    return internalError(c, 'Failed to set the account groups')
-  }
-  return answerOutcome(c, userId, outcome.success)
 }
 
 /** Chain the account-groups write onto a Hono app. */
-export function chainAdminUserGroupsRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
-  return honoApp.put('/api/admin/users/:userId/groups', (c) =>
-    handleSetUserGroups(c, resolveApp)
-  ) as T
+export function chainAdminUserGroupsRoutes(honoApp: Hono, app: App): Hono {
+  return honoApp.put('/api/admin/users/:userId/groups', (c) => handleSetUserGroups(c, app))
 }

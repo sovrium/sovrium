@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable max-lines-per-function -- per-comment state machine renders 4 distinct modes (view/edit/confirming-delete/replying); per-handler arrow props are conventional React pattern. */
-
 import { useState, type ReactElement } from 'react'
 import {
   computeCommentActionClasses,
@@ -135,51 +133,32 @@ function ReplyCount({
   )
 }
 
-export function CommentThreadItem({
+/**
+ * The view mode, and the reply mode that opens below it: the comment as read,
+ * its affordances, the inline reply form while replying, and its reply count.
+ */
+function ViewModeItem({
   comment,
+  testId,
+  liClassName,
+  mode,
+  onSetMode,
   canEdit,
   canDelete,
   canReply,
-  onSaveEdit,
-  onConfirmDelete,
   onSubmitReply,
-  isSaving,
-  isDeleting,
   isReplying,
   replyCount,
-}: CommentThreadItemProps): ReactElement {
-  const [mode, setMode] = useState<ItemMode>('view')
+}: Pick<
+  CommentThreadItemProps,
+  'comment' | 'canEdit' | 'canDelete' | 'canReply' | 'onSubmitReply' | 'isReplying' | 'replyCount'
+> & {
+  readonly testId: string
+  readonly liClassName: string
+  readonly mode: ItemMode
+  readonly onSetMode: (mode: ItemMode) => void
+}): ReactElement {
   const replyPlaceholder = useCommentString('comments.replyPlaceholder', 'Write a reply…')
-  const isReplyItem = comment.parentCommentId !== null
-  const testId = isReplyItem ? 'comment-reply' : 'comment'
-  const liClassName = computeCommentItemClasses({ depth: isReplyItem ? 1 : 0 })
-
-  if (mode === 'editing') {
-    return (
-      <EditModeItem
-        comment={comment}
-        liClassName={liClassName}
-        testId={testId}
-        isSaving={isSaving}
-        onSaveEdit={onSaveEdit}
-        onSetMode={setMode}
-      />
-    )
-  }
-
-  if (mode === 'confirming-delete') {
-    return (
-      <DeleteModeItem
-        comment={comment}
-        liClassName={liClassName}
-        testId={testId}
-        isDeleting={isDeleting}
-        onConfirmDelete={onConfirmDelete}
-        onSetMode={setMode}
-      />
-    )
-  }
-
   return (
     <CommentRow
       comment={comment}
@@ -197,7 +176,7 @@ export function CommentThreadItem({
         canEdit={canEdit}
         canDelete={canDelete}
         canReply={canReply}
-        onSetMode={setMode}
+        onSetMode={onSetMode}
       />
       {mode === 'replying' && (
         <CommentThreadForm
@@ -206,15 +185,58 @@ export function CommentThreadItem({
           isSubmitting={isReplying}
           onSubmit={async (content) => {
             await onSubmitReply(comment.id, content)
-            setMode('view')
+            onSetMode('view')
           }}
-          onCancel={() => setMode('view')}
+          onCancel={() => onSetMode('view')}
         />
       )}
       <ReplyCount
-        isReplyItem={isReplyItem}
+        isReplyItem={comment.parentCommentId !== null}
         replyCount={replyCount}
       />
     </CommentRow>
+  )
+}
+
+/** One comment: the mode it is in (view, editing, confirming delete, replying) and its row. */
+export function CommentThreadItem(props: CommentThreadItemProps): ReactElement {
+  const { comment, isSaving, isDeleting, onSaveEdit, onConfirmDelete } = props
+  const [mode, setMode] = useState<ItemMode>('view')
+  const isReplyItem = comment.parentCommentId !== null
+  const testId = isReplyItem ? 'comment-reply' : 'comment'
+  const liClassName = computeCommentItemClasses({ depth: isReplyItem ? 1 : 0 })
+
+  if (mode === 'editing') {
+    return (
+      <EditModeItem
+        comment={comment}
+        liClassName={liClassName}
+        testId={testId}
+        isSaving={isSaving}
+        onSaveEdit={onSaveEdit}
+        onSetMode={setMode}
+      />
+    )
+  }
+  if (mode === 'confirming-delete') {
+    return (
+      <DeleteModeItem
+        comment={comment}
+        liClassName={liClassName}
+        testId={testId}
+        isDeleting={isDeleting}
+        onConfirmDelete={onConfirmDelete}
+        onSetMode={setMode}
+      />
+    )
+  }
+  return (
+    <ViewModeItem
+      {...props}
+      testId={testId}
+      liClassName={liClassName}
+      mode={mode}
+      onSetMode={setMode}
+    />
   )
 }

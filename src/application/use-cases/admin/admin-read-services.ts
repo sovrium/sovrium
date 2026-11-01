@@ -16,6 +16,7 @@ import type {
   BootLedgerDatabaseError,
   BootLedgerRepository,
 } from '@/application/ports/repositories/admin/boot-ledger-repository'
+import type { StorageFootprintRepository } from '@/application/ports/repositories/admin/storage-footprint-repository'
 import type {
   AdminSearchDatabaseError,
   AdminSearchRepository,
@@ -51,6 +52,10 @@ import type {
   AutomationRunRepository,
 } from '@/application/ports/repositories/automations/automation-run-repository'
 import type {
+  SubmissionRunsDatabaseError,
+  SubmissionRunsRepository,
+} from '@/application/ports/repositories/automations/submission-runs-repository'
+import type {
   AdminBucketFilesDatabaseError,
   AdminBucketFilesRepository,
 } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
@@ -65,7 +70,7 @@ import type {
 import type {
   DesignSystemShareDatabaseError,
   DesignSystemShareRepository,
-} from '@/application/ports/repositories/design-system/design-system-share-repository'
+} from '@/application/ports/repositories/design/design-system-share-repository'
 import type {
   AdminFormsDatabaseError,
   AdminFormsRepository,
@@ -93,6 +98,7 @@ import type {
   DesignKitAssets,
 } from '@/application/ports/services/design-kit-assets'
 import type { EmailCssInliner } from '@/application/ports/services/email-css-inliner'
+import type { InstanceHealthProbe } from '@/application/ports/services/instance-health-probe'
 import type { PageRenderer } from '@/application/ports/services/page-renderer'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { TemplateEngine } from '@/application/ports/services/template-engine'
@@ -105,6 +111,7 @@ export type AdminReadError =
   | AdminAutomationsDatabaseError
   | AutomationPauseDatabaseError
   | AutomationRunDatabaseError
+  | SubmissionRunsDatabaseError
   | AuthDatabaseError
   | BootLedgerDatabaseError
   | AdminSearchDatabaseError
@@ -128,6 +135,7 @@ export type AdminReadServices =
   | AdminAutomationsRepository
   | AutomationRunRepository
   | AutomationPauseRepository
+  | SubmissionRunsRepository
   | AuthRepository
   | AuditLogRepository
   | BootLedgerRepository
@@ -136,12 +144,14 @@ export type AdminReadServices =
   | AdminOverviewServices
   | AdminAttentionServices
   | AdminReadHost
+  | InstanceHealthProbe
   | LinkRepository
   | AnalyticsRepository
   | ConnectionRepository
   | ConnectionTokenRepository
   | AdminBucketFilesRepository
   | StorageService
+  | StorageFootprintRepository
   | TemplateEngine
   | EmailCssInliner
   | Logger

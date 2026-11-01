@@ -66,7 +66,8 @@ function formatByFieldType(value: number, field: string, context: SummaryFormatC
     return formatRecordText(
       value,
       { format: 'currency', ...(currency === undefined ? {} : { currency }) },
-      context.locale
+      context.locale,
+      new Date()
     )
   }
   if (type === 'percentage') {
@@ -74,7 +75,8 @@ function formatByFieldType(value: number, field: string, context: SummaryFormatC
     return formatRecordText(
       value,
       { format: 'percent', ...(precision === undefined ? {} : { precision }) },
-      context.locale
+      context.locale,
+      new Date()
     )
   }
   return String(value)
@@ -109,8 +111,16 @@ export function formatSummaryValue(
     currency: resolveCurrencyOptions(context.fieldMeta?.[item.field]),
     timeZone: resolvePageTimezone(),
     durationUnit: context.fieldMeta?.[item.field]?.type === 'duration' ? 'seconds' : undefined,
+    now: new Date(),
   })
 }
+
+/**
+ * The colon between a summary's label and its value, as the page's language
+ * punctuates it: French sets a no-break space before it (`Total : 42`).
+ */
+const labelSeparator = (locale: string): string =>
+  locale.toLowerCase().startsWith('fr') ? ' : ' : ': '
 
 /** `"Label: 42"`, or just `"42"` when the author declared no label. */
 export function summaryCellText(
@@ -118,5 +128,6 @@ export function summaryCellText(
   item: DataTableSummaryItem,
   context: SummaryFormatContext
 ): string {
-  return `${item.label ? `${item.label}: ` : ''}${formatSummaryValue(value, item, context)}`
+  const label = item.label ? `${item.label}${labelSeparator(context.locale)}` : ''
+  return `${label}${formatSummaryValue(value, item, context)}`
 }

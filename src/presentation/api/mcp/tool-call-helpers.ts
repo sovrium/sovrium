@@ -17,9 +17,10 @@
 
 import { ProtocolError } from '@modelcontextprotocol/server'
 import { Effect } from 'effect'
-import { provideTableLive, type TableServices } from '@/infrastructure/layers/table-layer'
+import { runOnDomain, type DomainContext } from '@/infrastructure/logging/request-effect'
 import { sanitizeError, type SanitizedError } from '@/presentation/api/runtime/error-sanitizer'
 import type { Table } from '@/domain/models/app'
+import type { TableServices } from '@/infrastructure/layers/table-layer'
 
 /**
  * The MCP `tools/call` success payload.
@@ -36,18 +37,20 @@ export interface McpToolResult {
 export interface RunProgramInput<A> {
   /**
    * The program to run. Its requirement channel is DECLARED as the set
-   * `provideTableLive` discharges, rather than left `unknown` and asserted to
+   * `TableLive` builds, rather than left `unknown` and asserted to
    * `never` at the call below: a tool program reaching for a service outside
    * that set now fails to compile here instead of dying as a missing-service
    * defect inside a `tools/call`.
    */
   readonly program: Effect.Effect<A, unknown, TableServices>
+  /** The server runtime's services, built once at boot, that discharge `program`. */
+  readonly domainContext: DomainContext
   readonly formatSuccess?: (value: A) => unknown
   readonly notFoundResult?: unknown
 }
 
 /**
- * Run an Effect program with `TableLive` provided and convert the outcome
+ * Run an Effect program on the server runtime's services and convert the outcome
  * to an MCP `tools/call` JSON-RPC envelope. Success → wraps the value in
  * the `result.content[0].text` slot per the MCP wire format.
  *
@@ -58,8 +61,7 @@ export interface RunProgramInput<A> {
  * caller's own value echoed back. The full error is logged server-side there.
  */
 export async function runProgramAsToolResult<A>(input: RunProgramInput<A>): Promise<McpToolResult> {
-  const provided = provideTableLive(input.program)
-  const outcome = await Effect.runPromise(Effect.result(provided))
+  const outcome = await runOnDomain(input.domainContext, Effect.result(input.program))
 
   if (outcome._tag === 'Failure') return sanitizedToolFailure(outcome.failure)
 
@@ -85,6 +87,23 @@ export function sanitizedToolFailure(failure: unknown): never {
 /** {@link sanitizedToolFailure} for a failure already sanitised under `requestId`. */
 export function answeredToolFailure(sanitized: SanitizedError, requestId: string): never {
   const message = sanitized.message ?? sanitized.error
+  // A table's business rule refused the write: invalid params, the author's
+  // message, and the rule's attribution for a client that reads it.
+  if (sanitized.rule !== undefined) {
+    return toolFailure(-32_602, message, {
+      ...(sanitized.field === undefined ? {} : { field: sanitized.field }),
+      rule: sanitized.rule,
+      errors: sanitized.errors ?? [],
+    })
+  }
+  // A value breaking its column's format (the records API's 422): invalid
+  // params, in the records API's own sentence.
+  if (sanitized.status === 422) {
+    return toolFailure(-32_602, message, {
+      ...(sanitized.field === undefined ? {} : { field: sanitized.field }),
+      errors: sanitized.errors ?? [],
+    })
+  }
   return toolFailure(
     -32_603,
     sanitized.code === 'INTERNAL_ERROR'
@@ -110,8 +129,8 @@ export function toolSuccess(data: unknown): McpToolResult {
  * (an AI MCP RBAC spec → -32603, AN AI MCP RBAC SPEC → -32602), so the
  * distinction is load-bearing and not stylistic.
  */
-export function toolFailure(code: number, message: string): never {
-  throw new ProtocolError(code, message)
+export function toolFailure(code: number, message: string, data?: unknown): never {
+  throw new ProtocolError(code, message, data)
 }
 
 // ---------------------------------------------------------------------------

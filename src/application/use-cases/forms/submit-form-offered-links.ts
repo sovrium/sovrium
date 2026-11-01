@@ -41,6 +41,7 @@ import {
   sourceValueField,
   type FormOptionSourcePlan,
 } from '@/domain/models/app/forms/form-option-source-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import {
   readAdmittedSourceRows,
   resolveSourceFilter,
@@ -63,7 +64,7 @@ export const submittedKeysOf = (value: unknown): readonly string[] =>
 
 /** The plans of `form` whose field is bound to a `relationship` column. */
 const relationshipPlans = (app: App, form: Form): readonly FormOptionSourcePlan[] => {
-  const target = app.tables?.find((table) => table.name === form.submitTo.table)
+  const target = findTableByName(app.tables, form.submitTo.table)
   const isRelationship = (column: string): boolean =>
     target?.fields.some((field) => field.name === column && field.type === 'relationship') ?? false
   return collectSubmittableSources(form, app.tables ?? []).filter((plan) =>

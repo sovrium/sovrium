@@ -62,7 +62,7 @@
 import {
   buildComponentFrame,
   componentFramePath,
-} from '@/application/use-cases/admin/design-system-component-frame'
+} from '@/application/use-cases/design/component-frame'
 import { COMPONENT_FRAME_BASE, toMountPath } from '@/domain/models/app/admin/mount-hrefs'
 import { consoleAdmits } from '@/domain/models/app/auth/passkeys-service'
 import {
@@ -72,7 +72,7 @@ import {
 } from '@/presentation/api/runtime/content-partial'
 import { throwIfPageFaultInjected } from '@/presentation/api/runtime/page-fault-injection'
 import { answerRenderFailure } from '@/presentation/api/runtime/render-failure-answer'
-import { resolveRequestBaseUrl } from '../../../domain/kernel/url/request-base-url'
+import { resolveRequestBaseUrl } from '../runtime/request-origin'
 import { isPublicMountPath } from './mounted-app-public-paths'
 import { resolveMountedRedirect, signedInDestination } from './mounted-app-redirect'
 import { signedOutConsoleNotFound } from './mounted-not-found'
@@ -88,7 +88,7 @@ import type { PageRenderResult } from '@/application/ports/services/page-rendere
 import type {
   MountSurfaceInput,
   MountSurfaceOutcome,
-} from '@/application/use-cases/mount/embedded-app-mount'
+} from '@/application/use-cases/admin/embedded-app-mount'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Context, Hono } from 'hono'

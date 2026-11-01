@@ -36,12 +36,9 @@
  * control; re-install with `sovrium library add block/data-table-toolbar --update`.
  */
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consoleToolbarSearch = {
+export const consoleToolbarSearch: TemplateEncoded = {
   name: 'console-toolbar-search',
   type: 'search-input',
   render: 'transparent',
@@ -65,4 +62,4 @@ export const consoleToolbarSearch = {
   },
   placeholder: '$placeholder',
   publishes: '$publishes',
-} as unknown as Template
+}

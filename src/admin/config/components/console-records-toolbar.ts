@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// sovrium-library: block/data-table-toolbar@0.38.0#449489a1bf03
+// sovrium-library: block/data-table-toolbar@0.38.0#cd3556ab198c
 
 // The toolbar above the Records grid.
 
@@ -38,12 +38,9 @@
  * operator never meets a control the records API would refuse.
  */
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consoleRecordsToolbar = {
+export const consoleRecordsToolbar: TemplateEncoded = {
   name: 'console-records-toolbar',
   type: 'container',
   render: 'transparent',
@@ -98,6 +95,7 @@ export const consoleRecordsToolbar = {
               label: '$t:admin.tables.export',
               variant: 'outline',
               size: 'sm',
+              disabledWhenRead: { channel: 'records-filter', state: 'failed' },
               action: {
                 type: 'fetch',
                 mode: 'download',
@@ -112,6 +110,7 @@ export const consoleRecordsToolbar = {
           label: '$t:admin.tables.import',
           variant: 'outline',
           size: 'sm',
+          disabledWhenRead: { channel: 'records-filter', state: 'failed' },
           action: {
             action: 'openImport',
             table: '$param.table',
@@ -122,6 +121,7 @@ export const consoleRecordsToolbar = {
           label: '$t:admin.common.newRecord',
           variant: 'default',
           size: 'sm',
+          disabledWhenRead: { channel: 'records-filter', state: 'failed' },
           action: {
             action: 'openSheet',
             component: 'record-detail-drawer',
@@ -133,4 +133,4 @@ export const consoleRecordsToolbar = {
       ],
     },
   ],
-} as unknown as Template
+}

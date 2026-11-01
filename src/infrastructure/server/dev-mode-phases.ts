@@ -27,12 +27,12 @@ import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
  * it: the host of `BASE_URL` when set, else the bind host.
  *
  * @param bindHost - the host the socket bound (server.ts passes it).
- * @param processEnv - the environment to read dev mode from (tests inject one).
+ * @param processEnv - the environment to read dev mode from (`ProcessEnv`, or a test's).
  * @param resolveHost - the public-origin resolver (tests inject one).
  */
 export const collectDevModePhases = (
-  bindHost?: string,
-  processEnv: Readonly<Record<string, string | undefined>> = process.env,
+  bindHost: string | undefined,
+  processEnv: Readonly<Record<string, string | undefined>>,
   resolveHost: (bindHost?: string) => string = resolveBindHostname
 ): readonly StartupPhase[] => {
   const config = parseDevNoticeEnvConfig(processEnv)

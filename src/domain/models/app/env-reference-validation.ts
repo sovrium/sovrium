@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { envReferencesIn } from './env-reference-service'
 
 /** The slice of the app this rule reads by name: the variables it declares. */
@@ -27,9 +28,6 @@ interface EnvReference {
 
 /** The keys a list entry is known by, in order of preference. */
 const ENTRY_NAME_KEYS = ['name', 'slug', 'key', 'id'] as const
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** What a list entry is called, when it carries a name. */
 const entryName = (entry: unknown): string | undefined => {

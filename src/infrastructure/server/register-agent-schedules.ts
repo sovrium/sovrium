@@ -181,7 +181,7 @@ export const registerAgentSchedules = (
           agent,
           {
             cron: agent.schedule?.cron ?? '',
-            timezone: agent.schedule?.timezone ?? resolveOperatorTimezone(),
+            timezone: agent.schedule?.timezone ?? resolveOperatorTimezone(process.env),
           },
           { fire: (armed, context) => fire(armed, context, app), services }
         ),

@@ -1,0 +1,369 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+/*
+ * The client runtime: plain `fetch`, no dependency of any kind, so this file
+ * type-checks and runs with the standard TypeScript libraries alone.
+ *
+ * Every call resolves to `{ data, error }` and never rejects on a refused
+ * request: `error` is the API's own sanitized answer (`status`, `code`,
+ * `message`, and `errors` when a 400 names fields). A network failure answers
+ * `status: 0` and `code: 'NETWORK_ERROR'`; a request still unanswered after
+ * `timeoutMs` (30 s unless set) is aborted and answers `status: 0` and
+ * `code: 'TIMEOUT'`.
+ *
+ * (Maintainers: `sovrium client` writes this source verbatim into the generated
+ * client, below its banner and above the app's own types, and the build refuses
+ * any import in it. It is embedded by scripts/build/generate-embedded-client-runtime.ts.)
+ */
+
+/** One field a 400 names, with what is wrong with it. */
+export interface ClientFieldError {
+  readonly field: string
+  readonly message: string
+  readonly code?: string
+}
+
+/** What a refused or failed call answers: the API's sanitized error, unchanged. */
+export interface ClientError {
+  readonly status: number
+  readonly code: string
+  readonly message: string
+  readonly errors?: readonly ClientFieldError[]
+}
+
+/** Every call's answer: the data, or the error, never both. */
+export type ClientResult<T> =
+  { readonly data: T; readonly error: null } | { readonly data: null; readonly error: ClientError }
+
+/** The `fetch` the client calls: the global one unless another is given. */
+export type ClientFetch = (input: string, init: RequestInit) => Promise<Response>
+
+export interface ClientOptions {
+  /** The app's address. In a browser, defaults to the page's own origin. */
+  readonly url?: string
+  /** Server-side only: sent as the `x-api-key` header. Refused where `window` exists. */
+  readonly apiKey?: string
+  /** Extra headers sent with every request. */
+  readonly headers?: Readonly<Record<string, string>>
+  readonly fetch?: ClientFetch
+  /** Abort a request still unanswered after this many milliseconds. Defaults to 30 000. */
+  readonly timeoutMs?: number
+}
+
+export interface ClientPagination {
+  readonly page: number
+  readonly limit: number
+  readonly offset: number
+  readonly total: number
+}
+
+/** One record as the API answers it. */
+export interface ClientRecord<F> {
+  readonly id: string
+  readonly fields: F
+  readonly createdAt: string
+  readonly updatedAt: string
+  readonly createdBy?: string
+  readonly updatedBy?: string
+}
+
+export interface ClientRecordList<F> {
+  readonly records: readonly ClientRecord<F>[]
+  readonly pagination?: ClientPagination
+}
+
+/** A condition tree, sent as the list route's `filter` parameter. */
+export type ClientFilter<K extends string> =
+  | { readonly field: K; readonly operator: string; readonly value?: unknown }
+  | { readonly and: readonly ClientFilter<K>[] }
+  | { readonly or: readonly ClientFilter<K>[] }
+
+/** The list route's own parameters. */
+export interface ClientListQuery<K extends string> {
+  readonly filter?: ClientFilter<K>
+  readonly sort?: string
+  readonly page?: number
+  readonly limit?: number
+  readonly q?: string
+  readonly fields?: readonly K[]
+  readonly groupBy?: string
+  readonly format?: string
+  readonly timezone?: string
+  readonly lang?: string
+}
+
+/** What a table declares: its row, insert and update shapes, and its view ids. */
+export interface ClientTableShape {
+  readonly row: object
+  readonly insert: object
+  readonly update: object
+  readonly view: string | number
+}
+
+type FieldName<T extends ClientTableShape> = keyof T['row'] & string
+type Answer<T> = Promise<ClientResult<T>>
+
+export interface ClientViewApi<T extends ClientTableShape> {
+  list(query?: ClientListQuery<FieldName<T>>): Answer<ClientRecordList<T['row']>>
+}
+
+export interface ClientTableApi<T extends ClientTableShape> extends ClientViewApi<T> {
+  get(id: string): Answer<ClientRecord<T['row']>>
+  create(fields: T['insert']): Answer<ClientRecord<T['row']>>
+  update(
+    id: string,
+    fields: T['update'],
+    options?: { readonly updatedAt?: string }
+  ): Answer<ClientRecord<T['row']>>
+  delete(id: string): Answer<{ readonly success: true }>
+  restore(id: string): Answer<ClientRecord<T['row']>>
+  createMany(
+    rows: readonly T['insert'][]
+  ): Answer<{ readonly created: number; readonly records: readonly ClientRecord<T['row']>[] }>
+  updateMany(
+    rows: readonly { readonly id: string; readonly fields: T['update'] }[]
+  ): Answer<{ readonly updated: number; readonly records: readonly ClientRecord<T['row']>[] }>
+  deleteMany(ids: readonly string[]): Answer<{ readonly deleted: number }>
+  upsert(
+    rows: readonly T['insert'][],
+    options: { readonly mergeOn: readonly FieldName<T>[] }
+  ): Answer<{
+    readonly records: readonly ClientRecord<T['row']>[]
+    readonly created: number
+    readonly updated: number
+  }>
+  view(id: T['view']): ClientViewApi<T>
+}
+
+export interface ClientUser {
+  readonly id: string
+  readonly email: string
+  readonly name: string
+  readonly [key: string]: unknown
+}
+
+export interface ClientSession {
+  readonly user: ClientUser
+  readonly session: {
+    readonly id: string
+    readonly expiresAt: string
+    readonly [key: string]: unknown
+  }
+}
+
+export interface ClientAuthApi {
+  signIn(credentials: { readonly email: string; readonly password: string }): Answer<ClientUser>
+  signUp(account: {
+    readonly email: string
+    readonly password: string
+    readonly name: string
+  }): Answer<ClientUser>
+  signOut(): Answer<null>
+  getSession(): Answer<ClientSession | null>
+}
+
+export interface SovriumClient<S extends { readonly [K in keyof S]: ClientTableShape }> {
+  readonly auth: ClientAuthApi
+  from<N extends keyof S & string>(table: N): ClientTableApi<S[N]>
+}
+
+type Send = (method: string, path: string, body?: unknown) => Answer<unknown>
+
+const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const parseBody = (text: string): unknown => {
+  if (text === '') return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+/** The API's error answer as the client hands it over: status, code, message, errors. */
+export const toClientError = (status: number, body: unknown, statusText: string): ClientError => {
+  const answer = isObject(body) ? body : {}
+  const code = typeof answer['code'] === 'string' ? answer['code'] : `HTTP_${status}`
+  const message =
+    typeof answer['message'] === 'string' ? answer['message'] : statusText || `HTTP ${status}`
+  const { errors } = answer
+  return Array.isArray(errors)
+    ? { status, code, message, errors: errors as readonly ClientFieldError[] }
+    : { status, code, message }
+}
+
+const pageOrigin = (): string =>
+  typeof window === 'undefined' || typeof window.location === 'undefined'
+    ? ''
+    : window.location.origin
+
+/** How long a request may stay unanswered when the caller sets no `timeoutMs`. */
+const DEFAULT_TIMEOUT_MS = 30_000
+
+/** A signal that aborts after `ms`; none where the platform has no `AbortSignal.timeout`. */
+const timeoutSignal = (ms: number): AbortSignal | undefined =>
+  typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+    ? AbortSignal.timeout(ms)
+    : undefined
+
+/** A rejection `AbortSignal.timeout` caused, as opposed to a network failure. */
+const isTimeout = (cause: unknown): boolean =>
+  typeof cause === 'object' &&
+  cause !== null &&
+  'name' in cause &&
+  (cause.name === 'TimeoutError' || cause.name === 'AbortError')
+
+const createSend = (options: ClientOptions): Send => {
+  const call: ClientFetch = options.fetch ?? ((input, init) => fetch(input, init))
+  const base = (options.url ?? pageOrigin()).replace(/\/+$/, '')
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+    ...(options.apiKey === undefined ? {} : { 'x-api-key': options.apiKey }),
+    ...options.headers,
+  }
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  return async (method, path, body) => {
+    const signal = timeoutSignal(timeoutMs)
+    try {
+      const response = await call(`${base}${path}`, {
+        method,
+        credentials: 'include',
+        headers: body === undefined ? headers : { ...headers, 'content-type': 'application/json' },
+        body: body === undefined ? null : JSON.stringify(body),
+        ...(signal === undefined ? {} : { signal }),
+      })
+      const answer = parseBody(await response.text())
+      return response.ok
+        ? { data: answer, error: null }
+        : { data: null, error: toClientError(response.status, answer, response.statusText) }
+    } catch (cause) {
+      if (signal?.aborted === true && isTimeout(cause)) {
+        const message = `No answer within ${timeoutMs} ms`
+        return { data: null, error: { status: 0, code: 'TIMEOUT', message } }
+      }
+      const message = cause instanceof Error ? cause.message : String(cause)
+      return { data: null, error: { status: 0, code: 'NETWORK_ERROR', message } }
+    }
+  }
+}
+
+/** Map a successful answer's data, leaving an error untouched. */
+const mapData = async <T>(
+  answer: Answer<unknown>,
+  shape: (data: unknown) => unknown = (data) => data
+): Answer<T> => {
+  const result = await answer
+  return result.error === null ? { data: shape(result.data) as T, error: null } : result
+}
+
+/** `PATCH` and restore answer `{ record }`; the client answers the record itself. */
+const unwrapRecord = (data: unknown): unknown =>
+  isObject(data) && isObject(data['record']) && !('fields' in data) ? data['record'] : data
+
+/** A delete answers 204 with no body; the client answers `{ success: true }`. */
+const deleted = (data: unknown): unknown => data ?? { success: true }
+
+/** Query parameters as the list route reads them: `filter` as JSON, `fields` comma-separated. */
+export const toQueryString = (query: object = {}): string => {
+  const params = new URLSearchParams()
+  Object.entries(query).forEach(([name, value]) => {
+    if (value === undefined || value === null) return
+    if (name === 'filter') params.set(name, JSON.stringify(value))
+    else if (Array.isArray(value)) params.set(name, value.join(','))
+    else params.set(name, String(value))
+  })
+  const text = params.toString()
+  return text === '' ? '' : `?${text}`
+}
+
+const viewApi = <T extends ClientTableShape>(send: Send, path: string): ClientViewApi<T> => ({
+  list: (query) => mapData(send('GET', `${path}${toQueryString(query)}`)),
+})
+
+const batchApi = <T extends ClientTableShape>(
+  send: Send,
+  records: string
+): Pick<ClientTableApi<T>, 'createMany' | 'updateMany' | 'deleteMany' | 'upsert'> => ({
+  createMany: (rows) =>
+    mapData(
+      send('POST', `${records}/batch`, {
+        records: rows.map((fields) => ({ fields })),
+        returnRecords: true,
+      })
+    ),
+  updateMany: (rows) =>
+    mapData(send('PATCH', `${records}/batch`, { records: rows, returnRecords: true })),
+  deleteMany: (ids) => mapData(send('DELETE', `${records}/batch`, { ids })),
+  upsert: (rows, options) =>
+    mapData(
+      send('POST', `${records}/upsert`, {
+        records: rows.map((fields) => ({ fields })),
+        fieldsToMergeOn: options.mergeOn,
+        returnRecords: true,
+      })
+    ),
+})
+
+const tableApi = <T extends ClientTableShape>(send: Send, table: string): ClientTableApi<T> => {
+  const base = `/api/tables/${encodeURIComponent(table)}`
+  const records = `${base}/records`
+  const one = (id: string): string => `${records}/${encodeURIComponent(id)}`
+  return {
+    ...viewApi<T>(send, records),
+    get: (id) => mapData(send('GET', one(id))),
+    create: (fields) => mapData(send('POST', records, { fields })),
+    update: (id, fields, options = {}) =>
+      mapData(
+        send('PATCH', one(id), {
+          fields,
+          ...(options.updatedAt === undefined ? {} : { updatedAt: options.updatedAt }),
+        }),
+        unwrapRecord
+      ),
+    delete: (id) => mapData(send('DELETE', one(id)), deleted),
+    restore: (id) => mapData(send('POST', `${one(id)}/restore`), unwrapRecord),
+    ...batchApi<T>(send, records),
+    view: (id) => viewApi<T>(send, `${base}/views/${encodeURIComponent(String(id))}/records`),
+  }
+}
+
+/** Better Auth answers `{ token, user }` on sign-in and sign-up; the client answers the user. */
+const userOf = (data: unknown): unknown => (isObject(data) && 'user' in data ? data['user'] : data)
+
+const authApi = (send: Send): ClientAuthApi => ({
+  signIn: (credentials) => mapData(send('POST', '/api/auth/sign-in/email', credentials), userOf),
+  signUp: (account) => mapData(send('POST', '/api/auth/sign-up/email', account), userOf),
+  signOut: () => mapData(send('POST', '/api/auth/sign-out', {}), () => null),
+  getSession: () => mapData(send('GET', '/api/auth/get-session')),
+})
+
+/**
+ * The client for the tables `S` declares. The generated file's `createClient`
+ * calls this with the app's own table map.
+ *
+ * Throws when given an API key where `window` exists (a browser, a React Native
+ * app), before any request is sent: a key carries its creator's full role, so a
+ * key shipped in a front-end is readable by every visitor.
+ */
+export const createSovriumClient = <S extends { readonly [K in keyof S]: ClientTableShape }>(
+  options: ClientOptions = {}
+): SovriumClient<S> => {
+  if (options.apiKey !== undefined && typeof window !== 'undefined') {
+    throw new Error(
+      'createClient: an API key cannot be used in a browser or a React Native app, where every ' +
+        'visitor could read it. Sign in through `auth.signIn` there, and keep API keys for ' +
+        'server-side code.'
+    )
+  }
+  const send = createSend(options)
+  return {
+    auth: authApi(send),
+    from: (table) => tableApi(send, table),
+  }
+}

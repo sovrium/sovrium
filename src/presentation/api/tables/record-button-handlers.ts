@@ -36,26 +36,23 @@
  */
 
 import { Effect } from 'effect'
-import { EmitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { emitAuditEvent } from '@/application/use-cases/admin/audit-log-emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { runErrorAsSeenBy } from '@/application/use-cases/automations/run-admin-only-output'
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
+import { triggerResponseSchema } from '@/domain/models/api/automations/automations'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { pressDisabledResponse } from '@/presentation/api/runtime/press-disabled-response'
-import { refuseUnlistedRow } from './readable-table-gate'
 import {
-  enforceFormMutationGate,
-  passesUnguardedTableGate,
-  resolveGuardForTable,
-} from './row-level-guard'
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
+import { refuseUnlistedRow } from './readable-table-gate'
+import { formMutationGate, guardForTable, passesUnguardedTableGate } from './row-level-guard'
 import type {
   RunAutomationError,
   RunAutomationResult,
@@ -103,14 +100,15 @@ function resolveButtonAutomation(table: Table | undefined, fieldName: string): s
  * proceed. A record the presser's list of the table does not admit is refused
  * as a missing one is.
  */
-async function enforceButtonWriteGate(input: Parameters<typeof enforceButtonRoleGate>[0]) {
-  const refusal = await enforceButtonRoleGate(input)
-  if (refusal) return refusal
-  return runDomainPromise(input.c, refuseUnlistedRow(input.c, input.app, input.context.recordId))
-}
+const enforceButtonWriteGate = (input: Parameters<typeof enforceButtonRoleGate>[0]) =>
+  Effect.gen(function* () {
+    const refusal = yield* enforceButtonRoleGate(input)
+    if (refusal) return refusal
+    return yield* refuseUnlistedRow(input.c, input.app, input.context.recordId)
+  })
 
 /** The table's write grant and row-level rules on the pressed record. */
-async function enforceButtonRoleGate(input: {
+const enforceButtonRoleGate = (input: {
   readonly c: Context
   readonly app: App
   readonly table: Table | undefined
@@ -121,18 +119,19 @@ async function enforceButtonRoleGate(input: {
     readonly userRole: string
     readonly userGroups: readonly string[]
   }
-}): Promise<Response | undefined> {
-  const { c, app, table, session } = input
-  const { tableName, recordId, userRole, userGroups } = input.context
+}) =>
+  Effect.gen(function* () {
+    const { c, app, table, session } = input
+    const { tableName, recordId, userRole, userGroups } = input.context
 
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-  if (guard) {
-    return enforceFormMutationGate({ c, table, session, tableName, recordId, guard, op: 'write' })
-  }
-  return passesUnguardedTableGate(app, table, { userRole, userGroups }, 'write')
-    ? undefined
-    : notFoundResponse(c)
-}
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
+    if (guard) {
+      return yield* formMutationGate({ c, table, session, tableName, recordId, guard, op: 'write' })
+    }
+    return passesUnguardedTableGate(app, table, { userRole, userGroups }, 'write')
+      ? undefined
+      : notFoundResponse(c)
+  })
 
 /**
  * Map a run failure onto an HTTP response, mirroring the manual-trigger
@@ -179,18 +178,14 @@ const buttonResultBody = (result: RunAutomationResult, error: string | undefined
  * run never lands beside it. Emitted AFTER the run so the run id is known,
  * and only past both gates so a refusal leaves no trace to enumerate.
  */
-async function recordButtonInvocation(input: {
-  /** The request whose services resolve the actor (see `resolveActor`). */
-  readonly c: Context
+const recordButtonInvocation = (input: {
   readonly userId: string
   readonly recordId: string
   readonly metadata: Readonly<Record<string, unknown>>
   readonly succeeded: boolean
-}): Promise<void> {
-  const actor = await runDomainPromise(input.c, resolveActor(input.userId))
-  await runDomainPromise(
-    input.c,
-    EmitAuditEvent({
+}) =>
+  Effect.flatMap(resolveActor(input.userId), (actor) =>
+    emitAuditEvent({
       action: AUDIT_ACTIONS.TABLE_RECORD_BUTTON_INVOKED,
       actor,
       resourceId: input.recordId,
@@ -199,63 +194,79 @@ async function recordButtonInvocation(input: {
       metadata: input.metadata,
     })
   )
-}
 
 export async function handleInvokeRecordButton(c: Context, app: App) {
-  const { session, tableName, userRole, userGroups } = getTableContext(c)
-  const recordId = c.req.param('recordId')!
+  const { tableName } = getTableContext(c)
   const fieldName = c.req.param('fieldName')!
 
   const table = app.tables?.find((t) => t.name === tableName)
   const automationName = resolveButtonAutomation(table, fieldName)
   if (!automationName) return notFoundResponse(c)
 
-  const gateError = await enforceButtonWriteGate({
+  return runHandlerEffect(
     c,
-    app,
-    table,
-    session,
-    context: { tableName, recordId, userRole, userGroups },
-  })
-  if (gateError) return gateError
-
-  const program = runManualAutomation({
-    name: automationName,
-    app,
-    processEnv: process.env,
-    userRole,
-    // The record the button was pressed on rides in as the manual trigger's
-    // input payload, reachable from action templates as
-    // `{{trigger.data.input.recordId}}`.
-    triggerData: { input: { table: tableName, recordId, field: fieldName } },
-    userId: session.userId,
-    // Past the dispatch, write and role gates: the button's `visibleWhen`
-    // (hidden answers 404) and `disabledWhen` (409), judged on this record.
-    press: { table: tableName, recordId, control: `field:${fieldName}` },
-  })
-  const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
-
-  if (result._tag === 'Failure') return buttonRunErrorResponse(c, result.failure)
-
-  const error = runErrorAsSeenBy(app, {
-    automationName,
-    readsWhole: isAdminEquivalent(userRole, app),
-    result: result.success,
-  })
-  const body = buttonResultBody(result.success, error)
-  await recordButtonInvocation({
-    c,
-    userId: session.userId,
-    recordId,
-    metadata: {
-      table: tableName,
-      field: fieldName,
-      automation: automationName,
-      runId: result.success.runId,
-      runStatus: result.success.status,
-    },
-    succeeded: body.status !== 'failed',
-  })
-
-  return c.json(body, 200)
+    answerFailures(c, buttonPressResponse({ c, app, table, fieldName, automationName }))
+  )
 }
+
+/** Gate a press, run its automation, and record and answer it, as one program. */
+const buttonPressResponse = (input: {
+  readonly c: Context
+  readonly app: App
+  readonly table: Table | undefined
+  readonly fieldName: string
+  readonly automationName: string
+}) =>
+  Effect.gen(function* () {
+    const { c, app, table, fieldName, automationName } = input
+    const { session, tableName, userRole, userGroups } = getTableContext(c)
+    const recordId = c.req.param('recordId')!
+
+    const gateError = yield* enforceButtonWriteGate({
+      c,
+      app,
+      table,
+      session,
+      context: { tableName, recordId, userRole, userGroups },
+    })
+    if (gateError) return gateError
+
+    const result = yield* Effect.result(
+      runManualAutomation({
+        name: automationName,
+        app,
+        userRole,
+        // The record the button was pressed on rides in as the manual trigger's
+        // input payload, reachable from action templates as
+        // `{{trigger.data.input.recordId}}`.
+        triggerData: { input: { table: tableName, recordId, field: fieldName } },
+        userId: session.userId,
+        // Past the dispatch, write and role gates: the button's `visibleWhen`
+        // (hidden answers 404) and `disabledWhen` (409), judged on this record.
+        press: { table: tableName, recordId, control: `field:${fieldName}` },
+      })
+    )
+
+    if (result._tag === 'Failure') return buttonRunErrorResponse(c, result.failure)
+
+    const error = runErrorAsSeenBy(app, {
+      automationName,
+      readsWhole: isAdminEquivalent(userRole, app),
+      result: result.success,
+    })
+    const body = buttonResultBody(result.success, error)
+    yield* recordButtonInvocation({
+      userId: session.userId,
+      recordId,
+      metadata: {
+        table: tableName,
+        field: fieldName,
+        automation: automationName,
+        runId: result.success.runId,
+        runStatus: result.success.status,
+      },
+      succeeded: body.status !== 'failed',
+    })
+
+    return yield* respondWith(c, Effect.succeed(body), triggerResponseSchema)
+  })

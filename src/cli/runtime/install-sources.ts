@@ -43,7 +43,7 @@ const readOrRefuse = <A>(read: () => A): A | EnvironmentRefusal => {
 }
 
 const parseDatabaseSource = (): InstallDatabaseSource => {
-  const dialect = parseDatabaseDialectConfig()
+  const dialect = parseDatabaseDialectConfig(process.env)
   return dialect.dialect === 'postgres'
     ? { dialect: 'postgres', url: dialect.databaseUrl }
     : { dialect: 'sqlite', path: dialect.path }
@@ -55,7 +55,7 @@ export const readDatabaseSource = (): InstallDatabaseSource | EnvironmentRefusal
 
 /** The storage provider and its settings alone, or why the environment does not describe one. */
 export const readStorageConfig = (): StorageEnvConfig | EnvironmentRefusal =>
-  readOrRefuse(parseStorageEnvConfig)
+  readOrRefuse(() => parseStorageEnvConfig(process.env))
 
 /**
  * Both, the database read first: when both are wrong, the database's message
@@ -66,5 +66,5 @@ export const readInstallSources = ():
   | EnvironmentRefusal =>
   readOrRefuse(() => {
     const database = parseDatabaseSource()
-    return { database, storage: parseStorageEnvConfig() }
+    return { database, storage: parseStorageEnvConfig(process.env) }
   })

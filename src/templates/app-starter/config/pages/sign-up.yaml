@@ -1,8 +1,0 @@
-name: sign-up
-path: /sign-up
-meta:
-  title: Create your account · App starter
-  description: Create an account.
-  favicon: ./favicon.svg
-components:
-  - component: auth-sign-up

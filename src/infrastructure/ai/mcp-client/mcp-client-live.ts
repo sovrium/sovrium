@@ -14,6 +14,7 @@ import {
   type McpToolCallOutcome,
   type McpToolResult,
 } from '@/application/ports/services/mcp-client'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   parseMcpClientEnv,
   undeclaredAgentMcpServers,
@@ -320,7 +321,7 @@ export const makeMcpClientLayer = (
   Layer.effect(
     McpClient,
     Effect.gen(function* () {
-      const parsed = parseMcpClientEnv(options.env ?? process.env)
+      const parsed = parseMcpClientEnv(options.env ?? (yield* ProcessEnv))
       if (!parsed.ok) return yield* new McpClientConfigError({ message: parsed.error })
       const { servers, timeoutMs } = parsed.config
       const undeclared = undeclaredAgentMcpServers(app?.agents ?? [], servers)

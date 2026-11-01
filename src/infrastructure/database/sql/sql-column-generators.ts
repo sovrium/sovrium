@@ -7,7 +7,6 @@
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { isEmptyDateValue } from '@/domain/models/app/tables/empty-date-service'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { translateFormula } from '../formula/formula-translation'
 import {
   castFormulaDivisionOperands,
@@ -23,6 +22,7 @@ import { translatableDefaultClause } from './sql-translatable-columns'
 import { mapFieldTypeToDialect, mapFormulaResultTypeToDialect } from './sql-type-mappings'
 import { escapeSqlString } from './sql-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Format default value for SQL
@@ -50,9 +50,13 @@ const formatDefaultValue = (defaultValue: unknown): string => {
  * rewrite `NEW`, so an insert that leaves the number to the engine would be
  * refused before the trigger could assign it.
  */
-const generateSerialColumn = (fieldName: string, isPrimaryKey: boolean = false): string => {
+const generateSerialColumn = (
+  fieldName: string,
+  isPrimaryKey: boolean,
+  dialect: DatabaseDialect
+): string => {
   const column = quoteSqlIdentifier(fieldName)
-  if (isSqliteRuntime()) {
+  if (dialect === 'sqlite') {
     return isPrimaryKey ? `${column} INTEGER PRIMARY KEY AUTOINCREMENT` : `${column} INTEGER`
   }
   return isPrimaryKey ? `${column} SERIAL PRIMARY KEY` : `${column} SERIAL NOT NULL`
@@ -75,8 +79,8 @@ const generateNotNullConstraint = (
  * PostgreSQL uses a native `ARRAY[...]` literal. SQLite stores array columns
  * as JSON text, so the default is a single-quoted JSON-array string literal.
  */
-const formatArrayDefault = (defaultValue: readonly unknown[]): string => {
-  if (isSqliteRuntime()) {
+const formatArrayDefault = (defaultValue: readonly unknown[], dialect: DatabaseDialect): string => {
+  if (dialect === 'sqlite') {
     // @effect-diagnostics effect/preferSchemaOverJson:off
     return ` DEFAULT '${escapeSqlString(JSON.stringify(defaultValue))}'`
   }
@@ -93,7 +97,11 @@ const formatArrayDefault = (defaultValue: readonly unknown[]): string => {
  *   - Duration fields store a count of seconds as an `INTEGER` on both
  *     engines, so the default is the raw number (no `INTERVAL` literal).
  */
-const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): string | undefined => {
+const formatSpecialDefault = (
+  field: Fields[number],
+  defaultValue: unknown,
+  dialect: DatabaseDialect
+): string | undefined => {
   // CURRENT_DATE is portable across both dialects.
   if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'CURRENT_DATE') {
     return ' DEFAULT CURRENT_DATE'
@@ -105,7 +113,7 @@ const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): str
   // as a literal it wrote the text "now" (SQLite) or one instant frozen at
   // CREATE TABLE (PostgreSQL parses the literal once), never the write time.
   if (typeof defaultValue === 'string' && ['NOW()', 'NOW'].includes(defaultValue.toUpperCase())) {
-    return isSqliteRuntime() ? ` DEFAULT (${SQLITE_ISO_NOW})` : ' DEFAULT NOW()'
+    return dialect === 'sqlite' ? ` DEFAULT (${SQLITE_ISO_NOW})` : ' DEFAULT NOW()'
   }
   // Duration fields store a whole number of seconds on both engines.
   if (field.type === 'duration' && typeof defaultValue === 'number') {
@@ -113,7 +121,7 @@ const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): str
   }
   // Array fields (multi-select): native array literal vs JSON text.
   if (Array.isArray(defaultValue)) {
-    return formatArrayDefault(defaultValue)
+    return formatArrayDefault(defaultValue, dialect)
   }
   return undefined
 }
@@ -126,17 +134,20 @@ const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): str
  * the records-API ISO-8601 response validator, so SQLite uses the ISO-emitting
  * strftime form (mirrors `timestampDefaultClause()` for system columns).
  */
-const autoTimestampDefaultClause = (): string =>
-  isSqliteRuntime() ? ` DEFAULT (${SQLITE_ISO_NOW})` : ' DEFAULT CURRENT_TIMESTAMP'
+const autoTimestampDefaultClause = (dialect: DatabaseDialect): string =>
+  dialect === 'sqlite' ? ` DEFAULT (${SQLITE_ISO_NOW})` : ' DEFAULT CURRENT_TIMESTAMP'
 
 /**
  * Generate DEFAULT clause
  */
 /** The DEFAULT a field type implies whatever its config says, or `undefined`. */
-const typeImpliedDefaultClause = (field: Fields[number]): string | undefined => {
+const typeImpliedDefaultClause = (
+  field: Fields[number],
+  dialect: DatabaseDialect
+): string | undefined => {
   // Auto-timestamp fields (created-at, created-time, last-modified-time, …).
   if (isAutoTimestampField(field)) {
-    return autoTimestampDefaultClause()
+    return autoTimestampDefaultClause(dialect)
   }
 
   // Progress fields with required=true get DEFAULT 0 automatically
@@ -148,7 +159,7 @@ const typeImpliedDefaultClause = (field: Fields[number]): string | undefined => 
   // on insert/update). Postgres needs the `::jsonb` cast; SQLite stores JSON
   // as plain text so the bare string literal suffices.
   if (field.type === 'ai-tag') {
-    return isSqliteRuntime() ? " DEFAULT '[]'" : " DEFAULT '[]'::jsonb"
+    return dialect === 'sqlite' ? " DEFAULT '[]'" : " DEFAULT '[]'::jsonb"
   }
 
   // A `user` field's only default is `$currentUser`: the signed-in person,
@@ -164,15 +175,16 @@ const typeImpliedDefaultClause = (field: Fields[number]): string | undefined => 
   return undefined
 }
 
-const generateDefaultClause = (field: Fields[number]): string => {
+const generateDefaultClause = (field: Fields[number], dialect: DatabaseDialect): string => {
   // A translatable field's default is a map, a string default the default language's value.
-  const implied = translatableDefaultClause(field) ?? typeImpliedDefaultClause(field)
+  const implied =
+    translatableDefaultClause(field, dialect) ?? typeImpliedDefaultClause(field, dialect)
   if (implied !== undefined) return implied
 
   // Explicit default values
   if ('default' in field && field.default !== undefined) {
     const defaultValue = field.default
-    const specialDefault = formatSpecialDefault(field, defaultValue)
+    const specialDefault = formatSpecialDefault(field, defaultValue, dialect)
     if (specialDefault) {
       return specialDefault
     }
@@ -194,8 +206,11 @@ const generateDefaultClause = (field: Fields[number]): string => {
  * explicitly supplied value is still honoured. Reusing `generateDefaultClause`
  * keeps the COALESCE fallback byte-identical to the base column's own DEFAULT.
  */
-export const getColumnDefaultExpression = (field: Fields[number]): string | undefined => {
-  const clause = generateDefaultClause(field)
+export const getColumnDefaultExpression = (
+  field: Fields[number],
+  dialect: DatabaseDialect
+): string | undefined => {
+  const clause = generateDefaultClause(field, dialect)
   return clause === '' ? undefined : clause.replace(/^ DEFAULT /, '')
 }
 
@@ -227,15 +242,17 @@ const formulaEmitsPlainColumn = (
  * spelling valid on BOTH the CREATE TABLE and the schema-evolution path, so a
  * formula added to an existing table keeps computing.
  */
-const generatedColumnStorage = (): string => (isSqliteRuntime() ? 'VIRTUAL' : 'STORED')
+const generatedColumnStorage = (dialect: DatabaseDialect): string =>
+  dialect === 'sqlite' ? 'VIRTUAL' : 'STORED'
 
 const generateFormulaColumn = (
   field: Fields[number] & { readonly type: 'formula'; readonly formula: string },
-  allFields?: readonly Fields[number][]
+  allFields: readonly Fields[number][] | undefined,
+  dialect: DatabaseDialect
 ): string => {
   const baseResultType =
     'resultType' in field && field.resultType
-      ? mapFormulaResultTypeToDialect(field.resultType)
+      ? mapFormulaResultTypeToDialect(field.resultType, dialect)
       : 'TEXT'
 
   if (formulaEmitsPlainColumn(field, allFields)) {
@@ -249,18 +266,20 @@ const generateFormulaColumn = (
       ? `${baseResultType}[]`
       : baseResultType
 
-  // Translate formula to the active dialect's syntax with field type context.
+  // Translate formula to `dialect`'s syntax with field type context.
   // Note: the Postgres arm handles ROUND with double precision by casting to NUMERIC
   // and converts date::TEXT to TO_CHAR(date, 'format') which is STABLE (not IMMUTABLE).
   // The SQLite arm raises at DDL time for functions that engine does not provide.
-  const translatedFormula = translateFormula(field.formula, allFields)
+  const translatedFormula = translateFormula(dialect, field.formula, allFields)
 
   // Volatile formulas (contain CURRENT_DATE, NOW(), etc.) need trigger-based computation
   // because PostgreSQL GENERATED columns must be immutable
   // Check volatility on TRANSLATED formula since date::TEXT becomes TO_CHAR (STABLE)
   // Also check if formula is part of a formula-to-formula dependency chain - PostgreSQL
   // GENERATED columns cannot reference other generated columns
-  const triggerFields = allFields ? getFormulaFieldsNeedingTrigger(allFields) : new Set<string>()
+  const triggerFields = allFields
+    ? getFormulaFieldsNeedingTrigger(dialect, allFields)
+    : new Set<string>()
   if (isFormulaVolatile(translatedFormula) || triggerFields.has(field.name)) {
     // Create regular column - trigger will populate it
     return `${quoteSqlIdentifier(field.name)} ${resultType}`
@@ -272,9 +291,9 @@ const generateFormulaColumn = (
   // Only division operands are cast, so
   // integer-arg functions (REPEAT/CHR) and EXTRACT keywords are unaffected.
   const castFormula = allFields
-    ? castFormulaDivisionOperands(translatedFormula, allFields)
+    ? castFormulaDivisionOperands(dialect, translatedFormula, allFields)
     : translatedFormula
-  return `${quoteSqlIdentifier(field.name)} ${resultType} GENERATED ALWAYS AS (${castFormula}) ${generatedColumnStorage()}`
+  return `${quoteSqlIdentifier(field.name)} ${resultType} GENERATED ALWAYS AS (${castFormula}) ${generatedColumnStorage(dialect)}`
 }
 
 /**
@@ -294,12 +313,33 @@ const generateFormulaColumn = (
  */
 const resolveRelationshipColumnType = (
   field: Fields[number] & { readonly type: 'relationship'; readonly relatedTable: string },
-  tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined> | undefined
+  tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined> | undefined,
+  dialect: DatabaseDialect
 ): string => {
   if (tablePrimaryKeyTypes?.has(field.relatedTable)) {
-    return resolvePrimaryKeyColumnType(tablePrimaryKeyTypes.get(field.relatedTable))
+    return resolvePrimaryKeyColumnType(tablePrimaryKeyTypes.get(field.relatedTable), dialect)
   }
-  return mapFieldTypeToDialect(field)
+  return mapFieldTypeToDialect(field, dialect)
+}
+
+/**
+ * What {@link generateColumnDefinition} needs beyond the field itself.
+ *
+ * `tablePrimaryKeyTypes` maps a table name to its `primaryKey.type`, so a
+ * `relationship` field's FK column is sized to the referenced table's primary
+ * key (TEXT/UUID/BIGINT/INTEGER) instead of a hardcoded INTEGER. Omitting it
+ * keeps the INTEGER default.
+ */
+export interface ColumnDdlContext {
+  /** The engine the DDL is written for. */
+  readonly dialect: DatabaseDialect
+  /** Whether the column is the table's single-field primary key. */
+  readonly isPrimaryKey?: boolean
+  /** Every field of the table, which a formula column reads. */
+  readonly allFields?: readonly Fields[number][]
+  /** Whether the app has an auth config (affects NOT NULL on user fields). */
+  readonly hasAuthConfig?: boolean
+  readonly tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 }
 
 /**
@@ -308,37 +348,28 @@ const resolveRelationshipColumnType = (
  * NOTE: UNIQUE constraints are NOT generated inline. Named UNIQUE constraints
  * are generated at the table level via generateUniqueConstraints() to ensure
  * they appear in information_schema.table_constraints with queryable constraint names.
- *
- * @param tablePrimaryKeyTypes - Map of table name → `primaryKey.type`. Used to
- *   resolve a `relationship` field's FK column type to match the referenced
- *   table's primary-key type (TEXT/UUID/BIGINT/INTEGER) instead of a hardcoded
- *   INTEGER. Omitting it preserves the legacy INTEGER default.
  */
-/* eslint-disable max-params -- extends an existing positional DDL-generator API; bundling into an options object would churn ~10 call sites */
 export const generateColumnDefinition = (
   field: Fields[number],
-  isPrimaryKey: boolean,
-  allFields?: readonly Fields[number][],
-  hasAuthConfig: boolean = true,
-  tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
+  context: ColumnDdlContext
 ): string => {
-  /* eslint-enable max-params */
+  const { dialect, isPrimaryKey = false, allFields, hasAuthConfig = true } = context
   // SERIAL columns for auto-increment fields
   if (shouldUseSerial(field, isPrimaryKey)) {
-    return generateSerialColumn(field.name, isPrimaryKey)
+    return generateSerialColumn(field.name, isPrimaryKey, dialect)
   }
 
   // Formula fields: check if formula is volatile
   if (field.type === 'formula' && 'formula' in field && field.formula) {
-    return generateFormulaColumn(field, allFields)
+    return generateFormulaColumn(field, allFields, dialect)
   }
 
   // Relationship fields: FK column type must match the referenced table's PK type.
   const columnType =
     field.type === 'relationship' && 'relatedTable' in field && field.relatedTable
-      ? resolveRelationshipColumnType(field, tablePrimaryKeyTypes)
-      : mapFieldTypeToDialect(field)
+      ? resolveRelationshipColumnType(field, context.tablePrimaryKeyTypes, dialect)
+      : mapFieldTypeToDialect(field, dialect)
   const notNull = generateNotNullConstraint(field, isPrimaryKey, hasAuthConfig)
-  const defaultValue = generateDefaultClause(field)
+  const defaultValue = generateDefaultClause(field, dialect)
   return `${quoteSqlIdentifier(field.name)} ${columnType}${notNull}${defaultValue}`
 }

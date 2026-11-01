@@ -12,6 +12,7 @@ import {
 } from '@/domain/models/app/tables/condition-operators'
 import { ButtonSizeSchema } from '../../button-variant'
 import { ConfirmGateSchema } from '../../confirm-gate'
+import { ReadStateGateSchema } from '../../read-state-gate'
 import { ButtonVariantSchema } from '../../shared-schemas'
 import { EditSelectSchema } from '../data/table/columns'
 import { actionFields } from '../modules/action'
@@ -94,6 +95,37 @@ export const buttonFields = {
   disabledWhen: Schema.optional(DisabledWhenSchema),
   /** Why the button is disabled: its tooltip and its accessible description. */
   disabledReason: Schema.optional(DisabledReasonSchema),
+  /**
+   * Hides the button while a data component on the page is in one of the named
+   * read states, and draws it again, without a reload, once the read leaves
+   * them: a request button that must not be offered while the list beside it
+   * shows a pending request. Decided in the browser, so it is not a
+   * permission. See `read-state-gate.ts`.
+   */
+  hiddenWhenRead: Schema.optional(
+    ReadStateGateSchema.annotate({
+      title: 'Hidden When Read',
+      description:
+        'Hides the button while the named `table` or `kanban`, or those on the named shared-filter channel, are in one of the listed read states, and shows it again without a reload once a later read leaves them. A hidden button is out of the layout and of the accessibility tree. Decided in the browser after each read, so the button is still in the page: use `visibility` for who may see it. Omit to draw the button whatever its page has read.',
+      examples: [{ component: 'pending-erasures', state: ['loading', 'nonEmpty'] }],
+    })
+  ),
+  /**
+   * Disables the button while a data component on the page is in one of the
+   * named read states: a toolbar's New record over a grid whose read failed.
+   * Drawn and focusable, marked `aria-disabled`, and pressing it does nothing,
+   * as under `disabledWhen`; enabled again, without a reload, once a later read
+   * leaves the states. Independent of `disabledWhen`, which is judged on the
+   * record: the button is disabled while either holds.
+   */
+  disabledWhenRead: Schema.optional(
+    ReadStateGateSchema.annotate({
+      title: 'Disabled When Read',
+      description:
+        'Disables the button while the named `table` or `kanban`, or those on the named shared-filter channel, are in one of the listed read states. The button stays drawn and focusable, is marked disabled, and pressing it does nothing; a later read that leaves those states enables it again without a reload. Combines with `disabledWhen`: the button is disabled while either holds. Omit to keep the button usable whatever its page has read.',
+      examples: [{ channel: 'quotes', state: 'failed' }],
+    })
+  ),
   /**
    * A pre-filled picker between the press and the `action`, for a button drawn
    * on a record: the same `editSelect` a table row action takes. Pressing the

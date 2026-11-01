@@ -77,7 +77,7 @@ export const DEFAULT_SV_LIGHT_VALUES: Readonly<Record<string, string>> = {
   'success-950': 'oklch(0.266 0.065 152.934)',
   'success-bg': 'oklch(0.962 0.044 156.743)',
   'success-border': 'oklch(0.871 0.15 154.449)',
-  'success-fg': 'oklch(0.527 0.154 150.069)',
+  'success-fg': 'oklch(0.49 0.14 150.069)',
   'success-solid': 'oklch(0.627 0.194 149.214)',
   'success-solid-fg': 'oklch(0.985 0 0)',
   'warning-100': 'oklch(0.962 0.059 95.617)',
@@ -88,7 +88,7 @@ export const DEFAULT_SV_LIGHT_VALUES: Readonly<Record<string, string>> = {
   'warning-950': 'oklch(0.279 0.077 45.635)',
   'warning-bg': 'oklch(0.962 0.059 95.617)',
   'warning-border': 'oklch(0.879 0.169 91.605)',
-  'warning-fg': 'oklch(0.555 0.163 48.998)',
+  'warning-fg': 'oklch(0.53 0.155 48.998)',
   'warning-solid': 'oklch(0.769 0.188 70.08)',
   'warning-solid-fg': 'oklch(0.279 0.077 45.635)',
 }
@@ -115,7 +115,7 @@ export const DEFAULT_SHADCN_LIGHT_VALUES: Readonly<Record<string, string>> = {
   destructive: 'oklch(0.5 0.245 27.325)',
   border: 'oklch(0.922 0 0)',
   input: 'oklch(0.65 0 0)',
-  ring: 'oklch(0.708 0 0)',
+  ring: 'oklch(0.556 0 0)',
   'chart-1': '#d4d4d4',
   'chart-2': '#737373',
   'chart-3': '#525252',
@@ -129,7 +129,7 @@ export const DEFAULT_SHADCN_LIGHT_VALUES: Readonly<Record<string, string>> = {
   'sidebar-accent': 'oklch(0.97 0 0)',
   'sidebar-accent-foreground': 'oklch(0.205 0 0)',
   'sidebar-border': 'oklch(0.922 0 0)',
-  'sidebar-ring': 'oklch(0.708 0 0)',
+  'sidebar-ring': 'oklch(0.556 0 0)',
 }
 
 /** The same variables in the DARK scheme. */

@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { locatedObjectNodes } from '@/domain/kernel/config-parsing/config-node-walk'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Component keys that may not be declared together, and the message that says
  * which one the author has to drop.
@@ -68,6 +71,21 @@ interface KeyPairRule {
    * on by itself, so with it neither of the two is required.
    */
   readonly unlessKey?: string
+  /**
+   * An XOR rule only: the shape of the pair that is NOT a conflict, because
+   * the two keys then answer different questions.
+   */
+  readonly allows?: (node: Readonly<Record<string, unknown>>) => boolean
+}
+
+/** A `dataSource` reading ONE row of a table — a record to iterate, not rows to clone. */
+const bindsOneTableRecord = (node: Readonly<Record<string, unknown>>): boolean => {
+  const { dataSource } = node
+  return (
+    isRecord(dataSource) &&
+    typeof dataSource['table'] === 'string' &&
+    dataSource['mode'] === 'single'
+  )
 }
 
 const XOR_RULES: readonly KeyPairRule[] = [
@@ -81,7 +99,8 @@ const XOR_RULES: readonly KeyPairRule[] = [
     type: 'container',
     keys: ['repeat', 'dataSource'],
     explanation:
-      'Both name the rows this container draws, and they answer from opposite places: `repeat` iterates an array the BOUND RECORD already carries, while `dataSource` issues a READ and clones the children per row of the result. Nothing decides between them, so one would be applied and the other dropped in silence. Remove whichever you did not mean: drop `dataSource` to iterate the record you already have, or drop `repeat` to fetch rows of your own.',
+      'Both name the rows this container draws, and they answer from opposite places: `repeat` iterates an array the BOUND RECORD already carries, while `dataSource` issues a READ and clones the children per row of the result. Nothing decides between them, so one would be applied and the other dropped in silence. Remove whichever you did not mean: drop `dataSource` to iterate the record you already have, or drop `repeat` to fetch rows of your own. A `dataSource` of `{ table, mode: single }` reads one record and may sit beside `repeat`, which then iterates that record.',
+    allows: bindsOneTableRecord,
   },
   {
     type: 'graph',
@@ -152,9 +171,6 @@ const XOR_RULES: readonly KeyPairRule[] = [
 ]
 
 /** Is this a plain object (and not an array)? */
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 /**
  * Every rule this node breaks, as finished messages.
  *
@@ -168,7 +184,8 @@ const brokenRulesAt = (node: Readonly<Record<string, unknown>>, path: string): r
     (rule) =>
       node['type'] === rule.type &&
       node[rule.keys[0]] !== undefined &&
-      node[rule.keys[1]] !== undefined
+      node[rule.keys[1]] !== undefined &&
+      rule.allows?.(node) !== true
   ).map(
     (rule) =>
       `${path}: a \`${rule.type}\` declares both \`${rule.keys[0]}\` and \`${rule.keys[1]}\`, which are mutually exclusive. ${rule.explanation}`
@@ -518,39 +535,29 @@ const brokenRequiredKeyRulesAt = (
     : []
 
 /**
- * Walk every node of the config, depth-first, collecting rule breaks.
+ * Every node of the config, depth-first, with the rule breaks found at each.
  *
  * Declared below all five rule families so the file reads in the order it runs:
  * every `broken*RulesAt` it names is already in hand. A sixth family is one more
  * line here and one more section above.
  *
- * `here` is the node's own location, named once. The child path below is a
- * DIFFERENT expression — it appends the key rather than falling back to the root
- * label — so the two ternaries are not the same one repeated.
+ * `here` is the node's own location, the root named `config`; the nodes and
+ * their paths come from `kernel/config-parsing/config-node-walk.ts`, the one structural walk.
  */
-const walk = (
-  value: unknown,
-  path: string,
-  tables: readonly DeclaredTable[]
-): readonly string[] => {
-  if (Array.isArray(value))
-    return value.flatMap((item, index) => walk(item, `${path}[${index}]`, tables))
-  if (!isRecord(value)) return []
-  const here = path === '' ? 'config' : path
-  return [
-    ...brokenRulesAt(value, here),
-    ...brokenMineRulesAt(value, here, tables),
-    ...brokenRequiredKeyRulesAt(value, here),
-    ...brokenLengthRulesAt(value, here),
-    ...brokenOrderRulesAt(value, here),
-    ...brokenMembershipRulesAt(value, here),
-    ...brokenArmConflictRulesAt(value, here),
-    ...brokenOneOfRulesAt(value, here),
-    ...Object.entries(value).flatMap(([key, child]) =>
-      walk(child, path === '' ? key : `${path}.${key}`, tables)
-    ),
-  ]
-}
+const walk = (value: unknown, path: string, tables: readonly DeclaredTable[]): readonly string[] =>
+  locatedObjectNodes(value, path).flatMap(({ node, path: at }) => {
+    const here = at === '' ? 'config' : at
+    return [
+      ...brokenRulesAt(node, here),
+      ...brokenMineRulesAt(node, here, tables),
+      ...brokenRequiredKeyRulesAt(node, here),
+      ...brokenLengthRulesAt(node, here),
+      ...brokenOrderRulesAt(node, here),
+      ...brokenMembershipRulesAt(node, here),
+      ...brokenArmConflictRulesAt(node, here),
+      ...brokenOneOfRulesAt(node, here),
+    ]
+  })
 
 /**
  * Every mutually-exclusive key pair the config declares together.

@@ -7,12 +7,16 @@
 
 import {
   classifyDriverFailure,
-  CONSTRAINT_MESSAGES,
   type CallerInputRejectionClass,
-  type ConstraintViolationClass,
 } from '@/domain/errors/driver-failure'
 import { transactionConflictOf } from '@/domain/errors/transaction-conflict-error'
+import { NOT_FOUND_ERROR, NOT_FOUND_MESSAGE } from '@/domain/models/api/error'
 import { logDebug } from '@/infrastructure/logging/logger'
+import {
+  constraintAnswer,
+  VALUE_REFUSAL_ANSWERS,
+  type AnsweredFieldError,
+} from './error-sanitizer-answers'
 import { DEFAULT_SANITIZER_LOG, logAnsweredError, type SanitizerLog } from './error-sanitizer-log'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 
@@ -55,8 +59,16 @@ export interface SanitizedError {
    * decoder handles a rule refused ahead of the write and a rule refused BY
    * the write alike.
    */
-  readonly errors?: readonly { readonly field: string; readonly message: string }[]
+  readonly errors?: readonly AnsweredFieldError[]
+  /** The table's business rule a refused write broke; every one is listed in `errors`. */
+  readonly rule?: string
+  /** Overrides its code's status (a malformed field value: 422); read via {@link statusOf}. */
+  readonly status?: ContentfulStatusCode
 }
+
+/** The status a sanitized answer is sent with. */
+export const statusOf = (answer: SanitizedError): ContentfulStatusCode =>
+  answer.status ?? getStatusCode(answer.code)
 
 /**
  * Check if error indicates "not found".
@@ -92,7 +104,7 @@ export function isNotFoundError(error: unknown): boolean {
  * The narrower type was a false claim about the runtime: `ValidationError`
  * carries `{ record, field, error }[]`, and an unchecked cast let that object
  * array flow straight into a response whose published OpenAPI contract declares
- * `details: z.array(z.string())` (`domain/models/api/combinators/error.ts:67`).
+ * `details: z.array(z.string())` (`domain/models/api/error.ts:67`).
  *
  * Typing it honestly is what forces the projection below to exist. Do not narrow
  * it back — the compiler was the only thing that could have caught this, and the
@@ -176,7 +188,16 @@ function extractActualError(error: unknown): ErrorObject {
 }
 
 /** Map tagged error to sanitized response */
+/** The one 404 answer: a denial, a missing row and a missing table read alike (S1). */
+const NOT_FOUND_ANSWER = {
+  error: NOT_FOUND_ERROR,
+  code: 'NOT_FOUND',
+  message: NOT_FOUND_MESSAGE,
+} as const satisfies SanitizedError
+
 function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedError | undefined {
+  const valueRefusal = VALUE_REFUSAL_ANSWERS[errorTag]
+  if (valueRefusal !== undefined) return valueRefusal(actualError)
   switch (errorTag) {
     case 'ForbiddenError':
       // S1 anti-enumeration: authorization denials are returned as 404 so the
@@ -184,11 +205,7 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
       // All ForbiddenError throw sites in src/ are authz-related (verified by
       // domain/errors/index.ts docstring and audit of throw sites in
       // application/use-cases/tables/table-operations.ts).
-      return {
-        error: 'Not Found',
-        code: 'NOT_FOUND',
-        message: 'Resource not found',
-      }
+      return NOT_FOUND_ANSWER
     // A filter operator no compiler knows: the caller's mistake, named in its message.
     case 'UncompilableFilterOperatorError':
     case 'ValidationError':
@@ -212,45 +229,11 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
       return constraintAnswer('unique', actualError)
     case 'NotFoundError':
     case 'TableNotFoundError':
-      return {
-        error: 'Not Found',
-        code: 'NOT_FOUND',
-        message: 'Resource not found',
-      }
+      return NOT_FOUND_ANSWER
     default:
       return undefined
   }
 }
-
-/**
- * TOTAL constraint-class → wire-code table.
- *
- * `satisfies Record<ConstraintViolationClass, ErrorCode>` is the point: adding
- * a constraint class breaks THIS table at compile time, forcing an explicit
- * status decision instead of letting the new class fall through to whatever
- * the last heuristic happened to match.
- *
- * `foreign-key` and `not-null` join `check` on `VALIDATION_ERROR`: all three
- * mean "the database rejected the caller's VALUE against a declared rule about
- * that value", so all three are caller error. `unique` and `still-referenced`
- * (a delete of a row others still link to) answer `CONFLICT`: a clash with
- * existing state rather than malformed input.
- *
- * `not-null` had been left at `INTERNAL_ERROR`. A caller who sends an explicit
- * `null` for a field the config declares required passes the request-level
- * required-field check — which only looks for an ABSENT key — and is rejected by
- * the column instead, so the write answered 500 on both dialects. That is wrong
- * twice over: the caller is told the server broke when their own input was at
- * fault, and an ordinary bad request raises an alertable error for the operator.
- * The batch write path already answered 400 for it, so the two paths agree.
- */
-const CONSTRAINT_ERROR_CODES = {
-  unique: 'CONFLICT',
-  check: 'VALIDATION_ERROR',
-  'foreign-key': 'VALIDATION_ERROR',
-  'still-referenced': 'CONFLICT',
-  'not-null': 'VALIDATION_ERROR',
-} satisfies Record<ConstraintViolationClass, ErrorCode>
 
 /**
  * TOTAL caller-input-rejection → wire-message table.
@@ -285,30 +268,6 @@ const SANITIZED_ERROR_TITLES = {
   VALIDATION_ERROR: 'Validation Error',
   INTERNAL_ERROR: 'Internal Server Error',
 } satisfies Partial<Record<ErrorCode, string>>
-
-/**
- * The answer to a constraint rejection of the caller's value.
- *
- * The offending column is named when the write path could attribute it to one
- * the caller actually submitted. Read structurally rather than by class so any
- * producer that recovers a column surfaces it the same way; absent means "not
- * attributed", and the class-level wording answers alone. Never derived from
- * the driver's own text — `message` is the client-safe constant the class always
- * answers with, so nothing here can echo the constraint name, the CHECK
- * expression, or the caller's bound values (standing rule S4).
- */
-function constraintAnswer(violation: ConstraintViolationClass, error: unknown): SanitizedError {
-  const code = CONSTRAINT_ERROR_CODES[violation]
-  const message = CONSTRAINT_MESSAGES[violation]
-  const { fieldName } = (error ?? {}) as { readonly fieldName?: unknown }
-  const field = typeof fieldName === 'string' && fieldName.length > 0 ? fieldName : undefined
-  return {
-    error: SANITIZED_ERROR_TITLES[code],
-    code,
-    message,
-    ...(field ? { field, errors: [{ field, message }] } : {}),
-  }
-}
 
 /**
  * A sanitized answer and, when the request was refused because of the
@@ -374,7 +333,7 @@ function classifyError(error: unknown): ClassifiedAnswer {
   // Not-found patterns (access denied included, so existence never leaks).
   // Matched on message text, which may hide a server fault: error-level log.
   if (isNotFoundError(error)) {
-    return serverSide({ error: 'Not Found', code: 'NOT_FOUND', message: 'Resource not found' })
+    return serverSide(NOT_FOUND_ANSWER)
   }
   // Generic internal error (no details leaked to prevent information disclosure)
   return serverSide(INTERNAL_ERROR)
@@ -404,7 +363,7 @@ export function sanitizeError(
   log: SanitizerLog = DEFAULT_SANITIZER_LOG
 ): SanitizedError {
   const { answer, callerSide } = classifyError(error)
-  const answered = `${getStatusCode(answer.code)} ${answer.code}`
+  const answered = `${statusOf(answer)} ${answer.code}`
   logAnsweredError({ error, requestId, answered, callerSide }, log)
   return answer
 }

@@ -77,7 +77,7 @@ export const graphFields = {
     Schema.Array(GraphColumnSchema)
       .annotate({
         description:
-          'The drawing’s columns, in left-to-right order. Every node the bound graph returns is placed into the FIRST column whose `kinds` admit it; a node no column admits is not drawn, and an edge is drawn only when both its endpoints were. Declared empty is refused — see the check below.',
+          'The drawing’s columns, in left-to-right order. Every node the bound graph returns is placed into the FIRST column whose `kinds` admit it; a node no column admits is not drawn, and an edge is drawn only when both its endpoints were. Declared empty is refused; see the check below.',
       })
       .pipe(Schema.check(Schema.isMinLength(1)))
   ),

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeHtmlDoubleQuotedAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { SHADCN_COLOR_ROLES } from '@/domain/models/app/design/inherited-tokens'
 import type { DesignSystemDocument } from '@/domain/models/api/admin/design-system/design-system'
 
@@ -120,9 +121,6 @@ export const coverBlocks = (document: DesignSystemDocument): readonly string[] =
   const brand = names.filter(isBrandColour).slice(0, MAX_BRAND_BLOCKS)
   return [...new Set(['primary', ...brand, ...NEUTRAL_BLOCKS])].slice(0, BLOCK_COUNT)
 }
-
-const escapeHtml = (text: string): string =>
-  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 /** Where one block sits on the canvas, and the token it is filled with. */
 interface Block {
@@ -268,15 +266,15 @@ export const coverPreview = (appName: string, document: DesignSystemDocument): s
   return [
     `<!-- @dsCard height=${skeleton.height} -->`,
     `<div id="root" style="position:relative;width:${CANVAS_WIDTH}px;height:${skeleton.height}px;overflow:hidden;font-family:var(--font-sans, system-ui, sans-serif);color:var(--foreground);background:var(--background)">`,
-    `  <svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS_WIDTH}" height="${skeleton.svgHeight}" viewBox="0 0 ${CANVAS_WIDTH} ${skeleton.svgHeight}" style="position:absolute;top:0;left:0;display:block" role="img" aria-label="${escapeHtml(appName)}">`,
+    `  <svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS_WIDTH}" height="${skeleton.svgHeight}" viewBox="0 0 ${CANVAS_WIDTH} ${skeleton.svgHeight}" style="position:absolute;top:0;left:0;display:block" role="img" aria-label="${escapeHtmlDoubleQuotedAttribute(appName)}">`,
     '    <!--',
     ...skeleton.derivation.map((line) => `      ${line}`),
     '    -->',
     ...skeleton.blocks.map(rect),
     '  </svg>',
     `  <div style="position:absolute;left:${INSET}px;bottom:${INSET}px;max-width:${skeleton.textZone}px">`,
-    `    <p style="margin:0;font-size:${skeleton.name.size}px;line-height:${NAME_LEADING};font-weight:600;letter-spacing:-0.02em">${escapeHtml(appName)}</p>`,
-    `    <p style="margin:${TAGLINE_GAP}px 0 0;font-size:${TAGLINE_SIZE}px;line-height:${TAGLINE_HEIGHT}px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(identitySentence(appName))}</p>`,
+    `    <p style="margin:0;font-size:${skeleton.name.size}px;line-height:${NAME_LEADING};font-weight:600;letter-spacing:-0.02em">${escapeHtmlDoubleQuotedAttribute(appName)}</p>`,
+    `    <p style="margin:${TAGLINE_GAP}px 0 0;font-size:${TAGLINE_SIZE}px;line-height:${TAGLINE_HEIGHT}px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtmlDoubleQuotedAttribute(identitySentence(appName))}</p>`,
     '  </div>',
     '</div>',
     '',

@@ -56,8 +56,8 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * The config families that view walks, in the order `AppSchema`
@@ -99,7 +99,7 @@ export const configDeclarationSchema = Schema.Struct({
   family: configDeclarationFamilySchema,
   label: Schema.String.annotate({
     description:
-      "The declaration's identifier — its `path` when it has one, else its `name`. Verbatim from the operator's config.",
+      "The declaration's identifier: its `path` when it has one, else its `name`. Verbatim from the operator's config.",
   }),
   detail: optionalField(
     Schema.String.annotate({
@@ -123,7 +123,7 @@ export type ConfigDeclaration = typeof configDeclarationSchema.Type
 export const configDeclarationsResponseSchema = Schema.Struct({
   declarations: Schema.Array(configDeclarationSchema).annotate({
     description:
-      "The declarations, in the config's own order — the operator's grouping is information. Narrowed to one family when the `family` param is present.",
+      "The declarations, in the config's own order, because the operator's grouping is information. Narrowed to one family when the `family` param is present.",
   }),
   total: Schema.Finite.annotate({
     description: 'How many declarations match this request.',
@@ -145,7 +145,7 @@ export type ConfigDeclarationsResponse = typeof configDeclarationsResponseSchema
 export const configReflectionResponseSchema = Schema.Struct({
   appJson: Schema.String.annotate({
     description:
-      'The REDACTED running configuration, serialized with two-space indentation. What an operator pastes into a bug report or diffs against git by hand. A mechanical serialization of the object `/api/admin/config/schema` already publishes — the console cannot produce it, having no JSON.stringify.',
+      'The REDACTED running configuration, serialized with two-space indentation. What an operator pastes into a bug report or diffs against git by hand. A mechanical serialization of the object `/api/admin/config/schema` already publishes. The console cannot produce it, having no JSON.stringify.',
   }),
   declarationCount: Schema.Finite.annotate({
     description:
@@ -161,7 +161,7 @@ export const configReflectionResponseSchema = Schema.Struct({
   startsLabel: optionalField(
     Schema.String.annotate({
       description:
-        'How many starts the boot ledger records, as one phrase in the operator’s language — the rows `GET /api/admin/releases` answers, as its `total` counts them: `18 starts`, `1 start` in English, `18 démarrages`, `1 démarrage` in French. Carried here because this read is the changelog page’s own record, so the count can stand beside the page title. The language is the operator’s own — their account language, else the `sovrium_language` preference — and English otherwise.',
+        'How many starts the boot ledger records, as one phrase in the operator’s language: the rows `GET /api/admin/releases` answers, as its `total` counts them: `18 starts`, `1 start` in English, `18 démarrages`, `1 démarrage` in French. Carried here because this read is the changelog page’s own record, so the count can stand beside the page title. The language is the operator’s own: their account language, else the `sovrium_language` preference, else English.',
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   generatedAt: looseIsoDateTime({

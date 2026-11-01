@@ -46,3 +46,35 @@ export const markdownFileDeclarations = (
  */
 export const missingMarkdownFileWarning = (declaration: MarkdownFileDeclaration): string =>
   `The page "${declaration.page}" reads its markdown from ${declaration.file}, which does not exist — the page is served without its body.`
+
+/** A page that reads its articles from the directory its `contentDir` names. */
+export interface ContentDirDeclaration {
+  /** The page's position in `pages`, the way a config path names it. */
+  readonly index: number
+  readonly page: string
+  readonly directory: string
+}
+
+/** The slice of a page {@link contentDirDeclarations} reads. */
+interface ContentDirPage {
+  readonly name: string
+  readonly contentDir?: { readonly directory: string }
+}
+
+/** Every page whose articles are read from a `contentDir` directory, with its position. */
+export const contentDirDeclarations = (
+  pages: ReadonlyArray<ContentDirPage> | undefined
+): readonly ContentDirDeclaration[] =>
+  (pages ?? []).flatMap((page, index) =>
+    typeof page.contentDir?.directory === 'string'
+      ? [{ index, page: page.name, directory: page.contentDir.directory }]
+      : []
+  )
+
+/**
+ * The warning for a `contentDir` whose directory does not exist: one line naming
+ * the page by its position and the directory, said the same way by
+ * `sovrium validate` and `sovrium bundle`.
+ */
+export const missingContentDirWarning = (declaration: ContentDirDeclaration): string =>
+  `pages[${declaration.index}].contentDir.directory ${declaration.directory} does not exist: every address of the page "${declaration.page}" answers 404 until it is created.`

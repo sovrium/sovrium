@@ -81,6 +81,7 @@ import type { AdminReleaseEngineMigration } from '@/domain/models/api/admin/rele
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import type { Database } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * How many rows one app's ledger retains.
@@ -162,7 +163,7 @@ const priorTables = (snapshot: Snapshot | undefined): readonly PriorTable[] | un
 const engineMigrationsSince = (
   dialect: DatabaseDialectConfig['dialect'],
   since: Readonly<Date> | undefined
-): Effect.Effect<readonly AdminReleaseEngineMigration[], never> =>
+): Effect.Effect<readonly AdminReleaseEngineMigration[], never, Database> =>
   Effect.gen(function* () {
     const folder = yield* resolveMigrationsFolder(dialect === 'sqlite' ? 'sqlite' : 'pg')
     const shipped = new Map(
@@ -203,6 +204,7 @@ interface LedgerRowInput {
   readonly configHash: string
   readonly engineVersion: string
   readonly engineMigrations: readonly AdminReleaseEngineMigration[]
+  readonly dialect: DatabaseDialectConfig['dialect']
 }
 
 /**
@@ -223,12 +225,13 @@ const buildLedgerRow = (input: LedgerRowInput): NewBootLedgerEntry => {
   const diff = diffSnapshots(previous?.snapshot, redactedSnapshot)
   // The instant the server answers "now" at: the pinned `SOVRIUM_DEV_CLOCK` on a
   // development server, so the ledger agrees with every other date it shows.
-  const bootedAt = new Date(serverNow().getTime())
+  const bootedAt = new Date(serverNow(process.env).getTime())
 
   const derivedDdl = deriveConfigDdl({
     previousTables: priorTables(previous?.snapshot),
     currentTables: (app.tables ?? []) as readonly Table[],
     hasAuthConfig: app.auth !== undefined,
+    dialect: input.dialect,
   }).map((entry) => ({ ...entry, appliedAt: bootedAt.toISOString() }))
 
   const payload = {
@@ -272,7 +275,7 @@ const buildLedgerRow = (input: LedgerRowInput): NewBootLedgerEntry => {
 export const captureBootLedgerEntry = (
   app: App,
   dialectConfig: DatabaseDialectConfig
-): Effect.Effect<void, never, BootLedgerRepository> =>
+): Effect.Effect<void, never, BootLedgerRepository | Database> =>
   Effect.gen(function* () {
     const ledger = yield* BootLedgerRepository
     const appName = app.name
@@ -310,6 +313,7 @@ export const captureBootLedgerEntry = (
         configHash,
         engineVersion,
         engineMigrations,
+        dialect: dialectConfig.dialect,
       })
     )
 

@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // The mark, as rows a page can draw
@@ -29,7 +29,7 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
  */
 export const brandMarkRenderingSchema = Schema.Struct({
   variant: Schema.Literals(['light', 'dark']).annotate({
-    description: 'Which ink this file carries — the scheme it is drawn for',
+    description: 'Which ink this file carries: the scheme it is drawn for',
   }),
   src: Schema.String.annotate({
     description: 'The file as declared: a path or a URL, verbatim, never resolved',
@@ -68,7 +68,7 @@ export const brandMarkRenderingSchema = Schema.Struct({
   // logos.
   alt: Schema.String.annotate({
     description:
-      'The mark’s accessible name, as declared at `design.logo.alt`. Always present — a rendering row exists only where a mark does, and `design.logo.alt` is required. The same value on both inks: they are two renderings of one mark.',
+      'The mark’s accessible name, as declared at `design.logo.alt`. Always present: a rendering row exists only where a mark does, and `design.logo.alt` is required. The same value on both inks: they are two renderings of one mark.',
     examples: ['Quire'],
   }),
 }).annotate({
@@ -112,12 +112,12 @@ export const brandMarkRenderingSchema = Schema.Struct({
 export const brandMarkFactSchema = Schema.Struct({
   key: Schema.Literals(['alt', 'clearSpace', 'minWidth']).annotate({
     description:
-      'Which fact this row carries — the last segment of its own `design.logo` address, so a page printing it names the key an author would change',
+      'Which fact this row carries: the last segment of its own `design.logo` address, so a page printing it names the key an author would change',
   }),
   value: optionalField(
     Schema.String.annotate({
       description:
-        'The declared value, verbatim. ABSENT when this fact is not declared — a row printing an empty value reads as a rendering failure.',
+        'The declared value, verbatim. ABSENT when this fact is not declared, because a row printing an empty value reads as a rendering failure.',
       examples: ['Leave clear space equal to the height of the mark', '96px'],
     })
   ),
@@ -127,7 +127,7 @@ export const brandMarkFactSchema = Schema.Struct({
   }),
   declared: Schema.Boolean.annotate({
     description:
-      'Whether this fact is declared. The GATE a row template reads, where `value` is the printed content — deriving either from the other needs an `if` no config page has.',
+      'Whether this fact is declared. The GATE a row template reads, where `value` is the printed content. Deriving either from the other needs an `if` no config page has.',
   }),
 }).annotate({
   strictKeys: true,
@@ -165,7 +165,7 @@ export const brandFacetResponseSchema = Schema.Struct({
   total: Schema.Int.annotate({ description: 'How many renderings this response carries' }),
   declared: Schema.Boolean.annotate({
     description:
-      'Whether the app declares a mark at all. There is no platform default logo, so this is the whole of the provenance question — no `inherited` case exists.',
+      'Whether the app declares a mark at all. There is no platform default logo, so this is the whole of the provenance question: no `inherited` case exists.',
   }),
   state: Schema.Literals(['config', 'example']).annotate({
     description:
@@ -173,7 +173,7 @@ export const brandFacetResponseSchema = Schema.Struct({
   }),
   facts: Schema.Array(brandMarkFactSchema).annotate({
     description:
-      'The mark’s accessible name and geometry, as ROWS — one per fact, in `design.logo` declaration order, always all three. See the row contract for why they are rows and why none is ever filtered out.',
+      'The mark’s accessible name and geometry, as ROWS: one per fact, in `design.logo` declaration order, always all three. See the row contract for why they are rows and why none is ever filtered out.',
   }),
 }).annotate({
   strictKeys: true,

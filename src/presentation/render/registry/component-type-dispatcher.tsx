@@ -13,7 +13,11 @@ import {
 import { exportNodeIdOf } from '@/domain/models/app/pages/node-identity'
 import * as Renderers from '../elements'
 import { COMPONENT_REGISTRY } from './component-registry'
-import type { ComponentDispatchConfig } from './component-dispatch-config'
+import type {
+  ComponentDispatchConfig,
+  ComponentRenderer,
+  DispatchableComponentType,
+} from './component-dispatch-config'
 
 /**
  * Dispatch component rendering based on type using registry pattern
@@ -35,10 +39,21 @@ export function dispatchComponentType(config: ComponentDispatchConfig): ReactEle
   )
 }
 
-/** Draw one component with its type's renderer. */
-function drawComponentType(config: ComponentDispatchConfig): ReactElement | null {
+/**
+ * Draw one component with its type's renderer.
+ *
+ * Generic in the type drawn, so the registry hands back the renderer typed for
+ * THAT type and the config reaches it typed the same way: the renderer reads its
+ * own branch of the component union, which the boot decode of the app config
+ * already proved the component is a member of. This is the one place a
+ * component is narrowed to its type for drawing; it adds no runtime check, and
+ * an unknown type keeps its answer below.
+ */
+function drawComponentType<K extends DispatchableComponentType>(
+  config: ComponentDispatchConfig<K>
+): ReactElement | null {
   // Registry lookup replaces giant switch statement
-  const renderer = COMPONENT_REGISTRY[config.type]
+  const renderer: ComponentRenderer<K> | undefined = COMPONENT_REGISTRY[config.type]
   if (renderer) {
     return renderer(config)
   }

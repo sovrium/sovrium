@@ -14,6 +14,7 @@ import {
   UserPresenceRepository,
   type UserPresenceDatabaseError,
 } from '@/application/ports/repositories/auth/user-presence-repository'
+import { isIssuedAvatarUrl } from '@/domain/models/app/auth/avatar-url'
 
 /** Date her last-seen time to now: her last realtime connection has just closed. */
 export const recordLastSeenProgram = (
@@ -48,3 +49,36 @@ export const typingNameOfProgram = (
     const name = contact?.name.trim() ?? ''
     return name === '' ? undefined : name
   }).pipe(Effect.withSpan('auth.typing-name-of'))
+
+/** What a presence entry shows of her: a display name, and an avatar URL when she has one. */
+export interface PresenceProfile {
+  readonly name: string
+  readonly avatarUrl: string | undefined
+}
+
+/**
+ * Her presence profile: her account's name, or `'User'` when it is empty or
+ * she has no account — presence never blanks out a connected colleague.
+ *
+ * The avatar is kept only when it is a URL this instance issued. Presence is
+ * the one reader whose value reaches an actual `<img src>` in somebody ELSE's
+ * browser (`presence-indicator-island.tsx`), so an off-origin URL here is a
+ * tracking pixel that leaks every viewer's IP and user-agent to whoever the
+ * pictured user named. New writes can no longer set one — the auth `before`
+ * hook refuses them — but a row written before that guard existed can still
+ * hold anything, so the render path checks rather than trusts. An
+ * unrecognised value degrades to the initials avatar, which is what a user
+ * with no avatar already gets.
+ */
+export const presenceProfileOfProgram = (
+  userId: string
+): Effect.Effect<PresenceProfile, AuthDatabaseError, AuthRepository> =>
+  Effect.gen(function* () {
+    const repo = yield* AuthRepository
+    const row = yield* repo.findUserProfileById(userId)
+    const name = row?.name ?? ''
+    return {
+      name: name.length > 0 ? name : 'User',
+      avatarUrl: isIssuedAvatarUrl(row?.image) ? row.image : undefined,
+    }
+  }).pipe(Effect.withSpan('auth.presence-profile-of'))

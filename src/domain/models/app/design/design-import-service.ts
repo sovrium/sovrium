@@ -45,6 +45,7 @@
 
 import { Schema } from 'effect'
 import { srgbHex } from '@/domain/kernel/color/color-contrast'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { alphaHexByte, printNumber, pxToRem } from './adapters/adapter-units'
 import {
   kebabSegment,
@@ -98,15 +99,12 @@ interface Proposal {
 
 type Placement = { readonly placed: readonly Proposal[] } | { readonly unmapped: ImportUnmapped }
 
-const isObject = (value: unknown): value is JsonObject =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 /**
  * A leaf's value, read through own keys only: a token named `constructor` must
  * find nothing rather than `Object`, or it would compare against a function.
  */
 const getIn = (root: unknown, path: readonly string[]): unknown =>
-  path.reduce<unknown>((node, key) => (isObject(node) ? ownValue(node, key) : undefined), root)
+  path.reduce<unknown>((node, key) => (isRecord(node) ? ownValue(node, key) : undefined), root)
 
 /** A string-keyed table read by a name the source chose, own keys only. */
 const lookup = <T>(table: Readonly<Record<string, T>>, key: string): T | undefined =>
@@ -118,7 +116,7 @@ const setIn = (root: JsonObject, path: readonly string[], value: unknown): JsonO
   const child = ownValue(root, head)
   return {
     ...root,
-    [head]: rest.length === 0 ? value : setIn(isObject(child) ? child : {}, rest, value),
+    [head]: rest.length === 0 ? value : setIn(isRecord(child) ? child : {}, rest, value),
   }
 }
 
@@ -178,7 +176,7 @@ const isConfigColor = Schema.is(ColorValueSchema)
 /** The colour function or DTCG colour space a value is written in, for a refusal. */
 const colorSpaceOf = (value: unknown): string | undefined => {
   if (typeof value === 'string') return /^\s*([a-z-]+)\(/i.exec(value)?.[1]?.toLowerCase()
-  return isObject(value) && typeof value['colorSpace'] === 'string'
+  return isRecord(value) && typeof value['colorSpace'] === 'string'
     ? value['colorSpace']
     : undefined
 }
@@ -305,7 +303,7 @@ const placeTextStyle = (token: CanonicalToken): Placement => {
   if (rung === undefined) {
     return unmapped(token, 'text-style', 'It names no rung of the type-scale ladder.')
   }
-  const leaves = isObject(token.value) ? stepLeaves(token.value) : []
+  const leaves = isRecord(token.value) ? stepLeaves(token.value) : []
   if (!leaves.some(([leaf]) => leaf === 'size')) {
     return unmapped(token, 'text-style', 'It states no font size in px or rem.')
   }
@@ -386,7 +384,7 @@ const INHERITED_LENGTHS: Readonly<Record<string, Readonly<Record<string, string>
 const inheritedColor = (name: string, design: JsonObject): unknown => {
   const variable = darkVariableOf(name)
   const colors = ownValue(design, 'colors')
-  const declared = Object.entries(isObject(colors) ? colors : {}).find(
+  const declared = Object.entries(isRecord(colors) ? colors : {}).find(
     ([other]) => darkVariableOf(other) === variable
   )
   return declared?.[1] ?? lookup(DEFAULT_SHADCN_LIGHT_VALUES, variable)
@@ -454,7 +452,7 @@ const applyChanges = (design: JsonObject, changes: readonly DesignImportChange[]
 
 const colorsOf = (design: JsonObject, key: string): Readonly<Record<string, string>> => {
   const value = ownValue(design, key)
-  return isObject(value)
+  return isRecord(value)
     ? Object.fromEntries(
         Object.entries(value).filter(
           (entry): entry is [string, string] => typeof entry[1] === 'string'
@@ -507,7 +505,7 @@ const pathOrder = (a: DesignImportChange, b: DesignImportChange): number => {
  * @param declared - the config's own `design`, as written (`undefined` when it has none).
  */
 export const planDesignImport = (source: CanonicalImport, declared: unknown): DesignImportPlan => {
-  const design: JsonObject = isObject(declared) ? declared : {}
+  const design: JsonObject = isRecord(declared) ? declared : {}
   const light = placeAll(source.light)
   const lightChanges = diffProposals(light.proposals, design)
   const afterLight = applyChanges(design, lightChanges)

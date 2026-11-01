@@ -36,20 +36,21 @@
  * construction: nothing reaches it without the state vocabulary's own `open`
  * reach, so the second gate buys nothing and costs a behaviour change.
  *
- * ─── A STRING, AND WHAT THE CALLER OWES IT ──────────────────────────────────
+ * ─── AN ELEMENT, AND WHAT THE CALLER OWES IT ────────────────────────────────
  *
- * The markup is produced from DECODED config — a label, an ISO date, a menu
- * item's own text — and never from request input, so a caller emits it with
- * `dangerouslySetInnerHTML` (the precedent is `field-specimen-component.tsx`,
- * which makes the same argument at greater length). What a caller must NOT do
+ * Each builder returns the island part as a `ReactElement`, drawn from DECODED
+ * config — a label, an ISO date, a menu item's own text — and never from request
+ * input. A caller renders it with `renderToStaticMarkup` straight into
+ * `<StaticMarkup>` (`@/presentation/design/static-markup`), so the sanitize rule
+ * proves the markup engine-rendered at the call site. What a caller must NOT do
  * is emit the island marker beside it: an open specimen that hydrates is a live
  * control wearing a depiction's label.
  */
 
 import {
-  renderOpenDatePickerPopup,
-  renderOpenDateRangePanel,
-  renderOpenMenuPopup,
+  openDatePickerPopupElement,
+  openDateRangePanelElement,
+  openMenuPopupElement,
 } from '../elements/open-specimen-renderer'
 
 /**
@@ -63,6 +64,6 @@ import {
 export const isOpenSpecimen = (rawProps: Record<string, unknown> | undefined): boolean =>
   rawProps?.['specimenOpen'] === true
 
-export { renderOpenDatePickerPopup, renderOpenDateRangePanel, renderOpenMenuPopup }
-export { renderOpenOverlay } from '../elements/open-overlay-specimen'
+export { openDatePickerPopupElement, openDateRangePanelElement, openMenuPopupElement }
+export { openOverlayElement } from '../elements/open-overlay-specimen'
 export type { OpenOverlayContent, OpenOverlayKind } from '../elements/open-overlay-specimen'

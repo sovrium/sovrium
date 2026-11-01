@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, PLACE_NOTE, THEME_NOTE } from '@/library/manifest/block-kit'
+import { asComponent, PLACE_NOTE, THEME_NOTE } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import type { BlockNode } from '@/library/manifest/block-kit'
+import type { BlockNode } from '@/library/kit/block-kit'
 
 type Person = readonly [name: string, email: string, initials: string]
 

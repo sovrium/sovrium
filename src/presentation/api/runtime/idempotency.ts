@@ -33,7 +33,8 @@
  */
 
 import { createHash } from 'node:crypto'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { Effect } from 'effect'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import { errorBody } from './auth-helpers'
 import { FORM_FLASH_COOKIE } from './form-flash'
@@ -271,42 +272,64 @@ function replayed(answer: ReplayableAnswer): Response {
   return new Response(answer.body.slice(0), { status: answer.status, headers })
 }
 
+/** Run `run` holding the admitted key: the key is freed however it ends, held only by an answer kept. */
+const runHoldingKey = <E, R>(
+  settle: (answer: ReplayableAnswer | undefined) => void,
+  run: () => Effect.Effect<Response, E, R>
+): Effect.Effect<Response, E, R> =>
+  Effect.suspend(() => {
+    // Assigned once the answer is known; read when the run ends, so the key is freed even on a failure.
+    let held: ReplayableAnswer | undefined
+    const keep = (response: Response): Effect.Effect<Response> =>
+      Effect.map(
+        // effect-promise: total -- the body is the route's own response, and a defect frees the key below.
+        Effect.promise(() => capture(response)),
+        (answer) => {
+          if (answer.body.byteLength <= IDEMPOTENCY_MAX_ANSWER_BYTES) held = answer
+          return new Response(answer.body.slice(0), {
+            status: answer.status,
+            headers: response.headers,
+          })
+        }
+      )
+    return Effect.filterOrElse(run(), (response) => !holdsKey(response.status), keep).pipe(
+      Effect.ensuring(Effect.sync(() => settle(held)))
+    )
+  })
+
 /** One request through the store: replayed, refused, waited for, or run. */
-async function admitAndRun(
+const admitAndRun = <E, R>(
   c: Context,
   store: IdempotencyStore,
   keyed: { readonly storeKey: string; readonly fingerprint: string },
-  run: () => Promise<Response>
-): Promise<Response> {
-  const admission = store.admit(keyed.storeKey, keyed.fingerprint)
-  if (admission.kind === 'replay') return replayed(admission.answer)
-  if (admission.kind === 'mismatch') {
-    return c.json(
-      errorBody({
-        error: ApiErrorCode.IDEMPOTENCY_MISMATCH,
-        message: 'This idempotency key was already used for a different request',
-        code: ApiErrorCode.IDEMPOTENCY_MISMATCH,
-      }),
-      422
-    )
-  }
-  if (admission.kind === 'wait') {
-    const first = await admission.done
-    // A refused first request freed the key: this one is processed as new.
-    return first === undefined ? admitAndRun(c, store, keyed, run) : replayed(first)
-  }
-  // Assigned once the answer is known; read in `finally`, so the key is freed even when `run` throws.
-  let held: ReplayableAnswer | undefined
-  try {
-    const response = await run()
-    if (!holdsKey(response.status)) return response
-    const answer = await capture(response)
-    if (answer.body.byteLength <= IDEMPOTENCY_MAX_ANSWER_BYTES) held = answer
-    return new Response(answer.body.slice(0), { status: answer.status, headers: response.headers })
-  } finally {
-    admission.settle(held)
-  }
-}
+  run: () => Effect.Effect<Response, E, R>
+): Effect.Effect<Response, E, R> =>
+  Effect.suspend((): Effect.Effect<Response, E, R> => {
+    const admission = store.admit(keyed.storeKey, keyed.fingerprint)
+    if (admission.kind === 'replay') return Effect.succeed(replayed(admission.answer))
+    if (admission.kind === 'mismatch') {
+      return Effect.succeed(
+        c.json(
+          errorBody({
+            error: ApiErrorCode.IDEMPOTENCY_MISMATCH,
+            message: 'This idempotency key was already used for a different request',
+            code: ApiErrorCode.IDEMPOTENCY_MISMATCH,
+          }),
+          422
+        )
+      )
+    }
+    if (admission.kind === 'wait') {
+      // effect-promise: total -- `done` is resolved, never rejected, when the first request ends.
+      return Effect.flatMap(
+        Effect.promise(() => admission.done),
+        (first) =>
+          // A refused first request freed the key: this one is processed as new.
+          first === undefined ? admitAndRun(c, store, keyed, run) : Effect.succeed(replayed(first))
+      )
+    }
+    return runHoldingKey(admission.settle, run)
+  })
 
 /** Who and what a key is scoped to: the route kind, the form or automation, the signed-in user. */
 export interface IdempotencyScope {
@@ -320,29 +343,32 @@ export interface IdempotencyScope {
  * route, the form or automation and the caller ({@link callerScope}); the body
  * reaches `run` without its key field, keyed or not.
  */
-export async function answerOnce(
+export const answerOnce = <E, R>(
   c: Context,
   request: { readonly scope: IdempotencyScope; readonly body: Readonly<Record<string, unknown>> },
-  run: (body: Record<string, unknown>) => Promise<Response>,
+  run: (body: Record<string, unknown>) => Effect.Effect<Response, E, R>,
   store: IdempotencyStore = PROCESS_STORE
-): Promise<Response> {
-  const reading = readIdempotencyKey(
-    c.req.header('idempotency-key'),
-    request.body[IDEMPOTENCY_FIELD]
-  )
-  const body = withoutIdempotencyField(request.body)
-  if (reading.kind === 'absent') return run(body)
-  if (reading.kind === 'invalid') {
-    return c.json(
-      errorBody({
-        error: 'invalid idempotency key',
-        message: 'An idempotency key is 16 to 128 letters, digits, dashes or underscores',
-        code: ApiErrorCode.BAD_REQUEST,
-      }),
-      400
+): Effect.Effect<Response, E, R> =>
+  Effect.suspend((): Effect.Effect<Response, E, R> => {
+    const reading = readIdempotencyKey(
+      c.req.header('idempotency-key'),
+      request.body[IDEMPOTENCY_FIELD]
     )
-  }
-  const { kind, name, userId } = request.scope
-  const storeKey = `${kind}:${name}:${callerScope(c, userId)}:${reading.key}`
-  return admitAndRun(c, store, { storeKey, fingerprint: fingerprintOf(body) }, () => run(body))
-}
+    const body = withoutIdempotencyField(request.body)
+    if (reading.kind === 'absent') return run(body)
+    if (reading.kind === 'invalid') {
+      return Effect.succeed(
+        c.json(
+          errorBody({
+            error: 'invalid idempotency key',
+            message: 'An idempotency key is 16 to 128 letters, digits, dashes or underscores',
+            code: ApiErrorCode.BAD_REQUEST,
+          }),
+          400
+        )
+      )
+    }
+    const { kind, name, userId } = request.scope
+    const storeKey = `${kind}:${name}:${callerScope(c, userId)}:${reading.key}`
+    return admitAndRun(c, store, { storeKey, fingerprint: fingerprintOf(body) }, () => run(body))
+  })

@@ -8,6 +8,7 @@
 import { type MarkdownHeading } from '@/domain/kernel/markdown/markdown-renderer'
 import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
+import { hasCodeRoleClasses } from '@/domain/models/app/design/code-block-service'
 import { type ContentDirSeoMeta } from '@/domain/models/app/pages/content-dir-seo-meta'
 import { deriveContentDirSlugFromRouteParams } from '@/domain/models/app/pages/content-dir-slug'
 import { renderMarkdownToHtml } from '@/infrastructure/markdown/markdown-it-renderer'
@@ -176,7 +177,9 @@ const composeMarkdownHtml = async (
   rendered: ReturnType<typeof renderMarkdownToHtml>,
   app: App | undefined
 ): Promise<string> => {
-  const highlightedHtml = await highlightCodeBlocks(rendered.html, rendered.codeBlocks)
+  const highlightedHtml = await highlightCodeBlocks(rendered.html, rendered.codeBlocks, {
+    roleClasses: hasCodeRoleClasses(app?.design),
+  })
   const sanitizedHtml = sanitizeRichTextHTML(highlightedHtml)
   const withDirectives = spliceMarkdownDirectives(sanitizedHtml, rendered.directives, app?.design)
   return spliceMarkdownCodeFrames(withDirectives, rendered.codeBlocks)
@@ -282,22 +285,17 @@ const resolvePageChrome = async (input: {
   // A1: the zone-tab breadcrumb root, threaded into BOTH the visible breadcrumb
   // and the synthesised BreadcrumbList JSON-LD.
   const docsRootCrumb = buildDocsRootCrumb(input.collectionNav)
-  const seo = buildContentDirSeo(
-    page,
-    routeParams,
-    frontmatter,
+  const seo = buildContentDirSeo(page, routeParams, frontmatter, {
     app,
     indexBasePathPattern,
-    docsRootCrumb
-  )
+    docsRootCrumb,
+    collectionNav: input.collectionNav,
+  })
   // [internal ref]: gated to the `docs` layout inside the resolver (skips the mtime `stat`).
-  const lastUpdated = await resolveLastUpdated(
-    page,
-    routeParams,
-    frontmatter,
-    input.layout,
-    currentLang
-  )
+  const lastUpdated = await resolveLastUpdated(page, routeParams, frontmatter, {
+    layout: input.layout,
+    currentLang,
+  })
   return {
     seo,
     lastUpdated,
@@ -361,7 +359,7 @@ export async function resolveMarkdownPage(
     html: composedHtml,
     layout,
     frontmatter: rendered.frontmatter,
-    ...docsFrameOf(markdown),
+    ...docsFrameOf(markdown, app?.design),
     ...buildOptionalPageFields({ toc, collectionNav, currentLang, ...chrome }),
   }
 }

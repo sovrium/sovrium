@@ -7,9 +7,10 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { executeRaw, type RawSqlRunner } from './dialect-execute'
+import { executeRawOn, executeRawTypedOn } from '@/infrastructure/database/sql/dialect-execute'
+import { type RawSqlRunner } from './dialect-execute'
 import { sqliteSystemTableName } from './dialect-sql'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Dialect-aware schema introspection for the dynamic records/forms CRUD layer.
@@ -80,13 +81,14 @@ const readTableColumns = async (
   tableName: string
 ): Promise<ReadonlyArray<IntrospectedColumn>> => {
   if (dialect === 'postgres') {
-    const rows = (await executeRaw(
+    const rows = await executeRawTypedOn<PgColumnRow>(
+      dialect,
       runner,
       sql`SELECT column_name, data_type, is_nullable, column_default
           FROM information_schema.columns
           WHERE table_name = ${tableName}
             AND table_schema = 'public'`
-    )) as unknown as ReadonlyArray<PgColumnRow>
+    )
     return rows.map((row) => ({
       name: row.column_name,
       dataType: row.data_type,
@@ -100,10 +102,11 @@ const readTableColumns = async (
   // field is, while `information_schema.columns` lists them on PostgreSQL.
   // `hidden = 1` marks a virtual table's hidden columns (2 and 3 are the
   // generated ones, which are real columns of the row and must be listed).
-  const rows = (await executeRaw(
+  const rows = await executeRawTypedOn<SqlitePragmaRow>(
+    dialect,
     runner,
     sql`SELECT name, type, "notnull", dflt_value FROM pragma_table_xinfo(${tableName}) WHERE hidden <> 1`
-  )) as unknown as ReadonlyArray<SqlitePragmaRow>
+  )
   return rows.map((row) => ({
     name: row.name,
     dataType: row.type,
@@ -123,8 +126,8 @@ const readTableColumns = async (
  * outside an HTTP request — a scheduled run, a background listener, a resumed
  * run — asked the catalog again on every call.
  *
- * - Keyed by database as well as table, so two databases served by one process
- *   (the in-process test harness) never read each other's answers.
+ * - Forgotten with the client (`db-bun.ts`), so a process serving another
+ *   database next (the in-process test harness) never reads an earlier answer.
  * - Holds the in-flight PROMISE, so concurrent first readers share one lookup.
  * - An EMPTY answer (an unknown table, or a table not created yet, such as a
  *   config-gated one) is never kept: the next caller asks again, so a table
@@ -167,16 +170,15 @@ export const withFreshTableColumns = <A, E, R>(
  * @returns one {@link IntrospectedColumn} per column (empty if the table is unknown)
  */
 export const listTableColumns = (
+  dialect: DatabaseDialect,
   runner: Readonly<RawSqlRunner>,
   tableName: string
 ): Promise<ReadonlyArray<IntrospectedColumn>> => {
-  const config = parseDatabaseDialectConfig()
-  const database = config.dialect === 'postgres' ? config.databaseUrl : config.path
-  const key = `${config.dialect}\u0000${database}\u0000${tableName}`
+  const key = `${dialect}\u0000${tableName}`
   const hit = columnCache.get(key)
   if (hit !== undefined) return hit
 
-  const pending = readTableColumns(runner, config.dialect, tableName)
+  const pending = readTableColumns(runner, dialect, tableName)
   columnCache.set(key, pending)
   pending.then(
     (columns) => {
@@ -198,13 +200,14 @@ export const listTableColumns = (
  * @returns the subset of `columnNames` that exist, as a `Set`
  */
 export const getExistingColumnNames = async (
+  dialect: DatabaseDialect,
   runner: Readonly<RawSqlRunner>,
   tableName: string,
   columnNames: ReadonlyArray<string>
 ): Promise<ReadonlySet<string>> => {
   if (columnNames.length === 0) return new Set()
   const wanted = new Set(columnNames)
-  const columns = await listTableColumns(runner, tableName)
+  const columns = await listTableColumns(dialect, runner, tableName)
   return new Set(columns.map((c) => c.name).filter((name) => wanted.has(name)))
 }
 
@@ -227,19 +230,20 @@ export const getExistingColumnNames = async (
  * @returns `true` if the table exists
  */
 export const systemTableExists = async (
+  dialect: DatabaseDialect,
   runner: Readonly<RawSqlRunner>,
   name: string
 ): Promise<boolean> => {
-  const { dialect } = parseDatabaseDialectConfig()
-
   const rows =
     dialect === 'postgres'
-      ? await executeRaw(
+      ? await executeRawOn(
+          dialect,
           runner,
           sql`SELECT 1 AS present FROM information_schema.tables
               WHERE table_schema = 'system' AND table_name = ${name} LIMIT 1`
         )
-      : await executeRaw(
+      : await executeRawOn(
+          dialect,
           runner,
           sql`SELECT 1 AS present FROM sqlite_master
               WHERE type = 'table' AND name = ${sqliteSystemTableName(name)} LIMIT 1`
@@ -254,8 +258,9 @@ export const systemTableExists = async (
  * @returns `true` if the column exists
  */
 export const columnExists = async (
+  dialect: DatabaseDialect,
   runner: Readonly<RawSqlRunner>,
   tableName: string,
   columnName: string
 ): Promise<boolean> =>
-  (await getExistingColumnNames(runner, tableName, [columnName])).has(columnName)
+  (await getExistingColumnNames(dialect, runner, tableName, [columnName])).has(columnName)

@@ -18,7 +18,8 @@
  *   - Pure data types: `MarkdownHeading`, `MarkdownDirective`,
  *     `MarkdownCodeBlock`, `RenderedMarkdown`.
  *   - Pure transforms: `splitFrontmatter`, `scanDirectives`,
- *     `filterTocHeadings`, `escapeHtml`, `parseDirectiveHeader`.
+ *     `filterTocHeadings`, `parseDirectiveHeader`. (The HTML escapers live in
+ *     `@/domain/kernel/sanitize/html-escaping`.)
  *
  * What moved to infrastructure:
  *   - `renderMarkdownToHtml(source)` — the rendering entry point. Consumers
@@ -284,22 +285,6 @@ export const scanDirectives = (source: string): readonly CollectedDirective[] =>
   )
   return finalState.collected
 }
-
-/**
- * Escape user-supplied text for safe inclusion in HTML attribute values and
- * text nodes. Mirrors markdown-it's own `escapeHtml` (we cannot import it
- * directly without leaking implementation details into the domain layer).
- *
- * Used for the unknown-/no-language graceful-degrade fallback in the `fence`
- * renderer, where the raw source is the only output and must be HTML-safe.
- */
-export const escapeHtml = (value: string): string =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 
 /**
  * Filter headings to those at or above the given max depth.

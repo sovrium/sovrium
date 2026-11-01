@@ -34,6 +34,8 @@ export interface KanbanFormat {
   readonly colorFieldColors?: Readonly<Record<string, string>>
   /** Whether a card may be picked up — the board's resolved drag gate. */
   readonly draggableEnabled?: boolean
+  /** The fields a drop writes; a card whose record locks one of them stays put. */
+  readonly laneFields?: readonly (string | undefined)[]
   /** How each formatted field reads in a card's text, resolved by the server. */
   readonly recordText?: RecordTextFields
   /** Publishes the card a reader selects, on a board that declares `publishes`. */

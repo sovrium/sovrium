@@ -7,7 +7,7 @@
 
 import { Schema } from 'effect'
 import { bucketUploadResponseSchema } from '@/domain/models/api/buckets'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   effectJsonResponse,
   effectParameters,

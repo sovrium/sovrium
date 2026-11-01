@@ -15,6 +15,7 @@ import { migrationHintForPromotedTypeKey } from './pages/components/component-ty
 import { RENAMED_COMPONENT_TYPES } from './pages/components/component-types/renamed-types'
 import { migrationHintForRepurposedTypeKey } from './pages/components/component-types/repurposed-removed-keys'
 import { migrationHintForRemovedDataSourceKey } from './pages/components/data-source-removed-keys'
+import { migrationHintForRemovedSelectionFieldKey } from './tables/fields/field-types/selection/removed-keys'
 
 /**
  * `design.components` is keyed by component type, so a renamed type is a renamed key there too —
@@ -33,6 +34,7 @@ const RENAMED_DESIGN_COMPONENT_KEYS: ReadonlyMap<string, string> = new Map(
  * The migration sentence for a key the decoder refused as excess, asked of each
  * module that keeps a list of removed or refused keys, first answer wins:
  * `design` keys (renamed component types under `design.components` included), then the hosted form's fields,
+ * a table's single-select fields,
  * the page `table`, the page `form`,
  * the shared modules every data component spreads (its `search` box), a component's `dataSource`, the promoted
  * component types and the repurposed ones. `undefined` when none of them knows the key.
@@ -41,17 +43,33 @@ const RENAMED_DESIGN_COMPONENT_KEYS: ReadonlyMap<string, string> = new Map(
  * @param discriminant - The node's `type` literal, when it has one.
  * @param key - The property name the author wrote.
  */
+type HintLookup = (
+  path: string,
+  discriminant: string | undefined,
+  key: string
+) => string | undefined
+
+/** Each module's answer, asked in order. */
+const HINT_LOOKUPS: readonly HintLookup[] = [
+  (path, _discriminant, key) => migrationHintForRemovedKey(path, key),
+  (path, _discriminant, key) =>
+    path === 'design.components' ? RENAMED_DESIGN_COMPONENT_KEYS.get(key) : undefined,
+  (path, _discriminant, key) => migrationHintForRemovedHostedFormKey(path, key),
+  migrationHintForRemovedSelectionFieldKey,
+  (_path, discriminant, key) => migrationHintForRemovedTableKey(discriminant, key),
+  migrationHintForRemovedFormKey,
+  (_path, discriminant, key) => migrationHintForRemovedModuleKey(discriminant, key),
+  (path, _discriminant, key) => migrationHintForRemovedDataSourceKey(path, key),
+  (_path, discriminant, key) => migrationHintForPromotedTypeKey(discriminant, key),
+  (_path, discriminant, key) => migrationHintForRepurposedTypeKey(discriminant, key),
+]
+
 export const migrationHintForExcessKey = (
   path: string,
   discriminant: string | undefined,
   key: string
 ): string | undefined =>
-  migrationHintForRemovedKey(path, key) ??
-  (path === 'design.components' ? RENAMED_DESIGN_COMPONENT_KEYS.get(key) : undefined) ??
-  migrationHintForRemovedHostedFormKey(path, key) ??
-  migrationHintForRemovedTableKey(discriminant, key) ??
-  migrationHintForRemovedFormKey(path, discriminant, key) ??
-  migrationHintForRemovedModuleKey(discriminant, key) ??
-  migrationHintForRemovedDataSourceKey(path, key) ??
-  migrationHintForPromotedTypeKey(discriminant, key) ??
-  migrationHintForRepurposedTypeKey(discriminant, key)
+  HINT_LOOKUPS.reduce<string | undefined>(
+    (found, lookup) => found ?? lookup(path, discriminant, key),
+    undefined
+  )

@@ -46,3 +46,23 @@ export const insertOnlyColumnsOf = (
     .map((field) => field.name)
   return [CREATED_AT_COLUMN, ...declared.filter((name) => name !== CREATED_AT_COLUMN)]
 }
+
+/**
+ * What an upsert writes to the record a row matched: the row's fields but its
+ * merge keys, already equal, and the columns written on insert only, which
+ * describe a creation that happened once. The write sends this change and the
+ * table's rules judge this change, so a rule never judges a value the update
+ * does not write.
+ */
+export const upsertUpdateChange = (
+  fields: Readonly<Record<string, unknown>>,
+  merge: {
+    readonly fieldsToMergeOn: readonly string[]
+    readonly insertOnlyFields: readonly string[]
+  }
+): Readonly<Record<string, unknown>> =>
+  Object.fromEntries(
+    Object.entries(fields).filter(
+      ([key]) => !merge.fieldsToMergeOn.includes(key) && !merge.insertOnlyFields.includes(key)
+    )
+  )

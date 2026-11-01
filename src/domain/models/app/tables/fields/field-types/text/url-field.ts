@@ -55,7 +55,7 @@ export const UrlFieldSchema = BaseFieldSchema.pipe(
   Schema.annotate({
     title: 'URL Field',
     description:
-      'Text field with URL format validation. Validates web addresses and supports multiple protocols (http://, https://, ftp://, etc.).',
+      'Text field holding a web address: every write accepts only an absolute http:// or https:// URL without a user name or password.',
     examples: [
       {
         id: 1,

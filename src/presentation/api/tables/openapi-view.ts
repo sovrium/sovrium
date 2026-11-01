@@ -5,9 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { Schema } from 'effect'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import { viewOnlyParamSchema, viewRecordsQuerySchema } from '@/domain/models/api/tables/params'
 import {
+  emptyViewRecordsResponseSchema,
   getViewRecordsResponseSchema,
   getViewResponseSchema,
   listViewsResponseSchema,
@@ -63,7 +65,10 @@ const routes: readonly RouteSpec[] = [
       ...effectParameters(viewRecordsQuerySchema, 'query'),
     ],
     responses: {
-      200: effectJsonResponse(getViewRecordsResponseSchema, 'Filtered records'),
+      200: effectJsonResponse(
+        Schema.Union([getViewRecordsResponseSchema, emptyViewRecordsResponseSchema]),
+        'Filtered records'
+      ),
       401: errorResponse('Unauthorized'),
       404: errorResponse('View not found'),
     },

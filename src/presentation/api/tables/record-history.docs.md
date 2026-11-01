@@ -1,6 +1,6 @@
 # Record History and Comments
 
-> Two activity surfaces every record carries — a change history the server maintains on its own, and a comment thread its users write.
+> Two activity surfaces every record carries: a change history the server maintains on its own, and a comment thread its users write.
 
 | Method and path                                                     | Description                   |
 | ------------------------------------------------------------------- | ----------------------------- |
@@ -52,11 +52,11 @@ GET /api/tables/orders/records/42/history
 }
 ```
 
-Entries come oldest first. `changes` holds the whole record on each side of the change — every field you may read, not only the ones that moved — so a client computes the difference by comparing `before` with `after`; a create carries `after` alone. The snapshots are the stored row, which is why the record's key reads there as the database holds it — a number, for the default key — rather than as the string the records API answers. `user` names the person who made the change and is absent when no user did; `userName` carries the same name flatly — so a page's row template can print it — and is `null`, never missing, when no person made the change. `?sort=createdAt:desc` answers newest first, and `?sort=createdAt:asc` or no `sort` keeps oldest first. `?limit=` and `?offset=` page through a long history, and `?page=` (counting from 1) does the same when no `offset` is given: `?page=2&limit=5` answers what `?offset=5&limit=5` does. Without them every entry is returned and `limit` equals `total`. `total` — the size of the whole history, whatever page was asked for — sits at the top of the answer as well as in `pagination`.
+Entries come oldest first. `changes` holds the whole record on each side of the change (every field you may read, not only the ones that moved), so a client computes the difference by comparing `before` with `after`; a create carries `after` alone. The snapshots are the stored row, which is why the record's key reads there as the database holds it (a number, for the default key) rather than as the string the records API answers. `user` names the person who made the change and is absent when no user did; `userName` carries the same name flatly, so a page's row template can print it, and is `null`, never missing, when no person made the change. `?sort=createdAt:desc` answers newest first, and `?sort=createdAt:asc` or no `sort` keeps oldest first. `?limit=` and `?offset=` page through a long history, and `?page=` (counting from 1) does the same when no `offset` is given: `?page=2&limit=5` answers what `?offset=5&limit=5` does. Without them every entry is returned and `limit` equals `total`. `total`, the size of the whole history whatever page was asked for, sits at the top of the answer as well as in `pagination`.
 
 A record's history shows only what a read of the record would: the fields you may read, and nothing of a record you may not open (404). The table's read permission, the rows the records list admits you, its row-level read rule and each field's read rule apply exactly as they do on `GET /api/tables/:tableId/records/:recordId`; a change to a field hidden from you still appears as an entry, without that field's values.
 
-The trail records changes from **every** source — API writes, admin edits, automations and batch operations — which is what makes it an audit trail rather than a log of one client's activity. It complements the authorship stamped on the record itself: those keys name the latest actor, while the history keeps the ones before them.
+The trail records changes from **every** source (API writes, admin edits, automations and batch operations), which is what makes it an audit trail rather than a log of one client's activity. It complements the authorship stamped on the record itself: those keys name the latest actor, while the history keeps the ones before them.
 
 **Retention and per-field tracking are not configurable.** History is kept for every table, for every field, indefinitely. An app storing personal data in a tracked field should know that a permanent delete of the row does not by itself remove the field values the history recorded.
 
@@ -78,17 +78,17 @@ A successful create answers `201` with the stored comment inside a `comment` env
 
 ### Mentions
 
-To mention someone, write `@[<user id>]` in the content — the markup the page composer sends when a writer types `@` and picks a person. A plain `@alice` is text and mentions nobody. An optional `mentions` array of user ids on the create request is merged with the markup, so there is one mention list per comment whichever way it arrived. A comment mentions at most **50** distinct people, the markup and the array counted together; a request naming more is refused with `400` and an error naming the limit, and nothing is stored. The mentions reach automations as the trigger's `mentions`, so a comment trigger can notify the people named.
+To mention someone, write `@[<user id>]` in the content: the markup the page composer sends when a writer types `@` and picks a person. A plain `@alice` is text and mentions nobody. An optional `mentions` array of user ids on the create request is merged with the markup, so there is one mention list per comment whichever way it arrived. A comment mentions at most **50** distinct people, the markup and the array counted together; a request naming more is refused with `400` and an error naming the limit, and nothing is stored. The mentions reach automations as the trigger's `mentions`, so a comment trigger can notify the people named.
 
-**Only people who can read the record count.** A mention, from the markup or the array, naming someone the record's `read` permission, the rows the records list admits them, or the row-level read rule refuses — or an id that belongs to nobody — is dropped: it never reaches an automation and never fires a `mentionsOnly` trigger. Each person is judged as the records API would judge them: their role, their groups and, on a table with a row-level rule, the roles assigned to them per record; then, on a table whose field rules leave their role no field to read, whether a grant opens this record to them; then the rule itself with their own assignments — so someone granted access to another client's records stays out.
+**Only people who can read the record count.** A mention, from the markup or the array, naming someone the record's `read` permission, the rows the records list admits them, or the row-level read rule refuses, or an id that belongs to nobody, is dropped: it never reaches an automation and never fires a `mentionsOnly` trigger. Each person is judged as the records API would judge them: their role, their groups and, on a table with a row-level rule, the roles assigned to them per record; then, on a table whose field rules leave their role no field to read, whether a grant opens this record to them; then the rule itself with their own assignments, so someone granted access to another client's records stays out.
 
-The content is stored and returned as written, markup included. Alongside it, the list, create, read-one and edit responses carry `mentions`: the `{ id, name }` of each person the markup names who can read the record, with their current name. A thread renders each token from that list, and any token not in it as a neutral `@unknown user` — never the markup, the id, or the name of someone outside the record's audience.
+The content is stored and returned as written, markup included. Alongside it, the list, create, read-one and edit responses carry `mentions`: the `{ id, name }` of each person the markup names who can read the record, with their current name. A thread renders each token from that list, and any token not in it as a neutral `@unknown user`, never the markup, the id, or the name of someone outside the record's audience.
 
 ```
 GET /api/tables/orders/records/123/comments/mentionable?q=car
 ```
 
-answers `{ "users": [{ "id": "…", "name": "Carol Dupont", "image": null }] }`: the people who can read the record, other than the caller, whose name contains `q`, at most 20 of them. It never returns an email. It is the candidate list behind the composer's picker. A caller who cannot read the record — including one the table's row-level read rule hides it from — gets `404`. The picker finds the record's readers however many people who cannot read it sort before them.
+answers `{ "users": [{ "id": "…", "name": "Carol Dupont", "image": null }] }`: the people who can read the record, other than the caller, whose name contains `q`, at most 20 of them. It never returns an email. It is the candidate list behind the composer's picker. A caller who cannot read the record, including one the table's row-level read rule hides it from, gets `404`. The picker finds the record's readers however many people who cannot read it sort before them.
 
 ### Reading, editing and deleting
 
@@ -99,11 +99,11 @@ PATCH  /api/tables/orders/records/123/comments/2
 DELETE /api/tables/orders/records/123/comments/2
 ```
 
-Editing replaces the content; deleting removes the comment. Both honour the role's grants and the table's permissions — typically a user may edit and delete their own comments, with broader rights for elevated roles.
+Editing replaces the content; deleting removes the comment. Both honour the role's grants and the table's permissions. Typically a user may edit and delete their own comments, with broader rights for elevated roles.
 
-Every comment route — list, read one, create, edit, delete, mark read and the mention picker — answers to the same gates as a read of the record: the table's read permission, then the rows the records list admits you — on a table whose field rules leave your role no field to read, only the rows a grant opens to you — then its row-level read rule, judged on the record the comment belongs to. A `group:` read grant opens the thread of a table with a row-level rule just as a role grant does. A record you may not open answers `404` exactly as a missing one does, and nothing is written.
+Every comment route (list, read one, create, edit, delete, mark read and the mention picker) answers to the same gates as a read of the record: the table's read permission, then the rows the records list admits you (on a table whose field rules leave your role no field to read, only the rows a grant opens to you), then its row-level read rule, judged on the record the comment belongs to. A `group:` read grant opens the thread of a table with a row-level rule just as a role grant does. A record you may not open answers `404` exactly as a missing one does, and nothing is written.
 
-On a moderated table, the list shows an admin every comment and anyone else the approved ones and her own pending ones, so a comment she posted appears in her thread while it waits. Reading one comment by its id is stricter: only an admin reads a pending or rejected comment, and anyone else gets the `404` a comment that does not exist gets. Every comment the list, read-one and edit responses return carries its stored `status` — `approved`, `pending` or `rejected`.
+On a moderated table, the list shows an admin every comment and anyone else the approved ones and her own pending ones, so a comment she posted appears in her thread while it waits. Reading one comment by its id is stricter: only an admin reads a pending or rejected comment, and anyone else gets the `404` a comment that does not exist gets. Every comment the list, read-one and edit responses return carries its stored `status`: `approved`, `pending` or `rejected`.
 
 The `user` object on a comment is projected to a display shape carrying `id` and `name` only. Email and everything else a user record holds are never returned here, so a comment thread cannot be used to read the directory behind it.
 
@@ -120,7 +120,7 @@ tables:
 
 `comments.readTracking` is off by default. Turning it on adds two things: a per-user `unreadCount` on the comment read response, and the `comments/read` endpoint above, which marks the record's thread read for the calling user.
 
-Without it the endpoint is **inert and answers `404`** rather than an error naming the missing option — the same uniform not-found every other denial on this path gives, so a caller cannot use it to learn whether a table exists. Turn the option on before wiring a client to that route.
+Without it the endpoint is **inert and answers `404`** rather than an error naming the missing option. It is the same uniform not-found every other denial on this path gives, so a caller cannot use it to learn whether a table exists. Turn the option on before wiring a client to that route.
 
 ## What holds across both surfaces
 

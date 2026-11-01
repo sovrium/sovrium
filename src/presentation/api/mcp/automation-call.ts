@@ -234,7 +234,6 @@ export const handleAutomationCall = async (
   const program = runManualAutomation({
     name: automation.name,
     app,
-    processEnv: process.env,
     userRole: callerRoleForManualTrigger(caller),
     triggerData: { body: envelope.args },
     byName: true,

@@ -91,22 +91,55 @@
             },
             {
               "type": "container",
-              "key": "internal-error-report",
+              "key": "empty-content",
               "element": "div",
               "props": {
-                "className": "flex w-full max-w-md min-w-0 flex-col items-center gap-3",
-                "data-island": "admin-report-link",
-                "data-island-props": "{\"source\":\"request\"}"
+                "data-slot": "empty-content",
+                "className": "flex w-full max-w-lg min-w-0 flex-wrap items-center justify-center gap-2"
               },
-              "children": []
-            },
-            {
-              "type": "link",
-              "props": {
-                "href": "/",
-                "className": "text-muted-foreground hover:text-foreground text-sm underline underline-offset-4"
-              },
-              "content": "$t:admin.notFound.back"
+              "children": [
+                {
+                  "type": "link",
+                  "props": {
+                    "href": "/",
+                    "className": "inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground no-underline hover:bg-primary/80"
+                  },
+                  "content": "$t:admin.notFound.back"
+                },
+                {
+                  "type": "button",
+                  "variant": "outline",
+                  "size": "sm",
+                  "props": {
+                    "type": "button",
+                    "data-command-palette-trigger": "true",
+                    "aria-label": "$t:admin.shell.search",
+                    "className": "gap-2"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "content": "$t:admin.shell.search"
+                    },
+                    {
+                      "type": "kbd",
+                      "keys": ["⌘", "K"]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "internal-error-report",
+                  "element": "div",
+                  "props": {
+                    "className": "contents",
+                    "data-island": "admin-report-link",
+                    "data-island-props": "{\"source\":\"request\"}"
+                  },
+                  "children": []
+                }
+              ]
             }
           ]
         }

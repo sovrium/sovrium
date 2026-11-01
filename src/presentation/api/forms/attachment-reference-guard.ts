@@ -26,15 +26,12 @@
  */
 
 import { Effect } from 'effect'
-import { validateAttachmentReferences } from '@/application/use-cases/attachments/validate-attachment-references'
+import { validateAttachmentReferences } from '@/application/use-cases/buckets/validate-attachment-references'
 import { resolveStoragePublicAccess } from '@/domain/models/process-env/storage/storage-public-access'
-import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { FieldValidationError } from '@/presentation/api/middleware/validation'
-import type { AttachmentStorageUnavailable } from '@/application/use-cases/attachments/errors'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { FormRequestSession } from '@/presentation/api/forms/access-gate'
-import type { Context } from 'hono'
 
 /** The subset of the submission the bound table would receive. */
 const boundColumnValues = (
@@ -49,7 +46,6 @@ const boundColumnValues = (
 
 /** Input to {@link checkSubmissionAttachmentReferences}. */
 export interface SubmissionReferenceCheck {
-  readonly c: Context
   readonly app: App
   readonly form: Form
   /** The body the bound-table write will receive. */
@@ -64,32 +60,29 @@ export interface SubmissionReferenceCheck {
  * the column's bucket or the submitter's download reach. `undefined` when the
  * form writes no table or every reference is admissible.
  */
-export async function checkSubmissionAttachmentReferences(
-  input: Readonly<SubmissionReferenceCheck>
-): Promise<FieldValidationError | AttachmentStorageUnavailable | undefined> {
+export const checkSubmissionAttachmentReferences = (input: Readonly<SubmissionReferenceCheck>) => {
   const tableName = input.form.submitTo.table
-  if (typeof tableName !== 'string') return undefined
-  const outcome = await Effect.runPromise(
-    provideDomain(
-      input.c,
-      validateAttachmentReferences({
-        scope: { app: input.app, tableName },
-        fields: boundColumnValues(input.form, input.body),
-        writer:
-          input.session === undefined
-            ? { authenticated: false }
-            : { authenticated: true, role: input.session.role },
-        publicAccess: resolveStoragePublicAccess(),
-        exemptFields: input.uploadedFields,
-      })
-    ).pipe(Effect.result)
+  if (typeof tableName !== 'string') return Effect.undefined
+  return validateAttachmentReferences({
+    scope: { app: input.app, tableName },
+    fields: boundColumnValues(input.form, input.body),
+    writer:
+      input.session === undefined
+        ? { authenticated: false }
+        : { authenticated: true, role: input.session.role },
+    publicAccess: resolveStoragePublicAccess(process.env),
+    exemptFields: input.uploadedFields,
+  }).pipe(
+    Effect.result,
+    Effect.map((outcome) => {
+      if (outcome._tag === 'Success') return undefined
+      const { failure } = outcome
+      // A catalog that could not be read is not a verdict about the reference, so
+      // it is NOT rendered as the field refusal: it reaches the route's generic
+      // rejection branch, which logs it.
+      return failure._tag === 'AttachmentReferenceRefused'
+        ? new FieldValidationError({ message: failure.message, field: failure.field })
+        : failure
+    })
   )
-  if (outcome._tag === 'Success') return undefined
-  const { failure } = outcome
-  // A catalog that could not be read is not a verdict about the reference, so
-  // it is NOT rendered as the field refusal: it reaches the route's generic
-  // rejection branch, which logs it.
-  return failure._tag === 'AttachmentReferenceRefused'
-    ? new FieldValidationError(failure.message, failure.field)
-    : failure
 }

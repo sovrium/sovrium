@@ -36,11 +36,15 @@
  */
 
 import { randomBytes } from 'node:crypto'
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { Effect, Console } from 'effect'
+import { stopCommand } from '@/cli/runtime/run-command'
 import { defaultEncryptionKeyPath } from '@/domain/models/process-env/data-dir'
-import { printStderr, renderStderr } from '@/infrastructure/logging/cli-output'
+import {
+  ensurePrivateDirectory,
+  PRIVATE_FILE_MODE,
+} from '@/infrastructure/filesystem/private-modes'
+import { printLine, printStderr } from '@/infrastructure/logging/cli-output'
 
 /** A generated secret destined for a specific env var. */
 interface NamedSecret {
@@ -77,7 +81,7 @@ const resolveScope = (scope?: string): readonly NamedSecret[] | undefined => {
 }
 
 /** Owner-read/write only — the file holds the key to every stored OAuth token. */
-const KEY_FILE_MODE = 0o600
+const KEY_FILE_MODE = PRIVATE_FILE_MODE
 
 /** Read the already-persisted root secret, or `undefined` when there is none. */
 const readPersistedSecret = (keyFilePath: string): string | undefined => {
@@ -89,10 +93,7 @@ const readPersistedSecret = (keyFilePath: string): string | undefined => {
   }
 }
 
-const failWith = (message: string): never => {
-  printStderr(message)
-  process.exit(1)
-}
+const failWith = (message: string): never => stopCommand(1, message)
 
 /**
  * Write the key file, returning an operator-facing message on failure and
@@ -104,7 +105,7 @@ const failWith = (message: string): never => {
  */
 const writeKeyFile = (keyFilePath: string, value: string): string | undefined => {
   try {
-    mkdirSync(dirname(keyFilePath), { recursive: true })
+    ensurePrivateDirectory(dirname(keyFilePath))
     writeFileSync(keyFilePath, `${value}\n`, { mode: KEY_FILE_MODE, encoding: 'utf-8' })
     // `mode` applies only on creation and is masked by umask, so the bits are
     // asserted explicitly rather than hoped for.
@@ -133,7 +134,7 @@ const writeKeyFile = (keyFilePath: string, value: string): string | undefined =>
  */
 const handleAdoptCommand = (): void => {
   const envKey = process.env['SOVRIUM_ENCRYPTION_KEY']
-  const keyFilePath = defaultEncryptionKeyPath()
+  const keyFilePath = defaultEncryptionKeyPath(process.env)
 
   if (typeof envKey !== 'string' || envKey.length === 0) {
     return failWith(
@@ -156,21 +157,17 @@ const handleAdoptCommand = (): void => {
   }
 
   if (persisted === envKey) {
-    return Effect.runSync(Console.log(`Encryption key already adopted at ${keyFilePath}`))
+    return printLine(`Encryption key already adopted at ${keyFilePath}`)
   }
 
   const writeError = writeKeyFile(keyFilePath, envKey)
   if (writeError !== undefined) return failWith(writeError)
 
-  return Effect.runSync(
-    Effect.gen(function* () {
-      yield* Console.log(`Encryption key adopted — written to ${keyFilePath} (mode 0600)`)
-      yield* renderStderr(
-        '\nSOVRIUM_ENCRYPTION_KEY can now be removed from the environment; the server\n' +
-          'will read the same key from this file. Back the file up: losing it makes every\n' +
-          'stored connection token unreadable.'
-      )
-    })
+  printLine(`Encryption key adopted — written to ${keyFilePath} (mode 0600)`)
+  return printStderr(
+    '\nSOVRIUM_ENCRYPTION_KEY can now be removed from the environment; the server\n' +
+      'will read the same key from this file. Back the file up: losing it makes every\n' +
+      'stored connection token unreadable.'
   )
 }
 
@@ -181,30 +178,26 @@ export const handleSecretCommand = async (subcommand?: string, scope?: string): 
   if (subcommand === 'adopt') return handleAdoptCommand()
 
   if (subcommand !== 'generate') {
-    printStderr(
+    return stopCommand(
+      1,
       'Error: Unknown secret subcommand\n\nUsage:\n  sovrium secret generate [auth|encryption|all]   Print fresh secret(s) as .env lines\n  sovrium secret adopt                            Persist $SOVRIUM_ENCRYPTION_KEY to the data dir'
     )
-    process.exit(1)
   }
 
   const secrets = resolveScope(scope)
 
   if (secrets === undefined) {
-    printStderr(
+    return stopCommand(
+      1,
       `Error: Unknown secret scope "${scope ?? ''}".\n\nValid scopes: auth, encryption, all (default).`
     )
-    process.exit(1)
   }
 
   // Print as paste-ready .env lines; the trailing hint goes to stderr so it
   // never contaminates a `sovrium secret generate auth >> .env` redirect.
   const envLines = secrets.map((secret) => `${secret.envVar}=${secret.value}`).join('\n')
-  Effect.runSync(
-    Effect.gen(function* () {
-      yield* Console.log(envLines)
-      yield* renderStderr(
-        '\nThese secrets are not stored — copy them into your .env or deployment environment now.'
-      )
-    })
+  printLine(envLines)
+  printStderr(
+    '\nThese secrets are not stored — copy them into your .env or deployment environment now.'
   )
 }

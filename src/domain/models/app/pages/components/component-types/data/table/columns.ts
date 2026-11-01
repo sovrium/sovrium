@@ -88,10 +88,11 @@ export const ColumnFormatSchema = Schema.Literals([
   'time-ms',
   'yes-no',
   'check-cross',
+  'short-id',
 ]).annotate({
   title: 'Column Format',
   description:
-    'Display format override for a rendered value (a table column or a record-field). bytes = binary B/KB/MB/GB (o/ko/Mo/Go on a French page), NOT the SI compact 11.5K; duration = an elapsed time as one compact figure (180 ms, 1.4 s, 2 min 18 s, 1 h 05 min), read as seconds on a duration field and as milliseconds on any other number; relative-date = past-only English; relative-time = signed, locale-aware (dans N j / il y a N j) and future-capable; day-relative-time = an instant relative to the reader’s day with its 24-hour time (Today 06:00, Yesterday 18:00), else day and short month with the time (Oct 13, 07:30), the year only for another year, in the operator timezone; day-relative-time-seconds = the same reading to the second (Today 06:00:07, Oct 13, 07:30:05); every relative reading is drawn as a time element carrying the instant, its title the absolute date and time to the second; short-date = day and short month in the page language order (Sep 22, 22 sept.), with the year only when the date falls in another year (Mar 5, 2024); time-ms = the time of day to the millisecond (14:03:07.512) in the operator timezone, for log and event timestamps.',
+    'Display format override for a rendered value (a table column or a record-field). bytes = binary B/KB/MB/GB (o/ko/Mo/Go on a French page), NOT the SI compact 11.5K; duration = an elapsed time as one compact figure (180 ms, 1.4 s, 2 min 18 s, 1 h 05 min), read as seconds on a duration field and as milliseconds on any other number; relative-date = past-only English; relative-time = signed, locale-aware (dans N j / il y a N j) and future-capable; day-relative-time = an instant relative to the reader’s day with its 24-hour time (Today 06:00, Yesterday 18:00), else day and short month with the time (Oct 13, 07:30), the year only for another year, in the operator timezone; day-relative-time-seconds = the same reading to the second (Today 06:00:07, Oct 13, 07:30:05); every relative reading is drawn as a time element carrying the instant, its title the absolute date and time to the second; short-date = day and short month in the page language order (Sep 22, 22 sept.), with the year only when the date falls in another year (Mar 5, 2024); time-ms = the time of day to the millisecond (14:03:07.512) in the operator timezone, for log and event timestamps; short-id = a long identifier cut to its first eight and last four characters around an ellipsis (usr_3c9d…a41e), with the whole value as its title.',
 })
 
 // ---------------------------------------------------------------------------
@@ -537,6 +538,21 @@ export const FieldColumnSchema = Schema.Struct({
    */
   displayField: optStr(
     'Field of the related table shown in this column instead of the stored key, for a relationship column whose field declares no displayField — or to show a different one here. Filtering, sorting and editing keep using the key. The label is shown only to readers allowed to read that field; otherwise the key stays.'
+  ),
+  /**
+   * A second field of the same row drawn as a muted line under the column's own
+   * value. Render-only: the column sorts, filters, edits and exports by its own
+   * field.
+   */
+  secondaryField: optStr(
+    "Field of the same row drawn as a muted second line under the column's own value, so two facts read together share one narrow cell (an action label over its code, a setting over its variable name). Render-only: sorting, filtering, editing and exporting keep the column's own field. An empty value draws no second line, and a reader who may not read that field sees the single line."
+  ),
+  /**
+   * Draws a copy button in the cell; the label is the button's accessible
+   * name. The button copies the whole stored value, whatever `format` shows.
+   */
+  copyLabel: optStr(
+    "Draws a copy button in each cell of the column, named by this label (its accessible name and tooltip), in the page's language; supports $t:key. The button copies the whole stored value, never the shortened text a format such as short-id shows. Absent, the column has no copy button."
   ),
   /**
    * Display-label map for known raw cell values: raw value (key) -> friendly

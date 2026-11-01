@@ -7,12 +7,12 @@
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { INTRINSIC_CREATED_AT_COLUMN } from '@/domain/models/app/tables/system-fields'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { SQLITE_ISO_NOW } from '../sql/dialect-ddl'
 import { getColumnDefaultExpression } from '../sql/sql-column-generators'
 import { shouldCreateDatabaseColumn } from '../sql/sql-field-predicates'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * The `id` insert-value expression for a view-backed table's `INSTEAD OF INSERT`
@@ -35,9 +35,13 @@ import type { Fields } from '@/domain/models/app/tables/fields'
  *     omit-to-default trick does not apply to a defaulted TEXT/UUID column (an
  *     explicit NULL would fail NOT NULL), so COALESCE supplies the default.
  */
-export const getInsertIdExpression = (table: Table, baseTableName: string): string => {
+export const getInsertIdExpression = (
+  table: Table,
+  baseTableName: string,
+  dialect: DatabaseDialect
+): string => {
   const pkType = table.primaryKey?.type
-  if (isSqliteRuntime()) {
+  if (dialect === 'sqlite') {
     // uuid/text ids are `TEXT NOT NULL DEFAULT (lower(hex(randomblob(16))))`;
     // serial ids are `INTEGER PRIMARY KEY AUTOINCREMENT` (NULL auto-assigns).
     return pkType === 'uuid' || pkType === 'text'
@@ -140,11 +144,14 @@ export const getUpdateBaseFields = (table: Table): readonly string[] => {
  * `NEW.col` straight through. Applies to both dialects — the default expression
  * is already dialect-resolved by `getColumnDefaultExpression`.
  */
-export const getInsertValueExpressions = (table: Table): readonly string[] =>
+export const getInsertValueExpressions = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] =>
   table.fields
     .filter((field) => isBaseColumnField(field))
     .map((field) => {
-      const defaultExpr = getColumnDefaultExpression(field)
+      const defaultExpr = getColumnDefaultExpression(field, dialect)
       return defaultExpr === undefined
         ? `NEW.${quoteSqlIdentifier(field.name)}`
         : `COALESCE(NEW.${quoteSqlIdentifier(field.name)}, ${defaultExpr})`
@@ -162,12 +169,13 @@ export const getInsertValueExpressions = (table: Table): readonly string[] =>
  * column's default through the `COALESCE`.
  */
 export const getInsertCreatedAtColumn = (
-  table: Table
+  table: Table,
+  dialect: DatabaseDialect
 ): { readonly fields: readonly string[]; readonly values: readonly string[] } => {
   if (table.fields.some((field) => field.name === INTRINSIC_CREATED_AT_COLUMN)) {
     return { fields: [], values: [] }
   }
-  const fallback = isSqliteRuntime() ? `(${SQLITE_ISO_NOW})` : 'CURRENT_TIMESTAMP'
+  const fallback = dialect === 'sqlite' ? `(${SQLITE_ISO_NOW})` : 'CURRENT_TIMESTAMP'
   return {
     fields: [INTRINSIC_CREATED_AT_COLUMN],
     values: [`COALESCE(NEW.${quoteSqlIdentifier(INTRINSIC_CREATED_AT_COLUMN)}, ${fallback})`],

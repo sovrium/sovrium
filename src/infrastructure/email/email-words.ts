@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { findDeclaredLanguageCode } from '@/domain/models/app/languages/language-detection'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import type { Languages } from '@/domain/models/app/languages'
@@ -50,7 +50,6 @@ export const ENGLISH_WORDS = emailWordsFor('en')
 
 /** The expiry spans the default emails name, as catalogue keys. */
 const EXPIRY_KEYS: Readonly<Record<string, string>> = {
-  '10 minutes': 'expiry.minutes10',
   '1 hour': 'expiry.hour1',
   '24 hours': 'expiry.hours24',
 }
@@ -61,6 +60,10 @@ export const expiryIn = (words: EmailWords, span: string): string => {
   return key === undefined ? span : words.t(key)
 }
 
+/** A lifetime of `minutes` minutes in the reader's language. */
+export const minutesIn = (words: EmailWords, minutes: number): string =>
+  words.t('expiry.minutes', { count: String(minutes) })
+
 /** The greeting, the name escaped for the HTML part. */
 export const greetingsOf = (
   words: EmailWords,
@@ -69,6 +72,6 @@ export const greetingsOf = (
   userName
     ? {
         text: words.t('greeting', { name: userName }),
-        html: words.t('greeting', { name: escapeHtml(userName) }),
+        html: words.t('greeting', { name: escapeHtmlAttribute(userName) }),
       }
     : { text: words.t('greetingAnonymous'), html: words.t('greetingAnonymous') }

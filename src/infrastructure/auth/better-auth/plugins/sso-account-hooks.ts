@@ -6,13 +6,10 @@
  */
 
 import { APIError } from 'better-auth/api'
-import { Effect } from 'effect'
-// eslint-disable-next-line boundaries/dependencies -- the role an identity provider maps to can only be written from inside the SSO plugin's own `provisionUser` callback, which runs after Better Auth linked the account. Same bridge as the admin-role guards' restoring write.
-import { updateUserRole } from '@/application/use-cases/tables/user-role'
 import { isAdminTier } from '@/domain/models/app/auth/roles'
 import { resolveSsoRole, ssoSignUpAllowed } from '@/domain/models/app/auth/sso/sso-service'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import { logError } from '@/infrastructure/logging/logger'
+import type { AuthHookPolicies } from '@/application/ports/contracts/auth-hook-policies'
 import type { Auth } from '@/domain/models/app/auth'
 import type { SsoProvider } from '@/domain/models/app/auth/sso'
 
@@ -148,9 +145,14 @@ export interface ProvisionInput {
  * (`provisionUserOnEveryLogin`), so the identity provider stays the source of
  * truth: removed from a mapped group there, a user is demoted here at their
  * next sign-in.
+ *
+ * The write is the application's (`AuthHookPolicies.writeUserRole`), handed in
+ * by the server. An instance built without one refuses the sign-in rather than
+ * leaving the mapped role unapplied: a demotion the provider asked for must not
+ * be skipped silently.
  */
 export const provisionRole =
-  (authConfig: Auth) =>
+  (authConfig: Auth, writeUserRole: AuthHookPolicies['writeUserRole'] | undefined) =>
   async ({ user, userInfo, provider }: ProvisionInput): Promise<void> => {
     const declared = (authConfig.sso ?? []).find((entry) => entry.id === provider.providerId)
     const mapping = declared?.roleMapping
@@ -162,12 +164,11 @@ export const provisionRole =
       (candidate) => isAdminTier(candidate, { auth: authConfig })
     )
     if (user.role === role) return
-    await Effect.runPromise(
-      updateUserRole(user.id, role).pipe(
-        Effect.tapCause((cause) =>
-          Effect.sync(() => logError('[SSO] role mapping write failed', cause))
-        ),
-        Effect.provide(AuthRepositoryLive)
-      )
-    )
+    if (writeUserRole === undefined) {
+      throw new APIError('INTERNAL_SERVER_ERROR', { message: 'The role mapping cannot be applied' })
+    }
+    await writeUserRole(user.id, role).catch((cause: unknown) => {
+      logError('[SSO] role mapping write failed', cause)
+      throw cause
+    })
   }

@@ -1,6 +1,6 @@
 # Trees
 
-> The `tree` component — the records of one table, nested by a relationship that points back at the same table.
+> The `tree` component: the records of one table, nested by a relationship that points back at the same table.
 
 A `tree` draws a hierarchy that lives in the records themselves: folders inside folders, accounts under accounts, teams under teams. Each record names its parent through `parentField`, a relationship to the bound table itself, and a record with no parent is a root.
 
@@ -10,7 +10,7 @@ A `tree` draws a hierarchy that lives in the records themselves: folders inside 
 
 The tree is drawn as the file tree of shadcn/ui's sidebar block: each branch a collapsible whose chevron turns when open, its children indented under a rule in the `border` colour, and the selected row and the row under the pointer on the `accent` surface. The filter box is an input group. Reference: shadcn/ui Sidebar.
 
-Selecting a node runs `onSelect` — `navigate` to its page or `openSheet` to show it on this one — and, with `publishes`, sends the selected id on a shared-filter channel, so a `table` beside the tree narrows to the selected branch.
+Selecting a node runs `onSelect` (`navigate` to its page or `openSheet` to show it on this one) and, with `publishes`, sends the selected id on a shared-filter channel, so a `table` beside the tree narrows to the selected branch.
 
 ## A parent can never be its own ancestor
 

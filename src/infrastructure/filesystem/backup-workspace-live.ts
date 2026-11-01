@@ -28,6 +28,7 @@ import {
   withAppObjectsReplaced,
 } from '@/infrastructure/database/postgres-restore-target'
 import { listFilesBelow } from '@/infrastructure/filesystem/list-files-below'
+import { PRIVATE_FILE_MODE } from '@/infrastructure/filesystem/private-modes'
 import { scanContentDirFiles } from '@/infrastructure/markdown/content-dir-enumerator'
 import { isProcessRunning, lockFilePathIn } from '@/infrastructure/server/lock-file'
 import { buildSchemaInChild, copyRows } from './backup-workspace-cross-dialect'
@@ -130,7 +131,7 @@ const countPostgresCatalogue = (url: string): Promise<number> =>
  * carries every row and, usually, the encryption key, so the umask (`0644`
  * under the usual `022`) would hand it to every local account.
  */
-export const ARCHIVE_FILE_MODE = 0o600
+export const ARCHIVE_FILE_MODE = PRIVATE_FILE_MODE
 
 /**
  * Write to a sibling scratch name, then rename: a failed write leaves nothing at

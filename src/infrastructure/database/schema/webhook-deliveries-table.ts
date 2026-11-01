@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   executeSQL,
   getExistingColumns,
@@ -147,7 +146,7 @@ export const ensureWebhookDeliveriesTable = (
   tx: TransactionLike
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    if (isSqliteRuntime()) {
+    if (tx.dialect === 'sqlite') {
       yield* executeSQL(tx, WEBHOOK_DELIVERIES_TABLE_DDL_SQLITE)
       yield* executeSQL(tx, WEBHOOK_DELIVERIES_INDEX_NAME_SQLITE)
       yield* executeSQL(tx, WEBHOOK_DELIVERIES_INDEX_CREATED_AT_SQLITE)
@@ -170,7 +169,7 @@ const ensureDeliveryIdColumn = (tx: TransactionLike): Effect.Effect<void, SQLExe
     if (columns.has('delivery_id')) return
     yield* executeSQL(
       tx,
-      isSqliteRuntime()
+      tx.dialect === 'sqlite'
         ? 'ALTER TABLE _webhook_deliveries ADD COLUMN delivery_id TEXT'
         : 'ALTER TABLE "public"."_webhook_deliveries" ADD COLUMN IF NOT EXISTS "delivery_id" TEXT'
     )

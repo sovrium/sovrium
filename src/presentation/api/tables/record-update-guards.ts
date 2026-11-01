@@ -6,75 +6,17 @@
  */
 
 import { Effect } from 'effect'
-import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import {
   findComputedFieldWrites,
   readonlyFieldWriteMessage,
 } from '@/domain/models/app/tables/computed-field-write-validation'
-import { isRecordReadOnly } from '@/domain/models/app/tables/field-condition-evaluator-service'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { checkRecordUpdateValues, findReadonlyUpdateField } from './record-rules'
-import {
-  createValidationLayer,
-  FieldValidationError,
-  formatValidationError,
-  sanitizeRichTextFields,
-} from './validation'
-import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import { FieldValidationError, formatValidationError, provideValidationContext } from './validation'
 import type { App, Table } from '@/domain/models/app'
-import type { FieldFormatError, FieldStorageError } from '@/presentation/api/tables/validation'
 import type { Context } from 'hono'
-
-/** Input for {@link checkFieldConditionReadOnly}. */
-export interface FieldConditionCheckInput {
-  readonly c: Context
-  readonly table: Table | undefined
-  readonly session: ReturnType<typeof getTableContext>['session']
-  readonly tableName: string
-  readonly recordId: string
-}
-
-/**
- * Reject a record update when a field `condition` has placed the record in a
- * read-only state (e.g. a `single-select` status of `completed` with
- * `conditions: [{ when: 'completed', then: { readOnly: true } }]`).
- *
- * Evaluated against the record's CURRENT stored value — fetched here — so a
- * locked record cannot be mutated through any field. Returns a `400` response
- * when locked, or `undefined` when the update may proceed.
- */
-export const fieldConditionLock = (
-  input: FieldConditionCheckInput
-): Effect.Effect<Response | undefined, never, TableRepository> => {
-  const { c, table, session, tableName, recordId } = input
-  const hasConditions = table?.fields?.some(
-    (field) =>
-      'conditions' in field && Array.isArray(field.conditions) && field.conditions.length > 0
-  )
-  if (!table || !hasConditions) return Effect.undefined
-
-  return rawGetRecordProgram(session, tableName, recordId).pipe(
-    Effect.map((row) =>
-      row && isRecordReadOnly(table.fields, row)
-        ? c.json(
-            {
-              success: false,
-              message: 'Cannot update record: a field condition has made this record read-only',
-              code: 'VALIDATION_ERROR',
-            },
-            400
-          )
-        : undefined
-    ),
-    // The lock is judged on a row that can be read; one that cannot is left to
-    // the write, which refuses or reports it on its own.
-    // effect-swallow: an unreadable row is the write's to refuse, not the lock's
-    Effect.orElseSucceed(() => undefined)
-  )
-}
 
 /**
  * Reject an update that targets an engine-managed readonly column
@@ -115,7 +57,7 @@ export function validateUpdateComputedFields(
   if (first === undefined) return undefined
   const errors = attempted.map((field) => ({ field, message: readonlyFieldWriteMessage(field) }))
   return formatValidationError(
-    new FieldValidationError(readonlyFieldWriteMessage(first), first, errors),
+    new FieldValidationError({ message: readonlyFieldWriteMessage(first), field: first, errors }),
     c
   )
 }
@@ -132,84 +74,23 @@ export interface UpdateValueCheck {
 /**
  * Every per-VALUE rule the update path enforces — `checkRecordUpdateValues`,
  * the one composition the MCP update tool runs too — on the request's domain
- * runtime (attachment confinement reads the storage catalog). Returns the first
- * violation for the caller to render through the shared
- * `formatValidationError`, which is what keeps the update path's wire shape and
- * statuses (422 format, 400 cardinality) from drifting from the create path's;
- * `undefined` when the update may proceed.
+ * runtime (attachment confinement reads the storage catalog, an inline
+ * attachment is stored). Answers the values to write, or the first violation
+ * for the caller to render through the shared `formatValidationError`, which is
+ * what keeps the update path's wire shape and statuses (422 format, 400
+ * cardinality) from drifting from the create path's.
  */
-export const updateValueViolation = (input: Readonly<UpdateValueCheck>) => {
+export const checkedUpdateValues = (input: Readonly<UpdateValueCheck>) => {
   const { c, app, tableName, userRole, fields } = input
   const { userGroups, session } = getTableContext(c)
   return checkRecordUpdateValues(fields).pipe(
-    Effect.provide(
-      createValidationLayer(app, tableName, {
-        role: userRole,
-        groups: userGroups,
-        signedOut: isGuestSession(session.userId),
-      })
-    ),
-    Effect.match({
-      onFailure: (violation): FieldFormatError | FieldValidationError | FieldStorageError =>
-        violation,
-      onSuccess: () => undefined,
-    })
+    provideValidationContext(app, tableName, {
+      role: userRole,
+      groups: userGroups,
+      signedOut: isGuestSession(session.userId),
+    }),
+    Effect.result
   )
-}
-
-/** {@link updateValueViolation} on the request's services, for a handler not yet composed into one program. */
-export async function validateUpdateFieldValues(
-  input: Readonly<UpdateValueCheck>
-): Promise<FieldFormatError | FieldValidationError | FieldStorageError | undefined> {
-  return runDomainPromise(input.c, updateValueViolation(input))
-}
-
-/**
- * HTML-sanitize every `rich-text` column the payload supplies, returning the
- * field map to write. Returns the values to persist rather than a `Response`
- * or an error: unlike its sibling guards this one TRANSFORMS the write instead
- * of merely admitting or refusing it, so the caller must feed the result
- * forward — dropping it would leave the raw markup on the column while every
- * gate reported success.
- *
- * This runs the SAME rule as the create path — `sanitizeRichTextFields` over
- * the canonical `sanitizeRichTextHTML` (security rule S2, one sanitizer) —
- * rather than a second copy. That is the whole point: `POST
- * /api/tables/:t/records` scrubbed `<script>`, `on*` handlers and
- * `javascript:` URLs out of a `rich-text` column while `PATCH
- * /api/tables/:t/records/:id` persisted them verbatim, so one resource
- * enforced two different write contracts depending on the verb, and the
- * hostile markup reached the column that the record-field renderer and the
- * WYSIWYG form both read back.
- *
- * Only columns the payload SUPPLIES are inspected, which is what makes it safe
- * on a PARTIAL update — a row already holding legacy markup is left alone
- * until something writes to it.
- *
- * Scope is TYPE-driven: `long-text` and `single-line-text` are never rendered
- * as HTML and are left byte-identical, so ordinary prose containing angle
- * brackets survives a PATCH intact.
- *
- * Ordering: this runs AFTER the role/field-permission gates and after format
- * validation, matching the create path, so an unauthorized caller still gets
- * the S1 anti-enumeration 404 first.
- */
-export const sanitizedRichTextFields = (
-  app: App,
-  tableName: string,
-  writer: Parameters<typeof createValidationLayer>[2],
-  fields: Record<string, unknown>
-): Effect.Effect<Record<string, unknown>> =>
-  sanitizeRichTextFields(fields).pipe(Effect.provide(createValidationLayer(app, tableName, writer)))
-
-/** {@link sanitizedRichTextFields}, resolved, for a handler not yet composed into one program. */
-export async function sanitizeUpdateRichTextFields(
-  app: App,
-  tableName: string,
-  writer: Parameters<typeof createValidationLayer>[2],
-  fields: Record<string, unknown>
-): Promise<Record<string, unknown>> {
-  return Effect.runPromise(sanitizedRichTextFields(app, tableName, writer, fields))
 }
 
 /**

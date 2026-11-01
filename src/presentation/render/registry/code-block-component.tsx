@@ -67,7 +67,10 @@
  * numbers are elements rather than a CSS counter.
  */
 
-import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import {
+  resolveInterpreterString,
+  resolveTranslationPattern,
+} from '@/domain/models/app/languages/translation-resolver'
 import { codeLineNumbers } from '@/domain/models/app/pages/code-line-numbers'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
@@ -86,10 +89,27 @@ import type { ComponentRenderer } from './component-dispatch-config'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement, ReactNode } from 'react'
 
-/** Default copy-button label (also its stable accessible name). */
-const DEFAULT_COPY_LABEL = 'Copy'
-/** Default post-copy confirmation label. */
-const DEFAULT_COPIED_LABEL = 'Copied'
+/**
+ * The copy button's label (also its accessible name) and its confirmation: the
+ * author's `copyLabel` / `copiedLabel`, at the top level or inside `props`
+ * (the top level wins), else the engine's `code.copy` / `code.copied` in the
+ * page language.
+ */
+function copyWords(
+  component: Record<string, unknown>,
+  elementProps: Record<string, unknown>,
+  lang: string | undefined,
+  languages: Languages | undefined
+): { readonly copyLabel: string; readonly copiedLabel: string } {
+  const authored = (key: string) =>
+    topLevelString(component, key, lang, languages) ??
+    topLevelString(elementProps, key, lang, languages)
+  return {
+    copyLabel: authored('copyLabel') ?? resolveInterpreterString('code.copy', lang, languages),
+    copiedLabel:
+      authored('copiedLabel') ?? resolveInterpreterString('code.copied', lang, languages),
+  }
+}
 
 /**
  * Resting place for the copy control on an UNFRAMED block (`codeFrame: 'none'`),
@@ -308,9 +328,7 @@ export const codeBlockComponent: ComponentRenderer = ({
     language,
   })
   const output = topLevelString(c, 'output', currentLang, languages)
-  const copyLabel = topLevelString(c, 'copyLabel', currentLang, languages) ?? DEFAULT_COPY_LABEL
-  const copiedLabel =
-    topLevelString(c, 'copiedLabel', currentLang, languages) ?? DEFAULT_COPIED_LABEL
+  const { copyLabel, copiedLabel } = copyWords(c, elementProps, currentLang, languages)
 
   const {
     'data-testid': dataTestId,
@@ -318,6 +336,8 @@ export const codeBlockComponent: ComponentRenderer = ({
     'data-language': _dataLanguage,
     lineNumbers: _lineNumbers,
     'data-line-numbers': _dataLineNumbers,
+    copyLabel: _copyLabel,
+    copiedLabel: _copiedLabel,
     className,
     ...rest
   } = omitInternalMarkers(elementProps) as Record<string, unknown>
@@ -340,16 +360,15 @@ export const codeBlockComponent: ComponentRenderer = ({
     renderedChildren,
     lines,
   })
-  const { copyButton, copyStatus } = copyParts(c['copy'] !== false, copyLabel, copiedLabel)
-  if (frame === 'none') return renderBareScope(codePre, copyButton, copyStatus)
+  const copy = copyParts(c['copy'] !== false, copyLabel, copiedLabel, designStyles?.parts)
+  if (frame === 'none') return renderBareScope(codePre, copy.copyButton, copy.copyStatus)
   return renderFramedBlock({
     frame,
     filename,
     terminalLabel,
     output,
     codePre,
-    copyButton,
-    copyStatus,
+    ...copy,
     ...readLook(c),
     parts: designStyles?.parts,
   })

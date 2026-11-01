@@ -27,6 +27,7 @@
  */
 
 import { DateTime, Duration, Option } from 'effect'
+import { DAY_MS } from '@/domain/kernel/time/durations'
 import { isValidTimezone } from '@/domain/models/app/automations/actions/date/props'
 import type { DateTokenErrorCode } from '@/domain/kernel/format/date-tokens'
 
@@ -272,13 +273,11 @@ export const CALENDAR_DIFF_UNITS: Readonly<Record<string, string>> = {
   year: 'years',
 }
 
-const MS_PER_DAY = 86_400_000
-
 /** Days since the epoch of a LOCAL calendar date — the estimate anchor for
  *  `day`/`week`, which is exact except at a DST boundary. */
 const localDayIndex = (zoned: Readonly<DateTime.Zoned>): number => {
   const parts = DateTime.toParts(zoned)
-  return Date.UTC(parts.year, parts.month - 1, parts.day) / MS_PER_DAY
+  return Date.UTC(parts.year, parts.month - 1, parts.day) / DAY_MS
 }
 
 /**

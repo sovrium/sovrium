@@ -14,8 +14,8 @@ import {
   PLACE_NOTE,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
-import { inWindow, PERIOD_NOTE, periodSelector } from '@/library/manifest/dashboard-block-kit'
+} from '@/library/kit/block-kit'
+import { inWindow, PERIOD_NOTE, periodSelector } from '@/library/kit/dashboard-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** Three figures from one table, each with a sparkline of its recent weeks. */

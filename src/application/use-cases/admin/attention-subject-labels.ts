@@ -13,7 +13,6 @@
 
 import { entityLabelFor } from '@/domain/models/app/auth/readable-name-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { formatStamp } from './attention-cells'
 import type { ConsoleLanguage } from './operator-language'
 import type { App } from '@/domain/models/app'
@@ -32,11 +31,17 @@ export const formLabelOf = (
     ? entityLabelFor({ name: form.name })
     : resolveTranslationPattern(form.title, language, app.languages)
 
-/** A paused automation as the attention detail names it: its label, and since when. */
-export const pausedSubjectOf = (item: {
-  readonly label: string
-  readonly pausedAt?: string | undefined
-}): string =>
+/**
+ * A paused automation as the attention detail names it: its label, and since
+ * when, on the operator's wall clock (`operatorTimezone`, read by the caller).
+ */
+export const pausedSubjectOf = (
+  item: {
+    readonly label: string
+    readonly pausedAt?: string | undefined
+  },
+  operatorTimezone: string
+): string =>
   item.pausedAt === undefined
     ? item.label
-    : `${item.label} · since ${formatStamp(item.pausedAt, resolveOperatorTimezone())}`
+    : `${item.label} · since ${formatStamp(item.pausedAt, operatorTimezone)}`

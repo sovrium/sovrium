@@ -6,8 +6,9 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { describedUnknown } from '@/domain/kernel/config-parsing/described-ref'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // Shared enums
@@ -20,81 +21,59 @@ export const webhookEventSchema = Schema.Literals([
   'record.create',
   'record.update',
   'record.delete',
+  'record.restore',
   'webhook.test',
 ]).annotate({ description: 'Event type that triggered the webhook delivery' })
 
 /**
- * Delivery status for webhook attempts.
+ * The status a stored delivery reads as: the log records exactly these two.
  */
-export const webhookDeliveryStatusSchema = Schema.Literals([
-  'success',
-  'failed',
-  'pending',
-  'retrying',
-]).annotate({ description: 'Current delivery status' })
+export const webhookDeliveryStatusSchema = Schema.Literals(['success', 'failed']).annotate({
+  description: 'How the delivery ended',
+})
 
 // ---------------------------------------------------------------------------
 // Delivery log schemas
 // ---------------------------------------------------------------------------
 
 /**
- * A single webhook delivery log entry.
+ * One webhook delivery log entry, whole: the list and the single read answer
+ * the same row, secret request headers redacted.
  *
  * Used for:
- * - GET /api/tables/:tableName/webhooks/:webhookName/deliveries (list view)
- * - OpenAPI documentation generation
+ * - GET /api/tables/:tableName/webhooks/:webhookName/deliveries
+ * - GET /api/tables/:tableName/webhooks/:webhookName/deliveries/:deliveryId
  */
 export const webhookDeliverySchema = Schema.Struct({
   id: Schema.String.annotate({ description: 'Unique delivery identifier' }),
   webhookName: Schema.String.annotate({ description: 'Name of the webhook that was triggered' }),
+  tableName: Schema.String.annotate({ description: 'Name of the table the event happened on' }),
   event: webhookEventSchema,
+  url: Schema.String.annotate({ description: 'The address the delivery was sent to' }),
   status: webhookDeliveryStatusSchema,
-  httpStatus: Schema.NullOr(
-    Schema.Int.annotate({ description: 'HTTP response status code (null if no response)' })
+  httpStatus: optionalField(
+    Schema.Int.annotate({ description: 'HTTP response status code; absent when none came back' })
   ),
   attemptCount: Schema.Int.annotate({ description: 'Number of delivery attempts' }).pipe(
     Schema.check(Schema.isGreaterThanOrEqualTo(1))
   ),
+  error: optionalField(
+    Schema.String.annotate({ description: 'Error message if the delivery failed' })
+  ),
+  responseBody: optionalField(
+    Schema.String.annotate({
+      description: 'Response body from the webhook endpoint; absent when none came back',
+    })
+  ),
+  duration: Schema.Finite.annotate({
+    description: 'Response time in milliseconds; 0 when none was measured',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   requestedAt: looseIsoDateTime({
     description: 'ISO 8601 timestamp when the delivery was initiated',
   }),
-  completedAt: Schema.NullOr(
-    looseIsoDateTime({
-      description: 'ISO 8601 timestamp when the delivery completed (null if still pending)',
-    })
-  ),
-  duration: Schema.NullOr(
-    Schema.Finite.annotate({
-      description: 'Response time in milliseconds (null if no response received)',
-    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
-  ),
-  error: Schema.NullOr(
-    Schema.String.annotate({ description: 'Error message if the delivery failed' })
-  ),
-})
-
-/**
- * Full delivery details including request and response payloads.
- *
- * Used for:
- * - GET /api/tables/:tableName/webhooks/:webhookName/deliveries/:deliveryId
- */
-export const webhookDeliveryDetailSchema = Schema.Struct({
-  ...webhookDeliverySchema.fields,
-  requestHeaders: Schema.Record(Schema.String, Schema.String).annotate({
-    description: 'HTTP headers sent with the webhook request',
-  }),
-  requestBody: Schema.String.annotate({ description: 'JSON payload sent to the webhook endpoint' }),
-  responseHeaders: Schema.NullOr(
-    Schema.Record(Schema.String, Schema.String).annotate({
-      description: 'HTTP response headers (null if no response)',
-    })
-  ),
-  responseBody: Schema.NullOr(
-    Schema.String.annotate({
-      description: 'Response body from the webhook endpoint (null if no response)',
-    })
-  ),
+  completedAt: looseIsoDateTime({ description: 'ISO 8601 timestamp when the delivery completed' }),
+  payload: describedUnknown('The payload sent to the webhook endpoint'),
+  requestHeaders: describedUnknown('HTTP headers sent with the request, secret values redacted'),
 })
 
 // ---------------------------------------------------------------------------
@@ -125,11 +104,11 @@ export const listDeliveriesResponseSchema = Schema.Struct({
   deliveries: Schema.Array(webhookDeliverySchema).annotate({
     description: 'List of delivery log entries',
   }),
-  nextCursor: Schema.NullOr(
-    Schema.String.annotate({ description: 'Cursor for the next page (null if no more results)' })
-  ),
   totalCount: Schema.Int.annotate({ description: 'Total number of matching deliveries' }).pipe(
     Schema.check(Schema.isGreaterThanOrEqualTo(0))
+  ),
+  nextCursor: optionalField(
+    Schema.String.annotate({ description: 'Cursor for the next page; absent on the last page' })
   ),
 })
 
@@ -144,12 +123,14 @@ export const listDeliveriesResponseSchema = Schema.Struct({
  * - POST /api/tables/:tableName/webhooks/:webhookName/deliveries/:deliveryId/retry
  */
 export const retryDeliveryResponseSchema = Schema.Struct({
-  deliveryId: Schema.String.annotate({
-    description: 'ID of the new delivery log entry created for the retry',
+  success: Schema.Boolean.annotate({
+    description: 'Whether the endpoint accepted the re-sent payload',
   }),
-  status: Schema.Literal('pending').annotate({
-    description: 'Initial status of the retry delivery',
-  }),
+  deliveryId: optionalField(
+    Schema.String.annotate({
+      description: 'ID of the new delivery log entry created for the retry, when it was logged',
+    })
+  ),
 })
 
 // ---------------------------------------------------------------------------
@@ -166,32 +147,60 @@ export const testWebhookResponseSchema = Schema.Struct({
   success: Schema.Boolean.annotate({
     description: 'Whether the test payload was delivered successfully',
   }),
-  httpStatus: Schema.NullOr(
-    Schema.Int.annotate({
-      description: 'HTTP response status code from the endpoint (null if unreachable)',
-    })
-  ),
+  httpStatus: Schema.Int.annotate({ description: 'HTTP response status code from the endpoint' }),
   duration: Schema.Finite.annotate({ description: 'Round-trip time in milliseconds' }).pipe(
     Schema.check(Schema.isGreaterThanOrEqualTo(0))
   ),
-  responseBody: Schema.NullOr(
-    Schema.String.annotate({
-      description: 'Response body from the webhook endpoint (null if unreachable)',
-    })
-  ),
-  error: Schema.NullOr(
+  error: optionalField(
     Schema.String.annotate({ description: 'Error message if the test delivery failed' })
   ),
+})
+
+// ---------------------------------------------------------------------------
+// Configured webhooks and the delivery sweep
+// ---------------------------------------------------------------------------
+
+/**
+ * `GET /api/tables/:tableId/webhooks`: the table's webhooks, never their
+ * credentials.
+ */
+export const listWebhooksResponseSchema = Schema.Struct({
+  webhooks: Schema.Array(
+    Schema.Struct({
+      name: Schema.String.annotate({ description: 'The webhook name' }),
+      url: Schema.String.annotate({ description: 'The address deliveries are sent to' }),
+      events: Schema.Array(Schema.String).annotate({
+        description: 'The record events the webhook fires on',
+      }),
+      enabled: Schema.Boolean.annotate({ description: 'Whether the webhook fires' }),
+    })
+  ).annotate({ description: 'The webhooks the table declares' }),
+})
+
+/**
+ * `POST /api/internal/webhooks/deliver-due`: what one sweep of the outbox did.
+ */
+export const webhookOutboxSweepResponseSchema = Schema.Struct({
+  delivered: Schema.Array(Schema.String).annotate({ description: 'Deliveries that went through' }),
+  retrying: Schema.Array(Schema.String).annotate({
+    description: 'Deliveries that failed and will be tried again',
+  }),
+  dead: Schema.Array(Schema.String).annotate({
+    description: 'Deliveries that used their last attempt',
+  }),
 })
 
 // ---------------------------------------------------------------------------
 // Type exports
 // ---------------------------------------------------------------------------
 
+/** @public */
+export type ListWebhooksResponse = typeof listWebhooksResponseSchema.Type
+/** @public */
+export type WebhookOutboxSweepResponse = typeof webhookOutboxSweepResponseSchema.Type
 export type WebhookEvent = typeof webhookEventSchema.Type
 export type WebhookDeliveryStatus = typeof webhookDeliveryStatusSchema.Type
 export type WebhookDelivery = typeof webhookDeliverySchema.Type
-export type WebhookDeliveryDetail = typeof webhookDeliveryDetailSchema.Type
 export type ListDeliveriesQuery = typeof listDeliveriesQuerySchema.Type
 export type ListDeliveriesResponse = typeof listDeliveriesResponseSchema.Type
 export type RetryDeliveryResponse = typeof retryDeliveryResponseSchema.Type

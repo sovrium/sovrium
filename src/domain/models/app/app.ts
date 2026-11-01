@@ -8,186 +8,59 @@
 import { Schema } from 'effect'
 import { ActionTemplatesSchema } from './actions'
 import { AdminConfigSchema } from './admin'
-import { validateAllAdminMountRules } from './admin/admin-mount-validation'
 import { AgentsSchema } from './agents'
 import { validateAllAgentApprovalRules } from './agents/approval-validation'
-import { validateAllKnowledgeReferences } from './agents/knowledge-validation'
 import { BuiltInAnalyticsSchema } from './analytics'
+import {
+  validateRecordActionColumnReferences,
+  validateRecordTriggerConditionFields,
+  validateRecordTriggerWatchFields,
+} from './app-automation-field-validation'
+import {
+  validateActionConnectionReferences,
+  validateActionTemplateReferences,
+  validateAgentActionReferences,
+  validateAutomationFailureReferences,
+  validateAutomationTableReferences,
+  validateFormTriggerReferences,
+} from './app-automation-reference-validation'
+import { validateAppDeclarations } from './app-declaration-validation'
+import {
+  validateAnalyticsActionRequirement,
+  validateApprovalActionRequirement,
+  validateAppRoleReferences,
+  validateAutomationAuthRequirements,
+  validateUserFieldsRequireAuth,
+} from './app-requirement-validation'
 import { AssetsSchema } from './assets'
 import { AuthSchema } from './auth'
 import { validateAllAiAccessRules } from './auth/ai-access-validation'
-import { validateAllRoleReferences, validateTableRoleReferences } from './auth/role-validation'
-import { validateAllAuthActionReferences } from './auth/roles/invite-role-validation'
-import { type Action, AutomationsSchema } from './automations'
-import { validateAllCalendarImports } from './automations/actions/calendar/import-ics-validation'
-import { findAppTodoPlaceholders } from './automations/todo-placeholder-validation'
-import { validateWebhookTriggersAgainstApp } from './automations/trigger/webhook-app-validation'
-import { entriesOfType, hasTriggerOfType } from './automations/trigger-entries-service'
+import { AutomationsSchema } from './automations'
 import { BadgeSchema } from './badge'
 import { BucketsSchema } from './buckets'
 import { validateFieldBucketReferences } from './buckets/field-bucket-reference-validation'
-import { validateComponentPlacements } from './component-placement-validation'
 import { ComponentsSchema } from './components'
-import { connectionCallIssue } from './connection-file-source-validation'
 import { ConnectionsSchema } from './connections'
+import { ConsentSchema } from './consent'
 import { DecisionsSchema } from './decisions'
 import { DescriptionSchema } from './description'
 import { DesignSchema } from './design'
-import { validateAllDesignReferences } from './design/design-validation'
 import { DisplayNameSchema } from './display-name'
 import { EnvVarsSchema } from './env'
-import { validateAllEnvReferences } from './env-reference-validation'
 import { FormsSchema } from './forms'
 import { validateAllFormsReferences } from './forms/forms-validation'
-import { validateAllShareRules } from './forms/share-validation'
 import { InstallSchema } from './install'
 import { LanguagesSchema } from './languages'
 import { LinksSchema } from './links'
-import { validateAllLinkRules } from './links/links-validation'
-import { validateAllQrCodePayloads } from './links/qr-code-validation'
 import { LlmsSchema } from './llms'
 import { NameSchema } from './name'
 import { NotificationsSchema } from './notifications'
-import { validateNotificationKinds } from './notifications/notifications-validation'
 import { PagesSchema } from './pages'
-import { validateAllComboboxChips } from './pages/combobox-chips-validation'
-import { validatePageAddresses } from './pages/localized-path-validation'
-import { validateAllPageAccessGroups } from './pages/page-access-validation'
-import { validateAllSelectEmptyOptions } from './pages/select-empty-option-validation'
-import { validateAllNativeSelects } from './pages/select-native-validation'
-import { validateAllSelectOptionSources } from './pages/select-option-source-validation'
-import { validateAllSystemSourceReferences } from './pages/system-source-validation'
 import { PaletteSchema } from './palette'
 import { RedirectsSchema } from './redirects'
 import { SystemSourceCatalogSchema } from './system-sources'
 import { TablesSchema } from './tables'
-import { validateReadStateCountNames } from './tables/read-state-validation'
-import { validateRowRuleGrantRoles } from './tables/row-rule-grant-role-validation'
-import { isResolvableColumnName } from './tables/system-fields'
-import { validateAllTablePermissionGroups } from './tables/table-permission-groups-validation'
-import { validateTranslatableContent } from './tables/translatable-validation'
 import { VersionSchema } from './version'
-
-/**
- * Flatten an action list into every action it can reach, descending through the
- * two container actions that nest others: `path` (one branch per condition) and
- * `loop` (one body repeated per item).
- *
- * Module-scoped because the cross-validation refinements below each need the
- * same walk, and each had grown its own byte-identical copy. Per-refinement
- * copies are how one rule comes to check nested actions while its neighbour
- * silently checks only the top level — the drift that lets a typo inside a
- * `path` branch validate.
- */
-const collectAllActions = (actions: ReadonlyArray<Action>): ReadonlyArray<Action> => {
-  return actions.flatMap((action) => {
-    const pathActions =
-      action.type === 'path'
-        ? action.props.paths.flatMap((p) => collectAllActions(p.actions as ReadonlyArray<Action>))
-        : []
-    const loopActions =
-      action.type === 'loop' ? collectAllActions(action.props.actions as ReadonlyArray<Action>) : []
-    return [action, ...pathActions, ...loopActions]
-  })
-}
-
-/**
- * Whether a config value is resolved at RUN time, leaving no name to check
- * statically.
- *
- * The predicate is deliberately the runtime's own — `resolveTriggerInString`
- * fast-paths on `!input.includes('{{')`. A validator that decides "is this a
- * template?" differently from the engine that expands it is how the two come to
- * reach opposite verdicts on one config.
- */
-const isRuntimeResolvedValue = (value: string): boolean =>
-  value.includes('{{') || value.startsWith('$env.')
-
-/**
- * How a record action's config named a column, phrased for the refusal message.
- *
- * The verb carries real information: an author who mistyped a column now has
- * THREE candidate surfaces to go and look at, and "'knid' does not exist" alone
- * does not say which. `filters on` is byte-identical to what shipped and must
- * stay so — two E2E criteria assert that sentence verbatim.
- */
-type ColumnRefKind = 'filters on' | 'sorts on' | 'selects'
-
-interface ColumnRef {
-  readonly field: string
-  readonly kind: ColumnRefKind
-}
-
-/**
- * Every prop on a record action that names a column: the condition fields of
- * `filter` (update / delete / upsert / batchDelete), the `sort` keys and
- * `fields` selection of `list`, and `batchUpsert`'s `matchField`.
- *
- * `sort` joined this set with the `record.read` split's `record/list`, and it is the WORSE of
- * the filter/sort pair. An unknown filter field returns a visibly wrong row set;
- * an unknown sort key returns the right rows in an arbitrary order and reports
- * success — on SQLite the quoted unknown name resolves to a string constant, so
- * every row sorts by the same value and no reordering happens at all. Combined
- * with a `limit` that is an arbitrary page, delivered as if it were the top N.
- *
- * `fields` is here for a DIFFERENT reason, and the distinction is worth stating
- * because it decides what this rule is for. Unlike the other three it does NOT
- * reach SQL: an automation's `fields` is a payload trim applied in memory to
- * rows already fetched, so no identifier is ever emitted and no dialect can
- * misread one. It earns the check by being the quietest of the four — a typo
- * yields rows without that key, every `{{…records.0.tittle}}` downstream
- * expands to nothing, and the run reports success with no error anywhere. This
- * rule is about names that do not exist, not solely about SQL injection
- * surfaces.
- *
- * `record/read` left this set in the same change: since the `record.read` split it is
- * primary-key-only and has no author-supplied identifier left to adjudicate.
- *
- * `batchUpdate` is absent by nature, not by omission — its per-item filters
- * arrive inside a `{{...}}` template and do not exist at config time.
- */
-const recordActionColumnRefs = (props: Readonly<Record<string, unknown>>): readonly ColumnRef[] => {
-  const { filter, matchField, sort, fields } = props as {
-    readonly filter?: unknown
-    readonly matchField?: unknown
-    readonly sort?: unknown
-    readonly fields?: unknown
-  }
-  const conditions =
-    filter && typeof filter === 'object'
-      ? (filter as { readonly conditions?: unknown }).conditions
-      : undefined
-  const conditionRefs: readonly ColumnRef[] = Array.isArray(conditions)
-    ? conditions.flatMap((condition) => {
-        if (!condition || typeof condition !== 'object') return []
-        const { field } = condition as { readonly field?: unknown }
-        return typeof field === 'string' ? [{ field, kind: 'filters on' as const }] : []
-      })
-    : []
-  // `matchField` keeps the FILTER wording deliberately: it is `batchUpsert`'s
-  // equivalent of a filter condition, and a third verb for it would say the
-  // same thing in one more voice.
-  const matchRefs: readonly ColumnRef[] =
-    typeof matchField === 'string' ? [{ field: matchField, kind: 'filters on' as const }] : []
-  const sortRefs: readonly ColumnRef[] = Array.isArray(sort)
-    ? sort.flatMap((key) => {
-        if (!key || typeof key !== 'object') return []
-        const { field } = key as { readonly field?: unknown }
-        return typeof field === 'string' ? [{ field, kind: 'sorts on' as const }] : []
-      })
-    : []
-  // `record/create` and `record/update` also carry a `fields` prop, but theirs
-  // is a WRITE PAYLOAD — an object keyed by column name — while `list`'s is an
-  // array of names. Reading only the array shape is what keeps this from
-  // adjudicating the wrong prop on the wrong operator without needing to switch
-  // on `operator` here.
-  const selectionRefs: readonly ColumnRef[] = Array.isArray(fields)
-    ? fields.flatMap((name) =>
-        typeof name === 'string' ? [{ field: name, kind: 'selects' as const }] : []
-      )
-    : []
-  return [...conditionRefs, ...matchRefs, ...sortRefs, ...selectionRefs]
-}
 
 /**
  * AppSchema defines the structure of an application configuration.
@@ -206,86 +79,6 @@ const recordActionColumnRefs = (props: Readonly<Record<string, unknown>>): reado
  * const validated = Schema.decodeUnknownSync(AppSchema)(myApp)
  * ```
  */
-/**
- * The reserved-namespace family, as one check.
- *
- * `/l` (short links), `/s` (design-system shares) and the `/_admin` operator
- * console are matched BEFORE pages, forms and redirects alike. A route declared
- * inside any of them is therefore permanently unreachable, with nothing in the
- * config or the logs saying why — one failure mode, three namespaces, so one
- * function rather than three branches in a filter that is already at its
- * complexity budget.
- */
-const validateReservedNamespaces = (
-  app: Parameters<typeof validateAllLinkRules>[0]
-): true | string => {
-  const linkError = validateAllLinkRules(app)
-  if (linkError !== true) return linkError
-  const shareError = validateAllShareRules(app)
-  if (shareError !== true) return shareError
-  return validateAllAdminMountRules(app)
-}
-
-/**
- * `select` declaration cross-validation, grouped.
- *
- * Four independent rules over the same component: its option list may not be
- * answered twice (`options` vs `dataSource`, and the bound table's fields must
- * exist); a `native: true` control may not carry keys the browser's own select
- * cannot honour (`searchable`, `allowCustomValue`, a per-option `icon`); an
- * `emptyOption` may not sit on a `multiple` control or beside a static option
- * that already submits the empty string; and `multiple` may not sit beside
- * `searchable`, which names a control with nowhere to show a set.
- *
- * One helper rather than four branches for the same reason
- * {@link validateReservedNamespaces} is one: the final filter is AT its
- * complexity budget, and a tenth branch there fails the lint gate outright —
- * measured, not assumed.
- */
-const validateSelectDeclarations = (
-  app: Parameters<typeof validateAllSelectOptionSources>[0] &
-    Parameters<typeof validateAllNativeSelects>[0] &
-    Parameters<typeof validateAllSelectEmptyOptions>[0] &
-    Parameters<typeof validateAllComboboxChips>[0]
-): true | string => {
-  const optionSourceError = validateAllSelectOptionSources(app)
-  if (optionSourceError !== true) return optionSourceError
-  const nativeError = validateAllNativeSelects(app)
-  if (nativeError !== true) return nativeError
-  const emptyOptionError = validateAllSelectEmptyOptions(app)
-  if (emptyOptionError !== true) return emptyOptionError
-  return validateAllComboboxChips(app)
-}
-
-/**
- * The declaration checks closing the final filter, as one branch: table permission groups, the
- * groups and roles `auth` operators name, the table a `calendar/importIcs` step writes, notification
- * kinds, read-state counts, translatable fields against `languages`, then every `$env.NAME`.
- * Grouped for the complexity-budget reason of {@link validateSelectDeclarations}.
- */
-const validateDeclaredReferences = (
-  app: Parameters<typeof validateAllTablePermissionGroups>[0] &
-    Parameters<typeof validateAllAuthActionReferences>[0] &
-    Parameters<typeof validateAllEnvReferences>[0] &
-    Parameters<typeof validateAllCalendarImports>[0] &
-    Parameters<typeof validateNotificationKinds>[0] &
-    Parameters<typeof validateTranslatableContent>[0]
-): true | string => {
-  const permissionGroupError = validateAllTablePermissionGroups(app)
-  if (permissionGroupError !== true) return permissionGroupError
-  const authActionError = validateAllAuthActionReferences(app)
-  if (authActionError !== true) return authActionError
-  // The table a `calendar/importIcs` step writes into, and the fields it maps.
-  const calendarImportError = validateAllCalendarImports(app)
-  if (calendarImportError !== true) return calendarImportError
-  const socialError = [
-    validateNotificationKinds(app),
-    validateReadStateCountNames(app),
-    validateTranslatableContent(app),
-  ]
-  return socialError.find((verdict) => verdict !== true) ?? validateAllEnvReferences(app)
-}
-
 export const AppSchema = Schema.Struct({
   /**
    * The name of the application, on npm's package-name rules (`NameSchema`):
@@ -382,11 +175,18 @@ export const AppSchema = Schema.Struct({
   /**
    * Built-in analytics configuration (optional).
    *
-   * Enables first-party, privacy-friendly analytics tracking without cookies
+   * Enables first-party, analytics tracking without cookies
    * or external dependencies. Configure data retention, excluded paths,
    * session timeout, and Do Not Track behavior.
    */
   analytics: Schema.optional(BuiltInAnalyticsSchema),
+
+  /**
+   * Visitor consent (optional): the purposes a visitor accepts or refuses
+   * before the page scripts, analytics providers and built-in analytics they
+   * gate run, the page explaining them, and how long a choice is kept.
+   */
+  consent: Schema.optional(ConsentSchema),
 
   /**
    * Reusable UI components (optional).
@@ -587,509 +387,33 @@ export const AppSchema = Schema.Struct({
       },
     ],
   }),
-  Schema.check(
-    Schema.makeFilter((app) => {
-      const userFieldTypes = new Set(['user', 'created-by', 'updated-by'])
-      const hasUserFields =
-        app.tables?.some((table) => table.fields.some((field) => userFieldTypes.has(field.type))) ??
-        false
-
-      if (hasUserFields && !app.auth) {
-        return 'User fields (user, created-by, updated-by) require auth configuration'
-      }
-      return true
-    })
-  ),
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.auth) return true // role references are checked only once auth is configured
-      // Table permissions are validated as soon as auth exists (built-in + custom
-      // roles); bucket/trigger permissions stay format-only unless `auth.roles`
-      // is declared (handled inside validateAllRoleReferences).
-      const tableError = validateTableRoleReferences(app)
-      if (tableError !== true) return tableError
-      return validateRowRuleGrantRoles(app) ?? validateAllRoleReferences(app)
-    })
-  ),
-  // Bucket reference cross-validation: an attachment field names a bucket the app can serve
+  // Each check below is one named cross-property rule, run in this order; the first
+  // refusal is the decode error a refused config prints. Each named rule documents its
+  // own rationale beside its body. The chain stays one `Schema.check` per rule because
+  // each additional filter pushes TypeScript's deep-instantiation depth toward the
+  // limit at which the derived `App` type collapses to `never` — so new rules join an
+  // existing bundle (`validateAppDeclarations`) rather than a new link here.
+  Schema.check(Schema.makeFilter(validateUserFieldsRequireAuth)),
+  Schema.check(Schema.makeFilter(validateAppRoleReferences)),
   Schema.check(Schema.makeFilter(validateFieldBucketReferences)),
-  // Automation cross-validation: record/comment triggers and record actions must
-  // reference existing tables. A config with no `tables` key declares an EMPTY
-  // set, not an unknown one, so every table-naming surface is refused there too.
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.automations) return true
-
-      const tableNames = new Set((app.tables ?? []).map((t) => t.name))
-
-      // Every record and comment entry of every automation, not only the first.
-      const triggerError = [
-        ...entriesOfType(app.automations, 'record'),
-        ...entriesOfType(app.automations, 'comment'),
-      ].find(({ trigger }) => !tableNames.has(trigger.table))
-      if (triggerError) {
-        const { automation, trigger } = triggerError
-        return `Automation '${automation}' ${trigger.type} trigger references table '${trigger.table}' which does not exist`
-      }
-
-      const actionError = app.automations
-        .flatMap((a) =>
-          collectAllActions(a.actions as ReadonlyArray<Action>)
-            .filter(
-              (
-                action
-              ): action is Action & {
-                readonly type: 'record'
-                readonly props: { readonly table: string }
-              } => action.type === 'record' && !tableNames.has(action.props.table)
-            )
-            .map((action) => ({ automation: a.name, action }))
-        )
-        .at(0)
-      if (actionError) {
-        return `Automation '${actionError.automation}' record action '${actionError.action.name}' references table '${actionError.action.props.table}' which does not exist`
-      }
-
-      return true
-    })
-  ),
-  // Automation cross-validation: auth triggers/actions and session webhooks require auth config
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.automations) return true
-      const hasAuthTrigger = app.automations.some((a) => hasTriggerOfType(a, 'auth'))
-      if (hasAuthTrigger && !app.auth) {
-        return 'Auth triggers require auth configuration to be enabled'
-      }
-
-      const hasAuthAction = app.automations.some((a) =>
-        a.actions.some((action) => action.type === 'auth')
-      )
-      if (hasAuthAction && !app.auth) {
-        return 'Auth actions require auth configuration to be enabled'
-      }
-      return validateWebhookTriggersAgainstApp(app)
-    })
-  ),
-  // Automation cross-validation: analytics actions require analytics config
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.automations) return true
-
-      const hasAnalyticsAction = app.automations.some((a) =>
-        a.actions.some((action) => action.type === 'analytics')
-      )
-      if (hasAnalyticsAction && !app.analytics) {
-        return 'Analytics actions require analytics configuration to be enabled'
-      }
-      return true
-    })
-  ),
-  // Automation cross-validation: record trigger watchFields must reference existing fields
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.automations || !app.tables) return true
-
-      const tableFieldMap = new Map(
-        app.tables.map((t) => [t.name, new Set(t.fields.map((f) => f.name))])
-      )
-
-      const watchFieldError = entriesOfType(app.automations, 'record')
-        .flatMap(({ automation, trigger }) => {
-          const tableFields = tableFieldMap.get(trigger.table)
-          if (!trigger.watchFields || !tableFields) return []
-          return trigger.watchFields
-            .filter((field) => !tableFields.has(field))
-            .map((field) => ({ automation, field, table: trigger.table }))
-        })
-        .at(0)
-
-      if (watchFieldError) {
-        return `Automation '${watchFieldError.automation}' watchField '${watchFieldError.field}' does not exist in table '${watchFieldError.table}'`
-      }
-      return true
-    })
-  ),
-  // Automation cross-validation: record trigger condition fields must reference
-  // existing fields.
-  //
-  // A record trigger has TWO field-name surfaces and only `watchFields` was
-  // checked. `trigger.condition[].field` never becomes a SQL identifier —
-  // `evaluateRecordTriggerCondition` resolves it in memory against the event's
-  // record — so there is no mass-deletion path and no dialect asymmetry here.
-  // The silence is worse instead, because it runs in BOTH directions and
-  // neither leaves a trace: `isEmpty`/`isNull` answer on the VALUE alone, so a
-  // name resolving to `undefined` reads as "empty" and the automation OVER-fires
-  // on every event as though no condition had been written, while
-  // `isNotEmpty`/`isNotNull` invert that and the automation NEVER fires. The
-  // second direction produces no failed run, no error and no log line at all —
-  // boot is the last place it is still observable.
-  //
-  // The two exemptions are the record-action rule's, for the same reasons: a
-  // `{{...}}` field is only knowable at run time, and system columns exist
-  // without appearing in `fields[]`.
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.automations || !app.tables) return true
-
-      const tableFieldMap = new Map(
-        app.tables.map((t) => [t.name, new Set(t.fields.map((f) => f.name))])
-      )
-
-      const conditionFieldError = entriesOfType(app.automations, 'record')
-        .flatMap(({ automation, trigger: entry }) => {
-          const trigger = entry as {
-            readonly table: string
-            readonly condition?: { readonly conditions?: readonly { readonly field?: unknown }[] }
-          }
-          const tableFields = tableFieldMap.get(trigger.table)
-          // An unknown table is the TABLE rule's verdict, not this one's.
-          if (!tableFields) return []
-          return (trigger.condition?.conditions ?? [])
-            .flatMap((condition) => (typeof condition.field === 'string' ? [condition.field] : []))
-            .filter((field) => !isRuntimeResolvedValue(field))
-            .filter((field) => !isResolvableColumnName(tableFields, field))
-            .map((field) => ({ automation, field, table: trigger.table }))
-        })
-        .at(0)
-
-      if (conditionFieldError) {
-        return `Automation '${conditionFieldError.automation}' trigger condition field '${conditionFieldError.field}' does not exist in table '${conditionFieldError.table}'`
-      }
-      return true
-    })
-  ),
-  // Automation cross-validation: record-action column references must name real
-  // columns.
-  //
-  // A record action's `filter.conditions[].field`, `batchUpsert.matchField` and
-  // `list.sort[].field` become SQL IDENTIFIERS, and the two dialects disagree
-  // about an unknown one in the worst possible direction. Postgres raises 42703
-  // and the action fails closed. SQLite — the zero-config DEFAULT engine —
-  // resolves a double-quoted name that matches no column to a string LITERAL,
-  // so `"knid" <> 'zzz'` compares the constant 'knid' against 'zzz' on every
-  // row and the predicate matches the WHOLE TABLE. Whether that happens turns
-  // on the OPERAND, not the operator: `equals 'knid'` and `contains 'ni'` are
-  // tautologies while `equals 'alpha'` fails closed, so no subset of operators
-  // is safe to exempt. On a `record/delete` that is a silent mass-deletion
-  // reported as success.
-  //
-  // A `sort` key degrades differently and no less quietly: `ORDER BY "knid"`
-  // orders every row by that same string constant, so the rows come back in an
-  // arbitrary order with a SUCCESSFUL run and nothing saying the ordering was
-  // never applied — and under a `limit` that arbitrary order picks the page.
-  //
-  // Catching the typo here means it never reaches SQL, and `sovrium validate`
-  // reports it without booting. It cannot cover every case — see the two
-  // deliberate skips below and `batchUpdate`, whose per-item filters arrive
-  // inside a `{{...}}` template and do not exist at config time at all.
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.automations || !app.tables) return true
-
-      const tableFieldMap = new Map(
-        app.tables.map((t) => [t.name, new Set(t.fields.map((f) => f.name))])
-      )
-
-      const filterFieldError = app.automations
-        .flatMap((a) =>
-          collectAllActions(a.actions as ReadonlyArray<Action>)
-            .filter((action) => action.type === 'record')
-            .flatMap((action) => {
-              const props = action.props as Record<string, unknown>
-              const { table } = props as { readonly table?: unknown }
-              if (typeof table !== 'string') return []
-              const tableFields = tableFieldMap.get(table)
-              // An unknown table is the TABLE rule's verdict. Reporting it here
-              // too would say the same thing twice in two voices.
-              if (!tableFields) return []
-              return (
-                recordActionColumnRefs(props)
-                  .filter((ref) => !isRuntimeResolvedValue(ref.field))
-                  // System columns (`id`, the timestamps, the authorship columns)
-                  // exist without appearing in `fields[]`. Every record filter in
-                  // `apps/partner` targets `field: 'id'`, so omitting this exemption
-                  // would refuse to boot three shipped automations. The predicate is
-                  // SHARED with the runtime check in `record-filters.ts` so the two
-                  // halves cannot reach opposite verdicts on the same name.
-                  .filter((ref) => !isResolvableColumnName(tableFields, ref.field))
-                  .map((ref) => ({
-                    automation: a.name,
-                    action: action.name,
-                    field: ref.field,
-                    kind: ref.kind,
-                    table,
-                    declared: [...tableFields],
-                  }))
-              )
-            })
-        )
-        .at(0)
-
-      if (filterFieldError) {
-        return `Automation '${filterFieldError.automation}' record action '${filterFieldError.action}' ${filterFieldError.kind} field '${filterFieldError.field}' which does not exist in table '${filterFieldError.table}'. Available: ${filterFieldError.declared.join(', ')}`
-      }
-      return true
-    })
-  ),
-  // Automation cross-validation: $ref action templates must reference existing templates
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.automations) return true
-      const templateNames = new Set(app.actions?.map((t) => t.name) ?? [])
-
-      const refError = app.automations
-        .flatMap((a) =>
-          collectAllActions(a.actions as ReadonlyArray<Action>)
-            .filter(
-              (action): action is Action & { readonly type: 'ref'; readonly $ref: string } =>
-                action.type === 'ref'
-            )
-            .filter((action) => !templateNames.has(action.$ref))
-            .map((action) => ({ automation: a.name, action }))
-        )
-        .at(0)
-
-      if (refError) {
-        const available =
-          templateNames.size > 0
-            ? `. Available templates: ${Array.from(templateNames).toSorted().join(', ')}`
-            : '. No action templates are defined in app.actions[]'
-        return `Automation '${refError.automation}' action '${refError.action.name}' references template '${refError.action.$ref}' which does not exist${available}`
-      }
-      // A live automation's trigger, or a template it calls, may not hold a `{{todo.*}}`.
-      return findAppTodoPlaceholders(app)
-    })
-  ),
-  // NOTE: `automation:call` references are validated at RUNTIME (not at
-  // decode time) — a missing target surfaces as a failed run (HTTP 500) so
-  // operators can ship a caller before its callee lands, and so the failure
-  // is observable in run-history rather than blocking server startup.
-  // Automation cross-validation: action connection must reference existing connections
-  // Action-type-agnostic: checks ANY action with a `connection` prop (ai, http, webhook, etc.)
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.automations) return true
-
-      const connectionNames = new Set(app.connections?.map((c) => c.name) ?? [])
-
-      const connectionError = app.automations
-        .flatMap((a) =>
-          collectAllActions(a.actions as ReadonlyArray<Action>)
-            .filter(
-              (action): action is Action & { readonly props: { readonly connection?: string } } =>
-                'props' in action &&
-                action.props !== undefined &&
-                typeof action.props === 'object' &&
-                'connection' in (action.props as Record<string, unknown>) &&
-                (action.props as Record<string, unknown>).connection !== undefined &&
-                !connectionNames.has((action.props as Record<string, unknown>).connection as string)
-            )
-            .map((action) => ({ automation: a.name, action }))
-        )
-        .at(0)
-
-      if (connectionError) {
-        return `Automation '${connectionError.automation}' action '${connectionError.action.name}' references connection '${(connectionError.action.props as { readonly connection: string }).connection}' which does not exist`
-      }
-
-      // A `connection` / `call` step must fit the operation it names, and a file
-      // parameter may not read what the trigger's caller chooses. Folded into
-      // this check: the AppSchema pipe is at its arity limit.
-      const callError = app.automations
-        .flatMap((a) =>
-          collectAllActions(a.actions as ReadonlyArray<Action>)
-            .filter(
-              (action): action is Extract<Action, { readonly type: 'connection' }> =>
-                action.type === 'connection' && action.operator === 'call'
-            )
-            .map((action) => ({
-              automation: a.name,
-              action,
-              issue: connectionCallIssue(a, action.props, app),
-            }))
-        )
-        .find((entry) => entry.issue !== undefined)
-
-      return callError === undefined
-        ? true
-        : `Automation '${callError.automation}' action '${callError.action.name}' ${callError.issue ?? ''}`
-    })
-  ),
-  // Automation cross-validation: approval actions require auth config
-  Schema.check(
-    Schema.makeFilter((app) => {
-      // Every step a run can reach: an approval inside a `loop` body or a
-      // `path` branch waits on a signed-in approver exactly like a top-level one,
-      // and so does one declared as an `app.actions[]` template — a `$ref` is
-      // rewritten to its template before the run dispatches anything, and a
-      // template exposed through `aiAccess` runs with no automation at all.
-      const declared: ReadonlyArray<Action> = [
-        ...(app.automations ?? []).flatMap((a) => a.actions as ReadonlyArray<Action>),
-        ...(app.actions ?? []).map((template) => template.action),
-      ]
-      const hasApprovalAction = collectAllActions(declared).some(
-        (action) => action.type === 'approval'
-      )
-      if (hasApprovalAction && !app.auth) {
-        return 'Approval actions require auth configuration to be enabled'
-      }
-      return true
-    })
-  ),
-  // AI Agent cross-validation: ai:agent actions require app.agents config
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.automations) return true
-
-      const agentNames = new Set(app.agents?.map((a) => a.name) ?? [])
-
-      const agentError = app.automations
-        .flatMap((a) =>
-          collectAllActions(a.actions as ReadonlyArray<Action>)
-            .filter(
-              (
-                action
-              ): action is Action & {
-                readonly type: 'ai'
-                readonly operator: 'agent'
-                readonly props: { readonly agent: string }
-              } => action.type === 'ai' && action.operator === 'agent'
-            )
-            .filter((action) => !agentNames.has(action.props.agent))
-            .map((action) => ({ automation: a.name, action }))
-        )
-        .at(0)
-
-      if (agentError) {
-        if (!app.agents) {
-          return `Automation '${agentError.automation}' uses ai:agent action but app.agents is not configured`
-        }
-        const available = Array.from(agentNames).toSorted().join(', ')
-        return `Automation '${agentError.automation}' action '${agentError.action.name}' references agent '${agentError.action.props.agent}' which does not exist. Available agents: ${available}`
-      }
-
-      return true
-    })
-  ),
-  // Form trigger cross-validation: referenced form must exist in app.forms[]
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.automations) return true
-
-      const formNames = new Set((app.forms ?? []).map((f) => f.name))
-      const missing = entriesOfType(app.automations, 'form').find(
-        ({ trigger }) => !formNames.has(trigger.form)
-      )
-      if (missing) {
-        return `Automation '${missing.automation}' form trigger references form '${missing.trigger.form}' which does not exist in app.forms[]`
-      }
-      return true
-    })
-  ),
-  // Automation-failure trigger cross-validation: referenced automations must exist
-  Schema.check(
-    Schema.makeFilter((app) => {
-      if (!app.automations) return true
-
-      const automationNames = new Set(app.automations.map((a) => a.name))
-
-      const missingError = entriesOfType(app.automations, 'automation-failure')
-        .flatMap(({ automation, trigger }) =>
-          (trigger.automations ?? [])
-            .filter((name) => !automationNames.has(name))
-            .map((missing) => ({ automation, missing }))
-        )
-        .at(0)
-
-      if (missingError) {
-        return `Automation '${missingError.automation}' automation-failure trigger references automation '${missingError.missing}' which does not exist`
-      }
-      return true
-    })
-  ),
-  // Forms cross-validation (bundled): name uniqueness, id uniqueness,
-  // path uniqueness + page-path collision, submitTo.table existence,
-  // submitTo.automation existence, page form-component formRef existence
-  // AND mutual exclusion with inline dataSource/fields, and the refusal of a
-  // page form that would create a record on its own (formRef is the bridge).
+  Schema.check(Schema.makeFilter(validateAutomationTableReferences)),
+  Schema.check(Schema.makeFilter(validateAutomationAuthRequirements)),
+  Schema.check(Schema.makeFilter(validateAnalyticsActionRequirement)),
+  Schema.check(Schema.makeFilter(validateRecordTriggerWatchFields)),
+  Schema.check(Schema.makeFilter(validateRecordTriggerConditionFields)),
+  Schema.check(Schema.makeFilter(validateRecordActionColumnReferences)),
+  Schema.check(Schema.makeFilter(validateActionTemplateReferences)),
+  // `automation:call` targets are resolved at RUN time, not here: a missing callee
+  // surfaces as a failed run, so a caller can ship before its callee lands.
+  Schema.check(Schema.makeFilter(validateActionConnectionReferences)),
+  Schema.check(Schema.makeFilter(validateApprovalActionRequirement)),
+  Schema.check(Schema.makeFilter(validateAgentActionReferences)),
+  Schema.check(Schema.makeFilter(validateFormTriggerReferences)),
+  Schema.check(Schema.makeFilter(validateAutomationFailureReferences)),
   Schema.check(Schema.makeFilter((app) => validateAllFormsReferences(app))),
-  // AI/MCP cross-validation (bundled): manual-trigger-only aiAccess,
-  // whitelist consistency, reserved 'auth_'/'system_' table prefixes.
-  // Bundled into a single helper to stay under TypeScript's deep-instantiation
-  // depth limit (same reason validateAllFormsReferences is bundled).
   Schema.check(Schema.makeFilter((app) => validateAllAiAccessRules(app))),
-  // Agent-approval cross-validation (bundled): selective-mode requires a
-  // `required` list, `required` must be a subset of tools.actions,
-  // escalation.to must reference an auth role, escalation.after < timeout.
   Schema.check(Schema.makeFilter((app) => validateAllAgentApprovalRules(app))),
-  // Agent table-knowledge cross-validation:
-  // every `knowledge.tables[]` entry must reference a declared table + real
-  // columns, and only text-like field types may be
-  // embedded as a knowledge source.
-  // Final bundled filter: agent table-knowledge references
-  // AND page-access group references
-  // Two unrelated checks are bundled into one
-  // `Schema.filter` call because each additional filter in the chain pushes
-  // TypeScript's deep-instantiation depth over the limit and collapses the
-  // derived `App` type to `never`.
-  Schema.check(
-    Schema.makeFilter((app) => {
-      const knowledgeError = validateAllKnowledgeReferences(app)
-      if (knowledgeError !== true) return knowledgeError
-      const pageAccessError = validateAllPageAccessGroups(app)
-      if (pageAccessError !== true) return pageAccessError
-      // System-source reference cross-validation (CAP-4): every
-      // `dataSource: { systemSource: <name> }` must resolve to a declared
-      // `app.systemSources[]` entry — the offline `sovrium validate` win.
-      const systemSourceError = validateAllSystemSourceReferences(app)
-      if (systemSourceError !== true) return systemSourceError
-      // Page addresses: per-language paths claim declared languages and distinct
-      // addresses, and no `redirects[].from` shadows a static page path (it is
-      // evaluated first). Bundled here (not a new `Schema.filter`) for the
-      // deep-instantiation reason documented above.
-      const redirectError = validatePageAddresses(app)
-      if (redirectError !== true) return redirectError
-      // Link-namespace cross-validation: no page, form or redirect may claim a
-      // path under a RESERVED NAMESPACE — `/l` short links, `/s` design-system
-      // shares, or the `/_admin` operator console. All three are matched before
-      // pages, forms and redirects alike, so a route inside one is permanently
-      // unreachable with nothing in the config saying why. Grouped into one
-      // helper because they are one rule with three namespaces, and because
-      // each extra branch in this filter counts against its complexity budget.
-      const namespaceError = validateReservedNamespaces(app)
-      if (namespaceError !== true) return namespaceError
-      // Select declaration cross-validation: `options` and `dataSource` are
-      // mutually exclusive, `dataSource.{table,displayField,valueField}` must
-      // name a declared table and real fields on it, and a `native: true`
-      // control may not carry keys the browser's own select cannot honour. One
-      // branch, because this filter is at its complexity budget — see
-      // `validateSelectDeclarations`. Bundled here (not a new `Schema.filter`)
-      // for the deep-instantiation reason documented above.
-      const selectError = validateSelectDeclarations(app)
-      if (selectError !== true) return selectError
-      // Design cross-validation: every `design.colorRoles` key names a declared colour token or
-      // declares its own value, every ramp reference resolves, every `density.byZone` key names
-      // a zone. Bundled here for the deep-instantiation reason documented above.
-      const designError = validateAllDesignReferences(app)
-      if (designError !== true) return designError
-      // QR payload cross-validation: a `qr-code` component encodes exactly one of `link` or
-      // `value`, which no field-level rule can state. Bundled here for the reason above.
-      const qrCodeError = validateAllQrCodePayloads(app)
-      if (qrCodeError !== true) return qrCodeError
-      // Design-console cross-validation: a plotted easing token must name a curve the app can
-      // resolve (one of the inherited four, a `design.motion.easings` key, or a written-out
-      // `cubic-bezier(...)`); a name resolving to nothing draws an empty box read as "linear".
-      // Component-template placement: a bare `$ref` names a template in `app.components`, refused
-      // here rather than drawn as a request-time "not found" box. Grouped in
-      // `validateComponentPlacements` for the complexity budget and deep-instantiation reasons.
-      const componentError = validateComponentPlacements(app)
-      if (componentError !== true) return componentError
-      // Declarations (permission groups, `$env`, notification kinds, read-state counts): one
-      // branch, for the complexity budget — see `validateDeclaredReferences`.
-      return validateDeclaredReferences(app)
-    })
-  )
+  Schema.check(Schema.makeFilter(validateAppDeclarations))
 )
 
 /**

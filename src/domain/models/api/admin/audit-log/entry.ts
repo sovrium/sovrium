@@ -18,20 +18,21 @@
  */
 
 import { Schema } from 'effect'
+import { coercedNumber } from '@/domain/kernel/config-parsing/coerce'
+import { looseIsoDateOrDateTime, looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { actorSchema } from '@/domain/models/api/admin/envelope/actor'
 import { resourceSchema } from '@/domain/models/api/admin/envelope/resource'
 import { severitySchema } from '@/domain/models/api/admin/envelope/severity'
-import { coercedNumber } from '@/domain/models/api/combinators/coerce'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { withDefault } from '../../combinators/schema-defaults'
+import { appliedQuerySchema, searchTermSchema } from '@/domain/models/api/search-term'
+import { withDefault } from '../../schema-defaults'
 
 /**
  * Action outcome — every emit records whether the action succeeded or failed
  * so operators can filter to failure-only views during incident triage.
  */
 export const auditResultSchema = Schema.Literals(['success', 'failure']).annotate({
-  description: 'Outcome of the audited action — used for filtering during triage.',
+  description: 'Outcome of the audited action, used for filtering during triage.',
 })
 
 /** @public */
@@ -60,7 +61,7 @@ export const auditTransportSchema = Schema.Literals([
   'api',
   'mcp',
   'restore',
-]).annotate({ description: 'How the change was made — the closed transport ("canal") enum.' })
+]).annotate({ description: 'How the change was made: the closed transport ("canal") enum.' })
 
 /** @public */
 export type AuditTransport = typeof auditTransportSchema.Type
@@ -109,6 +110,9 @@ export type AuditLogEntry = typeof auditLogEntrySchema.Type
 export const auditLogListResponseSchema = Schema.Struct({
   items: Schema.Array(auditLogEntrySchema),
   nextCursor: Schema.NullOr(Schema.String),
+  // The `q` the server applied, on every response, so the console grid does
+  // not re-filter in memory the rows the server already searched.
+  appliedQuery: appliedQuerySchema,
 }).annotate({ identifier: 'AuditLogListResponse' })
 
 /** @public */
@@ -117,12 +121,56 @@ export type AuditLogListResponse = typeof auditLogListResponseSchema.Type
 /**
  * Query shape for `GET /api/admin/audit-log` cursor-paginated reads, matching
  * the audit-log `store.ts` query API.
+ *
+ * Every filter narrows ON THE SERVER and they compose with AND, so a page is a
+ * page of matches and the cursor walks matches only. `from` / `to` follow the
+ * runs list exactly (`GET /api/admin/automations/runs`), because the console
+ * publishes both from the same date-range control: a calendar day counts in
+ * the operator timezone and a `to` day is included, a date-time `to` is
+ * exclusive.
+ *
+ * `q` searches what an operator can name from memory, never a payload: the
+ * actor email, the action and the resource id. The entry `metadata` is not
+ * searched; it holds whatever an emitter attached, and a search over it would
+ * let a substring probe recover a value no column shows.
  */
 export const auditLogQuerySchema = Schema.Struct({
-  actorId: optionalField(Schema.String),
-  action: optionalField(Schema.String),
+  actorId: optionalField(
+    Schema.String.annotate({
+      description:
+        'Only the entries one actor wrote, by `actor.id`, the value `GET /api/admin/audit-log/facets` lists under `actors[].id`.',
+    })
+  ),
+  action: optionalField(
+    Schema.String.annotate({
+      description:
+        'Only the entries of one action, matched exactly (`user.role.changed`), the value the facets read lists under `actions[].action`.',
+    })
+  ),
   resourceType: optionalField(Schema.String),
   transport: optionalField(auditTransportSchema),
+  reads: optionalField(
+    Schema.Literals(['true', 'false']).annotate({
+      description:
+        'Whether the read entries are listed. An entry is a read when its action ends in `.queried` or `.read`: someone looked, nothing changed. Absent, every entry is listed, reads included, as the trail has always answered; `false` leaves the reads out, so the list holds what changed; `true` keeps them, as absence does. Exactly `true` or `false`; any other value is a 400. AND-combined with every other filter.',
+    })
+  ),
+  q: searchTermSchema.annotate({
+    description:
+      'Optional free-text search over the actor email, the action and the resource id, as a case-insensitive literal substring. Composes with every other filter and the cursor (AND). The entry metadata is never searched. Empty or whitespace-only means no search.',
+  }),
+  from: optionalField(
+    looseIsoDateOrDateTime({
+      description:
+        'Start of the period, inclusive, on `timestamp`: a calendar day (`2026-10-17`) or an ISO 8601 date-time. A day means from the first instant of that day, counted in the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset). The same rule as the runs list.',
+    })
+  ),
+  to: optionalField(
+    looseIsoDateOrDateTime({
+      description:
+        'End of the period on `timestamp`: a calendar day or an ISO 8601 date-time. A day is INCLUDED, through its last instant in the operator timezone, so `?from=2026-09-01&to=2026-09-01` reads that one day. A date-time is EXCLUSIVE. Returns 400 when the period ends before it starts.',
+    })
+  ),
   cursor: optionalField(Schema.String),
   limit: coercedNumber.pipe(
     Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(200)),

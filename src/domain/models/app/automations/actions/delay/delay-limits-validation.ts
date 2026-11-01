@@ -24,6 +24,7 @@
  * same verdict. Pure.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   MAX_DELAY_LABEL,
   MAX_DELAY_MS,
@@ -32,9 +33,6 @@ import {
 } from './delay-wait-service'
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * Every delay step reachable from `value`. Only the keys that nest steps are

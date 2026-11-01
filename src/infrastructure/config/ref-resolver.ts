@@ -52,6 +52,28 @@ const isRefObject = (value: unknown): value is { readonly $ref: string } => {
 export type ConfigGraphOverlay = (absolutePath: string) => string | undefined
 
 /**
+ * A `$ref` names a file that does not exist (yet).
+ *
+ * It carries the graph the load got through, because a watcher re-derives what
+ * it follows from what a load READ: without it, the file this refusal names
+ * would be the one file of the graph nobody follows, and creating it — the
+ * author's obvious next save — would reload nothing. `files` is the chain of
+ * `$ref`ed files that led to the missing one, then the missing path itself;
+ * siblings resolved in parallel are not reported (the watcher already follows
+ * them from the last accepted load).
+ */
+export class MissingRefFileError extends Error {
+  override readonly name = 'MissingRefFileError'
+
+  constructor(
+    readonly missingPath: string,
+    readonly files: ReadonlyArray<string> = [missingPath]
+  ) {
+    super(`Referenced file not found: ${missingPath}`)
+  }
+}
+
+/**
  * Load and parse a referenced file, or the overlay's stand-in for it.
  */
 const loadReferencedFile = async (
@@ -65,7 +87,7 @@ const loadReferencedFile = async (
   const exists = standIn !== undefined || (await file.exists())
 
   if (!exists) {
-    throw new Error(`Referenced file not found: ${refPath}`)
+    throw new MissingRefFileError(refPath)
   }
 
   const content = standIn ?? (await file.text())
@@ -174,7 +196,7 @@ const followRef = async (
   // never discloses so much as its existence.
   //
   // Inert unless something declared a root: see `parseProjectDirJail`.
-  const escape = findProjectJailEscape(refPath)
+  const escape = findProjectJailEscape(refPath, process.env)
   if (escape) {
     throw new Error(
       `$ref resolves outside the project directory: ${escape.escaped}\n` +
@@ -184,7 +206,15 @@ const followRef = async (
 
   const newVisited = new Set([...visited, refPath])
   const loaded = await loadReferencedFile(refPath, overlay)
-  const nested = await resolveNode(loaded, dirname(refPath), newVisited, overlay)
+  const nested = await resolveNode(loaded, dirname(refPath), newVisited, overlay).catch(
+    (error: unknown) => {
+      // The file that named the missing one is the other file the author may
+      // save next (to rename the reference rather than create its target).
+      throw error instanceof MissingRefFileError
+        ? new MissingRefFileError(error.missingPath, [refPath, ...error.files])
+        : error
+    }
+  )
   return { value: nested.value, files: [refPath, ...nested.files] }
 }
 

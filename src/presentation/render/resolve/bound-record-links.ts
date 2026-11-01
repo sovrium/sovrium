@@ -18,8 +18,8 @@
  * others.
  */
 
-import { resolveRenderPlan } from './data-source-modes'
 import { readableManyToManyFields, withManyToManyLinks } from './form-bound-record'
+import { resolveRenderPlan } from './read-plan-gates'
 import { withRecordLabels } from './record-display-labels'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'

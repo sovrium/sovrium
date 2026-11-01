@@ -10,7 +10,7 @@
  * public-share links of the design system, METADATA ONLY.
  *
  * Encodes the body the `design-system.shares.list` read
- * (`application/use-cases/admin/design-system-specimen-share-read-operations.ts`)
+ * (`application/use-cases/design/specimen-share-read-operations.ts`)
  * answers:
  * `{ items, total }`, each row `{ id, createdAt }`, newest first.
  *
@@ -28,13 +28,13 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
 
 /** One live share, as listed: its id and when it was minted. */
 const designSystemShareItemSchema = Schema.Struct({
   id: Schema.String.annotate({
     description:
-      'The share id — what `DELETE /api/admin/design-system/shares/:id` revokes. Not the token, and not derivable into it.',
+      'The share id: what `DELETE /api/admin/design-system/shares/:id` revokes. Not the token, and not derivable into it.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   createdAt: looseIsoDateTime({
     description: 'ISO 8601 time the share was minted.',
@@ -62,3 +62,38 @@ export const designSystemSharesResponseSchema = Schema.Struct({
 export type DesignSystemShareItem = typeof designSystemShareItemSchema.Type
 /** @public */
 export type DesignSystemSharesResponse = typeof designSystemSharesResponseSchema.Type
+
+/**
+ * `POST /api/admin/design-system/shares` (HTTP 201): a new share. This is the
+ * one response that carries the plaintext token, in the one answer the operator
+ * asked for by taking an action.
+ */
+export const designSystemShareMintResponseSchema = Schema.Struct({
+  id: Schema.String.annotate({
+    description: 'The share id: what `DELETE /api/admin/design-system/shares/:id` revokes.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  createdAt: looseIsoDateTime({ description: 'ISO 8601 time the share was minted.' }),
+  token: Schema.String.annotate({
+    description: 'The share token, shown this once. Only its digest is stored.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  url: Schema.String.annotate({ description: 'The public link the token opens.' }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'DesignSystemShareMintResponse',
+})
+
+/** @public */
+export type DesignSystemShareMintResponse = typeof designSystemShareMintResponseSchema.Type
+
+/**
+ * `DELETE /api/admin/design-system/shares/:id`: the share is revoked.
+ */
+export const designSystemShareRevokeResponseSchema = Schema.Struct({
+  success: Schema.Literal(true).annotate({ description: 'The revocation took effect.' }),
+  id: Schema.String.annotate({ description: 'The revoked share id.' }),
+  revoked: Schema.Literal(true).annotate({ description: 'The share link no longer opens.' }),
+}).annotate({ identifier: 'DesignSystemShareRevokeResponse' })
+
+/** @public */
+export type DesignSystemShareRevokeResponse = typeof designSystemShareRevokeResponseSchema.Type

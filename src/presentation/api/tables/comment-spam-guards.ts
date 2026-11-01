@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import { classifyCommentBySpam } from '@/domain/models/app/tables/comment-spam-classification'
 import { checkAndRecord, type RateLimitPolicy } from '@/infrastructure/forms/form-rate-limiter'
 import { hashIp, resolveIpHashSalt } from '@/infrastructure/forms/ip-hash'

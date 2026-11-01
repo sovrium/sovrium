@@ -15,8 +15,9 @@ import {
   type ScimGroupResponse,
   type ScimListResponse,
   type ScimUserResponse,
-} from '@/domain/models/api/scim'
+} from '@/domain/models/api/auth/scim'
 import { splitScimName } from '@/domain/models/app/auth/scim-service'
+import { readRequestOriginSettings } from '@/presentation/api/runtime/request-origin'
 import type { Context } from 'hono'
 
 /** The media type every SCIM body travels as. */
@@ -31,6 +32,10 @@ export interface ScimUserRow {
   readonly email: string
   readonly name: string
   readonly banned?: boolean | null
+  /** Why the account is banned: the directory's own reason, or an administrator's. */
+  readonly banReason?: string | null
+  /** Whether the account's address was verified (a provisioned account's never is). */
+  readonly emailVerified?: boolean | null
   readonly createdAt: Date
   readonly updatedAt: Date
 }
@@ -46,8 +51,7 @@ export interface ScimGroupRow {
 
 /** The origin resource locations are written under: `BASE_URL`, else the request's. */
 export const scimOrigin = (c: Context): string => {
-  const base = (process.env['BASE_URL'] ?? '').replace(/\/+$/, '')
-  return base !== '' ? base : new URL(c.req.url).origin
+  return readRequestOriginSettings().baseUrl ?? new URL(c.req.url).origin
 }
 
 const iso = (date: Date | null | undefined): string => (date ?? new Date(0)).toISOString()

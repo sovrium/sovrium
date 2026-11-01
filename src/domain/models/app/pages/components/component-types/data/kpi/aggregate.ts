@@ -54,7 +54,7 @@ const KPIRatioCaptionSchema = Schema.Union([
   Schema.String.pipe(
     Schema.annotate({
       description:
-        'The sentence written in the card footer, `{numerator}` and `{denominator}` replaced by the two counts — "{numerator} replied out of {denominator} contacted". A `$t:` key is resolved in the page language first',
+        'The sentence written in the card footer, `{numerator}` and `{denominator}` replaced by the two counts: "{numerator} replied out of {denominator} contacted". A `$t:` key is resolved in the page language first',
       examples: ['{numerator} replied out of {denominator} contacted'],
     }),
     Schema.check(Schema.isMinLength(1))
@@ -96,13 +96,13 @@ export const KPIAggregateSchema = Schema.Struct({
   numerator: Schema.optional(
     KPIRatioSideSchema.annotate({
       description:
-        'With function: ratio, the records counted above the line — for a reply rate, the conversations that got a reply',
+        'With function: ratio, the records counted above the line; for a reply rate, the conversations that got a reply',
     })
   ),
   denominator: Schema.optional(
     KPIRatioSideSchema.annotate({
       description:
-        'With function: ratio, the records counted below the line — for a reply rate, every conversation',
+        'With function: ratio, the records counted below the line; for a reply rate, every conversation',
     })
   ),
   caption: Schema.optional(KPIRatioCaptionSchema),

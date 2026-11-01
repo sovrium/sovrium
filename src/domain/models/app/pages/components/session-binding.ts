@@ -110,7 +110,7 @@ export const SessionFieldSchema = Schema.Literals([
   identifier: 'SessionField',
   title: 'Session Field',
   description:
-    "A field of the signed-in caller's OWN session, resolved client-side from GET /api/auth/get-session: email, name, id, role (the role's name) or roleLabel (the role as the app calls it — its declared label, translated into the caller's language when it is a $t: key, else the built-in words for a role every app carries, else the name made readable). Also the <field> of the $session.<field> interpolation token.",
+    "A field of the signed-in caller's OWN session, resolved client-side from GET /api/auth/get-session: email, name, id, role (the role's name) or roleLabel (the role as the app calls it: its declared label, translated into the caller's language when it is a $t: key, else the built-in words for a role every app carries, else the name made readable). Also the <field> of the $session.<field> interpolation token.",
 })
 
 /**

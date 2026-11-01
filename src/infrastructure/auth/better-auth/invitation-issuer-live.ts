@@ -7,8 +7,9 @@
 
 import { Effect, Layer } from 'effect'
 import { InvitationIssuer } from '@/application/ports/services/invitation-issuer'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { Auth } from './auth-service'
-import { createUserThrough, invitationStore } from './invitation-services'
+import { createUserThrough, invitationStoreOver } from './invitation-services'
 
 /**
  * Live `InvitationIssuer` over the Better Auth instance the app layer built:
@@ -17,17 +18,20 @@ import { createUserThrough, invitationStore } from './invitation-services'
  * rather than crashing at boot. Annotated for the reason
  * `AccountProvisionerLive` is: inferring it would make `Auth` name itself.
  */
-export const InvitationIssuerLive: Layer.Layer<InvitationIssuer, never, Auth> = Layer.effect(
-  InvitationIssuer,
-  Effect.gen(function* () {
-    const auth = yield* Auth
-    return InvitationIssuer.of({
-      store: invitationStore,
-      engine: { createUser: (input) => createUserThrough(auth.api)(input) },
+export const InvitationIssuerLive: Layer.Layer<InvitationIssuer, never, Auth | Database> =
+  Layer.effect(
+    InvitationIssuer,
+    Effect.gen(function* () {
+      const auth = yield* Auth
+      const { client, dialect } = yield* Database
+      return InvitationIssuer.of({
+        store: invitationStoreOver(client, dialect.kind),
+        engine: { createUser: (input) => createUserThrough(auth.api)(input) },
+      })
     })
-  })
-)
+  )
 
-/** {@link InvitationIssuerLive} bound to one auth layer, its requirement discharged. */
-export const invitationIssuerFor = (authLayer: Layer.Layer<Auth>): Layer.Layer<InvitationIssuer> =>
-  Layer.provide(InvitationIssuerLive, authLayer)
+/** {@link InvitationIssuerLive} bound to one auth layer; the composing root provides the `Database`. */
+export const invitationIssuerFor = (
+  authLayer: Layer.Layer<Auth, never, Database>
+): Layer.Layer<InvitationIssuer, never, Database> => Layer.provide(InvitationIssuerLive, authLayer)

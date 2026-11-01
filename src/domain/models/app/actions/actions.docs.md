@@ -36,7 +36,7 @@ automations:
 
 <!-- sovrium:options ActionTemplateSchema depth=1 -->
 
-`name` is a kebab-case identifier, unique across the app, and is what `$ref` resolves. `action` is the step itself — any `type` and `operator` pair an automation step accepts.
+`name` is a kebab-case identifier, unique across the app, and is what `$ref` resolves. `action` is the step itself: any `type` and `operator` pair an automation step accepts.
 
 ### The template has no step name
 
@@ -48,7 +48,7 @@ A template that is a loop or a path carries its own steps, and those do keep the
 
 <!-- sovrium:options ActionRefSchema -->
 
-Writing `type: ref` is optional — a `$ref` is unambiguous on its own, so `{ name: alert, $ref: notify-slack }` and the explicit form are the same action. The call site's `name` is what run history records, not the template's.
+Writing `type: ref` is optional. A `$ref` is unambiguous on its own, so `{ name: alert, $ref: notify-slack }` and the explicit form are the same action. The call site's `name` is what run history records, not the template's.
 
 ## Variables
 
@@ -90,7 +90,7 @@ automations:
 
 ## Exposing a template to AI
 
-A template carrying an `aiAccess` block becomes a directly invocable MCP tool named after the app and the template, with its `variables` as the tool's parameters — so the declaration that makes a step reusable also makes it callable.
+A template carrying an `aiAccess` block becomes a directly invocable MCP tool named after the app and the template, with its `variables` as the tool's parameters, so the declaration that makes a step reusable also makes it callable.
 
 ```yaml
 actions:

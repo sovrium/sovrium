@@ -5,15 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  asComponent,
-  param,
-  PLACE_NOTE,
-  stringParam,
-  THEME_NOTE,
-} from '@/library/manifest/block-kit'
+import { asComponent, param, PLACE_NOTE, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
+import { buttonLink } from '@/library/kit/navigation-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import { buttonLink } from '@/library/manifest/navigation-block-kit'
 
 /** shadcn's Empty: the media, a title, a line, and the actions that fill the view. */
 export const entry = defineLibraryEntry({

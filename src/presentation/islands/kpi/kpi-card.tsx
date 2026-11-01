@@ -52,6 +52,8 @@ interface KpiCardProps {
   readonly toneClassName?: string
   /** A line under the value — a ratio's two counts, as `3 / 8`. */
   readonly caption?: string
+  /** The tile's legend, drawn under the value. */
+  readonly description?: string
 }
 
 /**
@@ -192,6 +194,7 @@ export function KpiCard({
   valueClassName,
   toneClassName,
   caption,
+  description,
 }: KpiCardProps): ReactElement {
   return (
     <div
@@ -217,6 +220,14 @@ export function KpiCard({
         >
           {value}
         </div>
+        {description !== undefined && (
+          <div
+            data-role="kpi-description"
+            className="text-muted-foreground text-sm"
+          >
+            {description}
+          </div>
+        )}
         {trend && <KpiTrend trend={trend} />}
       </div>
       {sparklineSeries && sparklineSeries.length > 0 && <KpiSparkline series={sparklineSeries} />}

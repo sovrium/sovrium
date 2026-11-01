@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every verb the `sovrium` binary dispatches (36), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
+Every verb the `sovrium` binary dispatches (38), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
 
 ## Verbs
 
@@ -15,6 +15,7 @@ Every verb the `sovrium` binary dispatches (36), with its usage line and what it
 | `build` | `sovrium build [config] [options]` | Build static site files |
 | `bundle` | `sovrium bundle [config] [options]` | Package the validated config, public/ and seed/ for deployment |
 | `changelog` | `sovrium changelog [<version>] [--list] [--since <version>] [--format md\|json]` | Read the release notes this binary carries |
+| `client` | `sovrium client [config] [--output <file>] [--audience <role\|all>] [--check]` | Write sovrium-client.ts, a typed client for the records API |
 | `deploy` | `sovrium deploy [config] [--app <slug>] [options]` | Ship the app to your Sovrium cloud, follow it until live |
 | `design-system` | `sovrium design-system [config] [options]` | Export the design system as a brief, DTCG JSON or a bundle (--pages) |
 | `dev` | `sovrium dev [config] [options]` | Boot on fresh seed data with a dev account, reload on save |
@@ -29,6 +30,7 @@ Every verb the `sovrium` binary dispatches (36), with its usage line and what it
 | `mcp` | `sovrium mcp [--project <dir>]` | Serve the config read tools to an AI client over stdio |
 | `migrate` | `sovrium migrate [config] [options]` | Bring the database schema forward, without booting |
 | `preview` | `sovrium preview [config] [--app <slug>] [options]` | Share a preview of the app on your Sovrium cloud |
+| `reindex` | `sovrium reindex [config]` | Rebuild the AI knowledge index from documents and tables |
 | `reload` | `sovrium reload [options]` | Apply the edited config to the running server |
 | `render` | `sovrium render <asset> [options]` | Render a template asset offline, with its sample data or yours |
 | `report` | `sovrium report [--config <path>] [--feature <kind>] [--security] [--last-error] [--request-id <id>] [--open]` | Print a prefilled issue address to report a problem |

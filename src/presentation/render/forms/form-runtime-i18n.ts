@@ -17,6 +17,7 @@
  */
 
 import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
+import { getToastDismissLabel } from '@/presentation/render/page/toast-dismiss-labels'
 import { resolveDocumentLang } from './form-document-lang'
 import { resolveText } from './form-field-resolver'
 import type { FormOnError, FormOnSuccess } from '@/domain/models/app/forms'
@@ -124,6 +125,8 @@ export function resolvePendingLabel(
  */
 const RUNTIME_STRING_PREFIXES = [
   'form.requiredNamed',
+  'form.invalidEmailNamed',
+  'form.invalidUrlNamed',
   'form.submissionFailed',
   'form.editAnswers',
   'form.sending',
@@ -135,13 +138,23 @@ const RUNTIME_STRING_PREFIXES = [
   'forms.',
 ] as const
 
-/** The runtime's own words for the page language (its `strings` map). */
+/** The runtime's key for a toast's dismiss name, read when its page drew no toast container. */
+const TOAST_DISMISS_KEY = 'toast.dismiss'
+
+/**
+ * The runtime's own words for the page language (its `strings` map), with the
+ * dismiss name of the toasts it raises: a page that declares no `page.toasts`
+ * has no server-drawn container to carry that name.
+ */
 export const resolveRuntimeStrings = (
   languages: Languages | undefined,
   activeLang: string | undefined
-): Readonly<Record<string, string>> | undefined =>
-  resolveInterpreterStringOverrides(
-    RUNTIME_STRING_PREFIXES,
-    resolveDocumentLang(languages, activeLang),
-    languages
-  )
+): Readonly<Record<string, string>> | undefined => {
+  const lang = resolveDocumentLang(languages, activeLang)
+  const engine = resolveInterpreterStringOverrides(RUNTIME_STRING_PREFIXES, lang, languages)
+  const dismiss = getToastDismissLabel(lang)
+  const toast: Readonly<Record<string, string>> =
+    dismiss === getToastDismissLabel('en') ? {} : { [TOAST_DISMISS_KEY]: dismiss }
+  const strings: Readonly<Record<string, string>> = { ...engine, ...toast }
+  return Object.keys(strings).length === 0 ? undefined : strings
+}

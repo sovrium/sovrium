@@ -14,7 +14,7 @@
 /** The field kinds an event's start and end may be read from. */
 export const CALENDAR_FEED_TIME_TYPES: ReadonlySet<string> = new Set(['date', 'datetime'])
 
-/** The field kinds an event's title and notes may be read from. */
+/** The field kinds an event's title, notes and place may be read from. */
 export const CALENDAR_FEED_TEXT_TYPES: ReadonlySet<string> = new Set([
   'single-line-text',
   'long-text',
@@ -33,22 +33,31 @@ interface TableForCalendarFeed {
     readonly end?: string
     readonly title: string
     readonly description?: string
+    readonly location?: string
+    readonly url?: string
   }
 }
 
 type ValidationError = { readonly message: string; readonly path: ReadonlyArray<string> }
 
-type FeedKey = 'start' | 'end' | 'title' | 'description'
+type FeedKey = 'start' | 'end' | 'title' | 'description' | 'location' | 'url'
 
 const KIND_LABEL: Readonly<Record<FeedKey, string>> = {
   start: 'a date or datetime field',
   end: 'a date or datetime field',
   title: 'a text, email, url, phone-number, single-select or status field',
   description: 'a text, email, url, phone-number, single-select or status field',
+  location: 'a text, email, url, phone-number, single-select or status field',
+  url: 'a url field',
 }
 
-const acceptedTypes = (key: FeedKey): ReadonlySet<string> =>
-  key === 'start' || key === 'end' ? CALENDAR_FEED_TIME_TYPES : CALENDAR_FEED_TEXT_TYPES
+/** The field kind an event's link may be read from. */
+const CALENDAR_FEED_URL_TYPES: ReadonlySet<string> = new Set(['url'])
+
+const acceptedTypes = (key: FeedKey): ReadonlySet<string> => {
+  if (key === 'start' || key === 'end') return CALENDAR_FEED_TIME_TYPES
+  return key === 'url' ? CALENDAR_FEED_URL_TYPES : CALENDAR_FEED_TEXT_TYPES
+}
 
 /** The problem with one key of the feed, or `undefined` when it names an acceptable field. */
 const checkKey = (
@@ -100,6 +109,8 @@ export const validateCalendarFeed = (table: TableForCalendarFeed): ValidationErr
     checkKey(table, 'end', feed.end) ??
     checkKey(table, 'title', feed.title) ??
     checkKey(table, 'description', feed.description) ??
+    checkKey(table, 'location', feed.location) ??
+    checkKey(table, 'url', feed.url) ??
     checkEndMatchesStart(table)
   )
 }

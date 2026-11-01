@@ -85,6 +85,7 @@ import { Effect } from 'effect'
 import { collectCauseChain, readSqlState } from '@/domain/errors/driver-failure'
 import { columnExists, resetTableColumnCache } from './dialect-introspection'
 import type { RawSqlRunner } from './dialect-execute'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Per-request memo. Values are the in-flight PROMISE, not the resolved boolean,
@@ -111,18 +112,19 @@ export const withCatalogRequestCache = <A>(body: () => Promise<A>): Promise<A> =
  * Outside a request this is {@link columnExists} verbatim.
  */
 export const cachedColumnExists = (
+  dialect: DatabaseDialect,
   runner: Readonly<RawSqlRunner>,
   tableName: string,
   columnName: string
 ): Promise<boolean> => {
   const box = storage.getStore()
-  if (box === undefined) return columnExists(runner, tableName, columnName)
+  if (box === undefined) return columnExists(dialect, runner, tableName, columnName)
 
   const key = cacheKey(tableName, columnName)
   const hit = box.get(key)
   if (hit !== undefined) return hit
 
-  const pending = columnExists(runner, tableName, columnName)
+  const pending = columnExists(dialect, runner, tableName, columnName)
   box.set(key, pending)
   return pending
 }

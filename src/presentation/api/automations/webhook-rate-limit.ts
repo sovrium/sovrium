@@ -21,8 +21,6 @@ import type { Trigger } from '@/domain/models/app/automations/trigger'
  */
 type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
 
-const limiter = createSlidingWindowLimiter()
-
 const rateLimitKey = (automationName: string, ip: string): string => `${automationName}:${ip}`
 
 export interface RateLimitDecision {
@@ -33,6 +31,17 @@ export interface RateLimitDecision {
 type SlidingWindowLimiter = ReturnType<typeof createSlidingWindowLimiter>
 
 type WindowConfig = { readonly maxRequests: number; readonly windowSeconds: number }
+
+/** The windows held for one scope: a trigger, or a server's app. */
+const limiters = new WeakMap<object, SlidingWindowLimiter>()
+
+const windowsOf = (scope: object): SlidingWindowLimiter => {
+  const existing = limiters.get(scope)
+  if (existing !== undefined) return existing
+  const created = createSlidingWindowLimiter()
+  limiters.set(scope, created)
+  return created
+}
 
 /** Whether `key` is over `config`, without recording anything. */
 const check = (
@@ -67,11 +76,17 @@ const decide = (
   return decision
 }
 
+/**
+ * Whether a call to `trigger` from `ip` is over `config`, counting it when it
+ * is not. The windows are held per trigger as the running config declares it,
+ * so a server booted again in the same process starts with fresh budgets.
+ */
 export const isRateLimited = (
+  trigger: object,
   automationName: string,
   ip: string,
   config: WindowConfig
-): RateLimitDecision => decide(limiter, rateLimitKey(automationName, ip), config)
+): RateLimitDecision => decide(windowsOf(trigger), rateLimitKey(automationName, ip), config)
 
 /**
  * One telemetry ingest budget per server (`rateLimit.per`, G6). A protocol
@@ -81,21 +96,11 @@ export const isRateLimited = (
  * server's own app — so one boot's traffic never counts against the next in a
  * process that boots several.
  */
-const ingestLimiters = new WeakMap<object, SlidingWindowLimiter>()
-
-const ingestWindowsOf = (scope: object): SlidingWindowLimiter => {
-  const existing = ingestLimiters.get(scope)
-  if (existing !== undefined) return existing
-  const created = createSlidingWindowLimiter()
-  ingestLimiters.set(scope, created)
-  return created
-}
-
 export const isIngestRateLimited = (
   scope: object,
   key: string,
   config: WindowConfig
-): RateLimitDecision => decide(ingestWindowsOf(scope), key, config)
+): RateLimitDecision => decide(windowsOf(scope), key, config)
 
 /**
  * The refusal budget of telemetry ingest: per source address
@@ -116,11 +121,11 @@ const refusalKey = (address: string): string => `refusal:${address}`
 
 /** Whether `address` has spent its refusal budget (checks, records nothing). */
 export const refusalBudgetSpent = (scope: object, address: string): RateLimitDecision =>
-  check(ingestWindowsOf(scope), refusalKey(address), REFUSAL_BUDGET, Date.now())
+  check(windowsOf(scope), refusalKey(address), REFUSAL_BUDGET, Date.now())
 
 /** Count one refusal against `address`. */
 export const recordRefusal = (scope: object, address: string): void => {
-  ingestWindowsOf(scope).record(refusalKey(address), {
+  windowsOf(scope).record(refusalKey(address), {
     windowMs: REFUSAL_BUDGET.windowSeconds * 1000,
     maxRequests: REFUSAL_BUDGET.maxRequests,
   })
@@ -133,4 +138,18 @@ export const normalizeRateLimit = (
   const windowSeconds = config.windowSeconds ?? config.window
   if (maxRequests === undefined || windowSeconds === undefined) return undefined
   return { maxRequests, windowSeconds }
+}
+
+/**
+ * The budget a public webhook (one declaring no `auth`) is held to per source
+ * address when it declares no `rateLimit` of its own: anyone can call it, and
+ * every call starts a run and keeps a row of history. A declared `rateLimit`
+ * replaces it; a webhook with `auth` has none unless it declares one.
+ */
+export const DEFAULT_PUBLIC_WEBHOOK_BUDGET: WindowConfig = { maxRequests: 120, windowSeconds: 60 }
+
+/** The budget `trigger` is held to per source address, or `undefined` for none. */
+export const webhookBudgetOf = (trigger: WebhookTrigger): WindowConfig | undefined => {
+  if (trigger.rateLimit !== undefined) return normalizeRateLimit(trigger.rateLimit)
+  return trigger.auth === undefined ? DEFAULT_PUBLIC_WEBHOOK_BUDGET : undefined
 }

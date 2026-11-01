@@ -5,21 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// The end of the console header: the search trigger, the role note and the scheme toggle.
-// Identical on every page; every page places it last in the shell's `trail` slot, because a
-// slot fills the whole of its node's children. The Keyboard shortcuts dialog the account menu
-// opens rides here too, as a closed dialog, BEFORE the scheme toggle: the toggle is the bar's
-// last control on every page.
+// The end of the console header: the search trigger and the role note. Identical on every
+// page; every page places it last in the shell's `trail` slot, because a slot fills the whole
+// of its node's children. The Keyboard shortcuts dialog the account menu opens rides here too,
+// as a closed dialog. Theme lives in the account menu alone.
 
 // ── From components/shell.ts (siteHeader) ──────────────────────────────────────
 /** The site header of the copy, with this surface's breadcrumb labels. */
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consoleHeaderEnd = {
+export const consoleHeaderEnd: TemplateEncoded = {
   name: 'console-header-end',
   type: 'container',
   render: 'transparent',
@@ -163,14 +159,5 @@ export const consoleHeaderEnd = {
         },
       ],
     },
-    {
-      type: 'theme-toggle',
-      variant: 'icon',
-      props: {
-        'data-testid': 'admin-scheme-toggle',
-        className:
-          'inline-flex size-8 shrink-0 items-center justify-center rounded-md text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-4',
-      },
-    },
   ],
-} as unknown as Template
+}

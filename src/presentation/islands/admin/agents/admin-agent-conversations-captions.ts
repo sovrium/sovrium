@@ -16,6 +16,7 @@
  * and "0 messages" in English are each right, which a hand-written `s` was not.
  */
 
+import { relativeFormatterOf } from '@/domain/kernel/format/day-relative-time'
 import { resolveForLanguage } from '@/domain/models/app/languages/locale-lookup-service'
 import { resolvePageLocale } from '../../runtime/page-locale'
 
@@ -146,6 +147,6 @@ export function relativeTimeText(iso: string, now: number = Date.now()): string 
   const ahead = Math.round((at - now) / 1000)
   const seconds = ahead > 0 && ahead < SKEW_SECONDS ? 0 : ahead
   const [unit, size] = UNITS.find(([, length]) => Math.abs(seconds) >= length) ?? ['second', 1]
-  const format = new Intl.RelativeTimeFormat(resolvePageLocale(), { numeric: 'auto' })
+  const format = relativeFormatterOf(resolvePageLocale(), { numeric: 'auto' })
   return format.format(Math.round(seconds / size), unit)
 }

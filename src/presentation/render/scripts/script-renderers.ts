@@ -22,6 +22,7 @@ export function renderScriptTag({
   dataTestId,
   reactKey,
   hidden,
+  consent,
 }: {
   readonly src: string
   readonly async?: boolean
@@ -32,13 +33,21 @@ export function renderScriptTag({
   readonly dataTestId?: string
   readonly reactKey: string | number
   readonly hidden?: boolean
+  /** A declared purpose: the tag stays inert until the visitor accepts it. */
+  readonly consent?: string
 }): Readonly<ReactElement> {
   const props: Record<string, unknown> = {
     key: reactKey,
-    src,
+    ...(consent === undefined
+      ? { src, ...(module && { type: 'module' }) }
+      : {
+          type: 'text/plain',
+          'data-consent': consent,
+          'data-src': src,
+          ...(module && { 'data-module': 'true' }),
+        }),
     ...(asyncProp && { async: true }),
     ...(defer && { defer: true }),
-    ...(module && { type: 'module' }),
     ...(integrity && { integrity }),
     ...(crossOrigin && { crossOrigin }),
     ...(dataTestId && { 'data-testid': dataTestId }),
@@ -65,15 +74,19 @@ export function renderInlineScriptTag({
   code,
   async: asyncProp,
   reactKey,
+  consent,
 }: {
   readonly code: string
   readonly async?: boolean
   readonly reactKey: string | number
+  /** A declared purpose: the tag stays inert until the visitor accepts it. */
+  readonly consent?: string
 }): Readonly<ReactElement> {
   const scriptContent = asyncProp ? `(async () => { ${code} })();` : code
 
   return React.createElement('script', {
     key: reactKey,
+    ...(consent !== undefined && { type: 'text/plain', 'data-consent': consent }),
     // eslint-disable-next-line sovrium/require-sanitized-html -- operator-authored code from the validated app config, rendered verbatim by design: the config author is trusted, and sanitizing would strip the script
     dangerouslySetInnerHTML: { __html: scriptContent },
   })

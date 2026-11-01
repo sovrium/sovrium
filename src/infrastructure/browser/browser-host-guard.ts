@@ -19,7 +19,8 @@ import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-u
  * On Chrome every request pauses (`Fetch.enable` on `*`) and gets exactly one
  * of these answers. A request passes only when its host is on `allowedHosts`
  * AND the outbound guard accepts the address (no private network unless the
- * operator allows it). A document is re-served with a policy that closes the
+ * operator allows it); the session then also refuses a name that resolves to a
+ * private address (`browser-host-resolution.ts`), which is not pure. A document is re-served with a policy that closes the
  * three routes `Fetch` cannot see — WebSockets, service workers, new windows —
  * and a frame from another origin is refused outright, because its own
  * requests would bypass the page's interception.
@@ -138,8 +139,12 @@ export const decideRequest = (request: PausedRequest, context: GuardContext): Gu
  * paused by the request interception, so `connect-src` is its only gate, and an
  * entry naming a private-network address (`10.0.0.5`, `localhost`, a sub-domain
  * of `localhost`) is dropped from it unless the operator allows private
- * outbound calls — the rule a `goto` and every paused request already meet. A
- * NAME that resolves to a private address is not caught here.
+ * outbound calls — the rule a `goto` and every paused request already meet.
+ * Only the spelling is judged here, because this module is pure: the session
+ * first drops every entry whose NAME resolves to a private address
+ * (`resolvedConnectableHosts`, `browser-host-resolution.ts`) and hands the rest
+ * to the policy. A wildcard names no host to resolve and meets only this check;
+ * the browser resolves a name again when it connects.
  */
 const connectableHosts = (allowedHosts: readonly string[]): readonly string[] =>
   allowedHosts.filter(

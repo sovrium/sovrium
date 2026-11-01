@@ -159,6 +159,7 @@ export const isAccountLinkMethod = (method: string | undefined): boolean =>
  */
 const ENGINE_STRING_PREFIXES: Readonly<Record<string, readonly string[]>> = {
   login: ['twoFactor.pendingSignIn', 'auth.magicLinkSent', 'auth.invalidCredentials'],
+  signup: ['auth.userExists'],
   resetPassword: ['auth.resetSent'],
   verifyTwoFactor: ['auth.trustDevice'],
   enableTwoFactor: ['twoFactor.'],
@@ -176,6 +177,28 @@ export const authFormStringPrefixes = (method: string): readonly string[] => [
   'auth.required',
   'auth.invalidEmail',
 ]
+
+/** The refusals an account form words itself: the server's error code, then its catalogue key. */
+const REFUSAL_KEYS: Readonly<Record<string, string>> = {
+  INVALID_EMAIL_OR_PASSWORD: 'auth.invalidCredentials',
+  USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: 'auth.userExists',
+}
+
+/**
+ * The page-language words an auth form island receives (the two-step screens, a
+ * sign-in's pending banner, the field messages), each refusal's words filed
+ * under the server's error code as well, so the island reads a refusal by the
+ * code it was answered with and ships no code list of its own.
+ */
+export const keyRefusalsByCode = (
+  words: Readonly<Record<string, string>> | undefined
+): Readonly<Record<string, string>> | undefined => {
+  if (words === undefined) return undefined
+  const byCode = Object.entries(REFUSAL_KEYS).flatMap(([code, key]) =>
+    words[key] === undefined ? [] : [[code, words[key]] as const]
+  )
+  return { ...words, ...Object.fromEntries(byCode) }
+}
 
 /** Whether a form's method is one of the account methods. */
 export const isAccountFormMethod = (method: string | undefined): boolean =>

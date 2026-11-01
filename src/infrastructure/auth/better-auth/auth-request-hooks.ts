@@ -13,14 +13,22 @@ import {
 import { applyAccountPreferenceGuards, writablePreferenceLanguages } from './account-preferences'
 import { applyAdminRoleAfterHooks, applyAdminRoleGuards } from './admin-role-guards'
 import { applyAdminUserActAfterHooks, applyAdminUserActBeforeHooks } from './admin-user-act-hooks'
+import { applyApiKeyAccountBoundary } from './api-key-account-boundary-guard'
+import { applyApiKeyAdminPlaneGuard } from './api-key-admin-plane-guard'
 import { applyAuthEventAfterHooks, applyAuthEventBeforeHooks } from './auth-event-hooks'
 import { applyAvatarUrlGuard } from './avatar-url-guard'
+import { applyChangeEmailFreshSessionGuard } from './change-email-fresh-session-guard'
+import {
+  applyCredentialLifecycleAfterHooks,
+  credentialLifecycleOf,
+} from './credential-lifecycle-hooks'
 import { applyDisplayNameGuard } from './display-name-guard'
+import { applyOrganizationAdminGuard } from './organization-admin-guard'
 import { applyRealtimeGrantAfterHooks, applyRealtimeGrantBeforeHooks } from './realtime-grant-hooks'
-import type { AuthHookDeps } from './admin-role-guards'
-import type { AdminUserActDeps } from './admin-user-act-hooks'
+import { applySsoOwnedDomainGuard } from './sso-owned-domain-guard'
 import type { AuthHookContext } from './auth-database-hooks'
 import type { createEmailHandlers } from './email-handlers'
+import type { AuthHookPolicies } from '@/application/ports/contracts/auth-hook-policies'
 import type { Auth } from '@/domain/models/app/auth'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { Languages } from '@/domain/models/app/languages/language'
@@ -141,29 +149,43 @@ async function handleTwoFactorEnable(
  *
  * `authConfig` supplies the app's role vocabulary; when it is absent the admin
  * plugin is not registered at all (`buildAdminPlugin` returns `[]`), so those
- * paths 404 before any guard could matter.
+ * paths 404 before any guard could matter. `policies` is the application's
+ * side of every guard and record — the reads, the rail, the audit trail — as
+ * the server built them for this instance; the hooks import no use-case.
  *
  * Note: The /change-email endpoint uses Better Auth 1.5's native email enumeration protection,
  * which always returns 200 OK regardless of whether the target email exists.
  */
 export function buildAuthHooks(
-  handlers?: Readonly<ReturnType<typeof createEmailHandlers>>,
-  authConfig?: Auth,
-  deps?: AuthHookDeps & AdminUserActDeps,
+  handlers: Readonly<ReturnType<typeof createEmailHandlers>> | undefined,
+  authConfig: Auth | undefined,
+  policies: AuthHookPolicies,
   extras: { readonly languages?: Languages; readonly hookContext?: AuthHookContext } = {}
 ) {
   const { hookContext } = extras
+  // The instance's own client; a hook set built with no context touches no row.
+  const hookClient = hookContext?.database.client
   // The languages a written preference may name: the app's own, plus the
   // mounted console's (see `writablePreferenceLanguages`).
   const languages =
     extras.languages ??
     (hookContext === undefined ? undefined : writablePreferenceLanguages(hookContext.appMeta))
   const roleApp: AdminRoleResolvable = { auth: authConfig }
+  const credentials = credentialLifecycleOf(authConfig, hookContext?.appMeta)
   return {
     before: createAuthMiddleware(async (ctx) => {
+      // An API key never reaches the account-management endpoints (404).
+      applyApiKeyAdminPlaneGuard(ctx)
+      // Nor any other route but whose key it is and revoking itself (404).
+      await applyApiKeyAccountBoundary(ctx)
       // Strip markup from `name` on every path that writes it (sign-up, the
       // self-service update and both admin routes).
       applyDisplayNameGuard(ctx)
+      // A domain an identity provider owns takes no password sign-up and no
+      // self-service move of an address onto it.
+      applySsoOwnedDomainGuard(ctx, authConfig)
+      // Moving the account's address asks for a recent sign-in.
+      await applyChangeEmailFreshSessionGuard(ctx)
       if (ctx.path === '/admin/create-user') {
         await validateAdminCreateUserPassword(ctx)
       }
@@ -178,19 +200,24 @@ export function buildAuthHooks(
       // without this a column would keep a value nothing can honour — and the
       // account export would publish it.
       await applyAccountPreferenceGuards(ctx, languages, roleApp)
-      await applyAdminRoleGuards(ctx, roleApp, deps)
-      await applyAdminUserActBeforeHooks(ctx, deps)
+      await applyAdminRoleGuards(ctx, roleApp, policies)
+      // Organisation and group changes are administrators' only (404 to
+      // anyone else), whatever the caller's organisation role says.
+      await applyOrganizationAdminGuard(ctx, roleApp, hookClient)
+      await applyAdminUserActBeforeHooks(ctx, policies)
       await applyRealtimeGrantBeforeHooks(ctx)
-      await applyAccountDeletionBeforeHooks(ctx, roleApp)
+      await applyAccountDeletionBeforeHooks(ctx, roleApp, policies)
       await applyAuthEventBeforeHooks(ctx)
     }),
     after: createAuthMiddleware(async (ctx) => {
       if (BACKUP_CODE_PATHS.has(ctx.path) && handlers?.twoFactorBackupCodes) {
         await handleTwoFactorEnable(ctx, handlers.twoFactorBackupCodes)
       }
-      await applyAccountDeletionAfterHooks(ctx)
-      await applyAdminRoleAfterHooks(ctx, roleApp, deps)
-      await applyAdminUserActAfterHooks(ctx, deps)
+      // A key or passkey added is mailed; two-step turned on revokes the rest.
+      await applyCredentialLifecycleAfterHooks(ctx, credentials)
+      await applyAccountDeletionAfterHooks(ctx, policies)
+      await applyAdminRoleAfterHooks(ctx, roleApp, policies)
+      await applyAdminUserActAfterHooks(ctx, policies)
       // A grant that changed closes the account's live realtime
       // connections, after the role guards have had the chance to undo it.
       await applyRealtimeGrantAfterHooks(ctx)

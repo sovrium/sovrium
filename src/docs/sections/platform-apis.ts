@@ -20,7 +20,7 @@ export const platformApis = defineSection({
       slug: 'api-reference',
       title: 'REST API Overview',
       description:
-        'The contract every endpoint obeys — the two credentials that authenticate, the one error envelope every failure uses, and the codes that say what to do about it.',
+        'The contract every endpoint obeys: the two credentials that authenticate, the one error envelope every failure uses, and the codes that say what to do next.',
       keywords: [
         'sovrium',
         'REST API',
@@ -60,7 +60,7 @@ export const platformApis = defineSection({
       slug: 'openapi',
       title: 'OpenAPI',
       description:
-        'The machine-readable description of the HTTP API — two documents and one explorer, all three admin-only, all three generated from the schemas that validate live traffic.',
+        'The machine-readable description of the HTTP API: two documents and one explorer, all admin-only, generated from the schemas that validate live traffic.',
       keywords: [
         'sovrium',
         'OpenAPI',

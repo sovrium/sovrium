@@ -47,8 +47,27 @@ import { escapeRegExp } from '@/domain/kernel/sanitize/escape-regexp'
  *
  * The hoist is text-level but not blind: the key list is derived from the checker,
  * the canonical block is taken from the emitted text, and the result is asserted
- * key by key (`assertEveryKeyHoisted`). A shape that is not uniform across the 85
- * keys fails the build rather than half-collapsing.
+ * key by key. A key that ends up neither named nor extending the name fails the
+ * build rather than half-collapsing.
+ *
+ * THE KEYS ARE NOT ALL ONE SHAPE
+ * ------------------------------
+ * They were, until `design.components.text` took its own schema: every member of
+ * `ComponentStyle` plus an `elements` map. So the keys now share one BASE shape,
+ * and a key may extend it with members of its own. The hoist handles that in two
+ * passes, with no key named in this file:
+ *
+ *   1. The canonical block is the shape the MOST keys print (not merely the first
+ *      key's), and every exact occurrence of it becomes the name.
+ *   2. A key whose block holds every canonical member verbatim, plus members of
+ *      its own, prints as `ComponentStyle & { <its own members> }`. That
+ *      intersection is exactly the superset — object members with distinct keys
+ *      intersect to their union — and it keeps the declaration from carrying the
+ *      base shape expanded a second time.
+ *
+ * Anything else — a key missing a canonical member, or printing one with a
+ * different type — is still a DIFFERENT shape and still throws. The exemption is
+ * derived (a strict superset of the canonical members), never a list of keys.
  */
 
 /**
@@ -124,24 +143,139 @@ const optionalKeyMarkers = (key: string): readonly string[] => [
   `readonly "${key}"?: `,
 ]
 
+/**
+ * The top-level members of a printed object block, each with its leading
+ * indentation and its trailing `;`, plus the whitespace before the closing brace.
+ *
+ * Splits on `;` at the block's own depth only, so a nested object type stays
+ * inside its member. Double-quoted string literal types are skipped over, so a
+ * brace or a semicolon inside one cannot unbalance the scan. Returns `undefined`
+ * for anything that is not a single balanced `{ … }` block.
+ */
+export const splitPrintedMembers = (
+  block: string
+): { readonly members: readonly string[]; readonly tail: string } | undefined => {
+  if (!block.startsWith('{') || !block.endsWith('}')) return undefined
+
+  const inner = block.slice(1, -1)
+  const members: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < inner.length; i += 1) {
+    switch (inner[i]) {
+      case '"':
+        i += 1
+        while (i < inner.length && inner[i] !== '"') i += inner[i] === '\\' ? 2 : 1
+        break
+      case '{':
+      case '(':
+      case '[':
+        depth += 1
+        break
+      case '}':
+      case ')':
+      case ']':
+        depth -= 1
+        if (depth < 0) return undefined
+        break
+      case ';':
+        if (depth === 0) {
+          members.push(inner.slice(start, i + 1))
+          start = i + 1
+        }
+        break
+      default:
+        break
+    }
+  }
+
+  const tail = inner.slice(start)
+  if (depth !== 0 || tail.trim() !== '') return undefined
+  return { members, tail }
+}
+
+/** A member compared without the indentation it happens to be printed at. */
+const memberKey = (member: string): string => normalizePrintedIndentation(member).trim()
+
+/**
+ * `base & { <the members block has beyond canonical> }` when `block` holds every
+ * canonical member verbatim plus at least one of its own; otherwise `undefined`.
+ *
+ * The extra members keep their printed bytes, so the result is indented like the
+ * block it replaces.
+ */
+export const extendPrintedType = (
+  block: string,
+  canonical: string,
+  name: string
+): string | undefined => {
+  const own = splitPrintedMembers(block)
+  const base = splitPrintedMembers(canonical)
+  if (own === undefined || base === undefined) return undefined
+
+  const required = new Set(base.members.map(memberKey))
+  const present = new Set(own.members.map(memberKey))
+  if ([...required].some((member) => !present.has(member))) return undefined
+
+  const extras = own.members.filter((member) => !required.has(memberKey(member)))
+  if (extras.length === 0) return undefined
+  return `${name} & {${extras.join('')}${own.tail}}`
+}
+
+/**
+ * The block most keys print, as raw bytes. Each key votes with the first object
+ * type found after it; ties go to the earliest key. Choosing by majority rather
+ * than by the first key means a key that extends the base shape can sit anywhere
+ * in the list without becoming the canonical block itself.
+ */
+const majorityBlock = (
+  texts: readonly string[],
+  propertyKeys: readonly string[]
+): string | undefined => {
+  const candidates = propertyKeys.flatMap((key) =>
+    optionalKeyMarkers(key)
+      .flatMap((marker) => texts.flatMap((text) => readPrintedTypeBlock(text, marker) ?? []))
+      .slice(0, 1)
+  )
+  const votes = new Map<string, { readonly block: string; count: number }>()
+  for (const block of candidates) {
+    const key = normalizePrintedIndentation(block)
+    const entry = votes.get(key)
+    if (entry === undefined) votes.set(key, { block, count: 1 })
+    else entry.count += 1
+  }
+  return [...votes.values()].reduce<{ readonly block: string; count: number } | undefined>(
+    (best, entry) => (best === undefined || entry.count > best.count ? entry : best),
+    undefined
+  )?.block
+}
+
 export interface HoistResult {
   /** The rewritten type strings, in the order they were given. */
   readonly texts: readonly string[]
   /** The hoisted shape, re-indented for a top-level alias. */
   readonly body: string
+  /** Exact occurrences of the shape replaced by the name. */
   readonly replacements: number
+  /** Keys whose shape extends the name (`Name & { … }`) rather than equalling it. */
+  readonly extendedKeys: readonly string[]
   readonly bytesSaved: number
 }
+
+/** Does `key` print as `name`, or as `name & { … }`, somewhere in `texts`? */
+const keyNamesType = (texts: readonly string[], key: string, name: string): boolean =>
+  texts.some((text) => optionalKeyMarkers(key).some((marker) => text.includes(`${marker}${name}`)))
 
 /**
  * Replace every printed occurrence of one repeated shape with a reference to
  * `name`, and return the shape so the caller can declare it once.
  *
- * `propertyKeys` is both the anchor (the first key whose value is an object type
- * supplies the canonical bytes) and the proof: after rewriting, EVERY key must
- * name `name`. A key left expanded means the keys do not in fact share one
- * shape, which invalidates the single hoisted alias — so it throws rather than
- * shipping a declaration where 84 keys are named and one silently is not.
+ * `propertyKeys` is both the anchor (the block the most keys print supplies the
+ * canonical bytes) and the proof: after rewriting, EVERY key must name `name` —
+ * exactly, or as `name & { … }` when its block is a strict superset of the
+ * canonical members (see the module notes). A key left expanded means it does
+ * not share the shape, which invalidates the alias — so it throws rather than
+ * shipping a declaration where most keys are named and one silently is not.
  *
  * Throws when the anchor cannot be found or fewer than two occurrences were
  * replaced; the caller decides whether the feature is present at all.
@@ -151,10 +285,7 @@ export const hoistPrintedType = (
   propertyKeys: readonly string[],
   name: string
 ): HoistResult => {
-  const anchor = propertyKeys
-    .flatMap((key) => optionalKeyMarkers(key))
-    .flatMap((marker) => texts.flatMap((text) => readPrintedTypeBlock(text, marker) ?? []))
-    .at(0)
+  const anchor = majorityBlock(texts, propertyKeys)
 
   if (anchor === undefined) {
     throw new Error(
@@ -165,7 +296,7 @@ export const hoistPrintedType = (
   const matcher = printedTypeOccurrenceMatcher(anchor)
   let replacements = 0
   let bytesSaved = 0
-  const rewritten = texts.map((text) =>
+  const named = texts.map((text) =>
     text.replace(matcher, (match) => {
       replacements += 1
       bytesSaved += match.length - name.length
@@ -179,19 +310,53 @@ export const hoistPrintedType = (
     )
   }
 
-  const notHoisted = propertyKeys.filter(
-    (key) =>
-      !rewritten.some((text) =>
-        optionalKeyMarkers(key).some((marker) => text.includes(`${marker}${name}`))
+  // Pass 2: a key not named exactly may still EXTEND the shape. Each of its
+  // printed occurrences that is a strict superset becomes `name & { … }`.
+  const extendedKeys: string[] = []
+  const rewritten = propertyKeys
+    .filter((key) => !keyNamesType(named, key, name))
+    .reduce<readonly string[]>((current, key) => {
+      let extended = false
+      const next = current.map((text) =>
+        optionalKeyMarkers(key).reduce((acc, marker) => {
+          let out = ''
+          let from = 0
+          for (let at = acc.indexOf(marker); at !== -1; at = acc.indexOf(marker, from)) {
+            const open = at + marker.length
+            const block = readPrintedTypeBlock(acc.slice(at), marker)
+            const replacement =
+              block === undefined ? undefined : extendPrintedType(block, anchor, name)
+            if (block === undefined || replacement === undefined) {
+              out += acc.slice(from, open)
+              from = open
+              continue
+            }
+            out += acc.slice(from, open) + replacement
+            from = open + block.length
+            bytesSaved += block.length - replacement.length
+            extended = true
+          }
+          return out + acc.slice(from)
+        }, text)
       )
-  )
+      if (extended) extendedKeys.push(key)
+      return next
+    }, named)
+
+  const notHoisted = propertyKeys.filter((key) => !keyNamesType(rewritten, key, name))
   if (notHoisted.length > 0) {
     throw new Error(
       `Cannot hoist '${name}': ${notHoisted.length} of ${propertyKeys.length} keys print a DIFFERENT shape ` +
         `(${notHoisted.slice(0, 5).join(', ')}${notHoisted.length > 5 ? ', …' : ''}). ` +
-        'The keys no longer share one type, so one alias cannot stand for all of them.'
+        'They neither equal nor extend the shape the other keys share, so one alias cannot stand for them.'
     )
   }
 
-  return { texts: rewritten, body: dedentPrintedType(anchor), replacements, bytesSaved }
+  return {
+    texts: rewritten,
+    body: dedentPrintedType(anchor),
+    replacements,
+    extendedKeys,
+    bytesSaved,
+  }
 }

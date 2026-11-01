@@ -7,6 +7,7 @@
 
 import { messageOf, StepError, withDeadline } from './browser-cdp'
 import { addressRefusal, describeAddressRefusal } from './browser-host-guard'
+import { resolvedAddressRefusal } from './browser-host-resolution'
 import { describeLocator, evaluate, findOne, settle, throwGuardEvents } from './browser-page-find'
 import { pageCall } from './browser-page-inputs-runtime'
 import type { PageState } from './browser-page-state'
@@ -31,8 +32,9 @@ export const clickAt = async (
 }
 
 /**
- * Open a page. A host off `allowedHosts`, a private address, or an address that
- * is not `http(s)` is refused before the browser moves.
+ * Open a page. A host off `allowedHosts`, a private address, a host name that
+ * resolves to one, or an address that is not `http(s)` is refused before the
+ * browser moves.
  *
  * The scheme check is not redundant with the guard: a `data:` or `blob:`
  * document is not a network response, so it is never re-served with the
@@ -48,7 +50,7 @@ export const gotoPage = async (state: PageState, url: string, timeoutMs: number)
       `host_not_allowed: a goto opens http and https addresses only, and this one ${scheme === undefined ? 'has no scheme' : `is a ${scheme.toLowerCase()}: address`}`
     )
   }
-  const refusal = addressRefusal(url, state.allowedHosts)
+  const refusal = addressRefusal(url, state.allowedHosts) ?? (await resolvedAddressRefusal(url))
   if (refusal !== undefined) {
     throw new StepError('host_not_allowed', describeAddressRefusal(refusal, state.allowedHosts))
   }

@@ -14,6 +14,7 @@ import {
   type UserAccessMinted,
   type UserAccessRow,
 } from '@/application/ports/repositories/auth/user-access-repository'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { App } from '@/domain/models/app'
 
 /** A grant refused because a value it names does not exist, naming the field to fix. */
@@ -33,7 +34,7 @@ export const grantRecordsRefusal = (
   recordIds: readonly string[]
 ): Effect.Effect<GrantValueRefusal | undefined, UserAccessDatabaseError, UserAccessRepository> =>
   Effect.gen(function* () {
-    const table = app.tables?.find((candidate) => candidate.name === tableSlug)
+    const table = findTableByName(app.tables, tableSlug)
     const found =
       table === undefined
         ? []

@@ -14,6 +14,7 @@ import {
   UNATTRIBUTED_BUCKET,
   uploadTargetParts,
 } from '@/application/ports/services/storage-service'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { INSTANCE_ENGINE_VERSION_PATTERN } from '@/domain/models/app/automations/actions/instance/engine-install'
 import { INSTANCE_SLUG_PATTERN } from '@/domain/models/app/automations/actions/instance/instance-slug'
 import {
@@ -26,9 +27,9 @@ import {
   isHostActionsEnabled,
 } from '@/domain/models/process-env/host-actions'
 import { logError } from '@/infrastructure/logging/logger'
-import { CALLER_REFUSAL } from './record-caller-gate'
+import { CALLER_REFUSAL } from './record/caller-gate'
 import { PRE_EXISTING_BYTES } from './run-written-files'
-import { actionAttributes } from './shared'
+import { actionAttributes, runEnvOf } from './shared'
 import { starterFileGate, type StarterGateRequirements } from './starter-file-gate'
 import { starterOverwriteVerdict } from './starter-overwrite-gate'
 import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
@@ -71,9 +72,6 @@ const propsOf = (action: Readonly<Record<string, unknown>>): Readonly<Record<str
   const raw = action['props']
   return raw !== null && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
 }
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
 
 export const slugOf = (props: Readonly<Record<string, unknown>>) => {
   const { slug } = props
@@ -155,9 +153,9 @@ export const instanceHandler =
       InstanceSupervisor | StarterGateRequirements
     >
   ): ActionHandler =>
-  (action, app, automation) =>
+  (action, app, automation, runContext) =>
     Effect.suspend(() =>
-      isHostActionsEnabled(process.env)
+      isHostActionsEnabled(runEnvOf(runContext))
         ? body(propsOf(action), action, app, automation)
         : refuse(HOST_ACTIONS_DISABLED_MESSAGE)
     ).pipe(

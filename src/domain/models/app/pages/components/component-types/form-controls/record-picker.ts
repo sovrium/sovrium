@@ -114,7 +114,7 @@ export const RecordPickerSourceSchema = Schema.Struct({
     Schema.String.pipe(
       Schema.annotate({
         description:
-          'Row field that names a candidate — what is searched and shown. Omit and the picker searches by id and says so, rather than guessing a column.',
+          'Row field that names a candidate: what is searched and shown. Omit and the picker searches by id and says so, rather than guessing a column.',
         examples: ['name', 'title'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -162,7 +162,7 @@ export const RecordPickerSourceSchema = Schema.Struct({
   pageSize: Schema.optional(
     Schema.Finite.pipe(
       Schema.annotate({
-        description: 'Candidates per page. Default 20, hard max 100 — a picker is a shortlist.',
+        description: 'Candidates per page. Default 20, hard max 100: a picker is a shortlist.',
         examples: [20, 50],
       }),
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(100))
@@ -196,7 +196,7 @@ export const recordPickerFields = {
   allowCreate: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        'Offer to create the missing record from the typed text and link it (default: false). Absent — never disabled — for a caller who cannot insert into the table.',
+        'Offer to create the missing record from the typed text and link it (default: false). Absent, never disabled, for a caller who cannot insert into the table.',
     })
   ),
   /** Link more than one record. Picking a second REPLACES the first when false. */

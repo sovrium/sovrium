@@ -19,8 +19,13 @@ import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
  *
  * POSIX `TZ` is never read nor set: it belongs to the host.
  *
- * @param env - the environment to read (defaults to the process environment).
+ * The environment is REQUIRED: an infrastructure caller passes `process.env`
+ * where it reads it, and application code never calls this at all — it reads
+ * `yield* ProcessEnv` and applies the domain parser itself, so the process
+ * environment reaches a use-case through one door.
+ *
+ * @param env - the environment to read.
  */
 export const resolveOperatorTimezone = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): string => parseSovriumTimezone(env).zoneId

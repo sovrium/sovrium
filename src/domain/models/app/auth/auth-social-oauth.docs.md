@@ -1,6 +1,6 @@
 # Social & OAuth Providers
 
-> Federated sign-in through an external identity provider — the five accepted providers, where their credentials live, and the callback URL you do not configure.
+> Federated sign-in through an external identity provider: the five accepted providers, where their credentials live, and the callback URL you do not configure.
 
 The user proves who they are to an external provider, and Sovrium trusts that result. No password is stored on your side, and offboarding somebody at the identity provider offboards them from your app.
 
@@ -42,4 +42,4 @@ A declared provider with no credentials will not sign anyone in. The strategy va
 
 They come from `BASE_URL`; there is nothing to configure per provider. Register the derived URL with each provider's console, and make sure `BASE_URL` on the deploy target is the public origin users actually reach rather than localhost.
 
-A mismatch there is the usual cause of a provider rejecting the round trip: the redirect Sovrium sends does not match the one registered, and the provider refuses before your app is ever involved — which is why the failure shows up as the provider's error page rather than yours.
+A mismatch there is the usual cause of a provider rejecting the round trip: the redirect Sovrium sends does not match the one registered, and the provider refuses before your app is ever involved. That is why the failure shows up as the provider's error page rather than yours.

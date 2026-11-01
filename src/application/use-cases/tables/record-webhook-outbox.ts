@@ -28,6 +28,7 @@
 import { Effect } from 'effect'
 import {
   RecordWebhookDispatcher,
+  RecordWebhookReceipt,
   type DeliveryMode,
   type OutboxPlanner,
   type PlannedDelivery,
@@ -35,13 +36,15 @@ import {
 } from '@/application/ports/services/record-webhook-dispatcher'
 import { serializeDriverRow } from '@/domain/models/app/tables/driver-value-service'
 import { withoutFieldsReadByNoOne } from '@/domain/models/app/tables/field-read-filter-service'
+import { isUserReferenceFieldType } from '@/domain/models/app/tables/field-type-classifier-service'
 import {
   relationshipFieldNames,
   withStringRecordId,
   withStringRelationshipValues,
 } from '@/domain/models/app/tables/record-id-service'
+import { transformRecord } from '@/domain/models/app/tables/record-transformer-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { customizeWebhookData, type Webhook } from '@/domain/models/app/tables/webhooks'
-import { transformRecord } from './record-transformer'
 import type { CommittedRowChange } from '@/application/ports/services/record-change-feed'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'
@@ -54,14 +57,6 @@ import type { Table } from '@/domain/models/app/tables'
 export type WebhookWriteKind = 'write' | 'restore'
 
 type Row = Readonly<Record<string, unknown>>
-
-/** The field types whose values name a user. */
-const USER_NAMING_TYPES: ReadonlySet<string> = new Set([
-  'user',
-  'created-by',
-  'updated-by',
-  'deleted-by',
-])
 
 /** The authorship columns a table may carry without declaring them. */
 const AUTHORSHIP_COLUMNS: readonly string[] = ['created_by', 'updated_by', 'deleted_by']
@@ -90,7 +85,7 @@ const userIdsIn = (value: unknown): readonly string[] => {
  */
 export const subjectsOf = (table: Table, change: CommittedRowChange): readonly string[] => {
   const columns = [
-    ...table.fields.filter((field) => USER_NAMING_TYPES.has(field.type)).map((f) => f.name),
+    ...table.fields.filter((field) => isUserReferenceFieldType(field.type)).map((f) => f.name),
     ...AUTHORSHIP_COLUMNS,
   ]
   const rows = [change.row, change.previous].filter((row): row is Row => row !== undefined)
@@ -181,7 +176,7 @@ const plannedFor = (
 export const planRecordWebhooks =
   (app: App, tableName: string, kind: WebhookWriteKind): OutboxPlanner =>
   (changes) => {
-    const table = app.tables?.find((candidate) => candidate.name === tableName)
+    const table = findTableByName(app.tables, tableName)
     if (table === undefined || (table.webhooks ?? []).length === 0) return []
     return changes
       .filter((change) => change.tableName === tableName)
@@ -199,14 +194,23 @@ export const withRecordWebhooks =
       dispatcher.enqueue(planRecordWebhooks(app, tableName, kind), write)
     ).pipe(Effect.withSpan('tables.with-record-webhooks', { attributes: { tableName } }))
 
-/** Attempt the deliveries a committed write recorded. Never fails. */
+/**
+ * Attempt the deliveries a committed write recorded. Never fails. A road that
+ * names its `mode` gets it; otherwise the caller's {@link RecordWebhookReceipt}
+ * decides whether the write waits, and hears the delivery ids.
+ */
 export const deliverRecordWebhooks = (
   app: App,
   deliveryIds: readonly string[],
-  mode: DeliveryMode
+  mode?: DeliveryMode
 ): Effect.Effect<void, never, RecordWebhookDispatcher> =>
   deliveryIds.length === 0
     ? Effect.void
-    : RecordWebhookDispatcher.use((dispatcher) =>
-        dispatcher.deliver({ app, deliveryIds, mode })
-      ).pipe(Effect.withSpan('tables.deliver-record-webhooks', { attributes: { mode } }))
+    : Effect.gen(function* () {
+        const receipt = mode === undefined ? yield* RecordWebhookReceipt : undefined
+        if (receipt !== undefined) yield* Effect.sync(() => receipt.recorded(deliveryIds))
+        const chosen = mode ?? receipt?.mode ?? 'background'
+        yield* RecordWebhookDispatcher.use((dispatcher) =>
+          dispatcher.deliver({ app, deliveryIds, mode: chosen })
+        )
+      }).pipe(Effect.withSpan('tables.deliver-record-webhooks'))

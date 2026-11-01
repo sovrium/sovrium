@@ -6,14 +6,14 @@
  */
 
 import { resolve } from 'node:path'
-import { Effect, Console } from 'effect'
+import { lazyImportSchema } from '@/cli/runtime/lazy-modules'
+import { stopCommand } from '@/cli/runtime/run-command'
 import {
   formatConfigCandidatesLine,
   formatDiscoveredConfigNotice,
 } from '@/domain/kernel/config-parsing/default-config-files'
-import { printStderr } from '@/infrastructure/logging/cli-output'
-import { lazyImportSchema } from './utils'
-import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
+import { printLine, printStderr } from '@/infrastructure/logging/cli-output'
+import type { ConfigFinding } from '@/domain/kernel/config-parsing/decode-report-format'
 
 /** The part of a validation outcome the `--json` document publishes. */
 interface JsonReportOutcome {
@@ -35,13 +35,13 @@ export const discoverValidationConfig = async (): Promise<string> => {
   const discovered = await discoverDefaultConfigFile(process.cwd())
 
   if (!discovered) {
-    printStderr(
+    return stopCommand(
+      1,
       `Error: No config file provided.\n\n` +
         `${formatConfigCandidatesLine(process.cwd())}\n\n` +
         `Usage:\n  sovrium validate <config.json|config.yaml>\n\n` +
         `Run 'sovrium init' to scaffold a new project.`
     )
-    process.exit(1)
   }
 
   printStderr(formatDiscoveredConfigNotice(discovered))
@@ -79,17 +79,15 @@ export const coveredFiles = (
  * differently depending on how it was asked would be two verdicts.
  */
 export const printJsonReport = (outcome: JsonReportOutcome, files: readonly string[]): void => {
-  Effect.runSync(
-    Console.log(
-      JSON.stringify({
-        valid: outcome.valid,
-        files,
-        findings: outcome.findings,
-        notices: outcome.notices,
-      })
-    )
+  printLine(
+    JSON.stringify({
+      valid: outcome.valid,
+      files,
+      findings: outcome.findings,
+      notices: outcome.notices,
+    })
   )
   if (!outcome.valid) {
-    process.exit(1)
+    return stopCommand(1)
   }
 }

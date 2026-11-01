@@ -9,9 +9,9 @@ import { symmetricDecrypt } from 'better-auth/crypto'
 import { inArray } from 'drizzle-orm'
 import { resolveAuthSecret } from '@/infrastructure/auth/auth-secret'
 import { jwks as jwksPg } from '@/infrastructure/auth/better-auth/schema'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { jwks as jwksSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/auth-tables'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Boot-time repair for JWT signing keys the current auth secret cannot read.
@@ -108,7 +108,7 @@ const isReadable = async (privateKey: string, secret: string): Promise<boolean> 
  * the signing keys currently in use, and removing those would rotate the keys of
  * a perfectly healthy deployment on every single boot.
  */
-export const rekeyUnreadableJwks = async (): Promise<number> =>
+export const rekeyUnreadableJwks = async (db: PortableDb): Promise<number> =>
   withEventLoopKeptAlive(async () => {
     try {
       const secret = resolveAuthSecret()

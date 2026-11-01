@@ -68,6 +68,13 @@ const readImageField = (ctx: AuthMiddlewareCtx, location: 'body' | 'data'): unkn
   return body?.image
 }
 
+/** The one 400 a client-supplied avatar URL answers, on every door that refuses it. */
+export const avatarRefusal = (): APIError =>
+  new APIError('BAD_REQUEST', {
+    message:
+      'A profile image cannot be set directly. Upload one through the account avatar endpoint, or send `image: null` to clear it.',
+  })
+
 /**
  * Refuse any client-supplied avatar URL, with a 400. `null` (clear the avatar)
  * and an absent field both pass.
@@ -115,8 +122,5 @@ export function applyAvatarUrlGuard(ctx: AuthMiddlewareCtx) {
   // Absent → the request is not about the avatar. Explicit null → clearing it.
   if (image === undefined || image === null) return
 
-  throw new APIError('BAD_REQUEST', {
-    message:
-      'A profile image cannot be set directly. Upload one through the account avatar endpoint, or send `image: null` to clear it.',
-  })
+  throw avatarRefusal()
 }

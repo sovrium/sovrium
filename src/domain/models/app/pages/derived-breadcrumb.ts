@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { blankToUndefined } from '@/domain/kernel/config-parsing/blank-text'
 import { decodeSegment } from '@/domain/kernel/matching/route-matcher'
 
 /**
@@ -44,12 +45,6 @@ export interface DerivedCrumbOptions {
 export interface DerivedCrumb {
   readonly label: string
   readonly href?: string
-}
-
-/** A label with something in it, trimmed, or `undefined`. */
-const nonEmpty = (label: string | undefined): string | undefined => {
-  const trimmed = label?.trim()
-  return trimmed === undefined || trimmed === '' ? undefined : trimmed
 }
 
 /**
@@ -97,7 +92,7 @@ export function buildDerivedCrumbs(
   options: DerivedCrumbOptions = {}
 ): readonly DerivedCrumb[] {
   const base = options.basePath ?? ''
-  const current = nonEmpty(options.currentLabel)
+  const current = blankToUndefined(options.currentLabel)
   const { staticSegments, captured } = splitAtCatchAll(
     splitSegments(path.split('?')[0] ?? ''),
     options.pattern

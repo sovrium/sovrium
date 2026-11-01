@@ -6,7 +6,6 @@
  */
 
 import { and, asc, desc, eq, gt, gte, lt, not, or, sql, type Column, type SQL } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AdminBucketFilesDatabaseError,
   AdminBucketFilesRepository,
@@ -19,16 +18,20 @@ import {
   STORAGE_KEY_UUID_PREFIX_LENGTH,
 } from '@/domain/kernel/identity/storage-key'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type Dialect,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { listRecordAttachmentLinks } from '@/infrastructure/database/record-attachment-links'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import {
   searchAnyColumn,
   startsWithLiteral,
 } from '@/infrastructure/database/sql/dialect-sql-helpers'
-import { isInValueSet } from '@/infrastructure/database/sql/value-set-membership'
 import { notClaimed } from '@/infrastructure/storage/catalog-claim'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /** Wrap a DB promise, adapting failures to AdminBucketFilesDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminBucketFilesDatabaseError({ cause }))
@@ -39,13 +42,14 @@ const wrap = makeDbWrap((cause) => new AdminBucketFilesDatabaseError({ cause }))
  * them. The key list is bound as ONE JSON parameter (S3), never spliced — and
  * never one placeholder per key, because the linked-key count grows with the
  * data and would cross the engine's placeholder cap (SQLite 32,766, PostgreSQL
- * 65,535), failing the whole listing. See {@link isInValueSet}.
+ * 65,535), failing the whole listing. See `isInValueSetOn`.
  */
-const scopeCondition = (scope: AdminBucketFilesScope): SQL => {
+const scopeCondition = (dialect: Dialect, scope: AdminBucketFilesScope): SQL => {
   const files = fileStorageMetadataTable()
   const own = eq(files.bucket, scope.bucket)
   const alsoKeys = scope.alsoKeys ?? []
-  const scoped = alsoKeys.length === 0 ? own : (or(own, isInValueSet(files.key, alsoKeys)) ?? own)
+  const scoped =
+    alsoKeys.length === 0 ? own : (or(own, dialect.sql.isInValueSet(files.key, alsoKeys)) ?? own)
   // A replacing write's claim, whose bytes are not stored yet, is not a file.
   return and(scoped, notClaimed()) ?? scoped
 }
@@ -242,6 +246,8 @@ const buildCursorConditions = (filters: AdminBucketFilesListFilters): ReadonlyAr
  * use case can derive `hasMore`.
  */
 const listFilesImpl = async (
+  db: PortableDb,
+  dialect: Dialect,
   filters: AdminBucketFilesListFilters
 ): Promise<ReadonlyArray<AdminBucketFileRow>> => {
   const files = fileStorageMetadataTable()
@@ -250,7 +256,7 @@ const listFilesImpl = async (
   // MATCHES — so `nextCursor` walks the match stream and terminates on it,
   // rather than offering pages a six-result search does not have.
   const conditions = [
-    scopeCondition(filters.scope),
+    scopeCondition(dialect, filters.scope),
     // A chat attachment is its uploader's alone: the file browser does not list it.
     not(startsWithLiteral(files.key, CHAT_ATTACHMENT_KEY_PREFIX)),
     ...buildTypeConditions(filters),
@@ -283,6 +289,86 @@ const listFilesImpl = async (
   return rows as ReadonlyArray<AdminBucketFileRow>
 }
 
+const members: MembersOverDatabase<typeof AdminBucketFilesRepository> = {
+  listFiles: (db, dialect) => (filters) => wrap(async () => listFilesImpl(db, dialect, filters)),
+
+  sumTotalBytes: (db, dialect) => (scope) =>
+    wrap(async () => {
+      const files = fileStorageMetadataTable()
+      const rows = (await db
+        .select({ total: sql<number | string | null>`COALESCE(SUM(${files.size}), 0)` })
+        .from(files)
+        .where(scopeCondition(dialect, scope))) as ReadonlyArray<{ total: number | string | null }>
+      return toFiniteCount(rows[0]?.total)
+    }),
+
+  usageByBucket: (db) =>
+    wrap(async () => {
+      const files = fileStorageMetadataTable()
+      const rows = await db
+        .select({
+          bucket: files.bucket,
+          fileCount: sql<unknown>`count(*)`,
+          totalBytes: sql<unknown>`coalesce(sum(${files.size}), 0)`,
+        })
+        .from(files)
+        .where(notClaimed())
+        .groupBy(files.bucket)
+      return rows.map((row) => ({
+        bucket: row.bucket,
+        fileCount: toFiniteCount(row.fileCount),
+        totalBytes: toFiniteCount(row.totalBytes),
+      }))
+    }),
+
+  listRecordAttachmentLinks: (db, dialect) => (app) =>
+    listRecordAttachmentLinks({ client: db, dialect }, app),
+
+  listUploadsSince: (db) => (since) =>
+    wrap(async () => {
+      // Upload-series source. `createdAt` is bound as a `Date`, which drizzle
+      // renders as a timestamptz comparison on Postgres and as epoch-ms on
+      // SQLite (`timestamp_ms` mode) — the same binding the file-browser's
+      // date cursor already relies on.
+      const files = fileStorageMetadataTable()
+      return (await db
+        .select({ size: files.size, createdAt: files.createdAt })
+        .from(files)
+        .where(and(gte(files.createdAt, since), notClaimed()))) as ReadonlyArray<{
+        size: number
+        createdAt: Date | string | number
+      }>
+    }),
+
+  summariseCatalog: (db) =>
+    wrap(async () => {
+      const files = fileStorageMetadataTable()
+      const rows = await db
+        .select({
+          files: sql<unknown>`count(*)`,
+          bytes: sql<unknown>`coalesce(sum(${files.size}), 0)`,
+        })
+        .from(files)
+        .where(notClaimed())
+      return { files: toFiniteCount(rows[0]?.files), bytes: toFiniteCount(rows[0]?.bytes) }
+    }),
+
+  summariseUploadsBetween:
+    (db) =>
+    ({ from, to }) =>
+      wrap(async () => {
+        const files = fileStorageMetadataTable()
+        const rows = await db
+          .select({
+            files: sql<unknown>`count(*)`,
+            bytes: sql<unknown>`coalesce(sum(${files.size}), 0)`,
+          })
+          .from(files)
+          .where(and(gte(files.createdAt, from), lt(files.createdAt, to), notClaimed()))
+        return { files: toFiniteCount(rows[0]?.files), bytes: toFiniteCount(rows[0]?.bytes) }
+      }),
+}
+
 /**
  * Admin Bucket Files Repository Implementation (Drizzle).
  *
@@ -300,77 +386,4 @@ const listFilesImpl = async (
  * out a replacing write's claim ({@link notClaimed}): a row whose bytes are not
  * stored yet is not a file, and is counted nowhere until it settles.
  */
-export const AdminBucketFilesRepositoryLive = Layer.succeed(AdminBucketFilesRepository, {
-  listFiles: (filters) => wrap(async () => listFilesImpl(filters)),
-
-  sumTotalBytes: (scope) =>
-    wrap(async () => {
-      const files = fileStorageMetadataTable()
-      const rows = (await db
-        .select({ total: sql<number | string | null>`COALESCE(SUM(${files.size}), 0)` })
-        .from(files)
-        .where(scopeCondition(scope))) as ReadonlyArray<{ total: number | string | null }>
-      return toFiniteCount(rows[0]?.total)
-    }),
-
-  usageByBucket: wrap(async () => {
-    const files = fileStorageMetadataTable()
-    const rows = await db
-      .select({
-        bucket: files.bucket,
-        fileCount: sql<unknown>`count(*)`,
-        totalBytes: sql<unknown>`coalesce(sum(${files.size}), 0)`,
-      })
-      .from(files)
-      .where(notClaimed())
-      .groupBy(files.bucket)
-    return rows.map((row) => ({
-      bucket: row.bucket,
-      fileCount: toFiniteCount(row.fileCount),
-      totalBytes: toFiniteCount(row.totalBytes),
-    }))
-  }),
-
-  listRecordAttachmentLinks,
-
-  listUploadsSince: (since) =>
-    wrap(async () => {
-      // Upload-series source. `createdAt` is bound as a `Date`, which drizzle
-      // renders as a timestamptz comparison on Postgres and as epoch-ms on
-      // SQLite (`timestamp_ms` mode) — the same binding the file-browser's
-      // date cursor already relies on.
-      const files = fileStorageMetadataTable()
-      return (await db
-        .select({ size: files.size, createdAt: files.createdAt })
-        .from(files)
-        .where(and(gte(files.createdAt, since), notClaimed()))) as ReadonlyArray<{
-        size: number
-        createdAt: Date | string | number
-      }>
-    }),
-
-  summariseCatalog: wrap(async () => {
-    const files = fileStorageMetadataTable()
-    const rows = await db
-      .select({
-        files: sql<unknown>`count(*)`,
-        bytes: sql<unknown>`coalesce(sum(${files.size}), 0)`,
-      })
-      .from(files)
-      .where(notClaimed())
-    return { files: toFiniteCount(rows[0]?.files), bytes: toFiniteCount(rows[0]?.bytes) }
-  }),
-
-  summariseUploadsBetween: ({ from, to }) =>
-    wrap(async () => {
-      const files = fileStorageMetadataTable()
-      const rows = await db
-        .select({
-          files: sql<unknown>`count(*)`,
-          bytes: sql<unknown>`coalesce(sum(${files.size}), 0)`,
-        })
-        .from(files)
-        .where(and(gte(files.createdAt, from), lt(files.createdAt, to), notClaimed()))
-      return { files: toFiniteCount(rows[0]?.files), bytes: toFiniteCount(rows[0]?.bytes) }
-    }),
-})
+export const AdminBucketFilesRepositoryLive = layerOverDatabase(AdminBucketFilesRepository, members)

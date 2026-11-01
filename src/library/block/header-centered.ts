@@ -17,7 +17,7 @@ import {
   stringParam,
   THEME_NOTE,
   when,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** The top of an inner page: a label, the page name and one sentence, centred. */

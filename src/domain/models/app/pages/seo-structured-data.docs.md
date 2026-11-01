@@ -6,7 +6,7 @@ Three parts of `meta` are less about words and more about machines: the JSON-LD 
 
 ## `structuredData`
 
-Emitted as a `application/ld+json` script block. It accepts raw Schema.org JSON-LD verbatim:
+Emitted as a `application/ld+json` script block. It accepts raw Schema.org JSON-LD as written:
 
 ```yaml
 name: my-blog
@@ -25,19 +25,21 @@ pages:
       - { type: text, element: h1, content: '$record.title' }
 ```
 
-**Raw JSON-LD is passed through unvalidated.** Unlike the rest of `meta`, a hand-written block's contents are not schema-checked — a malformed `@type` or a misspelled property ships silently. Validate the emitted block with a rich-results testing tool rather than relying on `sovrium validate`.
+**Raw JSON-LD is passed through unvalidated.** Unlike the rest of `meta`, a hand-written block's contents are not schema-checked: a malformed `@type` or a misspelled property ships silently. Validate the emitted block with a rich-results testing tool rather than relying on `sovrium validate`.
 
 ### The shorthand form
 
 <!-- sovrium:options StructuredDataSchema depth=1 -->
 
-Instead of one raw object, `structuredData` (or its newer name `schema`) can take a keyed object whose keys are the Schema.org types it emits: `organization`, `person`, `localBusiness`, `product`, `article`, `breadcrumb`, `faqPage` and `educationEvent`. Each key's value is emitted verbatim as its own JSON-LD block, so it carries its own `@context` and `@type`, and each type has its own option table in the reference. The same caveat applies: the object is not decoded against these tables at `sovrium validate` time, and the key names are not checked either, so a mistake reaches the page unchanged.
+Instead of one raw object, `structuredData` (or its newer name `schema`) can take a keyed object whose keys are the Schema.org types it emits: `organization`, `person`, `localBusiness`, `product`, `article`, `breadcrumb`, `faqPage` and `educationEvent`. Each key's value is emitted as its own JSON-LD block, so it carries its own `@context` and `@type`, and each type has its own option table in the reference. The same caveat applies: the object is not decoded against these tables at `sovrium validate` time, and the key names are not checked either, so a mistake reaches the page unchanged.
+
+In either form, only the strings change on the way out: a `$t:` key resolves in the language the page is served in and an `$app.*` reference to its value, exactly as in `meta.title`, so a French page ships a French FAQ and `softwareVersion: $app.engineVersion` names the running version. Every other value is emitted as written.
 
 **Valid markup is not the same as a rich result.** Google retired the FAQ rich result on 7 May 2026 and the HowTo rich result in 2023. A `faqPage` block, or a raw `HowTo` object, is still valid Schema.org and is still read by other consumers, but it no longer earns a special search listing. Emit it when the questions are visible on the page; do not add it to win a listing that no longer exists.
 
 ### Auto-synthesised article schema
 
-A content directory can generate JSON-LD per article from frontmatter instead. Supply the object form and the synthesiser takes over: `enabled` must be exactly `true`, `type` chooses between `TechArticle` and `Article`, `breadcrumbs` emits a breadcrumb list alongside the article, and `organization` becomes the article's publisher. These four keys are part of the published schema, so an editor completes them, and `sovrium validate` refuses a mistake: a `type` other than `TechArticle` or `Article`, a `breadcrumbs` that is not a boolean, or an `organization` that is not a string. `structuredData` stays the older name of `schema` for hand-written JSON-LD — an object carrying `enabled` is read as this toggle, anything else as JSON-LD.
+A content directory can generate JSON-LD per article from frontmatter instead. Supply the object form and the synthesiser takes over: `enabled` must be exactly `true`, `type` chooses between `TechArticle` and `Article`, `breadcrumbs` emits a breadcrumb list alongside the article, and `organization` becomes the article's publisher. These four keys are part of the published schema, so an editor completes them, and `sovrium validate` refuses a mistake: a `type` other than `TechArticle` or `Article`, a `breadcrumbs` that is not a boolean, or an `organization` that is not a string. `structuredData` stays the older name of `schema` for hand-written JSON-LD. An object carrying `enabled` is read as this toggle, anything else as JSON-LD.
 
 ```yaml
 name: my-docs
@@ -55,7 +57,7 @@ pages:
       - { type: container, element: main }
 ```
 
-Headline, description and publication date come from each file's frontmatter, so one declaration covers every article in the directory.
+Headline and description come from each file's frontmatter, `datePublished` from its `date` and `dateModified` from its `updated`, and `inLanguage` is the language the page is served in, so one declaration covers every article in the directory. The breadcrumb names a section by the label the sidebar shows (`nav.groupLabels`) and links it to the first article of that section, and every address in the documents is the page's canonical (on a collection index, its base path).
 
 ## `favicons`
 
@@ -63,7 +65,7 @@ Headline, description and publication date come from each file's frontmatter, so
 
 Favicons accept two shapes. The **object form** above is the short one: a default `icon`, an `appleTouchIcon` for the iOS home screen, and `sizes` for size-specific icons.
 
-A `./` path is read from the root of `public/`, whatever the page's address — on `/fr/` or `/blog/first-evening` as on `/`. The same holds for `meta.favicon`.
+A `./` path is read from the root of `public/`, whatever the page's address: on `/fr/` or `/blog/first-evening` as on `/`. The same holds for `meta.favicon`.
 
 An app that declares no favicon at all still answers `/favicon.ico`, the address every browser asks for on a first visit, with one neutral default icon and a cache header, so no page logs a missing-icon error. Declare a favicon to replace it: once one is declared, the default is never served in its place.
 
@@ -108,7 +110,7 @@ For a single icon and nothing else, the singular `meta.favicon` takes a bare pat
 
 `preload` is an array of critical resources to fetch early. Preloading a font is the highest-value case: it removes a round trip from the critical path that would otherwise start only after the stylesheet parses.
 
-`dnsPrefetch` is a plain array of origins to resolve ahead of time — no object wrapper:
+`dnsPrefetch` is a plain array of origins to resolve ahead of time, with no object wrapper:
 
 ```yaml
 name: my-app
@@ -128,7 +130,7 @@ pages:
 
 <!-- sovrium:options CustomElementSchema depth=2 -->
 
-Anything else the head needs, as an array of tags:
+Anything else the head needs, as an array of tags. The `content` of a `script` or `style` tag is sent exactly as written: a `$record`, `$invitation` or other page reference in it is not filled, so no value a visitor or a record supplies can become code. Put a per-page value in an attribute or in the page's text instead.
 
 ```yaml
 name: my-app
@@ -144,7 +146,7 @@ pages:
 
 ## Related reading
 
-- **SEO & Metadata** — title, description, Open Graph, social cards.
-- **Collection & Markdown Pages** — the content directories synthesis applies to.
-- **Scripts** — loading JavaScript, as opposed to hinting at it.
-- **Ecoconception** — the footprint case for fewer, earlier requests.
+- **SEO & Metadata**: title, description, Open Graph, social cards.
+- **Collection & Markdown Pages**: the content directories synthesis applies to.
+- **Scripts**: loading JavaScript, as opposed to hinting at it.
+- **Ecoconception**: the footprint case for fewer, earlier requests.

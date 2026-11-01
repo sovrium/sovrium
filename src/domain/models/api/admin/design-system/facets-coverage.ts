@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // Which layers of the system the operator actually declared
@@ -77,7 +77,7 @@ export const designCoverageRowSchema = Schema.Struct({
   }),
   label: Schema.String.annotate({
     description:
-      'What this layer is called in a reader’s words — the product’s only name for it, so the count and its subject can render as one phrase',
+      'What this layer is called in a reader’s words, the product’s only name for it, so the count and its subject can render as one phrase',
     examples: ['font families', 'writing rules'],
   }),
   declared: Schema.Boolean.annotate({
@@ -90,7 +90,7 @@ export const designCoverageRowSchema = Schema.Struct({
   }),
   configPath: Schema.String.annotate({
     description:
-      'Where an operator would declare this layer. Published for every row, declared or not — a reader who wants to CHANGE a declared layer needs the same address as one who wants to add it.',
+      'Where an operator would declare this layer. Published for every row, declared or not: a reader who wants to CHANGE a declared layer needs the same address as one who wants to add it.',
     examples: ['design.typeScale', 'design.logo'],
   }),
   // ─── A TRI-STATE BESIDE THE BOOLEAN, NOT A REPLACEMENT FOR IT ────────────
@@ -130,7 +130,7 @@ export const designCoverageRowSchema = Schema.Struct({
   // "9 steps · 2 families" spans two layers.
   summary: Schema.String.annotate({
     description:
-      'What this layer actually holds, in a reader’s words — computed from the running config, never authored. The EMPTY string for a layer with nothing to characterise beyond its count, so a row template never prints a placeholder.',
+      'What this layer actually holds, in a reader’s words, computed from the running config, never authored. The EMPTY string for a layer with nothing to characterise beyond its count, so a row template never prints a placeholder.',
     examples: ['21 roles, neutral ramp', '9 steps · 2 families', '15 writing rules · tu'],
   }),
 }).annotate({
@@ -183,7 +183,7 @@ export const designCoverageResponseSchema = Schema.Struct({
   }),
   inherited: Schema.Int.annotate({
     description:
-      'How many of those layers nobody authored and the platform answers anyway. Not a gap — a resting state.',
+      'How many of those layers nobody authored and the platform answers anyway. Not a gap, but a resting state.',
   }),
   notDeclared: Schema.Int.annotate({
     description:

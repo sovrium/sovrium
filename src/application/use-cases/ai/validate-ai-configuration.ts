@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { speechConfigurationRefusal } from '@/application/use-cases/ai/validate-speech-configuration'
 import { validateModelString } from '@/domain/models/process-env/ai/ai-model-string'
 import {
@@ -162,15 +163,32 @@ const checkModelPresence = (
  * app schema. Surfaces operator-facing errors at startup so AI misconfig
  * never silently no-ops or crashes mid-request.
  *
- * Pure function: takes the validated app and a snapshot of `process.env`
- * so it stays trivially testable without touching the global.
+ * Reads the environment from the `ProcessEnv` service, so a test provides
+ * its own without touching the global.
  */
 export const validateAiConfiguration = (
+  app: Readonly<App>
+): Effect.Effect<void, AppValidationError> =>
+  ProcessEnv.pipe(
+    Effect.flatMap((processEnv) => {
+      const message = aiConfigurationRefusal(app, processEnv)
+      // Only the REFUSAL opens a span: a validator that passes did no work worth a
+      // trace entry, while one that refuses is the reason a boot stopped.
+      return message === undefined
+        ? Effect.void
+        : Effect.fail(new AppValidationError(message)).pipe(
+            Effect.withSpan('ai.validate-ai-configuration')
+          )
+    })
+  )
+
+/** The first reason the AI environment refuses this app, or `undefined`. */
+const aiConfigurationRefusal = (
   app: Readonly<App>,
   processEnv: Readonly<Record<string, string | undefined>>
-): Effect.Effect<void, AppValidationError> => {
+): string | undefined => {
   const provider = processEnv['AI_PROVIDER']?.trim()
-  const message =
+  return (
     checkProviderConsistency(provider) ??
     checkApiKeyPresence(provider, processEnv) ??
     checkBaseUrlPresence(provider, processEnv) ??
@@ -179,11 +197,5 @@ export const validateAiConfiguration = (
     checkTemperatureRange(processEnv['AI_TEMPERATURE']) ??
     checkMaxTokensRange(processEnv['AI_MAX_TOKENS']) ??
     speechConfigurationRefusal(app, processEnv)
-  // Only the REFUSAL opens a span: a validator that passes did no work worth a
-  // trace entry, while one that refuses is the reason a boot stopped.
-  return message === undefined
-    ? Effect.void
-    : Effect.fail(new AppValidationError(message)).pipe(
-        Effect.withSpan('ai.validate-ai-configuration')
-      )
+  )
 }

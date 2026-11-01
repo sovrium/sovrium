@@ -25,10 +25,15 @@ import { isBunfsPath } from '@/infrastructure/process/package-paths'
 /** How long `admin create` and `seed` may take, each. */
 const CHILD_TIMEOUT_MS = 120_000
 
-/** Run one verb of this same program to its end — `restart`'s argv rule. */
+/**
+ * Run one verb of this same program to its end — `restart`'s argv rule.
+ * `input` is written to the child's standard input: a secret goes there, never
+ * on its argv, which any user of the machine can read in the process list.
+ */
 export const runOwnVerb = (
   args: readonly string[],
-  env: Readonly<Record<string, string | undefined>>
+  env: Readonly<Record<string, string | undefined>>,
+  input?: string
 ): { readonly ok: boolean; readonly output: string } => {
   const entry = process.argv[1]
   const viaScript = entry !== undefined && !isBunfsPath(entry)
@@ -36,6 +41,7 @@ export const runOwnVerb = (
     env: { ...process.env, ...env },
     encoding: 'utf-8',
     timeout: CHILD_TIMEOUT_MS,
+    ...(input === undefined ? {} : { input }),
   })
   return {
     ok: result.status === 0,
@@ -54,6 +60,15 @@ export const randomAccountPassword = (minLength: number): string => {
     .toString('base64url')
     .slice(0, length)
 }
+
+/** The `admin create` argv for an account whose password arrives on standard input. */
+export const adminCreateArgs = (email: string, configFile: string): readonly string[] => [
+  'admin',
+  'create',
+  email,
+  configFile,
+  '--password-stdin',
+]
 
 /** What {@link prepareProjectData} did. */
 export type PreparedData =
@@ -84,7 +99,7 @@ export const prepareProjectData = (input: {
 }): PreparedData => {
   const { hasAuth, configFile, email, password } = input
   if (hasAuth) {
-    const admin = runOwnVerb(['admin', 'create', email, configFile, '--password', password], {})
+    const admin = runOwnVerb(adminCreateArgs(email, configFile), {}, password)
     if (!admin.ok) return { ok: false, output: admin.output }
   }
   if (!existsSync(join(dirname(configFile), 'seed'))) {

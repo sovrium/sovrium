@@ -5,10 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Data, Effect } from 'effect'
+import { StaticOutputWriter } from '@/application/ports/services/static-output-writer'
 import { StaticSiteGenerator } from '@/application/ports/services/static-site-generator'
+import { tokenizeForSearch } from '@/domain/kernel/matching/search-tokens'
+import { decodeHtmlEntities } from '@/domain/kernel/sanitize/html-entity-decoding'
 import { logDebug } from '@/infrastructure/logging'
 
 /**
@@ -37,8 +39,8 @@ import { logDebug } from '@/infrastructure/logging'
  *   - body text by stripping all tags
  *   - excerpt as the first ~200 chars of normalized body text
  *
- * Then tokenizes (lowercase + NFC normalize + split on `\W+` + drop short
- * tokens and a small stopword set) and builds a TF-IDF index with a 2× title
+ * Then tokenizes with `tokenizeForSearch` — the same tokenizer the browser
+ * matcher runs over the query, so index and query agree — and builds a TF-IDF index with a 2× title
  * boost for tokens that also occur in the page title.
  *
  * @see src/domain/models/app/pages/has-page-search.ts (activation gate)
@@ -85,56 +87,10 @@ interface TokenPosting {
   readonly score: number
 }
 
-// ── Tokenization ─────────────────────────────────────────────────────────────
+// ── Scoring ──────────────────────────────────────────────────────────────────
 
-const STOPWORDS: ReadonlySet<string> = new Set([
-  'the',
-  'a',
-  'an',
-  'and',
-  'or',
-  'but',
-  'if',
-  'of',
-  'to',
-  'in',
-  'on',
-  'at',
-  'for',
-  'with',
-  'by',
-  'is',
-  'are',
-  'was',
-  'were',
-  'be',
-  'been',
-  'being',
-  'have',
-  'has',
-  'had',
-  'do',
-  'does',
-  'did',
-  'will',
-  'would',
-  'can',
-  'could',
-  'should',
-  'may',
-  'might',
-])
-
-const MIN_TOKEN_LENGTH = 2
 const TITLE_BOOST = 2
 const EXCERPT_LENGTH = 200
-
-const tokenize = (text: string): readonly string[] =>
-  text
-    .normalize('NFC')
-    .toLowerCase()
-    .split(/\W+/u)
-    .filter((token) => token.length >= MIN_TOKEN_LENGTH && !STOPWORDS.has(token))
 
 // ── HTML parsing ─────────────────────────────────────────────────────────────
 
@@ -225,19 +181,6 @@ const extractBodyText = (html: string): string => {
 
 const stripTags = (html: string): string => html.replace(/<[^>]+>/gu, ' ')
 
-const HTML_ENTITIES: Readonly<Record<string, string>> = {
-  '&amp;': '&',
-  '&lt;': '<',
-  '&gt;': '>',
-  '&quot;': '"',
-  '&#39;': "'",
-  '&apos;': "'",
-  '&nbsp;': ' ',
-}
-
-const decodeHtmlEntities = (text: string): string =>
-  text.replace(/&(amp|lt|gt|quot|apos|nbsp|#39);/gu, (match) => HTML_ENTITIES[match] ?? match)
-
 // ── HTML file resolution ─────────────────────────────────────────────────────
 
 /**
@@ -249,19 +192,14 @@ const decodeHtmlEntities = (text: string): string =>
  * silently skipped so the indexer is robust against pages that were excluded
  * from the static emission for any reason.
  */
-const fileExists = (filePath: string): Effect.Effect<boolean> =>
-  Effect.tryPromise({
-    // `fs.access` rejects when the file is missing. We deliberately swallow
-    // that rejection (the absent file IS the "skip this page" signal) by
-    // mapping the failure channel to `false`.
-    try: () => fs.access(filePath).then(() => true),
-    catch: () => false as const,
-  }).pipe(
-    // effect-swallow: the `catch` above already turned the rejection into `false`, which IS the "skip this page" signal; this only moves that value out of the error channel, so there is no failure left to observe.
-    Effect.orElseSucceed(() => false)
-  )
+const fileExists = (filePath: string): Effect.Effect<boolean, never, StaticOutputWriter> =>
+  // An unreachable file IS the "skip this page" signal: `exists` answers `false` for it.
+  StaticOutputWriter.use((fs) => fs.exists(filePath))
 
-const resolveHtmlPath = (inputDir: string, pagePath: string): Effect.Effect<string | undefined> =>
+const resolveHtmlPath = (
+  inputDir: string,
+  pagePath: string
+): Effect.Effect<string | undefined, never, StaticOutputWriter> =>
   Effect.gen(function* () {
     // Strip leading slash; toSSG paths are relative to inputDir.
     const normalized = pagePath === '/' ? '' : pagePath.replace(/^\/+/u, '')
@@ -283,29 +221,31 @@ const resolveHtmlPath = (inputDir: string, pagePath: string): Effect.Effect<stri
 const indexPage = (
   inputDir: string,
   pagePath: string
-): Effect.Effect<PageTokens | undefined, GenerateSearchIndexError> =>
+): Effect.Effect<PageTokens | undefined, GenerateSearchIndexError, StaticOutputWriter> =>
   Effect.gen(function* () {
+    const fs = yield* StaticOutputWriter
     const filePath = yield* resolveHtmlPath(inputDir, pagePath)
     if (filePath === undefined) {
       logDebug(`[search-index] no HTML file found for page path "${pagePath}", skipping`)
       return undefined
     }
 
-    const html = yield* Effect.tryPromise({
-      try: () => fs.readFile(filePath, 'utf-8'),
-      catch: (cause) =>
-        new GenerateSearchIndexError({
-          cause,
-          message: `Failed to read HTML for page "${pagePath}" at ${filePath}`,
-        }),
-    })
+    const html = yield* fs.readFile(filePath).pipe(
+      Effect.mapError(
+        ({ cause }) =>
+          new GenerateSearchIndexError({
+            cause,
+            message: `Failed to read HTML for page "${pagePath}" at ${filePath}`,
+          })
+      )
+    )
 
     const title = extractTitle(html)
     const bodyText = extractBodyText(html)
     const excerptText =
       bodyText.length <= EXCERPT_LENGTH ? bodyText : `${bodyText.slice(0, EXCERPT_LENGTH)}...`
-    const tokens = tokenize(bodyText)
-    const titleTokens = new Set(tokenize(title))
+    const tokens = tokenizeForSearch(bodyText)
+    const titleTokens = new Set(tokenizeForSearch(title))
 
     return {
       url: pagePath,
@@ -418,8 +358,8 @@ const buildIndex = (pages: readonly PageTokens[]): SearchIndex => {
  * Read the client-side runtime IIFE for `<outputDir>/sovrium-search/runtime.js`.
  *
  * The script is compiled from
- * {@link ../../presentation/islands/page-search/runtime-entry.ts} (which
- * imports the shared `matcher` module), so the vanilla-JS runtime and the
+ * {@link ../../presentation/islands/search/page-search-runtime-entry.ts} (which
+ * imports the shared `page-search-matcher` module), so the vanilla-JS runtime and the
  * React `page-search-island` share ONE source of truth for tokenization +
  * ranked lookup — they can never diverge.
  *
@@ -446,27 +386,16 @@ const readRuntimeJs = (): Effect.Effect<string, GenerateSearchIndexError, Static
 
 // ── Public use-case ──────────────────────────────────────────────────────────
 
-const ensureDir = (dir: string) =>
-  Effect.tryPromise({
-    try: () => fs.mkdir(dir, { recursive: true }),
-    catch: (cause) =>
-      new GenerateSearchIndexError({
-        cause,
-        message: `Failed to create directory ${dir}`,
-      }),
-  })
-
-/**
- * Write a file whole or not at all: into a sibling temporary file, then renamed
- * over the target. A server serves these files while `--watch` rebuilds them,
- * and a rename within one directory is atomic, so a request reads the old
- * index or the new one — never a half-written file.
- */
-const writeFileAtomically = async (filePath: string, contents: string): Promise<void> => {
-  const temporary = `${filePath}.${process.pid}.tmp`
-  await fs.writeFile(temporary, contents, 'utf-8')
-  return fs.rename(temporary, filePath)
-}
+const ensureDir = (fs: StaticOutputWriter['Service'], dir: string) =>
+  fs.makeDirectory(dir).pipe(
+    Effect.mapError(
+      ({ cause }) =>
+        new GenerateSearchIndexError({
+          cause,
+          message: `Failed to create directory ${dir}`,
+        })
+    )
+  )
 
 // Generic JSON serialization sink: writes an already statically-typed value
 // (here a `SearchIndex` built by `buildIndex`) to disk. effect(preferSchemaOverJson)
@@ -474,30 +403,37 @@ const writeFileAtomically = async (filePath: string, contents: string): Promise<
 // only a TS interface — and is trusted output we produce, not untrusted input we
 // parse. Introducing a parallel `Schema.Struct` mirror purely to satisfy the
 // informational hint would duplicate the type with no validation benefit.
-const writeJsonFile = (filePath: string, data: unknown) =>
-  Effect.tryPromise({
-    try: () => writeFileAtomically(filePath, JSON.stringify(data)),
-    catch: (cause) =>
-      new GenerateSearchIndexError({
-        cause,
-        message: `Failed to write JSON to ${filePath}`,
-      }),
-  })
+const writeJsonFile = (fs: StaticOutputWriter['Service'], filePath: string, data: unknown) =>
+  fs.writeFileAtomically(filePath, JSON.stringify(data)).pipe(
+    Effect.mapError(
+      ({ cause }) =>
+        new GenerateSearchIndexError({
+          cause,
+          message: `Failed to write JSON to ${filePath}`,
+        })
+    )
+  )
 
-const writeTextFile = (filePath: string, contents: string) =>
-  Effect.tryPromise({
-    try: () => writeFileAtomically(filePath, contents),
-    catch: (cause) =>
-      new GenerateSearchIndexError({
-        cause,
-        message: `Failed to write text to ${filePath}`,
-      }),
-  })
+const writeTextFile = (fs: StaticOutputWriter['Service'], filePath: string, contents: string) =>
+  fs.writeFileAtomically(filePath, contents).pipe(
+    Effect.mapError(
+      ({ cause }) =>
+        new GenerateSearchIndexError({
+          cause,
+          message: `Failed to write text to ${filePath}`,
+        })
+    )
+  )
 
 export const generateSearchIndex = (
   input: GenerateSearchIndexInput
-): Effect.Effect<GenerateSearchIndexResult, GenerateSearchIndexError, StaticSiteGenerator> =>
+): Effect.Effect<
+  GenerateSearchIndexResult,
+  GenerateSearchIndexError,
+  StaticSiteGenerator | StaticOutputWriter
+> =>
   Effect.gen(function* () {
+    const fs = yield* StaticOutputWriter
     logDebug(
       `[search-index] indexing ${input.publicPagePaths.length} public pages from ${input.inputDir}`
     )
@@ -514,14 +450,14 @@ export const generateSearchIndex = (
     const searchIndex = buildIndex(pages)
 
     const searchDir = path.join(input.outputDir, 'sovrium-search')
-    yield* ensureDir(searchDir)
+    yield* ensureDir(fs, searchDir)
 
     const indexPath = path.join(searchDir, 'index.json')
     const runtimePath = path.join(searchDir, 'runtime.js')
 
-    yield* writeJsonFile(indexPath, searchIndex)
+    yield* writeJsonFile(fs, indexPath, searchIndex)
     const runtimeJs = yield* readRuntimeJs()
-    yield* writeTextFile(runtimePath, runtimeJs)
+    yield* writeTextFile(fs, runtimePath, runtimeJs)
 
     logDebug(`[search-index] wrote ${pages.length} page records to ${indexPath}`)
 

@@ -5,16 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { ifDeclared } from '@/library/manifest/auth-block-kit'
-import { asComponent, param, when, type BlockNode } from '@/library/manifest/block-kit'
-import { stringParam } from '@/library/manifest/block-notes'
-import { defineLibraryEntry } from '@/library/manifest/define'
+import { ifDeclared } from '@/library/kit/auth-block-kit'
+import { asComponent, param, when, type BlockNode } from '@/library/kit/block-kit'
+import { stringParam } from '@/library/kit/block-notes'
 import {
   ALTERNATIVE_PARAMS,
   LOGIN_NOTES,
   loginParams,
   mutedCardScreen,
-} from '@/library/manifest/login-block-kit'
+} from '@/library/kit/login-block-kit'
 import {
   cardContent,
   cardHeader,
@@ -24,7 +23,8 @@ import {
   passwordColumn,
   signUpLine,
   socials,
-} from '@/library/manifest/login-block-parts'
+} from '@/library/kit/login-block-parts'
+import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** shadcn/ui's `login-03`, composed in config. */
 /**

@@ -22,17 +22,21 @@
  */
 
 import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { appLabelOf } from '@/domain/models/app/pages/app-vars'
 import {
   invitationConditionHolds,
+  invitationTemplateOf,
   invitationVarValues,
-  substituteInvitationVars,
-  type InvitationCondition,
+  substituteTranslatedInvitationVars,
   type InvitationFacts,
   type InvitationVarContext,
 } from '@/domain/models/app/pages/invitation-vars-service'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { renderInstant } from '@/presentation/render/page/render-clock'
+import { judgeConditionsDeep } from './condition-judging'
+import { substituteTemplatesDeep, type ValueEncoder } from './html-template-values'
+import { withAuthoredMetaCode } from './meta-code-bodies'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
@@ -60,49 +64,6 @@ const withoutAnswers = (node: unknown): unknown => {
   if (typeof node !== 'object' || node === null) return node
   const { children } = node as { readonly children?: unknown }
   return children === undefined ? node : { ...(node as object), children: withoutAnswers(children) }
-}
-
-type InvitationValues = Parameters<typeof invitationConditionHolds>[1]
-
-/** A visibility block with its `condition` removed, or `undefined` when nothing else is left. */
-const withoutCondition = (visibility: object): object | undefined => {
-  const { condition: _judged, ...rest } = visibility as { readonly condition?: unknown }
-  return Object.keys(rest).length === 0 ? undefined : rest
-}
-
-/**
- * `node` judged on an `$invitation.*` condition: `undefined` when it fails, the
- * node less that condition when it holds, the node as it was otherwise. The
- * condition may sit at the root or under `props`, as everywhere else.
- */
-const judgeCondition = (node: object, values: InvitationValues): object | undefined => {
-  const { visibility, props } = node as {
-    readonly visibility?: { readonly condition?: InvitationCondition }
-    readonly props?: { readonly visibility?: { readonly condition?: InvitationCondition } }
-  }
-  const atRoot = visibility?.condition !== undefined
-  const condition = atRoot ? visibility?.condition : props?.visibility?.condition
-  const holds = condition === undefined ? undefined : invitationConditionHolds(condition, values)
-  if (holds === undefined) return node
-  if (!holds) return undefined
-  if (atRoot) return { ...node, visibility: withoutCondition(visibility!) }
-  return { ...node, props: { ...props, visibility: withoutCondition(props!.visibility!) } }
-}
-
-/** `node` with every `$invitation.*` condition judged, at any depth. */
-const withConditionsJudged = (node: unknown, values: InvitationValues): unknown => {
-  if (Array.isArray(node))
-    return node.flatMap((child) => {
-      const judged = withConditionsJudged(child, values)
-      return judged === undefined ? [] : [judged]
-    })
-  if (typeof node !== 'object' || node === null) return node
-  const judged = judgeCondition(node, values)
-  if (judged === undefined) return undefined
-  const { children } = judged as { readonly children?: unknown }
-  return children === undefined
-    ? judged
-    : { ...judged, children: withConditionsJudged(children, values) }
 }
 
 /**
@@ -141,9 +102,31 @@ const varContextFor = (page: Page, app: App): InvitationVarContext => ({
   workspace: appLabelOf(app),
   roles: app,
   lang: page.meta?.lang ?? app.languages?.default ?? 'en',
-  timeZone: parseSovriumTimezone().zoneId,
+  timeZone: parseSovriumTimezone(process.env).zoneId,
   now: renderInstant() ?? new Date(),
 })
+
+/** How one page's strings are filled: the substitution, and the template it fills into. */
+interface InvitationFill {
+  readonly substitute: (text: string, encode?: ValueEncoder) => string
+  readonly templateOf: (text: string) => string
+}
+
+/**
+ * The inviter chooses her own name: a template written as markup takes every
+ * value escaped, and a text template whose value would read as markup is
+ * pinned to text — `substituteTemplatesDeep`, decided on the template the
+ * values land in (a `$t:` key's translation, when that is what is filled).
+ */
+const fillComponents = (components: unknown, fill: InvitationFill): Page['components'] =>
+  substituteTemplatesDeep(components, fill.substitute, fill.templateOf) as Page['components']
+
+/**
+ * `meta` is text (title, description) or serialised safely (structured data),
+ * so it is filled as written — except the code it declares, never filled.
+ */
+const fillMeta = (meta: Page['meta'], fill: InvitationFill): Page['meta'] =>
+  withAuthoredMetaCode(meta, mapStringsDeep(meta, (text) => fill.substitute(text)) as Page['meta'])
 
 /** Resolve one page's invitation; a page without `invitation` is returned as it was. */
 export async function resolvePageInvitation(
@@ -161,25 +144,31 @@ export async function resolvePageInvitation(
   const param = invitation.param ?? 'token'
   const facts = await factsFor(input, input.requestQuery?.[param])
   // On a mount the workspace is the OPERATOR's app, never the console preset.
-  const values = invitationVarValues(facts, varContextFor(page, input.hostApp ?? input.app))
-  const substitute = (text: string) => substituteInvitationVars(text, values)
+  const context = varContextFor(page, input.hostApp ?? input.app)
+  const values = invitationVarValues(facts, context)
+  // A `$t:` value naming an invitation reference is translated here, so it is filled too.
+  const translate = (text: string) =>
+    resolveTranslationPattern(text, context.lang, input.app.languages)
+  const fill: InvitationFill = {
+    substitute: (text, encode) =>
+      substituteTranslatedInvitationVars(text, values, translate, encode),
+    templateOf: (text) => invitationTemplateOf(text, translate),
+  }
   const components =
     page.components === undefined
       ? undefined
-      : (mapStringsDeep(
-          withConditionsJudged(
+      : fillComponents(
+          judgeConditionsDeep(
             facts?.status === 'pending'
               ? withTokenParam(page.components, param)
               : withoutAnswers(page.components),
-            values
+            (condition) => invitationConditionHolds(condition, values)
           ),
-          substitute
-        ) as Page['components'])
+          fill
+        )
   return {
     ...page,
     ...(components === undefined ? {} : { components }),
-    ...(page.meta === undefined
-      ? {}
-      : { meta: mapStringsDeep(page.meta, substitute) as Page['meta'] }),
+    ...(page.meta === undefined ? {} : { meta: fillMeta(page.meta, fill) }),
   }
 }

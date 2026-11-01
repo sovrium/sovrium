@@ -40,12 +40,17 @@
  * still binds loopback.
  */
 
+import { isLoopbackHostname } from '@/domain/kernel/url/loopback-host'
+import { isBehindDeclaredProxy } from '@/domain/kernel/url/request-base-url'
+import { parseCorsEnvConfig, parseCorsOrigins } from '@/domain/models/process-env/cors'
+import { resolveTrustedProxyHops } from '@/domain/models/process-env/proxy'
+import { declaredBaseUrl } from '@/domain/models/process-env/server'
 import { resolveBindHost } from '@/domain/models/process-env/server-lifecycle'
 
 const env = process.env as Record<string, string | undefined>
 
 /**
- * The two posture flags. Each is VALUE-keyed: `1` or `true` (any case, outer
+ * The posture flags. Each is VALUE-keyed: `1` or `true` (any case, outer
  * whitespace ignored) relaxes, empty or absent is the secure default, and any
  * other value is refused at boot by {@link validatePostureFlags}.
  *
@@ -56,6 +61,7 @@ const env = process.env as Record<string, string | undefined>
 const POSTURE_FLAGS = {
   SOVRIUM_ALLOW_INSECURE: 'relax the security posture',
   SOVRIUM_ALLOW_PRIVATE_OUTBOUND: 'permit private and loopback outbound targets',
+  SMTP_ALLOW_PLAINTEXT: 'send mail to a remote SMTP server without TLS',
 } as const
 
 type PostureFlag = keyof typeof POSTURE_FLAGS
@@ -106,6 +112,16 @@ export const isInsecureOptOut = (): boolean => isFlagSet('SOVRIUM_ALLOW_INSECURE
 export const isPrivateOutboundOptIn = (): boolean => isFlagSet('SOVRIUM_ALLOW_PRIVATE_OUTBOUND')
 
 /**
+ * The SMTP plaintext opt-out (`SMTP_ALLOW_PLAINTEXT=1` or `true`): a remote SMTP
+ * server that offers no STARTTLS may receive the account and the message in
+ * clear text. Without it, a connection that is not TLS from the first byte must
+ * upgrade before anything is sent, unless the SMTP host is loopback.
+ */
+export const isSmtpPlaintextAllowed = (
+  source: Readonly<Record<string, string | undefined>> = env
+): boolean => readPostureFlag(source['SMTP_ALLOW_PLAINTEXT']) === 'relaxed'
+
+/**
  * True when `host` is a loopback / non-routable bind that only the local
  * operator can reach — `localhost`, the IPv4 loopback `127.0.0.0/8` and the
  * IPv6 loopback `::1`.
@@ -126,18 +142,11 @@ export const isPrivateOutboundOptIn = (): boolean => isFlagSet('SOVRIUM_ALLOW_PR
  *
  * Empty / undefined → treated as loopback (the unset dev default; `server.ts`
  * itself falls back to `localhost` when no hostname is configured).
+ *
+ * One definition: this delegates to the domain kernel's pure predicate, which
+ * the domain's own development-seam parsers ask as well.
  */
-export const isLoopbackHost = (host: string | undefined): boolean => {
-  if (host === undefined || host === '') return true
-  const normalized = stripIpv6Brackets(host.trim().toLowerCase())
-  if (normalized === 'localhost' || normalized === 'localhost.localdomain') return true
-  if (normalized === '::1') return true
-  // IPv4 loopback 127.0.0.0/8
-  return /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(normalized)
-}
-
-const stripIpv6Brackets = (host: string): string =>
-  host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host
+export const isLoopbackHost = (host: string | undefined): boolean => isLoopbackHostname(host)
 
 /**
  * Whether `origin` is a plain-HTTP loopback origin (`http://localhost:3000`,
@@ -160,7 +169,7 @@ export const isLoopbackOrigin = (origin: string): boolean => {
  * The host of the declared canonical origin (`BASE_URL`), or `undefined` when
  * it is unset or not a URL.
  */
-export const resolveCanonicalHost = (): string | undefined => parseHostFromUrl(env['BASE_URL'])
+export const resolveCanonicalHost = (): string | undefined => parseHostFromUrl(declaredBaseUrl(env))
 
 /**
  * Resolve the effective canonical hostname used to decide transport posture.
@@ -199,6 +208,62 @@ const parseHostFromUrl = (rawUrl: string | undefined): string | undefined => {
  */
 export const isTransportRelaxed = (): boolean =>
   isInsecureOptOut() || isLoopbackHost(resolveBindHostname())
+
+/**
+ * Whether the canonical origin is reachable from elsewhere: the host of
+ * `BASE_URL`, else the bind host, is not loopback. `SOVRIUM_ALLOW_INSECURE` is
+ * not read — it relaxes the transport, it does not make an origin private —
+ * so a development seam gated on this stays closed on every public deployment
+ * whatever the flags and `NODE_ENV` say.
+ */
+export const isPublicOrigin = (): boolean => !isLoopbackHost(resolveBindHostname())
+
+/**
+ * Whether the server is reachable by its operator ALONE: the canonical origin
+ * is loopback (`BASE_URL` unset or loopback, on a loopback bind) and no
+ * reverse proxy is declared in front of it (`TRUSTED_PROXY_HOPS` unset or 0).
+ *
+ * Deliberately NOT {@link isTransportRelaxed}: `SOVRIUM_ALLOW_INSECURE` relaxes
+ * the transport of a public deployment, it does not make that deployment's log
+ * a private terminal. What this gates — a dropped message printed whole, links
+ * included — is a convenience for one developer's machine, and a sign-in link
+ * written into a log someone else reads is a credential handed to them.
+ */
+export const isStrictlyLocalOrigin = (): boolean =>
+  isLoopbackHost(resolveBindHostname()) && !isBehindDeclaredProxy(resolveTrustedProxyHops(env))
+
+/**
+ * The app's canonical origin (scheme, host and port of `BASE_URL`), or
+ * `undefined` when it is unset or not a URL.
+ */
+export const resolveCanonicalOrigin = (): string | undefined => {
+  const baseUrl = declaredBaseUrl(env)
+  if (baseUrl === undefined) return undefined
+  try {
+    return new URL(baseUrl).origin
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The origins `SOVRIUM_CORS_ORIGINS` lists, normalised as a browser writes
+ * them in `Origin`; none when it is unset. A malformed value never reaches
+ * here: the boot check refuses it before the port binds.
+ */
+export const resolveCorsOrigins = (): readonly string[] => {
+  const parsed = parseCorsOrigins(parseCorsEnvConfig(env).origins)
+  return parsed._tag === 'Origins' ? parsed.origins : []
+}
+
+/**
+ * Whether the session cookie must travel cross-site: a secure posture whose
+ * operator lists other origins. Then the cookie is `SameSite=None; Secure`,
+ * and the routes the list covers refuse a cookie-bearing write from any other
+ * site themselves, since the cookie attribute no longer does.
+ */
+export const isCrossSiteSessionPosture = (): boolean =>
+  !isTransportRelaxed() && resolveCorsOrigins().length > 0
 
 /**
  * SSRF guarding is ALWAYS ON. It relaxes only under the narrow

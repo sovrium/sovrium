@@ -16,6 +16,7 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { commentTableKeysOf } from '@/domain/models/app/tables/comment-address-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { addressesOfRecordReaders, type ThreadPerson } from './thread-participant-readers'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -99,7 +100,7 @@ const resolveOwner = (
 
 /** Every key the thread's comments may be stored under: the posted one, the table's id and name. */
 const threadTableKeysOf = (input: CommentRecipientsScope): readonly string[] => {
-  const table = input.app.tables?.find((candidate) => candidate.name === input.tableName)
+  const table = findTableByName(input.app.tables, input.tableName)
   return table === undefined ? [input.tableId] : commentTableKeysOf(table, input.tableId)
 }
 

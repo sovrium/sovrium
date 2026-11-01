@@ -15,6 +15,7 @@
  * would say nothing about seeding.
  */
 
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -61,7 +62,7 @@ export const seedTablesOf = (app: Readonly<App>): readonly SeedTableConfig[] =>
 export const findSeedTable = (
   tables: readonly SeedTableConfig[],
   name: string
-): SeedTableConfig | undefined => tables.find((table) => table.name === name)
+): SeedTableConfig | undefined => findTableByName(tables, name)
 
 /** The `unique: true` fields of a table — the fallback merge key for `upsert`. */
 export const uniqueFieldNames = (table: SeedTableConfig): readonly string[] =>

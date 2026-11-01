@@ -69,7 +69,7 @@ export const resolveDevNoticeDisplayConfig = (
  * mutable cache, no invalidation logic, and it is evaluated after the process
  * environment is populated (env exists before any module body runs).
  */
-const RESOLVED_DEV_NOTICE = resolveDevNoticeDisplayConfig(parseDevNoticeEnvConfig())
+const RESOLVED_DEV_NOTICE = resolveDevNoticeDisplayConfig(parseDevNoticeEnvConfig(process.env))
 
 /**
  * The process-wide dev-notice display configuration, or `undefined` when

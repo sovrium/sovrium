@@ -8,12 +8,13 @@
 import { sql, eq } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { DatabaseError } from '@/infrastructure/database'
-import { db } from '@/infrastructure/database/drizzle'
 import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import { databaseTableName, tableIdentifier } from '../statement/validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Build SQL query to check record existence with optional deleted_at filter and owner_id check
@@ -52,18 +53,24 @@ function buildRecordCheckQuery(params: {
  * Check if a record exists in the given table (with owner_id isolation for non-admins)
  * Admins can access all records regardless of owner_id
  */
-export function checkRecordExists(config: {
-  readonly session: Readonly<Session>
-  readonly tableName: string
-  readonly recordId: string
-  readonly isAdmin?: boolean
-}): Effect.Effect<boolean, DatabaseError> {
+export function checkRecordExists(
+  { client: db, dialect }: DatabaseService,
+  config: {
+    readonly session: Readonly<Session>
+    readonly tableName: string
+    readonly recordId: string
+    readonly isAdmin?: boolean
+  }
+): Effect.Effect<boolean, DatabaseError> {
   const { session, tableName, recordId, isAdmin = false } = config
   return Effect.gen(function* () {
     // Check which of deleted_at / owner_id exist (dialect-aware introspection)
     const columns = yield* Effect.tryPromise({
       try: () =>
-        getExistingColumnNames(db, databaseTableName(tableName), ['deleted_at', 'owner_id']),
+        getExistingColumnNames(dialect.kind, db, databaseTableName(tableName), [
+          'deleted_at',
+          'owner_id',
+        ]),
       catch: (error) => new DatabaseError('Failed to check table columns', error),
     })
 
@@ -80,7 +87,7 @@ export function checkRecordExists(config: {
       isAdmin,
     })
     const result = yield* Effect.tryPromise({
-      try: () => executeRaw(db, query),
+      try: () => executeRawOn(dialect.kind, db, query),
       catch: (error) => new DatabaseError('Failed to check record existence', error),
     })
 
@@ -91,10 +98,13 @@ export function checkRecordExists(config: {
 /**
  * Get user by ID
  */
-export function getUserById(config: {
-  readonly session: Readonly<Session>
-  readonly userId: string
-}): Effect.Effect<
+export function getUserById(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly userId: string
+  }
+): Effect.Effect<
   | {
       readonly id: string
       readonly role: string | undefined

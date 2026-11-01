@@ -19,10 +19,20 @@ interface ThemeToggleComponent {
 }
 
 /**
+ * Without a class of its own, either variant draws a target of at least
+ * 24 by 24 px (WCAG 2.5.8): the bare 20 px icon or a one-word label would not.
+ */
+const DEFAULT_TARGET_CLASSES = 'inline-flex min-h-6 min-w-6 items-center justify-center'
+
+/**
  * Renderer for the `theme-toggle` component.
  *
  * Emits an accessible `<button data-theme-toggle>` whose default accessible
- * name ("Toggle theme", `theme.toggle` in the page language) matches the toggle's intent. The click behaviour is
+ * name ("Toggle theme", `theme.toggle` in the page language) matches the toggle's intent.
+ * It is a toggle button: the name never changes and `aria-pressed` says whether
+ * the dark theme is on. The server cannot know the stored choice, so it renders
+ * `false` and the body-end runtime sets the real state on load and after every
+ * change of the `dark` class. The click behaviour is
  * wired by the body-end theme-toggle runtime (see `PageBodyScripts`): a single
  * delegated handler flips the `dark` class on `<html>` and persists the choice
  * to `localStorage.theme`. The complementary no-FOUC head script (see
@@ -46,9 +56,9 @@ export const themeToggleComponent: ComponentRenderer = ({
       : resolveInterpreterString('theme.toggle', currentLang, languages)
 
   const className =
-    typeof elementProps['className'] === 'string'
+    typeof elementProps['className'] === 'string' && elementProps['className'] !== ''
       ? (elementProps['className'] as string)
-      : undefined
+      : DEFAULT_TARGET_CLASSES
   const testId = elementProps['data-testid'] as string | undefined
   const componentType = hostComponentType(elementProps)
 
@@ -63,6 +73,7 @@ export const themeToggleComponent: ComponentRenderer = ({
         data-theme-toggle="true"
         data-variant="icon"
         aria-label={label}
+        aria-pressed="false"
         className={className}
         data-testid={testId}
         data-component-type={componentType}
@@ -91,6 +102,7 @@ export const themeToggleComponent: ComponentRenderer = ({
       data-theme-toggle="true"
       data-variant="text"
       aria-label={label}
+      aria-pressed="false"
       className={className}
       data-testid={testId}
       data-component-type={componentType}

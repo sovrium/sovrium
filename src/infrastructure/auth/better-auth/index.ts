@@ -20,4 +20,4 @@
  * `./layer` dynamically instead.
  */
 export { Auth } from './auth-service'
-export { AuthError } from '../../errors/auth-error'
+export { AuthError } from './auth-error'

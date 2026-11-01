@@ -110,8 +110,11 @@ export type LocalStorageEnvConfig = Schema.Schema.Type<typeof LocalStorageEnvSch
  *
  * @throws Error when the env var is set to an invalid value.
  */
-const validateStorageSizeLimitVar = (name: string): void => {
-  const raw = process.env[name]
+const validateStorageSizeLimitVar = (
+  name: string,
+  env: Readonly<Record<string, string | undefined>>
+): void => {
+  const raw = env[name]
   if (raw === undefined || raw === '') return
   const parsed = Number(raw)
   if (!Number.isInteger(parsed) || parsed <= 0) {
@@ -130,9 +133,11 @@ const validateStorageSizeLimitVar = (name: string): void => {
  * @public
  * @throws Error when either env var is set to an invalid value.
  */
-export const validateStorageSizeLimits = (): void => {
-  validateStorageSizeLimitVar('STORAGE_MAX_FILE_SIZE')
-  validateStorageSizeLimitVar('STORAGE_MAX_TOTAL_SIZE')
+export const validateStorageSizeLimits = (
+  env: Readonly<Record<string, string | undefined>>
+): void => {
+  validateStorageSizeLimitVar('STORAGE_MAX_FILE_SIZE', env)
+  validateStorageSizeLimitVar('STORAGE_MAX_TOTAL_SIZE', env)
 }
 
 /**
@@ -157,34 +162,37 @@ export const validateStorageSizeLimits = (): void => {
  * @throws Error naming `STORAGE_PROVIDER` for bytea on SQLite or an unknown value
  * @public
  */
-export const parseStorageEnvConfig = (): StorageEnvConfig => {
-  const provider = process.env.STORAGE_PROVIDER
+export const parseStorageEnvConfig = (
+  env: Readonly<Record<string, string | undefined>>
+): StorageEnvConfig => {
+  const provider = env['STORAGE_PROVIDER']
 
   if (provider === 's3') {
     return Schema.decodeUnknownSync(S3StorageEnvSchema)({
       provider: 's3',
-      endpoint: process.env.STORAGE_S3_ENDPOINT,
-      bucket: process.env.STORAGE_S3_BUCKET,
-      region: process.env.STORAGE_S3_REGION ?? 'us-east-1',
-      accessKeyId: process.env.STORAGE_S3_ACCESS_KEY_ID,
-      secretAccessKey: process.env.STORAGE_S3_SECRET_ACCESS_KEY,
-      forcePathStyle: process.env.STORAGE_S3_FORCE_PATH_STYLE === 'true',
+      endpoint: env['STORAGE_S3_ENDPOINT'],
+      bucket: env['STORAGE_S3_BUCKET'],
+      region: env['STORAGE_S3_REGION'] ?? 'us-east-1',
+      accessKeyId: env['STORAGE_S3_ACCESS_KEY_ID'],
+      secretAccessKey: env['STORAGE_S3_SECRET_ACCESS_KEY'],
+      forcePathStyle: env['STORAGE_S3_FORCE_PATH_STYLE'] === 'true',
     })
   }
 
   if (provider === 'local') {
-    if (!process.env.STORAGE_LOCAL_DIRECTORY) {
+    if (!env['STORAGE_LOCAL_DIRECTORY']) {
       // eslint-disable-next-line functional/no-throw-statements -- mirrors findMissingS3EnvVar pattern: throw so error.message surfaces the env-var name
       throw new Error('STORAGE_LOCAL_DIRECTORY is required when STORAGE_PROVIDER=local')
     }
     return Schema.decodeSync(LocalStorageEnvSchema)({
       provider: 'local',
-      directory: process.env.STORAGE_LOCAL_DIRECTORY,
+      directory: env['STORAGE_LOCAL_DIRECTORY'],
     })
   }
 
   if (provider === 'bytea') {
-    if (parseDatabaseDialectConfig().dialect === 'postgres') return { provider: 'bytea' as const }
+    if (parseDatabaseDialectConfig(env).dialect === 'postgres')
+      return { provider: 'bytea' as const }
     // eslint-disable-next-line functional/no-throw-statements -- boot-time refusal; error.message names the variable
     throw new Error(
       'STORAGE_PROVIDER=bytea keeps files in PostgreSQL; set DATABASE_URL to a PostgreSQL database, or use STORAGE_PROVIDER=local.'
@@ -193,7 +201,7 @@ export const parseStorageEnvConfig = (): StorageEnvConfig => {
 
   // No explicit STORAGE_PROVIDER — pick a default keyed off the database dialect.
   if (!provider) {
-    const { dialect } = parseDatabaseDialectConfig()
+    const { dialect } = parseDatabaseDialectConfig(env)
     // PostgreSQL: auto-fallback to bytea (needs the Postgres connection).
     if (dialect === 'postgres') {
       return { provider: 'bytea' as const }
@@ -203,7 +211,7 @@ export const parseStorageEnvConfig = (): StorageEnvConfig => {
     // frugal-by-default choice. STORAGE_LOCAL_DIRECTORY overrides the default.
     return Schema.decodeSync(LocalStorageEnvSchema)({
       provider: 'local',
-      directory: process.env.STORAGE_LOCAL_DIRECTORY || defaultUploadsDir(),
+      directory: env['STORAGE_LOCAL_DIRECTORY'] || defaultUploadsDir(env),
     })
   }
 

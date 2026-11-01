@@ -1,6 +1,6 @@
 # Real-Time Subscriptions
 
-> How a data-bound view stays current without a reload — the three refresh strategies, the endpoints behind them, and the message contract a programmatic client reads.
+> How a data-bound view stays current without a reload: the three refresh strategies, the endpoints behind them, and the message contract a programmatic client reads.
 
 A data source declares a `refreshMode` and the engine does the rest: `poll` re-fetches on an interval, `realtime` subscribes to the table's change feed and reads again as change events arrive. External integrations subscribe through the same endpoints.
 
@@ -12,7 +12,7 @@ A data source declares a `refreshMode` and the engine does the rest: `poll` re-f
 
 **The transport is chosen by your request, not by the path.** Both subscribe paths run the same handler: a request carrying `Upgrade: websocket` is upgraded and driven over a socket, and anything else is served as Server-Sent Events. The `/sse` suffix is an alias that documents intent; it does not force the transport, and the bare path is not WebSocket-only.
 
-A subscription is always to ONE table. There is no endpoint that subscribes to every table at once, so a client that needs several opens several — and the per-user connection cap below is what that has to fit inside.
+A subscription is always to ONE table. There is no endpoint that subscribes to every table at once, so a client that needs several opens several, and that has to fit inside the per-user connection cap below.
 
 ## Choosing a refresh strategy
 
@@ -51,11 +51,11 @@ dataSource:
   pollIntervalMs: 10000
 ```
 
-`pollIntervalMs` falls back to 30 seconds and accepts 1,000 to 300,000 — a floor that stops a mistyped interval from turning one page into a load test. It is ignored outside `poll` mode rather than refused, so leaving it in place while switching to `realtime` is harmless.
+`pollIntervalMs` falls back to 30 seconds and accepts 1,000 to 300,000. The floor stops a mistyped interval from turning one page into a load test. It is ignored outside `poll` mode rather than refused, so leaving it in place while switching to `realtime` is harmless.
 
 ### Which components follow it
 
-The components drawn in the browser follow their table: a `table` bound to its table, a `list` drawn with `listDisplay.itemTemplate`, a `kanban`, a `kpi` and a `chart`. On a change, each reads again exactly what it read on load — a KPI and a chart their aggregate figure, a list, a board and a grid their rows — so a live dashboard keeps the read cost it had.
+The components drawn in the browser follow their table: a `table` bound to its table, a `list` drawn with `listDisplay.itemTemplate`, a `kanban`, a `kpi` and a `chart`. On a change, each reads again exactly what it read on load (a KPI and a chart their aggregate figure, a list, a board and a grid their rows), so a live dashboard keeps the read cost it had.
 
 ```yaml
 pages:
@@ -78,13 +78,13 @@ pages:
 
 In `realtime` mode a list, a board, a KPI and a chart read again when the feed announces a change and once each time the feed reconnects, which covers a change made while it was between streams. They read on a 3-second interval only while the feed is not connected: while it first opens, during a reconnect, or after the browser gives up on it. A `table` in `realtime` mode also reads every 3 seconds while connected. The difference shows on a write made straight to the database, outside the engine, which the feed never announces: a `table` shows it within a few seconds, while a list, a board, a KPI and a chart show it only at the next change on that table or the next reconnect. This keeps a live dashboard inside the limit of 100 table reads a minute per client address, which a 3-second interval on every component would quickly spend.
 
-Rows the server draws cannot follow a change, because no script runs for them: a `container` with a `dataSource`, and a `list` whose rows come from `children`. `sovrium validate` refuses `refreshMode` on them; draw the same rows as a `list` with `listDisplay.itemTemplate` to have them live. A `table` bound to one of its table's views does not refresh on its own, whatever its `refreshMode`: it keeps the view's rows as they were when the page loaded. The other data components — a search-mode list, a gallery, a calendar, a timeline, a map, a matrix, a tree and a graph — do not read `refreshMode` yet.
+Rows the server draws cannot follow a change, because no script runs for them: a `container` with a `dataSource`, and a `list` whose rows come from `children`. `sovrium validate` refuses `refreshMode` on them; draw the same rows as a `list` with `listDisplay.itemTemplate` to have them live. A `table` bound to one of its table's views does not refresh on its own, whatever its `refreshMode`: it keeps the view's rows as they were when the page loaded. The other data components (a search-mode list, a gallery, a calendar, a timeline, a map, a matrix, a tree and a graph) do not read `refreshMode` yet.
 
 A component reading a system endpoint rather than a table declares its refresh on the read itself, `dataSource.system.refreshMode`, which accepts `none` and `poll` with its own `pollIntervalMs`. `realtime` is refused there at load, since an endpoint has no change feed. **System Sources** has the details.
 
 ### One subscription per table
 
-Components that follow the same table on one page share one subscription to it: a KPI, a chart, a board and a list over `deals` cost one connection, not four. Components over two tables cost two. Each signed-in person may hold ten at once (see [Connection budget](#connection-budget)), so what counts is how many tables a page follows in `realtime` mode, times the tabs open on it — not how many components it has.
+Components that follow the same table on one page share one subscription to it: a KPI, a chart, a board and a list over `deals` cost one connection, not four. Components over two tables cost two. Each signed-in person may hold ten at once (see [Connection budget](#connection-budget)), so what counts is how many tables a page follows in `realtime` mode, times the tabs open on it, not how many components it has.
 
 ## What the stream carries
 
@@ -98,17 +98,17 @@ Components that follow the same table on one page share one subscription to it: 
 { "type": "heartbeat", "timestamp": "2026-04-05T12:00:00Z" }
 ```
 
-Insert and update events carry the full record, already filtered by the caller's field permissions; a delete carries the id alone. Both `record` and `oldRecord` hold the table's declared fields only, as a record's `fields` do on the records API. A relationship value in `record` or `oldRecord` is the related record's id as a string, as on the records API, and a checkbox is `true` or `false` in both, whichever database the app runs on. An attachment field carries the file's storage key, not the download URL a read of the record returns; read the record when you need a link. A lookup that copies a value from a table with a row-level read rule the subscriber is subject to is left out of the event, because the stream cannot tell which of the linked records they may read; read the record to get it. A subscription `filter` is judged only on the fields the subscriber may read. A restored record arrives as an `insert`, the inverse of the delete that removed it; an upsert announces an `insert` for each row it creates and an `update` for each row it matches. The upgrade requires a session — an unauthenticated one answers `401` — and a valid table slug, or `404`.
+Insert and update events carry the full record, already filtered by the caller's field permissions; a delete carries the id alone. Both `record` and `oldRecord` hold the table's declared fields only, as a record's `fields` do on the records API. A relationship value in `record` or `oldRecord` is the related record's id as a string, as on the records API, and a checkbox is `true` or `false` in both, whichever database the app runs on. An attachment field carries the file's storage key, not the download URL a read of the record returns; read the record when you need a link. A lookup that copies a value from a table with a row-level read rule the subscriber is subject to is left out of the event, because the stream cannot tell which of the linked records they may read; read the record to get it. A subscription `filter` is judged only on the fields the subscriber may read. A restored record arrives as an `insert`, the inverse of the delete that removed it; an upsert announces an `insert` for each row it creates and an `update` for each row it matches. The upgrade requires a session (an unauthenticated one answers `401`) and a valid table slug, or `404`.
 
 ### Large writes arrive as one `resync`
 
-A write sends one `change` event per row, up to **100 rows of one table**. A write that changes more rows of a table than that — a large batch or import, a wide cascade, an automation step looping over many records — sends a single `resync` notice for the table instead. It carries no row; answer it by reading the table again. A subscriber receives it only when at least one of the changed rows, as it stood before or after the write, is one their row-level read rule shows them. The limit is counted per table and per write, and an automation step counts as one write however many records it touches.
+A write sends one `change` event per row, up to **100 rows of one table**. A write that changes more rows of a table than that (a large batch or import, a wide cascade, an automation step looping over many records) sends a single `resync` notice for the table instead. It carries no row; answer it by reading the table again. A subscriber receives it only when at least one of the changed rows, as it stood before or after the write, is one their row-level read rule shows them. The limit is counted per table and per write, and an automation step counts as one write however many records it touches.
 
 ## A subscriber sees the rows the records API shows them
 
-A subscription answers to the same read rules as a read of the table's records. It is opened for exactly the people the records API lets list the table — their role, their groups and, on a table with a row-level rule, the roles assigned to them per record — provided a list of the table returns them at least one row; anyone else is answered `404` exactly as for a table that does not exist — the same status and the same body, `{"success":false,"error":"Not Found","message":"Resource not found","code":"NOT_FOUND"}`, including when their access could not be read at all.
+A subscription answers to the same read rules as a read of the table's records. It is opened for exactly the people the records API lets list the table (their role, their groups and, on a table with a row-level rule, the roles assigned to them per record), provided a list of the table returns them at least one row; anyone else is answered `404` exactly as for a table that does not exist: the same status and the same body, `{"success":false,"error":"Not Found","message":"Resource not found","code":"NOT_FOUND"}`, including when their access could not be read at all.
 
-On a table the records API reads row by row — one listed in `auth.scopeTables`, one with field rules, or one with a write-only field — a subscriber whose own role reads no field of it lists only the rows a grant admits them to, so their stream carries the changes of those rows only, and of no other row. Each change is then judged for each subscriber against the table's row-level read rule:
+On a table the records API reads row by row (one listed in `auth.scopeTables`, one with field rules, or one with a write-only field), a subscriber whose own role reads no field of it lists only the rows a grant admits them to, so their stream carries the changes of those rows only, and of no other row. Each change is then judged for each subscriber against the table's row-level read rule:
 
 - an insert or an update is delivered when the row, as changed, is one they may read;
 - an update that brings a row into their view carries the row as changed only, never the values it held while hidden from them;
@@ -116,20 +116,20 @@ On a table the records API reads row by row — one listed in `auth.scopeTables`
 - a delete is delivered when they could read the row before it was deleted;
 - any other change is not delivered at all.
 
-The `X-Subscription-Fields` response header lists the fields the subscriber's own role reads on the table: the role-level set. An event for a row a per-record grant opens to them may carry more fields than the header names — those the grant's role reads on that row — so a client that needs to know which fields an event holds reads them from the event, not from the header. For a subscriber with no grant, the header names exactly the fields their events carry.
+The `X-Subscription-Fields` response header lists the fields the subscriber's own role reads on the table: the role-level set. An event for a row a per-record grant opens to them may carry more fields than the header names (those the grant's role reads on that row), so a client that needs to know which fields an event holds reads them from the event, not from the header. For a subscriber with no grant, the header names exactly the fields their events carry.
 
 ## A change to the subscriber's access closes the subscription
 
-Who the subscriber is — their roles, their groups and the records assigned to them — is read when the subscription opens. When it changes, the subscriber's open connections are closed, and the client reconnects and is judged again: with the new access it gets a stream with the new columns and rows; with none it gets the `404` of a table that does not exist, and stops.
+Who the subscriber is (their roles, their groups and the records assigned to them) is read when the subscription opens. When it changes, the subscriber's open connections are closed, and the client reconnects and is judged again: with the new access it gets a stream with the new columns and rows; with none it gets the `404` of a table that does not exist, and stops.
 
 - **Through the engine, at once.** Changing a user's role, banning them, adding them to or removing them from a group, removing them from the organisation, deleting or renaming a group they belong to, granting or withdrawing a per-record role: each closes that user's live connections as soon as the change stands. A refused request closes nothing.
-- **Anywhere else, within 30 seconds.** Every open WebSocket has its access read again every 30 seconds and is closed when it now reads differently — no longer allowed, other readable columns, other rows. That covers a grant edited directly in the database. A Server-Sent-Events stream never lives longer than 25 seconds, and every reconnect is judged afresh.
+- **Anywhere else, within 30 seconds.** Every open WebSocket has its access read again every 30 seconds and is closed when it now reads differently: no longer allowed, other readable columns, other rows. That covers a grant edited directly in the database. A Server-Sent-Events stream never lives longer than 25 seconds, and every reconnect is judged afresh.
 
 A WebSocket closed this way receives close code **`4001`** with the reason `grant-changed`; reconnect on it as on any drop. A Server-Sent-Events stream simply ends, and `EventSource` reconnects on its own.
 
 A connection also ends with the session it was opened with. Signing out, revoking the session, or its expiry closes a WebSocket with code **`4401`** and the reason `session-ended`, and ends a Server-Sent-Events stream; only that session's connections close, so the same person's other devices keep theirs. Revoking all of a person's sessions, a ban, removing their account or scheduling its deletion ends every session, and so every connection, the same way. Do not reconnect on `4401`: the handshake would answer `401`. Sign in again, then subscribe. An expiry or a session removed outside the engine is caught within 30 seconds.
 
-> **Upgrade note.** Up to 0.29.1, a subscription outlived both a change of access and the end of its session. Both now close it, so a client written for 0.29.1 sees closes it never saw before. Tell them apart by code: on **`4001`** (`grant-changed`) reconnect straight away, as on any drop; on **`4401`** (`session-ended`) stop, send the person to sign in, and subscribe again afterwards. A client that reconnects on every close loops on `401` after a sign-out — the usual symptom of a generic retry-on-close handler.
+> **Upgrade note.** Up to 0.29.1, a subscription outlived both a change of access and the end of its session. Both now close it, so a client written for 0.29.1 sees closes it never saw before. Tell them apart by code: on **`4001`** (`grant-changed`) reconnect straight away, as on any drop; on **`4401`** (`session-ended`) stop, send the person to sign in, and subscribe again afterwards. A client that reconnects on every close loops on `401` after a sign-out, the usual symptom of a generic retry-on-close handler.
 
 Every message is a discriminated union keyed on `type`, and a WebSocket frame and an SSE `data:` event carry the identical shape, so a client swapping transports needs no second parser.
 
@@ -153,11 +153,11 @@ A subscription inherits the data source's `filter` and `sort`, so a client recei
 
 ## Presence and conflicts
 
-A page declaring `presence: true` makes the server broadcast join, leave and snapshot messages scoped by page path, so a team can see who else is looking at the same rows before two people edit one. The page shows who is there as an avatar group (Reference: shadcn/ui Avatar): one small avatar per person — however many tabs she has open — showing her photo or her initials, with a dot saying she is here now and her name on hover; the names of everyone there are written beside the group.
+A page declaring `presence: true` makes the server broadcast join, leave and snapshot messages scoped by page path, so a team can see who else is looking at the same rows before two people edit one. The page shows who is there as an avatar group (Reference: shadcn/ui Avatar): one small avatar per person, however many tabs she has open, showing her photo or her initials, with a dot saying she is here now and her name on hover; the names of everyone there are written beside the group.
 
-Presence follows the page's audience. `GET /api/realtime/presence?pagePath=…` is served only when `pagePath` is a declared page that sets `presence: true` and whose `access` admits the caller — the decision a visit to the page is judged on. A page the caller may not open, a page without presence and a path that is no page all answer the same `404`, and name nobody; a caller is never shown in presence on a page she may not open.
+Presence follows the page's audience. `GET /api/realtime/presence?pagePath=…` is served only when `pagePath` is a declared page that sets `presence: true` and whose `access` admits the caller, the decision a visit to the page is judged on. A page the caller may not open, a page without presence and a path that is no page all answer the same `404`, and name nobody; a caller is never shown in presence on a page she may not open.
 
-On a page that shows one record (`path: /orders/:id` with a `dataSource` in `mode: single`, on the page itself or on one of its components), presence belongs to the record at its address: the page reports the address it is on (`/orders/42`, not `/orders/:id`), so two people on two orders do not see each other. Presence at that address is served only when the caller may read the record there, judged as the records API judges it — the table's `read` permission, its row-level read rule, then the rows a list of the table returns her; a page binding several records this way needs every one of them readable. A record she may not read, and an address that names no record (`/orders/999`), answer the same `404` as a path that is no page.
+On a page that shows one record (`path: /orders/:id` with a `dataSource` in `mode: single`, on the page itself or on one of its components), presence belongs to the record at its address: the page reports the address it is on (`/orders/42`, not `/orders/:id`), so two people on two orders do not see each other. Presence at that address is served only when the caller may read the record there, judged as the records API judges it: the table's `read` permission, its row-level read rule, then the rows a list of the table returns her; a page binding several records this way needs every one of them readable. A record she may not read, and an address that names no record (`/orders/999`), answer the same `404` as a path that is no page.
 
 A presence stream ends with the access it was opened on, like a record subscription's stream. A change to the viewer's role, groups or record assignments, a ban, or the end of the session she opened it with ends her stream at once; so does a write that moves the record she is watching out of her row-level read rule, deletes it, or moves it off the address. The others on the page receive her `leave`, and a reconnect is judged afresh: `404` without access, `401` without a session. A presence stream does not count toward the per-user cap on record subscriptions: it has a cap of its own, **ten presence streams per user**, and an eleventh is answered `429` with a `Retry-After` header, exactly as an eleventh record subscription is. One user at her cap does not affect anyone else's.
 

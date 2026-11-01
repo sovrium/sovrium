@@ -17,7 +17,7 @@ import {
   type KpiSparklineConfig,
   type KpiThresholdConfig,
 } from './kpi-compute'
-import { KpiError, KpiLoading, KpiMissingTable, KpiRateLimited } from './kpi-states'
+import { KpiFailure, KpiLoading, KpiMissing, KpiRateLimited } from './kpi-skeleton'
 import { useKpiTileFigure } from './use-kpi-aggregate'
 import { KPI_NEUTRAL_VALUE, useKpiSystemValue } from './use-kpi-system-value'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
@@ -40,6 +40,7 @@ type KpiDataSourceProp = KpiTableSource | { readonly system: KpiSystemSource }
 /** Presentation config shared by both bindings. */
 interface KpiPresentationProps {
   readonly label?: string
+  readonly description?: string
   readonly kpiFormat?: KpiFormatConfig
   readonly icon?: string
   /** Server-resolved geometry for `icon` (see `@/presentation/utils/lucide-glyph`). */
@@ -79,6 +80,7 @@ function isSystemSource(
 function KpiSystemTile({
   system,
   label,
+  description,
   kpiFormat,
   icon,
   iconNode,
@@ -101,6 +103,7 @@ function KpiSystemTile({
   return (
     <KpiCard
       label={label}
+      description={description}
       value={value}
       icon={icon}
       iconNode={iconNode}
@@ -154,7 +157,7 @@ function KpiTableTile({
     )
   if (isError)
     return (
-      <KpiError
+      <KpiFailure
         error={error}
         label={card.label}
         strings={uiStrings}
@@ -186,39 +189,17 @@ function KpiTableTile({
  * Dispatches on the discriminated `dataSource`:
  * - `{ system: {...} }` → {@link KpiSystemTile} (pre-computed scalar value-path)
  * - `{ table, ... }`    → {@link KpiTableTile} (one aggregate read)
- * - neither            → {@link KpiMissingTable}
+ * - neither            → the shared missing-binding state
  *
  * The island host names the KPI (`data-component="kpi"`); every branch writes
  * its `data-kpi-state` there.
  */
-export default function KpiIsland({
-  dataSource,
-  label,
-  kpiAggregate,
-  kpiFormat,
-  icon,
-  iconNode,
-  trend,
-  thresholds,
-  sparkline,
-  valueCurrency,
-  uiStrings,
-  aggregateRead,
-  valueClassName,
-  toneClassName,
-}: KpiIslandProps): ReactElement {
+export default function KpiIsland({ dataSource, ...props }: KpiIslandProps): ReactElement {
   if (isSystemSource(dataSource)) {
     return (
       <KpiSystemTile
         system={dataSource.system}
-        label={label}
-        kpiFormat={kpiFormat}
-        icon={icon}
-        iconNode={iconNode}
-        trend={trend}
-        thresholds={thresholds}
-        valueClassName={valueClassName}
-        toneClassName={toneClassName}
+        {...props}
       />
     )
   }
@@ -227,22 +208,10 @@ export default function KpiIsland({
     return (
       <KpiTableTile
         source={dataSource}
-        label={label}
-        kpiAggregate={kpiAggregate}
-        kpiFormat={kpiFormat}
-        icon={icon}
-        iconNode={iconNode}
-        trend={trend}
-        thresholds={thresholds}
-        sparkline={sparkline}
-        valueCurrency={valueCurrency}
-        uiStrings={uiStrings}
-        aggregateRead={aggregateRead}
-        valueClassName={valueClassName}
-        toneClassName={toneClassName}
+        {...props}
       />
     )
   }
 
-  return <KpiMissingTable strings={uiStrings} />
+  return <KpiMissing strings={props.uiStrings} />
 }

@@ -49,6 +49,15 @@ export function isPartialEligible(page: Page | undefined): boolean {
 }
 
 /**
+ * Whether the page draws its own header banner BEFORE the main region (see
+ * `PageMain`): that is chrome a swap of the region alone cannot carry.
+ */
+function drawsBannerBeforeRegion(html: string): boolean {
+  const banner = html.indexOf('data-page-banner=')
+  return banner !== -1 && banner < html.indexOf(`id="${APP_CONTENT_REGION_ID}"`)
+}
+
+/**
  * The headers and body of a page's content-only partial, or `undefined` when
  * the document holds no region to cut out — the caller then answers the full
  * document with no echo, and the client loads it in full.
@@ -56,6 +65,7 @@ export function isPartialEligible(page: Page | undefined): boolean {
 export function pagePartialOf(
   html: string
 ): { readonly body: string; readonly headers: Readonly<Record<string, string>> } | undefined {
+  if (drawsBannerBeforeRegion(html)) return undefined
   const body = extractRegionElement(html, APP_CONTENT_REGION_ID)
   if (body === undefined) return undefined
   const density = extractDocumentDensity(html)

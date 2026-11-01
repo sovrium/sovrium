@@ -7,9 +7,9 @@
 
 import { sql } from 'drizzle-orm'
 import { collectCauseChain, readSqlState } from '@/domain/errors/driver-failure'
-import { db, type DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import type { PortableTx } from '@/infrastructure/database/drizzle/db'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The transaction every scheduled sweep deletes in, and the words a sweep's
@@ -99,16 +99,19 @@ export const describeSweepFailure = (prefix: string, cause: unknown): string => 
 }
 
 /**
- * Run `body` in one transaction that is explicitly READ WRITE on PostgreSQL —
- * `SET TRANSACTION READ WRITE` must be the transaction's first statement, so
- * it is issued here, before the body — and a plain transaction on SQLite,
- * which has no such mode. The body issues its statements through `tx`, never
- * the shared `db`: on SQLite that would wait for this very transaction.
+ * Run `body` in one transaction on `database`'s client that is explicitly
+ * READ WRITE on PostgreSQL — `SET TRANSACTION READ WRITE` must be the
+ * transaction's first statement, so it is issued here, before the body — and a
+ * plain transaction on SQLite, which has no such mode. The body issues its
+ * statements through `tx`, never the shared client: on SQLite that would wait
+ * for this very transaction.
  */
 export const inReadWriteTransaction = <A>(
-  body: (tx: DrizzleTransaction) => Promise<A>
+  { client: db, dialect }: DatabaseService,
+  body: (tx: PortableTx) => Promise<A>
 ): Promise<A> =>
   db.transaction(async (tx) => {
-    if (!isSqliteRuntime()) await executeRaw(tx, sql`SET TRANSACTION READ WRITE`)
+    if (dialect.kind !== 'sqlite')
+      await executeRawOn(dialect.kind, tx, sql`SET TRANSACTION READ WRITE`)
     return body(tx)
   })

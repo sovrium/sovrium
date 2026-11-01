@@ -14,7 +14,9 @@ import { createOptionsSchema } from '../validation-utils'
  *
  * Allows selection of one option from a predefined list.
  * Commonly used for categories, statuses, or any enumerated values.
- * Supports optional default value selection.
+ * Supports optional default value selection. A rule that locks a record on its
+ * value is declared on the table (`rules`), not on the field; the field's own
+ * `conditions` key is refused (see `removed-keys.ts`).
  *
  * @example
  * ```typescript
@@ -40,31 +42,6 @@ export const SingleSelectFieldSchema = BaseFieldSchema.pipe(
       Schema.String.annotate({
         description: 'Choice a new record starts on. It has to be one of the options.',
       })
-    ),
-    /** Behavioral conditions that dynamically change field properties based on selected value */
-    conditions: Schema.optional(
-      Schema.Array(
-        Schema.Struct({
-          when: Schema.String.pipe(
-            Schema.annotate({
-              description: 'Option value that triggers the condition',
-            })
-          ),
-          then: Schema.Record(Schema.String, Schema.Unknown).pipe(
-            Schema.annotate({
-              description: 'Property changes to apply when condition matches',
-            })
-          ),
-        }).annotate({
-          description:
-            'One condition: the option value that triggers it, and the property changes it applies.',
-        })
-      ).pipe(
-        Schema.annotate({
-          description:
-            'Behavioral conditions: when a specific option is selected, apply property changes (e.g., readOnly)',
-        })
-      )
     ),
   }),
   Schema.annotate({

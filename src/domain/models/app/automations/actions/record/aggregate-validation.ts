@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The `record/aggregate` steps a configuration declares that cannot compute
  * what they ask for, refused at validation:
@@ -25,9 +27,6 @@
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The operations that need a number to compute over. */
 const NUMERIC_OPS: ReadonlySet<string> = new Set(['sum', 'avg', 'p50', 'p75', 'p90', 'p95', 'p99'])

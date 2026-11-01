@@ -7,8 +7,11 @@
 
 import { type ReactElement } from 'react'
 import { toSlug } from '@/presentation/design/string-utils'
+import { MAIN_REGION_ID } from '@/presentation/render/page/main-region'
 import { MarkdownArticle } from '@/presentation/render/page/markdown-article'
 import { SectionRenderer } from '@/presentation/render/page/section-renderer'
+import { componentField, keyOf } from '@/presentation/render/resolve/component-rewrite'
+import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Buckets } from '@/domain/models/app/buckets'
@@ -27,30 +30,101 @@ import type { ResolvedMarkdownPage } from '@/presentation/render/markdown/markdo
 /** Stable identity for `<main>` minimum height to satisfy react-perf. */
 const MAIN_STYLE = { minHeight: '1px' } as const
 
+/** The banner wrapper draws no box of its own. */
+const BANNER_STYLE = { display: 'contents' } as const
+
+type PageComponent = Component | SimpleComponentReference | ComponentReference
+
+/** Whether a page component renders as a `header` container, directly or through its template. */
+function isBannerComponent(component: PageComponent, components: Components | undefined): boolean {
+  const node = component as { readonly type?: unknown; readonly element?: unknown }
+  if (typeof node.type === 'string') return node.type === 'container' && node.element === 'header'
+  const name = (component as { readonly component?: unknown }).component
+  const template = components?.find((candidate) => candidate.name === name) as
+    { readonly type?: unknown; readonly element?: unknown } | undefined
+  return template?.type === 'container' && template.element === 'header'
+}
+
+/** How many of the page's first components form its banner. */
+function leadingBannerCount(
+  pageComponents: ReadonlyArray<PageComponent>,
+  components: Components | undefined
+): number {
+  const firstBody = pageComponents.findIndex((c) => !isBannerComponent(c, components))
+  return firstBody === -1 ? pageComponents.length : firstBody
+}
+
+/**
+ * Whether the page names its OWN main region: a `container` drawn as `main`
+ * whose `id` is the skip target, anywhere in its tree (templates included). An
+ * app shell does this when its sidebar and header share one layout with the
+ * content, so only the content column can be the landmark.
+ */
+function declaresMainRegion(
+  pageComponents: ReadonlyArray<PageComponent>,
+  components: Components | undefined
+): boolean {
+  return someComponentInTree(
+    pageComponents,
+    components,
+    (item) =>
+      item.type === 'container' &&
+      item.element === 'main' &&
+      keyOf(componentField(item, 'props'), 'id') === MAIN_REGION_ID
+  )
+}
+
 /**
  * The page's main landmark. `id="main-content"` + `tabIndex={-1}` make it the
  * skip-link target — activating the chrome skip link
  * moves focus here. Shared by both the component-only and markdown branches.
+ *
+ * When the page declares its own main region (`declaresMainRegion`), the
+ * wrapper keeps its page markers but is drawn as a plain `div`: the page's
+ * region is then the one landmark and the one skip target.
  */
 function MainShell({
   page,
+  ownRegion,
   children,
 }: {
   readonly page: Page
+  readonly ownRegion: boolean
   readonly children: React.ReactNode
 }): Readonly<ReactElement> {
+  const markers = {
+    'data-testid': `page-${toSlug(page.name ?? page.path)}`,
+    'data-page-name': page.name,
+    'data-page-id': page.id,
+    'data-sovrium-search-body': true,
+    style: MAIN_STYLE,
+  }
+  if (ownRegion) return <div {...markers}>{children}</div>
   return (
     <main
-      id="main-content"
+      id={MAIN_REGION_ID}
       tabIndex={-1}
-      data-testid={`page-${toSlug(page.name ?? page.path)}`}
-      data-page-name={page.name}
-      data-page-id={page.id}
-      data-sovrium-search-body
-      style={MAIN_STYLE}
+      {...markers}
     >
       {children}
     </main>
+  )
+}
+
+/**
+ * The page's leading header components, drawn before its main landmark.
+ * `display: contents` keeps the header's own layout (a sticky header sticks to
+ * the page) while the marker tells a content swap that the page holds chrome
+ * outside its main region.
+ */
+function PageBanner({ children }: { readonly children: React.ReactNode }): Readonly<ReactElement> {
+  return (
+    <div
+      data-page-banner=""
+      style={BANNER_STYLE}
+    >
+      {children}
+    </div>
   )
 }
 
@@ -125,21 +199,39 @@ export function PageMain({
     />
   )
 
+  // A leading run of `header` components is the page's banner: it is drawn
+  // BEFORE the main landmark, so the skip link lands past it and its navigation.
+  const bannerCount = leadingBannerCount(pageComponents, components)
+  const banner = pageComponents.slice(0, bannerCount)
+  const body = pageComponents.slice(bannerCount)
+  const bannerSlot =
+    banner.length > 0 ? <PageBanner>{renderSections(banner)}</PageBanner> : undefined
+  const shell = { page, ownRegion: declaresMainRegion(pageComponents, components) }
+
   // No markdown: render every component in declared order (landing + all
-  // component-only pages — unchanged behaviour).
+  // component-only pages).
   if (!markdownPayload) {
-    return <MainShell page={page}>{renderSections(pageComponents)}</MainShell>
+    return (
+      <>
+        {bannerSlot}
+        <MainShell {...shell}>{renderSections(body)}</MainShell>
+      </>
+    )
   }
 
-  // Markdown page: render header chrome (the first component, by convention the
-  // navbar), then the article, then the trailing components (overlays/footer).
-  const headerSections = pageComponents.slice(0, 1)
-  const trailingSections = pageComponents.slice(1)
+  // Markdown page: the header chrome (the banner, or else the first component,
+  // by convention the navbar), then the article, then the trailing components
+  // (overlays/footer).
+  const headerSections = banner.length > 0 ? [] : body.slice(0, 1)
+  const trailingSections = banner.length > 0 ? body : body.slice(1)
   return (
-    <MainShell page={page}>
-      {headerSections.length > 0 && renderSections(headerSections)}
-      <MarkdownArticle markdown={markdownPayload} />
-      {trailingSections.length > 0 && renderSections(trailingSections)}
-    </MainShell>
+    <>
+      {bannerSlot}
+      <MainShell {...shell}>
+        {headerSections.length > 0 && renderSections(headerSections)}
+        <MarkdownArticle markdown={markdownPayload} />
+        {trailingSections.length > 0 && renderSections(trailingSections)}
+      </MainShell>
+    </>
   )
 }

@@ -44,8 +44,7 @@ export const analyticsEvents = systemTable(
     // Optional organization ID for multi-tenant tracking
     orgId: text('org_id'),
 
-    // Privacy-safe visitor identification (no cookies, no PII)
-    // SHA-256(date + IP + UA + salt) — rotates daily
+    // Visitor identifier, rotated daily; used to count unique visitors without a cookie
     visitorHash: text('visitor_hash').notNull(),
 
     // Session identification

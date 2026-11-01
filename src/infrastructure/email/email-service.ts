@@ -8,7 +8,7 @@
 import { Context, Duration, Effect, Layer, Data } from 'effect'
 import { parseEmailTransport } from '@/domain/models/process-env/email-transport'
 import { isEmailConfigured } from '@/infrastructure/process/env'
-import { sendThroughEmailApi } from './email-api-transport'
+import { sendThroughEmailApi, type EmailApiTransport } from './email-api-transport'
 import { getTransporter, getDefaultFrom, type SendMailOptions } from './nodemailer'
 import { reportUndeliverableMessage } from './undeliverable-message'
 
@@ -80,49 +80,79 @@ class SmtpSendTimeoutError extends Data.TaggedError('SmtpSendTimeoutError')<{
  * accepted by the relay, and the caller cannot tell a lost response from a
  * lost request — so a retry is a second email in the recipient's inbox.
  */
-async function deliver(options: Readonly<SendMailOptions>): Promise<string> {
+const deliver = (options: Readonly<SendMailOptions>): Effect.Effect<string, unknown> =>
+  // The road is resolved INSIDE the effect, so a throw while reading the
+  // configuration fails the send (an `EmailError` at the port) instead of
+  // escaping as a defect.
+  // @effect-diagnostics-next-line unknownInEffectCatch:off -- the error channel here is the peer's value, not one of ours
+  Effect.try({ try: () => resolveRoad(options), catch: (cause: unknown) => cause }).pipe(
+    Effect.flatMap((road): Effect.Effect<string, unknown> => {
+      if (road.kind === 'disabled') return Effect.succeed(EMAIL_DISABLED_MESSAGE_ID)
+      // An HTTP transport fails with its own `EmailApiError`, which names the
+      // provider and status.
+      if (road.kind === 'api') return sendThroughEmailApi(road.transport, options)
+      return sendThroughSmtp(road.transporter, options)
+    })
+  )
+
+/** Where one message goes: nowhere (reported only), an HTTP email API, or SMTP. */
+type DeliveryRoad =
+  | { readonly kind: 'disabled' }
+  | { readonly kind: 'api'; readonly transport: EmailApiTransport }
+  | { readonly kind: 'smtp'; readonly transporter: SmtpTransporter }
+
+type SmtpTransporter = NonNullable<ReturnType<typeof getTransporter>>
+
+const DISABLED: DeliveryRoad = { kind: 'disabled' }
+
+const resolveRoad = (options: Readonly<SendMailOptions>): DeliveryRoad => {
   if (!isEmailConfigured()) {
     reportUndeliverableMessage(options)
-    return EMAIL_DISABLED_MESSAGE_ID
+    return DISABLED
   }
-
   // `EMAIL_PROVIDER` picks the road; boot already refused a selector that names
-  // no transport or lacks its credentials, so this resolves. An HTTP transport
-  // rejects with its own `EmailApiError`, which names the provider and status.
+  // no transport or lacks its credentials, so this resolves.
   const transport = parseEmailTransport(process.env)
-  if (transport.kind !== 'smtp') {
-    return Effect.runPromise(sendThroughEmailApi(transport, options))
-  }
-
+  if (transport.kind !== 'smtp') return { kind: 'api', transport }
   const transporter = getTransporter()
-  if (!transporter) return EMAIL_DISABLED_MESSAGE_ID
-  // Effect 4's `runPromise` rejects with the RAW failure value, so a transport
-  // rejection still reaches the callers' own `catch` unchanged; only the
-  // timeout path substitutes an error of its own.
-  const info = await Effect.runPromise(
-    Effect.timeoutOrElse(
-      // Deliberate `unknown` on the error channel: the transport's own rejection
-      // must reach this function's caller VERBATIM — `EmailError` already wraps
-      // it and every `catch` site reads `.message` off it.
-      // @effect-diagnostics-next-line unknownInEffectCatch:off -- the error channel here is the peer's value, not one of ours
-      Effect.tryPromise({
-        try: () => transporter.sendMail(options),
-        catch: (cause: unknown) => cause,
-      }),
-      {
-        duration: Duration.millis(SMTP_SEND_TIMEOUT_MS),
-        orElse: () =>
-          Effect.fail(
-            new SmtpSendTimeoutError({
-              timeoutMs: SMTP_SEND_TIMEOUT_MS,
-              message: `SMTP send made no progress within ${String(SMTP_SEND_TIMEOUT_MS)}ms and was abandoned`,
-            })
-          ),
-      }
-    )
-  )
-  return info.messageId
+  return transporter ? { kind: 'smtp', transporter } : DISABLED
 }
+
+/**
+ * One SMTP send under the total budget. The transport's rejection stays on the
+ * error channel VERBATIM; only the timeout path substitutes an error of its own.
+ */
+const sendThroughSmtp = (
+  transporter: SmtpTransporter,
+  options: Readonly<SendMailOptions>
+): Effect.Effect<string, unknown> =>
+  Effect.timeoutOrElse(
+    // Deliberate `unknown` on the error channel: the transport's own rejection
+    // must reach the caller VERBATIM — `EmailError` already wraps it and every
+    // `catch` site reads `.message` off it.
+    // @effect-diagnostics-next-line unknownInEffectCatch:off -- the error channel here is the peer's value, not one of ours
+    Effect.tryPromise({
+      try: () => transporter.sendMail(options),
+      catch: (cause: unknown) => cause,
+    }),
+    {
+      duration: Duration.millis(SMTP_SEND_TIMEOUT_MS),
+      orElse: () =>
+        Effect.fail(
+          new SmtpSendTimeoutError({
+            timeoutMs: SMTP_SEND_TIMEOUT_MS,
+            message: `SMTP send made no progress within ${String(SMTP_SEND_TIMEOUT_MS)}ms and was abandoned`,
+          })
+        ),
+    }
+  ).pipe(Effect.map((info) => info.messageId))
+
+/** A send's failure as the port's `EmailError`, carrying the transport's own value. */
+const toEmailError = (error: unknown): EmailError =>
+  new EmailError({
+    message: `Failed to send email: ${error instanceof Error ? error.message : String(error)}`,
+    cause: error,
+  })
 
 /**
  * Email service interface
@@ -168,25 +198,14 @@ export class Email extends Context.Service<Email, EmailService>()('Email') {}
 export const EmailLive = Layer.succeed(
   Email,
   Email.of({
-    send: (options) =>
-      Effect.tryPromise({
-        try: () => deliver(options),
-        catch: (error) =>
-          new EmailError({
-            message: `Failed to send email: ${error instanceof Error ? error.message : String(error)}`,
-            cause: error,
-          }),
-      }),
+    send: (options) => deliver(options).pipe(Effect.mapError(toEmailError)),
 
     sendWithDefaultFrom: (options) =>
-      Effect.tryPromise({
-        try: () => deliver({ from: getDefaultFrom(), ...options }),
-        catch: (error) =>
-          new EmailError({
-            message: `Failed to send email: ${error instanceof Error ? error.message : String(error)}`,
-            cause: error,
-          }),
-      }),
+      // @effect-diagnostics-next-line unknownInEffectCatch:off -- the error channel here is the peer's value, mapped just below
+      Effect.try({ try: () => getDefaultFrom(), catch: (cause: unknown) => cause }).pipe(
+        Effect.flatMap((from) => deliver({ from, ...options })),
+        Effect.mapError(toEmailError)
+      ),
 
     verifyConnection: Effect.tryPromise({
       try: async () => {
@@ -231,7 +250,9 @@ export async function sendEmail(
   options: Readonly<Omit<SendMailOptions, 'from'> & { readonly fromName?: string }>
 ): Promise<string> {
   const { fromName, ...message } = options
-  return deliver({ from: getDefaultFrom(fromName), ...message })
+  // A Promise boundary by contract (Better Auth's callbacks await it), so the
+  // send runs here; `runPromise` rejects with the raw failure value.
+  return Effect.runPromise(deliver({ from: getDefaultFrom(fromName), ...message }))
 }
 
 /**
@@ -254,5 +275,5 @@ export async function sendEmail(
  * @public
  */
 export async function sendEmailWithOptions(options: Readonly<SendMailOptions>): Promise<string> {
-  return deliver(options)
+  return Effect.runPromise(deliver(options))
 }

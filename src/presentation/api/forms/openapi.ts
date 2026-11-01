@@ -6,8 +6,12 @@
  */
 
 import { Schema } from 'effect'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
-import { createSubmissionRequestSchema, submissionResponseSchema } from '@/domain/models/api/forms'
+import { errorResponseSchema } from '@/domain/models/api/error'
+import {
+  createSubmissionRequestSchema,
+  formStepAdvanceResponseSchema,
+  submissionResponseSchema,
+} from '@/domain/models/api/forms'
 import {
   effectJsonBody,
   effectJsonResponse,
@@ -71,14 +75,7 @@ const routes: readonly RouteSpec[] = [
       body: { content: { 'application/json': { schema: effectSchema(Schema.Unknown) } } },
     },
     responses: {
-      200: effectJsonResponse(
-        Schema.Struct({
-          nextStepId: Schema.NullOr(
-            Schema.String.annotate({ description: 'Next step id, or null when complete' })
-          ),
-        }),
-        'Step advanced'
-      ),
+      200: effectJsonResponse(formStepAdvanceResponseSchema, 'Step advanced'),
       400: errorResponse('Step validation failed'),
       404: errorResponse('Form or step not found'),
     },

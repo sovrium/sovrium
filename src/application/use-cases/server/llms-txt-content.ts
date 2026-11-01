@@ -13,6 +13,7 @@ import {
 } from '@/application/ports/services/content-dir-reader'
 import { pageRoutePatterns, primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { validateLanguageSubdirectory } from '@/domain/models/app/languages/language-detection'
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { isPublicArticle } from '@/domain/models/app/pages/content-dir-access'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
 import type { App, Page } from '@/domain/models/app'
@@ -34,12 +35,17 @@ interface LlmsHeader {
  * `app.llms.title` / `app.llms.description` win; otherwise the app `name` and
  * `description` are used. A description always exists (falls back to a generic
  * sentence) so the llmstxt.org blockquote is never empty.
+ *
+ * Either may be a `$t:` key, resolved from `languages.translations` in the
+ * route's own language — `languages.default` when the route names none.
  */
-const resolveLlmsHeader = (app: App): LlmsHeader => {
+const resolveLlmsHeader = (app: App, language: string | undefined): LlmsHeader => {
+  const translate = (text: string): string =>
+    resolveTranslationPattern(text, language ?? app.languages?.default ?? '', app.languages)
   const title = app.llms?.title ?? app.name
   const description =
     app.llms?.description ?? app.description ?? `Documentation and content for ${app.name}.`
-  return { title, description }
+  return { title: translate(title), description: translate(description) }
 }
 
 /**
@@ -55,6 +61,22 @@ const humanizeGroup = (key: string): string =>
 
 /** Group key used for entries with no resolvable `group`/`section`. */
 const UNGROUPED_KEY = 'Other'
+
+/**
+ * A listed entry with the `##` heading of its section: the label its own
+ * collection's `nav.groupLabels` gives its group — the one the sidebar shows —
+ * else the key humanized, as the content-dir lister falls back.
+ */
+interface HeadedEntry {
+  readonly entry: ContentDirEntry
+  readonly heading: string
+}
+
+/** The heading of one entry's section, read off the page it was listed from. */
+const sectionHeading = (page: Page, entry: ContentDirEntry): string => {
+  const key = entry.group ?? UNGROUPED_KEY
+  return page.contentDir?.nav?.groupLabels?.[key] ?? humanizeGroup(key)
+}
 
 /**
  * How many `contentDir` pages are read at once. Filesystem reads, not the
@@ -102,36 +124,43 @@ const pagesForLanguage = (app: App, language: string | undefined): readonly Page
 
 /**
  * Collect every content-directory entry across the app's pages, in page +
- * file order. Pages without a `contentDir` contribute nothing.
+ * file order, each with the heading its own collection gives its section.
+ * Pages without a `contentDir` contribute nothing.
  */
 const collectContentEntries = (
   pages: readonly Page[]
-): Effect.Effect<readonly ContentDirEntry[], ContentDirReadError, ContentDirReader> =>
+): Effect.Effect<readonly HeadedEntry[], ContentDirReadError, ContentDirReader> =>
   Effect.gen(function* () {
     const reader = yield* ContentDirReader
     const perPage = yield* Effect.forEach(
       pages,
       (page) =>
         page.contentDir
-          ? reader.enumerate(page.contentDir, primaryPagePath(page.path))
+          ? Effect.map(reader.enumerate(page.contentDir, primaryPagePath(page.path)), (entries) =>
+              entries.map((entry) => ({ entry, heading: sectionHeading(page, entry) }))
+            )
           : Effect.succeed([]),
       { concurrency: CONTENT_DIR_READ_CONCURRENCY }
     )
     // A public artefact carries no article gated by its own front matter.
-    return perPage.flat().filter((entry) => isPublicArticle(entry.access))
+    return perPage.flat().filter(({ entry }) => isPublicArticle(entry.access))
   })
 
 /**
- * Group entries by their resolved `group` key, preserving first-seen order for
- * both the groups and the entries within each group.
+ * Group entries by their section heading, preserving first-seen order for
+ * both the sections and the entries within each section.
  */
 const groupEntries = (
-  entries: readonly ContentDirEntry[]
+  entries: readonly HeadedEntry[]
 ): ReadonlyArray<readonly [string, readonly ContentDirEntry[]]> => {
-  const keys = entries.map((entry) => entry.group ?? UNGROUPED_KEY)
-  const orderedKeys = keys.filter((key, index) => keys.indexOf(key) === index)
-  return orderedKeys.map(
-    (key) => [key, entries.filter((entry) => (entry.group ?? UNGROUPED_KEY) === key)] as const
+  const headings = entries.map(({ heading }) => heading)
+  const orderedHeadings = headings.filter((heading, index) => headings.indexOf(heading) === index)
+  return orderedHeadings.map(
+    (heading) =>
+      [
+        heading,
+        entries.filter((headed) => headed.heading === heading).map(({ entry }) => entry),
+      ] as const
   )
 }
 
@@ -146,15 +175,15 @@ const renderEntryBullet = (entry: ContentDirEntry, baseUrl: string): string => {
 const renderLlmsIndex = (
   app: App,
   baseUrl: string,
-  entries: readonly ContentDirEntry[]
+  entries: readonly HeadedEntry[],
+  language: string | undefined
 ): string => {
-  const { title, description } = resolveLlmsHeader(app)
+  const { title, description } = resolveLlmsHeader(app, language)
   const grouped = groupEntries(entries)
 
-  const sections = grouped.map(([key, groupEntriesList]) => {
-    const heading = `## ${humanizeGroup(key)}`
+  const sections = grouped.map(([heading, groupEntriesList]) => {
     const bullets = groupEntriesList.map((entry) => renderEntryBullet(entry, baseUrl))
-    return [heading, '', ...bullets].join('\n')
+    return [`## ${heading}`, '', ...bullets].join('\n')
   })
 
   const header = [`# ${title}`, '', `> ${description}`].join('\n')
@@ -168,7 +197,8 @@ const renderLlmsIndex = (
  * Structure (per https://llmstxt.org):
  *  - `# <title>` (H1)
  *  - `> <description>` (blockquote)
- *  - one `## <Group>` (H2) section per `contentDir.nav.groupBy` value, each
+ *  - one `## <Group>` (H2) section per `contentDir.nav.groupBy` value, headed
+ *    by its `nav.groupLabels` label (else the key in title case), each
  *    followed by `- [title](url): description` bullets.
  *
  * `baseUrl` is prefixed to each page path; pass an empty string to emit
@@ -187,7 +217,7 @@ export const generateLlmsTxtContent = (
   language?: string
 ): Effect.Effect<string, ContentDirReadError, ContentDirReader> =>
   Effect.map(collectContentEntries(pagesForLanguage(app, language)), (entries) =>
-    renderLlmsIndex(app, baseUrl, entries)
+    renderLlmsIndex(app, baseUrl, entries, language)
   ).pipe(Effect.withSpan('server.generate-llms-txt'))
 
 /**

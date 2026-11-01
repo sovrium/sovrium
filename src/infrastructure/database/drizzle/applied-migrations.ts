@@ -12,7 +12,7 @@
  * `migrate.ts` and `migrate-preflight.ts` both read the same table, but each
  * opens its OWN driver connection from a `DATABASE_URL` because both run before
  * (or instead of) a shared client. This reader runs after the migrator, on the
- * boot path, with `db` already resolved — so it goes through the query builder
+ * boot path, over the boot's `Database` service — so it goes through the query builder
  * and is dialect-correct by construction rather than by two hand-written SQL
  * branches.
  *
@@ -41,9 +41,9 @@
 import { bigint, pgSchema, text, timestamp } from 'drizzle-orm/pg-core'
 import { integer, sqliteTable, text as sqliteText } from 'drizzle-orm/sqlite-core'
 import { Effect } from 'effect'
-import { db } from '@/infrastructure/database'
 import { makeDbWrap } from '../sql/db-effect'
 import { resolveDialectSchema } from './dialect-schema'
+import { Database } from './layer'
 import { MigrationError } from './migration-error'
 
 const drizzleSchema = pgSchema('drizzle')
@@ -52,14 +52,14 @@ const appliedMigrationsPg = drizzleSchema.table('__drizzle_migrations', {
   hash: text('hash').notNull(),
   createdAt: bigint('created_at', { mode: 'number' }),
   name: text('name'),
-  appliedAt: timestamp('applied_at', { withTimezone: true }),
+  appliedAt: timestamp('applied_at', { withTimezone: true }).$type<Date | string>(),
 })
 
 const appliedMigrationsSqlite = sqliteTable('__drizzle_migrations', {
   hash: sqliteText('hash').notNull(),
   createdAt: integer('created_at'),
   name: sqliteText('name'),
-  appliedAt: sqliteText('applied_at'),
+  appliedAt: sqliteText('applied_at').$type<Date | string>(),
 })
 
 const appliedMigrations = resolveDialectSchema(appliedMigrationsPg, appliedMigrationsSqlite)
@@ -105,9 +105,13 @@ const resolveAppliedAt = (appliedAt: unknown, createdAt: unknown): Readonly<Date
  * row matching no shipped migration — that is a different finding, and this
  * reader is not entitled to make it.
  */
-export const readAppliedMigrations: Effect.Effect<readonly AppliedMigration[], MigrationError> =
+export const readAppliedMigrations: Effect.Effect<
+  readonly AppliedMigration[],
+  MigrationError,
+  Database
+> = Effect.flatMap(Database, ({ client }) =>
   wrap(() =>
-    db
+    client
       .select({
         name: appliedMigrations.name,
         createdAt: appliedMigrations.createdAt,
@@ -124,3 +128,4 @@ export const readAppliedMigrations: Effect.Effect<readonly AppliedMigration[], M
       })
     )
   )
+)

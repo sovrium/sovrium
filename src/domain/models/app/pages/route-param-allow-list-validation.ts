@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 // ---------------------------------------------------------------------------
 // 16. `page.params` — a route segment constrained to a declared set
 // ---------------------------------------------------------------------------
@@ -23,9 +25,6 @@
  * key Effect 4 dropped, or an envelope key that resolves to nothing, produces a
  * page that serves every segment while its author believes it serves eleven.
  */
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * Route-parameter names, by the same grammar the route matcher captures and the

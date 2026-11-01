@@ -42,7 +42,7 @@ import type { Effect } from 'effect'
  * application layer stays free of an infrastructure dependency. The export
  * payload shaping (id/created_at/updated_at split, ISO coercion, role
  * normalization) is pure logic and lives in the use case
- * (`application/use-cases/account.ts`). Implementation lives in the
+ * (`application/use-cases/auth/account.ts`). Implementation lives in the
  * infrastructure layer (account-repository-live.ts).
  */
 

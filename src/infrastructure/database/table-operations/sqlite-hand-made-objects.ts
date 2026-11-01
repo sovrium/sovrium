@@ -53,10 +53,13 @@ const indexStatementName = (statement: string): string | undefined =>
     ?.slice(1)
     .find(Boolean)
 
-/** The names of the indexes the engine creates on `table`'s physical relation. */
+/**
+ * The names of the indexes the engine creates on `table`'s physical relation —
+ * on SQLite, the only engine whose rebuild replays hand-made objects.
+ */
 export const engineIndexNames = (table: Table, physicalTableName: string): ReadonlySet<string> =>
   new Set(
-    generateIndexStatements({ ...table, name: physicalTableName })
+    generateIndexStatements({ ...table, name: physicalTableName }, 'sqlite')
       .map(indexStatementName)
       .filter((name): name is string => name !== undefined)
       .map((name) => name.toLowerCase())

@@ -1,6 +1,6 @@
 # AI RAG
 
-> Grounding answers in your own records and documents — what gets embedded, where the vectors live on each dialect, and why each agent's corpus is isolated.
+> Grounding answers in your own records and documents: what gets embedded, where the vectors live on each dialect, and why each agent's corpus is isolated.
 
 Retrieval-augmented generation lets agents and chat answer from **your application's actual data** rather than from a model's training set. Before generating a response the runtime retrieves the most relevant content from a vector-indexed knowledge base and injects it into context.
 
@@ -15,7 +15,7 @@ It is **native** once a provider is configured: the embedding infrastructure is 
 
 The response envelope and each result's shape are identical across dialects, so a caller never branches on the storage engine, and moving from one to the other changes nothing above the repository.
 
-**One source kind needs PostgreSQL.** Document knowledge is embedded and retrieved on both dialects, so the frugal default — SQLite and a local model — gives a working RAG agent. **Table** knowledge does not: on SQLite the initial sync and the change listener that keeps it current are both skipped, and an agent retrieves nothing from its `knowledge.tables`. The skip is logged rather than raised, so such an agent answers as though the table were empty instead of failing — point `DATABASE_URL` at PostgreSQL where you need table sources.
+**One source kind needs PostgreSQL.** Document knowledge is embedded and retrieved on both dialects, so the frugal default (SQLite and a local model) gives a working RAG agent. **Table** knowledge does not: on SQLite the initial sync and the change listener that keeps it current are both skipped, and an agent retrieves nothing from its `knowledge.tables`. The skip is logged rather than raised, so such an agent answers as though the table were empty instead of failing. Point `DATABASE_URL` at PostgreSQL where you need table sources.
 
 ## What gets embedded
 
@@ -38,7 +38,7 @@ agents:
         - { table: docs, fields: [content], filter: { status: published } }
 ```
 
-On PostgreSQL, a change to a source record updates its embedding automatically — that is what keeps a retrieval corpus from quietly becoming a snapshot of the day it was built. Both the initial sync and that listener are PostgreSQL-only, so on SQLite this block embeds nothing at all.
+On PostgreSQL, a change to a source record updates its embedding automatically. That is what keeps a retrieval corpus from quietly becoming a snapshot of the day it was built. Both the initial sync and that listener are PostgreSQL-only, so on SQLite this block embeds nothing at all.
 
 ### From documents
 
@@ -58,7 +58,7 @@ A document placed in the knowledge directory is discovered, parsed, chunked, emb
 
 ## Each agent's corpus is its own
 
-A knowledge base is keyed by agent name, and one agent never retrieves another's embeddings. That isolation is what lets a support agent and a sales agent embed entirely different corpora without cross-contamination — and it is enforced by the store rather than by the prompt.
+A knowledge base is keyed by agent name, and one agent never retrieves another's embeddings. That isolation is what lets a support agent and a sales agent embed entirely different corpora without cross-contamination, and it is enforced by the store rather than by the prompt.
 
 Chat can additionally reach knowledge scoped to the requesting user's permissions.
 
@@ -110,17 +110,19 @@ Overlap exists so a sentence split across a chunk boundary is still retrievable 
 
 ## Rebuilding and searching
 
-| Endpoint                   | Does                                                                                   |
-| -------------------------- | -------------------------------------------------------------------------------------- |
-| `POST /api/ai/rag/rebuild` | Re-embeds the configured sources and persists the vectors; admin-equivalent roles only |
-| `POST /api/ai/rag/search`  | Embeds a query, searches, filters by threshold, and returns ranked results             |
+| Endpoint                   | Does                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /api/ai/rag/rebuild` | Re-embeds the configured sources and persists the vectors; admin-equivalent roles only, and `404` on an app without `auth`           |
+| `POST /api/ai/rag/search`  | Embeds a query, searches, filters by threshold, and returns ranked results; `429` past the caller's AI budget (`AI_CHAT_RATE_LIMIT`) |
 
-Both behave identically on either dialect — the same authorization, the same response shape.
+Both behave identically on either dialect: the same authorization, the same response shape.
 
-On an app with `auth`, a search needs a signed-in user, and it returns only what the records API would show her. A result drawn from a table comes back only when she may read that row: the table's read permission (her role, her groups and, on a table with row-level rules, the roles her assignments give her), then the table's row-level read rule. This holds whichever agent's knowledge base is searched, even one whose agent reads under a wider role. A record moved to the trash leaves the index and is never returned; restoring it embeds it again. Results from knowledge documents are not tied to a table and are returned to any signed-in user.
+To rebuild from the shell instead, run `sovrium reindex`. It re-embeds the knowledge documents on either dialect and the knowledge tables on PostgreSQL, needs no account, and so also works on an app without `auth`, where the endpoint above answers `404`. On SQLite it is the only way to rebuild without a running server, since a boot there re-embeds documents but not tables. See **Rebuilding the AI Knowledge Index**.
+
+On an app with `auth`, a search needs a signed-in user, and it returns only what the records API would show her. A result drawn from a table comes back only when she may read that row: the table's read permission (her role, her groups and, on a table with row-level rules, the roles her assignments give her), then the table's row-level read rule. This holds whichever agent's knowledge base is searched, even one whose agent reads under a wider role. A record moved to the trash leaves the index and is never returned; restoring it embeds it again. A knowledge document is not tied to a table, so it is read through the agents that use it: a passage from a document comes back only when she may trigger (`permissions.trigger`) at least one agent that retrieves that document, either because it lists it in `knowledge.documents` or, listing none, because its `memory.knowledge` covers it. With a handbook agent open to every member and a payroll agent open to admins only, a member finds the handbook and never the payroll policy; an admin finds both. A document no agent retrieves is returned to no one. `GET /api/ai/rag/status` follows the same rule, listing only the documents she could be served.
 
 A result also comes back only when she may read every field whose value it holds. A chunk's text is fixed when the record is embedded and cannot be masked afterwards, so the embedding is split instead: the fields an agent lists in `knowledge.tables[].fields` are grouped by who may read them (a field with no read permission of its own takes the table's, and the built-in default field rules count too), each group is embedded as its own chunks, and every chunk records the names of its fields. With `cost_center` readable by admins only, a member searching finds an invoice by its title, and never the chunk that holds its cost centre; an admin finds both. The check runs against the config the app is running, so narrowing a field's read permission takes effect from the next search, before anything is re-embedded. A chunk that records no field names, or names a field the table no longer declares, is never returned to anyone. A record whose listed fields carry two different read permissions costs two sets of chunks, and its title and its notes no longer share one vector.
 
 ### On the first boot after upgrading
 
-On PostgreSQL every boot already rebuilds each agent's table knowledge: it clears the agent's chunks and re-embeds them, agent by agent, through the configured provider, once the server is listening. The first boot after an upgrade does the same, with the extra chunks a split adds. While that runs, a search answers from what has been re-embedded so far, so it may return fewer table results for a moment. It never returns a chunk embedded by an earlier version: those record no field names, so they are not served even before the rebuild replaces them. `POST /api/ai/rag/rebuild` remains available to re-embed on demand.
+On PostgreSQL every boot already rebuilds each agent's table knowledge: it clears the agent's chunks and re-embeds them, agent by agent, through the configured provider, once the server is listening. The first boot after an upgrade does the same, with the extra chunks a split adds. While that runs, a search answers from what has been re-embedded so far, so it may return fewer table results for a moment. It never returns a chunk embedded by an earlier version: those record no field names, so they are not served even before the rebuild replaces them. To re-embed on demand, `POST /api/ai/rag/rebuild` remains available to an administrator, and `sovrium reindex` to whoever runs the binary beside the database.

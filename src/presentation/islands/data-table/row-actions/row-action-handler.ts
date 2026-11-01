@@ -5,10 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { executeFetchAction } from '../../runtime/action-executor'
 import { runSuccessOutcome } from '../../runtime/action-outcome'
 import { dispatch as dispatchIslandEvent } from '../../runtime/event-bus'
 import { substituteRecord } from '../../runtime/fetch-action-substitution'
+import { followAddress } from '../../runtime/follow-address'
 import { renderToast } from '../../runtime/toast'
 import { consoleRequestNote } from '../../runtime/toast-request-id'
 import { toastWriteRefusal } from '../../runtime/write-refusal'
@@ -19,7 +21,10 @@ import { removeRowThenRefreshOnce } from './deleted-row-refresh'
 import { rowPressReference } from './row-action-control'
 import type { RowActionHandler } from './row-action-types'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
-import type { ClipboardAction } from '@/domain/models/app/pages/components/action-client'
+import type {
+  ClipboardAction,
+  NavigateAction,
+} from '@/domain/models/app/pages/components/action-client'
 import type { QueryClient } from '@tanstack/react-query'
 
 interface CreateRowActionHandlerParams {
@@ -177,7 +182,8 @@ async function runCrudRowAction(
  * The row actions that issue their own request and report whether it was
  * accepted: an item-level account method (`auth` with a `target`), an
  * automation press, whose `inputData` is filled from the clicked row, and a
- * clipboard copy of the row's value, which never asks for a re-read.
+ * clipboard copy of the row's value, which never asks for a re-read, and a
+ * navigate, which leaves for its path and has nothing to re-read either.
  * `undefined` for any other action.
  */
 function runSelfReportingRowAction(
@@ -195,6 +201,13 @@ function runSelfReportingRowAction(
   // A copy writes nothing the grid holds, so it never re-reads it.
   if (action.type === 'clipboard') {
     return runClipboardRowAction(action as ClipboardAction, record, origin).then(() => false)
+  }
+  // A navigate follows its path, `$record.<field>` filled from the row, exactly
+  // as a row click does; `followAddress` refuses an address that is not safe.
+  if (action.type === 'navigate') {
+    const { path, openInNewTab } = action as NavigateAction
+    followAddress(substituteRecordVars(path, record), { openInNewTab })
+    return Promise.resolve(false)
   }
   return undefined
 }

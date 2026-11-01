@@ -28,7 +28,7 @@ export const DocumentActionSchema = Schema.Union([
     identifier: 'DocumentAction',
     title: 'Document Action',
     description:
-      'Generate a document from a template and data — a PDF, an image, a Word document or a workbook — or convert an existing file into a PDF',
+      'Generate a document from a template and data (a PDF, an image, a Word document or a workbook), or convert an existing file into a PDF',
   })
 )
 

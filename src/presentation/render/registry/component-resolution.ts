@@ -10,6 +10,8 @@ import {
   expandTemplateInputs,
   substitutableInputsOf,
 } from '@/domain/models/app/pages/template-input-service'
+import { logWarningOnce } from '@/infrastructure/logging/logger'
+import { synthesizedComponent } from '@/presentation/render/resolve/component-rewrite'
 import {
   substituteActiveMarker,
   substituteVariableValues,
@@ -66,12 +68,10 @@ export function resolveComponent(
 ): { readonly component: Component; readonly name: string } | undefined {
   const template = components?.find((b) => b.name === componentName)
   if (!template) {
-    // DEVELOPMENT WARNING: Keep console.warn for development debugging
-    // This warning alerts developers when a referenced component doesn't exist
-    // Helps identify typos or missing component definitions during development
-    // Safe to keep - provides helpful feedback for configuration errors
-    // eslint-disable-next-line no-console -- SSR component (presentation-component) cannot import the infrastructure Logger per layer boundaries; dev-only config warning
-    console.warn(`Component not found: ${componentName}`)
+    // A placement naming no template is refused at boot
+    // (`component-reference-validation.ts`); one reaching here comes from a
+    // tree that validation did not walk, such as a documented app's specimen.
+    logWarningOnce(`Component not found: ${componentName}`)
     return undefined
   }
 
@@ -102,7 +102,9 @@ export function resolveComponent(
     )
   )
 
-  const component: Component = {
+  // The template instantiated for this placement: decoded at boot as a template,
+  // so the copy is a component of the template's own type.
+  const component = synthesizedComponent({
     ...passthroughFields,
     // The current-item marker compares the placement's vars, so it takes them.
     ...substituteActiveMarker(template, vars),
@@ -116,7 +118,7 @@ export function resolveComponent(
       typeof template.content === 'string'
         ? (substituteVariableValues(template.content, vars) as string)
         : template.content,
-  }
+  })
 
   return { component, name: template.name }
 }
@@ -153,11 +155,13 @@ function resolveWithInputs(
     vars,
     (text) => substituteVariableValues(text, undeclared) as string
   )
-  const component = Object.fromEntries(
-    Object.entries(withInputsInSchemaOrder(node, drawn)).filter(
-      ([key]) => key !== 'name' && key !== 'render' && key !== 'inputs'
+  const component = synthesizedComponent(
+    Object.fromEntries(
+      Object.entries(withInputsInSchemaOrder(node, drawn)).filter(
+        ([key]) => key !== 'name' && key !== 'render' && key !== 'inputs'
+      )
     )
-  ) as Component
+  )
   if (vars !== undefined) {
     const byVars = expansions.get(template) ?? new WeakMap<object, Component>()
     byVars.set(vars, component)

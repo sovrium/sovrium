@@ -44,7 +44,10 @@ export const BucketPermissionsSchema = Schema.Struct({
   /** Who can upload files to this bucket */
   upload: Schema.optional(
     PermissionValueSchema.pipe(
-      Schema.annotate({ description: 'Who can upload files to this bucket' })
+      Schema.annotate({
+        description:
+          'Who can upload files to this bucket. Omitted: any signed-in caller on a private bucket, administrators only on a public one.',
+      })
     )
   ),
 

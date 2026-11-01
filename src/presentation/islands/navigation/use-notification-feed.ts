@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useCallback, useEffect } from 'react'
+import { READ_ONCE_QUERY_OPTIONS } from '../runtime/query-client'
 
 /** One notification as the bell draws it — the fields `GET /api/notifications` answers. */
 export interface BellNotification {
@@ -20,6 +22,9 @@ interface Feed {
   readonly notifications: readonly BellNotification[]
   readonly unreadCount: number
 }
+
+/** What the bell draws before the first read answers. */
+const EMPTY_FEED: Feed = { notifications: [], unreadCount: 0 }
 
 /** How long a dropped connection first waits before it opens again; each retry waits longer. */
 const RECONNECT_DELAY_MS = 3000
@@ -91,14 +96,20 @@ function useFollow(reread: () => void): void {
  * store answers her. Marking one read, or all, re-reads too.
  */
 export function useNotificationFeed(limit: number) {
-  const [feed, setFeed] = useState<Feed>({ notifications: [], unreadCount: 0 })
-  const reread = useCallback(() => {
-    void readFeed(limit).then((next) => {
-      if (next !== undefined) setFeed(next)
-    })
-  }, [limit])
-  useEffect(reread, [reread])
+  const { data, refetch } = useQuery({
+    queryKey: ['notifications', limit],
+    // A failed read keeps what the bell last drew: an undefined answer throws,
+    // and a query in error keeps its previous data.
+    queryFn: async () => {
+      const next = await readFeed(limit)
+      if (next === undefined) throw new Error('notifications')
+      return next
+    },
+    ...READ_ONCE_QUERY_OPTIONS,
+  })
+  const reread = useCallback(() => void refetch(), [refetch])
   useFollow(reread)
+  const feed = data ?? EMPTY_FEED
 
   const markRead = useCallback(
     (id: string): Promise<unknown> =>

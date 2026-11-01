@@ -72,31 +72,33 @@ import { OrganizationTeamRepository } from '@/application/ports/repositories/aut
 import { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import { UsersDirectoryRepository } from '@/application/ports/repositories/tables/users-directory-repository'
 import {
-  withEndpointLabels,
-  withFindingMembership,
-  withPrincipalFigures,
-} from '@/application/use-cases/admin/organisation-graph-denormalisation'
+  agentEdges,
+  automationEdges,
+  grantEdges,
+  personEdges,
+} from '@/application/use-cases/admin/organisation-graph-edges'
 import { deriveExceptions } from '@/application/use-cases/admin/organisation-graph-exceptions'
 import {
   countFindings,
   deriveFindings,
 } from '@/application/use-cases/admin/organisation-graph-findings'
-import { narrowToNode } from '@/application/use-cases/admin/organisation-graph-narrowing'
 import {
-  agentEdges,
   agentNodes,
-  automationEdges,
   automationNodes,
-  grantEdges,
   openNodes,
-  personEdges,
   personNodes,
   resourceNodes,
-  resourceTargets,
   roleNodes,
   teamNodes,
-} from '@/application/use-cases/admin/organisation-graph-projection'
+} from '@/application/use-cases/admin/organisation-graph-nodes'
+import { resourceTargets } from '@/application/use-cases/admin/organisation-graph-projection'
 import { withBlockTimeout } from '@/application/use-cases/admin/overview-block-timeout'
+import {
+  withEndpointLabels,
+  withFindingMembership,
+  withPrincipalFigures,
+} from '@/domain/models/app/admin/organisation-graph-denormalisation-service'
+import { narrowToNode } from '@/domain/models/app/admin/organisation-graph-narrowing-service'
 import { Logger } from '@/infrastructure/logging/logger'
 import type { OrganizationTeamMembershipRecord } from '@/application/ports/repositories/auth/organization-team-repository'
 import type { DirectoryUserRow } from '@/application/ports/repositories/tables/users-directory-repository'

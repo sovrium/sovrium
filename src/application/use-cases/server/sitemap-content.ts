@@ -13,6 +13,7 @@ import {
 } from '@/application/ports/services/content-dir-reader'
 import { pageRoutePatterns, primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { isPublicArticle } from '@/domain/models/app/pages/content-dir-access'
+import { deriveContentDirIndexBasePath } from '@/domain/models/app/pages/content-dir-index-base-path'
 import {
   SITEMAP_MAX_URLS,
   buildSitemapIndexXml,
@@ -67,7 +68,7 @@ const expandPagePaths = async (
       .filter((entry) => isPublicArticle(entry.access))
       .map((entry) => ({
         path: entry.path,
-        lastmod: toSitemapLastmod(entry.modifiedAt),
+        lastmod: toSitemapLastmod(entry.lastmod),
       }))
   }
   // One path per address: a path per language lists each translated slug.
@@ -170,6 +171,23 @@ export interface SitemapOptions {
   readonly collectionRecords?: CollectionRecordIndex
 }
 
+/**
+ * Every route pattern a page answers: its declared path(s), plus — for a
+ * content directory with an `index` — the collection base path that article is
+ * served at. A sitemap entry names an alternate only where some page answers
+ * it, so without the base path a collection index (`/en/docs`) would find no
+ * sibling (`/fr/docs`) and be listed with none.
+ */
+const answeredRoutePatterns = (page: Page): readonly string[] => {
+  const patterns = pageRoutePatterns(page.path)
+  if (page.contentDir?.index === undefined) return patterns
+  const basePaths = patterns.flatMap((pattern) => {
+    const basePath = deriveContentDirIndexBasePath(pattern)
+    return basePath === undefined ? [] : [basePath]
+  })
+  return [...patterns, ...basePaths]
+}
+
 /** Every `<url>` entry, plus whether the `xhtml` namespace is needed. */
 const collectSitemapEntries = (
   pages: readonly Page[],
@@ -191,7 +209,7 @@ const collectSitemapEntries = (
     const hreflangConfig = options?.hreflangConfig
     const hasHreflang =
       languages !== undefined && languages.length > 0 && hreflangConfig !== undefined
-    const routes = pages.flatMap((page) => pageRoutePatterns(page.path))
+    const routes = pages.flatMap(answeredRoutePatterns)
     const entries = buildSitemapEntries({
       expandedPages,
       routes,

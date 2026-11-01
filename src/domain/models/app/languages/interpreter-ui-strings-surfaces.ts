@@ -109,7 +109,7 @@ export const SURFACE_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   },
   'forms.rateLimited': {
     en: 'Too many submissions — try again shortly',
-    fr: 'Trop d’envois — réessayez dans quelques instants.',
+    fr: 'Trop d’envois. Réessayez dans quelques instants.',
   },
   'forms.rejected': { en: 'This submission was rejected', fr: 'Cet envoi a été refusé.' },
 
@@ -124,6 +124,11 @@ export const SURFACE_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   'auth.magicLinkSent': {
     en: 'Check your email — a sign-in link has been sent',
     fr: 'Vérifiez vos e-mails — un lien de connexion vous a été envoyé',
+  },
+  // A sign-in page reached from a session the page refused (another browser, or ended).
+  'auth.sessionEnded': {
+    en: 'Your session ended — sign in to continue.',
+    fr: 'Votre session a pris fin — connectez-vous pour continuer.',
   },
   'apiKeys.copyOnce': {
     en: 'Copy this key now — it will not be shown again.',
@@ -182,4 +187,11 @@ export const SURFACE_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
 
   // ---- A chart's folded remainder, when the author named none ----
   'chart.other': { en: 'Other', fr: 'Autres' },
+
+  // ---- The line a dialog or a drawer serves before it mounts ----
+  'overlay.loading': { en: 'Loading...', fr: 'Chargement…' },
+
+  // ---- A code block's copy button and its confirmation, when the author names neither ----
+  'code.copy': { en: 'Copy', fr: 'Copier' },
+  'code.copied': { en: 'Copied', fr: 'Copié' },
 }

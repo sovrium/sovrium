@@ -22,6 +22,7 @@
 
 import { Duration, Effect } from 'effect'
 import { DatabaseMigrator } from '@/application/ports/services/database-migrator'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { countDatabaseListeners } from '@/domain/models/app/app-database-listeners-service'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import type { StartOptions } from './start-server-options'
@@ -30,8 +31,8 @@ import type {
   MigrationError,
 } from '@/application/ports/services/database-migrator'
 import type { ServerFactory } from '@/application/ports/services/server-factory'
+import type { ServerCreationError } from '@/domain/errors/server-creation-error'
 import type { App } from '@/domain/models/app'
-import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import type { Logger } from '@/infrastructure/logging/logger'
 import type { Context } from 'effect'
 
@@ -93,7 +94,7 @@ export const migrateOrHoldListener = (
 > =>
   Effect.gen(function* () {
     const migrator = yield* DatabaseMigrator
-    const migrate = migrator.migrate(parseDatabaseDialectConfig(), {
+    const migrate = migrator.migrate(parseDatabaseDialectConfig(yield* ProcessEnv), {
       listeners: countDatabaseListeners(validatedApp),
     })
     const first = yield* Effect.result(migrate)

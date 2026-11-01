@@ -34,7 +34,7 @@
  *
  * A hand-written fragment carrying a link the site could not resolve — a
  * relative path, a `.md`/`.ts` target, a source path — is REFUSED by
- * {@link assertFragmentLinks}. There is no cross-reference in the corpus, so a
+ * {@link fragmentLinkRefusal}. There is no cross-reference in the corpus, so a
  * rewriter would be a guess about a convention nobody has chosen; the refusal
  * makes the day someone writes the first one the day the convention is
  * designed. The two halves a fragment author does NOT control — the option
@@ -45,9 +45,12 @@
 
 import { Data, Effect } from 'effect'
 import { markdownSegments, proseOf } from '@/domain/kernel/markdown/markdown-segments'
+import { renderFrontmatter } from './docs-frontmatter'
 import { articleAddress, embeddedDocKey, locatedArticles, renderManualArticle } from './docs-manual'
+import { refused, rendered } from './docs-rendering'
 import type { LocatedArticle, ManualSection } from './docs-manual'
 import type { BehaviourStory } from './docs-markdown'
+import type { Rendering } from './docs-rendering'
 
 /** The manifest an export writes beside its articles. */
 export const EXPORT_MANIFEST_FILE = '_nav.json'
@@ -65,79 +68,6 @@ export class DocsSiteRenderError extends Data.TaggedError('DocsSiteRenderError')
   readonly address: string
   readonly cause: unknown
 }> {}
-
-// =============================================================================
-// Frontmatter
-// =============================================================================
-
-/**
- * The six keys a docs zone reads, in the order the corpus already uses.
- *
- * Grouped by `section`, sorted by `order`, labelled from `sidebarLabel`, and
- * `title`/`description`/`keywords` for SEO. A seventh key would be dead weight;
- * a missing one is a silently unlabelled sidebar entry.
- */
-export interface Frontmatter {
-  readonly title: string
-  readonly description: string
-  readonly keywords: string
-  readonly section: string
-  readonly order: number
-  readonly sidebarLabel: string
-}
-
-/**
- * Whether a plain YAML scalar would be misread, by YAML or by Sovrium's own
- * splitter.
- *
- * Two readers, two different rules, and the emitter has to satisfy both.
- * `splitFrontmatter` splits on the FIRST colon and strips one leading and one
- * trailing quote character, so it tolerates `a: b: c`; strict YAML does not,
- * and the published tree is also read by GitHub. So the stricter rule wins.
- */
-const needsQuoting = (value: string): boolean =>
-  value === '' ||
-  value !== value.trim() ||
-  /^[-?:,[\]{}#&*!|>'"%@`]/.test(value) ||
-  /:(\s|$)/.test(value) ||
-  /\s#/.test(value)
-
-/**
- * One frontmatter value, quoted only when it has to be.
- *
- * REFUSES rather than escaping. `splitFrontmatter` strips the outer quote pair
- * and performs no unescaping at all, so a `''` or a `\"` inside a quoted value
- * would survive into the parsed string and reach the page title. A value that
- * needs quoting and contains both quote characters cannot be emitted safely by
- * either strategy — and a mangled `<title>` is worse than a failed build a
- * human can fix in the annotation it came from.
- */
-export const yamlScalar = (key: string, value: string): string => {
-  if (!needsQuoting(value)) return `${key}: ${value}`
-  if (!value.includes("'")) return `${key}: '${value}'`
-  if (!value.includes('"') && !value.includes('\\')) return `${key}: "${value}"`
-  // eslint-disable-next-line functional/no-throw-statements -- a pure renderer's refusal; the use-case below turns it into a typed failure
-  throw new Error(
-    `Cannot emit frontmatter "${key}" safely: the value needs quoting and contains both quote ` +
-      `characters.\n  Value: ${value}\n  Reword the manifest entry — the frontmatter parser ` +
-      'strips the outer quotes without unescaping, so no escaping strategy survives it.'
-  )
-}
-
-/** The frontmatter block, fences included, ending in a blank line. */
-export const renderFrontmatter = (front: Frontmatter): string =>
-  [
-    '---',
-    yamlScalar('title', front.title),
-    yamlScalar('description', front.description),
-    yamlScalar('keywords', front.keywords),
-    yamlScalar('section', front.section),
-    `order: ${front.order}`,
-    yamlScalar('sidebarLabel', front.sidebarLabel),
-    '---',
-    '',
-    '',
-  ].join('\n')
 
 // =============================================================================
 // Links
@@ -173,20 +103,20 @@ export const unresolvableTargets = (markdown: string): readonly string[] =>
     .filter((target) => !isWebResolvable(target))
 
 /**
- * Refuse a FRAGMENT that carries a link a site could not follow.
+ * Why a FRAGMENT that carries a link a site could not follow is refused, or
+ * `undefined` when every link resolves.
  *
  * Scoped to the hand-written fragment, which is clean today — so the guard is
  * live rather than aspirational.
  */
-export const assertFragmentLinks = (address: string, fragment: string): void => {
+export const fragmentLinkRefusal = (address: string, fragment: string): string | undefined => {
   const bad = unresolvableTargets(fragment)
-  if (bad.length === 0) return
-  // eslint-disable-next-line functional/no-throw-statements -- a pure renderer's refusal; the use-case below turns it into a typed failure
-  throw new Error(
+  if (bad.length === 0) return undefined
+  return (
     `Fragment for "${address}" carries ${bad.length} link target(s) the website cannot resolve: ` +
-      `${bad.join(', ')}.\n  A fragment may link to an anchor, an absolute URL or a site-root ` +
-      'path. A relative or source-file target has no meaning at /{lang}/docs/<slug> — either ' +
-      'make it a `/en/docs/<slug>` link or name the article in prose.'
+    `${bad.join(', ')}.\n  A fragment may link to an anchor, an absolute URL or a site-root ` +
+    'path. A relative or source-file target has no meaning at /{lang}/docs/<slug> — either ' +
+    'make it a `/en/docs/<slug>` link or name the article in prose.'
   )
 }
 
@@ -232,33 +162,59 @@ export interface SiteArticle {
   readonly flattened: readonly string[]
 }
 
-/** Render one located article into its site file. */
-const renderOne = async (
+/** Compose one article from its fragment: the site file, or the first refusal. */
+const composeOne = (
   located: LocatedArticle,
+  fragment: string,
   payload: DocsPayloadReader
-): Promise<SiteArticle> => {
+): Rendering<SiteArticle, unknown> => {
   const { article, section } = located
-  const fragment = await payload.readFragment(embeddedDocKey(article.body))
-  assertFragmentLinks(articleAddress(located), fragment)
-  const rendered = renderManualArticle({
+  const linkRefusal = fragmentLinkRefusal(articleAddress(located), fragment)
+  if (linkRefusal !== undefined) return refused(new Error(linkRefusal))
+  const body = renderManualArticle({
     article,
     body: fragment,
     behaviour: payload.behaviourFor(article.slug),
   })
-  return {
+  if (!body.ok) return body
+  const frontmatter = renderFrontmatter({
+    title: article.title,
+    description: article.description,
+    keywords: article.keywords.join(', '),
+    section: section.slug,
+    order: article.order,
+    sidebarLabel: article.sidebarLabel,
+  })
+  if (!frontmatter.ok) return frontmatter
+  return rendered({
     slug: article.slug,
     file: `${article.slug}.md`,
-    flattened: unresolvableTargets(rendered),
-    content:
-      renderFrontmatter({
-        title: article.title,
-        description: article.description,
-        keywords: article.keywords.join(', '),
-        section: section.slug,
-        order: article.order,
-        sidebarLabel: article.sidebarLabel,
-      }) + flattenUnresolvableLinks(rendered),
-  }
+    flattened: unresolvableTargets(body.value),
+    content: frontmatter.value + flattenUnresolvableLinks(body.value),
+  })
+}
+
+/**
+ * Render one located article into its site file. Every refusal, and anything
+ * the renderers throw, fails as a {@link DocsSiteRenderError} naming the article.
+ */
+const renderOne = (
+  located: LocatedArticle,
+  payload: DocsPayloadReader
+): Effect.Effect<SiteArticle, DocsSiteRenderError> => {
+  const refuse = (cause: unknown) =>
+    new DocsSiteRenderError({ address: articleAddress(located), cause })
+  return Effect.tryPromise({
+    try: () => payload.readFragment(embeddedDocKey(located.article.body)),
+    catch: refuse,
+  }).pipe(
+    Effect.flatMap((fragment) =>
+      Effect.try({ try: () => composeOne(located, fragment, payload), catch: refuse })
+    ),
+    Effect.flatMap((composed) =>
+      composed.ok ? Effect.succeed(composed.value) : Effect.fail(refuse(composed.error))
+    )
+  )
 }
 
 /**
@@ -272,15 +228,9 @@ export const renderSiteArticles = (
   sections: readonly ManualSection[],
   payload: DocsPayloadReader
 ): Effect.Effect<readonly SiteArticle[], DocsSiteRenderError> =>
-  Effect.forEach(
-    locatedArticles(sections),
-    (located) =>
-      Effect.tryPromise({
-        try: () => renderOne(located, payload),
-        catch: (cause) => new DocsSiteRenderError({ address: articleAddress(located), cause }),
-      }),
-    { concurrency: RENDER_CONCURRENCY }
-  ).pipe(
+  Effect.forEach(locatedArticles(sections), (located) => renderOne(located, payload), {
+    concurrency: RENDER_CONCURRENCY,
+  }).pipe(
     Effect.map((articles) =>
       articles.toSorted((left, right) => left.slug.localeCompare(right.slug))
     ),

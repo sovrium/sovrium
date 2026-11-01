@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS entitlements for the Sovrium app SHELL: the Tauri executable and the
+  .app bundle around it. Tauri signs both with this file, under the hardened
+  runtime (bundle.macOS.hardenedRuntime defaults to on).
+
+  It is empty on purpose. The shell is compiled Rust and runs no JIT of its
+  own; the web view's JavaScript engine runs in WebKit's separate web content
+  process, which carries Apple's entitlements rather than ours. So the shell
+  needs none of the runtime exceptions, and every one it held would weaken the
+  process that owns the window and the permissions macOS grants the app:
+  turning library validation off, or honouring the dynamic loader environment
+  variables, would let another program load code into it.
+
+  The engine sidecar is the one binary that needs exceptions (JavaScriptCore is
+  a JIT). It is signed with its own file, entitlements.plist beside this one,
+  and is kept out of Tauri's signing pass so that file is not overwritten: see
+  desktop/tauri-cli.ts.
+
+  Add a key here only for a capability the shell itself uses (for instance the
+  microphone, if the window ever records audio), with the reason next to it.
+
+  NOTHING IN THIS COMMENT MAY CONTAIN TWO CONSECUTIVE HYPHENS: AMFI, the parser
+  inside codesign, rejects the whole file for it, while plutil accepts it.
+-->
+<plist version="1.0">
+<dict/>
+</plist>

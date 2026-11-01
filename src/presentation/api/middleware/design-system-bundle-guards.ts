@@ -39,20 +39,16 @@ export const DESIGN_SYSTEM_BUNDLE_GUARDED_PATHS = [
 export const guardDesignSystemBundle = (
   honoApp: SessionHono,
   auth: Readonly<ReturnType<typeof createAuthInstance>>,
-  resolveAppForTier: () => App
+  app: App
 ): SessionHono =>
   DESIGN_SYSTEM_BUNDLE_GUARDED_PATHS.reduce(
-    (chained, path) =>
-      chained.use(path, authMiddleware(auth)).use(path, requireAdminTier(resolveAppForTier)),
+    (chained, path) => chained.use(path, authMiddleware(auth)).use(path, requireAdminTier(app)),
     honoApp
   )
 
 /** The no-auth mirror: there is no session to attach, so the tier check alone. */
-export const guardDesignSystemBundleWithoutAuth = (
-  honoApp: SessionHono,
-  resolveAppForTier: () => App
-): SessionHono =>
+export const guardDesignSystemBundleWithoutAuth = (honoApp: SessionHono, app: App): SessionHono =>
   DESIGN_SYSTEM_BUNDLE_GUARDED_PATHS.reduce(
-    (chained, path) => chained.use(path, requireAdminTier(resolveAppForTier)),
+    (chained, path) => chained.use(path, requireAdminTier(app)),
     honoApp
   )

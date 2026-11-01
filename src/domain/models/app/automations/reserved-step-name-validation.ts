@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The two step names a run's templates keep for loop items.
  *
@@ -27,9 +29,6 @@ export interface ReservedStepNameIssue {
 }
 
 type Raw = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is Raw =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const reservedNameMessage = (name: string): string =>
   `Step '${name}' uses a name kept for loop items: \`{{loop.*}}\` reads the innermost loop and \`{{loops.<loop name>.*}}\` any loop around a step, so no step may be named 'loop' or 'loops'. Rename the step, and every \`{{${name}.…}}\` that read its output.`

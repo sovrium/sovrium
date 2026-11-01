@@ -6,8 +6,14 @@
  */
 
 import { translatableFieldNamesOf } from '@/domain/models/app/tables/translatable-write-service'
+import {
+  componentFields,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+  type ComponentEntry,
+} from '@/presentation/render/resolve/component-rewrite'
 import type { App } from '@/domain/models/app'
-import type { Component } from '@/domain/models/app/pages/components'
 
 /**
  * The language a data grid — or a kanban, gallery or list bound to a table —
@@ -35,31 +41,34 @@ const RECORD_FETCHING_TYPES: ReadonlySet<unknown> = new Set(['table', 'kanban', 
 /** The table a record-fetching component is bound to, when it is bound to one. */
 const gridTable = (node: Readonly<Record<string, unknown>>): string | undefined => {
   if (!RECORD_FETCHING_TYPES.has(node['type'])) return undefined
-  const dataSource = node['dataSource'] as { readonly table?: unknown } | undefined
-  return typeof dataSource?.table === 'string' ? dataSource.table : undefined
+  const table = keyOf(node['dataSource'], 'table')
+  return typeof table === 'string' ? table : undefined
 }
 
 /** Every data grid in `items` with the language its translatable fields read in. */
 export const withGridRecordLanguage = (
-  items: ReadonlyArray<Component | string>,
+  items: ReadonlyArray<ComponentEntry>,
   context: GridLanguageContext
-): ReadonlyArray<Component | string> => {
+): ReadonlyArray<ComponentEntry> => {
   const { hostApp } = context
   if (hostApp.languages === undefined) return items
   const lang = context.mounted ? hostApp.languages.default : context.lang
-  const stamp = (item: Component | string): Component | string => {
+  const stamp = (item: ComponentEntry): ComponentEntry => {
     if (typeof item === 'string') return item
-    const node = item as Readonly<Record<string, unknown>>
+    const component = entryAsComponent(item)
+    const node = componentFields(component)
     const { children } = node
     const walked = Array.isArray(children)
-      ? { ...node, children: (children as ReadonlyArray<Component | string>).map(stamp) }
-      : node
+      ? rewriteComponent(component, {
+          children: (children as ReadonlyArray<ComponentEntry>).map(stamp),
+        })
+      : component
     const table = gridTable(node)
     if (table === undefined || translatableFieldNamesOf(hostApp, table).length === 0) {
-      return walked as Component
+      return walked
     }
     const dataSource = node['dataSource'] as Readonly<Record<string, unknown>>
-    return { ...walked, dataSource: { ...dataSource, lang } } as Component
+    return rewriteComponent(walked, { dataSource: { ...dataSource, lang } })
   }
   return items.map(stamp)
 }

@@ -19,12 +19,12 @@
 
 import { Clock, Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
+import { AutomationScheduler } from '@/application/ports/services/automation-scheduler'
 import { BrowserDriver } from '@/application/ports/services/browser-driver'
 import { defaultActionHandlers } from './action-handlers'
 import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
 import { planConfirmationResume } from './run/resume-plan'
 import { runResumedSegment } from './run/resume-segment'
-import { registerCancellationIfAbsent, unregisterCancellationOf } from './run/scheduler'
 import type {
   ApprovalRunTarget,
   ResolveApprovalError,
@@ -58,7 +58,6 @@ const resumeApproved = (input: {
   readonly runId: string
   readonly target: ApprovalRunTarget
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
 }) =>
   Effect.gen(function* () {
     const runs = yield* AutomationRunRepository
@@ -82,7 +81,6 @@ const resumeApproved = (input: {
     }
     yield* runResumedSegment({
       app: input.app,
-      processEnv: input.processEnv,
       handlers: defaultActionHandlers,
       automation: input.target.automation,
       automationId: run.automationId,
@@ -101,7 +99,6 @@ export const settleBrowserConfirmation = (input: {
   readonly target: ApprovalRunTarget
   readonly decision: 'approved' | 'rejected'
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
 }): Effect.Effect<ResolveApprovalResult, ResolveApprovalError, ResolveRequirements> =>
   Effect.gen(function* () {
     const { runId, approvalId, decision } = input
@@ -117,14 +114,12 @@ export const settleBrowserConfirmation = (input: {
       })
       return { decision, runId, approvalId }
     }
-    const controller = registerCancellationIfAbsent(runId)
+    const scheduler = yield* AutomationScheduler
     const driver = yield* BrowserDriver
-    yield* resumeApproved(input).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (controller !== undefined) unregisterCancellationOf(runId, controller)
-        })
-      ),
+    yield* Effect.scoped(
+      // Held for the resume's scope when no other caller holds the run already.
+      Effect.andThen(scheduler.registerCancellationIfAbsent(runId), resumeApproved(input))
+    ).pipe(
       // The resumed step takes the held browser back; a resume that never
       // reached it (the run was already settled, the automation changed, a
       // failure on the way) closes it here instead of leaving the filled form

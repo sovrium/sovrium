@@ -30,15 +30,16 @@ import {
   myNotificationPreferencesProgram,
   toNotificationView,
 } from '@/application/use-cases/automations/notification-programs'
+import { purgeReadNotifications } from '@/application/use-cases/automations/purge-read-notifications'
 import {
   listNotificationsResponseSchema,
   markAllNotificationsReadResponseSchema,
   markNotificationReadResponseSchema,
   notificationPreferencesResponseSchema,
+  notificationRetentionResponseSchema,
   updateNotificationPreferencesRequestSchema,
-} from '@/domain/models/api/notifications/notifications'
+} from '@/domain/models/api/automations/notifications'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
-import { purgeReadNotifications } from '@/infrastructure/database/notification-retention'
 import { notFound, unauthorized } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import {
@@ -172,21 +173,26 @@ const handlePutPreferences = async (c: Context, app: App) => {
 /** Run the read-notification retention sweep now; answers the number it deletes. */
 const handleRetentionDue = async (c: Context, app: App): Promise<Response> => {
   if (!isInternalSchedulerRequest(c)) return internalSchedulerNotFound(c)
-  return c.json({ deleted: await purgeReadNotifications(app) }, 200)
+  return runHandlerEffect(
+    c,
+    respondWith(
+      c,
+      purgeReadNotifications(app).pipe(Effect.map((deleted) => ({ deleted }))),
+      notificationRetentionResponseSchema
+    )
+  )
 }
 
 /**
  * Chain the notification routes. `read-all` and `preferences` are registered
  * before `/:id/read` reads them as an id.
  */
-export function chainNotificationRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
+export function chainNotificationRoutes<T extends Hono>(honoApp: T, app: App): T {
   return honoApp
     .get('/api/notifications', handleList)
     .post('/api/notifications/read-all', handleMarkAllRead)
-    .get('/api/notifications/preferences', (c) => handleGetPreferences(c, resolveApp()))
-    .put('/api/notifications/preferences', (c) => handlePutPreferences(c, resolveApp()))
+    .get('/api/notifications/preferences', (c) => handleGetPreferences(c, app))
+    .put('/api/notifications/preferences', (c) => handlePutPreferences(c, app))
     .post('/api/notifications/:id/read', handleMarkRead)
-    .post('/api/internal/notifications/retention-due', (c) =>
-      handleRetentionDue(c, resolveApp())
-    ) as T
+    .post('/api/internal/notifications/retention-due', (c) => handleRetentionDue(c, app)) as T
 }

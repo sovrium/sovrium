@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import path from 'node:path'
 import { Cause, Data, Effect } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { StaticOutputWriter } from '@/application/ports/services/static-output-writer'
 import { prebuildSearchIndex } from '@/application/use-cases/server/prebuild-search-index'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { searchIndexDir, searchIndexRoot } from '@/domain/models/process-env/data-dir'
@@ -42,32 +45,28 @@ const isProcessAlive = (pid: number): boolean => {
  * remove the ones left by processes that are no longer running, so a data
  * directory holds one index per live server rather than one per start.
  */
-const prepareSearchIndexDir = (): Effect.Effect<string, SearchIndexDirError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const { mkdir, readdir, rm } = await import('node:fs/promises')
-      const { join } = await import('node:path')
-      const root = searchIndexRoot()
-      const own = searchIndexDir()
-      // eslint-disable-next-line functional/no-expression-statements -- create this process's directory
-      await mkdir(own, { recursive: true })
-      const entries = await readdir(root)
-      // Only a directory named by a plain process id is ours to judge: a
-      // `-1` or `0` would ask `kill` about a whole process group.
-      const stale = entries.filter((name) => {
-        const pid = Number(name)
-        return /^[1-9]\d*$/.test(name) && pid !== process.pid && !isProcessAlive(pid)
-      })
-      // One removal at a time: a handful of dead-process directories, no pool involved.
-      await stale.reduce<Promise<void>>(
-        (previous, name) =>
-          previous.then(() => rm(join(root, name), { recursive: true, force: true })),
-        Promise.resolve()
-      )
-      return own
-    },
-    catch: (cause) => new SearchIndexDirError({ cause }),
-  })
+const prepareSearchIndexDir = (
+  env: Readonly<Record<string, string | undefined>>
+): Effect.Effect<string, SearchIndexDirError, StaticOutputWriter> =>
+  Effect.gen(function* () {
+    const fs = yield* StaticOutputWriter
+    const root = searchIndexRoot(env)
+    const own = searchIndexDir(env, process.pid)
+    yield* fs.makeDirectory(own)
+    const entries = yield* fs.readDirectory(root)
+    // Only a directory named by a plain process id is ours to judge: a
+    // `-1` or `0` would ask `kill` about a whole process group.
+    const stale = entries.filter((name) => {
+      const pid = Number(name)
+      return /^[1-9]\d*$/.test(name) && pid !== process.pid && !isProcessAlive(pid)
+    })
+    // One removal at a time: a handful of dead-process directories, no pool involved.
+    yield* Effect.forEach(stale, (name) => fs.remove(path.join(root, name)), {
+      concurrency: 1,
+      discard: true,
+    })
+    return own
+  }).pipe(Effect.mapError(({ cause }) => new SearchIndexDirError({ cause })))
 
 /**
  * Warn when the app's own `public/` folder ships a `sovrium-search/` directory.
@@ -81,18 +80,10 @@ const prepareSearchIndexDir = (): Effect.Effect<string, SearchIndexDirError> =>
 const warnOnShadowedPublicSearch = (
   publicDir: string | undefined,
   logger: Context.Service.Shape<typeof Logger>
-): Effect.Effect<void> =>
+): Effect.Effect<void, never, StaticOutputWriter> =>
   publicDir === undefined
     ? Effect.void
-    : // effect-promise: total -- both outcomes of `access` are mapped to a boolean; nothing rejects
-      Effect.promise(async () => {
-        const { access } = await import('node:fs/promises')
-        const { join } = await import('node:path')
-        return access(join(publicDir, 'sovrium-search')).then(
-          () => true,
-          () => false
-        )
-      }).pipe(
+    : StaticOutputWriter.use((fs) => fs.exists(path.join(publicDir, 'sovrium-search'))).pipe(
         Effect.flatMap((shadowed) =>
           shadowed
             ? logger.warn(
@@ -128,7 +119,7 @@ export const prepareSearchArtifacts = (
     ? Effect.void
     : Effect.gen(function* () {
         yield* warnOnShadowedPublicSearch(options.publicDir, logger)
-        const dir = yield* prepareSearchIndexDir()
+        const dir = yield* prepareSearchIndexDir(yield* ProcessEnv)
         yield* prebuildSearchIndex(rawApp, validatedApp, dir)
       }).pipe(
         Effect.asVoid,

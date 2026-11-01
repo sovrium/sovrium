@@ -33,7 +33,7 @@
  *
  * ## The one conversion: chart hues to `#rrggbb`
  *
- * The four values {@link ACCESSIBILITY_FLOOR} names are raised to the WCAG
+ * The six values {@link ACCESSIBILITY_FLOOR} names are raised to the WCAG
  * 2.1 AA contrast minimum before anything else reads the snapshot.
  *
  * Every other value is emitted as the snapshot spells it, except `chart-1` …
@@ -150,11 +150,20 @@ export const RETIRED_SV_ROLE_TWINS: Readonly<Record<string, string>> = {
  *   for the white label of the solid destructive fill. The dark value already
  *   clears 4.5:1 on its 20% tint over `background` (5.30:1) and `card`
  *   (4.63:1), so it is not floored.
+ * - light `ring` and `sidebar-ring`: shadcn's `oklch(0.708 0 0)` is 2.58:1
+ *   against the page, under the 3:1 a focus indicator needs (WCAG 2.4.11 and
+ *   1.4.11), and the focused field draws its border in it. `0.556`, the value
+ *   shadcn already gives the dark ring, reaches 4.74:1 and stays visibly
+ *   darker than the `0.65` resting field border, so focus still changes the
+ *   border. `sidebar-ring` is its own variable in the snapshot, so it is
+ *   floored beside `ring`. Both dark rings already clear 3:1 and are not
+ *   floored.
  *
  * Everything else is emitted as the snapshot spells it. The snapshot itself
  * stays byte-equal to upstream: the floor is applied here, on the reading.
- * Decisions: [internal ref] (the RGAA accessibility floor of the default design) and
- * [internal ref] (its extension to the destructive tint).
+ * Decisions: [internal ref] (the RGAA accessibility floor of the default design),
+ * [internal ref] (its extension to the destructive tint), and the focus-ring
+ * extension that followed the console accessibility review.
  */
 export const ACCESSIBILITY_FLOOR: {
   readonly light: Readonly<Record<string, string>>
@@ -164,6 +173,8 @@ export const ACCESSIBILITY_FLOOR: {
     'muted-foreground': 'oklch(0.52 0 0)',
     input: 'oklch(0.65 0 0)',
     destructive: 'oklch(0.5 0.245 27.325)',
+    ring: 'oklch(0.556 0 0)',
+    'sidebar-ring': 'oklch(0.556 0 0)',
   },
   dark: { input: 'oklch(1 0 0 / 40%)' },
 }

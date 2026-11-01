@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, flex } from '@/library/manifest/block-kit'
+import { asComponent, flex } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 const SIDEBAR: Readonly<Record<string, unknown>> = {

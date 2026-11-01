@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { GALLERY_PARTS } from '@/domain/models/app/design/component-parts'
 import { cn } from '@/presentation/design/class-merge'
 import {
   GALLERY_CARD_BODY_CLASSES,
@@ -12,9 +13,8 @@ import {
   computeGalleryGridClasses,
   computeGalleryImageClasses,
 } from '@/presentation/design/gallery-default-classes'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 import type { GalleryPartClasses } from '@/presentation/design/gallery-part-classes'
-
-const GALLERY_PARTS = ['grid', 'card', 'cover', 'body'] as const
 
 /**
  * The gallery's piece classes, recipe then the author's part (later wins), as
@@ -24,7 +24,7 @@ const GALLERY_PARTS = ['grid', 'card', 'cover', 'body'] as const
  * @param parts - The author's classes by part (`design.components.gallery` under `classes`).
  */
 export const declaredGalleryPartClasses = (
-  parts: Readonly<Record<string, string>> | undefined
+  parts: PartClassMap | undefined
 ): { readonly galleryClasses?: GalleryPartClasses } => {
   if (parts === undefined || !GALLERY_PARTS.some((part) => parts[part] !== undefined)) return {}
   return {

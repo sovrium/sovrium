@@ -24,6 +24,15 @@
 
 import { resolveRelativeDatesIn } from '@/domain/models/app/pages/components/relative-date-filter'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
+import {
+  componentField,
+  componentFields,
+  entryAsComponent,
+  rewriteComponent,
+  synthesizedComponent,
+  tableBindingOf,
+  type ComponentNode,
+} from './component-rewrite'
 import { hasCurrentUserRef, resolveFilters } from './current-user-resolver'
 import { UNAUTHORIZED, type DataSourceDb } from './data-source-contracts'
 import { bindRouteParams } from './route-param-binding'
@@ -66,7 +75,8 @@ export async function resolveCurrentUserFilters(
   ctx: CurrentUserFilterContext
 ): Promise<Component | typeof UNAUTHORIZED> {
   const dated = withRelativeDates(component, ctx.now)
-  const filters = dated.dataSource?.filter
+  const binding = tableBindingOf(dated)
+  const filters = binding?.filter
   if (!hasCurrentUserRef(filters)) return dated
 
   const result = await resolveFilters(filters, {
@@ -77,13 +87,12 @@ export async function resolveCurrentUserFilters(
   })
   if (result.kind === 'unauthorized') return UNAUTHORIZED
 
-  return {
-    ...dated,
+  return rewriteComponent(dated, {
     dataSource: {
-      ...dated.dataSource!,
+      ...binding,
       filter: result.filter,
     },
-  }
+  })
 }
 
 /**
@@ -94,12 +103,13 @@ export async function resolveCurrentUserFilters(
  * resolve.
  */
 function withRelativeDates(component: Component, now: string | undefined): Component {
-  const filter = component.dataSource?.filter
+  const binding = tableBindingOf(component)
+  const filter = binding?.filter
   if (now === undefined || filter === undefined) return component
   const resolved = resolveRelativeDatesIn(filter, now.slice(0, 10), now)
   return resolved === filter
     ? component
-    : { ...component, dataSource: { ...component.dataSource!, filter: resolved } }
+    : rewriteComponent(component, { dataSource: { ...binding, filter: resolved } })
 }
 
 /**
@@ -112,14 +122,11 @@ function withRelativeDates(component: Component, now: string | undefined): Compo
  * figure is then not this reader's to know, so the panel draws its bare label
  * — a count is an ornament on a tab, and never makes the whole page 401.
  */
-async function concreteCount(
-  count: NonNullable<Component['dataSource']>,
-  ctx: CurrentUserFilterContext
-): Promise<NonNullable<Component['dataSource']> | undefined> {
-  const host = { type: 'container', dataSource: count } as Component
+async function concreteCount(count: object, ctx: CurrentUserFilterContext): Promise<unknown> {
+  const host = synthesizedComponent({ type: 'container', dataSource: count })
   const routed = ctx.routeParams === undefined ? host : bindRouteParams(host, ctx.routeParams)
   const resolved = await resolveCurrentUserFilters(routed, ctx)
-  return resolved === UNAUTHORIZED ? undefined : (resolved.dataSource ?? count)
+  return resolved === UNAUTHORIZED ? undefined : (componentField(resolved, 'dataSource') ?? count)
 }
 
 /** A tab set's panels with every `count` made concrete; the node by reference when none changed. */
@@ -127,21 +134,21 @@ async function resolvePanelCounts(
   node: Component,
   ctx: CurrentUserFilterContext
 ): Promise<Component> {
-  const { panels } = node as { readonly panels?: unknown }
+  const { panels } = componentFields(node)
   if (!Array.isArray(panels)) return node
   const next = await Promise.all(
     panels.map(async (panel: unknown) => {
-      const { count } = (panel ?? {}) as { readonly count?: Component['dataSource'] }
+      if (typeof panel !== 'object' || panel === null) return panel
+      const { count, ...rest } = componentFields(panel)
       if (typeof count !== 'object' || count === null) return panel
       const concrete = await concreteCount(count, ctx)
       if (concrete === count) return panel
-      const { count: _dropped, ...rest } = panel as Record<string, unknown>
       return concrete === undefined ? rest : { ...rest, count: concrete }
     })
   )
   return next.every((panel, index) => panel === panels[index])
     ? node
-    : ({ ...node, panels: next } as Component)
+    : rewriteComponent(node, { panels: next })
 }
 
 type TreeNode = unknown
@@ -163,16 +170,15 @@ async function resolveResponsive(
   ctx: CurrentUserFilterContext
 ): Promise<Record<string, unknown> | typeof UNAUTHORIZED | undefined> {
   if (typeof responsive !== 'object' || responsive === null) return undefined
-  const entries = Object.entries(responsive as Record<string, unknown>)
+  const entries: readonly (readonly [string, unknown])[] = Object.entries(responsive)
   const variants = await Promise.all(
     entries.map(async ([, variant]) => {
-      const { children } = (variant ?? {}) as { readonly children?: unknown }
+      if (typeof variant !== 'object' || variant === null) return variant
+      const { children } = componentFields(variant)
       if (!Array.isArray(children)) return variant
       const resolved = await resolveList(children, ctx)
       if (resolved === UNAUTHORIZED) return UNAUTHORIZED
-      return resolved === children
-        ? variant
-        : { ...(variant as Record<string, unknown>), children: resolved }
+      return resolved === children ? variant : { ...variant, children: resolved }
     })
   )
   if (variants.some((variant) => variant === UNAUTHORIZED)) return UNAUTHORIZED
@@ -187,10 +193,10 @@ async function resolveDrawn(drawn: unknown, ctx: CurrentUserFilterContext): Prom
 
 /** A node's descendants, resolved, as the patch to spread over it (empty when unchanged). */
 async function resolveDescendants(
-  node: Record<string, unknown>,
+  node: Component,
   ctx: CurrentUserFilterContext
 ): Promise<Record<string, unknown> | typeof UNAUTHORIZED> {
-  const { children, responsive, component: drawn } = node
+  const { children, responsive, component: drawn } = componentFields(node)
   const [nextChildren, nextResponsive, nextDrawn] = await Promise.all([
     Array.isArray(children) ? resolveList(children, ctx) : children,
     resolveResponsive(responsive, ctx),
@@ -211,13 +217,13 @@ async function resolveDescendants(
  */
 async function resolveNode(node: TreeNode, ctx: CurrentUserFilterContext): Promise<Resolved> {
   if (typeof node !== 'object' || node === null || isComponentReferenceNode(node)) return node
-  const filtered = await resolveCurrentUserFilters(node as Component, ctx)
+  const filtered = await resolveCurrentUserFilters(entryAsComponent(node as ComponentNode), ctx)
   if (filtered === UNAUTHORIZED) return UNAUTHORIZED
   const own = await resolvePanelCounts(filtered, ctx)
-  const patch = await resolveDescendants(own as Record<string, unknown>, ctx)
+  const patch = await resolveDescendants(own, ctx)
   if (patch === UNAUTHORIZED) return UNAUTHORIZED
   if (own === node && Object.keys(patch).length === 0) return node
-  return { ...(own as Record<string, unknown>), ...patch }
+  return rewriteComponent(own, patch)
 }
 
 /**

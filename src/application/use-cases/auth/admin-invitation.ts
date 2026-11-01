@@ -5,18 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolvePasswordPolicy } from '@/domain/models/app/auth/password-policy'
+import { Effect } from 'effect'
+import { InvitationIssuer } from '@/application/ports/services/invitation-issuer'
+import {
+  invitationCall,
+  Invitations,
+  type InvitationServiceError,
+} from '@/application/ports/services/invitations'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   buildInvitationLink,
   invitationLinkTarget,
   type InvitationLinkPage,
 } from '@/domain/models/app/pages/invitation-link-service'
-import {
-  claimAndSetPassword,
-  markAcceptedAddressVerified,
-  USED_TOKEN_MESSAGE,
-} from './invitation-acceptance'
 import { validateInviteInput } from './invitation-input'
 import {
   findOrCreateInvitedUser,
@@ -26,9 +27,6 @@ import {
 import type {
   InvitationMailer,
   InvitationServices,
-  InvitationStore,
-  InvitationTokenRow,
-  InvitationUser,
 } from '@/application/ports/contracts/invitation-services'
 import type { Auth } from '@/domain/models/app/auth'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
@@ -54,24 +52,13 @@ export const buildAcceptInvitationUrl = (
  * The pages an invitation link may open: the app's own first, then the
  * invitation pages of what is mounted on this server (the console's).
  */
-const linkPagesOf = (params: {
-  readonly app: { readonly pages?: readonly InvitationLinkPage[] | undefined }
-  readonly services: InvitationServices
-}): readonly InvitationLinkPage[] => [
-  ...(params.app.pages ?? []),
-  ...(params.services.linkPages ?? []),
-]
+const linkPagesOf = (
+  app: { readonly pages?: readonly InvitationLinkPage[] | undefined },
+  services: InvitationServices
+): readonly InvitationLinkPage[] => [...(app.pages ?? []), ...(services.linkPages ?? [])]
 
-/**
- * Issue an admin invitation: create or reuse the user, generate and store a
- * single-use token, and send the invitation email.
- *
- * Returns the token AND the placeholder user record so the route handler
- * can both build its JSON response AND surface the bare token in the
- * `Location` header for tooling (CI, automation) when needed.
- */
-export const inviteUser = async (params: {
-  readonly services: InvitationServices
+/** What issuing an admin invitation is handed, besides the {@link Invitations} services. */
+export interface AdminInvitationInput {
   readonly authConfig: Auth | undefined
   readonly emailHandlers: InvitationMailer
   readonly baseURL: string
@@ -103,13 +90,29 @@ export const inviteUser = async (params: {
     readonly role?: unknown
     readonly password?: unknown
   }
-}): Promise<InviteUserResult> => {
+}
+
+/**
+ * Issue an admin invitation: create or reuse the user, generate and store a
+ * single-use token, and send the invitation email.
+ *
+ * Answers the token AND the placeholder user record so the route handler
+ * can both build its JSON response AND surface the bare token in the
+ * `Location` header for tooling (CI, automation) when needed.
+ */
+export const issueAdminInvitation = Effect.fn('auth.invite-user')(function* (
+  params: AdminInvitationInput
+): Effect.fn.Return<InviteUserResult, InvitationServiceError, Invitations> {
   const validation = validateInviteInput(params.body, params.app)
   if ('status' in validation) {
     return validation
   }
 
-  const findOrCreate = await findOrCreateInvitedUser(params.services, validation)
+  const services = yield* Invitations
+  const issuing = { store: services.store, engine: services.engine }
+  const findOrCreate = yield* findOrCreateInvitedUser(validation).pipe(
+    Effect.provideService(InvitationIssuer, issuing)
+  )
   if ('status' in findOrCreate) {
     return findOrCreate
   }
@@ -119,206 +122,55 @@ export const inviteUser = async (params: {
   // pass. Gating on `isAdminEquivalent` keeps the long-standing admin-issued
   // invitation byte-identical to what it was: it never touched `user_access`, and
   // it still does not.
+  const { inviterId, inviterRole } = params
   if (
-    params.inviterId !== undefined &&
-    params.inviterRole !== undefined &&
-    !isAdminEquivalent(params.inviterRole, params.app)
+    inviterId !== undefined &&
+    inviterRole !== undefined &&
+    !isAdminEquivalent(inviterRole, params.app)
   ) {
-    // eslint-disable-next-line functional/no-expression-statements -- scope inheritance is a side effect
-    await params.services.store.inheritScopeAssignments({
-      inviterId: params.inviterId,
-      inviteeId: user.id,
-      role: validation.role,
-    })
+    yield* invitationCall('inherit the inviter scope', () =>
+      services.store.inheritScopeAssignments({
+        inviterId,
+        inviteeId: user.id,
+        role: validation.role,
+      })
+    )
   }
 
-  const token = await mintInvitationToken(params, user.id)
-  if (token === undefined) {
-    return { status: 'internal-error', message: 'Failed to persist invitation token' }
-  }
-
-  // Fire-and-forget — the email handler swallows errors internally. We
-  // await so that test fixtures observing mailpit don't race the response.
-  await params.emailHandlers.invitation({
-    email: user.email,
-    name: user.name,
-    url: buildAcceptInvitationUrl(params.baseURL, token, linkPagesOf(params)),
-    inviterName: params.inviterName,
-  })
-
-  return { status: 'invited', user, token, existed }
-}
-
-/**
- * Result of a successful acceptInvitation call.
- */
-export interface AcceptInvitationSuccess {
-  readonly status: 'accepted'
-  readonly user: { readonly id: string; readonly email: string; readonly name: string }
-  /** The role the invitation granted, as the account now holds it. */
-  readonly role: string | null
-}
-
-/**
- * Result of a failed acceptInvitation call (caller maps to HTTP status).
- */
-export interface AcceptInvitationFailure {
-  readonly status: 'invalid-token' | 'expired-token' | 'invalid-input' | 'internal-error'
-  readonly message: string
-}
-
-export type AcceptInvitationResult = AcceptInvitationSuccess | AcceptInvitationFailure
-
-const isPasswordWithinPolicy = (password: string, authConfig?: Auth): string | undefined => {
-  const { minLength, maxLength } = resolvePasswordPolicy(authConfig)
-  if (password.length < minLength) return `Password must be at least ${minLength} characters`
-  if (password.length > maxLength) return `Password must not exceed ${maxLength} characters`
-  return undefined
-}
-
-/**
- * Validate the body of an accept-invitation request and the password
- * against the configured email-and-password policy. Splits validation out
- * of the main use-case so the orchestrator stays at a manageable size.
- */
-const validateAcceptInput = (
-  body: { readonly token?: unknown; readonly password?: unknown },
-  authConfig: Auth | undefined
-): { readonly token: string; readonly password: string } | AcceptInvitationFailure => {
-  const { token, password } = body
-  if (typeof token !== 'string' || token.length === 0) {
-    return { status: 'invalid-input', message: 'token is required' }
-  }
-  if (typeof password !== 'string' || password.length === 0) {
-    return { status: 'invalid-input', message: 'password is required' }
-  }
-  const policyError = isPasswordWithinPolicy(password, authConfig)
-  if (policyError) {
-    return { status: 'invalid-input', message: policyError }
-  }
-  return { token, password }
-}
-
-/**
- * Resolve the user record an invitation token was issued for.
- *
- * Re-fetches from the users table (rather than trusting the
- * verification.value blindly) so the caller has a fresh email + name to
- * use for sign-in / response building. Returns a failure result when the
- * user has been deleted between issuing and accepting (a rare race), in
- * which case the stale verification row is also removed best-effort.
- */
-const resolveTokenUser = async (
-  store: InvitationStore,
-  rowUserId: string,
-  rowId: string
-): Promise<InvitationUser | AcceptInvitationFailure> => {
-  const user = await store.findUserById(rowUserId)
-  if (!user) {
-    // eslint-disable-next-line functional/no-expression-statements -- best-effort cleanup
-    await store.deleteInvitationToken(rowId).catch(() => undefined)
-    return { status: 'invalid-token', message: USED_TOKEN_MESSAGE }
-  }
-  return user
-}
-
-/**
- * Who sent the invitation, as the `invitationAccepted` trigger hands it on:
- * `null` when no sender was recorded or the account is gone, or the lookup failed.
- */
-const inviterOf = async (
-  store: InvitationStore,
-  invitedBy: string | undefined
-): Promise<{ readonly id: string; readonly email: string; readonly name: string } | null> => {
-  if (invitedBy === undefined) return null
-  const inviter = await store.findUserById(invitedBy).catch(() => undefined)
-  return inviter === undefined ? null : { id: inviter.id, email: inviter.email, name: inviter.name }
-}
-
-/**
- * Fire the auth events an acceptance caused, in their order: `emailVerified`
- * when the address was newly verified, then `invitationAccepted` (the route's
- * sign-in fires `signIn` after). The payload carries the account, its role, who
- * invited it and when — never the link token, never the password.
- */
-const announceAcceptance = async (
-  services: InvitationServices,
-  accepted: {
-    readonly user: InvitationUser
-    readonly row: InvitationTokenRow
-    readonly newlyVerified: boolean
-  }
-): Promise<void> => {
-  const dispatch = services.dispatchAuthEvent
-  if (dispatch === undefined) return
-  const { user, row } = accepted
-  if (accepted.newlyVerified) await dispatch('emailVerified', { ...user, emailVerified: true })
-  await dispatch(
-    'invitationAccepted',
-    { ...user },
-    {
-      role: user.role ?? null,
-      invitedBy: await inviterOf(services.store, row.invitedBy),
-      invitationCreatedAt: row.createdAt?.toISOString() ?? null,
-    }
+  const token = yield* mintInvitationToken(params, user.id).pipe(
+    Effect.provideService(InvitationIssuer, issuing)
   )
-}
+  if (token === undefined) {
+    return {
+      status: 'internal-error',
+      message: 'Failed to persist invitation token',
+    } satisfies InviteUserResult
+  }
+
+  // The email handler swallows its own errors. Awaited so that test fixtures
+  // observing mailpit don't race the response.
+  yield* invitationCall('send the invitation', () =>
+    params.emailHandlers.invitation({
+      email: user.email,
+      name: user.name,
+      url: buildAcceptInvitationUrl(params.baseURL, token, linkPagesOf(params.app, services)),
+      inviterName: params.inviterName,
+    })
+  )
+
+  return { status: 'invited', user, token, existed } satisfies InviteUserResult
+})
 
 /**
- * Accept an admin invitation: validate the token, set the customer's
- * password (linking a credential account row), mark their email verified,
- * consume the token, and fire the auth events the acceptance caused.
- *
- * The route handler is responsible for translating the success result into
- * a Better Auth sign-in (so the customer ends up with a valid session
- * cookie); this function focuses purely on the token + password setup.
+ * {@link issueAdminInvitation} for a caller that is still Promise-shaped —
+ * the automation step `auth.inviteUser`. The program runs on the `run` the
+ * infrastructure built beside the services it is handed, so no use-case
+ * starts a fiber itself. A transitional adapter: it goes once that step
+ * composes the program into its own.
  */
-export const acceptInvitation = async (params: {
-  readonly services: InvitationServices
-  readonly authConfig: Auth | undefined
-  readonly body: { readonly token?: unknown; readonly password?: unknown }
-}): Promise<AcceptInvitationResult> => {
-  const validated = validateAcceptInput(params.body, params.authConfig)
-  if ('status' in validated) {
-    return validated
-  }
-
-  const row = await params.services.store.findInvitationToken(validated.token)
-  if (!row) {
-    return { status: 'invalid-token', message: USED_TOKEN_MESSAGE }
-  }
-
-  if (row.expiresAt.getTime() <= Date.now()) {
-    // eslint-disable-next-line functional/no-expression-statements -- best-effort cleanup
-    await params.services.store.deleteInvitationToken(row.id).catch(() => undefined)
-    return { status: 'expired-token', message: 'Invitation token has expired' }
-  }
-
-  const userOrFailure = await resolveTokenUser(params.services.store, row.userId, row.id)
-  if ('status' in userOrFailure) {
-    return userOrFailure
-  }
-  const user = userOrFailure
-
-  // If a credential row already exists (race condition with a parallel
-  // accept) we treat the token as consumed and return the same response.
-  if (await params.services.store.userHasCredentialPassword(user.id)) {
-    // eslint-disable-next-line functional/no-expression-statements -- best-effort cleanup
-    await params.services.store.deleteInvitationToken(row.id).catch(() => undefined)
-    return { status: 'invalid-token', message: USED_TOKEN_MESSAGE }
-  }
-
-  const setupFailure = await claimAndSetPassword(params.services, row, user.id, validated.password)
-  if (setupFailure) return setupFailure
-
-  await announceAcceptance(params.services, {
-    user,
-    row,
-    newlyVerified: await markAcceptedAddressVerified(params.services.store, user.id),
-  })
-  return {
-    status: 'accepted',
-    user: { id: user.id, email: user.email, name: user.name },
-    role: user.role ?? null,
-  }
+export const inviteUser = (
+  params: AdminInvitationInput & { readonly services: InvitationServices }
+): Promise<InviteUserResult> => {
+  const { services, ...input } = params
+  return services.run(issueAdminInvitation(input))
 }

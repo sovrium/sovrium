@@ -29,10 +29,7 @@
  */
 
 import { Effect } from 'effect'
-import {
-  produceTransformedFile,
-  removeBucketFile,
-} from '@/application/use-cases/buckets/bucket-file-programs'
+import { removeBucketFile } from '@/application/use-cases/buckets/bucket-file-programs'
 import {
   resolveDownloadBucket,
   resolveUploadBucket,
@@ -42,7 +39,6 @@ import {
   checkUploadFile,
 } from '@/application/use-cases/buckets/upload-policy'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { isImageKey } from '@/domain/kernel/identity/mime-types'
 import { isChatAttachmentKey } from '@/domain/kernel/identity/storage-key'
 import {
   bucketPermissionNeedsRole,
@@ -51,51 +47,29 @@ import {
   type BucketFileCaller,
 } from '@/domain/models/app/buckets/bucket-file-access-validation'
 import {
-  buildTransformCacheKey,
-  buildTransformETag,
-} from '@/domain/models/app/buckets/image-transform-cache-key'
-import {
-  hasTransformParams,
-  downloadTransformParams,
-} from '@/domain/models/app/buckets/image-transform-params'
-import {
-  parsePresetEnv,
-  resolvePresetTransform,
-} from '@/domain/models/app/buckets/image-transform-presets'
-import {
   isFilePublic,
   resolveStoragePublicAccess,
 } from '@/domain/models/process-env/storage/storage-public-access'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
-import { resolveTransformOutputFormat } from '@/infrastructure/storage/apply-image-transform'
-import {
-  evictTransformCacheForKey,
-  getCachedTransform,
-  setCachedTransform,
-} from '@/infrastructure/storage/transform-cache'
-import {
-  buildTransformResponse,
-  storageFailureResponse,
-  transformFailureResponse,
-  TRANSFORM_CACHE_CONTROL,
-} from '@/presentation/api/buckets/download-response'
+import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
+import { planDownload } from '@/presentation/api/buckets/download-response'
 import { deleteFailureResponse, persistUpload } from '@/presentation/api/buckets/file-writes'
 import { refuseUnlessOwnerOrAdmin } from '@/presentation/api/buckets/object-ownership-gate'
 import { createHandleSignedServe } from '@/presentation/api/buckets/signed-download'
 import { createHandleBatchSign } from '@/presentation/api/buckets/signed-url-batch'
 import { createHandleSign, createHandleSignedUpload } from '@/presentation/api/buckets/signed-urls'
-import { defaultWriteGrant, deleteGrant, denyWrite } from '@/presentation/api/buckets/write-gate'
+import { defaultWriteGrant, deleteRefusal, denyWrite } from '@/presentation/api/buckets/write-gate'
+import { acceptsUploadBody } from '@/presentation/api/middleware/request-body-limit'
 import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { answerFailures, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import { rejectUpload } from '@/presentation/api/runtime/upload-rejection'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type {
+  AuthDatabaseError,
+  AuthRepository,
+} from '@/application/ports/repositories/auth/auth-repository'
 import type { App } from '@/domain/models/app'
 import type { Bucket } from '@/domain/models/app/buckets'
-import type { TransformParams } from '@/domain/models/app/buckets/image-transform-params'
 import type { BucketFileAction } from '@/domain/models/app/buckets/permissions'
 import type { Context, Hono } from 'hono'
 
@@ -111,7 +85,7 @@ import type { Context, Hono } from 'hono'
  * (e.g. `<uuid>-<original-filename>`).
  */
 function createHandleGetBucketFile(app: App) {
-  return async (c: Context) => {
+  return (c: Context): Promise<Response> | Response => {
     // The upload resolution, then the engine-owned avatar bucket (`resolveDownloadBucket`).
     const bucket = resolveDownloadBucket(app, c.req.param('bucketName'))
     if (!bucket) {
@@ -128,148 +102,42 @@ function createHandleGetBucketFile(app: App) {
     // the storage key as public. Either short-circuits the read gate: the
     // documented model associates `permissions.download` with the private row,
     // so a declared `download` does not narrow a public bucket.
-    if (!isPublicBucketFile(bucket, isFilePublic(resolveStoragePublicAccess(), key))) {
-      // Otherwise the bucket's `permissions.download` decides, falling back to
-      // the platform's long-standing "a session is required" gate when the
-      // action is undeclared.
-      const session = getSessionContext(c)
-      const allowed = await canAct(c, {
-        bucket,
-        action: 'download',
-        session,
-        undeclaredGrant: session !== undefined,
-        app,
-      })
-      if (!allowed) {
-        // 404 for BOTH the anonymous and the wrong-role denial: `GET` is the
-        // enumeration surface, so it must never distinguish "absent" from
-        // "forbidden" (S1 — a buckets bucket spec sets the anonymous half).
-        return notFound(c)
-      }
+    if (isPublicBucketFile(bucket, isFilePublic(resolveStoragePublicAccess(process.env), key))) {
+      return answerDownload(c, key, bucket.name)
     }
 
-    // A chat attachment is served by the chat's route alone: here it is absent.
-    if (isChatAttachmentKey(key)) return notFound(c, 'File not found')
-    return serveTransformedDownload(c, key, bucket.name)
-  }
-}
-
-/**
- * Resolve any on-the-fly image transform request for a bucket download and
- * stream the result. Handles `?width=&height=&fit=&format=&quality=`
- * plus the named `?preset=` shorthand (resolved from the operator-controlled
- * `STORAGE_TRANSFORM_PRESETS` env var).
- *
- * Invalid transform parameters (the withdrawn `crop`, an unsupported `fit` or
- * `format`, an unknown preset name, or a `?preset=` with no presets configured)
- * are rejected with HTTP 400 before the storage lookup runs. Even without
- * explicit transform params, an image download may still be transcoded by
- * `Accept`-header format negotiation, so the default-params path always runs.
- */
-async function serveTransformedDownload(
-  c: Context,
-  key: string,
-  bucket: string
-): Promise<Response> {
-  const query = c.req.query()
-  const hasPreset = query['preset'] !== undefined && query['preset'] !== ''
-  if (!hasPreset && !hasTransformParams(query)) {
-    return serveFileDownload(c, key, downloadTransformParams(key), bucket)
-  }
-
-  const presets = parsePresetEnv(process.env['STORAGE_TRANSFORM_PRESETS'])
-  // A preset-env parse error is an operator misconfiguration — the server
-  // startup path rejects it, so by the time a
-  // request runs the env is known-valid. Defensive 400 keeps types total.
-  const parsed = presets.ok
-    ? resolvePresetTransform(query, presets.presets)
-    : { ok: false as const, error: presets.error }
-  if (!parsed.ok) {
-    return c.json(storageErrorBody(parsed.error, 'BAD_REQUEST'), 400)
-  }
-  // Explicit transform params (e.g. `?width=`) only apply to images.
-  // Reject non-image files up front with HTTP 400 — a PDF or text file
-  // cannot be resized/transcoded, so the request is a client error.
-  if (!isImageKey(key)) {
-    return c.json(
-      storageErrorBody('Transform parameters can only be applied to image files', 'BAD_REQUEST'),
-      400
+    // Otherwise the bucket's `permissions.download` decides, falling back to
+    // the platform's long-standing "a session is required" gate when the
+    // action is undeclared.
+    const session = getSessionContext(c)
+    return runHandlerEffect(
+      c,
+      answerFailures(
+        c,
+        Effect.gen(function* () {
+          const allowed = yield* canAct({
+            bucket,
+            action: 'download',
+            session,
+            undeclaredGrant: session !== undefined,
+            app,
+          })
+          // 404 for BOTH the anonymous and the wrong-role denial: `GET` is the
+          // enumeration surface, so it must never distinguish "absent" from
+          // "forbidden" (S1 — a buckets bucket spec sets the anonymous half).
+          if (!allowed) return notFound(c)
+          const download = planDownload(c, key, bucket.name)
+          return Effect.isEffect(download) ? yield* download : download
+        })
+      )
     )
   }
-  return serveFileDownload(c, key, parsed.params, bucket)
 }
 
-/**
- * Stream a file's bytes back to the client, transformed if the request asked
- * for it and cached by ETag either way.
- *
- * A matching `If-None-Match` short-circuits to 304 before storage is touched,
- * and a cache hit serves the previously transformed bytes directly; only a miss
- * reaches the application program.
- */
-async function serveFileDownload(
-  c: Context,
-  key: string,
-  transform: TransformParams,
-  bucket: string
-): Promise<Response> {
-  const acceptHeader = c.req.header('Accept')
-  const resolvedFormat = resolveTransformOutputFormat(transform, acceptHeader)
-  const cacheKey = buildTransformCacheKey(key, transform, resolvedFormat, bucket)
-  const etag = buildTransformETag(cacheKey)
-
-  if (c.req.header('If-None-Match') === etag) {
-    return c.body(null, 304, { 'Cache-Control': TRANSFORM_CACHE_CONTROL, ETag: etag })
-  }
-
-  const hit = getCachedTransform(cacheKey)
-  if (hit !== undefined) {
-    return buildTransformResponse(key, hit)
-  }
-
-  return produceTransformResponse(c, key, transform, { cacheKey, etag, acceptHeader, bucket })
-}
-
-/**
- * Cache-miss path of {@link serveFileDownload}: produce the transformed bytes,
- * populate the transform cache, and build the HTTP response.
- */
-async function produceTransformResponse(
-  c: Context,
-  key: string,
-  transform: TransformParams,
-  ctx: {
-    readonly cacheKey: string
-    readonly etag: string
-    readonly acceptHeader?: string
-    readonly bucket: string
-  }
-): Promise<Response> {
-  const result = await runRequestEffect(
-    c,
-    provideDomain(
-      c,
-      produceTransformedFile({
-        key,
-        bucket: ctx.bucket,
-        transform,
-        acceptHeader: ctx.acceptHeader,
-      })
-    ).pipe(Effect.result)
-  )
-
-  if (result._tag === 'Failure') {
-    const { failure } = result
-    return failure._tag === 'ImageTransformRejected'
-      ? transformFailureResponse(c, failure.failure)
-      : storageFailureResponse(c, failure, '[buckets] download (transform path) failed')
-  }
-
-  const cached = { ...result.success, etag: ctx.etag }
-  // Populate the cache so identical subsequent requests skip the transform.
-  setCachedTransform(ctx.cacheKey, cached)
-
-  return buildTransformResponse(key, cached)
+/** Serve a download no gate stands before: only a cache miss runs a program. */
+const answerDownload = (c: Context, key: string, bucket: string): Promise<Response> | Response => {
+  const download = planDownload(c, key, bucket)
+  return Effect.isEffect(download) ? runHandlerEffect(c, download) : download
 }
 
 /**
@@ -298,21 +166,19 @@ async function produceTransformResponse(
  * that deleting the gate cannot leave the check green. Moving it needs that
  * pin moved in the same change-set.
  */
-async function canAct(
-  c: Context,
-  input: {
-    readonly bucket: Bucket
-    readonly action: BucketFileAction
-    readonly session: UserSession | undefined
-    readonly undeclaredGrant: boolean
-    /** The app's role ladder: its top role outranks a role list like `admin`. */
-    readonly app: App
-  }
-): Promise<boolean> {
+function canAct(input: {
+  readonly bucket: Bucket
+  readonly action: BucketFileAction
+  readonly session: UserSession | undefined
+  readonly undeclaredGrant: boolean
+  /** The app's role ladder: its top role outranks a role list like `admin`. */
+  readonly app: App
+}) {
   const { bucket, action, session, undeclaredGrant, app } = input
   const permission = bucket.permissions?.[action]
-  const caller = await bucketCaller(c, permission, session)
-  return permitsBucketFileAction(permission, caller, { undeclaredGrant, app })
+  return Effect.map(bucketCaller(permission, session), (caller) =>
+    permitsBucketFileAction(permission, caller, { undeclaredGrant, app })
+  )
 }
 
 /**
@@ -320,15 +186,14 @@ async function canAct(
  * is decidable from session presence alone, so the `getUserRole` round-trip is
  * deferred until the ladder will actually read the role.
  */
-async function bucketCaller(
-  c: Context,
+function bucketCaller(
   permission: Parameters<typeof bucketPermissionNeedsRole>[0],
   session: UserSession | undefined
-): Promise<BucketFileCaller | undefined> {
-  if (session === undefined) return undefined
+): Effect.Effect<BucketFileCaller | undefined, AuthDatabaseError, AuthRepository> {
+  if (session === undefined) return Effect.undefined
   return bucketPermissionNeedsRole(permission)
-    ? { role: await runDomainPromise(c, getUserRole(session.userId)) }
-    : {}
+    ? Effect.map(getUserRole(session.userId), (role) => ({ role }))
+    : Effect.succeed({})
 }
 
 /**
@@ -338,9 +203,9 @@ async function bucketCaller(
  * are rejected early (HTTP 413) regardless of auth state.
  * Rejects filenames containing path traversal sequences (e.g. ../).
  *
- * Gated by `permissions.upload` after file validation. `public: true` grants
- * reads, never writes — an anonymous write on an auth-enabled app needs the
- * explicit `upload: 'all'` grant (401 anonymous / 404 wrong-role).
+ * Gated by `permissions.upload` after file validation. `public: true` never widens
+ * a write: undeclared, a public bucket admits an admin only (`defaultWriteGrant`);
+ * an anonymous write needs `upload: 'all'` (401 anonymous / 404 wrong-role).
  */
 function createHandlePostBucketFile(app: App) {
   return async (c: Context) => {
@@ -372,88 +237,96 @@ function createHandlePostBucketFile(app: App) {
     // Permission gate — deliberately AFTER the validations above, so the 400 /
     // 413 rejections stay reachable without a session.
     const session = getSessionContext(c)
-    if (
-      !(await canAct(c, {
-        bucket,
-        action: 'upload',
-        session,
-        undeclaredGrant: defaultWriteGrant(app, bucket, session),
-        app,
-      }))
-    ) {
-      return denyWrite(c, session)
-    }
+    return runHandlerEffect(
+      c,
+      answerFailures(
+        c,
+        Effect.gen(function* () {
+          const allowed = yield* canAct({
+            bucket,
+            action: 'upload',
+            session,
+            undeclaredGrant: yield* defaultWriteGrant(app, bucket, session),
+            app,
+          })
+          if (!allowed) return denyWrite(c, session)
 
-    // An explicit `path` can name a key that already holds somebody's object:
-    // replacing it is a write over THAT object, judged per object.
-    const refusal = await refuseUnlessOwnerOrAdmin(c, {
-      app,
-      bucket,
-      action: 'upload',
-      session,
-      key: explicitPath,
-    })
-    if (refusal) return refusal
+          // An explicit `path` can name a key that already holds somebody's object:
+          // replacing it is a write over THAT object, judged per object.
+          const refusal = yield* refuseUnlessOwnerOrAdmin(c, {
+            app,
+            bucket,
+            action: 'upload',
+            session,
+            key: explicitPath,
+          })
+          if (refusal) return refusal
 
-    return persistUpload(c, file, { bucket: bucket.name, session }, explicitPath)
+          return yield* persistUpload(c, file, { bucket: bucket.name, session }, explicitPath)
+        })
+      )
+    )
   }
 }
 
 /**
  * Handle DELETE /api/buckets/:bucketName/files/:filename - Delete a file from a bucket
  *
- * Gated by `permissions.delete` (401 anonymous / 404 wrong-role); like upload,
- * `public: true` confers no write. When the bucket leaves `delete` undeclared,
- * only the object's uploader or an admin may remove it, and anyone else gets
- * the unknown key's 404. Returns 204 on successful deletion, 404 if the file
- * does not exist.
+ * Gated by `permissions.delete` (`deleteRefusal`: 401 anonymous, 404 wrong role, and on an
+ * app with no `auth` block the unknown key's 404); `public: true` confers no write. An
+ * undeclared `delete` admits only the object's uploader or an admin: anyone else gets the
+ * unknown key's 404. Returns 204 on successful deletion, 404 if the file does not exist.
  */
 function createHandleDeleteBucketFile(app: App) {
-  return async (c: Context) => {
+  return (c: Context): Promise<Response> | Response => {
     const bucket = resolveUploadBucket(app, c.req.param('bucketName'))
     if (!bucket) {
       return notFound(c, 'Bucket not found')
     }
 
     const session = getSessionContext(c)
-    const caller = await bucketCaller(c, bucket.permissions?.delete, session)
-    if (!deleteGrant(app, bucket, caller)) return denyWrite(c, session)
-
-    const key = c.req.param('filename')
-    if (!key) {
-      return c.json(storageErrorBody('Missing filename', 'BAD_REQUEST'), 400)
-    }
-
-    const refusal = await refuseUnlessOwnerOrAdmin(c, {
-      app,
-      bucket,
-      action: 'delete',
-      session,
-      key,
-    })
-    if (refusal) return refusal
-    // A chat attachment is deleted with its conversation only: here it is absent.
-    if (isChatAttachmentKey(key)) return notFound(c, 'File not found')
-
-    const result = await runRequestEffect(
+    return runHandlerEffect(
       c,
-      provideDomain(c, removeBucketFile({ key, bucket: bucket.name })).pipe(Effect.result)
+      answerFailures(
+        c,
+        Effect.gen(function* () {
+          const caller = yield* bucketCaller(bucket.permissions?.delete, session)
+          const denied = deleteRefusal(c, { app, bucket, caller, session })
+          if (denied !== undefined) return denied
+
+          const key = c.req.param('filename')
+          if (!key) {
+            return c.json(storageErrorBody('Missing filename', 'BAD_REQUEST'), 400)
+          }
+
+          const refusal = yield* refuseUnlessOwnerOrAdmin(c, {
+            app,
+            bucket,
+            action: 'delete',
+            session,
+            key,
+          })
+          if (refusal) return refusal
+          // A chat attachment is deleted with its conversation only: here it is absent.
+          if (isChatAttachmentKey(key)) return notFound(c, 'File not found')
+
+          const result = yield* Effect.result(removeBucketFile({ key, bucket: bucket.name }))
+          if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)
+
+          // The file is gone from storage — drop every cached transform derived from
+          // its key so a later download (with or without transform params) returns
+          // 404 instead of serving stale cached transformed bytes.
+          evictTransformCacheForKey(key)
+
+          return c.body(null, 204)
+        })
+      )
     )
-    if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)
-
-    // The file is gone from storage — drop every cached transform derived from
-    // its key so a later download (with or without transform params) returns
-    // 404 instead of serving stale cached transformed bytes.
-    evictTransformCacheForKey(key)
-
-    return c.body(null, 204)
   }
 }
 
 /**
- * Chain bucket routes onto a Hono app
- *
- * Provides:
+ * Chain bucket routes onto a Hono app. Provides:
  * - GET /api/buckets/:bucketName/files/:filename - Download a file (auth-gated for private buckets)
  * - POST /api/buckets/:bucketName/files - Upload a file (enforces maxFileSize, auth-gated for private buckets)
  * - DELETE /api/buckets/:bucketName/files/:filename - Delete a file (auth-gated for private buckets)
@@ -469,11 +342,11 @@ export function chainBucketRoutes<T extends Hono>(honoApp: T, app: App): T {
   // so path-prefixed public files resolve as a single `filename` param.
   const routedApp = honoApp
     .get('/api/buckets/:bucketName/files/:filename{.+}', createHandleGetBucketFile(app))
-    .post('/api/buckets/:bucketName/files', createHandlePostBucketFile(app))
+    .post('/api/buckets/:bucketName/files', acceptsUploadBody(createHandlePostBucketFile(app)))
     .on('DELETE', '/api/buckets/:bucketName/files/:filename{.+}', createHandleDeleteBucketFile(app))
     .post('/api/buckets/:bucketName/sign/batch', createHandleBatchSign(app))
     .post('/api/buckets/:bucketName/sign', createHandleSign(app))
     .get('/api/buckets/:bucketName/signed', createHandleSignedServe(app))
-    .put('/api/buckets/:bucketName/signed', createHandleSignedUpload(app))
+    .put('/api/buckets/:bucketName/signed', acceptsUploadBody(createHandleSignedUpload(app)))
   return routedApp as T
 }

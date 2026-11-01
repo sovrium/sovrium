@@ -6,7 +6,11 @@
  */
 
 import { type ReactElement } from 'react'
-import { buildAnalyticsBeaconScript } from '@/presentation/render/page/analytics-beacon-script'
+import { InlineScript } from '@/presentation/design/inline-script'
+import {
+  type AnalyticsBeaconSettings,
+  buildAnalyticsBeaconScript,
+} from '@/presentation/render/page/analytics-beacon-script'
 import {
   COMMAND_PALETTE_CAPTURE_SCRIPT,
   hasCommandPaletteHost,
@@ -16,9 +20,11 @@ import {
 import { IslandImportMap } from '@/presentation/render/page/island-entry-script'
 import { IslandPreloadLinks } from '@/presentation/render/page/island-preload-links'
 import { PageHead } from '@/presentation/render/page/page-head'
+import { withFrontmatterCards } from '@/presentation/render/page/page-head-cards'
 // Island-runtime detection lives in page-island-detection.ts (extracted on main);
 // this file keeps only interactive-runtime detection, which shares the same
 // reference-aware walker so a template-hosted action button also ships client.js.
+import type { FeedAnnouncement } from './page-alternates'
 import type { Design } from '@/domain/models/app/design'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
@@ -43,10 +49,11 @@ export type DynamicPageHeadProps = {
   readonly languages?: Languages
   readonly scripts: ReturnType<typeof groupScriptsByPosition>
   readonly builtInAnalyticsEnabled?: boolean
-  readonly builtInAnalyticsSessionTimeout?: number
-  readonly contentDirSeo?: ResolvedMarkdownPage['seo']
-  /** Title of the feed this page announces — see `PageHeadProps.feedTitle`. */
-  readonly feedTitle?: string
+  readonly builtInAnalyticsSettings?: AnalyticsBeaconSettings
+  /** The rendered article: its synthesised SEO, and the frontmatter its declared cards read. */
+  readonly markdownPayload?: Pick<ResolvedMarkdownPage, 'seo' | 'frontmatter'>
+  /** The feed this page announces — see `PageHeadProps.feed`. */
+  readonly feed?: FeedAnnouncement | undefined
 }
 
 /**
@@ -68,14 +75,15 @@ export function DynamicPageHead({
   languages,
   scripts,
   builtInAnalyticsEnabled,
-  builtInAnalyticsSessionTimeout,
-  contentDirSeo,
-  feedTitle,
+  builtInAnalyticsSettings,
+  markdownPayload,
+  feed,
 }: DynamicPageHeadProps): Readonly<ReactElement> {
   // Inline analytics script if enabled (contains /api/analytics/collect endpoint)
-  const analyticsScript = builtInAnalyticsEnabled
-    ? buildAnalyticsBeaconScript(mergedPage.name || 'app', builtInAnalyticsSessionTimeout)
-    : undefined
+  const analyticsScript =
+    builtInAnalyticsEnabled && builtInAnalyticsSettings
+      ? buildAnalyticsBeaconScript(mergedPage.name || 'app', builtInAnalyticsSettings)
+      : undefined
 
   return (
     <head>
@@ -86,18 +94,16 @@ export function DynamicPageHead({
           as a synchronous inline script can, minimizing the window in which a
           post-navigation ⌘K could land before the listener is live. */}
       {hasCommandPaletteHost(mergedPage.components) && (
-        // eslint-disable-next-line sovrium/require-sanitized-html -- engine-authored runtime script constant; no config or record value is interpolated into it
-        <script dangerouslySetInnerHTML={{ __html: COMMAND_PALETTE_CAPTURE_SCRIPT }} />
+        <InlineScript source={COMMAND_PALETTE_CAPTURE_SCRIPT} />
       )}
       {/* The mobile drawer toggle, on its OWN gate. Riding inside the palette
           capture above would leave a page with a sidebar and no palette with
           no way to open its navigation on a narrow viewport. */}
       {hasDrawerSidebar(mergedPage.components) && (
-        // eslint-disable-next-line sovrium/require-sanitized-html -- engine-authored runtime script constant; no config or record value is interpolated into it
-        <script dangerouslySetInnerHTML={{ __html: SIDEBAR_DRAWER_TOGGLE_SCRIPT }} />
+        <InlineScript source={SIDEBAR_DRAWER_TOGGLE_SCRIPT} />
       )}
       <PageHead
-        page={mergedPage}
+        page={withFrontmatterCards(mergedPage, markdownPayload?.frontmatter)}
         design={design}
         directionStyles={directionStyles}
         cssHref={cssHref}
@@ -108,8 +114,8 @@ export function DynamicPageHead({
         lang={lang}
         languages={languages}
         scripts={scripts}
-        contentDirSeo={contentDirSeo}
-        feedTitle={feedTitle}
+        contentDirSeo={markdownPayload?.seo}
+        feed={feed}
       />
       <IslandPreloadLinks hrefs={islandPreloadHrefs} />
       {/* eslint-disable-next-line sovrium/require-sanitized-html -- engine beacon script; its one config value (the page name) is JSON-encoded by serializeJsonForScript */}

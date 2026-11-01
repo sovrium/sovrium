@@ -31,10 +31,14 @@
  * below are the narrowest projection each rule actually reads.
  */
 
+import { validateCodeTokenColors } from './code-token-validation'
+
 /** The projection of an app config these rules read. Deliberately not `App`. */
 interface DesignValidationInput {
   readonly design?: {
     readonly colors?: Readonly<Record<string, unknown>>
+    readonly darkColors?: Readonly<Record<string, unknown>>
+    readonly code?: { readonly tokens?: Readonly<Record<string, string | undefined>> }
     // The two VALUE fields are what rule 2 branches on and what rule 2b reads;
     // the two prose fields are carried only so a caller may pass a whole role
     // entry without the excess-property check refusing it.
@@ -353,7 +357,7 @@ const validateZoneRules = (app: DesignValidationInput): string | true => {
 }
 
 /**
- * Run all five `design` cross-key rules, first failure wins.
+ * Run all six `design` cross-key rules, first failure wins.
  *
  * Ordered deliberately: the colour rules first, because a role that names
  * nothing is a more immediate problem than the value it points at, and
@@ -375,6 +379,11 @@ export const validateAllDesignReferences = (app: DesignValidationInput): string 
   // value first sends the author to the wrong line.
   const rampRefs = validateRampReferences(app)
   if (rampRefs !== true) return rampRefs
+
+  // The code-token colours AFTER the colour rules: they resolve names against
+  // `design.colors` and through ramps, which must be known to resolve first.
+  const codeTokens = validateCodeTokenColors(app.design)
+  if (codeTokens !== true) return codeTokens
 
   const typeScale = validateTypeScaleFontReferences(app)
   if (typeScale !== true) return typeScale

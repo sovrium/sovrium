@@ -46,11 +46,7 @@ export {
 } from './migration-utils'
 
 // Table effect operations
-export type { MigrationConfig } from './table-effects'
-export {
-  migrateExistingTableEffect,
-  createNewTableEffect,
-  createLookupViewsEffect,
-  createTableViewsEffect,
-  createOrMigrateTableEffect,
-} from './table-effects'
+export type { MigrationConfig } from './table-migrate-effects'
+export { migrateExistingTableEffect } from './table-migrate-effects'
+export { createNewTableEffect, createOrMigrateTableEffect } from './table-effects'
+export { createLookupViewsEffect, createTableViewsEffect } from './table-view-effects'

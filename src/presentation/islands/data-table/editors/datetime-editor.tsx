@@ -28,7 +28,7 @@ import type { ReactElement } from 'react'
  *
  * The control DISPLAYS the instant resolved into the field's declared zone and
  * STORES an ISO-8601 instant. The zone comes from `timeZone` (capital Z) —
- * the same spelling `display-formatter.ts` reads — so the editor and the
+ * the same spelling `display-formatter-service.ts` reads — so the editor and the
  * read-only cell beside it agree by construction rather than by coincidence.
  * `DateTimeFieldSchema` also declares a lowercase `timezone` with no reader
  * anywhere; it is inert, and it is deliberately not forwarded to the browser so

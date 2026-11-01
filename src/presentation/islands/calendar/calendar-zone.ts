@@ -81,6 +81,9 @@ const offsetAt = (utcMs: number, zone: string): number => {
   return wall === undefined ? 0 : Date.parse(`${wall}Z`) - utcMs
 }
 
+// Spelled locally, not imported from `kernel/time/durations`: this module ships in
+// the island bundle, where a shared constants module becomes a chunk of its own
+// and adds a request and graph bytes to every island that mounts it.
 const DAY_MS = 86_400_000
 
 /**

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { parseDuration } from '@/domain/kernel/time/parse-duration'
 import { envReferencesIn } from '@/domain/models/app/env-reference-service'
 import { hostOf, isAllowedHost, writtenOutUrl } from './browser-host-service'
@@ -29,9 +30,6 @@ import { LOCATOR_KINDS } from './step-locator'
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** A `browser/run` action, with the automation it belongs to. */
 interface BrowserRunAt {

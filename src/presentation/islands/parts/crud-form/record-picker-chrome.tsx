@@ -10,7 +10,11 @@ import {
   computeFieldDescriptionClasses,
   computeFieldLabelClasses,
 } from '@/presentation/design/field-default-classes'
-import { fieldDescribedBy, fieldDescriptionId } from '@/presentation/design/field-display'
+import {
+  controlDescribedBy,
+  fieldDescriptionId,
+  fieldLockReasonId,
+} from '@/presentation/design/field-display'
 import {
   computeFormControlClasses,
   computeFormHelpTextClasses,
@@ -27,7 +31,7 @@ import { useFieldLineIds } from './field-id-scope'
 import { FieldLabelText } from './field-label'
 import type { RecordPicker } from './use-record-picker'
 import type { CandidateSearch } from '../use-candidate-search'
-import type { ReactElement, ReactNode } from 'react'
+import type { KeyboardEvent, ReactElement, ReactNode } from 'react'
 
 /**
  * The two presentational pieces of the form's record picker, split out of
@@ -93,6 +97,15 @@ export function FieldShell(props: {
 }
 
 /**
+ * The surface the suggestions are drawn on: shadcn's combobox popover — the
+ * popover ground, a border, a shadow, rounded — layered above the fields that
+ * follow, so in a sheet or a dialog the list is what the reader sees and
+ * clicks where it covers the next field.
+ */
+const SUGGESTIONS_SURFACE =
+  'bg-popover text-popover-foreground absolute top-full left-0 z-50 mt-1 flex w-full flex-col overflow-hidden rounded-md border p-1 shadow-md'
+
+/**
  * The popup a form picker opens under its combobox.
  *
  * `ariaLabel` is deliberately NOT the field's own label. The combobox already
@@ -108,6 +121,8 @@ export function SuggestionsPopup(props: {
   readonly multiple: boolean
   readonly onToggle: (id: string) => void
   readonly words?: PickerWords
+  /** The suggestion the arrow keys have highlighted, or -1. */
+  readonly activeIndex?: number
 }): ReactElement {
   const { search, words } = props
   // Same words and same precedence as the GRID's picker over the same records.
@@ -125,7 +140,7 @@ export function SuggestionsPopup(props: {
   return (
     <div
       id={props.id}
-      className="absolute top-full left-0 z-20 flex w-full flex-col"
+      className={SUGGESTIONS_SURFACE}
     >
       <OptionListbox
         candidates={search.candidates}
@@ -134,6 +149,8 @@ export function SuggestionsPopup(props: {
         multiple={props.multiple}
         ariaLabel="Suggestions"
         emptyLabel={emptyLabel}
+        activeIndex={props.activeIndex ?? -1}
+        optionIdPrefix={`${props.id}-option`}
       />
       {search.hasMore && (
         <button
@@ -142,7 +159,7 @@ export function SuggestionsPopup(props: {
           // does not close this popup before the click lands on it.
           onMouseDown={(e) => e.preventDefault()}
           onClick={search.loadMore}
-          className="border-border bg-card text-muted-foreground hover:bg-muted -mt-px w-full border-x border-b py-1 text-center text-sm"
+          className="text-muted-foreground hover:bg-muted w-full rounded-sm py-1 text-center text-sm"
         >
           {pickerWord(words, 'picker.loadMore')}
         </button>
@@ -173,7 +190,8 @@ export function LinkCount(props: {
 /** The field's guidance, then the refusal line when there is one. */
 function describedBy(field: FieldDef, errorId: string | undefined, descriptionId: string) {
   const own = field.description === undefined ? undefined : descriptionId
-  const ids = [own, errorId].filter((id): id is string => id !== undefined)
+  const lock = field.lockReason === undefined ? undefined : fieldLockReasonId(field.name)
+  const ids = [own, lock, errorId].filter((id): id is string => id !== undefined)
   return ids.length === 0 ? {} : { 'aria-describedby': ids.join(' ') }
 }
 
@@ -209,6 +227,10 @@ export function PickerCombobox(props: {
   readonly onTerm: (term: string) => void
   readonly onOpen: () => void
   readonly onClose: () => void
+  /** The combobox keys (arrows, Enter, Escape) over the suggestions. */
+  readonly onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void
+  /** The id of the highlighted suggestion, while one is. */
+  readonly activeOptionId?: string
 }): ReactElement {
   const { field } = props
   const { description } = useFieldLineIds(field.name)
@@ -222,6 +244,10 @@ export function PickerCombobox(props: {
       aria-expanded={props.expanded}
       aria-autocomplete="list"
       aria-controls={`${props.inputId}-listbox`}
+      {...(props.expanded &&
+        props.activeOptionId !== undefined && {
+          'aria-activedescendant': props.activeOptionId,
+        })}
       autoComplete="off"
       value={props.value}
       className={props.controlClassName ?? `${CONTROL_CLASS} w-full`}
@@ -231,7 +257,9 @@ export function PickerCombobox(props: {
       {...(props.invalid && { 'aria-invalid': 'true' })}
       {...describedBy(field, props.errorId, description)}
       onChange={(e) => props.onTerm(e.target.value)}
-      onFocus={props.onOpen}
+      onKeyDown={props.onKeyDown}
+      // Opened by a click, a key or typing — never by the focus alone, so a
+      // sheet or form whose first field this is opens with its list closed.
       onClick={props.onOpen}
       onBlur={props.onClose}
     />
@@ -260,7 +288,7 @@ export function ReadOnlyPicker(props: {
         readOnly
         value={props.display}
         className={CONTROL_CLASS}
-        {...fieldDescribedBy(props.field)}
+        {...controlDescribedBy(props.field)}
       />
     </FieldShell>
   )
@@ -303,6 +331,10 @@ export function PickerControl(props: {
         locked={picker.atCap}
         onTerm={picker.setTerm}
         onOpen={picker.openPopup}
+        onKeyDown={picker.onKeyDown}
+        {...(picker.highlight >= 0 && {
+          activeOptionId: `${inputId}-listbox-option-${picker.highlight}`,
+        })}
         // Deferred so a click landing on an option is not cancelled by the blur
         // that precedes it.
         onClose={() => setTimeout(picker.closePopup, BLUR_CLOSE_DELAY_MS)}
@@ -321,6 +353,7 @@ export function PickerControl(props: {
           multiple={props.allowMultiple}
           onToggle={picker.toggle}
           words={props.words}
+          activeIndex={picker.highlight}
         />
       )}
     </div>

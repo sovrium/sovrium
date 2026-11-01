@@ -42,15 +42,14 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import {
-  appliedQuerySchema,
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
-  searchTermSchema,
-} from '../../combinators'
-import { withDefault } from '../../combinators/schema-defaults'
+} from '../../cursor-pagination'
+import { withDefault } from '../../schema-defaults'
+import { appliedQuerySchema, searchTermSchema } from '../../search-term'
 
 /**
  * Sort key for the file browser — one per COLUMN the browser renders.
@@ -78,7 +77,7 @@ import { withDefault } from '../../combinators/schema-defaults'
 export const bucketFilesSortSchema = Schema.Literals(['filename', 'mimeType', 'size', 'createdAt'])
   .annotate({
     description:
-      'File-browser sort key — one per rendered column: `filename`, `mimeType`, `size`, `createdAt`. Default `createdAt` (newest-first). The legacy spelling `date` is accepted as an alias of `createdAt`. The two string keys order case-insensitively, identically on both engines. Combined with `order`, drives the deterministic `(<sortKey>, id)` cursor seek.',
+      'File-browser sort key, one per rendered column: `filename`, `mimeType`, `size`, `createdAt`. Default `createdAt` (newest-first). The legacy spelling `date` is accepted as an alias of `createdAt`. The two string keys order case-insensitively, identically on both engines. Combined with `order`, drives the deterministic `(<sortKey>, id)` cursor seek.',
   })
   .pipe(withDefault('createdAt'))
 
@@ -150,7 +149,7 @@ const bucketFileReferenceSchema = Schema.Struct({
 export const bucketFileItemSchema = Schema.Struct({
   key: Schema.String.annotate({
     description:
-      'Unique storage key for this file (the `file_storage_metadata.key` column — the path segment used by the file download route). Stable across the file lifetime.',
+      'Unique storage key for this file (the `file_storage_metadata.key` column, the path segment used by the file download route). Stable across the file lifetime.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   filename: Schema.String.annotate({
     description: 'Original filename supplied at upload time (`file_storage_metadata.filename`).',
@@ -181,7 +180,7 @@ export const bucketFileItemSchema = Schema.Struct({
   table: optionalField(
     Schema.String.annotate({
       description:
-        'The table of the record whose attachment cell references this file. Present on the built-in `system` bucket listing. Derived when the listing is read, from the attachment cells of live records — soft-deleted records are excluded — so a cleared cell or a deleted record simply stops being listed.',
+        'The table of the record whose attachment cell references this file. Present on the built-in `system` bucket listing. Derived when the listing is read, from the attachment cells of live records (soft-deleted records are excluded), so a cleared cell or a deleted record simply stops being listed.',
     })
   ),
   tableLabel: optionalField(
@@ -199,7 +198,7 @@ export const bucketFileItemSchema = Schema.Struct({
   recordLabel: optionalField(
     Schema.String.annotate({
       description:
-        'That record as a person names it — the first title field (text, email, URL or phone) holding a value, e.g. a quote number, else its id. Present whenever `recordId` is. Display text only; `recordId` stays the address.',
+        'That record as a person names it: the first title field (text, email, URL or phone) holding a value, e.g. a quote number, else its id. Present whenever `recordId` is. Display text only; `recordId` stays the address.',
     })
   ),
   field: optionalField(
@@ -254,7 +253,7 @@ export const bucketFilesQuerySchema = Schema.Struct({
   ),
   q: searchTermSchema.annotate({
     description:
-      'Optional free-text search over the file `filename` and storage `key`, as a case-insensitive literal substring. Composes with `type` (AND) and with the cursor, so the page is a page of MATCHES. `mimeType` is intentionally not searched — use `type` for that. Empty / whitespace-only means "no search".',
+      'Optional free-text search over the file `filename` and storage `key`, as a case-insensitive literal substring. Composes with `type` (AND) and with the cursor, so the page is a page of MATCHES. `mimeType` is intentionally not searched; use `type` for that. Empty / whitespace-only means "no search".',
   }),
 })
 
@@ -272,7 +271,7 @@ export const bucketFilesResponseSchema = Schema.Struct({
   ...cursorPaginationResponseSchema(bucketFileItemSchema).fields,
   totalBytes: Schema.Int.annotate({
     description:
-      "Sum of all stored file sizes (bytes) in this bucket across every page — NOT just the current page, and NOT narrowed by `type` or `q`. Lets the file browser render its quota bar without a second query to `/api/admin/buckets`. Invariant across pagination AND across filtering: the quota bar answers 'how full is this bucket', which a search does not change. Mirrors the bucket's `_admin.metadata.totalBytes` from the list endpoint.",
+      "Sum of all stored file sizes (bytes) in this bucket across every page, NOT just the current page, and NOT narrowed by `type` or `q`. Lets the file browser render its quota bar without a second query to `/api/admin/buckets`. Invariant across pagination AND across filtering: the quota bar answers 'how full is this bucket', which a search does not change. Mirrors the bucket's `_admin.metadata.totalBytes` from the list endpoint.",
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   appliedQuery: appliedQuerySchema,
 }).annotate({ identifier: 'BucketFilesResponse' })

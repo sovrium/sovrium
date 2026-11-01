@@ -78,7 +78,7 @@ export const registerWebhookOutboxScheduler = (
     return yield* scheduler
       .schedule(SWEEP_CRON_EXPRESSION, () => sweepOnce(app, dispatcher, 'scheduled'), {
         jobId: SWEEP_JOB_ID,
-        timezone: resolveOperatorTimezone(),
+        timezone: resolveOperatorTimezone(process.env),
       })
       .pipe(
         Effect.catch((err) =>

@@ -1,8 +1,8 @@
 # Build a CRM with Sovrium
 
-> Stand up a working CRM in minutes — scaffold from the `crm` template, or start from a minimal two-table contacts-and-deals config you can grow.
+> Stand up a working CRM in minutes: scaffold from the `crm` template, or start from a minimal two-table contacts-and-deals config you can grow.
 
-You want a self-hosted CRM — contacts, companies and a deal pipeline — without wiring a database or a UI by hand.
+You want a self-hosted CRM (contacts, companies and a deal pipeline) without wiring a database or a UI by hand.
 
 ## Scaffold from the template
 
@@ -61,6 +61,6 @@ tables:
 
 ## Next
 
-- **Start from a template** — every `sovrium init` template.
-- **Relational Fields** — link deals to contacts and companies.
-- **Pages Overview** — add a pipeline board and record views.
+- **Start from a template**: every `sovrium init` template.
+- **Relational Fields**: link deals to contacts and companies.
+- **Pages Overview**: add a pipeline board and record views.

@@ -21,15 +21,11 @@
  */
 
 import { resolve } from 'node:path'
-import { Effect, Console } from 'effect'
+import { Effect } from 'effect'
 import { createBundle } from '@/application/use-cases/server/bundle-programs'
+import { refuseCommand } from '@/cli/runtime/run-command'
 import { BackupWorkspaceLive } from '@/infrastructure/filesystem/backup-workspace-live'
-import {
-  formatBytes,
-  inflect,
-  printFailure,
-  printStderr,
-} from '@/infrastructure/logging/cli-output'
+import { formatBytes, inflect, printLine, printStderr } from '@/infrastructure/logging/cli-output'
 import { discoverConfigFile } from './app-prelude'
 import { isPublicDirOptOut, readPublicDirEnv, resolveDefaultPublicDir } from './option-parsing'
 import { getCurrentVersion } from './update'
@@ -46,11 +42,8 @@ export interface BundleCommandOptions {
   readonly outputPath: string | undefined
 }
 
-const fail = (headline: string, guidance: string, detail?: readonly string[]): never => {
-  printFailure({ headline, guidance, ...(detail === undefined ? {} : { detail }) })
-  process.exit(1)
-  return undefined as never
-}
+const fail = (headline: string, guidance: string, detail?: readonly string[]): never =>
+  refuseCommand({ headline, guidance, ...(detail === undefined ? {} : { detail }) })
 
 /**
  * The static files to carry, as `sovrium start` would serve them:
@@ -97,6 +90,8 @@ export const buildValidatedBundle = async (request: BuildBundleRequest): Promise
   // archive holds, but a page that will be served without its body is told.
   printValidationWarnings(outcome)
 
+  // Shared with `sovrium deploy`, which awaits the archive inside its own upload
+  // step; the run stays here so both verbs read one Promise contract.
   const result = await Effect.runPromise(
     createBundle({
       configPath,
@@ -130,9 +125,7 @@ export const handleBundleCommand = async (options: BundleCommandOptions): Promis
     command: 'bundle',
     outcome: 'nothing was written',
   })
-  Effect.runSync(
-    Console.log(
-      `Bundle written to ${archivePath} (${inflect(manifest.entries.length, 'file')}, ${formatBytes(archiveBytes)}).`
-    )
+  printLine(
+    `Bundle written to ${archivePath} (${inflect(manifest.entries.length, 'file')}, ${formatBytes(archiveBytes)}).`
   )
 }

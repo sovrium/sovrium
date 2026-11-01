@@ -29,15 +29,20 @@
  * wrong-role callers.
  */
 
+import { Effect } from 'effect'
 import { USERS_READ_OPERATIONS } from '@/application/use-cases/admin/admin-read-registry'
 import { decodeUsersDirectoryQuery } from '@/application/use-cases/admin/people-read-operations'
-import { BuildUsersDirectory } from '@/application/use-cases/admin/users-directory'
+import {
+  buildUsersDirectory,
+  type UsersDirectoryOutcome,
+} from '@/application/use-cases/admin/users-directory'
 import { buildCsvAttachmentDisposition } from '@/domain/kernel/url/csv-attachment'
+import { isAdminTier } from '@/domain/models/app/auth/roles'
 import { exportRecordsToCsv } from '@/infrastructure/export/csv-exporter'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { chainAdminReadRoutes } from '@/presentation/api/admin/read-operation-routes'
 import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
+import { answerFailures, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono, Next } from 'hono'
 
@@ -62,31 +67,8 @@ const csvRow = (user: {
 const badRequest = (c: Context, message: string): Response =>
   c.json({ success: false, message, code: 'BAD_REQUEST' }, 400)
 
-/**
- * `GET /api/admin/users?format=…` — the directory as a CSV download.
- *
- * Runs ahead of the registry's JSON read and yields to it when no `format` is
- * asked for. An export is of everything that MATCHES, not of the page: the
- * page and limit are dropped. Without `Content-Disposition` the Export button,
- * which navigates the whole browser, would land the operator on raw data.
- */
-async function handleUsersDirectoryFormat(c: Context, next: Next): Promise<Response | void> {
-  const format = c.req.query('format')
-  if (format === undefined) return next()
-  const decoded = decodeUsersDirectoryQuery({
-    q: c.req.query('q'),
-    page: c.req.query('page'),
-    limit: c.req.query('limit'),
-    sort: c.req.query('sort'),
-    order: c.req.query('order'),
-    role: c.req.query('role'),
-    status: c.req.query('status'),
-  })
-  if (decoded._tag !== 'Ok') return badRequest(c, 'Invalid query parameters')
-  if (format !== 'csv') return badRequest(c, 'Only csv format is supported')
-
-  const { page: _page, limit: _limit, ...matching } = decoded.input
-  const outcome = await runRequestEffect(c, provideDomain(c, BuildUsersDirectory(matching)))
+/** The directory build's outcome as the CSV download, or a logged 500 when its body failed the schema. */
+function answerDirectoryCsv(c: Context, outcome: UsersDirectoryOutcome): Response {
   if (outcome._tag === 'ValidationFailed') {
     logError(
       '[admin] users directory response validation failed',
@@ -94,7 +76,11 @@ async function handleUsersDirectoryFormat(c: Context, next: Next): Promise<Respo
       requestLogAttributes(c)
     )
     return c.json(
-      { success: false, message: 'Failed to build users directory', code: 'INTERNAL_ERROR' },
+      {
+        success: false,
+        message: 'Failed to build users directory',
+        code: 'INTERNAL_ERROR',
+      },
       500
     )
   }
@@ -109,17 +95,60 @@ async function handleUsersDirectoryFormat(c: Context, next: Next): Promise<Respo
 }
 
 /**
+ * `GET /api/admin/users?format=…` — the directory as a CSV download.
+ *
+ * Runs ahead of the registry's JSON read and yields to it when no `format` is
+ * asked for. An export is of everything that MATCHES, not of the page: the
+ * page and limit are dropped. Without `Content-Disposition` the Export button,
+ * which navigates the whole browser, would land the operator on raw data.
+ */
+async function handleUsersDirectoryFormat(
+  c: Context,
+  next: Next,
+  app: App
+): Promise<Response | void> {
+  const format = c.req.query('format')
+  if (format === undefined) return next()
+  const decoded = decodeUsersDirectoryQuery({
+    q: c.req.query('q'),
+    page: c.req.query('page'),
+    limit: c.req.query('limit'),
+    sort: c.req.query('sort'),
+    order: c.req.query('order'),
+    role: c.req.query('role'),
+    status: c.req.query('status'),
+    consoleAccess: c.req.query('consoleAccess'),
+  })
+  if (decoded._tag !== 'Ok') return badRequest(c, 'Invalid query parameters')
+  if (format !== 'csv') return badRequest(c, 'Only csv format is supported')
+
+  const { page: _page, limit: _limit, ...matching } = decoded.input
+  return runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.map(
+        buildUsersDirectory(matching, undefined, {
+          opensConsole: (role) => isAdminTier(role, app),
+        }),
+        (outcome) => answerDirectoryCsv(c, outcome)
+      )
+    )
+  )
+}
+
+/**
  * Chain the people routes onto a Hono app: the CSV branch first, as a
  * middleware on the path, so it can answer before the registry's JSON read.
  */
-export function chainAdminUsersRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
+export function chainAdminUsersRoutes<T extends Hono>(honoApp: T, app: App): T {
   return chainAdminReadRoutes(
     // A middleware, not a second GET handler: the registry's binding stays the
     // one GET route the path has, and this branch only answers `?format=`.
     honoApp.use('/api/admin/users', (c, next) =>
-      c.req.method === 'GET' ? handleUsersDirectoryFormat(c, next) : next()
+      c.req.method === 'GET' ? handleUsersDirectoryFormat(c, next, app) : next()
     ) as T,
-    resolveApp,
+    app,
     USERS_READ_OPERATIONS
   )
 }

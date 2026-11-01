@@ -48,7 +48,6 @@ import { readableColumnsForTable } from './chat-table-projection'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
 import type { QueryIntent, QueryTable } from '@/domain/models/app/agents/ai-chat-query-parser'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /** Table shape carrying the (untyped) permissions block for RBAC checks. */
 export type QueryTableWithPerms = QueryTable & { readonly permissions?: unknown }
@@ -64,8 +63,6 @@ export type QueryOutcome =
 
 /** Inputs required to run a read query. */
 export interface RunQueryInput {
-  /** The server's resolved services, taken off the request that started the turn. */
-  readonly services: DomainContext
   readonly intent: QueryIntent
   /** The app the tables come from — the records gates read its declarations. */
   readonly app: App | undefined
@@ -124,63 +121,49 @@ const resolveTable = (input: RunQueryInput): QueryTableWithPerms | undefined =>
 // SQL execution helpers — fronted by the DynamicRecordRepository port
 //
 // The raw parameterised SQL lives in the infrastructure layer
-// (`dynamic-record-repository-live.ts`); these helpers consume the
-// `dynamic-record-query` use-case via `Effect.runPromise` so the presentation
-// layer holds no raw SQL literal. Behavior is byte-identical to the prior
-// inline SQL (same `COUNT(*)::int`, `AVG/SUM(…)::float`, `SELECT *` shapes).
+// (`dynamic-record-repository-live.ts`); these helpers compose the
+// `dynamic-record-query` use-case so the presentation layer holds no raw SQL
+// literal. Behavior is byte-identical to the prior inline SQL (same
+// `COUNT(*)::int`, `AVG/SUM(…)::float`, `SELECT *` shapes).
 // ---------------------------------------------------------------------------
 
 /** Run a `COUNT(*)` query, optionally narrowed by a single equality filter. */
-const runCount = async (
-  services: DomainContext,
-  intent: QueryIntent,
-  scope: ChatRowScope
-): Promise<number> =>
+const runCount = (intent: QueryIntent, scope: ChatRowScope) =>
   scope.kind === 'nothing'
-    ? 0
-    : Effect.runPromise(
-        countDynamicRecords({
-          table: intent.table,
-          filter: intent.filter,
-          ...readScopeOf(scope),
-        }).pipe(Effect.provide(services))
-      )
+    ? Effect.succeed(0)
+    : countDynamicRecords({ table: intent.table, filter: intent.filter, ...readScopeOf(scope) })
 
-/** Run an `AVG`/`SUM` aggregate over a numeric column. */
-const runAggregate = async (
-  services: DomainContext,
+/** Run an `AVG`/`SUM` aggregate over a numeric column; none for no column or no row. */
+const runAggregate = (
   intent: QueryIntent,
   input: { readonly fn: 'AVG' | 'SUM'; readonly scope: ChatRowScope }
-): Promise<number | undefined> => {
-  if (intent.aggregateColumn === undefined || input.scope.kind === 'nothing') return undefined
-  return Effect.runPromise(
-    aggregateDynamicRecords({
+) =>
+  Effect.gen(function* () {
+    const column = intent.aggregateColumn
+    if (column === undefined || input.scope.kind === 'nothing') return undefined
+    return yield* aggregateDynamicRecords({
       table: intent.table,
       fn: input.fn,
-      column: intent.aggregateColumn,
+      column,
       filter: intent.filter,
       ...readScopeOf(input.scope),
-    }).pipe(Effect.provide(services))
-  )
-}
+    })
+  })
 
 /** Run a row-listing query with the resolved row cap and optional sort. */
-const runList = async (
-  services: DomainContext,
+const runList = (
   intent: QueryIntent,
   input: { readonly rowCap: number; readonly scope: ChatRowScope }
-): Promise<ReadonlyArray<Record<string, unknown>>> =>
+) =>
   input.scope.kind === 'nothing'
-    ? []
-    : Effect.runPromise(
-        listDynamicRecords({
-          table: intent.table,
-          filter: intent.filter,
-          sortColumn: intent.sortColumn,
-          limit: input.rowCap,
-          ...readScopeOf(input.scope),
-        }).pipe(Effect.provide(services))
-      )
+    ? Effect.succeed<ReadonlyArray<Record<string, unknown>>>([])
+    : listDynamicRecords({
+        table: intent.table,
+        filter: intent.filter,
+        sortColumn: intent.sortColumn,
+        limit: input.rowCap,
+        ...readScopeOf(input.scope),
+      })
 
 // ---------------------------------------------------------------------------
 // Reply formatting
@@ -273,72 +256,67 @@ const outOfReach = (tableName: string): QueryOutcome => ({
  * cannot read the table, or an `answered` outcome carrying the reply text and
  * the `type: 'query'` action entry.
  */
-export const runQuery = async (input: RunQueryInput): Promise<QueryOutcome> => {
-  const table = resolveTable(input)
-  if (table === undefined) return outOfReach(input.intent.table)
-  // Table-level read RBAC (an AI chat query spec), over the records
-  // route's effective roles for this table; then the rows the records read
-  // gate lets the caller read.
-  const gated = passesChatTableGate(input.app, input.tables, table, input.reader)
-    ? await resolveChatRowScope(input.services, input.app, table.name, input.reader)
-    : ({ kind: 'refused' } as const)
-  if (gated.kind === 'refused') return outOfReach(table.name)
-  const scope = narrowToRows(gated, input.fieldRows)
+export const runQuery = (input: RunQueryInput) =>
+  Effect.gen(function* () {
+    const table = resolveTable(input)
+    if (table === undefined) return outOfReach(input.intent.table)
+    // Table-level read RBAC (an AI chat query spec), over the records
+    // route's effective roles for this table; then the rows the records read
+    // gate lets the caller read.
+    const gated = passesChatTableGate(input.app, input.tables, table, input.reader)
+      ? yield* resolveChatRowScope(input.app, table.name, input.reader)
+      : ({ kind: 'refused' } as const)
+    if (gated.kind === 'refused') return outOfReach(table.name)
+    const scope = narrowToRows(gated, input.fieldRows)
 
-  const { intent } = input
-  const rowCap = resolveMaxQueryRows()
-  const description = `Queried the "${intent.table}" table.`
+    const { intent } = input
+    const rowCap = resolveMaxQueryRows()
+    const description = `Queried the "${intent.table}" table.`
 
-  const reply = await runQueryReply({
-    services: input.services,
-    intent,
-    table,
-    rowCap,
-    scope,
-    // A row is labelled only by a column the caller may read (field read
-    // audiences, as the records API projects them).
-    readable: readableColumnsForTable(input.app, table, {
-      role: input.reader.role,
-      effectiveRoles: chatTableRoles(input.app, table.name, input.reader),
-      isAuthenticated: input.reader.role !== '',
-    }),
+    const reply = yield* runQueryReply({
+      intent,
+      table,
+      rowCap,
+      scope,
+      // A row is labelled only by a column the caller may read (field read
+      // audiences, as the records API projects them).
+      readable: readableColumnsForTable(input.app, table, {
+        role: input.reader.role,
+        effectiveRoles: chatTableRoles(input.app, table.name, input.reader),
+        isAuthenticated: input.reader.role !== '',
+      }),
+    })
+    const answered: QueryOutcome = {
+      status: 'answered',
+      action: { type: 'query', table: intent.table, description },
+      reply,
+    }
+    return answered
   })
-  return {
-    status: 'answered',
-    action: { type: 'query', table: intent.table, description },
-    reply,
-  }
-}
 
 /** Dispatch on the aggregate kind and format the reply text. */
-const runQueryReply = async (input: {
-  readonly services: DomainContext
+const runQueryReply = (input: {
   readonly intent: QueryIntent
   readonly table: QueryTable
   readonly rowCap: number
   readonly scope: ChatRowScope
   readonly readable: ReadonlyArray<string>
-}): Promise<string> => {
-  const { services, intent, table, rowCap, scope, readable } = input
+}) => {
+  const { intent, table, rowCap, scope, readable } = input
   switch (intent.aggregate) {
     case 'count':
-      return formatCountReply(intent, await runCount(services, intent, scope))
+      return Effect.map(runCount(intent, scope), (count) => formatCountReply(intent, count))
     case 'avg':
-      return formatAggregateReply(
-        intent,
-        'average',
-        await runAggregate(services, intent, { fn: 'AVG', scope })
+      return Effect.map(runAggregate(intent, { fn: 'AVG', scope }), (value) =>
+        formatAggregateReply(intent, 'average', value)
       )
     case 'sum':
-      return formatAggregateReply(
-        intent,
-        'total',
-        await runAggregate(services, intent, { fn: 'SUM', scope })
+      return Effect.map(runAggregate(intent, { fn: 'SUM', scope }), (value) =>
+        formatAggregateReply(intent, 'total', value)
       )
     case 'list':
-      return formatListReply(intent, await runList(services, intent, { rowCap, scope }), table, {
-        rowCap,
-        readable,
-      })
+      return Effect.map(runList(intent, { rowCap, scope }), (rows) =>
+        formatListReply(intent, rows, table, { rowCap, readable })
+      )
   }
 }

@@ -36,11 +36,12 @@ const FILL = 'md:w-auto md:min-w-48 md:flex-1'
 const NAMED = 'md:w-[var(--kanban-column-width)] md:flex-none'
 
 /**
- * A folded column of a filling board, from md up: as wide as its header and no
- * wider, without the 12rem floor, so the width it gives up goes to the open
- * columns. Below md it keeps the fixed width like every other column.
+ * A folded column, at every width: as wide as its heading and no wider, without
+ * the 12rem floor, so a phone reader does not scroll past an empty 18rem panel
+ * to reach the next stage, and on a filling board the width it gives up goes
+ * to the open columns. A width named in `columnWidths` still wins.
  */
-const FOLDED_FILL = 'md:w-auto md:flex-none'
+const FOLDED = 'w-auto shrink-0'
 
 /**
  * Where one column of a single-axis board sits, from `kanbanGroupBy.columnSizing`
@@ -62,9 +63,7 @@ export const kanbanColumnPlacement = (
       style: { ['--kanban-column-width' as string]: width } as CSSProperties,
     }
   }
+  if (folded) return { className: FOLDED, style: undefined }
   if (groupBy?.columnSizing !== 'fill') return { className: FIXED, style: undefined }
-  return {
-    className: folded ? `${FIXED} ${FOLDED_FILL}` : `${FIXED} ${FILL}`,
-    style: undefined,
-  }
+  return { className: `${FIXED} ${FILL}`, style: undefined }
 }

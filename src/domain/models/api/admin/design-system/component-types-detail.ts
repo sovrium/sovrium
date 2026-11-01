@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { componentTypeRefusalStateSchema } from './component-types-catalogue'
 import {
   componentTypeAxisValueSchema,
@@ -37,11 +37,11 @@ export const componentTypeDetailSchema = Schema.Struct({
   // second copy: one source, two records that both need it.
   purpose: Schema.String.annotate({
     description:
-      'The one line saying what this type is FOR — the same sentence the summary row carries, from the same source.',
+      'The one line saying what this type is FOR: the same sentence the summary row carries, from the same source.',
     examples: ['One choice among many, folded until opened.'],
   }),
   title: Schema.String.annotate({
-    description: "Human-readable heading of this type's category — see the summary contract",
+    description: "Human-readable heading of this type's category; see the summary contract",
   }),
   own: Schema.Array(componentTypeFieldSchema).annotate({
     description: 'The fields this type declares itself, in declaration order',
@@ -66,11 +66,11 @@ export const componentTypeDetailSchema = Schema.Struct({
   }),
   sizes: Schema.Array(componentTypeAxisValueSchema).annotate({
     description:
-      'The values of this type’s size axis, FLAT, on the same terms as `variants`. A numeric `size` (qr-code) is not an axis and answers empty — only a closed union is one.',
+      'The values of this type’s size axis, FLAT, on the same terms as `variants`. A numeric `size` (qr-code) is not an axis and answers empty: only a closed union is one.',
   }),
   states: Schema.Array(componentTypeStateSchema).annotate({
     description:
-      'The states this type’s CATEGORY draws, in reading order. EMPTY — never absent — for the ten categories that draw none, because "this category has no states" and "nobody published states" are different facts and only the first is true.',
+      'The states this type’s CATEGORY draws, in reading order. EMPTY, never absent, for the ten categories that draw none, because "this category has no states" and "nobody published states" are different facts and only the first is true.',
   }),
   // ─── THE ONE ARRAY A NESTED ROW TEMPLATE CANNOT REPLACE ──────────────────
   //
@@ -130,7 +130,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   // drawn matrix and the published one cannot come to disagree.
   cells: Schema.Array(componentTypeCellSchema).annotate({
     description:
-      'Every variant of this type drawn in every state its category draws, FLAT — variants outer, states inner, each axis in its own published order. The one shape a config page can render the matrix from: a nested binding replaces the outer row with the inner, so a cell beneath it can name one axis but never both, while the cell’s identifier is composed from both. EMPTY — never absent — when either axis is empty, which is the product rather than a special case.',
+      'Every variant of this type drawn in every state its category draws, FLAT: variants outer, states inner, each axis in its own published order. The one shape a config page can render the matrix from: a nested binding replaces the outer row with the inner, so a cell beneath it can name one axis but never both, while the cell’s identifier is composed from both. EMPTY, never absent, when either axis is empty, which is the product rather than a special case.',
   }),
   // ─── the kit-card usage-count design: A CATALOGUED TYPE HAS A PAGE, DRAWABLE OR NOT ──────────────
   //
@@ -146,12 +146,12 @@ export const componentTypeDetailSchema = Schema.Struct({
   // writing `form` needs its props documented more than most.
   drawable: Schema.Boolean.annotate({
     description:
-      'Whether the catalogue has a drawing for this type. `false` for one it reports rather than draws — its fields are published either way.',
+      'Whether the catalogue has a drawing for this type. `false` for one it reports rather than draws; its fields are published either way.',
   }),
   refusalReason: optionalField(
     Schema.String.annotate({
       description:
-        'The catalogue’s own sentence for why this type is not drawn, when it has one on file. ABSENT for a drawn type, and absent for a refused one the catalogue has no sentence for — an empty reason under a missing canvas reads as a rendering failure.',
+        'The catalogue’s own sentence for why this type is not drawn, when it has one on file. ABSENT for a drawn type, and absent for a refused one the catalogue has no sentence for, because an empty reason under a missing canvas reads as a rendering failure.',
     })
   ),
   /** Read exactly as the summary row reads it, and absent on the same terms. */
@@ -172,7 +172,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   // fail while documenting an axis the type does not have.
   variantCount: Schema.Int.annotate({
     description:
-      'How many values this type’s variant axis carries; `0` — never absent — when it declares none. The gate a page reads to omit the variants section entirely.',
+      'How many values this type’s variant axis carries; `0`, never absent, when it declares none. The gate a page reads to omit the variants section entirely.',
   }),
   sizeCount: Schema.Int.annotate({
     description: 'How many values this type’s size axis carries; `0` when it declares none.',
@@ -201,7 +201,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   // number rather than having to re-multiply.
   drawableStateCount: Schema.Int.annotate({
     description:
-      'How many of this type’s states can actually be DRAWN: `stateCount` where the catalogue draws a specimen, and `0` where it refuses one — every cell of a refused type can only repeat the same refusal. The gate a page reads to drop the States section rather than fill it with apologies.',
+      'How many of this type’s states can actually be DRAWN: `stateCount` where the catalogue draws a specimen, and `0` where it refuses one, since every cell of a refused type can only repeat the same refusal. The gate a page reads to drop the States section rather than fill it with apologies.',
   }),
   // ─── THE ONE DISJUNCTION THE COUNTS ABOVE CANNOT EXPRESS ─────────────────
   //
@@ -237,7 +237,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   // for it.
   hasVariantsOrStates: Schema.Boolean.annotate({
     description:
-      'Whether this type draws a variants-and-states section at all — `true` exactly when `variantCount` or `stateCount` is non-zero. The gate for the ONE section whose presence is a disjunction, which `visibility.record` cannot express because it ANDs its operators over a single field.',
+      'Whether this type draws a variants-and-states section at all: `true` exactly when `variantCount` or `stateCount` is non-zero. The gate for the ONE section whose presence is a disjunction, which `visibility.record` cannot express because it ANDs its operators over a single field.',
   }),
   // ─── THE ONE LINE THAT IS ABOUT THE READER RATHER THAN THE PLATFORM ──────
   //
@@ -262,7 +262,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   // AppSchema refuses.
   configured: Schema.Boolean.annotate({
     description:
-      'Whether the rendering app restyled this type under `design.components` — `true` when the operator wrote a non-empty entry for it, `false` for a type running on the platform’s own recipe. The one fact on this response about the reader’s own config rather than about the engine. Always `false` where `styleable` is `false`, since there is no key to write.',
+      'Whether the rendering app restyled this type under `design.components`: `true` when the operator wrote a non-empty entry for it, `false` for a type running on the platform’s own recipe. The one fact on this response about the reader’s own config rather than about the engine. Always `false` where `styleable` is `false`, since there is no key to write.',
   }),
   // ─── WHETHER `configured` IS A GAP OR A NON-QUESTION ─────────────────────
   //
@@ -301,7 +301,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   // remembering to edit it.
   styleable: Schema.Boolean.annotate({
     description:
-      'Whether `design.components` has a key for this type — `true` when the engine draws an element that can carry the operator’s classes. `false` for a catalogued type that owns no engine-drawn element, where an entry could only be a no-op and the key does not exist; `command`, whose overlay is built client-side, is the only such type today. NOT the same as `drawable`: a type the catalogue refuses to PREVIEW (`form`) is still styleable. The gate for any surface that offers a reader the key to write — `configured: false` under `styleable: false` is a non-question, not a gap.',
+      'Whether `design.components` has a key for this type: `true` when the engine draws an element that can carry the operator’s classes. `false` for a catalogued type that owns no engine-drawn element, where an entry could only be a no-op and the key does not exist; `command`, whose overlay is built client-side, is the only such type today. NOT the same as `drawable`: a type the catalogue refuses to PREVIEW (`form`) is still styleable. The gate for any surface that offers a reader the key to write: `configured: false` under `styleable: false` is a non-question, not a gap.',
   }),
   // The count is NOT derivable from `routes` for the same reason as above —
   // there is no length operator — and the page prints it as a figure beside the
@@ -310,11 +310,11 @@ export const componentTypeDetailSchema = Schema.Struct({
   // missing read look identical.
   pageCount: Schema.Int.annotate({
     description:
-      'How many of the operator’s routes write this type anywhere in their component tree. `0` — never absent — for a type nobody uses.',
+      'How many of the operator’s routes write this type anywhere in their component tree. `0`, never absent, for a type nobody uses.',
   }),
   routes: Schema.Array(componentTypeRouteSchema).annotate({
     description:
-      'The operator’s own routes that write this type, as rows, in route order. EMPTY — never absent — for a type nobody uses. Capped by `?routesLimit=` when the caller asks for a cap.',
+      'The operator’s own routes that write this type, as rows, in route order. EMPTY, never absent, for a type nobody uses. Capped by `?routesLimit=` when the caller asks for a cap.',
   }),
   // ─── THE REMAINDER, AND WHY IT IS A FACT RATHER THAN A CHOICE ────────────
   //
@@ -331,11 +331,11 @@ export const componentTypeDetailSchema = Schema.Struct({
   // same picture and only one of them is testable.
   routesMore: Schema.Int.annotate({
     description:
-      'How many routes `routes` omitted because of `?routesLimit=`. `0` — never absent — when the list is complete, which is the gate for showing no overflow label.',
+      'How many routes `routes` omitted because of `?routesLimit=`. `0`, never absent, when the list is complete, which is the gate for showing no overflow label.',
   }),
   siblings: Schema.Array(componentTypeSiblingSchema).annotate({
     description:
-      'Every other catalogued type in this type’s category, in category order, each named by its type literal alone — a sibling carries no address of its own. EMPTY for a category of one.',
+      'Every other catalogued type in this type’s category, in category order, each named by its type literal alone; a sibling carries no address of its own. EMPTY for a category of one.',
   }),
   // EXACT PARITY WITH `pageCount` BESIDE `routes`, and for the identical
   // reason: `visibility.record` has no length operator, so `siblings.length` is
@@ -350,7 +350,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   // would then be lying. A count is the fact itself.
   siblingCount: Schema.Int.annotate({
     description:
-      'How many OTHER catalogued types share this type’s category. `0` — never absent — for the only type in its category, which is the gate for that empty state.',
+      'How many OTHER catalogued types share this type’s category. `0`, never absent, for the only type in its category, which is the gate for that empty state.',
   }),
   // ─── ADMITTED UNDER THE FACTS-NOT-STRINGS RULE, AND THE TEST IS WORTH RESTATING ─────────────
   //
@@ -372,7 +372,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   snippet: optionalField(
     Schema.String.annotate({
       description:
-        'The drawn specimen serialised as config, verbatim — the same serialisation the anatomy panel prints. ABSENT for a refused type: there is no specimen to serialise.',
+        'The drawn specimen serialised as config, verbatim: the same serialisation the anatomy panel prints. ABSENT for a refused type: there is no specimen to serialise.',
       examples: ['type: button\nvariant: destructive'],
     })
   ),
@@ -403,7 +403,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   drawnProps: optionalField(
     Schema.String.annotate({
       description:
-        'The props the catalogue specimen was actually drawn with, as a JSON object — the machine-readable projection of the same definition `snippet` prints in config form, so the two cannot come to disagree. ABSENT for a refused type.',
+        'The props the catalogue specimen was actually drawn with, as a JSON object: the machine-readable projection of the same definition `snippet` prints in config form, so the two cannot come to disagree. ABSENT for a refused type.',
       examples: ['{"variant":"destructive","label":"Delete"}'],
     })
   ),

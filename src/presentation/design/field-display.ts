@@ -128,3 +128,34 @@ export function fieldDescribedBy(field: { readonly name: string; readonly descri
     ? {}
     : { 'aria-describedby': fieldDescriptionId(field.name) }
 }
+
+/** The id of the line saying why a lock rule holds a field, which its control names. */
+export function fieldLockReasonId(fieldName: string): string {
+  return `${fieldName}-lock-reason`
+}
+
+/**
+ * The ids an editable control is described by: its guidance line and, when a
+ * lock rule holds it, the line saying why; `undefined` when it has neither.
+ */
+export function controlDescriptionIds(field: {
+  readonly name: string
+  readonly description?: string
+  readonly lockReason?: string
+}): string | undefined {
+  const ids = [
+    ...(field.description === undefined ? [] : [fieldDescriptionId(field.name)]),
+    ...(field.lockReason === undefined ? [] : [fieldLockReasonId(field.name)]),
+  ]
+  return ids.length === 0 ? undefined : ids.join(' ')
+}
+
+/** `aria-describedby` for an editable control (see {@link controlDescriptionIds}), or nothing. */
+export function controlDescribedBy(field: {
+  readonly name: string
+  readonly description?: string
+  readonly lockReason?: string
+}): { readonly 'aria-describedby'?: string } {
+  const ids = controlDescriptionIds(field)
+  return ids === undefined ? {} : { 'aria-describedby': ids }
+}

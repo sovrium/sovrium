@@ -47,7 +47,7 @@ export const SovriumValidateBundleActionSchema = Schema.Struct({
     objectKey: TemplateStringSchema.pipe(
       Schema.annotate({
         description:
-          'Storage key of the bundle archive — the key an upload returned, or one another app wrote into a shared bucket: the object’s size is read from the store and no catalog row is required (supports template variables)',
+          'Storage key of the bundle archive, either the key an upload returned or one another app wrote into a shared bucket: the object’s size is read from the store and no catalog row is required (supports template variables)',
       })
     ),
   }).annotate({
@@ -58,7 +58,7 @@ export const SovriumValidateBundleActionSchema = Schema.Struct({
     identifier: 'SovriumValidateBundleAction',
     title: 'Sovrium Validate-Bundle Action',
     description:
-      'Check a stored bundle archive — its manifest, every entry against its sha256, and the config it carries — and expose { valid, name, manifest, errors }',
+      'Check a stored bundle archive (its manifest, every entry against its sha256, and the config it carries) and expose { valid, name, manifest, errors }',
   })
 )
 

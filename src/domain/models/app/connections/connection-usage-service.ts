@@ -13,6 +13,7 @@
  * holding the call, so that is the step name each use carries.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { entityLabelFor } from '@/domain/models/app/auth/readable-name-service'
 
 /** An automation as far as its connection calls go. */
@@ -29,9 +30,6 @@ export interface ConnectionUse {
   readonly label: string
   readonly stepNames: readonly string[]
 }
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null
 
 /**
  * The action types that reach a provider through a connection named in

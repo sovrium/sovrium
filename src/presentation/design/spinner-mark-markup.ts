@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeHtmlDoubleQuotedAttribute } from '@/domain/kernel/sanitize/html-escaping'
+
 /**
  * The house spinner mark as DATA: one source for every place that draws it.
  *
@@ -84,16 +86,13 @@ export const SPINNER_MARK: SpinnerMarkSpec = {
   namespace: SVG_NAMESPACE,
 }
 
-const escapeAttribute = (value: string): string =>
-  value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
-
 /**
  * The mark as an HTML string, byte-equal to what `renderSpinnerMark()` renders
  * with no extra class. The unit test holds the two together.
  */
 export function spinnerMarkMarkup(): string {
   const attributes = Object.entries(SPINNER_MARK_ATTRIBUTES)
-    .map(([name, value]) => `${name}="${escapeAttribute(value)}"`)
+    .map(([name, value]) => `${name}="${escapeHtmlDoubleQuotedAttribute(value)}"`)
     .join(' ')
   return `<svg ${attributes}><path d="${SPINNER_MARK_PATH}"></path></svg>`
 }

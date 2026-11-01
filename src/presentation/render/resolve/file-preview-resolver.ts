@@ -21,11 +21,11 @@
  */
 
 import { inferMimeFromKey, isFramablePreviewKey } from '@/domain/kernel/identity/mime-types'
+import { entryAsComponent, rewriteComponent, type ComponentEntry } from './component-rewrite'
 import { keyFromUrl } from './row-attachment-addresses'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
-import type { Component } from '@/domain/models/app/pages/components'
 
 /** One file a preview draws. */
 export interface PreviewFile {
@@ -146,18 +146,19 @@ async function previewFilesOf(
 }
 
 async function resolveNode(
-  node: Component | string,
+  entry: ComponentEntry,
   ctx: { readonly app: App; readonly db: DataSourceDb }
-): Promise<Component | string> {
-  if (typeof node === 'string') return node
-  const children = node.children as readonly (Component | string)[] | undefined
+): Promise<ComponentEntry> {
+  if (typeof entry === 'string') return entry
+  const node = entryAsComponent(entry)
+  const { children } = node
   const resolvedChildren =
     children === undefined ? undefined : await Promise.all(children.map((c) => resolveNode(c, ctx)))
   const withChildren =
-    resolvedChildren === undefined ? node : ({ ...node, children: resolvedChildren } as Component)
+    resolvedChildren === undefined ? node : rewriteComponent(node, { children: resolvedChildren })
   if (node.type !== 'file-preview') return withChildren
   const files = await previewFilesOf(node as PreviewRoot, ctx)
-  return { ...withChildren, props: { ...node.props, _previewFiles: files } } as Component
+  return rewriteComponent(withChildren, { props: { ...node.props, _previewFiles: files } })
 }
 
 /** Attach the signed files of every `file-preview` on the page. */

@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   createVolatileFormulaTriggers,
   generatePostgresFormulaBackfill,
@@ -28,14 +27,10 @@ import {
   generateUpdatedAtTriggers,
 } from '../generators/trigger-generators'
 import { shouldUseView, getPhysicalTableName } from '../lookup/lookup-view-generators'
-import {
-  executeSQLStatements,
-  executeSQLStatementsParallel,
-  SQLExecutionError,
-  type TransactionLike,
-} from '../sql/sql-execution'
+import { executeSQLStatements, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import { generateSqliteDateNormalisation } from './sqlite-date-normalisation'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * AI-compute triggers (`ai-categorize`, `ai-summary`, `ai-tag`, `ai-translate`,
@@ -60,7 +55,7 @@ const advancedTriggerEffects = (
   physicalTable: Table,
   physicalTableName: string
 ): ReadonlyArray<Effect.Effect<void, SQLExecutionError>> => {
-  if (isSqliteRuntime()) {
+  if (tx.dialect === 'sqlite') {
     return [
       executeSQLStatements(
         tx,
@@ -111,21 +106,21 @@ export const applyTableFeatures = (
     // Create table object with physical table name for trigger generation
     const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
 
-    // Indexes and triggers (can run in parallel - all independent).
-    // The created/autonumber/updated triggers are dialect-aware in
-    // `trigger-generators.ts`; `advancedTriggerEffects` keeps the PL/pgSQL AI
-    // triggers Postgres-only while emitting the formula triggers on both.
-    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
+    // Indexes and triggers, all independent, one after the other on the one
+    // transaction connection. The created/autonumber/updated triggers are
+    // dialect-aware in `trigger-generators.ts`; `advancedTriggerEffects` keeps
+    // the PL/pgSQL AI triggers Postgres-only while emitting the formula
+    // triggers on both.
     yield* Effect.all(
       [
-        executeSQLStatementsParallel(tx, generateIndexStatements(physicalTable)),
-        executeSQLStatements(tx, generateCreatedAtTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAutonumberTriggers(physicalTable)),
-        executeSQLStatements(tx, generateUpdatedByTriggers(physicalTable)),
-        executeSQLStatements(tx, generateUpdatedAtTriggers(physicalTable)),
+        executeSQLStatements(tx, generateIndexStatements(physicalTable, tx.dialect)),
+        executeSQLStatements(tx, generateCreatedAtTriggers(physicalTable, tx.dialect)),
+        executeSQLStatements(tx, generateAutonumberTriggers(physicalTable, tx.dialect)),
+        executeSQLStatements(tx, generateUpdatedByTriggers(physicalTable, tx.dialect)),
+        executeSQLStatements(tx, generateUpdatedAtTriggers(physicalTable, tx.dialect)),
         ...advancedTriggerEffects(tx, physicalTable, physicalTableName),
       ],
-      { concurrency: 'unbounded' }
+      { discard: true }
     )
   })
 
@@ -148,19 +143,18 @@ export const applyTableFeaturesWithoutIndexes = (
     // Create table object with physical table name for trigger generation
     const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
 
-    // Triggers (can run in parallel - all independent).
-    // AI triggers are PL/pgSQL and Postgres-only; the formula triggers run on
-    // both engines — see `advancedTriggerEffects`.
-    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
+    // Triggers, all independent, one after the other on the one transaction
+    // connection. AI triggers are PL/pgSQL and Postgres-only; the formula
+    // triggers run on both engines — see `advancedTriggerEffects`.
     yield* Effect.all(
       [
-        executeSQLStatements(tx, generateCreatedAtTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAutonumberTriggers(physicalTable)),
-        executeSQLStatements(tx, generateUpdatedByTriggers(physicalTable)),
-        executeSQLStatements(tx, generateUpdatedAtTriggers(physicalTable)),
+        executeSQLStatements(tx, generateCreatedAtTriggers(physicalTable, tx.dialect)),
+        executeSQLStatements(tx, generateAutonumberTriggers(physicalTable, tx.dialect)),
+        executeSQLStatements(tx, generateUpdatedByTriggers(physicalTable, tx.dialect)),
+        executeSQLStatements(tx, generateUpdatedAtTriggers(physicalTable, tx.dialect)),
         ...advancedTriggerEffects(tx, physicalTable, physicalTableName),
       ],
-      { concurrency: 'unbounded' }
+      { discard: true }
     )
   })
 
@@ -169,14 +163,17 @@ export const applyTableFeaturesWithoutIndexes = (
  * already in the table — what {@link backfillTriggerFormulas} runs, and what
  * `sovrium migrate --dry-run` prints for it. Empty for a table with none.
  */
-export const triggerFormulaBackfillStatements = (table: Table): readonly string[] => {
+export const triggerFormulaBackfillStatements = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
   const physicalTableName = getPhysicalTableName(table)
   const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
-  return isSqliteRuntime()
+  return dialect === 'sqlite'
     ? generateSqliteFormulaBackfill(
         physicalTableName,
         physicalTable.fields,
-        generateUpdatedAtTriggers(physicalTable)
+        generateUpdatedAtTriggers(physicalTable, dialect)
       )
     : generatePostgresFormulaBackfill(physicalTableName, physicalTable.fields)
 }
@@ -193,7 +190,7 @@ export const backfillTriggerFormulas = (
   tx: TransactionLike,
   table: Table
 ): Effect.Effect<void, SQLExecutionError> =>
-  executeSQLStatements(tx, triggerFormulaBackfillStatements(table))
+  executeSQLStatements(tx, triggerFormulaBackfillStatements(table, tx.dialect))
 
 /**
  * SQLite: rewrite the datetimes and times written before the write path stored
@@ -205,7 +202,7 @@ export const normaliseSqliteDateValues = (
   tx: TransactionLike,
   table: Table
 ): Effect.Effect<void, SQLExecutionError> => {
-  if (!isSqliteRuntime()) return Effect.void
+  if (tx.dialect !== 'sqlite') return Effect.void
   const physicalTableName = getPhysicalTableName(table)
   const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
   return executeSQLStatements(
@@ -213,7 +210,7 @@ export const normaliseSqliteDateValues = (
     generateSqliteDateNormalisation(
       physicalTableName,
       table,
-      generateUpdatedAtTriggers(physicalTable)
+      generateUpdatedAtTriggers(physicalTable, tx.dialect)
     )
   )
 }

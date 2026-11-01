@@ -58,7 +58,7 @@ export const SovriumValidateConfigActionSchema = Schema.Struct({
     config: Schema.Union([TemplateStringSchema, Schema.Record(Schema.String, Schema.Unknown)]).pipe(
       Schema.annotate({
         description:
-          'Candidate config to decode against AppSchema — an object, or a string in the given format',
+          'Candidate config to decode against AppSchema: an object, or a string in the given format',
       })
     ),
 
@@ -70,7 +70,7 @@ export const SovriumValidateConfigActionSchema = Schema.Struct({
     format: Schema.optional(
       Schema.Literals(['json', 'yaml', 'auto']).pipe(
         Schema.annotate({
-          description: 'Config string format — json (default), yaml, or auto (try JSON then YAML)',
+          description: 'Config string format: json (default), yaml, or auto (try JSON then YAML)',
         })
       )
     ),

@@ -47,10 +47,10 @@ import { passingFilterRefusal } from '@/infrastructure/database/sql/db-effect'
 import { stringAggExpression } from '@/infrastructure/database/sql/dialect-ddl'
 import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
 import { junctionKeyColumns } from '@/infrastructure/database/sql/sql-generators'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { validateColumnName, tableIdentifier, databaseTableName } from '../statement/validation'
 import { buildUserFilterConditions, type FilterNode } from './aggregation-helpers'
 import type { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 import type { RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
 
 /** A lookup to mask — the structural twin of the port's `LookupReadMask`. */
@@ -91,8 +91,8 @@ type ChainHop = Extract<LookupReadMaskSpec['link'], { readonly kind: 'chain' }>[
 const SOURCE = 'sovrium_masked_source'
 
 /** `<a> AND <b> …` over the rendered nodes, or `TRUE`-equivalent when none. */
-const conditionOf = (nodes: readonly FilterNode[]): Readonly<SQL> => {
-  const parts = buildUserFilterConditions({ and: nodes })
+const conditionOf = (dialect: Dialect, nodes: readonly FilterNode[]): Readonly<SQL> => {
+  const parts = buildUserFilterConditions(dialect.kind, { and: nodes })
   return parts.length === 0 ? sql`(1 = 1)` : sql.join([...parts], sql` AND `)
 }
 
@@ -103,6 +103,7 @@ const conditionOf = (nodes: readonly FilterNode[]): Readonly<SQL> => {
  * resolve to it, as the `column` shape's `EXISTS` relies on.
  */
 const hopCondition = (
+  dialect: Dialect,
   hops: readonly ChainHop[],
   index: number,
   key: Readonly<SQL>
@@ -114,18 +115,22 @@ const hopCondition = (
   const nextCondition =
     next === undefined
       ? []
-      : [hopCondition(hops, index + 1, sql`${alias}.${sql.identifier(next.column)}`)]
+      : [hopCondition(dialect, hops, index + 1, sql`${alias}.${sql.identifier(next.column)}`)]
   const conditions = [
     sql`${alias}.${sql.identifier('id')} = ${key}`,
     sql`${alias}.${sql.identifier('deleted_at')} IS NULL`,
-    ...(hop.readable === undefined ? [] : [conditionOf([hop.readable])]),
+    ...(hop.readable === undefined ? [] : [conditionOf(dialect, [hop.readable])]),
     ...nextCondition,
   ]
   return sql`EXISTS (SELECT 1 FROM ${tableIdentifier(hop.relatedTable)} AS ${alias} WHERE ${sql.join(conditions, sql` AND `)})`
 }
 
-/** The masked expression of one lookup, aliased to its own name. */
-const maskedColumn = (tableName: string, mask: LookupReadMaskSpec): Readonly<SQL> => {
+/** The masked expression of one lookup on `dialect`, aliased to its own name. */
+const maskedColumn = (
+  dialect: Dialect,
+  tableName: string,
+  mask: LookupReadMaskSpec
+): Readonly<SQL> => {
   validateColumnName(mask.lookup)
   validateColumnName(mask.relatedField)
   const own = sql`${sql.identifier(SOURCE)}.${sql.identifier(mask.lookup)}`
@@ -137,10 +142,10 @@ const maskedColumn = (tableName: string, mask: LookupReadMaskSpec): Readonly<SQL
     validateColumnName(first.column)
     const key = sql`${sql.identifier(SOURCE)}.${sql.identifier(first.column)}`
     if (mask.link.list !== undefined) {
-      const value = hopValue(mask.link.hops, 0, key, mask.link.list)
+      const value = hopValue({ dialect, hops: mask.link.hops, list: mask.link.list }, 0, key)
       return sql`CASE WHEN ${key} IS NOT NULL THEN ${value} END AS ${alias}`
     }
-    return sql`CASE WHEN ${hopCondition(mask.link.hops, 0, key)} THEN ${own} END AS ${alias}`
+    return sql`CASE WHEN ${hopCondition(dialect, mask.link.hops, 0, key)} THEN ${own} END AS ${alias}`
   }
   // Keeps the column's type on both dialects, where a bare NULL would not.
   if (mask.readable === undefined) return sql`CASE WHEN 1 = 0 THEN ${own} END AS ${alias}`
@@ -148,9 +153,16 @@ const maskedColumn = (tableName: string, mask: LookupReadMaskSpec): Readonly<SQL
   if (mask.link.kind === 'column') {
     validateColumnName(mask.link.column)
     const key = sql`${sql.identifier(SOURCE)}.${sql.identifier(mask.link.column)}`
-    return sql`CASE WHEN EXISTS (SELECT 1 FROM ${related} WHERE ${sql.identifier('id')} = ${key} AND ${conditionOf([mask.readable])}) THEN ${own} END AS ${alias}`
+    return sql`CASE WHEN EXISTS (SELECT 1 FROM ${related} WHERE ${sql.identifier('id')} = ${key} AND ${conditionOf(dialect, [mask.readable])}) THEN ${own} END AS ${alias}`
   }
-  return recomputedColumn(tableName, mask, mask.readable, mask.link)
+  return recomputedColumn(dialect, tableName, mask, mask.link)
+}
+
+/** A chain walked hop by hop to the list it copies, on one dialect. */
+interface ChainWalk {
+  readonly dialect: Dialect
+  readonly hops: readonly ChainHop[]
+  readonly list: ListSpec
 }
 
 /**
@@ -161,24 +173,20 @@ const maskedColumn = (tableName: string, mask: LookupReadMaskSpec): Readonly<SQL
  * is missing, trashed or hidden. Each hop's record is the only relation its
  * subquery's WHERE reads, so its rule's unqualified names resolve to it.
  */
-const hopValue = (
-  hops: readonly ChainHop[],
-  index: number,
-  key: Readonly<SQL>,
-  list: ListSpec
-): Readonly<SQL> => {
+const hopValue = (walk: ChainWalk, index: number, key: Readonly<SQL>): Readonly<SQL> => {
+  const { dialect, hops, list } = walk
   const hop = hops[index] as ChainHop
   const alias = sql.identifier(`sovrium_mask_hop${index + 1}`)
   const next = hops[index + 1]
   if (next !== undefined) validateColumnName(next.column)
   const value =
     next === undefined
-      ? listAggregate(list, sql`${alias}.${sql.identifier('id')}`)
-      : hopValue(hops, index + 1, sql`${alias}.${sql.identifier(next.column)}`, list)
+      ? listAggregate(dialect, list, sql`${alias}.${sql.identifier('id')}`)
+      : hopValue(walk, index + 1, sql`${alias}.${sql.identifier(next.column)}`)
   const conditions = [
     sql`${alias}.${sql.identifier('id')} = ${key}`,
     sql`${alias}.${sql.identifier('deleted_at')} IS NULL`,
-    ...(hop.readable === undefined ? [] : [conditionOf([hop.readable])]),
+    ...(hop.readable === undefined ? [] : [conditionOf(dialect, [hop.readable])]),
   ]
   return sql`(SELECT ${value} FROM ${tableIdentifier(hop.relatedTable)} AS ${alias} WHERE ${sql.join(conditions, sql` AND `)})`
 }
@@ -189,23 +197,23 @@ const hopValue = (
  * the related rows whose back-link column holds the row's id.
  */
 const recomputedColumn = (
+  dialect: Dialect,
   tableName: string,
   mask: LookupReadMaskSpec,
-  readable: FilterNode,
   link: Exclude<LookupReadMaskSpec['link'], { readonly kind: 'column' | 'chain' }>
 ): Readonly<SQL> => {
   const list: ListSpec = {
     sourceTable: tableName,
     relatedTable: mask.relatedTable,
     relatedField: mask.relatedField,
-    readable,
+    readable: mask.readable,
     ...(link.kind === 'reverse'
       ? { kind: 'reverse', column: link.column }
       : { kind: 'junction', linkTable: link.linkTable }),
     ...(link.filters === undefined ? {} : { filters: link.filters }),
   }
   const sourceId = sql`${sql.identifier(SOURCE)}.${sql.identifier('id')}`
-  return sql`${listAggregate(list, sourceId)} AS ${sql.identifier(mask.lookup)}`
+  return sql`${listAggregate(dialect, list, sourceId)} AS ${sql.identifier(mask.lookup)}`
 }
 
 /**
@@ -224,15 +232,15 @@ const PG_NUMBER_TYPES = ['smallint', 'integer', 'real', 'double precision'] as c
  * and only a column the driver reads as a number keeps its numeric order —
  * judged per value with `pg_typeof`, so one expression serves every type.
  */
-const displayOrder = (value: string): string => {
-  if (isSqliteRuntime()) return value
+const displayOrder = (dialect: Dialect, value: string): string => {
+  if (dialect.kind === 'sqlite') return value
   const numberTypes = PG_NUMBER_TYPES.map((type) => `'${type}'::regtype`).join(', ')
   return `CASE WHEN pg_typeof(${value}) IN (${numberTypes}) THEN (${value})::text::double precision END, (${value})::text COLLATE "C"`
 }
 
 /** A listed value that is neither missing nor empty text. */
-const nonEmpty = (value: string): string =>
-  isSqliteRuntime()
+const nonEmpty = (dialect: Dialect, value: string): string =>
+  dialect.kind === 'sqlite'
     ? `${value} IS NOT NULL AND CAST(${value} AS TEXT) <> ''`
     : `${value} IS NOT NULL AND (${value})::text <> ''`
 
@@ -242,7 +250,11 @@ const nonEmpty = (value: string): string =>
  * live linked rows that pass the list table's rule (`(1 = 1)` where it
  * carries none) and the lookup's own filters; `NULL` when none does.
  */
-const listAggregate = (list: ListSpec, sourceId: Readonly<SQL>): Readonly<SQL> => {
+const listAggregate = (
+  dialect: Dialect,
+  list: ListSpec,
+  sourceId: Readonly<SQL>
+): Readonly<SQL> => {
   validateColumnName(list.relatedField)
   const related = tableIdentifier(list.relatedTable)
   const scope = [
@@ -251,12 +263,14 @@ const listAggregate = (list: ListSpec, sourceId: Readonly<SQL>): Readonly<SQL> =
   ]
   const value = `"sovrium_mask_related"."${list.relatedField}"`
   // sql-literal: identifier -- `relatedField` passed validateColumnName above
-  const aggregated = sql.raw(stringAggExpression(value, ', ', displayOrder(value)))
+  const aggregated = sql.raw(
+    stringAggExpression(dialect.kind, value, ', ', displayOrder(dialect, value))
+  )
   // A trashed linked row contributes nothing, as in the lookup's own view
   // expression (`lookup-expressions.ts`); neither does an empty item, which the
   // display never shows.
   // sql-literal: identifier -- `relatedField` passed validateColumnName above
-  const live = sql`"sovrium_mask_related"."deleted_at" IS NULL AND ${sql.raw(nonEmpty(value))}`
+  const live = sql`"sovrium_mask_related"."deleted_at" IS NULL AND ${sql.raw(nonEmpty(dialect, value))}`
   if (list.kind === 'reverse') {
     const { column } = list
     validateColumnName(column)
@@ -265,7 +279,7 @@ const listAggregate = (list: ListSpec, sourceId: Readonly<SQL>): Readonly<SQL> =
     // on. Measured on PostgreSQL over 20 000 rows, judging it through the
     // `id IN` self-subquery below instead cost ~1.4x without JIT and ~4-10x
     // once the plan crossed the JIT threshold.
-    return sql`(SELECT ${aggregated} FROM ${related} AS "sovrium_mask_related" WHERE "sovrium_mask_related".${sql.identifier(column)} = ${sourceId} AND ${live} AND ${conditionOf(scope)})`
+    return sql`(SELECT ${aggregated} FROM ${related} AS "sovrium_mask_related" WHERE "sovrium_mask_related".${sql.identifier(column)} = ${sourceId} AND ${live} AND ${conditionOf(dialect, scope)})`
   }
   // Joined to the junction, an unqualified name could be ambiguous, so the
   // rule is judged in a self-subquery. (Moving the junction into a nested
@@ -274,8 +288,14 @@ const listAggregate = (list: ListSpec, sourceId: Readonly<SQL>): Readonly<SQL> =
   const [sourceColumn, relatedColumn] = junctionKeyColumns(list.sourceTable, list.relatedTable)
   const sourceKey = sql.identifier(sourceColumn)
   const relatedKey = sql.identifier(relatedColumn)
-  const readableRelated = sql`${live} AND "sovrium_mask_related"."id" IN (SELECT ${sql.identifier('id')} FROM ${related} WHERE ${conditionOf(scope)})`
+  const readableRelated = sql`${live} AND "sovrium_mask_related"."id" IN (SELECT ${sql.identifier('id')} FROM ${related} WHERE ${conditionOf(dialect, scope)})`
   return sql`(SELECT ${aggregated} FROM ${junction} AS "sovrium_mask_junction" INNER JOIN ${related} AS "sovrium_mask_related" ON "sovrium_mask_related"."id" = "sovrium_mask_junction".${relatedKey} WHERE "sovrium_mask_junction".${sourceKey} = ${sourceId} AND ${readableRelated})`
+}
+
+/** A connection or transaction to read the catalog through, with the dialect it speaks. */
+export interface MaskingRunner {
+  readonly runner: Readonly<RawSqlRunner>
+  readonly dialect: Dialect
 }
 
 /**
@@ -283,7 +303,7 @@ const listAggregate = (list: ListSpec, sourceId: Readonly<SQL>): Readonly<SQL> =
  * mask applies, else the derived relation described above, under the same name.
  */
 export const maskedRelation = (
-  tx: Readonly<RawSqlRunner>,
+  { runner, dialect }: MaskingRunner,
   tableName: string,
   masks: readonly LookupReadMaskSpec[] | undefined,
   alias?: string
@@ -297,7 +317,7 @@ export const maskedRelation = (
   if (masks === undefined || masks.length === 0) return Effect.succeed(bare)
   return Effect.tryPromise({
     try: async () => {
-      const columns = await listTableColumns(tx, databaseTableName(tableName))
+      const columns = await listTableColumns(dialect.kind, runner, databaseTableName(tableName))
       const names = new Set(columns.map((column) => column.name))
       const applied = masks.filter((mask) => names.has(mask.lookup))
       if (applied.length === 0) return bare
@@ -306,7 +326,7 @@ export const maskedRelation = (
         .filter((column) => !maskedNames.has(column.name))
         .map((column) => sql`${sql.identifier(SOURCE)}.${sql.identifier(column.name)}`)
       const list = sql.join(
-        [...passed, ...applied.map((mask) => maskedColumn(tableName, mask))],
+        [...passed, ...applied.map((mask) => maskedColumn(dialect, tableName, mask))],
         sql`, `
       )
       return sql`(SELECT ${list} FROM ${tableIdentifier(tableName)} AS ${sql.identifier(SOURCE)}) AS ${sql.identifier(alias ?? databaseTableName(tableName))}`

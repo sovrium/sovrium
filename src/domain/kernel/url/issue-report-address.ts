@@ -5,7 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { bugReportFields, type IssueReportFacts } from '@/domain/kernel/url/issue-report-failure'
+import {
+  automationVerification,
+  bugReportFields,
+  failureChoices,
+  requestVerification,
+  type IssueReportFacts,
+} from '@/domain/kernel/url/issue-report-failure'
 import { buildIssueReportUrl, formatIssueTitle } from '@/domain/kernel/url/issue-report-url'
 import type { OperatorFix } from '@/domain/errors/operator-fixable-error'
 
@@ -29,7 +35,7 @@ import type { OperatorFix } from '@/domain/errors/operator-fixable-error'
  */
 
 /** The surface an internal error the server answered is reported under. */
-const REQUEST_SURFACE = 'request'
+export const REQUEST_SURFACE = 'request'
 
 /** The surface a run closed on an internal error is reported under. */
 const AUTOMATION_SURFACE = 'automation'
@@ -64,6 +70,7 @@ export const serverFailureReportUrl = (
     title: formatIssueTitle(REQUEST_SURFACE, failure.errorClass, failure.signature),
     fields: bugReportFields(facts, {
       logs: `Request id: ${failure.requestId}\n${failure.logs}`,
+      ...failureChoices(REQUEST_SURFACE, requestVerification(failure.signature)),
     }),
   })
 
@@ -78,6 +85,7 @@ export const runDefectReportUrl = (run: RunDefectReport, facts: IssueReportFacts
         run.errorClass,
         ...(run.frames === undefined || run.frames === '' ? [] : [run.frames]),
       ].join('\n'),
+      ...failureChoices(AUTOMATION_SURFACE, automationVerification(run.signature)),
     }),
   })
 

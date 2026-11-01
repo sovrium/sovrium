@@ -81,7 +81,9 @@ export default {
   'admin.connections.action.connect': 'Connecter',
   'admin.connections.action.reconnect': 'Reconnecter',
   'admin.connections.action.disconnect': 'Déconnecter',
-  'admin.connections.action.disconnectConfirm': 'Révoquer les jetons de cette connexion ?',
+  'admin.connections.action.disconnectConfirm': 'Déconnecter ce compte ?',
+  'admin.connections.action.disconnectMessage':
+    'Ses jetons sont révoqués dès maintenant. Les automatisations qui l’utilisent échouent jusqu’à une nouvelle connexion.',
   'admin.connections.search': 'Rechercher une connexion',
   'admin.connections.noMatch': 'Aucune connexion ne correspond à « {query} »',
   'admin.connections.empty': 'Aucune connexion',
@@ -203,6 +205,12 @@ export default {
   'admin.users.col.lastActive': 'Dernière activité',
   'admin.users.filter.role': 'Filtrer par rôle',
   'admin.users.filter.allRoles': 'Tous les rôles',
+  'admin.users.filter.access': 'Filtrer par accès à la console',
+  'admin.users.filter.access.everyone': 'Tout le monde',
+  'admin.users.filter.access.yes': 'Peut ouvrir la console',
+  'admin.users.filter.access.no': 'Ne peut pas ouvrir la console',
+  'admin.users.filter.access.hintYes': 'Peuvent l’ouvrir :',
+  'admin.users.filter.access.hintNo': 'Ne peuvent pas :',
   'admin.users.filter.status': 'Filtrer par statut',
   'admin.users.filter.allStatuses': 'Tous les statuts',
   'admin.users.account.created': 'Créé le',
@@ -210,12 +218,20 @@ export default {
   'admin.users.account.sessions': 'Sessions actives',
   'admin.users.account.twoFactor': 'Double authentification',
   'admin.users.account.signInMethods': 'Modes de connexion',
-  'admin.users.account.danger.region': 'Bannir ou supprimer',
-  'admin.users.account.danger.heading': 'Bannir ou supprimer ce compte',
+  'admin.users.account.danger.region': 'Fermer les sessions, bannir ou supprimer',
+  'admin.users.account.danger.heading': 'Fermer les sessions, bannir ou supprimer',
+  'admin.users.account.danger.end':
+    'Déconnecte la personne de tous ses appareils. Elle peut se reconnecter.',
+  'admin.users.account.danger.ban':
+    'Déconnecte la personne et l’empêche de se connecter jusqu’à ce que tu lèves le bannissement.',
+  'admin.users.account.danger.delete': 'Supprime le compte et ses sessions. Action irréversible.',
   'admin.users.account.danger.body':
     'Bannir déconnecte cette personne et l’empêche de se reconnecter jusqu’à ce que tu lèves le bannissement. Supprimer efface le compte, sans retour possible.',
   'admin.users.account.danger.self':
     'C’est ton compte. Pour le bannir ou le supprimer, demande à un autre admin.',
+  'admin.users.account.danger.self.chrome': 'C’est ton compte.',
+  'admin.users.account.danger.self.guidance':
+    'Pour le bannir ou le supprimer, demande à un autre admin. Pour te déconnecter, passe par le menu du compte.',
   'admin.users.account.roles.region': 'Rôles assignables',
   'admin.users.account.roles.heading': 'Rôles assignables',
   'admin.users.account.roles.source': 'depuis ton fichier de config',
@@ -224,13 +240,17 @@ export default {
   'admin.users.account.access.body':
     'Ce que cette personne peut lire et écrire, avec l’accès derrière chaque ligne. Les accès se modifient par l’API, le seed ou les automatisations, jamais ici.',
   'admin.users.account.access.grid': 'Autorisations',
-  'admin.users.account.access.reach': 'Organisation › Portée',
+  'admin.users.account.access.reach': 'Accès › Portée',
 
   'admin.pages.heading': 'Analytique',
   'admin.pages.blurb':
     'Mesure l’audience de tes pages sur les 30 derniers jours : vues, visiteurs et sessions, la tendance dans le temps, les pages les plus vues, d’où vient le trafic, avec quoi il navigue, et le journal brut des événements.',
   'admin.pages.blurbDisabled':
-    'Mesure l’audience de tes pages — vues, visiteurs, sessions et leurs sources. L’analytique est désactivée pour cette app ; active-la pour commencer à collecter.',
+    'Mesure l’audience de tes pages : vues, visiteurs, sessions et leurs sources.',
+  'admin.pages.off.title': 'L’analytique est désactivée pour cette app.',
+  'admin.pages.off.guidance.before': 'Ajoute',
+  'admin.pages.off.guidance.after':
+    'à ton fichier de config, puis redémarre l’app. Les vues de pages comptent à partir de là.',
   'admin.pages.tabs.region': 'Sous-vues Analytique',
 
   'admin.automations.heading': 'Exécutions',
@@ -329,6 +349,7 @@ export default {
   'admin.automations.runs.step.filtered': 'Filtrée',
   'admin.automations.runs.step.waiting': 'En attente',
   'admin.automations.runs.col.automation': 'Automatisation',
+  'admin.automations.runs.filter.submission': 'Lancées par la réponse',
   'admin.automations.runs.col.trigger': 'Déclencheur',
   'admin.automations.runs.col.status': 'Statut',
   'admin.automations.runs.col.started': 'Démarrée',
@@ -402,6 +423,11 @@ export default {
   'admin.forms.dropOff.singlePage': 'Sans objet : formulaire d’une seule page',
   'admin.forms.reveal': 'Afficher les réponses',
   'admin.forms.answers': 'Réponses',
+  'admin.forms.submitter': 'Expéditeur',
+  'admin.forms.anonymous': 'Anonyme',
+  'admin.forms.runs': 'Exécutions lancées',
+  'admin.forms.openRecord': 'Ouvrir l’enregistrement',
+  'admin.forms.seeRuns': 'Voir ses exécutions',
   'admin.forms.status.received': 'Reçue',
   'admin.forms.status.processing': 'En cours',
   'admin.forms.status.processed': 'Traitée',
@@ -444,6 +470,8 @@ export default {
   'admin.links.campaigns.region': 'Campagnes',
   'admin.links.clickLog.heading': 'Journal des clics',
   'admin.links.clickLog.region': 'Journal des clics',
+  'admin.links.clickLog.notListed':
+    'Les clics individuels ne sont pas listés avec les réglages d’analytique de cette app. Clics et Scans, plus haut, donnent les totaux, arrondis à la dizaine. Pour lister chaque clic, mets analytics.profile à full dans la config de ton app.',
   'admin.links.definition.full': 'Définition complète',
   'admin.links.create.region': 'Nouveau lien',
   'admin.links.create.heading': 'Nouveau lien',
@@ -489,6 +517,7 @@ export default {
     'Les modèles Word, Excel et PowerPoint produisent un fichier : il n’y a rien à afficher dans le navigateur. Pour le rendre avec ses données d’exemple, lance cette commande dans le dossier du projet :',
 
   'admin.footprint.measured.heading': 'Mesuré',
+  'admin.footprint.intro': 'Les ressources utilisées par cette instance pour servir les pages.',
   'admin.footprint.storage.heading': 'Stockage',
   'admin.footprint.storage.region': 'Consommateurs de stockage',
   'admin.footprint.configuration.heading': 'Configuration',

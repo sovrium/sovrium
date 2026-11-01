@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Which decoded tables carry an `id` their AUTHOR wrote.
  *
@@ -38,9 +40,6 @@
  * as a populated drop, loudly, with nothing moved or lost. The opposite default
  * would fail by moving rows.
  */
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The ids of the tables whose `id` their author wrote (see the module note). */
 export type AuthoredTableIds = ReadonlySet<number | string>

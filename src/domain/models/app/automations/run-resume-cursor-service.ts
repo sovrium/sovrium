@@ -21,6 +21,7 @@
  */
 
 import { Schema } from 'effect'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 
 /** The kinds of step a run can pause inside. */
 export type ResumeContainerKind = 'loop' | 'path'
@@ -93,9 +94,6 @@ export const parseResumeCursor = (raw: unknown): ResumeCursor | undefined => {
 
 /** A step of a configuration as the frame matcher reads it. */
 type RawStep = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawStep =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const stepsOf = (value: unknown): readonly RawStep[] =>
   Array.isArray(value) ? value.filter(isRecord) : []

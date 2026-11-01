@@ -16,14 +16,14 @@ Every option of the `design` block — palette, ramps and roles, type, space, sh
 
 | Option | Kind | What it does |
 | --- | --- | --- |
-| `sovrium docs config design` | object | The app's design system in one key: the colour palette, ramps and roles; the type, space, shape, elevation, motion and layout foundations; density, baseline and per-engine-type component styling; the zone map; and the charter — logo, imagery, principles and voice. |
+| `sovrium docs config design` | object | The app's design system in one key: the colour palette, ramps and roles; the type, space, shape, elevation, motion and layout foundations; density, baseline and per-engine-type component styling; the colours of code blocks; the zone map; and the charter (logo, imagery, principles and voice). |
 | `sovrium docs config design.colorScheme` | enum | Default color scheme before content renders: 'light', 'dark', or 'system' (follow prefers-color-scheme). Omitted, every app follows the visitor's system scheme, using the default dark palette when it declares no `darkColors`; declare 'light' to keep an app light. A visitor's stored theme-toggle choice still wins. |
 | `sovrium docs config design.colors` | object | The app's named colour literals. Distinct from `design.ramps` (ordered ladders) and `design.colorRoles` (what a role resolves to). |
 | `sovrium docs config design.darkColors` | object | Dark-scheme overrides for `design.colors`, keyed identically. Declared with no `colorScheme`, the app follows the visitor's system scheme. |
 | `sovrium docs config design.ramps` | object | The app's colour ramps: ordered lightness ladders whose steps roles refer to by name. Distinct from `theme.colors`, which is an unordered palette of author tokens. |
 | `sovrium docs config design.colorRoles` | object | Per-token usage guidance keyed by colour name. Answers the question `theme.colors` cannot: what is this colour FOR? Every key must name a token declared in the app's palette. |
 | `sovrium docs config design.typeScale` | object | The app's type foundation: `families` (the faces) and `steps` (the ordered ladder). |
-| `sovrium docs config design.typeScale.families` | object | Typography design tokens for font families and styles |
+| `sovrium docs config design.typeScale.families` | object | The app's faces, keyed by role: `body` sets running text, `title` sets headings, `mono` sets code, and `sans` replaces the default sans that `--font-sans` and the `font-sans` utility name. Declaring `body` leaves `sans` alone. Any other key adds a `font-<key>` utility. |
 | `sovrium docs config design.typeScale.steps` | object | The app's ordered type ladder. Each declared step emits CSS custom properties (`--text-{step}` and its `--line-height` / `--font-weight` / `--letter-spacing` modifiers). |
 | `sovrium docs config design.typeScale.steps.display` | object | One named step of the type scale: its size, and optionally its leading, weight, tracking and face |
 | `sovrium docs config design.typeScale.steps.display.size` | string | Rendered size of this step, in `px` or `rem` |
@@ -126,19 +126,28 @@ Every option of the `design` block — palette, ramps and roles, type, space, sh
 | `sovrium docs config design.density.steps.roomy.buttonH` | string | Height of a small button |
 | `sovrium docs config design.density.steps.roomy.gap` | string | Horizontal gap between adjacent affordances |
 | `sovrium docs config design.density.steps.roomy.text` | string | Font size of dense secondary text |
-| `sovrium docs config design.density.default` | enum | The density step every page runs at when its zone assigns none: 'compact', 'cozy' or 'roomy'. Omitted, pages run at 'compact' — the spacing Sovrium has always rendered. |
+| `sovrium docs config design.density.default` | enum | The density step every page runs at when its zone assigns none: 'compact', 'cozy' or 'roomy'. Omitted, pages run at 'compact', the spacing Sovrium has always rendered. |
 | `sovrium docs config design.density.byZone` | object | Which density step each declared zone runs at, overriding `default` for the pages that zone governs |
 | `sovrium docs config design.density.floors` | object | The accessibility floors a density step may never cross. Both values are fixed; the field exists so the guarantee is visible in the config document, not so it can be tuned. |
-| `sovrium docs config design.density.floors.controlH` | enum | Minimum inline-control height in px. Fixed at 24 — declaring it restates the guarantee, and no other value decodes. |
-| `sovrium docs config design.density.floors.hit` | enum | Minimum interactive hit-target size in px. Fixed at 44 — declaring it restates the guarantee, and no other value decodes. |
+| `sovrium docs config design.density.floors.controlH` | enum | Minimum inline-control height in px. Fixed at 24: declaring it restates the guarantee, and no other value decodes. |
+| `sovrium docs config design.density.floors.hit` | enum | Minimum interactive hit-target size in px. Fixed at 44: declaring it restates the guarantee, and no other value decodes. |
 | `sovrium docs config design.badgeForm` | enum | How every badge that shows a coloured option is drawn, on every surface: 'filled' paints the option colour as the fill (default); 'outline-dot' draws an outline and a leading dot in the option colour on a transparent chip. An option with no colour stays neutral either way. |
 | `sovrium docs config design.baseline` | enum | Extend Sovrium's v1 default look ('extend', default) or replace it with a neutral floor ('replace'). |
+| `sovrium docs config design.code` | object | How code blocks take the design: `tokens` colours each syntax role from a colour token. Absent, code blocks draw the default `github-light` / `github-dark` colours. |
+| `sovrium docs config design.code.tokens` | object | Colour of each syntax role in every code block (a `code` component, a markdown fence, a code block in an ai-chat answer), as the name of a colour token. A role left out keeps the default `github-light` / `github-dark` colour. Once declared, every token span of a role also carries the class `tok-<role>`. |
+| `sovrium docs config design.code.tokens.comment` | string | Colour token that paints comments. A name declared in `design.colors` (its `design.darkColors` value paints the dark scheme), never a literal colour. Must reach 4.5:1 on the code block in both colour schemes, or the config is refused. |
+| `sovrium docs config design.code.tokens.keyword` | string | Colour token that paints keywords, storage words and operators (`export`, `const`, `=>`). A name declared in `design.colors` (its `design.darkColors` value paints the dark scheme), never a literal colour. Must reach 4.5:1 on the code block in both colour schemes, or the config is refused. |
+| `sovrium docs config design.code.tokens.string` | string | Colour token that paints strings and regular expressions. A name declared in `design.colors` (its `design.darkColors` value paints the dark scheme), never a literal colour. Must reach 4.5:1 on the code block in both colour schemes, or the config is refused. |
+| `sovrium docs config design.code.tokens.constant` | string | Colour token that paints numbers, constants, built-in types and JSON property names. A name declared in `design.colors` (its `design.darkColors` value paints the dark scheme), never a literal colour. Must reach 4.5:1 on the code block in both colour schemes, or the config is refused. |
+| `sovrium docs config design.code.tokens.function` | string | Colour token that paints function, class and other declared names. A name declared in `design.colors` (its `design.darkColors` value paints the dark scheme), never a literal colour. Must reach 4.5:1 on the code block in both colour schemes, or the config is refused. |
+| `sovrium docs config design.code.tokens.tag` | string | Colour token that paints tag names in markup and the keys of YAML. A name declared in `design.colors` (its `design.darkColors` value paints the dark scheme), never a literal colour. Must reach 4.5:1 on the code block in both colour schemes, or the config is refused. |
+| `sovrium docs config design.code.tokens.variable` | string | Colour token that paints variables and parameters. A name declared in `design.colors` (its `design.darkColors` value paints the dark scheme), never a literal colour. Must reach 4.5:1 on the code block in both colour schemes, or the config is refused. |
 | `sovrium docs config design.zones` | array | The app's zone map: which route patterns belong to which zone, and how each zone's voice departs from `design.voice`. |
 | `sovrium docs config design.zones[]` | object | One route pattern, the zone it belongs to, and how its voice departs from the app default. |
 | `sovrium docs config design.zones[].pattern` | string | The declared route pattern this zone governs (e.g. '/docs/*'), or the literal catch-all 'everything else'. |
 | `sovrium docs config design.zones[].zone` | string | The zone this pattern belongs to (e.g. 'marketing', 'documentation', 'product'). |
-| `sovrium docs config design.zones[].voice` | object | How this zone departs from `design.voice`. Per-FIELD: a declared field replaces the same field of `design.voice` for routes this zone governs; an undeclared field inherits. `personality` is not overridable — it is app identity, not situational register. |
-| `sovrium docs config design.zones[].voice.pronoun` | string | How the system addresses the reader (e.g. 'tu', 'vous', 'you'). Free-form, because the register contract is per-language. |
+| `sovrium docs config design.zones[].voice` | object | How this zone departs from `design.voice`. Per-FIELD: a declared field replaces the same field of `design.voice` for routes this zone governs; an undeclared field inherits. `personality` is not overridable: it is app identity, not situational register. |
+| `sovrium docs config design.zones[].voice.pronoun` | string | How the system addresses the reader in this app's default language (e.g. 'tu', 'vous', 'you'). Free-form, because the register contract is per-language: the other languages an app declares choose their own. |
 | `sovrium docs config design.zones[].voice.prefer` | array | Copy patterns to reach for in this zone, replacing `design.voice.prefer` |
 | `sovrium docs config design.zones[].voice.prefer[]` | string | One writing rule this zone reaches for |
 | `sovrium docs config design.zones[].voice.avoid` | array | Copy patterns to refuse in this zone, replacing `design.voice.avoid` |
@@ -151,8 +160,8 @@ Every option of the `design` block — palette, ramps and roles, type, space, sh
 | `sovrium docs config design.zones[].voice.tone.destructive` | string | One writing rule, stated as an instruction a writer can obey |
 | `sovrium docs config design.logo` | object | The app's mark and the rules for placing it: the file, its dark-mode variant, its accessible name, clear space, minimum size, and what must never be done to it. |
 | `sovrium docs config design.logo.src` | string | Root-relative path or `https://` URL of the primary mark |
-| `sovrium docs config design.logo.srcDark` | string | Variant shown when the interface is in dark mode — i.e. the light-ink file. Omit when one mark reads on both surfaces. |
-| `sovrium docs config design.logo.alt` | string | Accessible name of the mark — normally just the app's name |
+| `sovrium docs config design.logo.srcDark` | string | Variant shown when the interface is in dark mode: the light-ink file. Omit when one mark reads on both surfaces. |
+| `sovrium docs config design.logo.alt` | string | Accessible name of the mark, normally just the app's name |
 | `sovrium docs config design.logo.clearSpace` | string | The exclusion zone around the mark, stated relative to the mark itself |
 | `sovrium docs config design.logo.minWidth` | string | Smallest width the mark may be reproduced at |
 | `sovrium docs config design.logo.misuse` | array | Things that must never be done to the mark |
@@ -170,7 +179,7 @@ Every option of the `design` block — palette, ramps and roles, type, space, sh
 | `sovrium docs config design.voice` | object | The app's voice: constant personality and address, the patterns it reaches for and refuses, and how its tone shifts per situation. |
 | `sovrium docs config design.voice.personality` | array | Traits that hold across every surface, regardless of situation |
 | `sovrium docs config design.voice.personality[]` | string | One writing rule, stated as an instruction a writer can obey |
-| `sovrium docs config design.voice.pronoun` | string | How the system addresses the reader (e.g. 'tu', 'vous', 'you'). Free-form, because the register contract is per-language. |
+| `sovrium docs config design.voice.pronoun` | string | How the system addresses the reader in this app's default language (e.g. 'tu', 'vous', 'you'). Free-form, because the register contract is per-language: the other languages an app declares choose their own. |
 | `sovrium docs config design.voice.prefer` | array | Copy patterns to reach for, stated as instructions |
 | `sovrium docs config design.voice.prefer[]` | string | One writing rule, stated as an instruction a writer can obey |
 | `sovrium docs config design.voice.avoid` | array | Copy patterns to refuse, stated as instructions |
@@ -188,7 +197,7 @@ One row per component type. Every type takes the options listed for `design.comp
 
 | Option | Kind | What it does |
 | --- | --- | --- |
-| `sovrium docs config design.components` | object | Per-engine-type styling: the classes an operator adds to the components Sovrium draws. Keys are component types (`button`, `table`), not the app's own `components[]` names — those carry their styling on the template. |
+| `sovrium docs config design.components` | object | Per-engine-type styling: the classes an operator adds to the components Sovrium draws. Keys are component types (`button`, `table`), not the app's own `components[]` names, which carry their styling on the template; `markdown` styles every markdown article, under a page's own `markdown.classes`. |
 | `sovrium docs config design.components.container` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.resizable` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.flex` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
@@ -198,7 +207,7 @@ One row per component type. Every type takes the options listed for `design.comp
 | `sovrium docs config design.components.bubble` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.aspect-ratio` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.message-scroller` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
-| `sovrium docs config design.components.text` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
+| `sovrium docs config design.components.text` | object | Classes an operator adds to every `text`: per part, per variant, per state, per element drawn, and whether to replace the recipe or layer over it |
 | `sovrium docs config design.components.icon` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.image` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.video` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
@@ -255,6 +264,7 @@ One row per component type. Every type takes the options listed for `design.comp
 | `sovrium docs config design.components.link` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.button-group` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.theme-toggle` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
+| `sovrium docs config design.components.consent-choice` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.breadcrumb` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.dropdown-menu` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.context-menu` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
@@ -300,6 +310,7 @@ One row per component type. Every type takes the options listed for `design.comp
 | `sovrium docs config design.components.separator` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.spacer` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.ai-chat` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
+| `sovrium docs config design.components.markdown` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 
 ## `design.components.button`
 

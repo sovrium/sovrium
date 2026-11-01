@@ -16,7 +16,7 @@
  * a marker and forgetting to strip it is a one-file mistake.
  */
 
-import { OPTIONAL_UNDEFINED_MARKER } from '@/domain/models/api/combinators/optional-field'
+import { OPTIONAL_UNDEFINED_MARKER } from '@/domain/kernel/config-parsing/optional-field'
 import { cleanMarkers, emptyToNullable } from './normalize'
 
 /** A JSON-Schema object as emitted by `Schema.toJsonSchemaDocument`. */
@@ -30,7 +30,7 @@ export const DEFS_REF_PREFIX = '#/$defs/'
 
 /**
  * Marker asking for a node's INPUT shape instead. Mirrors
- * `DOCUMENT_INPUT_MARKER` in `domain/models/api/combinators/transform.ts`; declared
+ * `DOCUMENT_INPUT_MARKER` in `domain/kernel/config-parsing/transform.ts`; declared
  * here rather than imported so the presentation-facing adapter does not reach
  * into a domain module for a string.
  */
@@ -39,7 +39,7 @@ const DOCUMENT_INPUT_MARKER = 'sovrium:document-input'
 /**
  * Sentinel prefix marking a description contributed by a USE SITE.
  *
- * Written by `describedRef` in `domain/models/api/combinators/described-ref.ts`;
+ * Written by `describedRef` in `domain/kernel/config-parsing/described-ref.ts`;
  * duplicated here for the same reason as {@link DOCUMENT_INPUT_MARKER} — the
  * infrastructure layer does not reach into domain for behaviour, and a marker
  * string is not worth a port. The two must move together.

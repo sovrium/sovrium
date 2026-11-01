@@ -68,7 +68,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * Marks a block whose source could not be read, so its figures are a FALLBACK
@@ -203,7 +203,7 @@ export const overviewConnectionsSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   healthy: Schema.Int.annotate({
     description:
-      'Subset of `total` whose status in the connections list is `active` — excludes `expiring-soon`, `expired`, `reconnect-needed` and `not-connected` (an OAuth2 connection nobody has authorized yet). Always `<= total`.',
+      'Subset of `total` whose status in the connections list is `active`. Excludes `expiring-soon`, `expired`, `reconnect-needed` and `not-connected` (an OAuth2 connection nobody has authorized yet). Always `<= total`.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   degraded: degradedField,
 }).annotate({ identifier: 'AdminOverviewConnections' })

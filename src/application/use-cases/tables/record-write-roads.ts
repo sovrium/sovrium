@@ -18,7 +18,7 @@
  * its own `concurrency`. The caller is promised the row, nothing about the runs.
  *
  * An automation step takes the same orchestrations with its run's record-event
- * channel instead (`action-handlers/record-events.ts`). The binding lives here,
+ * channel instead (`action-handlers/record/events.ts`). The binding lives here,
  * apart from the orchestrations, because the records API's dispatch imports the
  * automation run loop — which imports the step handlers, which import the
  * orchestrations: binding it there would close that cycle.
@@ -26,7 +26,11 @@
 
 import { Effect } from 'effect'
 import { startRecordEventAutomationsInBackground } from '@/application/use-cases/automations/record-event-background'
-import { createRecordVia, type RecordCreateInput } from './record-create-orchestration'
+import {
+  createRecordVia,
+  engineMergesAiBaseline,
+  type RecordCreateInput,
+} from './record-create-orchestration'
 import { deleteRecordVia, type RecordDeleteInput } from './record-delete-orchestration'
 import { updateRecordVia, type RecordUpdateInput } from './record-update-orchestration'
 import type { TriggerRecordEventInput } from '@/application/use-cases/automations/trigger-record-event'
@@ -42,15 +46,31 @@ export const dispatchRecordEventInBackground = (input: TriggerRecordEventInput) 
     })
   )
 
+/**
+ * A road's input, whose `isSqlite` a door may leave out: the engine then
+ * answers whether the AI-compute baseline is merged into the write here.
+ */
+type EngineAnswered<I> = Omit<I, 'isSqlite'> & { readonly isSqlite?: boolean }
+
+/** The door's answer when it gave one (a road that never merges says `false`), else the engine's. */
+const settleIsSqlite = (isSqlite: boolean | undefined) =>
+  isSqlite === undefined ? engineMergesAiBaseline : Effect.succeed(isSqlite)
+
 /** Create one record and run every side effect the create carries. */
-export const createRecordWithSideEffects = (input: RecordCreateInput) =>
-  createRecordVia(input, dispatchRecordEventInBackground).pipe(
+export const createRecordWithSideEffects = (input: EngineAnswered<RecordCreateInput>) =>
+  settleIsSqlite(input.isSqlite).pipe(
+    Effect.flatMap((isSqlite) =>
+      createRecordVia({ ...input, isSqlite }, dispatchRecordEventInBackground)
+    ),
     Effect.withSpan('tables.create-record-road', { attributes: { tableName: input.tableName } })
   )
 
 /** Update one record and run every side effect the update carries. */
-export const updateRecordWithSideEffects = (input: RecordUpdateInput) =>
-  updateRecordVia(input, dispatchRecordEventInBackground).pipe(
+export const updateRecordWithSideEffects = (input: EngineAnswered<RecordUpdateInput>) =>
+  settleIsSqlite(input.isSqlite).pipe(
+    Effect.flatMap((isSqlite) =>
+      updateRecordVia({ ...input, isSqlite }, dispatchRecordEventInBackground)
+    ),
     Effect.withSpan('tables.update-record-road', { attributes: { tableName: input.tableName } })
   )
 

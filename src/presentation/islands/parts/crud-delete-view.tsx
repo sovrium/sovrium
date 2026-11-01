@@ -10,7 +10,9 @@ import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { cn } from '@/presentation/design/class-merge'
 import { pendingControlProps } from '@/presentation/design/pending-state'
 import { renderPendingContent } from '@/presentation/design/spinner-mark'
+import { ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
 import { toastWriteFailure, toastWriteRefusal } from '../runtime/write-refusal'
+import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
 interface FormState {
   readonly error?: string
@@ -22,6 +24,10 @@ interface FormState {
 export interface DeleteViewProps {
   readonly confirm?: boolean
   readonly confirmMessage?: string
+  /** The button's own `confirm`: asked in an alert dialog before anything is deleted. */
+  readonly confirmGate?: ConfirmObject
+  /** The gate's Cancel word in the page language, when the confirm names none. */
+  readonly confirmCancelLabel?: string
   readonly buttonLabel?: string
   readonly state: FormState
   readonly onSubmit: () => void
@@ -168,6 +174,50 @@ function DeleteFormButton({
 }
 
 /**
+ * A delete whose button carries its own `confirm`: the press draws the alert
+ * dialog, Cancel closes it, and only its confirm deletes.
+ */
+function GatedDelete({
+  gate,
+  cancelLabel,
+  label,
+  onSubmit,
+  isPending,
+  pendingLabel,
+}: {
+  readonly gate: ConfirmObject
+  readonly cancelLabel: string | undefined
+  readonly label: string
+  readonly onSubmit: () => void
+  readonly isPending: boolean
+  readonly pendingLabel: string | undefined
+}) {
+  const [asking, setAsking] = useState(false)
+  if (!asking) {
+    return (
+      <ActionButton
+        label={label}
+        onClick={() => setAsking(true)}
+        isPending={isPending}
+        pendingLabel={pendingLabel}
+      />
+    )
+  }
+  return (
+    <ObjectConfirmDialog
+      config={gate}
+      fallbackConfirmLabel={label}
+      {...(cancelLabel !== undefined && { fallbackCancelLabel: cancelLabel })}
+      onConfirm={() => {
+        setAsking(false)
+        onSubmit()
+      }}
+      onCancel={() => setAsking(false)}
+    />
+  )
+}
+
+/**
  * The delete control: a confirm step when asked; a form post (enhanced by
  * script) when a redirect is configured; otherwise an in-place delete that
  * stays on the page and shows the deleted state.
@@ -240,10 +290,21 @@ export function DeleteView(props: DeleteViewProps) {
 
   return (
     <DeleteWrapper {...w}>
-      <DeleteContent
-        props={props}
-        label={label}
-      />
+      {props.confirmGate !== undefined && state.deleted !== true ? (
+        <GatedDelete
+          gate={props.confirmGate}
+          cancelLabel={props.confirmCancelLabel}
+          label={label}
+          onSubmit={props.onSubmit}
+          isPending={state.isPending}
+          pendingLabel={props.pendingLabel}
+        />
+      ) : (
+        <DeleteContent
+          props={props}
+          label={label}
+        />
+      )}
     </DeleteWrapper>
   )
 }

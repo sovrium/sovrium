@@ -6,6 +6,7 @@
  */
 
 import { Data, Effect } from 'effect'
+import { StaticOutputWriter } from '@/application/ports/services/static-output-writer'
 import { generateSearchIndex } from '@/application/use-cases/server/generate-search-index'
 import { generateStatic } from '@/application/use-cases/server/generate-static'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
@@ -51,6 +52,7 @@ export type StaticBuildServices =
   | PageRendererService
   | CSSCompilerService
   | StaticSiteGeneratorService
+  | StaticOutputWriter
   | ContentDirReader
 
 /**
@@ -90,45 +92,37 @@ export const prebuildSearchIndex = (
   publicDir: string
 ): Effect.Effect<boolean, PrebuildSearchIndexError, StaticBuildServices> =>
   hasPageSearchComponent(validatedApp)
-    ? Effect.acquireUseRelease(
-        // Lazy `node:*` imports: they cost nothing for the overwhelming
-        // majority of configs, which declare no page-scoped search and never reach
-        // this branch at all.
-        Effect.tryPromise({
-          try: async () => {
-            const fs = await import('node:fs/promises')
-            const os = await import('node:os')
-            const path = await import('node:path')
-            return {
-              fs,
-              tempStaticDir: await fs.mkdtemp(path.join(os.tmpdir(), 'sovrium-search-')),
-            }
-          },
-          // `mkdtemp` rejects on a full or read-only temp filesystem. That is a
-          // real, reportable build failure rather than a defect — the caller
-          // already has an error type for "the search index could not be built".
-          catch: (cause) =>
-            new SearchIndexTempDirError({
-              message: `Could not create a temporary directory for the search index: ${String(cause)}`,
-              cause,
-            }),
-        }),
-        ({ tempStaticDir }) => buildInto(rawApp, validatedApp, tempStaticDir, publicDir),
-        // Always remove the temp dir, on success and on failure alike. A
-        // partially-written `publicDir` is fine to leave: it is either complete
-        // or absent, and the next boot overwrites it.
-        ({ fs, tempStaticDir }) =>
-          Effect.tryPromise({
-            try: () => fs.rm(tempStaticDir, { recursive: true, force: true }),
-            catch: (cause) =>
-              new SearchIndexTempDirError({
-                message: `Could not remove ${tempStaticDir}`,
-                cause,
-              }),
-          }).pipe(
-            // effect-swallow: the release arm of `acquireUseRelease` — a temp directory the OS reclaims anyway must never displace the build result this whole block exists to produce.
-            Effect.ignoreCause
-          )
+    ? StaticOutputWriter.use((fs) =>
+        Effect.acquireUseRelease(
+          fs.makeTemporaryDirectory('search').pipe(
+            // `mkdtemp` rejects on a full or read-only temp filesystem. That is a
+            // real, reportable build failure rather than a defect — the caller
+            // already has an error type for "the search index could not be built".
+            Effect.mapError(
+              ({ cause }) =>
+                new SearchIndexTempDirError({
+                  message: `Could not create a temporary directory for the search index: ${String(cause)}`,
+                  cause,
+                })
+            )
+          ),
+          (tempStaticDir) => buildInto(rawApp, validatedApp, tempStaticDir, publicDir),
+          // Always remove the temp dir, on success and on failure alike. A
+          // partially-written `publicDir` is fine to leave: it is either complete
+          // or absent, and the next boot overwrites it.
+          (tempStaticDir) =>
+            fs.remove(tempStaticDir).pipe(
+              Effect.mapError(
+                ({ cause }) =>
+                  new SearchIndexTempDirError({
+                    message: `Could not remove ${tempStaticDir}`,
+                    cause,
+                  })
+              ),
+              // effect-swallow: the release arm of `acquireUseRelease` — a temp directory the OS reclaims anyway must never displace the build result this whole block exists to produce.
+              Effect.ignoreCause
+            )
+        )
       )
     : Effect.succeed(false).pipe(Effect.withSpan('server.prebuild-search-index'))
 

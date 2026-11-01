@@ -24,6 +24,7 @@ import { resolveTranslation } from '@/domain/models/app/languages/translation-re
 import { resolveFormRefOptionSets } from '@/presentation/render/forms/form-ref-option-sources'
 import { resolveFormRefReaders } from '@/presentation/render/forms/form-ref-readers'
 import { resolveComponentTranslationTokens } from '@/presentation/render/i18n/translation-handler'
+import { narrowChannelRowLists } from '@/presentation/render/resolve/channel-row-lists'
 import { foldCodeContentFrom } from '@/presentation/render/resolve/code-content-fold-resolver'
 import { resolveCustomHtmlSources } from '@/presentation/render/resolve/custom-html-resolver'
 import { resolvePageDataSources } from '@/presentation/render/resolve/data-source-resolver'
@@ -258,10 +259,9 @@ function componentLocalizerFor(
 }
 
 /**
- * The key translator a run page's server-side read relabels its statuses
- * through, or `undefined` for an app with no dictionary. The same language
- * precedence as {@link componentLocalizerFor}, so a status reads in the
- * language of the label beside it. A key the app does not translate answers
+ * The key translator a run page's server-side read relabels its statuses through, or `undefined`
+ * for an app with no dictionary. The same language precedence as {@link componentLocalizerFor}, so
+ * a status reads in the language of the label beside it. A key the app does not translate answers
  * `undefined`, and the English word stands.
  */
 function keyTranslatorFor(
@@ -294,7 +294,8 @@ async function applyRowScopedPasses(
   const localize = componentLocalizerFor(page, input)
   const tables = tablesEnvelopeReaderFor(input)
   const withMatrices = await resolveMatrixGraphs(folded, input.fetchSystemRecord, localize, tables)
-  return resolveGraphs(withMatrices, input.fetchSystemRecord, localize, tables)
+  const graphed = await resolveGraphs(withMatrices, input.fetchSystemRecord, localize, tables)
+  return narrowChannelRowLists(graphed, input.requestQuery) // a row list reads its channel
 }
 
 /**
@@ -427,7 +428,6 @@ export async function resolveAndFilterPage(
     input,
     specimens.templates
   )
-
   const resolved = await resolvePageDataSources(rowScoped, app, routeParams, {
     session,
     cookies,

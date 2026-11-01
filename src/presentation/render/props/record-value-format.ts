@@ -101,7 +101,7 @@ const serverTextContext = (
   tables: Tables | undefined
 ): FieldTextContext => ({
   tables,
-  operatorZone: parseSovriumTimezone().zoneId,
+  operatorZone: parseSovriumTimezone(process.env).zoneId,
   now: renderNow(),
   locale,
   languages,

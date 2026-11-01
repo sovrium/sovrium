@@ -178,10 +178,15 @@ export const deriveConnectionState = (
   status: Readonly<ConnectionStatus>
 ): 'connected' | 'disconnected' | 'expired' | 'reconnect-needed' => {
   if (!status.connected) return 'disconnected'
-  if (needsReconnect({ expiresAt: status.expiresAt, hasRefreshToken: status.hasRefreshToken })) {
+  // A credential's expiry stays on the real clock, never on SOVRIUM_DEV_CLOCK
+  // (`SOVRIUM_DEV_CLOCK` in `env-vars.docs.md`): the provider judges it so.
+  const now = Date.now()
+  if (
+    needsReconnect({ expiresAt: status.expiresAt, hasRefreshToken: status.hasRefreshToken }, now)
+  ) {
     return 'reconnect-needed'
   }
-  if (status.expiresAt !== undefined && status.expiresAt.getTime() < Date.now()) return 'expired'
+  if (status.expiresAt !== undefined && status.expiresAt.getTime() < now) return 'expired'
   return 'connected'
 }
 

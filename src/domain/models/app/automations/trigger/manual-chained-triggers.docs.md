@@ -1,6 +1,6 @@
 # Manual, Sub-Automation & Failure Triggers
 
-> The three triggers no external event and no schedule starts — an operator deciding, another automation delegating, and a run failing.
+> The three triggers no external event and no schedule starts: an operator deciding, another automation delegating, and a run failing.
 
 ## Manual trigger
 
@@ -32,17 +32,17 @@ So posting `{"warehouse": "north"}` to the trigger endpoint is read as `{{trigge
 
 ### From a page button
 
-A page component whose action is `{ type: automation, name }` — a button, an alert-dialog confirm, a data form — runs that manual automation under the page's own `access` rule: a button on a public page runs for a signed-out visitor, one on a page that requires a session runs only for a signed-in caller. A `requiredRole` the trigger declares still binds on top of the page rule; the implicit `admin` default does not, because the page's `access` rule is the grant. A page never reaches a webhook, schedule, record or form automation, even when a component names one, and an automation no page names cannot be pressed at all: each of those answers exactly as an unknown name does. So does a press of an automation an operator has paused, or one set to `enabled: false`: nothing runs, even though its button is still on the page.
+A page component whose action is `{ type: automation, name }` (a button, an alert-dialog confirm, a data form) runs that manual automation under the page's own `access` rule: a button on a public page runs for a signed-out visitor, one on a page that requires a session runs only for a signed-in caller. A `requiredRole` the trigger declares still binds on top of the page rule; the implicit `admin` default does not, because the page's `access` rule is the grant. A page never reaches a webhook, schedule, record or form automation, even when a component names one, and an automation no page names cannot be pressed at all: each of those answers exactly as an unknown name does. So does a press of an automation an operator has paused, or one set to `enabled: false`: nothing runs, even though its button is still on the page.
 
-A button the page does not show the caller cannot be pressed by them either. A press counts only the components the page draws for that caller: one left out by its `visibility` — `roles`, `when`, a `$user.*` `condition` or a `capability`, on the component itself or on any container around it — is answered as an unknown name and runs nothing, so an admin-only button on a public page runs for an admin and for no one else. The `record`, `query`, `declares` and `runtime` gates only decide what a page shows; they are not access controls and are not judged at press time.
+A button the page does not show the caller cannot be pressed by them either. A press counts only the components the page draws for that caller: one left out by its `visibility` (`roles`, `when`, a `$user.*` `condition` or a `capability`, on the component itself or on any container around it) is answered as an unknown name and runs nothing, so an admin-only button on a public page runs for an admin and for no one else. The `record`, `query`, `declares` and `runtime` gates only decide what a page shows; they are not access controls and are not judged at press time.
 
-A button's `onSuccess` and `onError` toasts tell the reader what the press did. With `await: true` the button waits for the run and reads its outcome: `onSuccess` when the run completed, `onError` when it failed — the press itself is answered with `200` either way, so the toast is the only place a failure shows. Without `await` the button shows `onSuccess` as soon as it is pressed, before the run ends. In both modes a press the server refuses, or one that never reaches it, shows `onError`.
+A button's `onSuccess` and `onError` toasts tell the reader what the press did. With `await: true` the button waits for the run and reads its outcome: `onSuccess` when the run completed, `onError` when it failed. The press itself is answered with `200` either way, so the toast is the only place a failure shows. Without `await` the button shows `onSuccess` as soon as it is pressed, before the run ends. In both modes a press the server refuses, or one that never reaches it, shows `onError`.
 
 A press by a signed-in caller records her as the person who started the run, as the direct trigger does: she may read that run, and replay or cancel it under the trigger's role rule (an admin, by default, when the trigger declares no `requiredRole`). In an app with sign-in, a press with no session runs as a guest. Its record steps read and write only what a visitor who is not signed in may through the records API: a table's `all` grants and the row rules that name no signed-in person, never an update, a delete or a batch write. A record outside that fails the step with `Resource not found`, as one that does not exist. A public button whose automation creates records needs `create: all` on that table. The press records no starter, so only an admin acts on that run. Replaying or cancelling a run is reserved to an admin and to the person who started it by hand, while she still holds the trigger's role; an approver named on the run may read it and decide on its request, not replay or cancel it.
 
 ### By name: the trigger endpoint, the MCP tool and the chat
 
-Starting a manual automation by name — `POST /api/automations/{name}/trigger`, the MCP tool an AI client calls, or asking the chat — is held to two rules, both judged on the caller's role: the trigger's `requiredRole` (`admin` when it declares none), and the automation's `permissions.trigger` when declared, which can narrow who may start it and never widen it. A caller either rule refuses gets the answer an unknown automation gets, and no run starts; the MCP tool list does not offer it to her.
+Starting a manual automation by name (`POST /api/automations/{name}/trigger`, the MCP tool an AI client calls, or asking the chat) is held to two rules, both judged on the caller's role: the trigger's `requiredRole` (`admin` when it declares none), and the automation's `permissions.trigger` when declared, which can narrow who may start it and never widen it. A caller either rule refuses gets the answer an unknown automation gets, and no run starts; the MCP tool list does not offer it to her.
 
 The automation listing, `GET /api/automations`, follows the same rule: a caller who is not an admin reads only the manual automations she may start. An admin reads every automation, with every webhook secret redacted.
 
@@ -64,13 +64,13 @@ trigger:
 
 `inputSchema` is the trigger's only property. Omitted, whatever the caller sends is accepted.
 
-The callee reads what it was given at `{{trigger.input.*}}`, and can also see `{{trigger.caller}}` — the calling automation — and `{{trigger.depth}}`, how deep the chain currently runs.
+The callee reads what it was given at `{{trigger.input.*}}`, and can also see `{{trigger.caller}}` (the calling automation) and `{{trigger.depth}}`, how deep the chain currently runs.
 
 Depth matters: the calling action carries a `maxDepth` guard defaulting to **10**, so a chain that accidentally calls itself is stopped rather than recursing until the process dies. Return values flow back through the return action.
 
 ## Automation-failure trigger
 
-Fires when a watched automation fails — composable failure handling, without a notification step duplicated into every workflow.
+Fires when a watched automation fails. It gives composable failure handling, without a notification step duplicated into every workflow.
 
 ```yaml
 trigger:
@@ -82,7 +82,7 @@ trigger:
 
 Omitting `automations` and supplying an empty array are **not** the same thing: the empty array is refused when the configuration is decoded, while omission is the documented way to watch every automation.
 
-Point it at the jobs whose silent failure would actually hurt — a nightly sync, a billing run — and have it post where your team reads.
+Point it at the jobs whose silent failure would actually hurt (a nightly sync, a billing run), and have it post where your team reads.
 
 ### Failure reaction is not sub-workflow composition
 

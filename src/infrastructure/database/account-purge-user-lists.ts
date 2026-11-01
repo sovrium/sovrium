@@ -20,35 +20,35 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { executeRaw } from './sql/dialect-execute'
-import { listMemberFragment } from './table-queries/server-operator-fragment'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import { listMemberFragmentOn } from './table-queries/server-operator-fragment'
+import type { Dialect, TransactionOn } from './drizzle/layer'
 
-/** "`column` lists `userId`", on the active engine. */
-const listNamesUser = (column: string, userId: string): Readonly<SQL> =>
-  listMemberFragment(sql.identifier(column), userId)
+/** "`column` lists `userId`", on `dialect`. */
+const listNamesUser = (dialect: Dialect, column: string, userId: string): Readonly<SQL> =>
+  listMemberFragmentOn(dialect.kind, sql.identifier(column), userId)
 
 /** `column` less every occurrence of `userId`, keeping the others in their order. */
-const listWithout = (column: string, userId: string): Readonly<SQL> => {
+const listWithout = (dialect: Dialect, column: string, userId: string): Readonly<SQL> => {
   const list = sql.identifier(column)
-  return isSqliteRuntime()
+  return dialect.kind === 'sqlite'
     ? sql`(SELECT json_group_array(value) FROM (SELECT value FROM json_each(${list}) WHERE value <> ${userId} ORDER BY key))`
     : sql`array_remove(${list}, ${userId})`
 }
 
 /** The ids of `table`'s rows whose list `columns` name `userId`. */
 export const idsListing = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   table: string,
   columns: readonly string[],
   userId: string
 ): Promise<readonly string[]> => {
   if (columns.length === 0) return []
-  const rows = await executeRaw(
+  const rows = await executeRawOn(
+    dialect.kind,
     tx,
     sql`SELECT id FROM ${sql.identifier(table)} WHERE ${sql.join(
-      columns.map((column) => listNamesUser(column, userId)),
+      columns.map((column) => listNamesUser(dialect, column, userId)),
       sql` OR `
     )}`
   )
@@ -57,16 +57,17 @@ export const idsListing = async (
 
 /** Take `userId` out of every list `columns` of `table` holds. */
 export const removeFromUserLists = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   table: string,
   columns: readonly string[],
   userId: string
 ): Promise<void> => {
   await columns.reduce<Promise<void>>(async (previous, column) => {
     await previous
-    await executeRaw(
+    await executeRawOn(
+      dialect.kind,
       tx,
-      sql`UPDATE ${sql.identifier(table)} SET ${sql.identifier(column)} = ${listWithout(column, userId)} WHERE ${listNamesUser(column, userId)}`
+      sql`UPDATE ${sql.identifier(table)} SET ${sql.identifier(column)} = ${listWithout(dialect, column, userId)} WHERE ${listNamesUser(dialect, column, userId)}`
     )
   }, Promise.resolve())
 }

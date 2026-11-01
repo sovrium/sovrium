@@ -6,8 +6,6 @@
  */
 
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { db } from '@/infrastructure/database'
 import * as authDeviceSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-device-tables'
 import * as authOauthResourceSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-oauth-resource-tables'
 import * as authPasskeySqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-passkey-tables'
@@ -36,6 +34,7 @@ import {
   passkeys,
   deviceCodes,
 } from './schema'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The Drizzle adapter Better Auth writes through: the auth tables of whichever
@@ -118,15 +117,12 @@ const drizzleSchemaSqlite = {
 /**
  * Build the Better Auth Drizzle adapter for the active database dialect.
  *
- * The dialect is resolved once via `parseDatabaseDialectConfig()` — the single
- * source of truth shared with `getDb()`:
+ * The client and its dialect are the ones the composition handed in:
  *
  *  - PostgreSQL → `provider: 'pg'` + the pg-core auth `schema` map.
  *  - SQLite     → `provider: 'sqlite'` + the sqlite-core auth `schema` map.
  *
- * The `db` value handed to `drizzleAdapter` is the dialect-correct client — the
- * lazy `db` proxy already resolves to either the `bun-sql` or `bun-sqlite`
- * Drizzle client via `getDb()`. `usePlural` stays `false` for both: the schema
+ * `usePlural` stays `false` for both: the schema
  * keys are Better Auth's singular model names and the physical table names live
  * in the Drizzle table definitions.
  *
@@ -134,12 +130,19 @@ const drizzleSchemaSqlite = {
  * `Record<string, any>`, so both the pg-core and sqlite-core table maps satisfy
  * it without a cast — the existing pg call relied on the same loose typing.
  */
-export function buildAuthDatabaseAdapter() {
-  const { dialect } = parseDatabaseDialectConfig()
+export function buildAuthDatabaseAdapter({ client, dialect }: DatabaseService) {
   return withDriverErrorMessages(
-    dialect === 'postgres'
-      ? drizzleAdapter(db, { provider: 'pg', usePlural: false, schema: drizzleSchemaPg })
-      : drizzleAdapter(db, { provider: 'sqlite', usePlural: false, schema: drizzleSchemaSqlite })
+    dialect.kind === 'postgres'
+      ? drizzleAdapter(client, {
+          provider: 'pg',
+          usePlural: false,
+          schema: drizzleSchemaPg,
+        })
+      : drizzleAdapter(client, {
+          provider: 'sqlite',
+          usePlural: false,
+          schema: drizzleSchemaSqlite,
+        })
   )
 }
 

@@ -27,8 +27,8 @@
 import { formatAccountCollisionMessage } from '@/infrastructure/database/drizzle/account-issuer-preflight'
 import { formatOauthClientIdCollisionMessage } from '@/infrastructure/database/drizzle/oauth-client-id-preflight'
 import { formatRowCount } from '@/infrastructure/database/schema-migration/table-classification'
-import type { MigrationFolderState } from '@/infrastructure/database/drizzle/migrate'
 import type { MigrationPreflightReport } from '@/infrastructure/database/drizzle/migrate-preflight'
+import type { MigrationFolderState } from '@/infrastructure/database/drizzle/migration-folder-state'
 import type { TableChange } from '@/infrastructure/database/schema/schema-dry-run'
 import type { CliBlock } from '@/infrastructure/logging/cli-output'
 

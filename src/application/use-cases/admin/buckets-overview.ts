@@ -71,7 +71,7 @@ export const buildBucketUploadSeries = (
  * points. Rows older than `window.from` are excluded by the query itself; the
  * pure folder assigns each remaining row to the interval that contains it.
  */
-export const BuildBucketUploadSeries = (
+export const loadBucketUploadSeries = (
   window: PeriodWindow
 ): Effect.Effect<
   ReadonlyArray<BucketsOverviewSeriesPoint>,

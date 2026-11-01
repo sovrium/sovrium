@@ -50,8 +50,7 @@ const updateBoundRow = (input: {
   readonly row: AccessibleFormSubmissionRow
   readonly tableName: string
   readonly mapped: Readonly<Record<string, unknown>>
-  readonly processEnv: EditConfig['processEnv']
-  readonly isSqlite: boolean
+  readonly isSqlite?: boolean
   readonly forgetDerivedVariants: EditConfig['forgetDerivedVariants']
 }) => {
   const { app, form, row, tableName, mapped } = input
@@ -73,8 +72,7 @@ const updateBoundRow = (input: {
     linkReader: { session, role: 'admin' },
     // Recorded as a form edit: the form, the submission, the fields it changed.
     auditContext: { form: form.name, submission: row.id },
-    isSqlite: input.isSqlite,
-    processEnv: input.processEnv,
+    ...(input.isSqlite === undefined ? {} : { isSqlite: input.isSqlite }),
     forgetDerivedVariants: input.forgetDerivedVariants,
   }).pipe(
     // A value refused by a unique, CHECK or NOT NULL rule is reported against its field.
@@ -102,8 +100,8 @@ export const editFormSubmissionProgram = (config: {
   readonly form?: Readonly<Form>
   readonly tokenHash: string
   readonly body: Readonly<Record<string, unknown>>
-  readonly processEnv: Readonly<Record<string, string | undefined>>
-  readonly isSqlite: boolean
+  /** Whether the write merges the AI-compute baseline itself; the engine answers when absent. */
+  readonly isSqlite?: boolean
   readonly forgetDerivedVariants: (key: string) => void
 }) =>
   Effect.gen(function* () {

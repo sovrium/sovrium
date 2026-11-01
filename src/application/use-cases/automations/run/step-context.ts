@@ -89,7 +89,6 @@ interface BuildStepContextInput {
   readonly automation: NonNullable<App['automations']>[number]
   /** The trigger entry that started the run. */
   readonly trigger: Trigger
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly triggerData: TriggerData
   readonly handlers: ReadonlyMap<ActionKey, ActionHandler>
   readonly userId: string | undefined
@@ -112,6 +111,8 @@ interface BuildStepContextInput {
   readonly runProgram: StepContext['runProgram']
   /** See `StepContext.templates` — read from the `TemplateEngine` port. */
   readonly templates: StepContext['templates']
+  /** See `StepContext.processEnv` — read from the `ProcessEnv` service by the run loop. */
+  readonly processEnv: StepContext['processEnv']
   readonly ledgers?: RunLedgers
 }
 
@@ -146,7 +147,7 @@ export const buildStepContext = (input: BuildStepContextInput): StepContext => {
     visitedAutomations: new Set([...(input.visitedAutomations ?? []), name]),
     recordEventDepth,
     recordEvents: buildRunEventChannel({
-      ...{ app, processEnv, recordEventDepth },
+      ...{ app, recordEventDepth },
       automation: automationContext,
       runProgram: input.runProgram,
     }),

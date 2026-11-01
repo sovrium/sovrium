@@ -31,12 +31,11 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { idsListing } from './account-purge-user-lists'
-import { nowEpochMsSqlLiteral } from './sql/dialect-ddl'
-import { executeRaw, type RawSqlRunner } from './sql/dialect-execute'
+import { nowEpochMsSqlLiteralOn } from './sql/dialect-ddl'
 import { getExistingColumnNames } from './sql/dialect-introspection'
-import { systemTableRef } from './sql/dialect-sql'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import type { Dialect, TransactionOn } from './drizzle/layer'
 
 /** Record ids per table: the records an erasure deletes or empties a field of. */
 export type ErasedRecords = ReadonlyMap<string, ReadonlySet<string>>
@@ -90,13 +89,14 @@ const inList = (values: readonly string[]): Readonly<SQL> =>
 
 /** The ids of `table`'s rows whose `column` holds one of `values`, read as text. */
 const idsWhere = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   table: string,
   column: string,
   values: readonly string[]
 ): Promise<readonly string[]> => {
   const found = await inTurn(chunksOf(values), (chunk) =>
-    executeRaw(
+    executeRawOn(
+      dialect.kind,
       tx,
       sql`SELECT id FROM ${sql.identifier(table)} WHERE CAST(${sql.identifier(column)} AS TEXT) IN (${inList(chunk)})`
     )
@@ -106,22 +106,19 @@ const idsWhere = async (
 
 /** The columns of `table` among `candidates` that exist. */
 const existingColumns = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   table: string,
   candidates: readonly string[]
 ): Promise<readonly string[]> => {
-  const existing = await getExistingColumnNames(tx as RawSqlRunner, table, candidates)
+  const existing = await getExistingColumnNames(dialect.kind, tx, table, candidates)
   return candidates.filter((column) => existing.has(column))
 }
 
 /** The list columns of `table` that exist. */
-const listColumnsOf = (
-  tx: Readonly<DrizzleTransaction>,
-  table: ErasureReachTable
-): Promise<readonly string[]> =>
+const listColumnsOf = (on: TransactionOn, table: ErasureReachTable): Promise<readonly string[]> =>
   (table.listColumns ?? []).length === 0
     ? Promise.resolve([])
-    : existingColumns(tx, table.name, table.listColumns ?? [])
+    : existingColumns(on, table.name, table.listColumns ?? [])
 
 /** `ids` added to the record set of `table`. */
 const withIds = (records: ErasedRecords, table: string, ids: readonly string[]): ErasedRecords =>
@@ -131,24 +128,24 @@ const withIds = (records: ErasedRecords, table: string, ids: readonly string[]):
 
 /** The ids of `table`'s rows whose `columns` hold `userId`. */
 const idsNaming = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   table: string,
   columns: readonly string[],
   userId: string
 ): Promise<readonly string[]> =>
-  (await inTurn(columns, (column) => idsWhere(tx, table, column, [userId]))).flat()
+  (await inTurn(columns, (column) => idsWhere({ tx, dialect }, table, column, [userId]))).flat()
 
 /**
  * The rows the config deletes with `removed` — the children linked to them
  * with `onDelete: 'cascade'` — followed down the cascade.
  */
 const withCascades = async (input: {
-  readonly tx: Readonly<DrizzleTransaction>
+  readonly on: TransactionOn
   readonly tables: readonly ErasureReachTable[]
   readonly removed: ErasedRecords
   readonly depth: number
 }): Promise<ErasedRecords> => {
-  const { tx, tables, removed, depth } = input
+  const { on, tables, removed, depth } = input
   if (depth >= MAX_CASCADE_DEPTH || removed.size === 0) return new Map()
   const links = [...removed].flatMap(([table, ids]) =>
     (tables.find((candidate) => candidate.name === table)?.cascadedBy ?? []).map((child) => ({
@@ -157,15 +154,15 @@ const withCascades = async (input: {
     }))
   )
   const children = await inTurn(links, async ({ child, ids }) => {
-    const columns = await existingColumns(tx, child.table, [child.column])
-    const found = columns.length === 0 ? [] : await idsWhere(tx, child.table, child.column, ids)
+    const columns = await existingColumns(on, child.table, [child.column])
+    const found = columns.length === 0 ? [] : await idsWhere(on, child.table, child.column, ids)
     return [child.table, found] as const
   })
   const next = children.reduce<ErasedRecords>(
     (acc, [table, ids]) => withIds(acc, table, ids),
     new Map()
   )
-  const deeper = await withCascades({ tx, tables, removed: next, depth: depth + 1 })
+  const deeper = await withCascades({ on, tables, removed: next, depth: depth + 1 })
   return [...deeper].reduce((acc, [table, ids]) => withIds(acc, table, [...ids]), next)
 }
 
@@ -175,7 +172,7 @@ const withCascades = async (input: {
  * hers. Read before anything is written.
  */
 export const collectErasedRecords = async (
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   userId: string,
   tables: readonly ErasureReachTable[]
 ): Promise<ErasedRecords> => {
@@ -184,24 +181,24 @@ export const collectErasedRecords = async (
     .filter((table) => table.name.length > 0)
   const named = await inTurn(sanitized, async (table) => {
     const columns = [...new Set([...table.createdByColumns, ...table.namingColumns])]
-    const present = new Set(await existingColumns(tx, table.name, columns))
+    const present = new Set(await existingColumns(on, table.name, columns))
     const own = await idsNaming(
-      tx,
+      on,
       table.name,
       table.createdByColumns.filter((column) => present.has(column)),
       userId
     )
     const naming = await idsNaming(
-      tx,
+      on,
       table.name,
       table.namingColumns.filter((column) => present.has(column)),
       userId
     )
-    const listed = await idsListing(tx, table.name, await listColumnsOf(tx, table), userId)
+    const listed = await idsListing(on, table.name, await listColumnsOf(on, table), userId)
     return { table: table.name, own, naming: [...naming, ...listed] }
   })
   const own = named.reduce<ErasedRecords>((acc, row) => withIds(acc, row.table, row.own), new Map())
-  const cascaded = await withCascades({ tx, tables, removed: own, depth: 0 })
+  const cascaded = await withCascades({ on, tables, removed: own, depth: 0 })
   const all = named.reduce<ErasedRecords>(
     (acc, row) => withIds(acc, row.table, row.naming),
     [...cascaded].reduce((acc, [table, ids]) => withIds(acc, table, [...ids]), own)
@@ -211,15 +208,16 @@ export const collectErasedRecords = async (
 
 /** The runs whose refs name one of `records`, or a whole table of them. */
 const runsReading = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   records: ErasedRecords
 ): Promise<readonly string[]> => {
-  const refs = systemTableRef('automation_run_refs')
+  const refs = dialect.sql.systemTableRef('automation_run_refs')
   const queries = [...records].flatMap(([table, ids]) =>
     chunksOf([...ids, '*']).map((chunk) => ({ table, chunk }))
   )
   const found = await inTurn(queries, ({ table, chunk }) =>
-    executeRaw(
+    executeRawOn(
+      dialect.kind,
       tx,
       sql`SELECT DISTINCT run_id FROM ${refs} WHERE table_name = ${table} AND record_id IN (${inList(chunk)})`
     )
@@ -229,10 +227,11 @@ const runsReading = async (
 
 /** Run `statement` over `runIds`, a chunk at a time. */
 const forRuns = (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   runIds: readonly string[],
   statement: (ids: Readonly<SQL>) => Readonly<SQL>
-): Promise<unknown> => inTurn(chunksOf(runIds), (chunk) => executeRaw(tx, statement(inList(chunk))))
+): Promise<unknown> =>
+  inTurn(chunksOf(runIds), (chunk) => executeRawOn(dialect.kind, tx, statement(inList(chunk))))
 
 /** Why a run parked on a long wait was cancelled by an erasure: it names nobody. */
 const ERASED_WAIT_ERROR = 'Cancelled: the values this run waited with were erased with an account.'
@@ -244,18 +243,20 @@ const ERASED_WAIT_ERROR = 'Cancelled: the values this run waited with were erase
  * cancels those still parked on a long wait, so the step after the wait never
  * acts for an erased person; they hold no values to resume with anyway.
  */
-const SCRUB_STATEMENTS: readonly ((ids: Readonly<SQL>) => Readonly<SQL>)[] = [
+const scrubStatementsOn = (
+  dialect: Dialect
+): readonly ((ids: Readonly<SQL>) => Readonly<SQL>)[] => [
   (ids) =>
     // sql-literal: keyword -- the dialect's own clock expression, no caller value
-    sql`UPDATE ${systemTableRef('automation_runs')} SET trigger_data = NULL, error = NULL, resume_cursor = NULL, files_ledger = NULL, values_erased_at = COALESCE(values_erased_at, ${sql.raw(nowEpochMsSqlLiteral())}) WHERE id IN (${ids})`,
+    sql`UPDATE ${dialect.sql.systemTableRef('automation_runs')} SET trigger_data = NULL, error = NULL, resume_cursor = NULL, files_ledger = NULL, values_erased_at = COALESCE(values_erased_at, ${sql.raw(nowEpochMsSqlLiteralOn(dialect.kind))}) WHERE id IN (${ids})`,
   (ids) =>
-    sql`UPDATE ${systemTableRef('automation_run_steps')} SET input = NULL, output = NULL, error = NULL, logs = NULL, reads = NULL, nested = NULL WHERE run_id IN (${ids})`,
+    sql`UPDATE ${dialect.sql.systemTableRef('automation_run_steps')} SET input = NULL, output = NULL, error = NULL, logs = NULL, reads = NULL, nested = NULL WHERE run_id IN (${ids})`,
   (ids) =>
-    sql`UPDATE ${systemTableRef('automation_approval_requests')} SET message = NULL WHERE run_id IN (${ids})`,
+    sql`UPDATE ${dialect.sql.systemTableRef('automation_approval_requests')} SET message = NULL WHERE run_id IN (${ids})`,
   (ids) =>
-    sql`DELETE FROM ${systemTableRef('_admin_search_index')} WHERE type = 'run' AND entity_id IN (${ids})`,
+    sql`DELETE FROM ${dialect.sql.systemTableRef('_admin_search_index')} WHERE type = 'run' AND entity_id IN (${ids})`,
   (ids) =>
-    sql`UPDATE ${systemTableRef('automation_runs')} SET status = ${'cancelled'}, error = ${ERASED_WAIT_ERROR}, resume_at = NULL, resume_cursor = NULL WHERE id IN (${ids}) AND status = ${'waiting-delay'}`,
+    sql`UPDATE ${dialect.sql.systemTableRef('automation_runs')} SET status = ${'cancelled'}, error = ${ERASED_WAIT_ERROR}, resume_at = NULL, resume_cursor = NULL WHERE id IN (${ids}) AND status = ${'waiting-delay'}`,
 ]
 
 /**
@@ -264,11 +265,13 @@ const SCRUB_STATEMENTS: readonly ((ids: Readonly<SQL>) => Readonly<SQL>)[] = [
  * search. Returns how many runs were scrubbed.
  */
 export const scrubRuns = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   runIds: readonly string[]
 ): Promise<number> => {
   if (runIds.length === 0) return 0
-  await inTurn(SCRUB_STATEMENTS, (statement) => forRuns(tx, runIds, statement))
+  await inTurn(scrubStatementsOn(dialect), (statement) =>
+    forRuns({ tx, dialect }, runIds, statement)
+  )
   return runIds.length
 }
 
@@ -277,9 +280,9 @@ export const scrubRuns = async (
  * how many runs were scrubbed.
  */
 export const scrubRunsReading = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   records: ErasedRecords
-): Promise<number> => scrubRuns(tx, await runsReading(tx, records))
+): Promise<number> => scrubRuns({ tx, dialect }, await runsReading({ tx, dialect }, records))
 
 /** A table field as the reach reads it: its name and type, and a relationship's link. */
 interface ReachField {

@@ -6,9 +6,13 @@
  */
 
 import { randomBytes, scryptSync } from 'node:crypto'
-import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { defaultEncryptionKeyPath } from '@/domain/models/process-env/data-dir'
+import {
+  ensurePrivateDirectory,
+  tightenOwnedDataDirectory,
+} from '@/infrastructure/filesystem/private-modes'
 
 /**
  * The single root secret every cryptographic purpose in Sovrium derives from.
@@ -158,11 +162,13 @@ const unwritableMessage = (keyFilePath: string, cause: unknown): string =>
  * on POSIX — the key file only ever exists complete or not at all.
  *
  * The temp file is created with the restrictive mode too: a key must never be
- * observable at a wider mode, even for the instant before the rename.
+ * observable at a wider mode, even for the instant before the rename. On a
+ * first boot this is the first write into the data directory, so the directory
+ * is created private here: the database opened next finds it already there.
  */
 const writeKeyFileAtomically = (keyFilePath: string, contents: string): void => {
   const tempPath = `${keyFilePath}.${randomBytes(6).toString('hex')}.tmp`
-  mkdirSync(dirname(keyFilePath), { recursive: true })
+  ensurePrivateDirectory(dirname(keyFilePath))
   writeFileSync(tempPath, contents, { mode: KEY_FILE_MODE, encoding: 'utf-8' })
   // `mode` on writeFileSync applies only on creation and is masked by umask,
   // so the bits are asserted explicitly rather than hoped for.
@@ -180,8 +186,7 @@ const generateAndPersist = (keyFilePath: string): string => {
   return generated
 }
 
-const resolve = (): RootSecretResolution => {
-  const keyFilePath = defaultEncryptionKeyPath()
+const resolveSecret = (keyFilePath: string): RootSecretResolution => {
   const fromEnv = process.env[ROOT_SECRET_ENV_VAR]
   if (typeof fromEnv === 'string' && fromEnv.length > 0) {
     return { secret: fromEnv, source: 'env', keyFilePath }
@@ -191,6 +196,16 @@ const resolve = (): RootSecretResolution => {
     return { secret: persisted, source: 'file', keyFilePath }
   }
   return { secret: generateAndPersist(keyFilePath), source: 'generated', keyFilePath }
+}
+
+const resolve = (): RootSecretResolution => {
+  const keyFilePath = defaultEncryptionKeyPath(process.env)
+  const resolution = resolveSecret(keyFilePath)
+  // The first thing a boot does with the data directory. One an older version
+  // left at `0755` is narrowed here, once the key it holds (or has just been
+  // given) marks it as the server's own, before the database is opened.
+  tightenOwnedDataDirectory(dirname(keyFilePath))
+  return resolution
 }
 
 let cached: RootSecretResolution | undefined

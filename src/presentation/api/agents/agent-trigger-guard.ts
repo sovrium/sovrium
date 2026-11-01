@@ -49,6 +49,7 @@
  * agents. Collapsing the two is the call site's job, and it is done here.
  */
 
+import { Effect } from 'effect'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
   classifyPermissionRung,
@@ -58,9 +59,12 @@ import {
   SESSION_WITH_UNRESOLVED_ROLE,
 } from '@/domain/models/app/auth/permission-evaluation'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { agentNotFound, findAgent } from '@/presentation/api/runtime/agent-lookup'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import type {
+  AuthDatabaseError,
+  AuthRepository,
+} from '@/application/ports/repositories/auth/auth-repository'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { PermissionValue } from '@/domain/models/app/auth/permissions'
@@ -73,6 +77,12 @@ import type { Context } from 'hono'
  * docstring, decision 1.
  */
 const UNDECLARED_TRIGGER: PermissionValue = 'authenticated'
+
+/**
+ * A grant the guard decides: a permission, or `'none'`, the agent's own
+ * `permissions.trigger` value that admits no person at all, admins included.
+ */
+type AgentGrant = PermissionValue | 'none'
 
 /**
  * `admin-outranks-role-list` mirrors the table-permission behaviour this path
@@ -95,11 +105,12 @@ const TRIGGER_POLICY = {
  * when the rung never needed one; the two are distinguished by `session`.
  */
 const decide = (
-  permission: PermissionValue,
+  permission: AgentGrant,
   session: { readonly userId: string } | undefined,
   role: string | undefined,
   app: AdminRoleResolvable | undefined
 ): boolean => {
+  if (permission === 'none') return false
   if (!session) return permits(evaluatePermission(permission, undefined, TRIGGER_POLICY))
   // The app's top role outranks a role list exactly as the built-in `admin` does.
   const caller =
@@ -116,23 +127,10 @@ const decide = (
  * decidable from session presence alone, so a public or merely-signed-in agent
  * costs no database query. Same shape as the bucket-file gate.
  */
-const needsRole = (permissions: readonly PermissionValue[]): boolean =>
-  permissions.some((permission) => classifyPermissionRung(permission) === 'roles')
-
-/**
- * Evaluate one permission against the request's caller.
- *
- * The `getUserRole` round-trip is deferred until the ladder will actually read
- * a role — see {@link needsRole}.
- */
-const isPermitted = async (
-  c: Context,
-  permission: PermissionValue,
-  app: AdminRoleResolvable | undefined
-): Promise<boolean> => {
-  const [verdict] = await evaluateAll(c, [permission], app)
-  return verdict === true
-}
+const needsRole = (permissions: readonly AgentGrant[]): boolean =>
+  permissions.some(
+    (permission) => permission !== 'none' && classifyPermissionRung(permission) === 'roles'
+  )
 
 /**
  * Decide a BATCH of permissions for one caller, reading their role AT MOST
@@ -149,52 +147,36 @@ const isPermitted = async (
  * Bounding the fan-out would be the lesser fix: N reads of one row keyed by one
  * id is not work that needs a width, it is one read written N times.
  */
-const evaluateAll = async (
-  c: Context,
-  permissions: readonly PermissionValue[],
+const judgeAll = (
+  c: Readonly<Context>,
+  permissions: readonly AgentGrant[],
   app: AdminRoleResolvable | undefined
-): Promise<readonly boolean[]> => {
+): Effect.Effect<readonly boolean[], AuthDatabaseError, AuthRepository> => {
   const session = getSessionContext(c as Context)
-  const role =
-    session && needsRole(permissions)
-      ? await runDomainPromise(c as Context, getUserRole(session.userId))
-      : undefined
-  return permissions.map((permission) => decide(permission, session, role, app))
+  const decideAll = (role: string | undefined): readonly boolean[] =>
+    permissions.map((permission) => decide(permission, session, role, app))
+  return session && needsRole(permissions)
+    ? Effect.map(getUserRole(session.userId), decideAll)
+    : Effect.sync(() => decideAll(undefined))
 }
 
 /** The `trigger` grant an agent effectively declares, undeclared normalised. */
-const triggerGrantOf = (agent: Agent): PermissionValue =>
+const triggerGrantOf = (agent: Agent): AgentGrant =>
   agent.permissions?.trigger ?? UNDECLARED_TRIGGER
-
-/** May this request's caller invoke or read back this agent? */
-export const mayTriggerAgent = (
-  c: Context,
-  agent: Agent,
-  app: AdminRoleResolvable | undefined
-): Promise<boolean> => isPermitted(c, triggerGrantOf(agent), app)
 
 /**
  * May this request's caller reach the agent the app declares as `name`? `false`
  * for a name it never declared, so a caller cannot tell the two apart.
  */
-export const mayTriggerAgentNamed = async (
+export const mayTriggerAgentNamed = (
   c: Readonly<Context>,
   app: App | undefined,
   name: string
-): Promise<boolean> => {
+): Effect.Effect<boolean, AuthDatabaseError, AuthRepository> => {
   const agent = findAgent(app, name)
-  return agent !== undefined && (await mayTriggerAgent(c, agent, app))
+  if (agent === undefined) return Effect.succeed(false)
+  return Effect.map(judgeAll(c, [triggerGrantOf(agent)], app), ([verdict]) => verdict === true)
 }
-
-/**
- * May this request's caller reach each of these agents? One verdict per agent,
- * in order, for ONE role lookup total — see {@link evaluateAll}.
- */
-export const mayTriggerAgents = (
-  c: Context,
-  agents: readonly Agent[],
-  app: AdminRoleResolvable | undefined
-): Promise<readonly boolean[]> => evaluateAll(c, agents.map(triggerGrantOf), app)
 
 /**
  * The gate itself: a 404 refusal when the caller may not reach the agent,
@@ -210,12 +192,25 @@ export const mayTriggerAgents = (
  * someone the gate had just refused (an AI agent perms spec measures exactly
  * that ordering).
  */
-export const checkTriggerPermission = async (
+export const checkTriggerPermission = (
   c: Context,
   agent: Agent,
   app: AdminRoleResolvable | undefined
-): Promise<Response | undefined> =>
-  (await mayTriggerAgent(c, agent, app)) ? undefined : agentNotFound(c)
+): Effect.Effect<Response | undefined, AuthDatabaseError, AuthRepository> =>
+  Effect.map(judgeAll(c, [triggerGrantOf(agent)], app), ([verdict]) =>
+    verdict === true ? undefined : agentNotFound(c)
+  )
+
+/**
+ * May this request's caller reach each of these agents? One verdict per agent,
+ * in order, for ONE role lookup total — see {@link judgeAll}.
+ */
+export const judgeAgentTriggers = (
+  c: Context,
+  agents: readonly Agent[],
+  app: AdminRoleResolvable | undefined
+): Effect.Effect<readonly boolean[], AuthDatabaseError, AuthRepository> =>
+  judgeAll(c, agents.map(triggerGrantOf), app)
 
 /**
  * The gate for the agent COLLECTION (`GET /api/agents`), which names no agent
@@ -227,8 +222,10 @@ export const checkTriggerPermission = async (
  * enumeration surface itself. Callers that clear this
  * gate still see only the agents they may individually trigger.
  */
-export const checkAgentListPermission = async (
+export const checkAgentListPermission = (
   c: Context,
   app: AdminRoleResolvable | undefined
-): Promise<Response | undefined> =>
-  (await isPermitted(c, UNDECLARED_TRIGGER, app)) ? undefined : agentNotFound(c)
+): Effect.Effect<Response | undefined, AuthDatabaseError, AuthRepository> =>
+  Effect.map(judgeAll(c, [UNDECLARED_TRIGGER], app), ([verdict]) =>
+    verdict === true ? undefined : agentNotFound(c)
+  )

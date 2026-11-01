@@ -47,7 +47,6 @@ import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import { flattenActions, type StepAction } from '@/domain/models/app/automations/step-read-service'
 import { templateFeed } from '@/domain/models/app/automations/template-feed-service'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { runErrorWithClientError, stepsWithClientErrors } from './run-client-error'
 import { nestedWithClientErrors, publishedNestedSteps, withheldStep } from './run-nested-steps'
@@ -58,6 +57,7 @@ import type {
   PersistedStep,
 } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { App } from '@/domain/models/app'
+import type { DomainServices } from '@/infrastructure/logging/request-effect'
 import type { Context } from 'hono'
 
 /** Who reads a run: whoever started it or reads every run, as `access` says. */
@@ -74,19 +74,25 @@ interface RunAccess {
  */
 type RunCaller = 'whole' | 'starter' | 'nobody' | Reader
 
-const callerOfRun = async (c: Context, app: App, access: RunAccess): Promise<RunCaller> => {
-  if (access.readsEveryRun) return 'whole'
-  const userId = getSessionContext(c)?.userId
-  if (userId === undefined) return 'nobody'
-  const [role, groups, accessRoles] = await runDomainPromise(
-    c,
-    Effect.all([getUserRole(userId), getUserGroups(userId), getUserAccessRoles(userId)])
-  )
-  const startedItByHand = startedByHandBy(access.run, userId)
-  if (isAdminEquivalent(role, app)) return 'whole'
-  if (startedItByHand) return 'starter'
-  return { role, groups, accessRoles, userId }
-}
+const callerOfRun = (c: Context, app: App, access: RunAccess) =>
+  Effect.gen(function* (): Effect.fn.Return<
+    RunCaller,
+    Effect.Error<ReturnType<typeof getUserRole>>,
+    DomainServices
+  > {
+    if (access.readsEveryRun) return 'whole'
+    const userId = getSessionContext(c)?.userId
+    if (userId === undefined) return 'nobody'
+    const [role, groups, accessRoles] = yield* Effect.all([
+      getUserRole(userId),
+      getUserGroups(userId),
+      getUserAccessRoles(userId),
+    ])
+    const startedItByHand = startedByHandBy(access.run, userId)
+    if (isAdminEquivalent(role, app)) return 'whole'
+    if (startedItByHand) return 'starter'
+    return { role, groups, accessRoles, userId }
+  })
 
 /** A judged run whose steps also carry what they ran in a path or a loop, raw. */
 type ReadRun = Omit<JudgedRun, 'steps'> & {
@@ -152,18 +158,22 @@ interface Verdict {
 }
 
 /** The verdict for `caller` on `judged`: everything for a whole reader or a starter, nothing for nobody. */
-const verdictFor = async (
-  c: Context,
+const verdictFor = (
   app: App,
   caller: RunCaller,
   judged: JudgedRun
-): Promise<Verdict> => {
+): Effect.Effect<Verdict, never, DomainServices> => {
   const stepCount = judged.steps.length
   if (caller === 'whole' || caller === 'starter') {
-    return { triggerVisible: true, visibleSteps: stepCount, stepCount }
+    return Effect.succeed({ triggerVisible: true, visibleSteps: stepCount, stepCount })
   }
-  if (caller === 'nobody') return { triggerVisible: false, visibleSteps: 0, stepCount }
-  return { ...(await visibleStepCount({ c, app, reader: caller, run: judged })), stepCount }
+  if (caller === 'nobody') {
+    return Effect.succeed({ triggerVisible: false, visibleSteps: 0, stepCount })
+  }
+  return Effect.map(visibleStepCount({ app, reader: caller, run: judged }), (seen) => ({
+    ...seen,
+    stepCount,
+  }))
 }
 
 /**
@@ -201,25 +211,28 @@ export const runsAsSeenByCaller = <
     readonly readsEveryRun: boolean
     readonly runs: ReadonlyArray<readonly [RunAccess['run'], R, ReadRun]>
   }
-): Promise<ReadonlyArray<R>> =>
-  Promise.all(
-    input.runs.map(async ([run, body, judged]) => {
-      const caller = await callerOfRun(c, app, { readsEveryRun: input.readsEveryRun, run })
-      if (caller === 'whole') return body
-      // A listed run carries no step output, but its own error may quote a line.
-      const painted = withRunErrorPainted(
-        runErrorWithClientError(body, judged.steps),
-        adminOnlyLinesOfRun(app, judged)
-      )
-      // A starter's own trigger input is hers.
-      if (caller === 'starter') return painted
-      const verdict = await verdictFor(c, app, caller, judged)
-      return {
-        ...painted,
-        triggerData: triggerDataFor(app, { caller, verdict, judged }, body.triggerData),
-        ...(isWhole(verdict) ? {} : { error: null }),
-      }
-    })
+) =>
+  Effect.forEach(
+    input.runs,
+    ([run, body, judged]) =>
+      Effect.gen(function* () {
+        const caller = yield* callerOfRun(c, app, { readsEveryRun: input.readsEveryRun, run })
+        if (caller === 'whole') return body
+        // A listed run carries no step output, but its own error may quote a line.
+        const painted = withRunErrorPainted(
+          runErrorWithClientError(body, judged.steps),
+          adminOnlyLinesOfRun(app, judged)
+        )
+        // A starter's own trigger input is hers.
+        if (caller === 'starter') return painted
+        const verdict = yield* verdictFor(app, caller, judged)
+        return {
+          ...painted,
+          triggerData: triggerDataFor(app, { caller, verdict, judged }, body.triggerData),
+          ...(isWhole(verdict) ? {} : { error: null }),
+        }
+      }),
+    { concurrency: 'unbounded' }
   )
 
 /** A run detail body: what triggered it, its own error and its steps. */
@@ -236,7 +249,7 @@ interface RunDetailLike<T> {
  * error, and its own error withheld past her reach. Anyone but an admin reads
  * each expanded person with the address masked (see the module header).
  */
-export const runDetailAsSeenByCaller = async <
+export const runDetailAsSeenByCaller = <
   T extends Parameters<typeof stepWithMaskedAddresses>[2] & {
     readonly logs?: unknown
     readonly error?: string | null
@@ -246,32 +259,33 @@ export const runDetailAsSeenByCaller = async <
   c: Context,
   app: App,
   input: { readonly access: RunAccess; readonly detail: D; readonly judged: ReadRun }
-): Promise<D> => {
-  const { access, detail, judged } = input
-  const caller = await callerOfRun(c, app, access)
-  if (caller === 'whole') return detail
-  const verdict = await verdictFor(c, app, caller, judged)
-  const lines = adminOnlyLinesOfRun(app, judged)
-  const painted = stepsWithClientErrors(detail.steps, judged.steps).map((step, index) =>
-    nestedWithClientErrors(step, judged.steps[index]?.nested)
-  )
-  const steps = painted.map((step, index) =>
-    index < verdict.visibleSteps
-      ? stepWithoutAdminOnlyLines(
-          app,
-          judged.automationName,
-          stepWithMaskedAddresses(app, judged.automationName, step),
-          lines
-        )
-      : withheldStep(step)
-  )
-  return {
-    ...withRunErrorPainted(runErrorWithClientError(detail, judged.steps), lines),
-    steps,
-    triggerData: triggerDataFor(app, { caller, verdict, judged }, detail.triggerData),
-    ...(isWhole(verdict) ? {} : { error: null }),
-  }
-}
+) =>
+  Effect.gen(function* () {
+    const { access, detail, judged } = input
+    const caller = yield* callerOfRun(c, app, access)
+    if (caller === 'whole') return detail
+    const verdict = yield* verdictFor(app, caller, judged)
+    const lines = adminOnlyLinesOfRun(app, judged)
+    const painted = stepsWithClientErrors(detail.steps, judged.steps).map((step, index) =>
+      nestedWithClientErrors(step, judged.steps[index]?.nested)
+    )
+    const steps = painted.map((step, index) =>
+      index < verdict.visibleSteps
+        ? stepWithoutAdminOnlyLines(
+            app,
+            judged.automationName,
+            stepWithMaskedAddresses(app, judged.automationName, step),
+            lines
+          )
+        : withheldStep(step)
+    )
+    return {
+      ...withRunErrorPainted(runErrorWithClientError(detail, judged.steps), lines),
+      steps,
+      triggerData: triggerDataFor(app, { caller, verdict, judged }, detail.triggerData),
+      ...(isWhole(verdict) ? {} : { error: null }),
+    }
+  })
 
 /** A request to sign as the approvals list reads it: the run it pauses, and its step. */
 interface ApprovalLike {
@@ -281,19 +295,16 @@ interface ApprovalLike {
 }
 
 /** The run a request pauses, with its access and its steps, or `undefined`. */
-const loadRequestRun = (
-  c: Context,
-  runId: string
-): Promise<{ readonly run: PersistedRun; readonly judged: ReadRun } | undefined> =>
-  runDomainPromise(
-    c,
-    Effect.gen(function* () {
-      const repo = yield* AutomationRunRepository
-      const run = yield* repo.findById(runId)
-      if (run === undefined) return undefined
-      return { run, judged: judgedRunOf(run, yield* repo.findStepsByRunId(runId)) }
-    })
-  ).catch(() => undefined)
+const loadRequestRun = (runId: string) =>
+  Effect.gen(function* () {
+    const repo = yield* AutomationRunRepository
+    const run = yield* repo.findById(runId)
+    if (run === undefined) return undefined
+    return { run, judged: judgedRunOf(run, yield* repo.findStepsByRunId(runId)) }
+  }).pipe(
+    // effect-swallow: fails closed, a run that cannot be read shows no message
+    Effect.catchCause(() => Effect.undefined)
+  )
 
 /**
  * True when every value the request step's authored message reads stays within
@@ -347,22 +358,25 @@ export const approvalsAsSeenByCaller = <A extends ApprovalLike>(
   c: Context,
   app: App,
   input: { readonly readsEveryRun: boolean; readonly approvals: ReadonlyArray<A> }
-): Promise<ReadonlyArray<A>> =>
-  Promise.all(
-    input.approvals.map(async (approval) => {
-      if (input.readsEveryRun || approval.message === null) return approval
-      const loaded = await loadRequestRun(c, approval.runId)
-      if (loaded === undefined) return { ...approval, message: null }
-      const caller = await callerOfRun(c, app, { readsEveryRun: false, run: loaded.run })
-      if (caller === 'whole') return approval
-      // A message rendered from a journal line reaches an admin only.
-      const lines = adminOnlyLinesOfRun(app, loaded.judged)
-      const seen = { ...approval, message: textWithoutAdminOnlyLines(approval.message, lines) }
-      if (caller === 'starter') return seen
-      const verdict = await verdictFor(c, app, caller, loaded.judged)
-      const shown =
-        verdict.visibleSteps > approval.stepIndex ||
-        messageFedWithinReach(app, loaded.judged, approval.stepIndex, verdict)
-      return shown ? seen : { ...approval, message: null }
-    })
+) =>
+  Effect.forEach(
+    input.approvals,
+    (approval) =>
+      Effect.gen(function* () {
+        if (input.readsEveryRun || approval.message === null) return approval
+        const loaded = yield* loadRequestRun(approval.runId)
+        if (loaded === undefined) return { ...approval, message: null }
+        const caller = yield* callerOfRun(c, app, { readsEveryRun: false, run: loaded.run })
+        if (caller === 'whole') return approval
+        // A message rendered from a journal line reaches an admin only.
+        const lines = adminOnlyLinesOfRun(app, loaded.judged)
+        const seen = { ...approval, message: textWithoutAdminOnlyLines(approval.message, lines) }
+        if (caller === 'starter') return seen
+        const verdict = yield* verdictFor(app, caller, loaded.judged)
+        const shown =
+          verdict.visibleSteps > approval.stepIndex ||
+          messageFedWithinReach(app, loaded.judged, approval.stepIndex, verdict)
+        return shown ? seen : { ...approval, message: null }
+      }),
+    { concurrency: 'unbounded' }
   )

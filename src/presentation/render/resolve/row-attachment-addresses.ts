@@ -199,7 +199,7 @@ export function attachmentAddressing(input: {
   const attachments = new Set(fields.filter((f) => ATTACHMENT_TYPES.has(f.type)).map((f) => f.name))
   const names = namedColumns(template, attachments)
   if (sign === undefined || names.size === 0) return undefined
-  const { defaultPublic } = resolveStoragePublicAccess()
+  const { defaultPublic } = resolveStoragePublicAccess(process.env)
   const columns: readonly ColumnAddress[] = [...names].map((field) => {
     const bucket = resolveFieldBucket(app, tableName, field) ?? SYSTEM_BUCKET_NAME
     const declared = app.buckets?.find((candidate) => candidate.name === bucket)

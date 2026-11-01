@@ -6,6 +6,13 @@
  */
 
 import { componentSlotsOf } from '@/domain/models/app/pages/components/component-types/component-type-union'
+import {
+  componentFields,
+  entryAsComponent,
+  rewriteComponent,
+  type ComponentEntry,
+  type ComponentNode,
+} from '../resolve/component-rewrite'
 import { extractFirstChildId, isLayoutWrapper } from './field-control-id'
 import type { Component, ComponentType } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
@@ -42,10 +49,10 @@ export const slotOrderOf = (type: string): readonly string[] | undefined => {
 }
 
 /** A slot's components as a list: a list slot as written, a single slot as one or none. */
-const slotComponents = (component: Component, slot: string): readonly Component[] => {
-  const value = (component as Readonly<Record<string, unknown>>)[slot]
-  if (Array.isArray(value)) return value as readonly Component[]
-  return typeof value === 'object' && value !== null ? [value as Component] : []
+const slotComponents = (component: Component, slot: string): readonly ComponentEntry[] => {
+  const value = componentFields(component)[slot]
+  if (Array.isArray(value)) return value as readonly ComponentEntry[]
+  return typeof value === 'object' && value !== null ? [value as ComponentEntry] : []
 }
 
 const slotLength = (component: Component, slot: string): number =>
@@ -68,9 +75,9 @@ const isFieldInvalid = (source: Readonly<Record<string, unknown>>): boolean =>
  */
 function withInvalidControl(
   component: Component,
-  children: ReadonlyArray<Component | string> | undefined
-): ReadonlyArray<Component | string> | undefined {
-  const source = component as Readonly<Record<string, unknown>>
+  children: ReadonlyArray<ComponentEntry> | undefined
+): ReadonlyArray<ComponentEntry> | undefined {
+  const source = componentFields(component)
   const invalid = isFieldInvalid(source)
   const namedBy = namingPartOf(source)
   const [first, ...rest] = children ?? []
@@ -85,16 +92,16 @@ function withInvalidControl(
           ...(namedBy === undefined ? {} : { 'aria-labelledby': `${controlId}-${namedBy}` }),
         }),
   }
-  return [markControl(first, marks), ...rest]
+  return [markControl(entryAsComponent(first), marks), ...rest]
 }
 
 /** Put the marks on the control, through any layout wrapper around it. */
 function markControl(node: Component, marks: Readonly<Record<string, unknown>>): Component {
-  if (!isLayoutWrapper(node)) {
-    return { ...node, props: { ...node.props, ...marks } } as Component
-  }
-  const [inner, ...siblings] = (node as { readonly children?: readonly Component[] }).children ?? []
-  return { ...node, children: [markControl(inner as Component, marks), ...siblings] } as Component
+  if (!isLayoutWrapper(node)) return rewriteComponent(node, { props: { ...node.props, ...marks } })
+  const [inner, ...siblings] = node.children ?? []
+  return rewriteComponent(node, {
+    children: [markControl(entryAsComponent(inner as ComponentNode), marks), ...siblings],
+  })
 }
 
 /** The field part that names the control: its title beside a choice, else its label. */
@@ -107,16 +114,18 @@ const namingPartOf = (source: Readonly<Record<string, unknown>>): 'title' | 'lab
 export function childrenToRender(
   type: ComponentType,
   component: Component,
-  mergedChildren: ReadonlyArray<Component | string> | undefined
-): ReadonlyArray<Component | string> | undefined {
+  merged: ReadonlyArray<unknown> | undefined
+): ReadonlyArray<ComponentEntry> | undefined {
+  // The responsive merger hands back the children it was given, or a breakpoint's own list.
+  const mergedChildren = merged as ReadonlyArray<ComponentEntry> | undefined
   if (type === 'specimen' || type === 'preview') {
-    const drawn = (component as { component?: Component }).component
+    const drawn = componentFields(component)['component'] as Component | undefined
     return drawn === undefined ? mergedChildren : [drawn]
   }
   if (type === 'field') return withInvalidControl(component, mergedChildren)
   const order = slotOrderOf(type)
   if (order === undefined) return mergedChildren
-  return order.flatMap((slot): ReadonlyArray<Component | string> => {
+  return order.flatMap((slot): ReadonlyArray<ComponentEntry> => {
     if (slot === '$children') return mergedChildren ?? []
     return slotComponents(component, slot)
   })

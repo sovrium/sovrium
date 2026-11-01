@@ -6,11 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import {
-  StorageKeySpellingTaken,
-  StorageKeyTaken,
-  StorageService,
-} from '@/application/ports/services/storage-service'
+import { StorageService } from '@/application/ports/services/storage-service'
 import {
   readOtherSpelling,
   readStoredObjectOwner,
@@ -28,13 +24,17 @@ import {
   resolveExpiresIn,
   resolveSignBucket,
 } from '@/application/use-cases/buckets/signed-url-minting'
+import { resolveStorageSigningSecret } from '@/application/use-cases/buckets/signing-secret'
 import { checkBucketUploadPath } from '@/application/use-cases/buckets/upload-policy'
-import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
+import {
+  signedUploadResponseSchema,
+  signedUrlResponseSchema,
+} from '@/domain/models/api/buckets/files'
 import { canSignBucketUrl } from '@/domain/models/app/buckets/bucket-sign-validation'
 import { verifySignedUrl } from '@/domain/models/app/buckets/signed-url-service'
-import { provideDomain, runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { objectAlreadyStored, signedUploadFailure } from '@/presentation/api/buckets/file-writes'
 import { fileExists } from '@/presentation/api/buckets/signed-download'
 import {
   payloadTooLarge,
@@ -42,7 +42,11 @@ import {
   notFound,
 } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { isNotFoundError } from '@/presentation/api/runtime/error-sanitizer'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Bucket } from '@/domain/models/app/buckets'
 import type { SignedUrlClaims } from '@/domain/models/app/buckets/signed-url-service'
@@ -98,22 +102,17 @@ export function buildSignedUrl(spec: SignedUrlSpec): {
  * first. An unreadable catalog answers `false` here — the write that
  * follows reads the same catalog and surfaces the outage itself.
  */
-export async function objectStoredAt(c: Context, path: string, bucket: string): Promise<boolean> {
-  const result = await Effect.runPromise(
-    provideDomain(
-      c,
-      Effect.all([readStoredObjectOwner({ key: path, bucket }), readOtherSpelling({ key: path })])
-    ).pipe(Effect.result)
+export const objectStoredAt = (path: string, bucket: string) =>
+  Effect.all([readStoredObjectOwner({ key: path, bucket }), readOtherSpelling({ key: path })]).pipe(
+    // effect-swallow: an unreadable catalog answers `false` here; the write that follows reads the same catalog and surfaces the outage itself.
+    Effect.result,
+    Effect.map((result) => {
+      if (result._tag === 'Failure') return false
+      const [exact, other] = result.success
+      // A second spelling of an object this bucket holds is that object.
+      return exact.stored || other?.bucket === bucket
+    })
   )
-  if (result._tag === 'Failure') return false
-  const [exact, other] = result.success
-  // A second spelling of an object this bucket holds is that object.
-  return exact.stored || other?.bucket === bucket
-}
-
-/** The 409 a signed upload aimed at a stored object earns, at signing and at `PUT`. */
-const objectAlreadyStored = (c: Context): Response =>
-  c.json(storageErrorBody('An object is already stored at this path', 'CONFLICT'), 409)
 
 /** The signer an upload URL names (`by`), or `undefined` for an anonymous one. */
 const uploaderOf = (query: Readonly<Record<string, string>>): string | undefined =>
@@ -199,41 +198,35 @@ async function storeSignedUpload(
     return payloadTooLarge(c, 'Upload exceeds the maximum allowed size')
   }
 
-  // Signing refused a stored key; the key may have been taken since.
-  if (await objectStoredAt(c, path, bucket)) return objectAlreadyStored(c)
+  return runHandlerEffect(
+    c,
+    Effect.gen(function* () {
+      // Signing refused a stored key; the key may have been taken since.
+      if (yield* objectStoredAt(path, bucket)) return objectAlreadyStored(c)
 
-  const mimeType = requestType !== '' ? requestType : inferMimeFromKey(path)
-  const upload = Effect.gen(function* () {
-    const storage = yield* StorageService
-    // Create-only: a file stored at the path since the check above is kept (409).
-    return yield* storage.upload(path, body, mimeType, {
-      bucket,
-      uploadedById: uploadedBy,
-      mode: 'create-only',
+      const mimeType = requestType !== '' ? requestType : inferMimeFromKey(path)
+      const storage = yield* StorageService
+      // Create-only: a file stored at the path since the check above is kept (409).
+      const result = yield* Effect.result(
+        storage.upload(path, body, mimeType, {
+          bucket,
+          uploadedById: uploadedBy,
+          mode: 'create-only',
+        })
+      )
+      if (result._tag === 'Failure') {
+        // A token names bucket and path independently, so a caller who may sign here
+        // can aim one at a key another bucket owns. Storage refuses that write as
+        // not-found; answer 404 like an absent key, keeping the boundary hidden (S1).
+        return signedUploadFailure(c, (result.failure as { readonly cause?: unknown }).cause)
+      }
+      return yield* respondWith(
+        c,
+        Effect.succeed({ success: true, path }),
+        signedUploadResponseSchema
+      )
     })
-  })
-  const result = await Effect.runPromise(provideDomain(c, upload).pipe(Effect.result))
-  if (result._tag === 'Failure') {
-    // A token names bucket and path independently, so a caller who may sign here
-    // can aim one at a key another bucket owns. Storage refuses that write as
-    // not-found; answer 404 like an absent key, keeping the boundary hidden (S1).
-    return signedUploadFailure(c, (result.failure as { readonly cause?: unknown }).cause)
-  }
-  return c.json({ success: true, path })
-}
-
-/**
- * The answer to a signed upload the store refused: a second spelling of a key
- * this bucket holds is that object (409), and another bucket's object answers
- * like an absent key (404).
- */
-const signedUploadFailure = (c: Context, cause: unknown): Response => {
-  if (cause instanceof StorageKeySpellingTaken || cause instanceof StorageKeyTaken) {
-    return objectAlreadyStored(c)
-  }
-  return isNotFoundError(cause)
-    ? notFound(c, 'File not found')
-    : c.json(storageErrorBody('Upload failed', 'STORAGE_ERROR'), 500)
+  )
 }
 
 /**
@@ -278,85 +271,94 @@ export function createHandleSignedUpload(app: App) {
  * Anonymous → 401 (auth gate). Authenticated but refused → 404, so the
  * bucket's sign-permission boundary is not discoverable (S1).
  */
-export async function refuseUnlessSignable(
+export const refuseUnlessSignable = (
   c: Context,
   app: App,
   bucket: Bucket,
   operations: readonly ('download' | 'upload')[]
-): Promise<Response | undefined> {
-  const session = getSessionContext(c)
-  const userRole = session ? await runDomainPromise(c, getUserRole(session.userId)) : undefined
-  if (operations.every((operation) => canSignBucketUrl(bucket, operation, userRole, app)))
-    return undefined
-  return session
-    ? notFound(c, 'Resource not found')
-    : c.json(storageErrorBody('Unauthorized', 'UNAUTHORIZED'), 401)
-}
+) =>
+  Effect.gen(function* () {
+    const session = getSessionContext(c)
+    const userRole = session ? yield* getUserRole(session.userId) : undefined
+    if (operations.every((operation) => canSignBucketUrl(bucket, operation, userRole, app))) {
+      return undefined
+    }
+    return session
+      ? notFound(c, 'Resource not found')
+      : c.json(storageErrorBody('Unauthorized', 'UNAUTHORIZED'), 401)
+  })
 
 /**
  * Download URLs must reference an existing file; upload URLs must not — a
  * signed upload writes a NEW object. The refusal, or `undefined`.
  */
-async function refuseByStoredObject(
+const refuseByStoredObject = (
   c: Context,
   operation: 'download' | 'upload',
   path: string,
   bucket: string
-): Promise<Response | undefined> {
-  if (operation === 'download') {
-    return (await fileExists(c, path, bucket)) ? undefined : notFound(c, 'File not found')
-  }
-  return (await objectStoredAt(c, path, bucket)) ? objectAlreadyStored(c) : undefined
-}
+) =>
+  operation === 'download'
+    ? Effect.map(fileExists(path, bucket), (exists) =>
+        exists ? undefined : notFound(c, 'File not found')
+      )
+    : Effect.map(objectStoredAt(path, bucket), (stored) =>
+        stored ? objectAlreadyStored(c) : undefined
+      )
 
 /**
  * Build the signed-URL response for an already permission-checked request, or
  * an error response. Extracted from {@link createHandleSign} to keep that
  * handler under the per-function complexity threshold.
  */
-async function buildSignResponse(
+const buildSignResponse = (
   c: Context,
   bucket: Bucket,
   operation: 'download' | 'upload',
   body: SignRequestBody
-): Promise<Response> {
-  const bucketName = bucket.name
-  const { path } = body
-  if (typeof path !== 'string' || path.length === 0) {
-    return c.json(storageErrorBody('Missing path', 'BAD_REQUEST'), 400)
-  }
-  // An upload names the key it creates, so it is held to the explicit-path rules.
-  const pathRejection = operation === 'upload' ? checkBucketUploadPath(bucket, path) : undefined
-  if (pathRejection) return c.json(storageErrorBody(pathRejection.message, 'BAD_REQUEST'), 400)
+) =>
+  Effect.gen(function* () {
+    const bucketName = bucket.name
+    const { path } = body
+    if (typeof path !== 'string' || path.length === 0) {
+      return c.json(storageErrorBody('Missing path', 'BAD_REQUEST'), 400)
+    }
+    // An upload names the key it creates, so it is held to the explicit-path rules.
+    const pathRejection = operation === 'upload' ? checkBucketUploadPath(bucket, path) : undefined
+    if (pathRejection) return c.json(storageErrorBody(pathRejection.message, 'BAD_REQUEST'), 400)
 
-  const expiresInSeconds = resolveExpiresIn(body.expiresIn)
-  if (expiresInSeconds === undefined) {
-    return c.json(storageErrorBody('Invalid expiresIn value', 'BAD_REQUEST'), 400)
-  }
+    const expiresInSeconds = resolveExpiresIn(body.expiresIn)
+    if (expiresInSeconds === undefined) {
+      return c.json(storageErrorBody('Invalid expiresIn value', 'BAD_REQUEST'), 400)
+    }
 
-  // Upload URLs carry HMAC-bound contentType / maxSize constraints, clamped
-  // to the bucket, and the signer the object will be attributed to.
-  const constraints = constraintsForSign(operation, body, {
-    bucket,
-    uploadedBy: getSessionContext(c)?.userId,
+    // Upload URLs carry HMAC-bound contentType / maxSize constraints, clamped
+    // to the bucket, and the signer the object will be attributed to.
+    const constraints = constraintsForSign(operation, body, {
+      bucket,
+      uploadedBy: getSessionContext(c)?.userId,
+    })
+    if (constraints === 'invalid' || constraints === 'type-not-allowed') {
+      return c.json(storageErrorBody(constraintRefusalMessage(constraints), 'BAD_REQUEST'), 400)
+    }
+
+    const refusal = yield* refuseByStoredObject(c, operation, path, bucketName)
+    if (refusal) return refusal
+
+    const { signedUrl, expiresAt } = buildSignedUrl({
+      c,
+      bucket: bucketName,
+      path,
+      operation,
+      expiresInSeconds,
+      constraints,
+    })
+    return yield* respondWith(
+      c,
+      Effect.succeed({ success: true, signedUrl, expiresAt, operation }),
+      signedUrlResponseSchema
+    )
   })
-  if (constraints === 'invalid' || constraints === 'type-not-allowed') {
-    return c.json(storageErrorBody(constraintRefusalMessage(constraints), 'BAD_REQUEST'), 400)
-  }
-
-  const refusal = await refuseByStoredObject(c, operation, path, bucketName)
-  if (refusal) return refusal
-
-  const { signedUrl, expiresAt } = buildSignedUrl({
-    c,
-    bucket: bucketName,
-    path,
-    operation,
-    expiresInSeconds,
-    constraints,
-  })
-  return c.json({ success: true, signedUrl, expiresAt, operation })
-}
 
 /**
  * Handle POST /api/buckets/:bucketName/sign.
@@ -381,9 +383,17 @@ export function createHandleSign(app: App) {
     const body = (await c.req.json().catch(() => ({}))) as SignRequestBody
     const operation = body.operation === 'upload' ? 'upload' : 'download'
 
-    const refusal = await refuseUnlessSignable(c, app, bucket, [operation])
-    if (refusal) return refusal
+    return runHandlerEffect(
+      c,
+      answerFailures(
+        c,
+        Effect.gen(function* () {
+          const refusal = yield* refuseUnlessSignable(c, app, bucket, [operation])
+          if (refusal) return refusal
 
-    return buildSignResponse(c, bucket, operation, body)
+          return yield* buildSignResponse(c, bucket, operation, body)
+        })
+      )
+    )
   }
 }

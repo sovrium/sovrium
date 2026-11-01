@@ -50,14 +50,13 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import {
-  appliedQuerySchema,
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
-  searchTermSchema,
-} from '../../combinators'
+} from '../../cursor-pagination'
+import { appliedQuerySchema, searchTermSchema } from '../../search-term'
 
 /**
  * A single conversation row in the list. Flat projection of
@@ -79,13 +78,13 @@ export const agentConversationListItemSchema = Schema.Struct({
   title: Schema.NullOr(
     Schema.String.annotate({
       description:
-        'Human conversation title (`ai_conversations.title`), auto-generated from the first user message. `null` when the store has not titled the thread yet — the dashboard falls back to the sessionId or a "(untitled)" label.',
+        'Human conversation title (`ai_conversations.title`), auto-generated from the first user message. `null` when the store has not titled the thread yet; the dashboard then falls back to the sessionId or a "(untitled)" label.',
     })
   ),
   sessionId: Schema.NullOr(
     Schema.String.annotate({
       description:
-        "The durable store's session key (`ai_conversations.session_id`) — half of the `(userId, sessionId)` thread identity. `null` for conversations created without a session id.",
+        "The durable store's session key (`ai_conversations.session_id`): half of the `(userId, sessionId)` thread identity. `null` for conversations created without a session id.",
     })
   ),
   userId: Schema.String.annotate({
@@ -174,7 +173,7 @@ export const agentConversationsListQuerySchema = Schema.Struct({
   ),
   q: searchTermSchema.annotate({
     description:
-      'Optional free-text search over the conversation `title` and `sessionId`, as a case-insensitive literal substring. Composes with the `from`/`to` window (AND) and with the cursor, so the page is a page of MATCHES. Message `content` is intentionally not searched — transcript search is a separate capability. Empty / whitespace-only means "no search".',
+      'Optional free-text search over the conversation `title` and `sessionId`, as a case-insensitive literal substring. Composes with the `from`/`to` window (AND) and with the cursor, so the page is a page of MATCHES. Message `content` is intentionally not searched: transcript search is a separate capability. Empty / whitespace-only means "no search".',
   }),
 })
 
@@ -206,7 +205,7 @@ export const agentConversationMessageSchema = Schema.Struct({
   }),
   content: Schema.String.annotate({
     description:
-      'Message body (`ai_messages.content`). The raw chat text — surfaced verbatim to the operator reviewing the transcript. May be empty for a pure tool-call turn.',
+      'Message body (`ai_messages.content`). The raw chat text, surfaced verbatim to the operator reviewing the transcript. May be empty for a pure tool-call turn.',
   }),
   status: Schema.Literals(['complete', 'incomplete']).annotate({
     description:
@@ -227,7 +226,7 @@ export const agentConversationMessageSchema = Schema.Struct({
   toolCalls: optionalField(
     Schema.Unknown.annotate({
       description:
-        "The tool calls an assistant turn ran (`ai_messages.tool_calls`), absent for a plain text turn. A turn recorded by the engine stores one object per call — `id`, `name` (the action, e.g. `record.list`), `outcome` (`ok`, `denied`, `failed`, `pending-approval`, `pending-input`), `table` when the call read or wrote a declared table, and `rowCount` when it answered rows — and never the call's arguments or result. This read adds `tableLabel`, the table's label as the app declares it now, and, on a `chat.<type>` step the server ran itself during a chat turn, `toolLabel`: what the console calls it in the operator's language, as the record operation it ran (`Record query`, `Rechercher des enregistrements`). Older rows may carry other shapes; the dashboard reads both.",
+        "The tool calls an assistant turn ran (`ai_messages.tool_calls`), absent for a plain text turn. A turn recorded by the engine stores one object per call: `id`, `name` (the action, e.g. `record.list`), `outcome` (`ok`, `denied`, `failed`, `pending-approval`, `pending-input`), `table` when the call read or wrote a declared table, and `rowCount` when it answered rows. It never stores the call's arguments or result. This read adds `tableLabel`, the table's label as the app declares it now, and, on a `chat.<type>` step the server ran itself during a chat turn, `toolLabel`: what the console calls it in the operator's language, as the record operation it ran (`Record query`, `Rechercher des enregistrements`). Older rows may carry other shapes; the dashboard reads both.",
     })
   ),
   createdAt: looseIsoDateTime({
@@ -262,7 +261,7 @@ export const agentConversationHeaderSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isMinLength(1))),
   userName: Schema.String.annotate({
     description:
-      'Display name of that account, as the users directory shows it — the thread names its person rather than its session. Its email is not carried here.',
+      'Display name of that account, as the users directory shows it, so the thread names its person rather than its session. Its email is not carried here.',
   }),
   createdAt: looseIsoDateTime({
     description:

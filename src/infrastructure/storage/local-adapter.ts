@@ -14,6 +14,7 @@ import {
   isStagingName,
 } from '@/domain/kernel/identity/storage-key'
 import { listFilesBelow } from '@/infrastructure/filesystem/list-files-below'
+import { PRIVATE_DIRECTORY_MODE } from '@/infrastructure/filesystem/private-modes'
 import { hashStream, readStreamWithin } from './bounded-read'
 import type { StoredObjectHash } from '@/application/ports/services/storage-service'
 
@@ -24,7 +25,7 @@ import type { StoredObjectHash } from '@/application/ports/services/storage-serv
  * Naturally rejects if the directory cannot be created or accessed.
  */
 export const localValidateDirectory = async (directory: string): Promise<void> => {
-  await mkdir(directory, { recursive: true })
+  await mkdir(directory, { recursive: true, mode: PRIVATE_DIRECTORY_MODE })
   await access(directory, constants.W_OK)
 }
 
@@ -71,7 +72,7 @@ export const localUpload = async (
   content: Uint8Array
 ): Promise<void> => {
   const filePath = resolveStoragePath(directory, key)
-  await mkdir(dirname(filePath), { recursive: true })
+  await mkdir(dirname(filePath), { recursive: true, mode: PRIVATE_DIRECTORY_MODE })
   await Bun.write(filePath, content)
 }
 
@@ -96,7 +97,7 @@ export const localStageWrite = async (
   content: Uint8Array
 ): Promise<{ readonly commit: () => Promise<void>; readonly discard: () => Promise<void> }> => {
   const filePath = resolveStoragePath(directory, key)
-  await mkdir(dirname(filePath), { recursive: true })
+  await mkdir(dirname(filePath), { recursive: true, mode: PRIVATE_DIRECTORY_MODE })
   const stagedPath = join(dirname(filePath), `.sovrium-staging-${crypto.randomUUID()}`)
   try {
     await writeFile(stagedPath, content, { flag: 'wx' })
@@ -121,7 +122,7 @@ export const localUploadCreateOnly = async (
   content: Uint8Array
 ): Promise<'written' | 'taken'> => {
   const filePath = resolveStoragePath(directory, key)
-  await mkdir(dirname(filePath), { recursive: true })
+  await mkdir(dirname(filePath), { recursive: true, mode: PRIVATE_DIRECTORY_MODE })
   try {
     await writeFile(filePath, content, { flag: 'wx' })
     return 'written'

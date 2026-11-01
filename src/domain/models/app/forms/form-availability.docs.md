@@ -1,6 +1,6 @@
 # Form Availability
 
-> When a form accepts answers — an opening date, a closing date, a submission cap, and the page a closed form shows.
+> When a form accepts answers: an opening date, a closing date, a submission cap, and the page a closed form shows.
 
 Registration opens Monday. The workshop seats forty. The survey closes at the end of the quarter. Each of those is a rule about _when_ a form accepts answers, and each one otherwise becomes a calendar reminder to go and edit the configuration by hand.
 
@@ -22,13 +22,13 @@ forms:
 
 <!-- sovrium:options FormAvailabilitySchema -->
 
-Every property is optional; omit the block and the form is open, indefinitely, with no cap. Both timestamps are ISO 8601, and `maxSubmissions` is a positive integer — the submission after the cap is refused.
+Every property is optional; omit the block and the form is open, indefinitely, with no cap. Both timestamps are ISO 8601, and `maxSubmissions` is a positive integer. The submission after the cap is refused.
 
 When both timestamps are set, `opensAt` must be strictly before `closesAt`. A window that closes before it opens accepts nothing and is almost always a typo, so it fails when the configuration is decoded, naming the form and both timestamps.
 
 ## What a closed form answers
 
-Opening a closed form is not an error — the visitor gets a page explaining the situation. Posting to one is refused with a structured body, so a programmatic client can tell the three cases apart.
+Opening a closed form is not an error: the visitor gets a page explaining the situation. Posting to one is refused with a structured body, so a programmatic client can tell the three cases apart.
 
 | State           | Opening the form   | Posting | `error` slug               | Extra keys                       |
 | --------------- | ------------------ | ------- | -------------------------- | -------------------------------- |
@@ -36,7 +36,7 @@ Opening a closed form is not an error — the visitor gets a page explaining the
 | After it closes | Closed page        | `403`   | `form closed`              | `closedAt`                       |
 | At the cap      | Form still renders | `403`   | `submission limit reached` | `maxSubmissions`, `currentCount` |
 
-Those are the parts that differ. All three also carry the canonical error envelope every other API error uses — a success flag, a human-readable message and a code — so one decoder handles all of them and the slug is only needed to tell the three apart.
+Those are the parts that differ. All three also carry the canonical error envelope every other API error uses (a success flag, a human-readable message and a code), so one decoder handles all of them and the slug is only needed to tell the three apart.
 
 ```json
 {
@@ -52,7 +52,7 @@ A refused submission writes nothing: no ledger row, no table row, no automation 
 
 ## The closed page
 
-Left unconfigured it shows the form's own title and a sentence explaining that the form is not yet open — quoting the date — or no longer accepting answers. `closedPage` replaces that with your own copy and, optionally, a way forward.
+Left unconfigured it shows the form's own title and a sentence explaining that the form is not yet open (quoting the date) or no longer accepting answers. `closedPage` replaces that with your own copy and, optionally, a way forward.
 
 ```yaml
 availability:
@@ -67,10 +67,10 @@ availability:
 
 `cta.label` and `cta.href` are required together; neither alone renders a link. The same page serves all three closed states, so write copy that reads sensibly whether the form has not opened yet or has filled up.
 
-The page speaks the same language as the open form: the app's default language, or the one a visitor asks for with `?lang=` when the app supports it, and the text direction that language declares. The form title and every piece of `closedPage` text — `title`, `message` and `cta.label` — accept a `$t:` key and read the entry for that language; `cta.href` is used as written. The built-in sentence shown when you write no `message` of your own ships in English and French and follows the page language; in any other language it reads English, so a form in one of those languages should carry its own `message` as a `$t:` key.
+The page speaks the same language as the open form: the app's default language, or the one a visitor asks for with `?lang=` when the app supports it, and the text direction that language declares. The form title and every piece of `closedPage` text (`title`, `message` and `cta.label`) accept a `$t:` key and read the entry for that language; `cta.href` is used as written. The built-in sentence shown when you write no `message` of your own ships in English and French and follows the page language; in any other language it reads English, so a form in one of those languages should carry its own `message` as a `$t:` key.
 
 ## Only a real submission consumes a slot
 
-A submission rejected as spam — a tripped honeypot, a rate-limit miss — and one that failed downstream never count toward the cap. A bot cannot exhaust forty workshop seats in a burst, and a failed write does not quietly cost a genuine registrant their place.
+A submission rejected as spam (a tripped honeypot, a rate-limit miss) and one that failed downstream never count toward the cap. A bot cannot exhaust forty workshop seats in a burst, and a failed write does not quietly cost a genuine registrant their place.
 
 The cap is also enforced atomically, so concurrent submissions racing for the last slots cannot overshoot it. That matters precisely at the moment a cap is interesting: a popular form fills its last places in the same second.

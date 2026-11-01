@@ -8,7 +8,7 @@
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import { databaseTableName } from '../statement/validation'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Authorship field names used across the system
@@ -25,17 +25,17 @@ export const AUTHORSHIP_FIELDS = {
  * Delegates to the dialect-aware `getExistingColumnNames` helper, which
  * branches `information_schema` (PostgreSQL) vs `pragma_table_info` (SQLite).
  *
- * @param tx - Database transaction
+ * @param on - Open transaction and its dialect
  * @param tableName - Table name
  * @param columnNames - Column names to check
  * @returns Set of existing column names
  */
 async function checkAuthorshipColumns(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   columnNames: readonly string[]
 ): Promise<ReadonlySet<string>> {
-  return getExistingColumnNames(tx, databaseTableName(tableName), columnNames)
+  return getExistingColumnNames(dialect.kind, tx, databaseTableName(tableName), columnNames)
 }
 
 /**
@@ -60,18 +60,18 @@ function normalizeUserIdForDb(userId: string | undefined): string | null {
  *
  * @param fields - Original record fields
  * @param userId - User ID from session
- * @param tx - Database transaction
+ * @param on - Open transaction and its dialect
  * @param tableName - Table name
  * @returns Fields with authorship metadata injected
  */
 export async function injectCreateAuthorship(
   fields: Readonly<Record<string, unknown>>,
   userId: string | undefined,
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   tableName: string
 ): Promise<Record<string, unknown>> {
   // Check which authorship columns exist
-  const existingColumns = await checkAuthorshipColumns(tx, tableName, [
+  const existingColumns = await checkAuthorshipColumns(on, tableName, [
     AUTHORSHIP_FIELDS.CREATED_BY,
     AUTHORSHIP_FIELDS.UPDATED_BY,
   ])
@@ -96,18 +96,18 @@ export async function injectCreateAuthorship(
  *
  * @param fields - Original record fields
  * @param userId - User ID from session
- * @param tx - Database transaction
+ * @param on - Open transaction and its dialect
  * @param tableName - Table name
  * @returns Fields with updated_by injected
  */
 export async function injectUpdateAuthorship(
   fields: Readonly<Record<string, unknown>>,
   userId: string | undefined,
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   tableName: string
 ): Promise<Record<string, unknown>> {
   // Check if updated_by column exists
-  const existingColumns = await checkAuthorshipColumns(tx, tableName, [
+  const existingColumns = await checkAuthorshipColumns(on, tableName, [
     AUTHORSHIP_FIELDS.UPDATED_BY,
   ])
 
@@ -124,15 +124,12 @@ export async function injectUpdateAuthorship(
 /**
  * Check if table has deleted_by column for soft delete authorship tracking
  *
- * @param tx - Database transaction
+ * @param on - Open transaction and its dialect
  * @param tableName - Table name
  * @returns True if deleted_by column exists
  */
-export async function hasDeletedByColumn(
-  tx: Readonly<DrizzleTransaction>,
-  tableName: string
-): Promise<boolean> {
-  const existingColumns = await checkAuthorshipColumns(tx, tableName, [
+export async function hasDeletedByColumn(on: TransactionOn, tableName: string): Promise<boolean> {
+  const existingColumns = await checkAuthorshipColumns(on, tableName, [
     AUTHORSHIP_FIELDS.DELETED_BY,
   ])
   return existingColumns.has(AUTHORSHIP_FIELDS.DELETED_BY)

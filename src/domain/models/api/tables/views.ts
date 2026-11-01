@@ -14,7 +14,6 @@
  * following the API schema directory convention.
  */
 export {
-  viewSchema,
   listViewsResponseSchema,
   getViewResponseSchema,
   getViewRecordsResponseSchema,

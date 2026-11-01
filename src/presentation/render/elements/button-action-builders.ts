@@ -25,6 +25,7 @@ import { printedLiterally } from '@/domain/models/app/pages/literal-token-servic
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { confirmWeightAttribute } from '@/presentation/design/confirm-weight'
 import { substituteRecordInInputData } from '@/presentation/render/resolve/record-template-substitution'
+import { disclosureAttributes } from './button-disclosure-attributes'
 import { buildPendingLabelAttribute } from './button-pending-label'
 import { servedAllowOrigins, withServedAllowOrigins } from './served-allow-origins'
 import type { CrudFormAction } from './crud-form/crud-form-types'
@@ -55,6 +56,7 @@ export function buildClickDataAttributes(clickInteraction: {
     ...(clickInteraction.scrollTo && { 'data-click-scroll-to': clickInteraction.scrollTo }),
     ...(clickInteraction.toggleElement && {
       'data-click-toggle-element': clickInteraction.toggleElement,
+      ...disclosureAttributes(clickInteraction.toggleElement),
     }),
     ...(clickInteraction.submitForm && {
       'data-click-submit-form': clickInteraction.submitForm,

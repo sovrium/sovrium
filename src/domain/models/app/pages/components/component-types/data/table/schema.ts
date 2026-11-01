@@ -25,6 +25,7 @@ import { DataTableBulkActionSchema } from './bulk-actions'
 import { validateColumnDisplayFields } from './column-display-field-validation'
 import { DataTableColumnSchema } from './columns'
 import { DataTableColumnsFromSchema } from './columns-from'
+import { DataTableCountLabelSchema } from './count-label'
 import { DataTableLayoutSchema } from './layout'
 import { DataTableRowExpandConfigSchema } from './row-expand'
 import { DataTableSelectionSchema } from './selection'
@@ -263,6 +264,8 @@ export const tableFields = {
    */
   rowActions: Schema.optional(DataTableRowActionsSchema),
   pagination: Schema.optional(DataTablePaginationSchema),
+  /** The noun the count line uses — see {@link DataTableCountLabelSchema}. */
+  countLabel: Schema.optional(DataTableCountLabelSchema),
   summary: Schema.optional(
     Schema.Array(DataTableSummaryItemSchema).pipe(
       Schema.annotate({ description: 'Summary row with aggregate computations' }),
@@ -309,6 +312,18 @@ export const tableFields = {
   ),
   emptyMessage: Schema.optional(
     Schema.String.annotate({ description: 'Message when no records match' })
+  ),
+  /**
+   * The next step under an empty grid's `emptyMessage`: the fact first, then
+   * what the reader can do about it. Shown only while the grid has no rows at
+   * all; a search that matches nothing keeps `noMatchMessage`.
+   */
+  emptyDescription: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Guidance line drawn under emptyMessage when the grid has no rows: what the reader can do next, or when rows will appear. Not shown for a search that matches nothing. Supports $t:key.',
+      examples: ['Links you declare in the config appear here after the next deploy.'],
+    })
   ),
   noMatchMessage: Schema.optional(
     Schema.String.annotate({
@@ -659,6 +674,15 @@ function collectTableFieldNames(config: unknown): ReadonlyMap<string, readonly s
 }
 
 /**
+ * Admits a raw config record to {@link validateDataTableColumns} on its `type`
+ * discriminant alone — the rest of the shape is NOT checked here, which is
+ * honest only because that function reads every other key defensively.
+ */
+function isRawDataTable(component: Readonly<Record<string, unknown>>): component is DataTable {
+  return component['type'] === 'table'
+}
+
+/**
  * Raw-config entry point for the data-table field-reference sweep — the thing
  * that makes {@link validateDataTableColumns} actually run.
  *
@@ -675,10 +699,9 @@ function collectTableFieldNames(config: unknown): ReadonlyMap<string, readonly s
 export function validateDataTableFieldReferences(config: unknown): readonly string[] {
   const fieldsByTable = collectTableFieldNames(config)
   return [
-    ...collectDataTableComponents(config).flatMap(
-      (component) =>
-        validateDataTableColumns(component as unknown as DataTable, fieldsByTable).errors
-    ),
+    ...collectDataTableComponents(config)
+      .filter(isRawDataTable)
+      .flatMap((component) => validateDataTableColumns(component, fieldsByTable).errors),
     // `displayField` reads field types this name-only map lacks.
     ...validateColumnDisplayFields(config),
   ]

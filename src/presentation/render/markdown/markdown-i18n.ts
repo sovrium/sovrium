@@ -32,11 +32,10 @@ const TRANSLATION_TOKEN = new RegExp(`\\$t:(${TRANSLATION_KEY_PATTERN_SOURCE})`,
  * Security posture (S2 — sanitisation defense in depth):
  * Translation values come from `app.languages.translations`, an operator-
  * controlled schema input — NOT runtime user input. They flow into raw
- * markdown text, which is then parsed by markdown-it (configured with
- * `html: false`, dropping any inline `<script>` tags as plain text) and
- * sanitised by the canonical `sanitizeRichTextHTML` before reaching the
- * DOM. A malicious translation value containing `<script>` would be
- * neutralised twice: once by markdown-it's HTML-disabled parser, again by
+ * markdown text, which is then parsed by markdown-it (whose `drop_raw_html`
+ * core rule drops any raw `<script>` tag) and sanitised by the canonical
+ * `sanitizeRichTextHTML` before reaching the DOM. A malicious translation
+ * value containing `<script>` would be neutralised twice: once at parse, again by
  * the sanitiser. We therefore do NOT sanitise here — sanitisation lives
  * at exactly one layer per S2.
  *

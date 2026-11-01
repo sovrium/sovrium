@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Effect, Ref } from 'effect'
 import { LinkPreviewReader } from '@/application/ports/services/link-preview-reader'
 import {
   CommittedRowChanges,
@@ -19,9 +19,10 @@ import {
   linkAddressesOfRecord,
   linkPreviewFieldsOf,
 } from '@/domain/models/app/pages/components/component-types/display/link-preview-service'
+import { transformRecord } from '@/domain/models/app/tables/record-transformer-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { writeOnlyColumnsOf } from '@/domain/models/app/tables/write-only-field-service'
-import { transformRecord } from './record-transformer'
 import type { App } from '@/domain/models/app'
 import type { AnnouncedRowChange } from '@/domain/models/app/tables/realtime-announcement-service'
 
@@ -72,10 +73,7 @@ const toAnnounced = (app: App, change: CommittedRowChange): AnnouncedRowChange =
   oldRecord:
     change.previous === undefined
       ? undefined
-      : readStoredValues(
-          app.tables?.find((table) => table.name === change.tableName),
-          change.previous
-        ),
+      : readStoredValues(findTableByName(app.tables, change.tableName), change.previous),
 })
 
 const announceReported = (
@@ -141,19 +139,19 @@ export const announceRecordWrites =
     Effect.gen(function* () {
       const outer = yield* CommittedRowChanges
       if (outer.active) return yield* write
-      // The scope's own buffer: the repositories append to it as they commit,
+      // The scope's own list: each repository report replaces it as it commits,
       // from inside the write, and it is read once the write is over.
-      // eslint-disable-next-line functional/prefer-immutable-types -- see above
-      const reported: CommittedRowChange[] = []
+      const reported = yield* Ref.make<readonly CommittedRowChange[]>([])
       const collector: RowChangeCollector = {
         active: true,
-        // eslint-disable-next-line functional/immutable-data, no-restricted-syntax -- see `reported`
-        report: (changes) => void reported.push(...changes),
+        report: (changes) => Ref.update(reported, (rows) => [...rows, ...changes]),
       }
       return yield* write.pipe(
         Effect.provideService(CommittedRowChanges, collector),
         Effect.provideService(UnauditedTables, unauditedTablesOf(app)),
         Effect.provideService(WriteOnlyColumns, writeOnlyColumnsOf(app ?? {})),
-        Effect.onExit(() => announceReported(app, reported))
+        Effect.onExit(() =>
+          Effect.flatMap(Ref.get(reported), (rows) => announceReported(app, rows))
+        )
       )
     }).pipe(Effect.withSpan('tables.announce-record-writes'))

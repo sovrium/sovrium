@@ -14,7 +14,7 @@ import {
 } from '@/presentation/design/button-default-classes'
 import {
   isOpenSpecimen,
-  renderOpenDatePickerPopup,
+  openDatePickerPopupElement,
 } from '@/presentation/render/resolve/open-specimen-markup'
 import {
   computeStatusBadgeDotClasses,
@@ -119,7 +119,7 @@ const renderFormFromDispatch: ComponentRenderer = (cfg) =>
   Renderers.renderForm({
     props: cfg.elementProps,
     children: cfg.renderedChildren,
-    action: cfg.action,
+    action: cfg.action as Parameters<typeof Renderers.renderForm>[0]['action'],
     tables: cfg.tables,
     buckets: cfg.buckets,
     component: cfg.component,
@@ -266,8 +266,8 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
         // The design-system console's `open` state cell. Drawn from
         // the island's own `DatePickerPopup`, without the island marker and
         // without the dialog role — the picture, not the control.
-        openPopupHtml: isOpenSpecimen(rawProps)
-          ? renderOpenDatePickerPopup({ label, minDate, maxDate, datePickerMode })
+        openPopup: isOpenSpecimen(rawProps)
+          ? openDatePickerPopupElement({ label, minDate, maxDate, datePickerMode })
           : undefined,
       })
     },

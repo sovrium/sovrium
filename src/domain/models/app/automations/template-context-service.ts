@@ -5,6 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  AST_TAG,
+  isTag,
+  objectFields,
+  stringLiteral,
+  unionMembers,
+  type SchemaNode,
+} from '@/domain/kernel/config-parsing/schema-ast'
 import { ActionSchema } from './actions/action-union'
 import { TEMPLATE_CONTEXT_ANNOTATION, TEMPLATE_CONTEXTS, type TemplateContext } from './template'
 
@@ -25,17 +33,12 @@ export interface TemplateContextPath {
   readonly context: TemplateContext
 }
 
-/** The slice of Effect's AST this module reads (structural, see `type-introspection.ts`). */
-interface Node {
-  readonly _tag?: string
-  readonly annotations?: Readonly<Record<string, unknown>>
-  readonly types?: ReadonlyArray<Node>
-  readonly literal?: unknown
-  readonly propertySignatures?: ReadonlyArray<{ readonly name: PropertyKey; readonly type: Node }>
-  readonly rest?: ReadonlyArray<Node>
-  readonly elements?: ReadonlyArray<Node>
-  readonly thunk?: () => Node
-}
+/** The slice of Effect's AST this module reads (`kernel/config-parsing/schema-ast.ts`). */
+type Node = SchemaNode
+
+/** The node a `Suspend` defers to, or `undefined` for every other node. */
+const suspended = (node: Node): Node | undefined =>
+  node.thunk === undefined ? undefined : (node.thunk() as Node)
 
 const contextOf = (node: Node): TemplateContext | undefined => {
   const value = node.annotations?.[TEMPLATE_CONTEXT_ANNOTATION]
@@ -53,30 +56,32 @@ const pathsUnder = (
   if (seen.has(node)) return []
   const next = new Set([...seen, node])
   const own = contextOf(node)
-  if (own !== undefined && node._tag === 'String') return [{ path: prefix, context: own }]
-  if (node.thunk !== undefined) return pathsUnder(node.thunk(), prefix, next)
-  if (node.types !== undefined) return node.types.flatMap((t) => pathsUnder(t, prefix, next))
-  if (node.propertySignatures !== undefined) {
-    return node.propertySignatures.flatMap((p) =>
-      pathsUnder(p.type, prefix === '' ? String(p.name) : `${prefix}.${String(p.name)}`, next)
-    )
-  }
-  return []
+  if (own !== undefined && isTag(node, AST_TAG.string)) return [{ path: prefix, context: own }]
+  const deferred = suspended(node)
+  if (deferred !== undefined) return pathsUnder(deferred, prefix, next)
+  const members = unionMembers(node)
+  if (members !== undefined) return members.flatMap((t) => pathsUnder(t, prefix, next))
+  return objectFields(node).flatMap((p) =>
+    pathsUnder(p.type, prefix === '' ? String(p.name) : `${prefix}.${String(p.name)}`, next)
+  )
 }
 
 const literalsOf = (node: Node | undefined): ReadonlyArray<string> => {
   if (node === undefined) return []
-  if (typeof node.literal === 'string') return [node.literal]
-  return (node.types ?? []).flatMap(literalsOf)
+  const literal = stringLiteral(node)
+  if (literal !== undefined) return [literal]
+  return (unionMembers(node) ?? []).flatMap(literalsOf)
 }
 
 /** Every action arm of a union: an `Objects` node carrying a `type` literal. */
 const actionArms = (node: Node, seen: ReadonlySet<Node>): ReadonlyArray<Node> => {
   if (seen.has(node)) return []
   const next = new Set([...seen, node])
-  if (node.thunk !== undefined) return actionArms(node.thunk(), next)
-  if (node.types !== undefined) return node.types.flatMap((t) => actionArms(t, next))
-  const hasType = node.propertySignatures?.some((p) => p.name === 'type') === true
+  const deferred = suspended(node)
+  if (deferred !== undefined) return actionArms(deferred, next)
+  const members = unionMembers(node)
+  if (members !== undefined) return members.flatMap((t) => actionArms(t, next))
+  const hasType = objectFields(node).some((p) => p.name === 'type')
   return hasType ? [node] : []
 }
 
@@ -93,7 +98,7 @@ export const deriveTemplateContextPaths = (
 ): ReadonlyMap<string, ReadonlyArray<TemplateContextPath>> => {
   const arms = actionArms(union as Node, new Set())
   const entries = arms.flatMap((arm) => {
-    const field = (name: string) => arm.propertySignatures?.find((p) => p.name === name)?.type
+    const field = (name: string) => objectFields(arm).find((p) => p.name === name)?.type
     const props = field('props')
     const paths = props === undefined ? [] : dedupe(pathsUnder(props, '', new Set()))
     if (paths.length === 0) return []

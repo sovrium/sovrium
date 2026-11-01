@@ -56,8 +56,7 @@ const ALERT_VARIANT = cva('', {
 /** Compute the className for an alert root of the given tone. */
 export const computeAlertClasses = ({
   variant = 'default',
-}: { variant?: AlertVariant } = {}): string =>
-  `${ALERT_BASE} ${ALERT_VARIANT({ variant: variant })}`
+}: { variant?: AlertVariant } = {}): string => `${ALERT_BASE} ${ALERT_VARIANT({ variant })}`
 
 /** base-nova's `AlertTitle`. */
 export const computeAlertTitleClasses = (): string =>

@@ -18,12 +18,9 @@
  * it may edit, and its actions.
  */
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consoleRecordSheet = {
+export const consoleRecordSheet: TemplateEncoded = {
   name: 'console-record-sheet',
   type: 'sheet',
   render: 'transparent',
@@ -46,6 +43,9 @@ export const consoleRecordSheet = {
     recordFields: {
       kind: 'json',
     },
+    actions: {
+      kind: 'json',
+    },
   },
   drawerSide: 'right',
   drawerSize: 'md',
@@ -57,4 +57,5 @@ export const consoleRecordSheet = {
   canEdit: '$canEdit',
   props: '$props',
   recordFields: '$recordFields',
-} as unknown as Template
+  actions: '$actions',
+}

@@ -27,6 +27,8 @@ import {
   BUNDLE_CONFIG_ENTRY,
   BUNDLE_MANIFEST_ENTRY,
 } from '@/application/use-cases/server/bundle-manifest'
+import { defineFlags, flag, type FlagsOf } from '@/cli/runtime/flag-schema'
+import { CliRefusal, tryCommandPromise } from '@/cli/runtime/run-command'
 import {
   deployMissingEnvRefusalSchema,
   deployRefusalSchema,
@@ -35,18 +37,12 @@ import {
 } from '@/domain/models/api/automations/automations'
 import { previewResponseSchema } from '@/domain/models/api/automations/cloud/preview'
 import { bucketUploadResponseSchema } from '@/domain/models/api/buckets'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import { formatBytes, inflect } from '@/infrastructure/logging/cli-output'
 import { buildValidatedBundle } from './bundle'
 import { resolveAddress, writeLink } from './cloud-app-lookup'
-import {
-  CliRefusal,
-  callCloud,
-  callCloudThroughBusy,
-  describeUnreachable,
-  say,
-} from './cloud-session'
-import { pushEnvFile, refuseMissingEnv, settleTarget } from './deploy-target'
+import { callCloud, callCloudThroughBusy, describeUnreachable, say } from './cloud-session'
+import { envFileFlags, pushEnvFile, refuseMissingEnv, settleTarget } from './deploy-target'
 import type { SignedInCloud } from './cloud-sign-in'
 import type { BundleManifest } from '@/application/use-cases/server/bundle-manifest'
 import type { DeployResponse } from '@/domain/models/api/automations/automations'
@@ -154,7 +150,7 @@ const readArchiveTexts = async (
 
 /** Build the bundle into a temporary directory; the caller removes it. */
 const bundleInto = (directory: string, configFile: string, verb: Intake<unknown>['verb']) =>
-  Effect.tryPromise({
+  tryCommandPromise({
     try: async () => {
       const summary = await buildValidatedBundle({
         configFile,
@@ -294,9 +290,12 @@ const temporaryDirectory = (verb: Intake<unknown>['verb']) =>
       }),
   })
 
-/** What one run ships: the command line, the config, and the app `--app` names. */
+/** The flags a shipped bundle reads: `--yes` to create the app, and the `--env` file's. */
+export const shipFlags = defineFlags({ ...envFileFlags, yes: flag.switch('--yes') })
+
+/** What one run ships: its flags, the config, and the app `--app` names. */
 export interface ShipRequest {
-  readonly argv: readonly string[]
+  readonly flags: FlagsOf<typeof shipFlags>
   readonly configPath: string
   readonly explicit: string | undefined
 }
@@ -312,7 +311,7 @@ const shipFrom = <R>(
   intake: Intake<R>
 ) =>
   Effect.gen(function* () {
-    const { argv, configPath } = request
+    const { flags, configPath } = request
     const { summary, bytes, manifestText, document } = yield* bundleInto(
       directory,
       configPath,
@@ -327,9 +326,9 @@ const shipFrom = <R>(
     })
     const target = yield* settleTarget(cloud, address, {
       appName: manifest.app.name,
-      yes: argv.includes('--yes'),
+      yes: flags.yes,
     })
-    const justSet = yield* pushEnvFile(argv, cloud, target, document)
+    const justSet = yield* pushEnvFile(flags, cloud, target, document)
     yield* refuseMissingEnv(cloud, target, manifest.requiredEnv ?? [], justSet)
     const app = target.slug
     yield* say(

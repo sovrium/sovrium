@@ -44,7 +44,7 @@ const ConnectionBaseFields = {
     Schema.String.pipe(
       Schema.annotate({
         description:
-          'Root URL of the service API: an http(s) URL, $env.VAR, or $token.FIELD for a URL the provider returns with the token (declared in the OAuth2 tokenFields). Each operation path is appended to it, and every call passes the same outbound-address guard as the http actions. Required when the connection declares operations.',
+          'Root URL of the service API: an http(s) URL, $env.VAR, or $token.FIELD for a URL the provider returns with the token (declared in the OAuth2 tokenFields). Each operation path is appended to it, and every call passes the same outbound-address guard as the http actions. It also binds the credential: an http or webhook step that names this connection sends the credential only to the origin of baseUrl, or to one listed in allowedOrigins. Required when the connection declares operations or is named by an http or webhook step.',
         examples: ['https://thirdparty.qonto.com/v2', '$env.SALESFORCE_INSTANCE_URL'],
       }),
       Schema.check(
@@ -52,6 +52,26 @@ const ConnectionBaseFields = {
           /^(https?:\/\/\S+|\$env\.[A-Z][A-Z0-9_]*\S*|\$token\.[a-z_][a-z0-9_]*\S*)$/
         )
       )
+    )
+  ),
+
+  /** Further origins the credential may be sent to, for an API spread over several hosts */
+  allowedOrigins: Schema.optional(
+    Schema.Array(
+      Schema.String.pipe(
+        Schema.annotate({
+          description:
+            'An origin (scheme, host and optional port, no path) such as https://sheets.googleapis.com, or $env.VAR',
+        }),
+        Schema.check(Schema.isPattern(/^(https?:\/\/[^\s/?#]+|\$env\.[A-Z][A-Z0-9_]*)$/))
+      )
+    ).pipe(
+      Schema.annotate({
+        description:
+          "Further origins an http or webhook step may send this connection's credential to, besides the origin of baseUrl. Use it for a service whose API is spread over several hosts. A request to any other origin is not sent.",
+        examples: [['https://sheets.googleapis.com', 'https://docs.googleapis.com']],
+      }),
+      Schema.check(Schema.isMinLength(1), Schema.isMaxLength(20))
     )
   ),
 

@@ -7,7 +7,7 @@
 
 /** Shared types and small pure helpers for the automation run loop: its one type contract. */
 
-import { Duration, Effect, Schedule } from 'effect'
+import type { ResolvedRetryConfig } from './retry-schedule'
 import type { ActionHandler, ActionKey, AutomationContext } from '../action-handlers'
 import type { ClientErrorField, RunClientErrorField } from './client-error'
 import type { RecordEventChannel } from './record-event-channel'
@@ -15,13 +15,13 @@ import type { RunLedgers } from './run-ledger-persistence'
 import type { StepWindowField } from './step-window'
 import type { WriteOnlyInheritance } from './write-only-values'
 import type { AuthStepRequirements } from '../action-handlers/auth-grants'
-import type { BrowserStepRequirements } from '../action-handlers/browser-run-scope'
+import type { BrowserStepRequirements } from '../action-handlers/browser/run-scope'
 import type { EmailStepRequirements } from '../action-handlers/email'
 import type { ContainerResume } from '../action-handlers/run-park'
 import type { StepLogEntry } from '../action-handlers/shared'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { StepMetadataMap } from './step-metadata'
-import type { MediaStepRequirements } from '../action-handlers/file-extract-audio'
+import type { MediaStepRequirements } from '../action-handlers/file/extract-audio'
 import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
@@ -46,11 +46,14 @@ import type { ConfigAccountProvisioner } from '@/application/ports/services/acco
 import type { AiService } from '@/application/ports/services/ai-service'
 import type { AppSelfSeeder } from '@/application/ports/services/app-self-seeder'
 import type { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
+import type { AutomationScheduler } from '@/application/ports/services/automation-scheduler'
 import type { DocumentRenderer } from '@/application/ports/services/document-renderer'
+import type { FailureAlertHoldBack } from '@/application/ports/services/failure-alert-hold-back'
 import type { InstanceSupervisor } from '@/application/ports/services/instance-supervisor'
 import type { OAuthClientRegistrar } from '@/application/ports/services/oauth-client-registrar'
 import type { OAuthTokenClient } from '@/application/ports/services/oauth-token-client'
 import type { OfficeConverter } from '@/application/ports/services/office-converter'
+import type { OutboundHttp } from '@/application/ports/services/outbound-http'
 import type { PdfEditor } from '@/application/ports/services/pdf-editor'
 import type { PdfToolkit } from '@/application/ports/services/pdf-toolkit'
 import type { RecordWebhookDispatcher } from '@/application/ports/services/record-webhook-dispatcher'
@@ -66,6 +69,7 @@ import type { RunRelay } from '@/domain/models/app/automations/run-relay-service
 import type { ResumeFrame } from '@/domain/models/app/automations/run-resume-cursor-service'
 import type { StepRead } from '@/domain/models/app/automations/step-read-service'
 import type { Trigger } from '@/domain/models/app/automations/trigger'
+import type { Effect } from 'effect'
 
 /** A step record in run history, as `GET /api/automations/runs/:id` reads it back. */
 export interface ExecutedStep extends ClientErrorField, StepWindowField {
@@ -132,10 +136,7 @@ export interface RunAccumulator extends RunClientErrorField {
    * Single-step runs behave like "last action's output".
    */
   readonly lastOutput: Record<string, unknown> | undefined
-  /**
-   * Set true when a filter action returns `status: 'filtered'`: the run loop
-   * then skips the later steps without recording them.
-   */
+  /** True once a filter returns `status: 'filtered'`: later steps are skipped, unrecorded. */
   readonly halted: boolean
   /**
    * Last `responseOverride` surfaced by an action handler in this run
@@ -224,13 +225,6 @@ export interface StepContext {
   readonly resume?: { readonly base: number; readonly container?: ContainerResume }
 }
 
-/** Normalised retry config: concrete `delayMs`; `strategy` `'fixed'` (default) or `'exponential'`. */
-export interface ResolvedRetryConfig {
-  readonly maxAttempts: number
-  readonly delayMs: number
-  readonly strategy: 'fixed' | 'exponential'
-}
-
 /** Service requirement set shared by the step executor and the retry loop. */
 export type StepRequirements =
   | TableRepository
@@ -248,6 +242,7 @@ export type StepRequirements =
   | ConnectionRepository
   | ConnectionTokenRepository
   | SentinelTokens
+  | OutboundHttp // the guarded egress of the `http`, `webhook`, `connection` and file steps
   | TemplateEngine
   | AnalyticsRepository
   | AiService
@@ -265,6 +260,7 @@ export type StepRequirements =
   | AuditLogRepository
   | EmailStepRequirements // the sender, and the CSS inliner a templated body runs
   | AiComputeStatusRepository
+  | AutomationFiberBridge // the sandbox's Promise boundary; the tracked background (AI compute, events)
   | OAuthTokenClient
   | ConfigAccountProvisioner
   | OAuthClientRegistrar
@@ -278,9 +274,9 @@ export type RunRequirements =
   | StepRequirements
   | AutomationRepository
   | AutomationRunRepository
-  // The failure history the post-run alert and the automatic pause read.
-  | AutomationRunOutcomeRepository
-  | AutomationFiberBridge // the sandbox's Promise boundary, the background event registry
+  | AutomationRunOutcomeRepository // the failure history the post-run alert and auto-pause read
+  | FailureAlertHoldBack // the alert's hold-back for a failure the history did not record
+  | AutomationScheduler // the per-automation admission cap; the registry a cancel reaches
 
 /**
  * Locally re-typed `app.actions[]` template entry. The runtime invoker only
@@ -357,7 +353,6 @@ export interface ExecuteAutomationRunInput {
   readonly trigger: Trigger
   readonly automationId: string
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly triggerData: TriggerData
   readonly handlers: ReadonlyMap<ActionKey, ActionHandler>
   readonly userId: string | undefined
@@ -453,84 +448,6 @@ export const EMPTY_RUN_ACCUMULATOR: RunAccumulator = {
   returnData: undefined,
 }
 
-/**
- * Base delay used when a retry config sets `maxAttempts` but no `delayMs`.
- * Kept small so the E2E specs (which exercise real retries through a real
- * scheduler) stay fast — exponential growth from 50ms is 50/100/200/…,
- * well under the spec wait windows.
- */
-const DEFAULT_RETRY_DELAY_MS = 50
-
-/** Cap on any single inter-attempt sleep, so exponential growth cannot wedge a handler. */
-const MAX_RETRY_DELAY_MS = 30_000
-
-/**
- * The retry policy for one action, as an Effect `Schedule`.
- *
- * Emits one delay before each RETRY — none before the first attempt, and none
- * after the last failure — so a `maxAttempts: N` config yields `N - 1` delays
- * and exactly `N` invocations. `'exponential'` doubles from the base
- * (`base * 2^(n-1)`, matching `Schedule.exponential`'s 1-indexed `attempt`);
- * `'fixed'` holds the base constant. Every delay is capped at
- * {@link MAX_RETRY_DELAY_MS}, and a `delayMs` of 0 (the shape `toResolvedRetry`
- * produces when the config omits it) falls back to
- * {@link DEFAULT_RETRY_DELAY_MS}.
- *
- * The exact sequence is pinned in `retry-schedule.test.ts` — no E2E spec can
- * observe it, so that unit test is the only guard against silent drift.
- */
-export const retrySchedule = (retry: ResolvedRetryConfig): Schedule.Schedule<Duration.Duration> => {
-  const base = retry.delayMs > 0 ? retry.delayMs : DEFAULT_RETRY_DELAY_MS
-  // `exponential` computes `base * factor^(attempt - 1)`, so a factor of 1 is
-  // precisely the `'fixed'` strategy — one constructor covers both, and both
-  // branches then share the `Duration` output type.
-  const growth = Schedule.exponential(
-    Duration.millis(base),
-    retry.strategy === 'exponential' ? 2 : 1
-  )
-  return growth.pipe(
-    Schedule.modifyDelay(({ duration }) =>
-      Effect.succeed(Duration.min(duration, Duration.millis(MAX_RETRY_DELAY_MS)))
-    ),
-    // `maxAttempts` counts TOTAL attempts and the first one is not a retry, so
-    // the schedule may recur at most `maxAttempts - 1` times.
-    Schedule.upTo({ times: Math.max(0, retry.maxAttempts - 1) })
-  )
-}
-
-/**
- * Coerce a raw `retry` object (from `automation.retry` or `action.retry`)
- * into the {@link ResolvedRetryConfig} shape, or undefined if the input is
- * not a usable retry config. `maxAttempts` is the only required field; an
- * absent `delayMs` resolves to 0.
- */
-export const toResolvedRetry = (raw: unknown): ResolvedRetryConfig | undefined => {
-  if (raw === null || typeof raw !== 'object') return undefined
-  const r = raw as Record<string, unknown>
-  const maxAttempts = typeof r['maxAttempts'] === 'number' ? r['maxAttempts'] : undefined
-  if (maxAttempts === undefined || !Number.isFinite(maxAttempts) || maxAttempts < 1) {
-    return undefined
-  }
-  const delayMs =
-    typeof r['delayMs'] === 'number' && Number.isFinite(r['delayMs']) ? r['delayMs'] : 0
-  const strategy: 'fixed' | 'exponential' =
-    r['strategy'] === 'exponential' ? 'exponential' : 'fixed'
-  return { maxAttempts: Math.floor(maxAttempts), delayMs, strategy }
-}
-
-/**
- * Resolve the retry policy for one action: a per-action `retry` REPLACES the
- * automation-level one; falling back to the automation-level config when the
- * action does not declare its own. Returns undefined when neither is set.
- */
-export const resolveRetryForAction = (
-  rawAction: Readonly<Record<string, unknown>>,
-  automationRetry: ResolvedRetryConfig | undefined
-): ResolvedRetryConfig | undefined => {
-  const actionRetry = toResolvedRetry(rawAction['retry'])
-  return actionRetry ?? automationRetry
-}
-
 export const cryptoRandomId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -548,3 +465,9 @@ export const isTerminalFailureStatus = (status: RunAccumulator['runStatus']): bo
   status === 'failure' || status === 'exhausted' || status === 'cancelled' || status === 'timed-out'
 
 export { MAX_ERROR_LENGTH, truncateError } from './error-truncation'
+export {
+  resolveRetryForAction,
+  retrySchedule,
+  toResolvedRetry,
+  type ResolvedRetryConfig,
+} from './retry-schedule'

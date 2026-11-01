@@ -23,11 +23,12 @@ import {
   ImageTransformService,
   type NegotiatedTransformFailure,
 } from '@/application/ports/services/image-transform-service'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   StorageService,
   isStorageObjectNotFound,
 } from '@/application/ports/services/storage-service'
-import { readRecordedFile } from '@/application/use-cases/storage/recorded-file-read'
+import { readRecordedFile } from '@/application/use-cases/buckets/recorded-file-read'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import type { StorageError, StoredSpelling } from '@/application/ports/services/storage-service'
 import type { TransformParams } from '@/domain/models/app/buckets/image-transform-params'
@@ -182,24 +183,30 @@ export type QuotaVerdict =
  */
 export const checkStorageQuota = (
   incomingSize: number
-): Effect.Effect<QuotaVerdict, never, StorageService> => {
-  const maxTotalSizeEnv = process.env['STORAGE_MAX_TOTAL_SIZE']
-  if (maxTotalSizeEnv === undefined || maxTotalSizeEnv === '')
-    return Effect.succeed({ kind: 'allowed' })
-
-  const cap = parseInt(maxTotalSizeEnv, 10)
-  if (!Number.isFinite(cap) || cap <= 0) return Effect.succeed({ kind: 'allowed' })
-
-  return Effect.gen(function* () {
-    const storage = yield* StorageService
-    const used = yield* storage.getTotalBytes
-    const projected = used + incomingSize
-    return projected > cap
-      ? ({ kind: 'exceeded', projected, cap } as const)
-      : ({ kind: 'allowed' } as const)
-  }).pipe(
-    // effect-swallow: an unreadable total must not block a write. The upload that follows touches the same backend and reports a real outage itself; see this function's doc comment.
-    Effect.orElseSucceed(() => ({ kind: 'allowed' }) as const),
-    Effect.withSpan('buckets.check-quota')
+): Effect.Effect<QuotaVerdict, never, StorageService> =>
+  ProcessEnv.pipe(
+    Effect.flatMap((env) => {
+      const cap = totalSizeCapOf(env)
+      if (cap === undefined) return Effect.succeed({ kind: 'allowed' } as const)
+      return Effect.gen(function* () {
+        const storage = yield* StorageService
+        const used = yield* storage.getTotalBytes
+        const projected = used + incomingSize
+        return projected > cap
+          ? ({ kind: 'exceeded', projected, cap } as const)
+          : ({ kind: 'allowed' } as const)
+      }).pipe(
+        // effect-swallow: an unreadable total must not block a write. The upload that follows touches the same backend and reports a real outage itself; see this function's doc comment.
+        Effect.orElseSucceed(() => ({ kind: 'allowed' }) as const),
+        Effect.withSpan('buckets.check-quota')
+      )
+    })
   )
+
+/** `STORAGE_MAX_TOTAL_SIZE` as a positive byte count, or `undefined` for "no cap". */
+const totalSizeCapOf = (env: Readonly<Record<string, string | undefined>>): number | undefined => {
+  const maxTotalSizeEnv = env['STORAGE_MAX_TOTAL_SIZE']
+  if (maxTotalSizeEnv === undefined || maxTotalSizeEnv === '') return undefined
+  const cap = parseInt(maxTotalSizeEnv, 10)
+  return Number.isFinite(cap) && cap > 0 ? cap : undefined
 }

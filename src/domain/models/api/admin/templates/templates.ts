@@ -21,7 +21,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /** What a preview renders a template into. */
 const TEMPLATE_PREVIEW_KINDS = ['html', 'svg', 'text', 'email', 'none'] as const
@@ -31,7 +31,7 @@ export const adminTemplateSchema = Schema.Struct({
   path: Schema.String.annotate({ description: 'Asset path, as declared in `assets`' }),
   previewPath: Schema.String.annotate({
     description:
-      "The path to address the template's preview by: relative to the `templates/` directory when the asset lives there (`templates/invoice.html` reads `invoice.html`), otherwise the declared path unchanged — and the declared path too when another asset declares that short name, so a preview path always opens its own template. The preview route accepts it as well as the declared path, an exact declared path winning",
+      "The path to address the template's preview by: relative to the `templates/` directory when the asset lives there (`templates/invoice.html` reads `invoice.html`), otherwise the declared path unchanged, and the declared path too when another asset declares that short name, so a preview path always opens its own template. The preview route accepts it as well as the declared path, an exact declared path winning",
   }),
   kind: Schema.Literals(['html', 'svg', 'partial', 'text', 'docx', 'xlsx', 'pptx']).annotate({
     description: 'What the template is',
@@ -76,7 +76,7 @@ export const adminTemplatePreviewResponseSchema = Schema.Struct({
   path: Schema.String.annotate({ description: 'Asset path of the previewed template' }),
   rendersAs: Schema.Literals(TEMPLATE_PREVIEW_KINDS).annotate({
     description:
-      "What the preview holds: html, svg or text markup; email (the HTML as email/send delivers it); none for a Word, Excel or PowerPoint template, which renders to a file — use 'sovrium render' for those",
+      "What the preview holds: html, svg or text markup; email (the HTML as email/send delivers it); none for a Word, Excel or PowerPoint template, which renders to a file; use 'sovrium render' for those",
   }),
   content: optionalField(
     Schema.String.annotate({

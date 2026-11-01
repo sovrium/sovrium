@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { nestedLists } from './reserved-step-name-validation'
 
 /**
@@ -30,9 +31,6 @@ export interface TodoPlaceholderIssue {
 
 type Raw = Readonly<Record<string, unknown>>
 type Path = readonly (string | number)[]
-
-const isRecord = (value: unknown): value is Raw =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const PLACEHOLDER = /\{\{\s*todo\.([^{}\s]+)\s*\}\}/g
 

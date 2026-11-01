@@ -16,6 +16,9 @@
  * deadline), so two surfaces on one page cannot disagree on the unit.
  */
 
+// Spelled locally, not imported from `kernel/time/durations`: this module ships in
+// the island bundle, where a shared constants module becomes a chunk of its own
+// and adds a request and graph bytes to every island that mounts it.
 const MINUTE_MS = 60_000
 const HOUR_MS = 60 * MINUTE_MS
 const DAY_MS = 24 * HOUR_MS

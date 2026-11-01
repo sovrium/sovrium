@@ -43,18 +43,13 @@ import { chainAdminUsersRoutes } from '@/presentation/api/admin/users-routes'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
-export const chainAdminApiRoutes = <T extends Hono>(
-  honoWithForms: T,
-  app: App,
-  resolveLiveApp: () => App
-) => {
+export const chainAdminApiRoutes = <T extends Hono>(honoWithForms: T, app: App) => {
   // Chain the console overview reads (overview, attention, search, footprint,
   // storage status, tables overview) from the admin read registry, then the
   // transform-cache purge. Auth gating (admin-only) is applied above via authMiddleware →
-  // requireAuth → requireAdmin on the matching route paths. The registry reads
-  // resolve the LIVE App, so a reload is reflected without a restart.
+  // requireAuth → requireAdmin on the matching route paths.
   const honoWithAdmin = chainAdminRoutes(
-    chainAdminReadRoutes(honoWithForms, resolveLiveApp, CONSOLE_READ_OPERATIONS)
+    chainAdminReadRoutes(honoWithForms, app, CONSOLE_READ_OPERATIONS)
   )
 
   // Chain admin/buckets + admin/audit-log routes (the buckets list and
@@ -66,12 +61,10 @@ export const chainAdminApiRoutes = <T extends Hono>(
   const honoWithAdminBuckets = chainAdminBucketsRoutes(honoWithAdmin, app)
   // Chain admin/forms routes — list/detail of `app.forms[]`, the form-
   // submissions sub-resource (list, export, detail, bulk) and the analytics.
-  // The reads resolve the live App via `resolveLiveApp` so a
-  // `POST /draft/publish` is reflected without restart. The registry
-  // mounts the export BEFORE the `:submissionId` read, so `/submissions/export`
+  // The registry mounts the export BEFORE the `:submissionId` read, so `/submissions/export`
   // is not captured as a submission id.
-  const honoWithAdminForms = chainAdminFormsRoutes(honoWithAdminBuckets, resolveLiveApp)
-  const honoWithAdminAuditLog = chainAdminAuditLogRoutes(honoWithAdminForms, resolveLiveApp)
+  const honoWithAdminForms = chainAdminFormsRoutes(honoWithAdminBuckets, app)
+  const honoWithAdminAuditLog = chainAdminAuditLogRoutes(honoWithAdminForms, app)
 
   // Chain the READ-ONLY projections of the running configuration — one family,
   // chained together because they are gated identically and answer the same
@@ -82,9 +75,7 @@ export const chainAdminApiRoutes = <T extends Hono>(
   //               and `.md`), both projecting `buildDesignSystem(app)` so the
   //               two formats cannot describe different systems.
   // Auth gating is applied above via authMiddleware → requireAdminTier on each
-  // of the four paths. `resolveLiveApp` (not the boot `app`) throughout, so a
-  // reload is reflected without a restart — an export describing the previous
-  // deploy's palette is worse than no export, and that promise is the point.
+  // of the four paths.
   // [internal ref] A3: the design-system SHARE endpoints (mint / list / revoke).
   //               Their anonymous counterpart, `GET /s/design-system/{token}`,
   //               is a platform route registered in `server.ts` — these three
@@ -93,21 +84,20 @@ export const chainAdminApiRoutes = <T extends Hono>(
   //               `/api/admin/design-system.*` exports as exact paths with no
   //               wildcard, so `/design-system/shares` inherits nothing.
   //   The SCHEMA reads of the same family: the component-type catalogue and
-  //               one type's fields. Same gate, same
-  //               live-App resolver, and same explicit-guard requirement — the
+  //               one type's fields. Same gate and same
+  //               explicit-guard requirement — the
   //               `/api/admin/schema/*` namespace is new, so both mirrors of
   //               `admin-route-guards.ts` list it rather than leaving it to the
   //               defense-in-depth catch-all.
   //   The FACET reads of the same family: the operator's own tokens, the prose
   //               they declared, which layers they authored, what their exports
-  //               weigh, and where their pages write a type. Same gate and same
-  //               live-App resolver — and the live resolver matters more here
-  //               than anywhere else in the group, because every one of these is
-  //               a function of the operator's config rather than of the build.
+  //               weigh, and where their pages write a type. Same gate; every
+  //               one of these is a function of the operator's config rather
+  //               than of the build.
   //   The four DEVELOPERS reads — the instance facts, the exposed MCP
   //               tools, and the reflection record + declaration rows. Same A1
-  //               gate and same live-App resolver as their siblings above: each
-  //               is a function of the operator's config, and the three console
+  //               gate as their siblings above: each is a function of the
+  //               operator's config, and the three console
   //               pages that read them are config rather than builders because
   //               of it.
   // [internal ref] A11: the design-system bundle as one zip — an archive, not a
@@ -119,7 +109,7 @@ export const chainAdminApiRoutes = <T extends Hono>(
       // list, and the schema reads — is mounted from the admin read registry, one
       // description per read, with its MCP tool and OpenAPI operation derived
       // from the same entry. The share mint and revoke are actions, chained by hand.
-      chainAdminReadRoutes(honoWithAdminAuditLog, resolveLiveApp, [
+      chainAdminReadRoutes(honoWithAdminAuditLog, app, [
         ...RELEASE_READ_OPERATIONS,
         ...CONFIG_READ_OPERATIONS,
         ...DEVELOPER_READ_OPERATIONS,
@@ -132,54 +122,47 @@ export const chainAdminApiRoutes = <T extends Hono>(
         // The bug report addresses of a failed request and of a run that stopped on a defect.
         ...REPORTS_READ_OPERATIONS,
       ]),
-      resolveLiveApp
+      app
     ),
-    resolveLiveApp
+    app
   )
 
   // Chain admin/automations routes (overview + runs list/detail). Auth gating
   // is applied above via authMiddleware → requireAdminTier on
-  // /api/admin/automations + /api/admin/automations/*. The handlers resolve
-  // the live App via `resolveLiveApp` so a `POST /draft/publish` is reflected
-  // in the overview's `totals.automations` count without restart.
-  const honoWithAdminAutomations = chainAdminAutomationsRoutes(
-    honoWithAdminConfigReads,
-    resolveLiveApp
-  )
+  // /api/admin/automations + /api/admin/automations/*.
+  const honoWithAdminAutomations = chainAdminAutomationsRoutes(honoWithAdminConfigReads, app)
 
   // Chain admin/users routes (overview tile). Auth gating is applied above
   // via authMiddleware → requireAdminTier on /api/admin/users/overview.
-  // The handler reads exclusively from auth.user + auth.session — no live-App
-  // dependency, so the resolver thunk is not threaded through.
+  // The overview reads auth.user + auth.session.
   // The account-groups write (`PUT /api/admin/users/:userId/groups`) rides the
   // `/api/admin/*` tier guard and narrows it to admin-equivalent callers
-  // itself; the live App names the groups a request may set.
+  // itself; the App names the groups a request may set.
   const honoWithAdminUsers = chainAdminUserGroupsRoutes(
-    chainAdminUsersRoutes(honoWithAdminAutomations, resolveLiveApp),
-    resolveLiveApp
+    chainAdminUsersRoutes(honoWithAdminAutomations, app),
+    app
   )
 
   // Chain admin agent-conversation read endpoints:
   // GET /api/admin/agents and /api/admin/agents/:name/conversations[/:id]. Shares
   // the `/api/admin/agents/*` wildcard (authMiddleware → requireAdminTier) with the
   // per-agent metrics endpoint below; the segment-less index is gated by the
-  // trailing `/api/admin/*` catch-all. Resolves the live App via `resolveLiveApp`
-  // for the `isConversationSourceAgent` anti-enum gate (reflects a
-  // `POST /draft/publish`, the live-migration-on-publish design).
-  const honoWithAdminAgents = chainAdminAgentsRoutes(honoWithAdminUsers, resolveLiveApp)
+  // trailing `/api/admin/*` catch-all. `app` feeds the
+  // `isConversationSourceAgent` anti-enum gate.
+  const honoWithAdminAgents = chainAdminAgentsRoutes(honoWithAdminUsers, app)
 
   // Chain admin connection read endpoints:
   // GET /api/admin/connections[/:id]. Reads the RUNTIME DB rows in
   // `system.connections` + the per-connection token summary from
-  // `system.connection_tokens` (NOT `app.connections` config), so no live-App
-  // resolver is threaded. Auth gating is applied above via authMiddleware →
+  // `system.connection_tokens` (NOT `app.connections` config). Auth gating is
+  // applied above via authMiddleware →
   // requireAdminTier on BOTH the `/api/admin/connections/*` wildcard and the
   // bare `/api/admin/connections` path. The single-segment `/:id` detail route
   // is the connections directory's only per-resource sub-path.
-  const honoWithAdminConnections = chainAdminConnectionsRoutes(honoWithAdminAgents, resolveLiveApp)
+  const honoWithAdminConnections = chainAdminConnectionsRoutes(honoWithAdminAgents, app)
 
   // Chain admin connection ACTION endpoints: POST /api/admin/connections/:id/authorize, GET .../:name/callback,
-  // POST .../:id/disconnect. The boot `app` is threaded in for the by-name
+  // POST .../:id/disconnect. `app` is threaded in for the by-name
   // OAuth-props resolution (clientId/clientSecret/urls live in `app.connections`
   // config, not the runtime DB row). Auth gating is applied above via
   // authMiddleware → requireAdminTier on the `/api/admin/connections/*` wildcard
@@ -193,23 +176,19 @@ export const chainAdminApiRoutes = <T extends Hono>(
 
   // Chain the short-link console. The
   // catalog is a UNION of two populations — `app.links[]` entries resolved from
-  // the file and `system.links` rows minted at runtime — so `resolveLiveApp`
-  // (not the boot `app`) is threaded through: a reload that adds a config link
-  // must reserve that slug against mutation on the next request, not the next
-  // restart. Auth gating is applied above via authMiddleware → requireAdminTier
+  // the file and `system.links` rows minted at runtime — so `app` is threaded
+  // through: a config link reserves its slug against mutation. Auth gating is
+  // applied above via authMiddleware → requireAdminTier
   // on BOTH the bare `/api/admin/links` path and the `/api/admin/links/*`
   // wildcard, which the `/:slug/{enable,disable}` state routes need.
-  const honoWithAdminLinks = chainAdminLinksRoutes(honoWithAdminConnectionActions, resolveLiveApp)
+  const honoWithAdminLinks = chainAdminLinksRoutes(honoWithAdminConnectionActions, app)
 
   // Chain the Organisation page's one read:
-  // GET /api/admin/organisation/graph. `resolveLiveApp` rather than the boot
-  // `app`, because the graph's whole job is to explain the configuration the
-  // server is CURRENTLY running — `tables`, `pages` and `buckets` hot-swap
-  // outside the restart set, so a boot-config graph would describe the previous
-  // deploy's permissions. Auth gating is applied above via
+  // GET /api/admin/organisation/graph, drawn from the configuration the
+  // server is running. Auth gating is applied above via
   // authMiddleware → requireAdminTier on `/api/admin/organisation/*` (404s
   // missing-session AND non-admin callers, S1 anti-enumeration).
-  const honoWithAdminOrganisation = chainAdminOrganisationRoutes(honoWithAdminLinks, resolveLiveApp)
+  const honoWithAdminOrganisation = chainAdminOrganisationRoutes(honoWithAdminLinks, app)
 
   return honoWithAdminOrganisation
 }

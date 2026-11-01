@@ -2,7 +2,7 @@
 
 > Checking a config without starting anything, its `--json` report for programs, emitting the JSON Schema that describes every config, and exporting the design system for an agent.
 
-Three commands that read a config and produce a file or a verdict. All three work on every distribution — the binary, Docker, Homebrew — and none of them starts a server or opens a database.
+Three commands that read a config and produce a file or a verdict. All three work on every distribution (the binary, Docker, Homebrew), and none of them starts a server or opens a database.
 
 ## `sovrium validate <file>`
 
@@ -43,23 +43,23 @@ pages/home.yaml
     Accepted here: type, children, props, content, interactions, responsive, visibility, i18n, session, element, required
 ```
 
-- **A count heads the list** — `1 problem`, `3 problems` — so you know how much is coming.
-- **One heading per file.** Each is the file's path from the root config's directory — `pages/home.yaml`, not `home.yaml`, because two partials in two folders can share a name. The root config comes first, then each partial. Within a file, problems follow the order the keys appear in it.
-- **One mistake, one problem.** A value that matches none of the shapes a position accepts is reported against the shape you meant — the one whose `type` you wrote, or that recognises most of your keys — and never again for the shapes it was compared with and ruled out.
+- **A count heads the list** (`1 problem`, `3 problems`), so you know how much is coming.
+- **One heading per file.** Each is the file's path from the root config's directory: `pages/home.yaml`, not `home.yaml`, because two partials in two folders can share a name. The root config comes first, then each partial. Within a file, problems follow the order the keys appear in it.
+- **One mistake, one problem.** A value that matches none of the shapes a position accepts is reported against the shape you meant (the one whose `type` you wrote, or that recognises most of your keys) and never again for the shapes it was compared with and ruled out.
 - **At most 50 in prose.** Past that, the report prints the first 50 and closes with `and N more problems`; fix those and run again. The ceiling is for a terminal: `--json` carries every finding, however many there are.
 
-`sovrium start` and `sovrium build` print the same report between their own first line — `Sovrium refused this configuration — nothing was started.` (or `built`) — and a closing pointer to `sovrium validate`, and exit `1` having started or built nothing.
+`sovrium start` and `sovrium build` print the same report between their own first line (`Sovrium refused this configuration — nothing was started.`, or `built`) and a closing pointer to `sovrium validate`, and exit `1` having started or built nothing.
 
-### `--json` — the same verdict, for a program
+### `--json`: the same verdict, for a program
 
 `sovrium validate app.yaml --json` reports the verdict as one JSON document instead of prose. It is for the readers a terminal does not serve: an editor underlining the offending line, a CI step, a supervising shell, or the AI that just wrote the config and has to find out whether the edit landed.
 
 Two guarantees make it safe to parse:
 
-- **stdout carries the JSON document and nothing else.** Anything conversational stays on stderr — the `Using app.yaml (auto-discovered)` notice, and the `Error:` line for a file that could not be read at all. Nothing is ever interleaved with the document.
+- **stdout carries the JSON document and nothing else.** Anything conversational stays on stderr: the `Using app.yaml (auto-discovered)` notice, and the `Error:` line for a file that could not be read at all. Nothing is ever interleaved with the document.
 - **The exit code is unchanged.** `0` for a valid config, `1` for an invalid one. `--json` changes the shape of the report, never the verdict, so a script that already wraps `sovrium validate` keeps working when you add the flag.
 
-An invalid config — a `text` component carrying `tag`, where the property is spelled `element`, in a config split across `$ref` files:
+An invalid config: a `text` component carrying `tag`, where the property is spelled `element`, in a config split across `$ref` files:
 
 ```json
 {
@@ -92,7 +92,7 @@ An invalid config — a `text` component carrying `tag`, where the property is s
 
 | Field      | Meaning                                                                                                                                   |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `valid`    | The verdict — the same one the exit code carries                                                                                          |
+| `valid`    | The verdict: the same one the exit code carries                                                                                           |
 | `files`    | Every file the verdict covered: the root, plus each `$ref` partial or imported module. This is how a watcher learns which files to follow |
 | `findings` | One entry per refusal; empty when the config is valid                                                                                     |
 | `notices`  | Non-fatal messages. A notice never makes `valid` false and never changes the exit code, so a deploy gate cannot fail on a working config  |
@@ -101,35 +101,35 @@ A finding:
 
 | Field        | Meaning                                                                                                                                                                                   |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `path`       | Dotted and indexed path from the config root — for every kind of refusal, a length, range or pattern check included. Empty only for a refusal belonging to the config as a whole          |
-| `message`    | What is wrong, in one line. It names the position and the expected shape — and the offending value only where that value is a name (see below)                                            |
-| `accepted`   | What may be written there instead — read off the schema, and **never elided**. For an unknown component `type` that is every legal type, in full. Absent when there are no alternatives   |
+| `path`       | Dotted and indexed path from the config root, for every kind of refusal, a length, range or pattern check included. Empty only for a refusal belonging to the config as a whole           |
+| `message`    | What is wrong, in one line. It names the position and the expected shape, and the offending value only where that value is a name (see below)                                             |
+| `accepted`   | What may be written there instead, read off the schema, and **never elided**. For an unknown component `type` that is every legal type, in full. Absent when there are no alternatives    |
 | `sourceFile` | The `$ref` partial the mistake lives in, present only for a split config. There, `path` names a position in the _resolved_ document, which exists in no file; this names the file to open |
 | `severity`   | `"error"` on every finding. Every refusal `validate` reports is fatal; the field exists so a reader never has to infer that from the exit code of the whole run                           |
 
-Two things to build around. A config that cannot be **read** at all — a missing file, an unsupported extension — is refused before a verdict exists, so it prints an `Error:` line on stderr and exits `1` with no JSON document. And `findings` carries **every** mistake the run found, with no ceiling: the 50-problem limit applies to the prose report only, because a program can page through what a person would have to scroll.
+Two things to build around. A config that cannot be **read** at all (a missing file, an unsupported extension) is refused before a verdict exists, so it prints an `Error:` line on stderr and exits `1` with no JSON document. And `findings` carries **every** mistake the run found, with no ceiling: the 50-problem limit applies to the prose report only, because a program can page through what a person would have to scroll.
 
-The same finding shape is published by a running instance's status file, described in **Lifecycle Commands**, and pushed to the browser when a `--watch` save is refused — one vocabulary, whether you asked the question or were told the answer.
+The same finding shape is published by a running instance's status file, described in **Lifecycle Commands**, and pushed to the browser when a `--watch` save is refused: one vocabulary, whether you asked the question or were told the answer.
 
 #### A finding carries the shape, not your config's values
 
-The prose report echoes the value it rejected, because you wrote the file and the value is the part you act on. `--json` does not, and neither does any other machine-readable channel: its output goes wherever the caller sends it — a CI log, an editor's panel, an assistant's transcript — and the mistake that most often reaches a decoder is an `env:` block written as a mapping rather than a list, where the rejected value is a credential.
+The prose report echoes the value it rejected, because you wrote the file and the value is the part you act on. `--json` does not, and neither does any other machine-readable channel: its output goes wherever the caller sends it (a CI log, an editor's panel, an assistant's transcript), and the mistake that most often reaches a decoder is an `env:` block written as a mapping rather than a list, where the rejected value is a credential.
 
 A finding names a rejected value only where that value was checked against a **closed set of names**, which the same finding publishes in full under `accepted`. So:
 
 - `Unknown component type 'txt'` **keeps** the value. `accepted` lists every legal `type`, so `txt` is a misspelled name and telling you which one you wrote is the whole diagnosis.
-- `Unknown property 'defalt' on field type 'date'` **keeps** it too. That is a key you wrote, not a value — and it is the thing to delete.
+- `Unknown property 'defalt' on field type 'date'` **keeps** it too. That is a key you wrote, not a value, and it is the thing to delete.
 - `Expected array | undefined` **drops** it. There is no list of legal values to check against, so whatever sat there was free-form data.
 
 What survives is always enough to act on: the path, the complaint, and the shape that belongs. Run `sovrium validate` without `--json` when you want the value back.
 
 ### Notices
 
-A notice is something worth telling you that is not worth failing over. The config is valid and ships: `valid` stays `true` and the exit code stays `0`, so a deploy gate never trips on one. In prose mode notices print to **stderr** ahead of the verdict, which keeps stdout parseable; under `--json` they arrive in the `notices` array. Today five exist — a superseded design key, a field whose id is left implicit, an engine interface string overridden under its bare name, an override of engine interface text the engine no longer draws, and a lookup that reads empty for a role allowed to read it. That last one is printed by `sovrium validate` only, once per lookup: when a role may read a lookup's table and the lookup field but not the related table, or the related field, the lookup copies, the lookup reads empty for that role on every row, and the notice names the lookup, its table, what it copies and each such role — `Lookup "occupant_address" on table "desks" copies "home_address" of table "staff", which role "viewer" may not read: it reads empty for that role.` Every built-in and custom role is asked except the admin-equivalent ones, and a role already refused the lookup field is not named. On a table that declares no `permissions.fields` entry at all, the built-in defaults already hide most fields from `viewer`, lookups included, so no notice names it there. A **deprecated key** is told the same way: it is still accepted for one release, and `sovrium validate`, `sovrium start` and `sovrium build` each print one `Warning:` line per occurrence on **stderr** — naming the key, its path, the release that will refuse it and what to write instead — without changing the verdict or the exit code. The same `Warning:` line flags a bare attachment token inside a files address in a row template (`/files/$record.<attachment>`, an address nested in an address), naming its place and the `$record.<attachment>.key` spelling; the page data-binding article says what each spelling resolves to. A page whose `markdown.file` names a file that does not exist is told on one `Warning:` line naming the page and the path, by `sovrium validate` and by `sovrium bundle`, and the exit code stays `0`; under `--json` the line still goes to stderr and is not part of the JSON document; a `contentDir` directory with no files in it is not warned about. A webhook behind `auth: { type: session }` whose answer declares `Cache-Control` with `public` or `s-maxage` — in a `webhook/response` step or in the trigger's `response.headers`, in any letter case — is told on one `Warning:` line naming the automation and the header, by `sovrium validate` and at `sovrium start`: such an answer is computed for the person who asked, and a shared cache in front of the instance could serve it to the next caller, so declare `private` unless the answer truly is the same for everyone.
+A notice is something worth telling you that is not worth failing over. The config is valid and ships: `valid` stays `true` and the exit code stays `0`, so a deploy gate never trips on one. In prose mode notices print to **stderr** ahead of the verdict, which keeps stdout parseable; under `--json` they arrive in the `notices` array. Today seven exist: a superseded design key, a field whose id is left implicit, an engine interface string overridden under its bare name, an override of engine interface text the engine no longer draws, a lookup that reads empty for a role allowed to read it, a formula that reads the clock but is computed when its row is saved, and a formula whose own read grant its inputs narrow. The lookup notice is printed by `sovrium validate` only, once per lookup: when a role may read a lookup's table and the lookup field but not the related table, or the related field, the lookup copies, the lookup reads empty for that role on every row, and the notice names the lookup, its table, what it copies and each such role: `Lookup "occupant_address" on table "desks" copies "home_address" of table "staff", which role "viewer" may not read: it reads empty for that role.` Every built-in and custom role is asked except the admin-equivalent ones, and a role already refused the lookup field is not named. On a table that declares no `permissions.fields` entry at all, the built-in defaults already hide most fields from `viewer`, lookups included, so no notice names it there. The clock notice is printed by `sovrium validate` only, once per `formula` field that reads `CURRENT_DATE` or `CURRENT_TIMESTAMP` outside a string while reading no `lookup`, `rollup` or `count` (directly or through another formula): such a formula is stored with its row, so it holds the date of the row's last save: `Formula "state" on table "tasks" reads the clock (CURRENT_DATE): its value is computed when the row is saved and does not change until the row is saved again.` The grant notice is printed by `sovrium validate` only, once per formula that has an entry of its own in `permissions.fields` and reads a `lookup`, `rollup` or `count` some reader that entry admits may not read: the formula is left out for that reader whatever its grant says, and the notice names the formula, its table, the value it reads, the table that value comes from and who is left without it: `Formula "availability" on table "workshops" has a read grant of its own, but it reads "registrations_count", built from table "registrations", which visitors and roles "member", "viewer" may not read: it is left out for them.` The visitor who is not signed in is asked when the grant admits her, then every role except the admin-equivalent ones. A **deprecated key** is told the same way: it is still accepted for one release, and `sovrium validate`, `sovrium start` and `sovrium build` each print one `Warning:` line per occurrence on **stderr**, naming the key, its path, the release that will refuse it and what to write instead, without changing the verdict or the exit code. The same `Warning:` line flags a bare attachment token inside a files address in a row template (`/files/$record.<attachment>`, an address nested in an address), naming its place and the `$record.<attachment>.key` spelling; the page data-binding article says what each spelling resolves to. A page whose `markdown.file` names a file that does not exist is told on one `Warning:` line naming the page and the path, by `sovrium validate` and by `sovrium bundle`, and the exit code stays `0`; under `--json` the line still goes to stderr and is not part of the JSON document; a `contentDir` directory with no files in it is not warned about. A `contentDir` whose `directory` does not exist is told the same way, on one `Warning:` line naming the page by its position and the directory (`pages[1].contentDir.directory content/notes/fr does not exist`), by `sovrium validate` and by `sovrium bundle`, and the exit code stays `0`. A webhook behind `auth: { type: session }` whose answer declares `Cache-Control` with `public` or `s-maxage` (in a `webhook/response` step or in the trigger's `response.headers`, in any letter case) is told on one `Warning:` line naming the automation and the header, by `sovrium validate` and at `sovrium start`: such an answer is computed for the person who asked, and a shared cache in front of the instance could serve it to the next caller, so declare `private` unless the answer truly is the same for everyone.
 
 #### `field-id-implicit`
 
-A field `id` is optional. Leave it out and the decoder fills it in from the field's **position in the list** — so the identity exists whether or not you wrote it, and you cannot see it.
+A field `id` is optional. Leave it out and the decoder fills it in from the field's **position in the list**, so the identity exists whether or not you wrote it, and you cannot see it.
 
 ```console
 $ sovrium validate app.yaml
@@ -140,7 +140,7 @@ Notice:
 Valid configuration: crm
 ```
 
-The migration engine diffs tables **by id**, so inserting a field anywhere but the end shifts every id after it. Three fields with no ids decode as `1`, `2`, `3`; add one at the top and they decode as `2`, `3`, `4` while the newcomer takes `1` — every field now carries the id that used to belong to its neighbour, and the diff reads that as a cascade of renames between fields nobody renamed.
+The migration engine diffs tables **by id**, so inserting a field anywhere but the end shifts every id after it. Three fields with no ids decode as `1`, `2`, `3`; add one at the top and they decode as `2`, `3`, `4` while the newcomer takes `1`. Every field now carries the id that used to belong to its neighbour, and the diff reads that as a cascade of renames between fields nobody renamed.
 
 Nobody writes that by hand. An AI asked to "add a field before `status`" writes it every time, which is why the notice exists now rather than when ids were introduced.
 
@@ -158,13 +158,13 @@ tables:
         type: email
 ```
 
-Keep the id each field has today — its current position, counting from `1` — and give every new field the next unused number, wherever in the list you put it. The id is identity; the array position is still what orders the fields, so the two are free to disagree. That is the whole point: a field inserted at the top with the next unused id changes the order and renames nothing.
+Keep the id each field has today (its current position, counting from `1`), and give every new field the next unused number, wherever in the list you put it. The id is identity; the array position is still what orders the fields, so the two are free to disagree. That is the whole point: a field inserted at the top with the next unused id changes the order and renames nothing.
 
 One notice per **table**, not per field: a table written before ids were explicit omits every one of them, and forty identical lines teach their reader to ignore notices. The table is named because "some field somewhere has no id" is not actionable in a config split across a dozen `$ref` files, and a field with no `name` is referred to by the position that _is_ its id. The token `field-id-implicit` is in the message so it is greppable.
 
 #### `engine-key-unprefixed`
 
-You override the engine's own interface text — a record drawer's **New record**, a confirm dialog's **Cancel** — under the reserved `sovrium.` prefix: `languages.translations.en['sovrium.datatable.newRecord']`. Ten keys were read under their bare name before the prefix existed, and a config that still spells one of them that way keeps working, with this notice:
+You override the engine's own interface text (a record drawer's **New record**, a confirm dialog's **Cancel**) under the reserved `sovrium.` prefix: `languages.translations.en['sovrium.datatable.newRecord']`. Ten keys were read under their bare name before the prefix existed, and a config that still spells one of them that way keeps working, with this notice:
 
 ```console
 $ sovrium validate app.yaml
@@ -175,11 +175,11 @@ Notice:
 Valid configuration: crm
 ```
 
-One notice for the whole config, listing every occurrence with its prefixed spelling. The server prints the same notice once when it starts. A bare key that is not one of the ten earns nothing: it is your own vocabulary, and it never renames engine chrome. Its sibling, `engine-key-retired`, reports an override of an engine key the engine no longer draws anywhere — today `sovrium.filePreview.cannotShow`. The key stays accepted for one release, so the config is still valid, but the override changes nothing: `engine-key-retired: languages.translations.fr['sovrium.filePreview.cannotShow'] overrides engine interface text that is no longer drawn anywhere, so it changes nothing — delete it; the key is removed in the next release.` It is one notice for the whole config, the server prints it once when it starts too, and the bare spelling `filePreview.cannotShow` earns nothing.
+One notice for the whole config, listing every occurrence with its prefixed spelling. The server prints the same notice once when it starts. A bare key that is not one of the ten earns nothing: it is your own vocabulary, and it never renames engine chrome. Its sibling, `engine-key-retired`, reports an override of an engine key the engine no longer draws anywhere: today `sovrium.filePreview.cannotShow`. The key stays accepted for one release, so the config is still valid, but the override changes nothing: `engine-key-retired: languages.translations.fr['sovrium.filePreview.cannotShow'] overrides engine interface text that is no longer drawn anywhere, so it changes nothing — delete it; the key is removed in the next release.` It is one notice for the whole config, the server prints it once when it starts too, and the bare spelling `filePreview.cannotShow` earns nothing.
 
 ## Validating from inside a config
 
-To check a config **from a running app** — a webhook that accepts a submitted config, a scheduled audit of a config in storage — use the `sovrium` automation action with the `validateConfig` operator. It runs the same decoder, with no side effects and no boot.
+To check a config **from a running app** (a webhook that accepts a submitted config, a scheduled audit of a config in storage), use the `sovrium` automation action with the `validateConfig` operator. It runs the same decoder, with no side effects and no boot.
 
 ```yaml
 automations:
@@ -196,12 +196,12 @@ automations:
           format: auto
 ```
 
-The step exposes `{{steps.check.valid}}` and `{{steps.check.errors}}`. `config` takes the config object or a serialized string; `format` reads the string arm — `json` (the default), `yaml`, or `auto` to try JSON then YAML. To check an archive written by `sovrium bundle` instead, use the `validateBundle` operator described in **Bundle an App**.
+The step exposes `{{steps.check.valid}}` and `{{steps.check.errors}}`. `config` takes the config object or a serialized string; `format` reads the string arm: `json` (the default), `yaml`, or `auto` to try JSON then YAML. To check an archive written by `sovrium bundle` instead, use the `validateBundle` operator described in **Bundle an App**.
 
 Two behaviours are worth knowing before you build on it:
 
 - **An invalid config is a successful step**, reported as `{ valid: false, errors }`. Validation is a verdict, not a fault, so the run continues and your next step decides what to do about it.
-- **The candidate is read verbatim.** A `{{...}}` or `$env.X` occurring _inside_ the config you submit is not resolved — it is validated as the literal text it is. That is what makes the verdict trustworthy: what gets checked is exactly what you passed, not a rewritten copy of it.
+- **The candidate is read verbatim.** A `{{...}}` or `$env.X` occurring _inside_ the config you submit is not resolved: it is validated as the literal text it is. That is what makes the verdict trustworthy: what gets checked is exactly what you passed, not a rewritten copy of it.
 
 ## `sovrium schema`
 
@@ -209,25 +209,25 @@ Two behaviours are worth knowing before you build on it:
 Usage: sovrium schema [options]
 ```
 
-Print the JSON Schema (Draft 2020-12) for the app configuration — the same document the hosted schema URLs serve.
+Print the JSON Schema (Draft 2020-12) for the app configuration: the same document the hosted schema URLs serve.
 
 ```bash
 sovrium schema
 sovrium schema --output schemas/app.json
 ```
 
-With `--output`, the full schema is joined by files for editing **one section** of a config — what a `$ref` partial holds. For `--output schemas/app.json`:
+With `--output`, the full schema is joined by files for editing **one section** of a config, which is what a `$ref` partial holds. For `--output schemas/app.json`:
 
-| File                     | What it describes                                                                                                    |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `schemas/app.json`       | The whole config. Byte-for-byte what `sovrium schema` prints                                                         |
-| `schemas/app.index.json` | The whole config too, with each top-level key pointing at its own file                                               |
-| `schemas/app/<key>.json` | The value of one top-level key — `app/tables.json` is what a `tables.yaml` partial holds, `app/pages.json` a `pages` |
-| `schemas/app/_defs.json` | The definitions the per-key files share, written once rather than copied into each                                   |
+| File                     | What it describes                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `schemas/app.json`       | The whole config. Byte-for-byte what `sovrium schema` prints                                                        |
+| `schemas/app.index.json` | The whole config too, with each top-level key pointing at its own file                                              |
+| `schemas/app/<key>.json` | The value of one top-level key: `app/tables.json` is what a `tables.yaml` partial holds, `app/pages.json` a `pages` |
+| `schemas/app/_defs.json` | The definitions the per-key files share, written once rather than copied into each                                  |
 
 The files reference each other by relative path and declare no `$id`, so an editor resolves them on disk, never over the network. Printing to stdout writes nothing at all.
 
-It takes no arguments beyond the output path and reads nothing from the environment: the schema is derived from the config schema itself, so the output depends only on the Sovrium version. That makes it safe to regenerate in CI and diff — a change in the file is a change in the schema, never in the machine that ran it.
+It takes no arguments beyond the output path and reads nothing from the environment: the schema is derived from the config schema itself, so the output depends only on the Sovrium version. That makes it safe to regenerate in CI and diff: a change in the file is a change in the schema, never in the machine that ran it.
 
 A common use is pinning the schema beside the config so editors validate against the exact version you deploy. Regenerate it after every upgrade, and point your config at it:
 
@@ -242,7 +242,7 @@ name: my-app
 Usage: sovrium design-system [config] [options]
 ```
 
-Export the app's design system — the `design` block plus everything it inherits — as a brief written for an agent, or as a standard token document.
+Export the app's design system (the `design` block plus everything it inherits) as a brief written for an agent, or as a standard token document.
 
 ```bash
 sovrium design-system app.yaml                                    # the brief, on stdout
@@ -250,13 +250,13 @@ sovrium design-system app.yaml --output DESIGN.md                 # committed be
 sovrium design-system app.yaml --format json --output tokens.json # DTCG tokens, for tooling
 ```
 
-Markdown is the default because the default reader is a model. `--format json` emits a W3C Design Tokens (DTCG 2025.10) document, with the Sovrium-specific layer — principles, voice, colour roles, component guidance — carried in `$extensions`. `--mode dark` prints the same document with the colours the app paints in dark mode: your `darkColors` where you declared them, a brand colour you declared only in `colors` kept as it is, and the platform's dark default for everything else. Every other group is identical in both modes, so the two files differ only in their colours. `--mode light` is the default and prints exactly what omitting the flag prints. The brief already lists each colour's light and dark value side by side — the Dark column is what the app paints under `.dark` — so `--mode` belongs to `--format json` alone.
+Markdown is the default because the default reader is a model. `--format json` emits a W3C Design Tokens (DTCG 2025.10) document, with the Sovrium-specific layer (principles, voice, colour roles, component guidance) carried in `$extensions`. `--mode dark` prints the same document with the colours the app paints in dark mode: your `darkColors` where you declared them, a brand colour you declared only in `colors` kept as it is, and the platform's dark default for everything else. Every other group is identical in both modes, so the two files differ only in their colours. `--mode light` is the default and prints exactly what omitting the flag prints. The brief already lists each colour's light and dark value side by side (the Dark column is what the app paints under `.dark`), so `--mode` belongs to `--format json` alone.
 
-Like `sovrium schema` it runs offline. Unlike it, the output depends on your config, so it belongs in a pre-commit hook or a CI step that regenerates the committed brief when the design changes. `--format bundle` writes a directory instead: the brief, both token documents with a DTCG resolver, the theme CSS and a Tailwind `@theme`, a rendered component kit that opens offline, its fonts, one file per design tool under `adapters/` (Claude Design, Figma, Tokens Studio and Penpot, Style Dictionary; see **The portable bundle** in the design system console article), and a `manifest.json` checksumming every file. It refuses a non-empty `--output` directory unless you pass `--force`, which overwrites the bundle's own files and leaves every other file in place. `--pages` adds your pages under `pages/` — each page drawn as Sovrium draws it with every node tagged by its id, its design tree, and one node map of what a design tool must never hold — and `--page <name>` (repeatable) exports only those; without `--pages` the bundle is the same bytes, and `--pages` with any format but `bundle` is refused.
+Like `sovrium schema` it runs offline. Unlike it, the output depends on your config, so it belongs in a pre-commit hook or a CI step that regenerates the committed brief when the design changes. `--format bundle` writes a directory instead: the brief, both token documents with a DTCG resolver, the theme CSS and a Tailwind `@theme`, a rendered component kit that opens offline, its fonts, one file per design tool under `adapters/` (Claude Design, Figma, Tokens Studio and Penpot, Style Dictionary; see **The portable bundle** in the design system console article), and a `manifest.json` checksumming every file. It refuses a non-empty `--output` directory unless you pass `--force`, which overwrites the bundle's own files and leaves every other file in place. `--pages` adds your pages under `pages/` (each page drawn as Sovrium draws it with every node tagged by its id, its design tree, and one node map of what a design tool must never hold), and `--page <name>` (repeatable) exports only those; without `--pages` the bundle is the same bytes, and `--pages` with any format but `bundle` is refused.
 
 Two things it refuses rather than works around:
 
 - **An unknown `--format` or `--mode`, or `--mode` without `--format json`.** Falling back to markdown, or to the light palette, or ignoring the flag, would let a CI step asking for something else exit `0` having written the wrong file.
-- **A config that fails validation.** Exporting from an unvalidated config produces a design system describing an app that cannot boot — handed to an agent, that is a brief for building against something nobody runs.
+- **A config that fails validation.** Exporting from an unvalidated config produces a design system describing an app that cannot boot. Handed to an agent, that is a brief for building against something nobody runs.
 
-The same content is available at runtime from `GET /api/admin/design-system.md`, `GET /api/admin/design-system.json` (`?mode=dark` for the dark palette) and `GET /api/admin/design-system.zip` (the bundle; `?pages=true` adds the pages), all admin-gated. The other direction is `sovrium design-system import <file|folder> --config <file>`: it reads a Claude Design system in the 0.2.47 format, Figma Variables files in the DTCG form Figma imports, Tokens Studio or Penpot sets, a Style Dictionary source, DTCG or a stylesheet, prints what would change in `design` (`--write` writes it; a TypeScript config gets a `design.json` beside it and the `import design from './design.json'` line to paste), maps tokens only and never components — see [Importing tokens back](/en/docs/design#importing-tokens-back).
+The same content is available at runtime from `GET /api/admin/design-system.md`, `GET /api/admin/design-system.json` (`?mode=dark` for the dark palette) and `GET /api/admin/design-system.zip` (the bundle; `?pages=true` adds the pages), all admin-gated. The other direction is `sovrium design-system import <file|folder> --config <file>`: it reads a Claude Design system in the 0.2.47 format, Figma Variables files in the DTCG form Figma imports, Tokens Studio or Penpot sets, a Style Dictionary source, DTCG or a stylesheet, prints what would change in `design` (`--write` writes it; a TypeScript config gets a `design.json` beside it and the `import design from './design.json'` line to paste), maps tokens only and never components; see [Importing tokens back](/en/docs/design#importing-tokens-back).

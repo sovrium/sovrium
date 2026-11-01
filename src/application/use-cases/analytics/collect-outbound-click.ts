@@ -6,10 +6,13 @@
  */
 
 import { Effect } from 'effect'
+import { profiledProperties } from '@/domain/models/app/analytics/analytics-profile-service'
 import { AnalyticsRepository } from '../../ports/repositories/analytics/analytics-repository'
 import { parseUserAgent } from './ua-parser'
-import { computeSessionHash, computeVisitorHash } from './visitor-hash'
+import { visitorIdentifiers } from './visitor-hash'
 import type { AnalyticsDatabaseError } from '../../ports/repositories/analytics/analytics-repository'
+import type { VisitorSecret } from '../../ports/services/visitor-secret'
+import type { AnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
 
 /** Input for recording a click on an outbound anchor in a rendered page. */
 export interface CollectOutboundClickInput {
@@ -22,9 +25,11 @@ export interface CollectOutboundClickInput {
   readonly pagePath: string
   readonly ip: string
   readonly userAgent: string
-  /** IANA zone whose calendar day rotates the visitor hash (the operator timezone). */
+  /** IANA zone whose calendar day rotates the visitor identifier (the operator timezone). */
   readonly timeZone: string
   readonly sessionTimeoutMinutes?: number
+  /** `audience-only` stores the destination and the page without their query strings. */
+  readonly profile: AnalyticsProfile
 }
 
 /**
@@ -37,7 +42,7 @@ export interface CollectOutboundClickInput {
  * `event_name` is the destination HOSTNAME rather than the full href, because
  * the hostname is the natural grouping key: "which partners do people actually
  * click?" is then answerable through the existing events reader without
- * extracting anything out of JSONB. The full `href` is kept in `properties` for
+ * extracting anything out of JSONB. The `href` is kept in `properties` for
  * the follow-up question.
  *
  * Property keys deliberately mirror a page view's (`deviceType`, `browserName`,
@@ -46,18 +51,17 @@ export interface CollectOutboundClickInput {
  */
 export const collectOutboundClick = (
   input: CollectOutboundClickInput
-): Effect.Effect<void, AnalyticsDatabaseError, AnalyticsRepository> =>
+): Effect.Effect<void, AnalyticsDatabaseError, AnalyticsRepository | VisitorSecret> =>
   Effect.gen(function* () {
     const repo = yield* AnalyticsRepository
 
-    // effect-promise: total -- the hash helper wraps `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
-    const visitorHash = yield* Effect.promise(() =>
-      computeVisitorHash(input.ip, input.userAgent, input.appName, input.timeZone)
-    )
-    // effect-promise: total -- the hash helper wraps `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
-    const sessionHash = yield* Effect.promise(() =>
-      computeSessionHash(visitorHash, input.sessionTimeoutMinutes ?? 30, input.timeZone)
-    )
+    const { visitorHash, sessionHash } = yield* visitorIdentifiers({
+      address: input.ip,
+      userAgent: input.userAgent,
+      timeZone: input.timeZone,
+      sessionTimeoutMinutes: input.sessionTimeoutMinutes ?? 30,
+      profile: input.profile,
+    })
     const { deviceType, browserName, osName } = parseUserAgent(input.userAgent)
 
     yield* repo.recordEvent({
@@ -66,13 +70,13 @@ export const collectOutboundClick = (
       eventName: input.hostname,
       visitorHash,
       sessionHash,
-      properties: {
+      properties: profiledProperties(input.profile, 'outbound_click', {
         href: input.href,
         hostname: input.hostname,
         pagePath: input.pagePath,
         deviceType,
         browserName,
         osName,
-      },
+      }),
     })
   }).pipe(Effect.withSpan('analytics.collect-outbound-click'))

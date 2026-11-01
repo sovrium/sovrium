@@ -17,6 +17,7 @@
  * stay next door so React Fast Refresh keeps working on both.
  */
 
+import { cn } from '@/presentation/design/class-merge'
 import {
   CHECK_PATH,
   CODE_COPY_BUTTON_CLASSES,
@@ -53,13 +54,19 @@ function CodeCopyGlyphs(): ReactElement {
  * `icon-xs` Button. `data-copy-code` is the contract the delegated
  * `copyCodeScript` keys on, `data-copied-label` the text that handler writes
  * into the status region, and `data-copied` the state it sets while it confirms.
+ * `className` is the author's `copy` part, merged over the button's own classes
+ * (later wins); the status region never takes it. With no part the button's
+ * classes are emitted as they are: running them through the merge alone drops
+ * the size and radius utilities shadcn's recipe deliberately restates.
  */
 export function CodeCopyButton({
   copyLabel,
   copiedLabel,
+  className,
 }: {
   readonly copyLabel: string
   readonly copiedLabel: string
+  readonly className?: string | undefined
 }): ReactElement {
   return (
     <button
@@ -71,7 +78,7 @@ export function CodeCopyButton({
       title={copyLabel}
       data-copy-code="true"
       data-copied-label={copiedLabel}
-      className={CODE_COPY_BUTTON_CLASSES}
+      className={className ? cn(CODE_COPY_BUTTON_CLASSES, className) : CODE_COPY_BUTTON_CLASSES}
     >
       <CodeCopyGlyphs />
     </button>

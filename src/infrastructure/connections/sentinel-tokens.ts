@@ -8,29 +8,16 @@
 /**
  * Test-mode sentinel token constants and detector.
  *
- * Extracted from `test-token-seeder.ts` so non-test consumers — the live
- * token repository (`connection-token-repository-live.ts`), the OAuth2
- * auth-header injection path (`action-handlers/auth-headers.ts`), and the
- * connections `/status` route — can reach the predicate without depending
- * on the test-only seeder module. Keeps the live code path independent of
- * test scaffolding: production code stays import-clean of `test-*`
- * filenames, and refactors to the seeder no longer ripple into the live
- * repo or auth-header injector.
- *
- * Architectural note: this module does NOT exist to break an import cycle.
- * The seeder reaches the live repo via dynamic `await import(...)` at
- * runtime, so a top-level static import of the sentinel predicate from the
- * live repo would not close a cycle. The rationale is test/live decoupling,
- * not cycle-breaking.
- *
- * The sentinel literals exist solely to satisfy the encryption-at-rest
- * specs — production never sees them
- * because `runSeedTestConnectionTokens` no-ops when
- * `NODE_ENV === 'production'`.
+ * The E2E harness writes these placeholder tokens for the users it signs up,
+ * so the encryption-at-rest specs have a row to decrypt and the pre-authorize
+ * specs see a "not yet authorized" connection. The server never writes one;
+ * it only has to recognise one, which is why the detector lives here, beside
+ * the live token repository, the OAuth2 auth-header injection path and the
+ * connections `/status` route that ask the question.
  */
 
 /**
- * Sentinel access-token plaintext written by `seedTestConnectionTokensProgram`.
+ * Sentinel access-token plaintext the E2E harness seeds.
  * Starts with `eyJ` so specs can assert "encrypted column does NOT match
  * plaintext JWT shape, but DOES decrypt back to one". The base64-encoded
  * payload is a static placeholder — it's NOT a real JWT, just shaped
@@ -48,10 +35,10 @@ export const SENTINEL_REFRESH_TOKEN =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXNlZWQtcmVmcmVzaCJ9.signature-placeholder'
 
 /**
- * Detect whether a decrypted access-token plaintext is the test seeder's
+ * Detect whether a decrypted access-token plaintext is the harness's
  * sentinel. Used by the connections `/status` route and the OAuth2
  * header-injection path to treat seeded users as "not yet authorized" —
- * without this gate, the seeder's 1-hour expiresAt would make every
+ * without this gate, the seeded 1-hour expiresAt would make every
  * freshly-created user's `scope: 'user'` connections report 'connected',
  * contradicting specs like the automation connection specs that
  * assert pre-auth state.
@@ -63,7 +50,7 @@ export const SENTINEL_REFRESH_TOKEN =
  * match is robust against that.
  *
  * Production safety: this matcher is also safe in production because
- * the seeder no-ops when NODE_ENV === 'production' — a real provider
+ * the server never writes a sentinel — a real provider
  * would never hand back a token with the literal `signature-placeholder`
  * suffix, so a false positive can only occur if someone manually inserts
  * the sentinel into the database.

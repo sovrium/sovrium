@@ -34,6 +34,7 @@
 import { astOf } from '@/domain/models/app/design/type-introspection'
 import { directiveIdentifiers, renderArticle } from './docs-markdown'
 import type { BehaviourStory, DirectiveRegistry } from './docs-markdown'
+import type { DocsDirectiveError, Rendering } from './docs-rendering'
 import type { SchemaNode } from '@/domain/models/app/design/type-introspection'
 
 /** One article, as a section manifest declares it. */
@@ -188,14 +189,14 @@ export const embeddedDocKey = (body: string): string => {
 /**
  * Render one article: its prose, its expanded tables, its Behaviour block.
  *
- * @throws UnknownDocsDirectiveError / EmptyDocsDirectiveError - from the engine,
- *   when the fragment and its manifest have come apart.
+ * Fails with UnknownDocsDirectiveError / EmptyDocsDirectiveError when the
+ * fragment and its manifest have come apart.
  */
 export const renderManualArticle = (input: {
   readonly article: ManualArticle
   readonly body: string
   readonly behaviour: readonly BehaviourStory[]
-}): string =>
+}): Rendering<string, DocsDirectiveError> =>
   renderArticle({
     title: input.article.title,
     description: input.article.description,

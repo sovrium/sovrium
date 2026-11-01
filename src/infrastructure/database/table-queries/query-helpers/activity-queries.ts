@@ -9,7 +9,6 @@ import { eq, and, asc, desc, gte, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { activityLogRetentionCutoff } from '@/domain/models/app/admin/activity-log-retention'
 import { DatabaseError } from '@/infrastructure/database'
-import { db } from '@/infrastructure/database/drizzle'
 import {
   authUsersTable,
   resolveDialectSchema,
@@ -17,10 +16,14 @@ import {
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
-import { castToInt } from './aggregation-helpers'
 import { extractUserFromRow } from './user-join-helpers'
-import type { ActivityHistoryEntry } from '@/application/ports/repositories/analytics/activity-repository'
+import type {
+  ActivityHistoryEntry,
+  ActivityRepository,
+} from '@/application/ports/repositories/analytics/activity-repository'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
 
@@ -36,7 +39,7 @@ const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
  * silently shorten visible history.
  */
 function buildActivityWhereCondition(tableName: string, recordId: string) {
-  const oneYearAgo = activityLogRetentionCutoff(new Date(), resolveOperatorTimezone())
+  const oneYearAgo = activityLogRetentionCutoff(new Date(), resolveOperatorTimezone(process.env))
   return and(
     eq(activityLogs.tableName, tableName),
     eq(activityLogs.recordId, recordId),
@@ -67,20 +70,18 @@ function transformActivityRow(row: {
 /**
  * Fetch activity history for a specific record with optional pagination
  */
-export function getRecordHistory(config: {
-  readonly session: Readonly<Session>
-  readonly tableName: string
-  readonly recordId: string
-  readonly limit?: number
-  readonly offset?: number
-  readonly sortOrder?: 'asc' | 'desc'
-}): Effect.Effect<
-  {
-    readonly entries: readonly ActivityHistoryEntry[]
-    readonly total: number
-  },
-  DatabaseError
-> {
+export function getRecordHistory(
+  db: PortableDb,
+  dialect: Dialect,
+  config: {
+    readonly session: Readonly<Session>
+    readonly tableName: string
+    readonly recordId: string
+    readonly limit?: number
+    readonly offset?: number
+    readonly sortOrder?: 'asc' | 'desc'
+  }
+): ReturnType<(typeof ActivityRepository.Service)['getRecordHistory']> {
   const { tableName, recordId, limit, offset } = config
 
   return Effect.tryPromise({
@@ -89,7 +90,7 @@ export function getRecordHistory(config: {
 
       const users = authUsersTable()
       const countResult = await db
-        .select({ count: castToInt(sql`COUNT(*)`) })
+        .select({ count: dialect.sql.castToInt(sql`COUNT(*)`) })
         .from(activityLogs)
         .where(whereCondition)
       const total = countResult[0]?.count ?? 0

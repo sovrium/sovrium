@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // The flat projection of the token document
@@ -63,7 +63,7 @@ export const flatTokenRowSchema = Schema.Struct({
   dark: optionalField(
     Schema.String.annotate({
       description:
-        'What this token becomes in the dark scheme, when the operator declared a counterpart. ABSENT — never a copy of `value` — when they declared none: "the same in both schemes" and "no dark scheme was ever chosen" are different facts, and a swatch printing the value it paints has to say which one it is showing.',
+        'What this token becomes in the dark scheme, when the operator declared a counterpart. ABSENT, never a copy of `value`, when they declared none: "the same in both schemes" and "no dark scheme was ever chosen" are different facts, and a swatch printing the value it paints has to say which one it is showing.',
       examples: ['#0b0b0c'],
     })
   ),

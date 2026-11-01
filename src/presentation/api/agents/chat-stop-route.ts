@@ -6,10 +6,12 @@
  */
 
 import { Schema } from 'effect'
+import { chatStopResponseSchema } from '@/domain/models/api/ai/chat'
 import { sentChatCallerKey } from '@/presentation/api/agents/chat-conversation-store'
 import { stopChatTurn } from '@/presentation/api/agents/chat-stream-events'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { shapedJson } from '@/presentation/api/runtime/run-effect'
 import { validateRequest } from '@/presentation/api/runtime/validate-request'
 import type { Context, TypedResponse } from 'hono'
 
@@ -27,6 +29,6 @@ export const handleChatStop = async (c: Context): Promise<Response | TypedRespon
   // A signed-out caller stops only her own browser's turn; one with no id has none.
   const caller = sentChatCallerKey(c, getSessionContext(c)?.userId ?? 'anonymous')
   return caller !== undefined && stopChatTurn(caller, sessionId)
-    ? c.json({ status: 'stopping', sessionId }, 202)
+    ? shapedJson(c, { status: 'stopping', sessionId }, chatStopResponseSchema, 202)
     : notFound(c, 'No turn in progress on this session.')
 }

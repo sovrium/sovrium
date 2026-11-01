@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { SCIM_GROUP_SCHEMA, SCIM_USER_SCHEMA } from '@/domain/models/api/scim'
+import { SCIM_GROUP_SCHEMA, SCIM_USER_SCHEMA } from '@/domain/models/api/auth/scim'
 import { SCIM_BASE_PATH, scimJson, toScimList } from './scim-resources'
 import type { Hono } from 'hono'
 

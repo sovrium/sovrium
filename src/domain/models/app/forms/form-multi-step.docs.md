@@ -1,6 +1,6 @@
 # Multi-Step Forms
 
-> Splitting a form across screens — the three layout modes, step definitions, branching, and the display overrides.
+> Splitting a form across screens: the three layout modes, step definitions, branching, and the display overrides.
 
 `layout` chooses how a form's fields are presented: all at once, split into steps with previous and next navigation, or one field per screen. Steps support conditional skipping and branching, so the path through the form adapts to the answers.
 
@@ -23,7 +23,7 @@ forms:
 
 | Mode           | Presents                                                              |
 | -------------- | --------------------------------------------------------------------- |
-| `single-page`  | Every field on one page — the default; steps are ignored              |
+| `single-page`  | Every field on one page. The default; steps are ignored               |
 | `multi-step`   | Fields grouped into steps with previous and next navigation           |
 | `one-question` | One field per screen, advancing automatically, on the same step model |
 
@@ -31,7 +31,7 @@ forms:
 
 <!-- sovrium:options FormStepSchema -->
 
-Each step's `fields` names entries from the parent `fields` array — a standalone field's `name`, or a table-bound field's `column` — and needs at least one. `id` is unique within the form.
+Each step's `fields` names entries from the parent `fields` array (a standalone field's `name`, or a table-bound field's `column`) and needs at least one. `id` is unique within the form.
 
 ## Navigation and branching
 
@@ -66,7 +66,7 @@ Pairing a branch with the target's own `visibleWhen`, as above, is the pattern w
 
 ## One question at a time
 
-The `one-question` layout presents a single field per screen for a focused, conversational experience. It reuses the same step model — typically one field per step — and the same skipping and branching apply.
+The `one-question` layout presents a single field per screen for a focused, conversational experience. It reuses the same step model, typically one field per step, and the same skipping and branching apply.
 
 ```yaml
 forms:
@@ -96,7 +96,7 @@ forms:
 
 `submitLabel` defaults to "Submit" and accepts a translation key, as every user-facing string here does.
 
-While a submission is on its way, the submit button is disabled, draws a spinner in place of any icon, and reads `pendingLabel` — "Sending…" by default, in the page language ("Envoi…" in French). A second press, or Enter in a field, sends nothing more. If the server refuses the submission, the button comes back as it was, each field it names shows its error, focus moves to the first of those fields (or back to the button when none is named), and `onError` follows. A multi-step form's Next does the same while its step is checked, always with the built-in word; `pendingLabel` applies to the final submit.
+While a submission is on its way, the submit button is disabled, draws a spinner in place of any icon, and reads `pendingLabel`: "Sending…" by default, in the page language ("Envoi…" in French). A second press, or Enter in a field, sends nothing more. If the server refuses the submission, the button comes back as it was, each field it names shows its error, focus moves to the first of those fields (or back to the button when none is named), and `onError` follows. A multi-step form's Next does the same while its step is checked, always with the built-in word; `pendingLabel` applies to the final submit.
 
 The progress bar is **not** configurable: `multi-step` and `one-question` always render one, and `single-page` has no step boundary to advance through, so it never does. Field layout is likewise fixed at a single column.
 

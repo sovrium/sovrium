@@ -20,6 +20,7 @@
  * in for GitHub; no other host is ever reached over HTTP.
  */
 
+import { refuseCommand } from '@/cli/runtime/run-command'
 import {
   isSignedByTrustedKey,
   isTrustedFinalUrl,
@@ -31,7 +32,7 @@ import {
   resolveReleaseDownloadHost,
 } from '@/domain/models/process-env/release-download'
 import { withFetchStallTimeout } from '@/infrastructure/egress/with-fetch-timeout'
-import { printFailure, printProgress, printStderr } from '@/infrastructure/logging/cli-output'
+import { printProgress, printStderr } from '@/infrastructure/logging/cli-output'
 
 /** The opt-out that installs a release whose checksum cannot be verified. */
 export const INSECURE_SKIP_CHECKSUM_FLAG = '--insecure-skip-checksum'
@@ -107,24 +108,22 @@ export const verifyChecksum = async (
 
   const expectedHash = await fetchPublishedSha256(checksumUrl, stallTimeoutMs)
   if (expectedHash === undefined) {
-    printFailure({
+    return refuseCommand({
       headline: `Could not verify the download: the published checksum is missing or unreadable. Nothing was replaced.`,
       detail: [checksumUrl],
       guidance: `${CHECKSUM_GUIDANCE}\n\n${OPT_OUT_GUIDANCE}`,
     })
-    process.exit(1)
   }
 
   const hasher = new Bun.CryptoHasher('sha256')
   hasher.update(archiveBuffer)
   const actualHash = hasher.digest('hex')
   if (actualHash !== expectedHash) {
-    printFailure({
+    return refuseCommand({
       headline: 'Checksum does not match the published sha256. Nothing was replaced.',
       detail: [`Expected ${expectedHash}`, `Got      ${actualHash}`],
       guidance: CHECKSUM_GUIDANCE,
     })
-    process.exit(1)
   }
   return true
 }
@@ -174,22 +173,20 @@ export const verifySignature = async (
 
   const signature = await fetchPublishedSignature(signatureUrl, stallTimeoutMs)
   if (signature === undefined) {
-    printFailure({
+    return refuseCommand({
       headline: `Could not verify the download: the published signature is missing or unreadable. Nothing was replaced.`,
       detail: [signatureUrl],
       guidance: `${CHECKSUM_GUIDANCE}\n\n${OPT_OUT_GUIDANCE}`,
     })
-    process.exit(1)
   }
 
   if (!isSignedByTrustedKey(archiveBuffer, signature, keys)) {
-    printFailure({
+    return refuseCommand({
       headline:
         'The signature is not a valid signature of this download by a trusted Sovrium release key. Nothing was replaced.',
       detail: [signatureUrl],
       guidance: CHECKSUM_GUIDANCE,
     })
-    process.exit(1)
   }
   return true
 }
@@ -197,14 +194,17 @@ export const verifySignature = async (
 /** This process's release keys; a malformed override is a refusal, never "trust nothing". */
 const readReleaseKeys = (): readonly TrustedReleaseKey[] => {
   try {
-    return releaseKeysFor({ host: resolveReleaseDownloadHost(), now: Date.now() })
+    return releaseKeysFor({
+      host: resolveReleaseDownloadHost(process.env),
+      now: Date.now(),
+      env: process.env,
+    })
   } catch (error) {
-    printFailure({
+    return refuseCommand({
       headline: 'Could not read the release signing keys. Nothing was replaced.',
       detail: [error instanceof Error ? error.message : String(error)],
       guidance: CHECKSUM_GUIDANCE,
     })
-    return process.exit(1)
   }
 }
 

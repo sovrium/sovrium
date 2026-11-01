@@ -20,6 +20,7 @@
  * a table-bound grid; edits go to the table's records, on the view's columns.
  */
 
+import { buttonUrlForReader } from '@/domain/models/app/tables/fields/field-types/advanced/button-url-redaction-service'
 import { findViewByKey } from '@/domain/models/app/tables/views/view-read-service'
 import type { TypeSpecificResolvedInputs } from './resolve-type-specific-inputs'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -48,6 +49,23 @@ export function isViewBoundSource(dataSource: unknown): boolean {
 }
 
 /**
+ * One field's meta with its `url` button told only the view's columns: a
+ * `$record.<field>` naming a column the view does not serve is taken out, so
+ * neither its value nor its name reaches the page; a url left with nothing to
+ * open takes the button with it. Every other meta is returned unchanged.
+ */
+function withViewButtonUrl(meta: unknown, served: (name: string) => boolean): unknown {
+  const button = (
+    meta as { readonly button?: { readonly action?: unknown; readonly url?: unknown } }
+  )?.button
+  if (button?.action !== 'url' || typeof button.url !== 'string') return meta
+  const url = buttonUrlForReader(button.url, (name) => name !== 'id' && !served(name))
+  if (url === button.url) return meta
+  const { button: _dropped, ...rest } = meta as Readonly<Record<string, unknown>>
+  return url === undefined ? rest : { ...rest, button: { ...button, url } }
+}
+
+/**
  * The resolved grid inputs, narrowed to what a view-bound grid may be told:
  * the view's own columns (all of the table's when the view lists none), and
  * no permission block. `maskedFields` is the view's column
@@ -73,7 +91,9 @@ export function narrowToBoundView(
       inputs.dataTableFieldMeta === undefined
         ? undefined
         : Object.fromEntries(
-            Object.entries(inputs.dataTableFieldMeta).filter(([name]) => keep(name))
+            Object.entries(inputs.dataTableFieldMeta)
+              .filter(([name]) => keep(name))
+              .map(([name, meta]) => [name, withViewButtonUrl(meta, keep)])
           ),
     dataTablePermissions: undefined,
   }

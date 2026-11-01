@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { collectDataTableComponents } from './table-components-service'
 
 /**
@@ -18,9 +19,6 @@ export interface RawField {
 }
 
 export type FieldsByTable = ReadonlyMap<string, readonly RawField[]>
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 export function collectTableFields(config: unknown): FieldsByTable {
   const tables = isRecord(config) ? config['tables'] : undefined
@@ -73,7 +71,27 @@ function checkColumn(
 }
 
 /**
- * EXISTENCE half of the `columns[].displayField` contract — decided against
+ * The verdict for one `columns[]` entry that names a `secondaryField`: it must
+ * be a field of the grid's own table, since it is read off the same row. A
+ * typo would otherwise draw no second line on any row, silently.
+ */
+function checkSecondaryField(
+  column: Readonly<Record<string, unknown>>,
+  tableName: string,
+  fieldsByTable: FieldsByTable
+): readonly string[] {
+  const { field: fieldName, secondaryField } = column
+  if (typeof secondaryField !== 'string') return []
+  const available = fieldNamesOf(fieldsByTable.get(tableName) ?? [])
+  if (available.includes(secondaryField)) return []
+  return [
+    `columns: secondaryField '${secondaryField}' on column '${String(fieldName)}' is not a field of table '${tableName}'. Available: ${available.join(', ')}`,
+  ]
+}
+
+/**
+ * EXISTENCE half of the `columns[].displayField` and `columns[].secondaryField`
+ * contracts — decided against
  * `app.tables[]`, which no column schema node can see, so it runs with the other
  * cross-reference sweeps of the shared decode pipeline.
  *
@@ -90,7 +108,12 @@ export function validateColumnDisplayFields(config: unknown): readonly string[] 
     const tableName = dataSource['table']
     if (!fieldsByTable.has(tableName)) return []
     return columns.flatMap((column: unknown) =>
-      isRecord(column) ? checkColumn(column, tableName, fieldsByTable) : []
+      isRecord(column)
+        ? [
+            ...checkColumn(column, tableName, fieldsByTable),
+            ...checkSecondaryField(column, tableName, fieldsByTable),
+          ]
+        : []
     )
   })
 }

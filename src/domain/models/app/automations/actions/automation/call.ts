@@ -61,7 +61,7 @@ export const AutomationCallActionSchema = Schema.Struct({
           howTo:
             '`sync` waits for the called automation to finish before the next step runs; `async` starts it and moves on. `waitForCompletion` is accepted but never read, so use this instead.',
           description:
-            'Execution mode — sync (default, waits for result) or async (fire-and-forget)',
+            'Execution mode: sync (default, waits for result) or async (fire-and-forget)',
         })
       )
     ),
@@ -91,7 +91,7 @@ export const AutomationCallActionSchema = Schema.Struct({
       Schema.Boolean.pipe(
         Schema.annotate({
           description:
-            'Accepted for compatibility and NOT read at runtime — choose sync or async with the mode property. A call setting only this key still runs synchronously.',
+            'Accepted for compatibility and NOT read at runtime. Choose sync or async with the mode property. A call setting only this key still runs synchronously.',
         })
       )
     ),

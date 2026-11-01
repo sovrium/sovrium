@@ -30,7 +30,7 @@
 // columns, field meta and permissions from the RENDERING app's `tables`, which
 // under a mount is the console preset's — and the preset declares none. The
 // operator table the URL names is merged in by the MOUNT
-// (`routeBoundOperatorTables`, `application/use-cases/mount/embedded-app-mount.ts`),
+// (`routeBoundOperatorTables`, `application/use-cases/admin/embedded-app-mount.ts`),
 // which is the one place allowed to look at the operator's schema. Without it
 // every table would 404.
 //

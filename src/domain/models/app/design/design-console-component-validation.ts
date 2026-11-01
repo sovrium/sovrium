@@ -149,6 +149,7 @@
  * `specimen` draws.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { extractParamNames } from '@/domain/kernel/matching/route-matcher'
 import {
   INHERITED_EASING_NAMES,
@@ -172,9 +173,6 @@ interface AppForDesignConsoleValidation {
   readonly pages?: unknown
   readonly design?: unknown
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * Every easing name the app can resolve: the inherited curves, plus whatever

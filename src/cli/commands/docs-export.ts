@@ -79,6 +79,7 @@ const inBoundedParallel = <T>(
   items: readonly T[],
   task: (item: T) => Promise<unknown>
 ): Promise<unknown> =>
+  // A Promise helper bounding concurrency for the async export steps around it.
   Effect.runPromise(
     Effect.forEach(
       items,
@@ -116,6 +117,7 @@ const renderExport = async (engine: string): Promise<readonly ExportFile[]> => {
     import('@/infrastructure/assets/embedded-docs'),
     import('@/application/use-cases/admin/docs-site-export'),
   ])
+  // One step of an export written as async code, run where it is awaited.
   return Effect.runPromise(
     renderDocsExport({
       sections: SECTIONS,

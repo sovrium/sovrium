@@ -39,13 +39,19 @@ export const LoopEachActionSchema: Schema.Codec<Action & { readonly type: 'loop'
       ),
       actions: Schema.Array(
         Schema.suspend((): Schema.Codec<Action, unknown> => {
-          // `require('..')` resolves to `actions/index.ts` (top-level
-          // ActionSchema union); `require('.')` would resolve to
-          // `actions/loop/index.ts`, which only re-exports the operator
-          // schema and has no ActionSchema. Same fix applied to
-          // `actions/path/branch.ts` — both surfaced when a spec first
-          // exercised a recursive action shape.
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          // Why `require` and not a static `import { ActionSchema }` read
+          // lazily here: the static import puts this module in a cycle
+          // (each → action-union → loop → loop-action → each), and whenever
+          // this module or the `loop` barrel is evaluated BEFORE the union,
+          // `loop-action.ts` reads `LoopEachActionSchema` while it is still in
+          // its temporal dead zone and the import throws a ReferenceError.
+          // Measured: a direct `import('./each')` threw, and so did the
+          // `loop/` and `path/` unit tests. `require` keeps the edge out of
+          // the static graph. `'..'` is `actions/index.ts` (the top-level
+          // ActionSchema union); `'.'` would be `actions/loop/index.ts`,
+          // which has no ActionSchema. Same in `actions/path/branch.ts`.
+          // Both surfaced when a spec first exercised a recursive action shape.
+          // eslint-disable-next-line @typescript-eslint/no-require-imports -- a deferred require is what breaks the import cycle with the ActionSchema union, as above
           const { ActionSchema } = require('..') as { ActionSchema: Schema.Codec<Action, unknown> }
           return ActionSchema
         })

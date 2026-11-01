@@ -1,6 +1,6 @@
 # AI Fields
 
-> The seven AI field types — ai-generate, ai-summary, ai-categorize, ai-extract, ai-sentiment, ai-tag and ai-translate — that compute a value from other fields with a language model.
+> The seven AI field types (ai-generate, ai-summary, ai-categorize, ai-extract, ai-sentiment, ai-tag and ai-translate) that compute a value from other fields with a language model.
 
 Seven field types compute their value with a language model from one or more `sourceFields`. All of them also accept the base field properties every field type shares.
 
@@ -14,13 +14,13 @@ Seven field types compute their value with a language model from one or more `so
 | `ai-tag`        | Multiple tags chosen from an allow-list.                  |
 | `ai-translate`  | A translation of one source field into a target language. |
 
-Every one of them needs an AI provider configured. With none, the fields decode and the app boots — they simply never refine, which is the state the status below calls out.
+Every one of them needs an AI provider configured. With none, the fields decode and the app boots. They simply never refine, which is the state the status below calls out.
 
 ## How a value resolves, and how to tell
 
-An AI field resolves in two tiers. A deterministic value is computed locally and stored straight away, so the record is never left blank; a background refinement then replaces it with the model's answer.
+An AI field resolves in two tiers. A deterministic value is computed locally and stored straight away, so the record is never left blank; a background refinement then replaces it with the model's answer. Refinements are paced per app: at most 4 reach the provider at once, and on a hosted provider at most 600 start per minute (`AI_CHAT_RATE_WINDOW`). A bulk write of a thousand rows therefore refines over a few minutes rather than all at once; each row waits its turn with its local value in place, and none is dropped.
 
-**When the refinement never lands, the locally computed value stays.** It is plausible, well-formed content that reads exactly like a model result — so on its own, a value gives no clue which tier produced it. That is why every AI value carries a refinement status, and why a grid and a record drawer mark the two states that are not settled.
+**When the refinement never lands, the locally computed value stays.** It is plausible, well-formed content that reads exactly like a model result, so on its own, a value gives no clue which tier produced it. That is why every AI value carries a refinement status, and why a grid and a record drawer mark the two states that are not settled.
 
 This is the property to hold on to before wiring an AI field into anything that decides something: the presence of a value is not evidence that a model produced it.
 
@@ -89,7 +89,7 @@ Sentiment of the source text.
 
 ## `ai-tag`
 
-Several tags from an allow-list — the multi-valued counterpart of `ai-categorize`.
+Several tags from an allow-list: the multi-valued counterpart of `ai-categorize`.
 
 <!-- sovrium:options AiTagFieldSchema -->
 

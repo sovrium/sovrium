@@ -4,18 +4,29 @@ name: Issue triage
 # taxonomy declared in .github/labels.yml: a Type (Bug, Feature or Task), one
 # domain: label, and for a Bug or a Feature one kind label.
 #
-#   - On a new or edited issue: reads the "### Domain" and "### Kind of bug"
-#     answers, adds domain:<value> and bug:<value>, adds source:ai-drafted when
-#     the AI-assistance box is ticked, and, when the Type, the domain or the
-#     kind is still missing, keeps status:needs-triage and says what is missing
-#     in one comment.
+#   - On a new or edited issue: reads the body the issue forms produce, whether
+#     the form submitted it or someone pasted it (the API, the gh CLI, a tool):
+#       - the form's shape gives the Type, when the issue has none yet: a
+#         "### Kind of bug" heading is a Bug; the heading only one Feature form
+#         asks is a Feature plus that form's feature: kind; "### Definition of
+#         done" is a Task;
+#       - "### Domain" and "### Kind of bug" give domain:<value> and
+#         bug:<value>, reading an answer that names several values or a common
+#         alias (i18n, a11y, auth, ...) by its first listed value;
+#       - a ticked AI-assistance box gives source:ai-drafted.
+#     It never replaces a Type or a label already set on an axis. When the
+#     Type, the domain or the kind is still missing, it keeps
+#     status:needs-triage and says, once, what a maintainer will complete and
+#     what the reporter can add.
 #   - When a title carries a crash signature ([sig:<8 hex>]), points at the
 #     other open issue with the same signature.
 #   - Every Monday (and on demand): lists the open issues with no Type or no
 #     domain: label in the run summary. It changes nothing.
 #
-# The value lists below are held equal to labels.yml by a drift check in the
-# source repository, so a new domain is added to labels.yml and here together.
+# The value lists and the headings below are held equal to labels.yml and the
+# issue forms by a drift check in the source repository, so a new domain is
+# added to labels.yml and here together, and a renamed form field is renamed
+# here too.
 # Comments here are public: they name labels and forms, nothing else.
 
 on:
@@ -33,6 +44,10 @@ env:
   DOMAIN_HEADING: 'Domain'
   BUG_KIND_HEADING: 'Kind of bug'
   AI_HEADING: 'AI assistance'
+  CONFIG_OPTION_HEADING: 'Existing schema node'
+  ENGINE_PRIMITIVE_HEADING: 'Why existing pieces are not enough'
+  RECIPE_HEADING: 'Primitives it assembles'
+  TASK_HEADING: 'Definition of done'
 
 jobs:
   triage:
@@ -60,9 +75,18 @@ jobs:
           # First non-empty line under "### <heading>", or nothing.
           answer() {
             printf '%s\n' "${body}" | awk -v h="### $1" '
+              { sub(/[ \t]+$/, "") }
               $0 == h { found = 1; next }
               /^### / { found = 0 }
               found && NF { print; exit }
+            '
+          }
+          # Whether the body has a "### <heading>" line at all.
+          has_heading() {
+            printf '%s\n' "${body}" | awk -v h="### $1" '
+              { sub(/[ \t]+$/, "") }
+              $0 == h { found = 1; exit }
+              END { exit !found }
             '
           }
           in_list() {
@@ -72,34 +96,90 @@ jobs:
             done
             return 1
           }
+          alias_of() {
+            case "$1" in
+              i18n | l10n | localization | localisation | translation | translations) echo internationalization ;;
+              a11y) echo accessibility ;;
+              auth | authn | login | sign-in) echo authentication ;;
+              documentation) echo docs ;;
+              tooling | ci) echo toolchain ;;
+              crash | data-loss) echo crash-or-data-loss ;;
+              wrong-behavior | bug) echo wrong-behaviour ;;
+              perf | slow) echo performance ;;
+              ux | ui) echo ux-a11y ;;
+              compatibility) echo compat ;;
+              *) echo "$1" ;;
+            esac
+          }
+          # The first listed value an answer names: "accessibility, pages",
+          # "forms; i18n", "`domain:design system`" and "Pages" all resolve.
+          first_listed() {
+            local raw="$1" list="$2" item word value
+            raw="$(printf '%s' "${raw}" | tr '[:upper:]' '[:lower:]' | tr -d '`*"' | tr ',;/|' '\n')"
+            while IFS= read -r item; do
+              item="$(printf '%s' "${item}" | sed -E 's/^[[:space:]-]+//; s/[[:space:]]+$//; s/^[a-z]+://')"
+              [ -z "${item}" ] && continue
+              value="$(alias_of "$(printf '%s' "${item}" | tr -s ' ' '-')")"
+              if in_list "${value}" "${list}"; then printf '%s' "${value}"; return 0; fi
+              for word in ${item}; do
+                value="$(alias_of "${word}")"
+                if in_list "${value}" "${list}"; then printf '%s' "${value}"; return 0; fi
+              done
+            done <<<"${raw}"
+            return 0
+          }
 
-          add=()
-          domain="$(answer "${DOMAIN_HEADING}")"
-          if [ -n "${domain}" ] && in_list "${domain}" "${DOMAIN_VALUES}"; then
-            add+=("domain:${domain}")
-          fi
-          kind="$(answer "${BUG_KIND_HEADING}")"
-          if [ -n "${kind}" ] && in_list "${kind}" "${BUG_KIND_VALUES}"; then
-            add+=("bug:${kind}")
-          fi
-          if answer "${AI_HEADING}" | grep -qi '^- \[x\]'; then
-            add+=("source:ai-drafted")
-          fi
-          if [ "${#add[@]}" -gt 0 ]; then
-            joined="$(IFS=,; printf '%s' "${add[*]}")"
-            gh issue edit "${NUMBER}" --repo "${REPO}" --add-label "${joined}"
+          # The form the body follows, read from a heading only that form asks.
+          shape_type="" shape_kind=""
+          if has_heading "${BUG_KIND_HEADING}"; then shape_type="Bug"
+          elif has_heading "${CONFIG_OPTION_HEADING}"; then shape_type="Feature"; shape_kind="feature:config-option"
+          elif has_heading "${ENGINE_PRIMITIVE_HEADING}"; then shape_type="Feature"; shape_kind="feature:engine-primitive"
+          elif has_heading "${RECIPE_HEADING}"; then shape_type="Feature"; shape_kind="feature:recipe"
+          elif has_heading "${TASK_HEADING}"; then shape_type="Task"
           fi
 
           issue="$(gh api "repos/${REPO}/issues/${NUMBER}")"
           type="$(jq -r '.type.name // ""' <<<"${issue}")"
           labels="$(jq -r '[.labels[].name] | join(" ")' <<<"${issue}")"
+          has_axis() { grep -qE "(^| )$1:" <<<"${labels}"; }
+
+          if [ -z "${type}" ] && [ -n "${shape_type}" ]; then
+            # A refused Type (a repository without Issue Types) must not stop the labels.
+            if gh api --method PATCH "repos/${REPO}/issues/${NUMBER}" -f type="${shape_type}" >/dev/null; then
+              type="${shape_type}"
+            else
+              echo "::warning::could not set the Type ${shape_type} on #${NUMBER}"
+            fi
+          fi
+
+          add=()
+          if ! has_axis domain; then
+            domain="$(first_listed "$(answer "${DOMAIN_HEADING}")" "${DOMAIN_VALUES}")"
+            [ -n "${domain}" ] && add+=("domain:${domain}")
+          fi
+          if [ "${type}" = "Bug" ] && ! has_axis bug; then
+            kind="$(first_listed "$(answer "${BUG_KIND_HEADING}")" "${BUG_KIND_VALUES}")"
+            [ -n "${kind}" ] && add+=("bug:${kind}")
+          fi
+          if [ "${type}" = "Feature" ] && [ "${shape_type}" = "Feature" ] && ! has_axis feature; then
+            add+=("${shape_kind}")
+          fi
+          if answer "${AI_HEADING}" | grep -qi '^- \[x\]' && ! grep -qE '(^| )source:ai-drafted( |$)' <<<"${labels}"; then
+            add+=("source:ai-drafted")
+          fi
+          if [ "${#add[@]}" -gt 0 ]; then
+            joined="$(IFS=,; printf '%s' "${add[*]}")"
+            gh issue edit "${NUMBER}" --repo "${REPO}" --add-label "${joined}"
+            labels="${labels} ${add[*]}"
+          fi
+
           missing=()
           [ -z "${type}" ] && missing+=("a Type (Bug, Feature or Task)")
-          grep -qE '(^| )domain:' <<<"${labels}" || missing+=("a domain: label")
-          if [ "${type}" = "Bug" ] && ! grep -qE '(^| )bug:' <<<"${labels}"; then
+          has_axis domain || missing+=("a domain: label")
+          if [ "${type}" = "Bug" ] && ! has_axis bug; then
             missing+=("a bug: kind label")
           fi
-          if [ "${type}" = "Feature" ] && ! grep -qE '(^| )feature:' <<<"${labels}"; then
+          if [ "${type}" = "Feature" ] && ! has_axis feature; then
             missing+=("a feature: kind label")
           fi
 
@@ -110,8 +190,16 @@ jobs:
               --jq "[.[] | select(.body | contains(\"${marker}\"))] | length")"
             if [ "${already}" = "0" ]; then
               list="$(printf -- '- %s\n' "${missing[@]}")"
-              printf '%s\n\nThanks for the report. To be picked up, this issue still needs:\n\n%s\n\nA maintainer will complete it during triage; nothing is required from you unless we ask a question.\n' \
-                "${marker}" "${list}" > comment.md
+              {
+                printf '%s\n\n' "${marker}"
+                printf 'Thanks for the report. Before it can be picked up, a maintainer will complete its labels during triage. Still missing:\n\n%s\n\n' "${list}"
+                printf 'You can speed things up by adding what you know under these headings, the Agent brief every issue form ends with. The issue is marked ready once they are complete:\n\n'
+                printf -- '- **Acceptance criteria**: numbered Given / When / Then statements that show it is done\n'
+                printf -- '- **Affected paths**: the areas, commands or configuration involved, when known\n'
+                printf -- '- **Verification**: the steps or commands that prove it works\n'
+                printf -- '- **Out of scope**: what this issue deliberately does not cover\n\n'
+                printf 'Opening an issue through one of the issue forms sets the Type and these labels for you.\n'
+              } > comment.md
               gh issue comment "${NUMBER}" --repo "${REPO}" --body-file comment.md
             fi
           fi

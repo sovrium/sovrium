@@ -29,6 +29,7 @@
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { ValidationError } from '@/domain/errors'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DatabaseError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
@@ -38,7 +39,7 @@ const MAX_DEPTH = 10_000
 
 /** The fields of `tableName` that nest its records under one parent of the same table. */
 const nestingFieldsOf = (app: App | undefined, tableName: string): readonly string[] =>
-  (app?.tables?.find((t) => t.name === tableName)?.fields ?? []).flatMap((field) => {
+  (findTableByName(app?.tables, tableName)?.fields ?? []).flatMap((field) => {
     const candidate = field as {
       readonly name: string
       readonly type: string

@@ -6,6 +6,7 @@
  */
 
 import { Result, Schema } from 'effect'
+import { blankToUndefined } from '@/domain/kernel/config-parsing/blank-text'
 
 /**
  * The office engine `document/convert` sends Word, Excel, PowerPoint and
@@ -74,11 +75,6 @@ export interface OfficeConfig {
 export type OfficeEnvParse =
   | { readonly ok: true; readonly config: OfficeConfig }
   | { readonly ok: false; readonly error: string }
-
-const blankToUndefined = (value: string | undefined): string | undefined => {
-  const trimmed = value?.trim()
-  return trimmed === undefined || trimmed === '' ? undefined : trimmed
-}
 
 /**
  * Read the `OFFICE_*` variables from an env snapshot. Total: an invalid value

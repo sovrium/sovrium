@@ -14,7 +14,7 @@ import {
   stack,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** One settings record edited section by section, each section its own form under a heading. */

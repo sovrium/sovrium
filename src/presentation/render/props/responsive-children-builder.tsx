@@ -7,8 +7,8 @@
 
 import { type ReactElement, Fragment } from 'react'
 import { BREAKPOINT_ORDER } from './responsive-resolver'
-import type { Component } from '@/domain/models/app/pages/components'
 import type { Responsive } from '@/domain/models/app/pages/components/responsive'
+import type { ComponentEntry } from '@/presentation/render/resolve/component-rewrite'
 
 /**
  * Props for responsive children renderer
@@ -17,7 +17,7 @@ export interface ResponsiveChildrenRendererProps {
   readonly responsive: Responsive
   readonly baseChildren: readonly ReactElement[] | undefined
   readonly renderChild: (
-    child: Component | string,
+    child: ComponentEntry,
     index: number,
     breakpoint?: string,
     additionalClassName?: string
@@ -85,8 +85,9 @@ export function buildResponsiveChildrenVariants({
 
     // Render children for this breakpoint with visibility class passed to renderChild
     // The renderChild callback will inject the className into the component's props
+    // A breakpoint's children are page components, as `children` is.
     const renderedChildren = children.map((child, childIndex) =>
-      renderChild(child, childIndex, breakpoint, visibilityClass)
+      renderChild(child as ComponentEntry, childIndex, breakpoint, visibilityClass)
     )
 
     return <Fragment key={breakpoint}>{renderedChildren}</Fragment>

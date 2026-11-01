@@ -6,57 +6,53 @@
  */
 
 /**
- * Privacy-safe visitor identification using SHA-256 hashing.
+ * The visitor identifier, rotated daily; used to count unique visitors without
+ * a cookie. And the session identifier that groups one visitor's events into
+ * time windows.
  *
- * Hashing strategy:
- * - Visitor hash: SHA-256(date + IP + UA + salt) — rotates daily, no PII stored
- * - Session hash: SHA-256(visitorHash + timeWindow) — groups views into sessions
- *
- * Uses Web Crypto API (crypto.subtle) — zero external dependencies.
+ * Both are computed on the server with the Web Crypto API; the browser sends
+ * neither.
  */
 
+import { Effect } from 'effect'
 import { zonedIsoDate, zonedMinutesSinceMidnight } from '@/domain/kernel/time/zoned-calendar'
+import { truncateToNetwork } from '@/domain/models/app/analytics/visitor-network-service'
+import { VisitorSecret } from '../../ports/services/visitor-secret'
+import type { AnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
 
-/**
- * Convert ArrayBuffer to hex string
- */
+/** Hex encoding of a digest. */
 const toHex = (buffer: ArrayBuffer): string =>
   Array.from(new Uint8Array(buffer))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
 
 /**
- * Compute SHA-256 hash of a string using Web Crypto API
- */
-const sha256 = async (input: string): Promise<string> => {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(input)
-  const hash = await crypto.subtle.digest('SHA-256', data)
-  return toHex(hash)
-}
-
-/**
- * Compute a privacy-safe visitor hash.
+ * The visitor identifier of one visitor on one day.
  *
- * Hash rotates daily (date component), making it impossible to track
- * a visitor across days. No cookies or PII are stored. The day is the calendar
- * day of the operator timezone, so the rotation happens at the operator's
- * midnight rather than at UTC's.
+ * Stable for the same secret, day and request; different as soon as any of
+ * them changes.
  *
- * @param ip - Client IP address (from X-Forwarded-For or connection)
- * @param userAgent - Client User-Agent string
- * @param salt - Application-specific salt for additional privacy
- * @param timeZone - IANA zone whose calendar day rotates the hash (operator timezone)
- * @returns SHA-256 hex string (64 characters)
+ * @param secret - The day's secret, from {@link VisitorSecret}
+ * @param day - The calendar day (`YYYY-MM-DD`) in the operator timezone
+ * @param address - The client address the identifier is computed from
+ * @param userAgent - The client User-Agent string
+ * @returns 64 lowercase hexadecimal characters
  */
 export const computeVisitorHash = async (
-  ip: string,
-  userAgent: string,
-  salt: string,
-  timeZone: string
+  secret: Uint8Array<ArrayBuffer>,
+  day: string,
+  address: string,
+  userAgent: string
 ): Promise<string> => {
-  const today = zonedIsoDate(new Date(), timeZone) // YYYY-MM-DD
-  return sha256(`${today}|${ip}|${userAgent}|${salt}`)
+  const key = await crypto.subtle.importKey(
+    'raw',
+    secret,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  const message = new TextEncoder().encode(`${day}|${address}|${userAgent}`)
+  return toHex(await crypto.subtle.sign('HMAC', key, message))
 }
 
 /**
@@ -65,15 +61,14 @@ export const computeVisitorHash = async (
  * Sessions are grouped by time windows based on the configured timeout.
  * A new session starts after the timeout period of inactivity.
  *
- * The window and the date are both read on the wall clock of `timeZone`. They
- * used to mix the process zone's hours with the UTC date, so on any host not
- * running in UTC a window could straddle two different days.
+ * The window and the date are both read on the wall clock of `timeZone`, so a
+ * window never straddles two days on a host not running in UTC.
  *
- * @param visitorHash - The visitor's daily hash
+ * @param visitorHash - The visitor's daily identifier
  * @param sessionTimeoutMinutes - Session timeout in minutes
  * @param timeZone - IANA zone the windows are counted in (operator timezone)
  * @param now - the reference instant (injected for tests)
- * @returns SHA-256 hex string (64 characters)
+ * @returns 64 lowercase hexadecimal characters
  */
 export const computeSessionHash = async (
   visitorHash: string,
@@ -81,9 +76,47 @@ export const computeSessionHash = async (
   timeZone: string,
   now: Readonly<Date> = new Date()
 ): Promise<string> => {
-  // Create time windows based on session timeout
   // e.g., with 30min timeout: 0-29min -> window 0, 30-59min -> window 1
   const timeWindow = Math.floor(zonedMinutesSinceMidnight(now, timeZone) / sessionTimeoutMinutes)
   const dateStr = zonedIsoDate(now, timeZone)
-  return sha256(`${visitorHash}|${dateStr}|${timeWindow}`)
+  const data = new TextEncoder().encode(`${visitorHash}|${dateStr}|${timeWindow}`)
+  return toHex(await crypto.subtle.digest('SHA-256', data))
 }
+
+/** What a request contributes to its visitor's identifiers. */
+export interface VisitorRequest {
+  readonly address: string
+  readonly userAgent: string
+  /** IANA zone whose calendar day rotates the identifier (the operator timezone). */
+  readonly timeZone: string
+  readonly sessionTimeoutMinutes: number
+  /** Under `audience-only` the identifier is computed from the client's network, not its address. */
+  readonly profile: AnalyticsProfile
+}
+
+/**
+ * The visitor and session identifiers of one request, keyed by the server's
+ * secret of the current day.
+ */
+export const visitorIdentifiers = (
+  request: VisitorRequest
+): Effect.Effect<
+  { readonly visitorHash: string; readonly sessionHash: string },
+  never,
+  VisitorSecret
+> =>
+  Effect.gen(function* () {
+    const day = zonedIsoDate(new Date(), request.timeZone)
+    const secret = yield* (yield* VisitorSecret).secretFor(day)
+    const address =
+      request.profile === 'audience-only' ? truncateToNetwork(request.address) : request.address
+    // effect-promise: total -- Web Crypto always supports both algorithms used here, the key is always 32 bytes and every input is a valid BufferSource, so neither call has a rejection path.
+    const visitorHash = yield* Effect.promise(() =>
+      computeVisitorHash(secret, day, address, request.userAgent)
+    )
+    // effect-promise: total -- a digest over a `TextEncoder` result has no rejection path.
+    const sessionHash = yield* Effect.promise(() =>
+      computeSessionHash(visitorHash, request.sessionTimeoutMinutes, request.timeZone)
+    )
+    return { visitorHash, sessionHash }
+  }).pipe(Effect.withSpan('analytics.visitor-identifiers'))

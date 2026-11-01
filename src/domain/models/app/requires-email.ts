@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { getStrategy, hasStrategy } from './auth'
+import { hasStrategy } from './auth'
+import { resolveRequireEmailVerification } from './auth/sign-up-service'
 import type { App } from '.'
 
 /**
@@ -65,8 +66,9 @@ export const collectActionTypes = (
  *   without a transport nobody can sign in at all;
  * - email OTP is configured (`auth.emailTemplates.emailOtp`), which is what
  *   mounts the OTP plugin (`plugins/email-otp.ts`) — same reasoning;
- * - `emailAndPassword` declares `requireEmailVerification: true`, which holds a
- *   new account until it has verified an address it can never receive;
+ * - `emailAndPassword` requires verification (written `true`, or left unset
+ *   beside an `oauth` strategy or an `auth.sso` provider), which holds a new
+ *   account until it has verified an address it can never receive;
  * - any automation action (including nested in `path`/`loop`) is type `email` —
  *   an action the operator wrote that will now silently not happen;
  * - any agent is granted the `email.send` action — the same, for an action the
@@ -94,7 +96,7 @@ const hasEmailAgent = (app: App): boolean =>
 export const appRequiresEmail = (app: App): boolean => {
   if (hasStrategy(app.auth, 'magicLink')) return true
   if (app.auth?.emailTemplates?.emailOtp !== undefined) return true
-  if (getStrategy(app.auth, 'emailAndPassword')?.requireEmailVerification === true) return true
+  if (resolveRequireEmailVerification(app.auth)) return true
 
   const hasEmailAction =
     app.automations?.some((automation) =>

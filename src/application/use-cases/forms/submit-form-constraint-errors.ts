@@ -33,19 +33,23 @@ const FIELD_REFUSAL_MESSAGES = {
 
 /**
  * The field-level refusal a uniqueness violation carries, or `undefined` when
- * the write path could not attribute it to a submitted column.
+ * the write path could not attribute it to a submitted column. `nameField`
+ * words the reason for the refused column — the form names it by its label in
+ * the page language; without one, the reason names no field.
  */
-export const uniqueRefusalForField = (error: {
-  readonly fieldName?: string
-}): Readonly<FormFieldConstraintError> | undefined =>
-  error.fieldName
-    ? new FormFieldConstraintError({
-        // A translatable field's refusal names its language (`handle (fr)`);
-        // the form draws it on the field the visitor filled.
-        fieldName: languageUniqueBaseField(error.fieldName),
-        message: FIELD_REFUSAL_MESSAGES.unique,
-      })
-    : undefined
+export const uniqueRefusalForField = (
+  error: { readonly fieldName?: string },
+  nameField?: (column: string) => string
+): Readonly<FormFieldConstraintError> | undefined => {
+  if (!error.fieldName) return undefined
+  // A translatable field's refusal names its language (`handle (fr)`); the
+  // form draws it on the field the visitor filled.
+  const fieldName = languageUniqueBaseField(error.fieldName)
+  return new FormFieldConstraintError({
+    fieldName,
+    message: nameField === undefined ? FIELD_REFUSAL_MESSAGES.unique : nameField(fieldName),
+  })
+}
 
 /**
  * The field-level refusal a `CHECK` or `NOT NULL` rejection carries, or

@@ -24,7 +24,7 @@
  *  4. Streams live `join` / `leave` events from the presence channel.
  *  5. On disconnect (clean close, lifetime timeout, OR client navigation),
  *     deregisters the entry and broadcasts a `leave` event.
- *     The 60s stale-cleanup timer reaps entries whose
+ *     The server's stale-entry sweep reaps entries whose
  *     connection dropped without a clean close.
  *
  * Presence is scoped strictly per `pagePath`: the channel
@@ -33,8 +33,8 @@
  *
  * The SSE lifecycle (preamble → drain → heartbeat → lifetime ceiling) is
  * delegated to the shared `runEffectSse` bridge; this file only owns the
- * presence-specific side effects (`joinPresence` / `touchPresence` /
- * `leavePresence`) and the channel-listener source.
+ * presence-specific side effects (`joinPresence` and the membership's `touch` /
+ * `leave`) and the channel-listener source.
  *
  * Auth: the route is mounted with `authMiddleware` (no `requireAuth` chained)
  * so the handler can return a JSON 401 itself rather than the generic
@@ -59,6 +59,10 @@
  */
 
 import { Effect, Queue, Stream } from 'effect'
+import {
+  presenceProfileOfProgram,
+  type PresenceProfile,
+} from '@/application/use-cases/auth/user-presence-programs'
 import { resolvePresencePage } from '@/domain/models/app/pages/page-presence-access-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { addChannelListener } from '@/infrastructure/realtime/channel-manager'
@@ -68,16 +72,14 @@ import {
 } from '@/infrastructure/realtime/connection-counter'
 import {
   joinPresence,
-  leavePresence,
   presenceChannel,
-  startPresenceReaper,
-  touchPresence,
+  type PresenceMembership,
 } from '@/infrastructure/realtime/presence-manager'
-import { resolvePresenceUser } from '@/infrastructure/realtime/presence-queries'
 import { tableChannel } from '@/infrastructure/realtime/record-change-publisher'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { runEffectSse } from '@/presentation/api/runtime/effect-sse'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { admitsPresenceRecord, type WatchedRecord } from './presence-record-gate'
 import { tooManyConnectionsResponse } from './subscribe-handlers'
 import type { RealtimePresenceEntry } from '@/domain/models/api/realtime/realtime'
@@ -86,6 +88,17 @@ import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { DeclaredPageMatch } from '@/domain/models/app/pages/page-path-resolvability'
 import type { Cause } from 'effect'
 import type { Context } from 'hono'
+
+/**
+ * Her presence profile. A lookup that fails shows her as `'User'`: a presence
+ * entry with a fallback name is far better than failing the whole stream.
+ */
+async function presenceProfileOf(c: Context, userId: string): Promise<PresenceProfile> {
+  const read = await runOnRequest(c, presenceProfileOfProgram(userId))
+  if (read._tag === 'Success') return read.success
+  logError('[presence] a presence profile could not be read; she shows as User', read.failure)
+  return { name: 'User', avatarUrl: undefined }
+}
 
 /** The router's own session reader, the one a page visit is judged on. */
 export type PresenceReaderResolver = (headers: Headers) => Promise<SessionInfo | undefined>
@@ -185,10 +198,7 @@ export async function handlePresence(
   const admitted = await admitPresence(c, app, pagePath, getSession)
   if (admitted === undefined) return notFound(c)
 
-  // Arm the stale-cleanup timer on the first presence connection.
-  startPresenceReaper()
-
-  const userMeta = await resolvePresenceUser(session.userId)
+  const userMeta = await presenceProfileOf(c, session.userId)
   const entry: RealtimePresenceEntry = {
     id: session.userId,
     name: userMeta.name,
@@ -210,20 +220,20 @@ export async function handlePresence(
 
   // Register the entry + broadcast `join` to other connections, then surface
   // the resulting snapshot in the preamble so the joining user sees every
-  // colleague already on the page. `leavePresence` is fired by the bridge's
+  // colleague already on the page. The membership's `leave` is fired by the bridge's
   // `onTerminate` callback for ALL termination reasons (clean close, lifetime
   // timeout, client navigation/abort, revocation). The channel is namespaced
   // by `app.name` so two apps holding presence on the same page path never
   // observe each other's join/leave traffic.
   const appId = app.name
-  const snapshot = joinPresence({ appId, connectionId, pagePath, entry })
+  const membership = joinPresence({ appId, connectionId, pagePath, entry })
 
   return openPresenceStream({
     c,
     app,
     admitted,
-    presence: { appId, connectionId, pagePath },
-    snapshot,
+    presence: { appId, pagePath },
+    membership,
     registration,
   })
 }
@@ -241,15 +251,15 @@ function openPresenceStream(input: {
   }
   readonly presence: {
     readonly appId: string
-    readonly connectionId: string
     readonly pagePath: string
   }
-  readonly snapshot: ReturnType<typeof joinPresence>
+  /** Her joined entry: its snapshot, and how it stays and goes. */
+  readonly membership: PresenceMembership
   /** Her slot in the presence pool, taken before she joined. */
   readonly registration: Extract<ConnectionRegistration, { readonly accepted: true }>
 }): Response {
-  const { c, app, admitted, presence, snapshot, registration } = input
-  const { appId, connectionId, pagePath } = presence
+  const { c, app, admitted, presence, membership, registration } = input
+  const { appId, pagePath } = presence
   // The queue is created EAGERLY, as the record subscription's is: it is the
   // buffer the presence listener writes to from the moment the request is
   // handled, and ending it is how the stream is ended from outside — by a
@@ -279,13 +289,13 @@ function openPresenceStream(input: {
   registration.bind({ close: end })
 
   return runEffectSse(c, Stream.fromQueue(queue), (event) => ({ kind: 'data', payload: event }), {
-    preamble: [{ type: 'presence-sync', pagePath, users: snapshot }],
-    onHeartbeat: () => touchPresence({ appId, connectionId, pagePath }),
+    preamble: [{ type: 'presence-sync', pagePath, users: membership.snapshot }],
+    onHeartbeat: membership.touch,
     onTerminate: () => {
       unsubscribePresence()
       unwatchRecords()
       registration.release()
-      leavePresence({ appId, connectionId, pagePath })
+      membership.leave()
     },
   })
 }

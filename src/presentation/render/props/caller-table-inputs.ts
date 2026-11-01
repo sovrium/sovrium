@@ -45,7 +45,9 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 
 /** The table as this grid's reader may see it, when the data-source pass stamped it. */
-export function callerTableOf(component: Component): CallerTableView | undefined {
+export function callerTableOf(component: {
+  readonly props?: unknown
+}): CallerTableView | undefined {
   const props = component.props as { readonly _callerTable?: CallerTableView } | undefined
   return props?._callerTable
 }

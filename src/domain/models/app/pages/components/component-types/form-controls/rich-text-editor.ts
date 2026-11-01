@@ -126,7 +126,7 @@ export const richTextEditorFields = {
     Schema.Array(RichTextActionSchema).annotate({
       title: 'Toolbar',
       description:
-        'Actions the toolbar offers. Omit for the default six (bold, italic, heading, list, link, code-block). `[]` draws no toolbar at all — the slash menu still reaches every block action the toolbar would have enabled.',
+        'Actions the toolbar offers. Omit for the default six (bold, italic, heading, list, link, code-block). `[]` draws no toolbar at all. The slash menu still reaches every block action the toolbar would have enabled.',
       examples: [['bold', 'italic', 'link']],
     })
   ),
@@ -163,7 +163,7 @@ export const richTextEditorFields = {
       Schema.annotate({
         title: 'Image Bucket',
         description:
-          'Bucket the image button and the paste handler upload into (default: the built-in `system` bucket). The uploaded URL is inserted, never base64. Unread — INERT, not refused — under a `toolbar` that omits `image`, since there is then no button to upload from.',
+          'Bucket the image button and the paste handler upload into (default: the built-in `system` bucket). The uploaded URL is inserted, never base64. Unread (INERT, not refused) under a `toolbar` that omits `image`, since there is then no button to upload from.',
         examples: ['attachments'],
       }),
       Schema.check(Schema.isMinLength(1))

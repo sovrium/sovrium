@@ -16,7 +16,9 @@ import { mountNestedIslands, releaseDetachedIslands } from '../overlays/live-inj
  */
 
 /**
- * The markup of each panel the SERVER rendered into this host, keyed by panel id.
+ * The markup of each panel the SERVER rendered into this host, keyed by panel id:
+ * the open panel drawn as markup, and every unopened one carried as an inert
+ * `<template>`.
  *
  * Parsed from the captured subtree rather than read live: by the time any island
  * code runs, `createRoot` has already discarded those nodes. Their scripts run
@@ -37,9 +39,20 @@ export function parseSsrPanels(ssrHtml: string | undefined): Readonly<Record<str
   // The capture was taken after the page's inline scripts ran, so a control
   // they wired carries the mark its runtime left on the node it bound — a node
   // `createRoot` has since discarded. Cleared, so each runtime binds the copy.
+  // A selector does not descend into a `<template>`'s content, so each
+  // template's fragment is swept on its own as well.
+  const roots: readonly ParentNode[] = [
+    holder,
+    ...Array.from(holder.querySelectorAll('template')).map((template) => template.content),
+  ]
   RUNTIME_READY_MARKS.forEach((mark) =>
-    holder.querySelectorAll(`[${mark}]`).forEach((node) => node.removeAttribute(mark))
+    roots.forEach((root) =>
+      root.querySelectorAll(`[${mark}]`).forEach((node) => node.removeAttribute(mark))
+    )
   )
+  // The addressed panel is a `[data-tab-panel-id]` element and each unopened
+  // one a `<template data-tab-panel-id>`; both serialise their panel's markup
+  // through `innerHTML`, a template's being its content's.
   return Object.fromEntries(
     Array.from(holder.querySelectorAll<HTMLElement>('[data-tab-panel-id]')).map((panel) => [
       panel.dataset.tabPanelId ?? '',

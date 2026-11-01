@@ -113,7 +113,9 @@ const rejectBannedOwner = (hook: BeforeHook): BeforeHook => ({
 
     const standing = owner as
       { readonly banned?: unknown; readonly banExpires?: unknown } | undefined
-    if (isBanInForce(standing?.banned, standing?.banExpires)) {
+    // A ban's expiry stays on the real clock, as Better Auth lifts it, never on
+    // SOVRIUM_DEV_CLOCK (`SOVRIUM_DEV_CLOCK` in `env-vars.docs.md`).
+    if (isBanInForce(standing?.banned, standing?.banExpires, Date.now())) {
       throw new APIError('UNAUTHORIZED', { message: 'User is banned' })
     }
 
@@ -203,6 +205,11 @@ export const buildApiKeyPlugin = (authConfig?: Auth) => {
     apiKeyHeaders: 'x-api-key',
     enableSessionForAPIKeys: true,
     rateLimit: { enabled: false },
+    // A key minted without `expiresIn` expires one year out. Better Auth reads
+    // this value in SECONDS (`getDate(defaultExpiresIn, "sec")` in its create
+    // route), although its option's doc comment says milliseconds. A client
+    // may still choose its own `expiresIn`, within Better Auth's 1-365 days.
+    keyExpiration: { defaultExpiresIn: 365 * 24 * 60 * 60 },
     permissions: {
       defaultPermissions: async (referenceId: string, ctx: GenericEndpointContext) => {
         const user = await ctx.context.internalAdapter.findUserById(referenceId)

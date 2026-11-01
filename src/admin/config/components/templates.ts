@@ -66,10 +66,7 @@ import { consoleSectionCard } from './console-section-card'
 import { consoleShell } from './console-shell'
 import { consoleTabs } from './console-tabs'
 import { consoleToolbarSearch } from './console-toolbar-search'
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
-
-/** One reusable template, as the config type expresses it. */
-type Template = NonNullable<AppConfig['components']>[number]
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
 /**
  * The sticky bar over every console page.
@@ -78,7 +75,7 @@ type Template = NonNullable<AppConfig['components']>[number]
  * everywhere — and deliberately nothing else. A page's own actions belong to
  * the header below it, which is what keeps this bar identical on all of them.
  */
-const consoleTopbar = {
+const consoleTopbar: TemplateEncoded = {
   name: 'console-topbar',
   type: 'container',
   element: 'div',
@@ -148,7 +145,7 @@ const consoleTopbar = {
       ],
     },
   ],
-} as unknown as Template
+}
 
 /**
  * The title block of a records page.
@@ -157,7 +154,7 @@ const consoleTopbar = {
  * can do to it — then the line that narrows what is shown. It never repeats the
  * trail: the bar above it already said where this is.
  */
-const dataPageHeader = {
+const dataPageHeader: TemplateEncoded = {
   name: 'console-data-page-header',
   type: 'container',
   element: 'div',
@@ -183,8 +180,7 @@ const dataPageHeader = {
           type: 'text',
           element: 'span',
           props: {
-            className:
-              'bg-background-muted text-muted-foreground rounded-xs px-1.5 py-0.5 text-[11px]',
+            className: 'bg-background-muted text-muted-foreground rounded-xs px-1.5 py-0.5 text-xs',
           },
           content: '$count',
         },
@@ -252,7 +248,7 @@ const dataPageHeader = {
       ],
     },
   ],
-} as unknown as Template
+}
 
 /**
  * What a console surface says when it has nothing to show.
@@ -261,7 +257,7 @@ const dataPageHeader = {
  * without one is a dead end, which is the single most common way a surface that
  * renders correctly still fails the person reading it.
  */
-const emptyStateCard = {
+const emptyStateCard: TemplateEncoded = {
   name: 'console-empty-state-card',
   type: 'container',
   element: 'div',
@@ -303,7 +299,7 @@ const emptyStateCard = {
       ],
     },
   ],
-} as unknown as Template
+}
 
 /**
  * One line of the operational record.
@@ -312,7 +308,7 @@ const emptyStateCard = {
  * relative one, because the reader is usually correlating this against a log
  * that has no idea what "3 minutes ago" means.
  */
-const auditRow = {
+const auditRow: TemplateEncoded = {
   name: 'console-audit-row',
   type: 'container',
   element: 'div',
@@ -330,7 +326,7 @@ const auditRow = {
       element: 'span',
       props: {
         className:
-          'bg-background-muted text-muted-foreground flex size-6.5 flex-none items-center justify-center rounded-full text-[11px] font-medium',
+          'bg-background-muted text-muted-foreground flex size-6.5 flex-none items-center justify-center rounded-full text-xs font-medium',
       },
       content: '$initial',
     },
@@ -367,7 +363,7 @@ const auditRow = {
         {
           type: 'text',
           element: 'span',
-          props: { className: 'text-muted-foreground text-[11px]' },
+          props: { className: 'text-muted-foreground text-xs' },
           content: '$surface',
         },
       ],
@@ -375,17 +371,17 @@ const auditRow = {
     {
       type: 'text',
       element: 'span',
-      props: { className: 'text-muted-foreground flex-none font-mono text-[11px]' },
+      props: { className: 'text-muted-foreground flex-none font-mono text-xs' },
       content: '$at',
     },
   ],
-} as unknown as Template
+}
 
 /**
  * The four, in the order the Components index composes them, then the
  * transparent furniture the pages place (which the index does not list).
  */
-const templates: readonly Template[] = [
+const templates: readonly TemplateEncoded[] = [
   consoleTopbar,
   dataPageHeader,
   emptyStateCard,

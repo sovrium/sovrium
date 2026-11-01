@@ -111,7 +111,8 @@ export const ClickInteractionSchema = Schema.Struct({
   ),
   toggleElement: Schema.optional(
     ElementIdSelectorSchema.annotate({
-      description: 'Element ID to show/hide',
+      description:
+        'Shows or hides the element with this id. The button is a disclosure: it names the element with aria-controls, keeps aria-expanded in step, and Escape closes the element and returns the focus to the button; an element with role dialog takes the focus when it opens.',
     })
   ),
   submitForm: Schema.optional(

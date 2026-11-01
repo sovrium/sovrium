@@ -122,7 +122,7 @@ const clean = (value: string | undefined): string | undefined => {
  *   `yes` meant as "on" is found at the first boot rather than at the first
  *   port conflict.
  */
-export const parseSovriumStrictPort = (env: EnvRecord = process.env): boolean => {
+export const parseSovriumStrictPort = (env: EnvRecord): boolean => {
   const raw = clean(env[SOVRIUM_STRICT_PORT_VAR])
   if (raw === undefined || /^(?:0|false)$/i.test(raw)) return false
   if (/^(?:1|true)$/i.test(raw)) return true
@@ -143,7 +143,7 @@ export const parseSovriumStrictPort = (env: EnvRecord = process.env): boolean =>
  * hand side by side should both just run. Never throws: an unparseable
  * `SOVRIUM_STRICT_PORT` was already refused at boot, and reads as off here.
  */
-export const isStrictPortBoot = (env: EnvRecord = process.env): boolean =>
+export const isStrictPortBoot = (env: EnvRecord): boolean =>
   clean(env['PORT']) !== undefined ||
   /^(?:1|true)$/i.test(clean(env[SOVRIUM_STRICT_PORT_VAR]) ?? '') ||
   clean(env['INVOCATION_ID']) !== undefined
@@ -179,7 +179,7 @@ export const isAcceptedBindHost = (value: string): boolean =>
  *   name pasted from `hostname` above all, which binds wherever that name
  *   happens to resolve, if it resolves at all.
  */
-export const parseSovriumBindHost = (env: EnvRecord = process.env): string | undefined => {
+export const parseSovriumBindHost = (env: EnvRecord): string | undefined => {
   const raw = clean(env[SOVRIUM_BIND_HOST_VAR])
   if (raw === undefined) return undefined
   if (isAcceptedBindHost(raw)) return raw.replace(/^\[(.*)\]$/, '$1')
@@ -201,7 +201,7 @@ export interface BindHost {
  * that it is deprecated — else `localhost`. Never throws: an invalid
  * `SOVRIUM_BIND_HOST` was already refused at boot.
  */
-export const resolveBindHost = (env: EnvRecord = process.env): BindHost => {
+export const resolveBindHost = (env: EnvRecord): BindHost => {
   const declared = clean(env[SOVRIUM_BIND_HOST_VAR])
   if (declared !== undefined) {
     return { host: declared.replace(/^\[(.*)\]$/, '$1'), fromDeprecatedHostname: false }
@@ -223,7 +223,7 @@ export const deprecatedHostnameNotice = (host: string): string =>
  *   server has one listener, and picking either silently would leave the
  *   proxy that expected the other pointing at nothing.
  */
-export const parseSovriumListenUnix = (env: EnvRecord = process.env): string | undefined => {
+export const parseSovriumListenUnix = (env: EnvRecord): string | undefined => {
   const path = clean(env[SOVRIUM_LISTEN_UNIX_VAR])
   if (path === undefined) return undefined
   if (clean(env['PORT']) !== undefined) {
@@ -236,7 +236,7 @@ export const parseSovriumListenUnix = (env: EnvRecord = process.env): string | u
 }
 
 /** The socket path to listen on, or `undefined` for a TCP port. Never throws. */
-export const resolveListenUnix = (env: EnvRecord = process.env): string | undefined =>
+export const resolveListenUnix = (env: EnvRecord): string | undefined =>
   clean(env[SOVRIUM_LISTEN_UNIX_VAR])
 
 /**
@@ -246,7 +246,7 @@ export const resolveListenUnix = (env: EnvRecord = process.env): string | undefi
  * @throws Error naming the variable, the floor and the value for anything that
  *   is not a whole number of at least {@link MIN_IDLE_EXIT_SECONDS}.
  */
-export const parseSovriumIdleExitSeconds = (env: EnvRecord = process.env): number | undefined => {
+export const parseSovriumIdleExitSeconds = (env: EnvRecord): number | undefined => {
   const raw = clean(env[SOVRIUM_IDLE_EXIT_SECONDS_VAR])
   if (raw === undefined) return undefined
   const seconds = /^\d+$/.test(raw) ? Number(raw) : Number.NaN
@@ -258,7 +258,7 @@ export const parseSovriumIdleExitSeconds = (env: EnvRecord = process.env): numbe
 }
 
 /** The idle window in seconds, or `undefined` when the server never exits on its own. Never throws. */
-export const resolveIdleExitSeconds = (env: EnvRecord = process.env): number | undefined => {
+export const resolveIdleExitSeconds = (env: EnvRecord): number | undefined => {
   try {
     return parseSovriumIdleExitSeconds(env)
   } catch {
@@ -273,7 +273,7 @@ export const resolveIdleExitSeconds = (env: EnvRecord = process.env): number | u
  *   anything but `text` or `json` — a collector expecting JSON would otherwise
  *   receive text it cannot read, without a word.
  */
-export const parseSovriumLogFormat = (env: EnvRecord = process.env): 'text' | 'json' => {
+export const parseSovriumLogFormat = (env: EnvRecord): 'text' | 'json' => {
   const raw = clean(env[SOVRIUM_LOG_FORMAT_VAR])
   if (raw === undefined || raw === 'text') return 'text'
   if (raw === 'json') return 'json'
@@ -282,5 +282,5 @@ export const parseSovriumLogFormat = (env: EnvRecord = process.env): 'text' | 'j
 }
 
 /** The log format, `text` for an unset or refused value. Never throws. */
-export const resolveSovriumLogFormat = (env: EnvRecord = process.env): 'text' | 'json' =>
+export const resolveSovriumLogFormat = (env: EnvRecord): 'text' | 'json' =>
   clean(env[SOVRIUM_LOG_FORMAT_VAR]) === 'json' ? 'json' : 'text'

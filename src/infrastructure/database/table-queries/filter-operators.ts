@@ -12,8 +12,9 @@ import { formatSqlValue, formatLikePattern, escapeSqlString } from '../sql/sql-u
 import { betweenFragment, betweenSqlCondition } from './between-condition'
 import { notContainsFragment, notContainsSqlCondition } from './not-contains-condition'
 import { serverOperatorDdlCondition, serverOperatorFragment } from './server-operator-fragment'
-import { translatedTextFragment } from './translated-text-fragment'
+import { translatedTextFragment, type Condition } from './translated-text-fragment'
 import { unknownOperator } from './unknown-operator'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /** A column a condition reads: a `sql.identifier()` chunk, or an expression over one. */
 type SqlIdentifier = Readonly<ReturnType<typeof sql.identifier>> | Readonly<SQL>
@@ -161,11 +162,11 @@ export const generateSqlCondition = (
   field: string,
   operator: string,
   value: unknown,
-  options: { readonly useEscapeSqlString?: boolean } = {}
+  options: { readonly dialect: DatabaseDialect; readonly useEscapeSqlString?: boolean }
 ): string => {
   const useEscapeSqlString = options.useEscapeSqlString ?? false
 
-  const serverCondition = serverOperatorDdlCondition(field, operator, value)
+  const serverCondition = serverOperatorDdlCondition(options.dialect, field, operator, value)
   if (serverCondition) return serverCondition
 
   const patternCondition = handlePatternOperator(field, operator, value)
@@ -353,34 +354,40 @@ const buildInFragment = (
  *
  * Runtime record-filter SELECT path only; DDL callers keep the string-based `generateSqlCondition`.
  *
+ * @param dialect - The engine the statement runs on
  * @param field - Column name (must already be validated via validateColumnName)
  * @param operator - Filter operator (equals, greaterThan, contains, in, etc.)
  * @param value - Filter value (bound as a query parameter)
- * @param column - What the condition reads: the field's column, or an expression over it
  */
 export const generateSqlConditionFragment = (
+  dialect: DatabaseDialect,
   field: string,
   operator: string,
-  value: unknown,
-  column: SqlIdentifier = sql.identifier(field)
-): Readonly<SQL> => {
-  const translated = translatedTextFragment(field, operator, value, generateSqlConditionFragment)
-  if (translated) return translated
-  const serverFragment = serverOperatorFragment(field, operator, value)
-  if (serverFragment) return serverFragment
+  value: unknown
+): Readonly<SQL> =>
+  conditionFragmentOver(dialect, { field, operator, value }, sql.identifier(field))
 
+/** {@link generateSqlConditionFragment} over `column`: the field, or an expression over it. */
+const conditionFragmentOver = (
+  dialect: DatabaseDialect,
+  leaf: Condition,
+  column: SqlIdentifier
+): Readonly<SQL> => {
+  const { field, operator, value } = leaf
+  const translated = translatedTextFragment(dialect, leaf, (inner, over) =>
+    conditionFragmentOver(dialect, inner, over)
+  )
+  if (translated) return translated
+  const serverFragment = serverOperatorFragment(dialect, field, operator, value)
+  if (serverFragment) return serverFragment
   const patternFragment = buildPatternFragment(column, operator, value)
   if (patternFragment) return patternFragment
-
   const nullFragment = buildNullFragment(column, operator)
   if (nullFragment) return nullFragment
-
   const booleanFragment = buildBooleanFragment(column, operator)
   if (booleanFragment) return booleanFragment
-
   const inFragment = buildInFragment(column, operator, value)
   if (inFragment) return inFragment
-
   const between = betweenFragment(column, operator, value)
   if (between) return between
 

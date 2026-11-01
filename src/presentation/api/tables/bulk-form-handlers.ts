@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import {
   batchDeleteWithSideEffects,
   batchUpdateWithSideEffects,
@@ -12,28 +13,33 @@ import {
 import { recordWriteRequester } from '@/application/use-cases/tables/record-create-orchestration'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
-import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { successResponseSchema } from '@/domain/models/api/common'
 import {
   hasDeletePermissionForRoles,
   hasUpdatePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
-import { provideDomain, runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { inWriteLanguage } from '@/domain/models/app/tables/translatable-write-service'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runEffect } from '@/presentation/api/runtime/run-effect'
+import { pageWriteLanguage } from '@/presentation/api/runtime/page-write-language'
+import { readFormBody } from '@/presentation/api/runtime/request-body'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { formatValidationError } from '@/presentation/api/tables/validation'
 import { refuseUnlistedBatchIds } from './batch-record-ids'
 import { callerUnlistedRows } from './readable-table-gate'
 import {
-  sanitizeUpdateRichTextFields,
-  validateUpdateFieldValues,
+  checkedUpdateValues,
   validateUpdateForbiddenFields,
   validateUpdateComputedFields,
   validateUpdateReadonlyFields,
 } from './record-update-guards'
 import { filterAllowedFieldsWithRole } from './record-update-permissions'
 import { getLinkReader } from './relationship-rules'
-import { enforceBulkMutationGate, resolveGuardForTable } from './row-level-guard'
+import { enforceBulkMutationGate, guardForTable } from './row-level-guard'
 import { maskUnreadableUniqueConflict, updatedWrite } from './unique-conflict-mask'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -56,18 +62,19 @@ function parseJsonField<T>(value: unknown, fallback: T): T {
  * miss, so a partial success says nothing); then an id the caller's list of
  * the table does not admit is refused as a missing id is.
  */
-async function refuseBulkDeleteRows(
+const refuseBulkDeleteRows = (
   input: Omit<Parameters<typeof enforceBulkMutationGate>[0], 'guard' | 'op'> & {
     readonly app: App
     readonly guard: Parameters<typeof enforceBulkMutationGate>[0]['guard'] | undefined
   }
-): Promise<Response | undefined> {
-  const { app, guard, ...rows } = input
-  const ruleError = guard
-    ? await enforceBulkMutationGate({ ...rows, guard, op: 'delete' })
-    : undefined
-  return ruleError ?? refuseUnlistedBatchIds(rows.c, app, rows.ids)
-}
+) =>
+  Effect.gen(function* () {
+    const { app, guard, ...rows } = input
+    const ruleError = guard
+      ? yield* enforceBulkMutationGate({ ...rows, guard, op: 'delete' })
+      : undefined
+    return ruleError ?? (yield* refuseUnlistedBatchIds(rows.c, app, rows.ids))
+  })
 
 /**
  * Handle form-based bulk DELETE with redirect.
@@ -79,65 +86,74 @@ async function refuseBulkDeleteRows(
  * Uses synchronous navigation to ensure DB writes complete before
  * the browser proceeds (eliminates race conditions in E2E tests).
  */
-export async function handleFormBulkDelete(c: Context, app: App) {
-  const { session, tableName, userRole, userGroups } = getTableContext(c)
+export function handleFormBulkDelete(c: Context, app: App) {
+  return runHandlerEffect(c, answerFailures(c, formBulkDeleteResponse(c, app)))
+}
 
-  const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
+/** Gate, delete and redirect a form's bulk delete, as one program. */
+const formBulkDeleteResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const { session, tableName, userRole, userGroups } = getTableContext(c)
 
-  // Effective roles, not a bare role: the guarded branch below evaluates
-  // `guard.effectiveRoles`, while this unguarded branch used a bare `userRole`
-  // that no `group:<name>` permission entry could ever match. A refusal is the
-  // 404 the single-record delete answers (S1): never a 403 confirming the
-  // table holds records the caller may not remove.
-  if (
-    !guard &&
-    !hasDeletePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app)
-  ) {
-    return notFound(c)
-  }
+    const table = app.tables?.find((t) => t.name === tableName)
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
 
-  const body = await c.req.parseBody()
-  const ids = parseJsonField<readonly string[]>(body['_ids'], [])
-  const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
+    // Effective roles, not a bare role: the guarded branch below evaluates
+    // `guard.effectiveRoles`, while this unguarded branch used a bare `userRole`
+    // that no `group:<name>` permission entry could ever match. A refusal is the
+    // 404 the single-record delete answers (S1): never a 403 confirming the
+    // table holds records the caller may not remove.
+    if (
+      !guard &&
+      !hasDeletePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app)
+    ) {
+      return notFound(c)
+    }
 
-  if (ids.length === 0) {
-    return c.json({ success: false, message: 'No records specified', code: 'BAD_REQUEST' }, 400)
-  }
+    const body = yield* readFormBody(c)
+    const ids = parseJsonField<readonly string[]>(body['_ids'], [])
+    const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
 
-  // Z-3 row-level scoping, then the caller's list of the table.
-  const gateError = await refuseBulkDeleteRows({ c, app, table, session, tableName, ids, guard })
-  if (gateError) return gateError
+    if (ids.length === 0) {
+      return c.json({ success: false, message: 'No records specified', code: 'BAD_REQUEST' }, 400)
+    }
 
-  // A refused delete answers what the batch delete answers, never the page's success.
-  const deleted = await runEffect(
-    c,
-    provideDomain(
+    // Z-3 row-level scoping, then the caller's list of the table.
+    const gateError = yield* refuseBulkDeleteRows({ c, app, table, session, tableName, ids, guard })
+    if (gateError) return gateError
+
+    // A refused delete answers what the batch delete answers, never the page's success.
+    const deleted = yield* respondWith(
       c,
       batchDeleteWithSideEffects({
         ...{ session, tableName, app, ids, permanent: false },
         requester: recordWriteRequester(session.userId, userRole),
-        processEnv: process.env,
+        userGroups,
       })
     )
-  )
-  if (!deleted.ok) return deleted
+    if (!deleted.ok) return deleted
 
-  // The path arrives in the request body, so it is only honoured once proven
-  // same-origin — otherwise it is an open redirect off this site.
-  if (isSafeRedirectPath(redirectPath)) {
-    return c.redirect(redirectPath, 302)
-  }
+    // The path arrives in the request body, so it is only honoured once proven
+    // same-origin — otherwise it is an open redirect off this site.
+    if (isSafeRedirectPath(redirectPath)) {
+      return c.redirect(redirectPath, 302)
+    }
 
-  return c.json({ success: true }, 200)
-}
+    return yield* respondWith(c, Effect.succeed({ success: true }), successResponseSchema)
+  })
+
+/** A bulk update's refusal, or the field map it writes. */
+type BulkUpdateResolution =
+  { readonly refusal: Response } | { readonly fields: Record<string, unknown> }
+
+const refusedUpdate = (refusal: Response): BulkUpdateResolution => ({ refusal })
 
 /**
  * Run every per-FIELD and per-VALUE update rule the single-record JSON verb
  * runs (`handleUpdateRecord`, record-write-handlers.ts:482-538) over the field
  * map a bulk-update would apply, in the same order: engine-managed readonly
- * columns, then field-level write permissions, then per-value rules, then
- * `rich-text` HTML sanitization.
+ * columns, then field-level write permissions, then per-value rules. A
+ * `rich-text` value is cleaned by the batch update itself.
  *
  * Returns the refusal `Response` for the first violated rule, or the field map
  * to write. This is why the bulk verb needs it at all: `batchUpdateRecords`
@@ -156,62 +172,48 @@ export async function handleFormBulkDelete(c: Context, app: App) {
  * validated nor written, and a column carrying no explicit `permissions.fields`
  * `write` entry stays writable to a caller who may read it.
  */
-async function resolveBulkUpdateFields(input: {
+const resolveBulkUpdateFields = (input: {
   readonly c: Context
   readonly app: App
   readonly tableName: string
   readonly userRole: string
   readonly data: Record<string, unknown>
-}): Promise<{ readonly refusal: Response } | { readonly fields: Record<string, unknown> }> {
-  const { c, app, tableName, userRole, data } = input
+}) =>
+  Effect.gen(function* () {
+    const { c, app, tableName, userRole, data } = input
 
-  const readonlyError = validateUpdateReadonlyFields(data, c)
-  if (readonlyError) return { refusal: readonlyError }
+    const readonlyError = validateUpdateReadonlyFields(data, c)
+    if (readonlyError) return refusedUpdate(readonlyError)
 
-  const unknownError = refuseUnknownBulkKeys(app, tableName, data, c)
-  if (unknownError) return { refusal: unknownError }
+    const unknownError = refuseUnknownBulkKeys(app, tableName, data, c)
+    if (unknownError) return refusedUpdate(unknownError)
 
-  const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
-    app,
-    tableName,
-    { role: userRole, groups: getTableContext(c).userGroups },
-    data
-  )
-  // S1 anti-enumeration: a field the role cannot write refuses the whole
-  // request with 404 rather than dropping the key, so the field-permission
-  // boundary stays undiscoverable — the contract the JSON verb pins.
-  const forbiddenError = validateUpdateForbiddenFields(forbiddenFields, c)
-  if (forbiddenError) return { refusal: forbiddenError }
-
-  const valueError = await validateUpdateFieldValues({
-    c,
-    app,
-    tableName,
-    userRole,
-    fields: allowedData,
-  })
-  if (valueError) return { refusal: formatValidationError(valueError, c) }
-
-  // `rich-text` columns are HTML-sanitized last, on the map that survived the
-  // gates above — the same shared rule and the same position the single-record
-  // verb runs it in (record-write-handlers.ts:538). Unlike its siblings this
-  // one TRANSFORMS the write rather than refusing it, so the sanitized map is
-  // what this helper returns and therefore what reaches every targeted row:
-  // computing it without feeding it forward would leave the raw markup on the
-  // column while every gate reported success.
-  return {
-    fields: await sanitizeUpdateRichTextFields(
+    const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
       app,
       tableName,
-      {
-        role: userRole,
-        groups: getTableContext(c).userGroups,
-        signedOut: isGuestSession(getTableContext(c).session.userId),
-      },
-      allowedData
-    ),
-  }
-}
+      { role: userRole, groups: getTableContext(c).userGroups },
+      data
+    )
+    // S1 anti-enumeration: a field the role cannot write refuses the whole
+    // request with 404 rather than dropping the key, so the field-permission
+    // boundary stays undiscoverable — the contract the JSON verb pins.
+    const forbiddenError = validateUpdateForbiddenFields(forbiddenFields, c)
+    if (forbiddenError) return refusedUpdate(forbiddenError)
+
+    const checked = yield* checkedUpdateValues({
+      c,
+      app,
+      tableName,
+      userRole,
+      fields: allowedData,
+    })
+    if (checked._tag === 'Failure') return refusedUpdate(formatValidationError(checked.failure, c))
+
+    // A `rich-text` value is cleaned by the batch update itself, on every road a
+    // record is written through (`record-write-values.ts`).
+    const resolved: BulkUpdateResolution = { fields: checked.success }
+    return resolved
+  })
 
 /**
  * Refuse a bulk-update key that names no field of the table.
@@ -259,7 +261,7 @@ function refuseUnknownBulkKeys(
  * from when they sat inline, so no request changes status as a result of the
  * extraction.
  */
-async function resolveBulkUpdateGates(input: {
+const resolveBulkUpdateGates = (input: {
   readonly c: Context
   readonly app: App
   readonly session: ReturnType<typeof getTableContext>['session']
@@ -270,54 +272,53 @@ async function resolveBulkUpdateGates(input: {
   readonly ids: readonly string[]
   /** The parsed `_data` blob. */
   readonly data: Record<string, unknown>
-}): Promise<{ readonly refusal: Response } | { readonly fields: Record<string, unknown> }> {
-  const { c, app, session, tableName, userRole, userGroups, ids, data } = input
+}) =>
+  Effect.gen(function* () {
+    const { c, app, session, tableName, userRole, userGroups, ids, data } = input
 
-  const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
+    const table = app.tables?.find((t) => t.name === tableName)
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
 
-  // Effective roles, not a bare role — same contract, and the same 404, as the
-  // bulk-delete gate above.
-  if (
-    !guard &&
-    !hasUpdatePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app)
-  ) {
-    return { refusal: notFound(c) }
-  }
+    // Effective roles, not a bare role — same contract, and the same 404, as the
+    // bulk-delete gate above.
+    if (
+      !guard &&
+      !hasUpdatePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app)
+    ) {
+      return refusedUpdate(notFound(c))
+    }
 
-  if (ids.length === 0) {
-    const refusal = c.json(
-      { success: false, message: 'No records specified', code: 'BAD_REQUEST' },
-      400
-    )
-    return { refusal }
-  }
+    if (ids.length === 0) {
+      return refusedUpdate(
+        c.json({ success: false, message: 'No records specified', code: 'BAD_REQUEST' }, 400)
+      )
+    }
 
-  // Per-FIELD and per-VALUE rules, after the table-level gate so an
-  // unauthorized caller is refused before learning anything about the payload.
-  const resolved = await resolveBulkUpdateFields({ c, app, tableName, userRole, data })
-  if ('refusal' in resolved) return resolved
+    // Per-FIELD and per-VALUE rules, after the table-level gate so an
+    // unauthorized caller is refused before learning anything about the payload.
+    const resolved = yield* resolveBulkUpdateFields({ c, app, tableName, userRole, data })
+    if ('refusal' in resolved) return resolved
 
-  // Z-3: row-level scoping — every id must individually satisfy the read and
-  // write predicates, each row checked as it stands AND as it will be written
-  // (the resolved field map). Atomic-fail on any miss.
-  const rowError = guard
-    ? await enforceBulkMutationGate({
-        c,
-        table,
-        session,
-        tableName,
-        ids,
-        guard,
-        op: 'write',
-        changes: new Map(ids.map((id) => [String(id), resolved.fields])),
-      })
-    : undefined
-  // A computed field she may write is refused for every row, after both gates:
-  // a caller who may not update the rows learns no column name from it.
-  const refusal = rowError ?? validateUpdateComputedFields(table, resolved.fields, c)
-  return refusal ? { refusal } : resolved
-}
+    // Z-3: row-level scoping — every id must individually satisfy the read and
+    // write predicates, each row checked as it stands AND as it will be written
+    // (the resolved field map). Atomic-fail on any miss.
+    const rowError = guard
+      ? yield* enforceBulkMutationGate({
+          c,
+          table,
+          session,
+          tableName,
+          ids,
+          guard,
+          op: 'write',
+          changes: new Map(ids.map((id) => [String(id), resolved.fields])),
+        })
+      : undefined
+    // A computed field she may write is refused for every row, after both gates:
+    // a caller who may not update the rows learns no column name from it.
+    const refusal = rowError ?? validateUpdateComputedFields(table, resolved.fields, c)
+    return refusal ? refusedUpdate(refusal) : resolved
+  })
 
 /**
  * Handle form-based bulk UPDATE with redirect.
@@ -330,57 +331,63 @@ async function resolveBulkUpdateGates(input: {
  * Uses synchronous navigation to ensure DB writes complete before
  * the browser proceeds (eliminates race conditions in E2E tests).
  */
-export async function handleFormBulkUpdate(c: Context, app: App) {
-  const { session, tableName, userRole, userGroups } = getTableContext(c)
+export function handleFormBulkUpdate(c: Context, app: App) {
+  return runHandlerEffect(c, answerFailures(c, formBulkUpdateResponse(c, app)))
+}
 
-  const body = await c.req.parseBody()
-  const ids = parseJsonField<readonly string[]>(body['_ids'], [])
-  const data = parseJsonField<Record<string, unknown>>(body['_data'], {})
-  const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
+/** Gate, update and redirect a form's bulk update, as one program. */
+const formBulkUpdateResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const { session, tableName, userRole, userGroups } = getTableContext(c)
 
-  const resolved = await resolveBulkUpdateGates({
-    c,
-    app,
-    session,
-    tableName,
-    userRole,
-    userGroups,
-    ids,
-    data,
-  })
-  if ('refusal' in resolved) return resolved.refusal
+    const body = yield* readFormBody(c)
+    const ids = parseJsonField<readonly string[]>(body['_ids'], [])
+    // A plain string fills the language of the page the action was run from.
+    const posted = parseJsonField<Record<string, unknown>>(body['_data'], {})
+    const data = { ...inWriteLanguage(app, tableName, posted, pageWriteLanguage(c, app)) }
+    const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
 
-  // An id her list of the table does not admit is skipped, as a missing id is.
-  const unlisted = new Set(await runDomainPromise(c, callerUnlistedRows(c, app, ids)))
-  const recordsData = ids
-    .filter((id) => !unlisted.has(String(id)))
-    .map((id) => ({ id, fields: resolved.fields }))
+    const resolved = yield* resolveBulkUpdateGates({
+      c,
+      app,
+      session,
+      tableName,
+      userRole,
+      userGroups,
+      ids,
+      data,
+    })
+    if ('refusal' in resolved) return resolved.refusal
 
-  // The batch update the records API runs, side effects included: a column the
-  // user wrote by hand is no longer reported as a failed computed fallback.
-  // A refused update answers what the batch update answers for the same change —
-  // a taken unique value included — never the page's success or its redirect.
-  const updated = await runEffect(
-    c,
-    provideDomain(
+    // An id her list of the table does not admit is skipped, as a missing id is.
+    const unlisted = new Set(yield* callerUnlistedRows(c, app, ids))
+    const recordsData = ids
+      .filter((id) => !unlisted.has(String(id)))
+      .map((id) => ({ id, fields: resolved.fields }))
+
+    // The batch update the records API runs, side effects included: a column the
+    // user wrote by hand is no longer reported as a failed computed fallback.
+    // A refused update answers what the batch update answers for the same change —
+    // a taken unique value included — never the page's success or its redirect.
+    const updated = yield* respondWith(
       c,
       batchUpdateWithSideEffects({
-        ...{ session, tableName, app, linkReader: getLinkReader(c), processEnv: process.env },
+        ...{ session, tableName, app, linkReader: getLinkReader(c) },
         records: recordsData,
         returnRecords: false,
         requester: recordWriteRequester(session.userId, userRole),
+        userGroups,
       })
     )
-  )
-  if (!updated.ok) {
-    return maskUnreadableUniqueConflict(c, app, updatedWrite(recordsData), updated)
-  }
+    if (!updated.ok) {
+      return yield* maskUnreadableUniqueConflict(c, app, updatedWrite(recordsData), updated)
+    }
 
-  // The path arrives in the request body, so it is only honoured once proven
-  // same-origin — otherwise it is an open redirect off this site.
-  if (isSafeRedirectPath(redirectPath)) {
-    return c.redirect(redirectPath, 302)
-  }
+    // The path arrives in the request body, so it is only honoured once proven
+    // same-origin — otherwise it is an open redirect off this site.
+    if (isSafeRedirectPath(redirectPath)) {
+      return c.redirect(redirectPath, 302)
+    }
 
-  return c.json({ success: true }, 200)
-}
+    return yield* respondWith(c, Effect.succeed({ success: true }), successResponseSchema)
+  })

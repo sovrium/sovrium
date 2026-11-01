@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, param, PLACE_NOTE, THEME_NOTE, when } from '@/library/manifest/block-kit'
-import { stringParam } from '@/library/manifest/block-notes'
+import { asComponent, param, PLACE_NOTE, THEME_NOTE, when } from '@/library/kit/block-kit'
+import { stringParam } from '@/library/kit/block-notes'
+import { labelOf } from '@/library/kit/field-labels'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import { labelOf } from '@/library/manifest/field-labels'
 
 type P = (key: string) => string
 type Node = Readonly<Record<string, unknown>>
@@ -73,18 +73,24 @@ const filterBar = (p: P): Node => ({
 /**
  * One button at the toolbar's height. No icon: a button whose words come from
  * `label` is drawn without the flex row an icon beside its words needs.
+ *
+ * Disabled while the reads on the channel failed: a grid that could not be
+ * read is no ground for exporting, importing into or adding to its table, and
+ * the toolbar knows the grid only by its channel. A later read that succeeds
+ * gives the button back.
  */
-const toolbarButton = (label: string, action: Node, variant = 'outline'): Node => ({
+const toolbarButton = (p: P, label: string, action: Node, variant = 'outline'): Node => ({
   type: 'button',
   label,
   variant,
   size: 'sm',
+  disabledWhenRead: { channel: p('channel'), state: 'failed' },
   action,
 })
 
 /** The Export CSV button: a download of the table as the reader may read it. */
 const exportButton = (p: P): Node =>
-  toolbarButton(p('exportLabel'), {
+  toolbarButton(p, p('exportLabel'), {
     type: 'fetch',
     mode: 'download',
     url: `/api/tables/${p('table')}/export?format=csv`,
@@ -117,11 +123,11 @@ const trailing = (p: P): Node => ({
     ...when(p('exportLabel'), exportAffordance(p)),
     ...when(
       p('importLabel'),
-      toolbarButton(p('importLabel'), { action: 'openImport', table: p('table') })
+      toolbarButton(p, p('importLabel'), { action: 'openImport', table: p('table') })
     ),
     ...when(
       p('newSheet'),
-      toolbarButton(newLabelOf(p), { action: 'openSheet', component: p('newSheet') }, 'default')
+      toolbarButton(p, newLabelOf(p), { action: 'openSheet', component: p('newSheet') }, 'default')
     ),
   ],
 })

@@ -107,7 +107,7 @@ export const AUTH_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
     name: 'two_factor',
     denylistFields: ['secret', 'backupCodes'],
     description:
-      'Two-factor authentication enrollment. TOTP secret and backup codes are denylisted — exposure would defeat 2FA entirely.',
+      'Two-factor authentication enrollment. TOTP secret and backup codes are denylisted, since exposure would defeat 2FA entirely.',
   },
   {
     schema: 'auth',
@@ -233,7 +233,7 @@ export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
     name: 'webhook_configs',
     denylistFields: ['secret'],
     description:
-      'Outgoing webhook endpoint configurations. Webhook secrets are denylisted — exposure would let AI forge signed payloads to those endpoints.',
+      'Outgoing webhook endpoint configurations. Webhook secrets are denylisted, since exposure would let AI forge signed payloads to those endpoints.',
   },
   {
     schema: 'system',
@@ -266,7 +266,7 @@ export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
     name: 'search_index',
     denylistFields: ['content_tsv'],
     description:
-      'Full-text search content rows (one tsvector per record). The content_tsv column is denylisted — an opaque tsvector blob not useful to AI clients.',
+      'Full-text search content rows (one tsvector per record). The content_tsv column is denylisted: an opaque tsvector blob not useful to AI clients.',
   },
   {
     schema: 'system',
@@ -303,7 +303,7 @@ export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
     name: 'ai_messages',
     denylistFields: ['embeddings'],
     description:
-      'Individual AI conversation messages (role, content). The embedding vector column is denylisted — large and not useful for AI clients.',
+      'Individual AI conversation messages (role, content). The embedding vector column is denylisted: large and not useful for AI clients.',
   },
   {
     schema: 'system',

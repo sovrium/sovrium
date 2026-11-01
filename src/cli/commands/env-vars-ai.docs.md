@@ -20,29 +20,29 @@ AI is disabled until a provider is set, and an unrecognised value aborts the boo
 
 Provider-specific aliases are read when the generic variable is absent: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `MISTRAL_API_KEY` and `GOOGLE_API_KEY` stand in for the generic key, and `OLLAMA_BASE_URL` for the generic base URL. **The generic name always wins when both are set**, which is worth knowing before debugging a key that appears to be ignored.
 
-Where a model call may go — the local model, a cloud provider, or the local one only — is decided by `ECO_AI_PROVIDER_PRECEDENCE`, listed with the other eco levers in **Env Vars: Services**.
+Where a model call may go (the local model, a cloud provider, or the local one only) is decided by `ECO_AI_PROVIDER_PRECEDENCE`, listed with the other eco levers in **Env Vars: Services**.
 
 ## Chat
 
-Every chat limit is off or generous by default. A turn that breaks one is answered with an error the chat window shows, never with a reply the model did not give.
+Most chat limits are off or generous by default; the two that guard the bill of a hosted provider are on. A turn that breaks one is answered with an error the chat window shows, never with a reply the model did not give.
 
-| Variable                      | Default        | Description                                                                                                          |
-| ----------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `AI_CHAT_RATE_LIMIT`          | unset (no cap) | Chat messages allowed per user per window; the next one answers `429`                                                |
-| `AI_CHAT_RATE_WINDOW`         | `60`           | Length of that window, in seconds                                                                                    |
-| `AI_ANON_RATE_LIMIT`          | `10`           | Anonymous transcriptions and chat messages allowed per window, per client address, on an app without `auth`          |
-| `AI_ANON_RATE_WINDOW`         | `60`           | Length of that window, in seconds                                                                                    |
-| `AI_CHAT_MAX_MESSAGE_LENGTH`  | unset (no cap) | Longest question accepted, in characters; a longer one answers `400`                                                 |
-| `AI_CHAT_TIMEOUT`             | unset (none)   | Time one model call may take, in milliseconds; past it the turn answers `504`                                        |
-| `AI_CHAT_STREAM_TIMEOUT`      | unset (none)   | Time a streamed answer may take to send its first words, in milliseconds; past it the stream answers `504`           |
-| `AI_CHAT_MAX_RETRIES`         | unset (none)   | Retries of a model call the provider refused as busy (`429` or `503`)                                                |
-| `AI_CHAT_MAX_TOOL_ITERATIONS` | `5`            | Rounds of tool calls the model may make before it must answer                                                        |
-| `AI_CHAT_MAX_QUERY_ROWS`      | `100`          | Most records one table query from the chat returns                                                                   |
-| `AI_CONFIRMATION_TTL_MS`      | `300000`       | How long a delete or bulk update the chat proposes waits for its confirmation, in milliseconds; after it, it expires |
-| `AI_CHAT_MAX_FILE_CHARS`      | `20000`        | Most characters of any one file sent in a chat that the model reads                                                  |
-| `AI_CHAT_MAX_TURN_FILE_CHARS` | `50000`        | Most characters of all the files one turn carries, together                                                          |
+| Variable                      | Default                                       | Description                                                                                                                                                            |
+| ----------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_CHAT_RATE_LIMIT`          | `60` on a hosted provider, unset on Ollama    | Chat messages allowed per user per window, and as many transcriptions, attachment uploads and knowledge searches each; the next one answers `429`. `0` lifts the limit |
+| `AI_CHAT_RATE_WINDOW`         | `60`                                          | Length of that window, in seconds                                                                                                                                      |
+| `AI_ANON_RATE_LIMIT`          | `10`                                          | Anonymous transcriptions and chat messages allowed per window, per client address, on an app without `auth`                                                            |
+| `AI_ANON_RATE_WINDOW`         | `60`                                          | Length of that window, in seconds                                                                                                                                      |
+| `AI_CHAT_MAX_MESSAGE_LENGTH`  | `10000` on a hosted provider, unset on Ollama | Longest question accepted, in characters; a longer one answers `400`. `0` lifts the cap                                                                                |
+| `AI_CHAT_TIMEOUT`             | unset (none)                                  | Time one model call may take, in milliseconds; past it the turn answers `504`                                                                                          |
+| `AI_CHAT_STREAM_TIMEOUT`      | unset (none)                                  | Time a streamed answer may take to send its first words, in milliseconds; past it the stream answers `504`                                                             |
+| `AI_CHAT_MAX_RETRIES`         | unset (none)                                  | Retries of a model call the provider refused as busy (`429` or `503`)                                                                                                  |
+| `AI_CHAT_MAX_TOOL_ITERATIONS` | `5`                                           | Rounds of tool calls the model may make before it must answer                                                                                                          |
+| `AI_CHAT_MAX_QUERY_ROWS`      | `100`                                         | Most records one table query from the chat returns                                                                                                                     |
+| `AI_CONFIRMATION_TTL_MS`      | `300000`                                      | How long a delete or bulk update the chat proposes waits for its confirmation, in milliseconds; after it, it expires                                                   |
+| `AI_CHAT_MAX_FILE_CHARS`      | `20000`                                       | Most characters of any one file sent in a chat that the model reads                                                                                                    |
+| `AI_CHAT_MAX_TURN_FILE_CHARS` | `50000`                                       | Most characters of all the files one turn carries, together                                                                                                            |
 
-**A signed-in user's chat is not rate-limited until you set `AI_CHAT_RATE_LIMIT`.** An app with `auth` that exposes a chat agent exposes an uncapped path to a metered provider until it is set. An app without `auth` is covered by the anonymous limit whether or not it is.
+**A hosted provider is capped by default; a local model is not.** When `AI_PROVIDER` names a hosted provider (anything but `ollama`, `openai-compatible` included), a signed-in user who sends more than 60 chat messages a minute is answered `429`, and a question longer than 10,000 characters is answered `400`, before the model is called. Each question costs money there, so an app that exposes a chat never exposes an uncapped path to the provider's bill. With `AI_PROVIDER=ollama` neither default applies. Set either variable to a number to choose your own limit, or to `0` to lift it. The rate default counts the person chatting, on `POST /api/ai/chat`, its stream and a branched conversation alike, and the same limit holds, each in a window of its own, for their transcriptions, chat attachment uploads and knowledge searches; an agent's own budget is limited only when you set `AI_CHAT_RATE_LIMIT`. AI fields are paced per app as well: at most 4 refinements reach the provider at once on any provider, and on a hosted one at most 600 start per `AI_CHAT_RATE_WINDOW`; the rest wait their turn, none is dropped, and `AI_CHAT_RATE_LIMIT=0` lifts that budget too. An app without `auth` is covered by the anonymous limit as well.
 
 **The file limits apply on every turn.** A file sent in a conversation is read again on each later turn of it, so its text is bounded each time: the newest message's files are served first, and a file cut short ends with `[…truncated, N more characters]`, `N` being what the model did not read. Raise both for a model with a large context window. An SVG is markup and counts as a file, read as text; only a raster picture is sent as an image, and only with `AI_VISION=1`.
 

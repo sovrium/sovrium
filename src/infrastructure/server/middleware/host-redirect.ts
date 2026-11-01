@@ -10,6 +10,8 @@ import {
   confineHost,
   trustedForwarding,
 } from '@/domain/kernel/url/request-base-url'
+import { resolveTrustedProxyHops } from '@/domain/models/process-env/proxy'
+import { declaredBaseUrl } from '@/domain/models/process-env/server'
 import type { MiddlewareHandler } from 'hono'
 
 /**
@@ -120,8 +122,8 @@ export const resolveHostRedirect = (inputs: HostRedirectInputs): string | undefi
  * The trailing slash (if any) is trimmed so the caller can append the path.
  */
 const resolveRedirectOrigin = (host: string | undefined, forwardedProto?: string): string => {
-  const fromEnv = Bun.env.BASE_URL
-  if (fromEnv) return fromEnv.replace(/\/$/, '')
+  const fromEnv = declaredBaseUrl(process.env)
+  if (fromEnv !== undefined) return fromEnv
 
   if (host) {
     // A forwarded scheme is confined to `http`/`https`: the header is client
@@ -152,7 +154,10 @@ export const hostRedirect: MiddlewareHandler = async (c, next) => {
   // Both hosts are confined to a host before use: the matched one is printed
   // into the 301 `Location` when `BASE_URL` is unset, and a chained proxy's
   // comma-joined `X-Forwarded-Host` must not carry its tail into that header.
-  const forwarded = trustedForwarding((name) => c.req.header(name))
+  const forwarded = trustedForwarding(
+    (name) => c.req.header(name),
+    resolveTrustedProxyHops(process.env)
+  )
   const rawHost = forwarded.host ?? confineHost(c.req.header('Host'))
   const url = new URL(c.req.url)
   const location = resolveHostRedirect({

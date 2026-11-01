@@ -11,7 +11,7 @@ import { Schema } from 'effect'
  * Scalar accepted by the comparison operators.
  */
 const ConditionValueSchema = Schema.Union([Schema.String, Schema.Finite, Schema.Boolean]).annotate({
-  description: 'A value the field is compared against — a string, a number or a boolean.',
+  description: 'A value the field is compared against: a string, a number or a boolean.',
 })
 
 /** Array of values for the set-membership operators (`in` / `notIn`). */

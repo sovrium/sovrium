@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { originEntryRefusal, parseOriginList, type OriginList } from './origin-list'
 
 /**
  * Framing origins and the preview token — two free, generic switches.
@@ -53,9 +54,9 @@ export const PreviewEnvSchema = Schema.Struct({
 
 export type PreviewEnvConfig = Schema.Schema.Type<typeof PreviewEnvSchema>
 
-/** Read both variables from an env snapshot (defaults to `process.env`). */
+/** Read both variables from an env snapshot . */
 export const parsePreviewEnvConfig = (
-  processEnv: Readonly<Record<string, string | undefined>> = process.env
+  processEnv: Readonly<Record<string, string | undefined>>
 ): PreviewEnvConfig =>
   Schema.decodeSync(PreviewEnvSchema)({
     frameAncestors: processEnv['SOVRIUM_FRAME_ANCESTORS'],
@@ -66,50 +67,22 @@ export const parsePreviewEnvConfig = (
 export const PREVIEW_TOKEN_MIN_LENGTH = 32
 
 const VARIABLE = 'SOVRIUM_FRAME_ANCESTORS'
-const HTTPS_ORIGIN = /^https:\/\/[a-z0-9.-]+(?::\d{1,5})?$/i
-const LOCAL_HTTP_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d{1,5})?$/i
 
 /**
  * Why one `SOVRIUM_FRAME_ANCESTORS` entry is refused, or `undefined` when it
  * is an origin the header may name. Origins are not secrets: the entry is
  * echoed.
  */
-export const frameAncestorRefusal = (entry: string): string | undefined => {
-  if (entry === '*' || entry.startsWith("'")) {
-    return `${VARIABLE}: "${entry}" is not allowed (name each origin)`
-  }
-  if (entry.includes('*')) return `${VARIABLE}: "${entry}" is not allowed (no wildcard host)`
-  if (HTTPS_ORIGIN.test(entry) || LOCAL_HTTP_ORIGIN.test(entry)) return undefined
-  if (/^[a-z][a-z0-9+.-]*:\/\/[^/?#]+[/?#]/i.test(entry)) {
-    return `${VARIABLE}: "${entry}" is not an origin (no path allowed)`
-  }
-  if (/^http:\/\//i.test(entry)) {
-    return `${VARIABLE}: "${entry}" is not allowed (use https, or http only for localhost)`
-  }
-  return `${VARIABLE}: "${entry}" is not an origin`
-}
+export const frameAncestorRefusal = (entry: string): string | undefined =>
+  originEntryRefusal(VARIABLE, entry)
 
 /**
  * The origins `SOVRIUM_FRAME_ANCESTORS` names, or the sentence that refuses
  * the start. `undefined` (unset) is no list and no refusal; a blank value is a
  * refusal, so a variable set by mistake never silently means "nobody".
  */
-export const parseFrameAncestors = (
-  value: string | undefined
-):
-  | { readonly _tag: 'Unset' }
-  | { readonly _tag: 'Origins'; readonly origins: readonly string[] }
-  | { readonly _tag: 'Refused'; readonly message: string } => {
-  if (value === undefined) return { _tag: 'Unset' }
-  const entries = value.split(/\s+/).filter((entry) => entry !== '')
-  if (entries.length === 0) {
-    return { _tag: 'Refused', message: `${VARIABLE} is set but names no origin` }
-  }
-  const refusal = entries.map(frameAncestorRefusal).find((message) => message !== undefined)
-  return refusal === undefined
-    ? { _tag: 'Origins', origins: entries }
-    : { _tag: 'Refused', message: refusal }
-}
+export const parseFrameAncestors = (value: string | undefined): OriginList =>
+  parseOriginList(VARIABLE, value, /\s+/)
 
 /**
  * The sentence that refuses the start for a preview token, or `undefined` when

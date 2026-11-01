@@ -1,6 +1,6 @@
 # Interactive Components
 
-> The clickable, inline primitives — button, link, alert, badge, button-group and theme-toggle.
+> The clickable, inline primitives: button, link, alert, badge, button-group, theme-toggle and consent-choice.
 
 Interactive components are the ones a reader acts on: buttons that fire actions, links that navigate, alerts and badges that convey status. They carry the shared `action` and `interactions` modules on top of `props`, `visibility` and `responsive`.
 
@@ -20,19 +20,23 @@ A button that runs an `action`, an `interactions` behaviour, or both.
 
 <!-- sovrium:options type:button -->
 
-`variant` is declared beside `action`, not inside `props`: `default` is the primary fill and what you get by declaring nothing, and the rest are `destructive`, `outline`, `secondary`, `ghost`, `link` and `fab`. Every variant and size draws shadcn/ui's Button exactly: one focus ring with no offset ring around it, a primary that hovers at 80 % of its own colour, and a `destructive` button drawn as a tint — the label in the destructive colour on a faint ground of it — rather than a solid red block. An app that wants the solid red declares it once, for every destructive button, under `design.components.button.variants.destructive.root` (for example `bg-destructive text-white hover:bg-destructive/90`); those classes win over the default on every property they name. `size` takes shadcn/ui's scale: `xs`, `sm`, `default` (what you get by declaring nothing) and `lg` for a labelled button, and `icon-xs`, `icon-sm`, `icon` and `icon-lg` for a square button that draws its `icon` alone. `icon` names a Lucide icon drawn before the label; at an icon size the `label` is no longer printed but becomes the button's accessible name, so an icon size without an `icon` or without a `label` is refused when the configuration is read. `label` is the text; `content` is the alternative when the button holds a child, such as an `icon`. `loading` — beside `type`, like `variant` and `label` — shows a spinner inside the button; `props.disabled` disables it, and that one really does live in the bag. A button with `props.href` is drawn as a link styled as a button. It keeps its variant and size and honours `target` and `rel`. An address that is not a path on this site or a web address is dropped.
+`variant` is declared beside `action`, not inside `props`: `default` is the primary fill and what you get by declaring nothing, and the rest are `destructive`, `outline`, `secondary`, `ghost`, `link` and `fab`. Every variant and size draws shadcn/ui's Button exactly: one focus ring with no offset ring around it, a primary that hovers at 80 % of its own colour, and a `destructive` button drawn as a tint (the label in the destructive colour on a faint ground of it) rather than a solid red block. An app that wants the solid red declares it once, for every destructive button, under `design.components.button.variants.destructive.root` (for example `bg-destructive text-white hover:bg-destructive/90`); those classes win over the default on every property they name. `size` takes shadcn/ui's scale: `xs`, `sm`, `default` (what you get by declaring nothing) and `lg` for a labelled button, and `icon-xs`, `icon-sm`, `icon` and `icon-lg` for a square button that draws its `icon` alone. `icon` names a Lucide icon drawn before the label; at an icon size the `label` is no longer printed but becomes the button's accessible name, so an icon size without an `icon` or without a `label` is refused when the configuration is read. `label` is the text; `content` is the alternative when the button holds a child, such as an `icon`. `loading` (beside `type`, like `variant` and `label`) shows a spinner inside the button; `props.disabled` disables it, and that one really does live in the bag. A button with `props.href` is drawn as a link styled as a button. It keeps its variant and size and honours `target` and `rel`. An address that is not a path on this site or a web address is dropped.
 
-`{ action: openImport, table }` opens the CSV import dialog for that table — choose a file, map its columns to the table's fields, write the rows — the dialog a grid's own Import used to open. The button is drawn only for a reader the table lets create records.
+`{ action: openImport, table }` opens the CSV import dialog for that table (choose a file, map its columns to the table's fields, write the rows): the dialog a grid's own Import used to open. The button is drawn only for a reader the table lets create records.
 
-`confirm` puts a prompt between the click and the action. It is an object rather than a boolean so that the prompt can say what is about to happen — see the confirmation options in the table above. The confirm button is red only when the action is destructive: the button declares `variant: destructive`, or its request is a `DELETE`. Any other confirm uses the default button.
+`confirm` puts a prompt between the click and the action. It is an object rather than a boolean so that the prompt can say what is about to happen. See the confirmation options in the table above. The confirm button is red only when the action is destructive: the button declares `variant: destructive`, or its request is a `DELETE`. Any other confirm uses the default button.
 
 Once its action succeeds, a button can close the dialog, drawer or popover it sits in (`onSuccess.close`) and take the reader elsewhere (`onSuccess.navigate`, filled from the button's record, and for a `fetch` action from the body the request returned). A button has no form, so its `onSuccess.type` can only be `navigate`, and its `onError` only a `toast`; anything else is refused when the configuration is read.
 
 ### Disabled on some records
 
-`disabledWhen` keeps a button drawn but unusable on the records it matches, in the grammar of `visibleWhen` (`{ field: credit_balance, lt: 8 }`), and `disabledReason` says why. It applies to a `button` placed on a record of a table — in a list's row template, or in a single-record container or a page bound to one record — and is refused at startup outside any record binding; the same pair is accepted by a button field and by a table's row actions. The record must be a row of a declared table: a `disabledWhen` on a button or row action whose rows come from a `system` source or a `collection` page, one in the page `layout`, and one inside a template placed from `app.components` would never be judged, so each is refused at startup too. The button is marked `aria-disabled` and stays focusable; pressing it does nothing. `disabledReason`, which accepts `$record.<field>` and a `$t:` key, shows in a tooltip on hover and on focus and is announced as the button's description; without it the button is disabled with no explanation, and a `disabledReason` without `disabledWhen` is refused.
+`disabledWhen` keeps a button drawn but unusable on the records it matches, in the grammar of `visibleWhen` (`{ field: credit_balance, lt: 8 }`), and `disabledReason` says why. It applies to a `button` placed on a record of a table (in a list's row template, or in a single-record container or a page bound to one record), and is refused at startup outside any record binding; the same pair is accepted by a button field and by a table's row actions. The record must be a row of a declared table: a `disabledWhen` on a button or row action whose rows come from a `system` source or a `collection` page, one in the page `layout`, and one inside a template placed from `app.components` would never be judged, so each is refused at startup too. The button is marked `aria-disabled` and stays focusable; pressing it does nothing. `disabledReason`, which accepts `$record.<field>` and a `$t:` key, shows in a tooltip on hover and on focus and is announced as the button's description; without it the button is disabled with no explanation, and a `disabledReason` without `disabledWhen` is refused.
 
 The server decides: it checks the condition on the whole record, even a field the reader may not read, and sends the page only which controls are disabled (the record's `_disabled` list), never the value. An automation a disabled control would start is refused with 409 `ACTION_DISABLED` and the reason when the press names its record; a hidden one answers 404, as an absent one does. The 409 tells the reader whether the condition holds, the same thing the greyed button shows. On a table listed in `auth.scopeTables`, a press naming a record no grant gives the presser answers 404 too. `disabledWhen` guards the press: a press that names no record is refused as an unknown automation when every control that starts it on the pages the presser may open is one the server judges, and still runs when one of them is a plain control (a button with no condition, a form, a control inside a template placed from `app.components`), which is then not judged. A run started another way (the manual trigger, an MCP call, an agent) is not judged by it, and a `condition` step at the head of the automation guards every road. Unlike `props.disabled`, which is the same on every record.
+
+### Following what a data component read
+
+`hiddenWhenRead` and `disabledWhenRead` make a button follow what a `table` or a `kanban` on its page last read: name one by its `props.id` (`component`), or every one subscribed to a shared-filter channel (`channel`), and the read states (`loading`, `failed`, `empty`, `nonEmpty`) during which the button is hidden or disabled; it comes back, without a reload, as soon as a later read leaves them. Both are decided in the browser after the read, so they are not a permission: use `visibility` for who may see the button.
 
 ### A pre-filled picker on a record
 
@@ -40,11 +44,11 @@ The server decides: it checks the condition on the whole record, even a field th
 
 ### Once the action has answered
 
-On success, an action's effects run in one order: the toast, then `status` and `refetch`, then a reset, then `close`, then leaving the page — `navigate`, a redirect or `reload`. A failure runs none of them: the control comes back as it was, the field errors are drawn, the focus returns to the control, and the `onError` toast follows. Nothing closes and nothing navigates. A fetch toast with a `loadingMessage` shows one `loading` toast while the request is in flight, and that same toast then turns into the `onSuccess` or the `onError` message: one toast, never two.
+On success, an action's effects run in one order: the toast, then `status` and `refetch`, then a reset, then `close`, then leaving the page: `navigate`, a redirect or `reload`. A failure runs none of them: the control comes back as it was, the field errors are drawn, the focus returns to the control, and the `onError` toast follows. Nothing closes and nothing navigates. A fetch toast with a `loadingMessage` shows one `loading` toast while the request is in flight, and that same toast then turns into the `onSuccess` or the `onError` message: one toast, never two.
 
-`close: true` closes the overlay the control sits in — a dialog, an alert dialog, a sheet, a record-detail sheet or a popover. A table row action and a menu item close the overlay that holds their table or their menu: a "Send reminder" row action in a table shown in a dialog closes that dialog once its start is accepted. A menu's own popup closes as soon as an item is chosen, with or without the key; `close` is what closes the drawer or dialog around the menu. When two are nested, only the innermost closes: a popover inside a dialog closes, the dialog stays. A control that sits in no overlay has nothing to close, and the key does nothing there. Whichever confirm gates a row action — a one-line prompt or a dialog with its own title and buttons — `close` reaches the overlay around its table. Left unset, each control keeps its habit: a `crud` form in a dialog, or in a drawer a row click opened for quick editing, closes it after its write, whether the save goes by a plain page post or through the page's script; a button, a row action and a menu item close nothing. `close: false` keeps the overlay open even after a write — the quick editor saved several times in a row.
+`close: true` closes the overlay the control sits in: a dialog, an alert dialog, a sheet, a record-detail sheet or a popover. A table row action and a menu item close the overlay that holds their table or their menu: a "Send reminder" row action in a table shown in a dialog closes that dialog once its start is accepted. A menu's own popup closes as soon as an item is chosen, with or without the key; `close` is what closes the drawer or dialog around the menu. When two are nested, only the innermost closes: a popover inside a dialog closes, the dialog stays. A control that sits in no overlay has nothing to close, and the key does nothing there. Whichever confirm gates a row action (a one-line prompt or a dialog with its own title and buttons), `close` reaches the overlay around its table. Left unset, each control keeps its habit: a `crud` form in a dialog, or in a drawer a row click opened for quick editing, closes it after its write, whether the save goes by a plain page post or through the page's script; a button, a row action and a menu item close nothing. `close: false` keeps the overlay open even after a write, for a quick editor saved several times in a row.
 
-`navigate` takes the reader to another address once the action has succeeded. On an `automation`, success is the accepted start, or with `await: true` the end of the run, so an awaited button moves on only once the run is over; `$record.<field>` is filled from the record the control has — the page's record, or the row a row action sits in; a menu item has none, so its address is written out. A relative address — `preview`, `?saved=1`, `#comments` — is resolved against the page the control is on, on an edit form as on a button. On a `fetch` action, and on a `file-upload`, `navigate` may also read the body the request returned through `$response.<field>`, so a "Create the invoice" button can open the invoice it just created:
+`navigate` takes the reader to another address once the action has succeeded. On an `automation`, success is the accepted start, or with `await: true` the end of the run, so an awaited button moves on only once the run is over; `$record.<field>` is filled from the record the control has: the page's record, or the row a row action sits in; a menu item has none, so its address is written out. A relative address (`preview`, `?saved=1`, `#comments`) is resolved against the page the control is on, on an edit form as on a button. On a `fetch` action, and on a `file-upload`, `navigate` may also read the body the request returned through `$response.<field>`, so a "Create the invoice" button can open the invoice it just created:
 
 ```yaml
 - type: button
@@ -59,11 +63,11 @@ On success, an action's effects run in one order: the toast, then `status` and `
       navigate: /invoices/$response.id
 ```
 
-A success that both shows a toast and moves to another page of this site carries the toast with the reader: the page they land on shows it once as it loads, in the same notice region and under the same rules as any toast, and a reload does not show it again. A carried toast older than a minute is dropped. Before it leaves, the page waits half a second, long enough for a write the next page reads to land, with the control kept busy. A move that stays on the page (`#comments`) shows the toast in place.
+A success that both shows a toast and moves to another page of this site carries the toast with the reader, including when that page is the one the reader was on, which is loaded again with its new values: the page they land on shows it once as it loads, in the same notice region and under the same rules as any toast, and a reload does not show it again. A carried toast older than a minute is dropped. Before it leaves, the page waits half a second, long enough for a write the next page reads to land, with the control kept busy. A move that stays on the page (`#comments`) shows the toast in place.
 
-Some pairings are refused when the configuration is read, each with a message naming both keys: on a `fetch` action, `navigate` beside `reload`, `status` or `refetch`, and `close` beside `reload` — each writes into, re-reads or leaves the same page — and `navigate` in any `mode` but `fetch`; on any action, `close: true` beside a success page, which would be closed before anyone read it.
+Some pairings are refused when the configuration is read, each with a message naming both keys: on a `fetch` action, `navigate` beside `reload`, `status` or `refetch`, and `close` beside `reload` (each writes into, re-reads or leaves the same page), and `navigate` in any `mode` but `fetch`; on any action, `close: true` beside a success page, which would be closed before anyone read it.
 
-What a control cannot do is refused rather than ignored. A button, a table row action or a menu item has no form, so its `onSuccess.type` can only be `navigate`, and the keys that describe a form — `preserveFields`, `title`, `message`, `actions`, `showSummary`, `redirect` — are refused there. `onError` takes only `toast`, wherever the action sits. `type: role-landing` belongs to an `auth` sign-in. An `onSuccess.navigate` naming another site (`https://…`) is refused on every control — a button, a row action, a menu item, an endpoint form, a file upload and a form alike — because an answered action moves the reader within the app; a link sends them elsewhere. Each refusal names the place and says what to write instead.
+What a control cannot do is refused rather than ignored. A button, a table row action or a menu item has no form, so its `onSuccess.type` can only be `navigate`, and the keys that describe a form (`preserveFields`, `title`, `message`, `actions`, `showSummary`, `redirect`) are refused there. `onError` takes only `toast`, wherever the action sits. `type: role-landing` belongs to an `auth` sign-in. An `onSuccess.navigate` naming another site (`https://…`) is refused on every control (a button, a row action, a menu item, an endpoint form, a file upload and a form alike), because an answered action moves the reader within the app; a link sends them elsewhere. Each refusal names the place and says what to write instead.
 
 ## `link`
 
@@ -71,13 +75,13 @@ An anchor.
 
 <!-- sovrium:options type:link -->
 
-`props.href` carries the URL or route path, `props.target` and `props.rel` the usual anchor attributes, and `children` lets a link wrap something other than text — an `image`, for a clickable image.
+`props.href` carries the URL or route path, `props.target` and `props.rel` the usual anchor attributes, and `children` lets a link wrap something other than text, such as an `image` for a clickable image.
 
-A link with `target: _blank` tells assistive technology that it opens a new tab: "(opens in a new tab)" ends its accessible name, in the page language, and nothing changes on screen. Every link the engine opens in a new tab says the same — the "Built with Sovrium" badge, a docs article's edit and issue links, a file's Open, an attachment, a `url` cell, a menu or navigation entry, and a `button` whose `openUrl` click or `navigate` action sets `openInNewTab`. Rename the words under `sovrium.link.opensInNewTab`.
+A link with `target: _blank` tells assistive technology that it opens a new tab: "(opens in a new tab)" ends its accessible name, in the page language, and nothing changes on screen. Every link the engine opens in a new tab says the same: the "Built with Sovrium" badge, a docs article's edit and issue links, a file's Open, an attachment, a `url` cell, a menu or navigation entry, and a `button` whose `openUrl` click or `navigate` action sets `openInNewTab`. Rename the words under `sovrium.link.opensInNewTab`.
 
 ### Marking the current item
 
-A period rail, a tab strip and a section nav all have the same shape: every item is always present — they ARE the choice — and one of them carries `aria-current` and a selected style. `activeWhen` compares a value to a literal and, when they match, merges `activeProps` over `props`:
+A period rail, a tab strip and a section nav all have the same shape: every item is always present (they ARE the choice), and one of them carries `aria-current` and a selected style. `activeWhen` compares a value to a literal and, when they match, merges `activeProps` over `props`:
 
 ```yaml
 - type: link
@@ -87,13 +91,13 @@ A period rail, a tab strip and a section nav all have the same shape: every item
   activeProps: { aria-current: page, className: 'font-medium text-neutral-900' }
 ```
 
-`value` is normally a reference — `$window.id`, `$query.<name>`, `$param.<name>`, `$app.<name>` — and is already a literal by the time the comparison runs, so the same key expresses "the selected period", "the open tab" and "the current section" without knowing anything about URLs.
+`value` is normally a reference (`$window.id`, `$query.<name>`, `$param.<name>`, `$app.<name>`) and is already a literal by the time the comparison runs, so the same key expresses "the selected period", "the open tab" and "the current section" without knowing anything about URLs.
 
 A shared navigation placed as a component template names its current item through the placement's `vars`: `activeWhen: { value: '$current', equals: 'pricing' }` inside the template, placed with `vars: { current: 'pricing' }`, marks that item on that page only. `activeWhen` and `activeProps` take the vars like `props` does, on the template's root and on every nested item.
 
 The merge is key by key, last wins: an attribute appears only on the current item, and a `className` declared in both is SWAPPED rather than concatenated, which is what a selected style usually wants. Three links stay three links; expressing this with a visibility gate would need six, each pair free to drift apart.
 
-The two keys are useless apart and are refused apart at startup, as is a comparison between two literals — it answers the same on every render, so either every item of the set is current or none is.
+The two keys are useless apart and are refused apart at startup, as is a comparison between two literals: it answers the same on every render, so either every item of the set is current or none is.
 
 ## `alert`
 
@@ -101,7 +105,7 @@ An inline callout the reader must see before going on. Reference: shadcn/ui Aler
 
 <!-- sovrium:options type:alert -->
 
-`content` is the message, drawn under an optional `title` in bold; without `content`, the alert's children are the message. A leading icon sits beside both. `alertVariant` — declared beside `type`, not inside `props` — picks `default`, `info`, `warning`, `success` or `destructive`. `default` and `destructive` are shadcn/ui's two alerts: the card surface, in its own ink or in the destructive one. `info`, `success` and `warning` are Sovrium's additions: the same card surface as `default`, told apart by their icon — an `i`, a check, a triangle. The danger tone is spelled `destructive`, as it is on a `button`, and there is no `error`. A bare top-level `variant`, or `props.variant`, is still honoured as an older spelling of the same key. `props.dismissible` adds a close button in the top-right corner.
+`content` is the message, drawn under an optional `title` in bold; without `content`, the alert's children are the message. A leading icon sits beside both. `alertVariant`, declared beside `type`, not inside `props`, picks `default`, `info`, `warning`, `success` or `destructive`. `default` and `destructive` are shadcn/ui's two alerts: the card surface, in its own ink or in the destructive one. `info`, `success` and `warning` are Sovrium's additions: the same card surface as `default`, told apart by their icon: an `i`, a check, a triangle. The danger tone is spelled `destructive`, as it is on a `button`, and there is no `error`. A bare top-level `variant`, or `props.variant`, is still honoured as an older spelling of the same key. `props.dismissible` adds a close button in the top-right corner.
 
 ```yaml
 - type: alert
@@ -118,7 +122,7 @@ A short status word pinned to a thing, never a sentence. Reference: shadcn/ui Ba
 
 `variant` and `badgeVariant` are two different axes, and both are spelled out because they do different jobs: `variant` changes **what the badge draws**, `badgeVariant` changes **how it is painted**. A key belonging to one mode is inert under the other rather than refused.
 
-`badgeVariant` takes shadcn/ui's six tones: `default`, `secondary`, `destructive`, `outline`, `ghost` (no fill until it is hovered) and `link` (the text of a link), and three status tones of Sovrium's: `success`, `warning` and `info`, each tinted in its status colour (green, amber, blue in the default theme) the way `destructive` is tinted red, so a run that completed, one waiting on someone and one still going read apart at a glance. A running state reads `info`. `href` makes the badge a link — meant for `link`, though any tone navigates — so "3 unpaid" can take the reader to the invoices it counts. The same tones apply to a navigation item's badge.
+`badgeVariant` takes shadcn/ui's six tones: `default`, `secondary`, `destructive`, `outline`, `ghost` (no fill until it is hovered) and `link` (the text of a link), and three status tones of Sovrium's: `success`, `warning` and `info`, each tinted in its status colour (green, amber, blue in the default theme) the way `destructive` is tinted red, so a run that completed, one waiting on someone and one still going read apart at a glance. A running state reads `info`. `href` makes the badge a link (meant for `link`, though any tone navigates), so "3 unpaid" can take the reader to the invoices it counts. The same tones apply to a navigation item's badge.
 
 ### `variant: status`
 
@@ -131,7 +135,7 @@ components:
 
 ### `variant: contrast`
 
-The ratio between two colours, and the verdict on it. Give it the two colours as token names or as literals — hex, `rgb()`, `oklch()`, `white`, `black` — and it reports the contrast ratio with its grade.
+The ratio between two colours, and the verdict on it. Give it the two colours as token names or as literals (hex, `rgb()`, `oklch()`, `white`, `black`), and it reports the contrast ratio with its grade.
 
 ```yaml
 components:
@@ -142,7 +146,7 @@ components:
     threshold: AAA
 ```
 
-`threshold` grades at normal body-text size: `AA` is 4.5:1 and the default, `AAA` is 7:1. The lenient large-text bars are deliberately not offered — a design token gets used at whatever size an author reaches for, so grading it against the easier bar would report a pass the interface does not earn.
+`threshold` grades at normal body-text size: `AA` is 4.5:1 and the default, `AAA` is 7:1. The lenient large-text bars are deliberately not offered. A design token gets used at whatever size an author reaches for, so grading it against the easier bar would report a pass the interface does not earn.
 
 A failing pair **says so** rather than rendering nothing, because a badge that only appeared on success would leave a reader unable to tell a failure from a badge that never rendered. If either colour does not resolve, the badge reports that it is not measurable rather than guessing at the missing operand.
 
@@ -157,3 +161,21 @@ The grouped components go in `children`, in the order they are drawn: buttons, a
 The one control that flips the colour scheme and remembers the choice.
 
 <!-- sovrium:options type:theme-toggle -->
+
+## `consent-choice`
+
+A visitor's own on-or-off choice about one purpose: `analytics`, the built-in audience measurement, or any purpose declared in `consent`. The control takes any declared purpose and doubles as the way to withdraw it.
+
+<!-- sovrium:options type:consent-choice -->
+
+The control is a toggle button whose name never changes; its pressed state is the choice, and a status line says what is happening now. Without JavaScript it shows `noScriptText` instead, and no page view or outgoing click is measured, because the tracker needs JavaScript too. The choice is kept in the visitor's browser, so it holds across pages, reloads and later visits until they change it. When the browser sends Global Privacy Control or Do Not Track and the site honours it, the control is disabled and shows `signalText`.
+
+```yaml
+- type: consent-choice
+  purpose: analytics
+  label: Measure my visits
+  grantedText: Your visits to this site are measured.
+  deniedText: Your visits to this site are not measured.
+```
+
+Every text accepts a `$t:` key. A text you leave out falls back to the engine's own wording in the page language, which you can rename under `sovrium.consent.analytics.label`, `.granted`, `.denied`, `.signal` and `.noScript`. Two controls for the same purpose on one page read the same stored choice, so pressing one changes both. What the stored choice reaches, and what it does not, is described in the analytics guide under "Letting visitors opt out".

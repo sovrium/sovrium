@@ -144,6 +144,14 @@ const recipeFor = (
   return recipe === undefined ? undefined : { recipe }
 }
 
+/**
+ * A specimen redrawn in one set of axes. The specimens are hand-authored
+ * components rather than decoded config, and the patch adds only the axis keys
+ * the type publishes, so this code answers for the copy's shape — the same
+ * stance the specimen tables take.
+ */
+const specimenOf = (value: unknown): Component => value as Component
+
 export function catalogSpecimenInAxes(
   type: string,
   axes: SpecimenAxes,
@@ -159,12 +167,12 @@ export function catalogSpecimenInAxes(
   if (resolved === undefined || variant === undefined || size === undefined) return undefined
 
   const drawn = ownNodeOf(base, type) ?? base
-  return {
+  return specimenOf({
     ...drawn,
     ...variant,
     ...size,
     ...componentWithRecipe(drawn, resolved.recipe),
-  } as Component
+  })
 }
 
 /** Which published category each catalogued type belongs to. */

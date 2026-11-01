@@ -88,6 +88,8 @@ export default {
     'Une ligne par démarrage dont la version ou la configuration différait du précédent.',
   'admin.changelog.ledger.search': 'Rechercher une version',
   'admin.changelog.ledger.empty': 'Aucun démarrage enregistré pour l’instant.',
+  'admin.changelog.ledger.empty.guidance':
+    'Chaque démarrage qui change la version ou la config ajoute une ligne ici.',
   'admin.changelog.ledger.noMatch': 'Aucun démarrage ne correspond à cette recherche.',
   'admin.changelog.current': 'en cours',
   'admin.changelog.current.heading': 'Configuration telle qu’elle a démarré',
@@ -102,6 +104,8 @@ export default {
   'admin.changelog.boot.region': 'Fiche du démarrage',
   'admin.changelog.boot.heading': 'Démarrage',
   'admin.changelog.field.version': 'Version',
+  'admin.changelog.notVersioned': 'Non versionnée',
+  'admin.changelog.copyConfigHash': 'Copier l’empreinte de config',
   'admin.changelog.field.bootedAt': 'Démarré le',
   'admin.changelog.field.bootedBy': 'Lancé par',
   'admin.changelog.field.engine': 'Moteur',

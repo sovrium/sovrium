@@ -25,7 +25,7 @@
  */
 
 import { matchedRoutes } from 'hono/route'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import type { Context, Next } from 'hono'
 
 /** The handlers registered as taking an HTML form post. */
@@ -61,7 +61,7 @@ const carriesBody = (c: Context): boolean => {
 }
 
 /** Was the route this request reached declared with {@link acceptsFormBody}? */
-const routeAcceptsFormBody = (c: Context): boolean =>
+export const routeAcceptsFormBody = (c: Context): boolean =>
   matchedRoutes(c).some((route) => formBodyHandlers.has(route.handler))
 
 /**

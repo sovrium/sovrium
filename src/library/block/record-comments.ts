@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, param, stringParam, THEME_NOTE } from '@/library/manifest/block-kit'
+import { asComponent, param, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
+import { RECORD_PAGE_NOTE } from '@/library/kit/record-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import { RECORD_PAGE_NOTE } from '@/library/manifest/record-block-kit'
 
 /** The discussion of the page's record: the composer first, newest comment on top. */
 export const entry = defineLibraryEntry({

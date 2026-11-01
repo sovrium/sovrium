@@ -32,6 +32,7 @@
  * through the dynamic-record repository.
  */
 
+import { Effect } from 'effect'
 import { tableEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
   hasCreatePermissionForRoles,
@@ -41,11 +42,13 @@ import {
 import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
 import { parseAiConfirmationTtlMs } from '@/domain/models/process-env/ai/ai-confirmation-ttl'
 import { recordActivityLogRow } from '@/presentation/api/agents/chat-activity-log'
+import { createConfirmationStore } from './chat-confirmation-store'
 import {
   admittedWriteIds,
   commitChatCreate,
   commitChatDelete,
   commitChatUpdate,
+  withRuleRefusal,
   type ChatCaller,
   type ChatWrite,
   type ChatWriteTarget,
@@ -56,7 +59,6 @@ import type {
   MutationIntent,
   MutationTable,
 } from '@/domain/models/app/agents/ai-chat-mutation-parser'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /** A pending destructive action awaiting an explicit user confirmation. */
 export interface PendingConfirmation {
@@ -80,8 +82,6 @@ export type MutationOutcome =
 
 /** Inputs required to apply a mutation intent. */
 export interface ApplyMutationInput {
-  /** The server's resolved services, taken off the request that started the turn. */
-  readonly services: DomainContext
   readonly intent: MutationIntent
   /** The acting user's id — the records read gate judges her rows by it. */
   readonly userId: string
@@ -163,34 +163,31 @@ interface StoredConfirmation {
 
 /**
  * Module-level pending-confirmation store, keyed by the issued
- * `confirmationToken`. Same ephemeral-Map discipline as the conversation store
- * and `webhook-rate-limit.ts` — a confirmation is short-lived working state,
- * not durable data.
+ * `confirmationToken`: owner-checked, bounded in size and swept of expired
+ * entries on every insert (`chat-confirmation-store.ts`).
  */
-const pendingConfirmations = new Map<string, StoredConfirmation>()
+const pendingConfirmations = createConfirmationStore<StoredConfirmation>({
+  maxEntries: 1000, // past it, the oldest token is evicted
+  ttlMs: () => parseAiConfirmationTtlMs(process.env),
+})
 
 /**
- * Look up (and consume) a stored confirmation by its token.
+ * Look up (and consume) a stored confirmation by its token, for the person
+ * presenting it.
  *
- * An entry older than `AI_CONFIRMATION_TTL_MS` is treated as ABSENT and dropped
- * on the way past. That bounds the captured-identity semantic above: without an
- * expiry an unconsumed token survives the process lifetime, so a verdict reached
- * under a role, a membership and a config that have all since changed would stay
- * committable forever. One TTL closes all three staleness windows; re-resolving
- * any single input closes only its own.
+ * An entry older than `AI_CONFIRMATION_TTL_MS` is treated as ABSENT: without an
+ * expiry a verdict reached under a role, a membership and a config that have
+ * all since changed would stay committable forever. A token issued to someone
+ * other than `presenterUserId` is ABSENT too, and stays stored for its owner.
  *
- * `undefined` rather than a distinct "expired" outcome is what the caller
- * already handles: an unknown token falls through to the intent path, where a
- * bare "yes" parses as no intent at all. Nothing is mutated.
+ * `undefined` is what the caller already handles: an unknown token falls
+ * through to the intent path, where a bare "yes" parses as no intent at all.
+ * Nothing is mutated.
  */
-export const consumeConfirmation = (token: string): StoredConfirmation | undefined => {
-  const stored = pendingConfirmations.get(token)
-  if (stored === undefined) return undefined
-  pendingConfirmations.delete(token)
-  const ttlMs = parseAiConfirmationTtlMs(process.env)
-  if (Date.now() - stored.issuedAt > ttlMs) return undefined
-  return stored
-}
+export const consumeConfirmation = (
+  token: string,
+  presenterUserId: string
+): StoredConfirmation | undefined => pendingConfirmations.take(token, presenterUserId)
 
 // ---------------------------------------------------------------------------
 // Field-value validation
@@ -264,12 +261,8 @@ const findForbiddenWriteField = (
  * Best-effort — a logging failure must never break
  * the chat turn.
  */
-const logMutation = async (
-  services: DomainContext,
-  tableName: string,
-  userEmail: string
-): Promise<void> =>
-  recordActivityLogRow(services, {
+const logMutation = (tableName: string, userEmail: string) =>
+  recordActivityLogRow({
     actorType: 'user',
     actorName: userEmail,
     action: 'ai.chat.mutation',
@@ -280,6 +273,13 @@ const logMutation = async (
 // ---------------------------------------------------------------------------
 // Intent-kind handlers
 // ---------------------------------------------------------------------------
+
+const forbidden = (message: string): MutationOutcome => ({ status: 'forbidden', message })
+const invalid = (message: string): MutationOutcome => ({ status: 'validation-error', message })
+const pending = (pendingConfirmation: PendingConfirmation): MutationOutcome => ({
+  status: 'pending',
+  pendingConfirmation,
+})
 
 /** Resolve the {@link MutationTable} for an intent, if the app declares it. */
 const resolveTable = (
@@ -314,30 +314,27 @@ const gateArgs = (
     >[2],
   ] as const
 
-const applyCreate = async (
+const applyCreate = Effect.fnUntraced(function* (
   input: ApplyMutationInput,
   table: MutationTable & { readonly permissions?: unknown }
-): Promise<MutationOutcome> => {
-  if (input.intent.kind !== 'create') return { status: 'forbidden', message: 'Unsupported intent.' }
+) {
+  if (input.intent.kind !== 'create') return forbidden('Unsupported intent.')
   if (!hasCreatePermissionForRoles(...gateArgs(table, input))) {
-    return {
-      status: 'forbidden',
-      message: `You do not have permission to create records in "${table.name}".`,
-    }
+    return forbidden(`You do not have permission to create records in "${table.name}".`)
   }
   const forbiddenField = findForbiddenWriteField(input, table.name, input.intent.data)
   if (forbiddenField !== undefined) {
-    return {
-      status: 'forbidden',
-      message: `You do not have permission to modify the "${forbiddenField}" field in "${table.name}".`,
-    }
+    return forbidden(
+      `You do not have permission to modify the "${forbiddenField}" field in "${table.name}".`
+    )
   }
   const validationError = validateCreateData(table, input.intent.data)
   if (validationError !== undefined) {
-    return { status: 'validation-error', message: validationError }
+    return invalid(validationError)
   }
-  const recordId = await commitChatCreate(writerOf(input), table.name, input.intent.data)
-  await logMutation(input.services, table.name, input.userEmail)
+  const created = yield* commitChatCreate(writerOf(input), table.name, input.intent.data)
+  if (created.kind === 'refused') return invalid(created.message)
+  yield* logMutation(table.name, input.userEmail)
   const detail = Object.values(input.intent.data).filter((v) => typeof v === 'string')
   return {
     status: 'applied',
@@ -345,7 +342,7 @@ const applyCreate = async (
       {
         type: 'create',
         table: table.name,
-        recordId: String(recordId),
+        recordId: created.id,
         description: `Created a record in "${table.name}".`,
       },
     ],
@@ -353,12 +350,11 @@ const applyCreate = async (
       detail.length > 0
         ? `Created a new ${table.name} record: ${detail.join(', ')}.`
         : `Created a new record in "${table.name}".`,
-  }
-}
+  } satisfies MutationOutcome
+})
 
 /** The acting user as the chat write gate judges her. */
 const writerOf = (input: ApplyMutationInput) => ({
-  services: input.services,
   app: input.app,
   userId: input.userId,
   userRole: input.userRole,
@@ -372,7 +368,7 @@ const admitted = (
   tableName: string,
   write: ChatWrite,
   target: ChatWriteTarget
-): Promise<readonly string[]> => admittedWriteIds(writerOf(input), tableName, write, target)
+) => admittedWriteIds(writerOf(input), tableName, write, target)
 
 /** The `applied` outcome of an update that wrote `ids`. */
 const updatedOutcome = (
@@ -395,107 +391,85 @@ const updatedOutcome = (
  * write gate refuses her — hidden by a rule, in the trash, or missing — is
  * answered as missing, and nothing is written.
  */
-const applyUpdateById = async (
+const applyUpdateById = Effect.fnUntraced(function* (
   input: ApplyMutationInput,
   tableName: string,
   recordId: number,
   data: Readonly<Record<string, unknown>>
-): Promise<MutationOutcome> => {
-  const ids = await admitted(input, tableName, { op: 'update', change: data }, { recordId })
-  const written = await commitChatUpdate(writerOf(input), tableName, ids, data)
+) {
+  const ids = yield* admitted(input, tableName, { op: 'update', change: data }, { recordId })
+  const { written, ruleRefusal } = yield* commitChatUpdate(writerOf(input), tableName, ids, data)
   if (written.length === 0) {
-    return {
-      status: 'validation-error',
-      message: `No record #${String(recordId)} found in "${tableName}".`,
-    }
+    return invalid(ruleRefusal ?? `No record #${String(recordId)} found in "${tableName}".`)
   }
-  await logMutation(input.services, tableName, input.userEmail)
+  yield* logMutation(tableName, input.userEmail)
   return updatedOutcome(
     tableName,
     written,
     `Updated record #${String(recordId)} in "${tableName}".`
   )
-}
+})
 
 /** Apply an update to the admitted rows (an AI chat mutate spec confirmed path). */
-const applyUpdateToIds = async (
+const applyUpdateToIds = Effect.fnUntraced(function* (
   caller: ChatCaller,
   userEmail: string,
   tableName: string,
   change: { readonly ids: readonly string[]; readonly data: Readonly<Record<string, unknown>> }
-): Promise<MutationOutcome> => {
-  const written = await commitChatUpdate(caller, tableName, change.ids, change.data)
-  await logMutation(caller.services, tableName, userEmail)
-  return updatedOutcome(
-    tableName,
-    written,
-    `Updated ${String(written.length)} record(s) in "${tableName}".`
-  )
-}
+) {
+  const result = yield* commitChatUpdate(caller, tableName, change.ids, change.data)
+  yield* logMutation(tableName, userEmail)
+  const summary = `Updated ${String(result.written.length)} record(s) in "${tableName}".`
+  return updatedOutcome(tableName, result.written, withRuleRefusal(summary, result.ruleRefusal))
+})
 
-const applyUpdate = async (
+const applyUpdate = Effect.fnUntraced(function* (
   input: ApplyMutationInput,
   table: MutationTable & { readonly permissions?: unknown }
-): Promise<MutationOutcome> => {
-  if (input.intent.kind !== 'update') return { status: 'forbidden', message: 'Unsupported intent.' }
+) {
+  if (input.intent.kind !== 'update') return forbidden('Unsupported intent.')
   if (!hasUpdatePermissionForRoles(...gateArgs(table, input))) {
-    return {
-      status: 'forbidden',
-      message: `You do not have permission to update records in "${table.name}".`,
-    }
+    return forbidden(`You do not have permission to update records in "${table.name}".`)
   }
   const { data, bulk, recordId } = input.intent
   // An update with no extractable field values cannot be applied — surface a
   // benign validation message rather than emitting empty SQL or stashing a
   // useless confirmation.
   if (Object.keys(data).length === 0) {
-    return {
-      status: 'validation-error',
-      message: `I could not determine which fields to change in "${table.name}". Please specify the new values.`,
-    }
+    return invalid(
+      `I could not determine which fields to change in "${table.name}". Please specify the new values.`
+    )
   }
   // Field-level write RBAC: deny before the bulk
   // confirmation gate so a forbidden field never reaches a stashed intent.
   const forbiddenField = findForbiddenWriteField(input, table.name, data)
   if (forbiddenField !== undefined) {
-    return {
-      status: 'forbidden',
-      message: `You do not have permission to modify the "${forbiddenField}" field in "${table.name}".`,
-    }
+    return forbidden(
+      `You do not have permission to modify the "${forbiddenField}" field in "${table.name}".`
+    )
   }
-  if (recordId !== undefined) return applyUpdateById(input, table.name, recordId, data)
+  if (recordId !== undefined) return yield* applyUpdateById(input, table.name, recordId, data)
   // The rows the write gate admits for her; a bulk update reaching 2+ of them
   // requires explicit confirmation, and the count it
   // quotes is exactly the rows the confirmed commit writes.
-  const ids = await admitted(input, table.name, { op: 'update', change: data }, {})
-  if (bulk && ids.length >= 2) {
-    return {
-      status: 'pending',
-      pendingConfirmation: stashConfirmation(input, 'bulk update', ids),
-    }
-  }
-  return applyUpdateToIds(writerOf(input), input.userEmail, table.name, { ids, data })
-}
+  const ids = yield* admitted(input, table.name, { op: 'update', change: data }, {})
+  if (bulk && ids.length >= 2) return pending(stashConfirmation(input, 'bulk update', ids))
+  return yield* applyUpdateToIds(writerOf(input), input.userEmail, table.name, { ids, data })
+})
 
-const applyDelete = async (
+const applyDelete = Effect.fnUntraced(function* (
   input: ApplyMutationInput,
   table: MutationTable & { readonly permissions?: unknown }
-): Promise<MutationOutcome> => {
-  if (input.intent.kind !== 'delete') return { status: 'forbidden', message: 'Unsupported intent.' }
+) {
+  if (input.intent.kind !== 'delete') return forbidden('Unsupported intent.')
   if (!hasDeletePermissionForRoles(...gateArgs(table, input))) {
-    return {
-      status: 'forbidden',
-      message: `You do not have permission to delete records in "${table.name}".`,
-    }
+    return forbidden(`You do not have permission to delete records in "${table.name}".`)
   }
   // Every delete requires explicit confirmation,
   // over the rows the write gate admits for her.
-  const ids = await admitted(input, table.name, { op: 'delete' }, { filter: input.intent.filter })
-  return {
-    status: 'pending',
-    pendingConfirmation: stashConfirmation(input, 'delete', ids),
-  }
-}
+  const ids = yield* admitted(input, table.name, { op: 'delete' }, { filter: input.intent.filter })
+  return pending(stashConfirmation(input, 'delete', ids))
+})
 
 /**
  * Stash a confirmation entry under a fresh token and build the
@@ -509,7 +483,7 @@ const stashConfirmation = (
   const confirmationToken = crypto.randomUUID()
   // A delete always asks, and quotes at least one record.
   const affectedCount = action === 'delete' ? Math.max(admittedIds.length, 1) : admittedIds.length
-  pendingConfirmations.set(confirmationToken, {
+  pendingConfirmations.put(confirmationToken, {
     intent: input.intent,
     admittedIds,
     userId: input.userId,
@@ -539,11 +513,10 @@ const stashConfirmation = (
  * 2+ rows) yield a `pending` outcome instead of executing — the caller must
  * re-submit with the issued `confirmationToken` to commit.
  */
-export const applyMutation = async (input: ApplyMutationInput): Promise<MutationOutcome> => {
+export const applyMutation = (input: ApplyMutationInput) => {
   const table = resolveTable(input)
-  if (table === undefined) {
-    return { status: 'forbidden', message: `Unknown table "${input.intent.table}".` }
-  }
+  if (table === undefined)
+    return Effect.succeed(forbidden(`Unknown table "${input.intent.table}".`))
   switch (input.intent.kind) {
     case 'create':
       return applyCreate(input, table)
@@ -555,8 +528,7 @@ export const applyMutation = async (input: ApplyMutationInput): Promise<Mutation
 }
 
 /** The user a stashed confirmation was issued to, as its commit writes. */
-const storedCaller = (services: DomainContext, stored: StoredConfirmation): ChatCaller => ({
-  services,
+const storedCaller = (stored: StoredConfirmation): ChatCaller => ({
   app: stored.app,
   userId: stored.userId,
   userRole: stored.userRole,
@@ -568,22 +540,17 @@ const storedCaller = (services: DomainContext, stored: StoredConfirmation): Chat
  * gate admitted when the confirmation was issued — the rows its count quoted,
  * judged on the identity captured then — live rows only.
  */
-export const commitConfirmedMutation = async (
-  services: DomainContext,
-  stored: StoredConfirmation
-): Promise<MutationOutcome> => {
+export const commitConfirmedMutation = Effect.fnUntraced(function* (stored: StoredConfirmation) {
   const table = stored.tables.find((t) => t.name === stored.intent.table)
-  if (table === undefined) {
-    return { status: 'forbidden', message: `Unknown table "${stored.intent.table}".` }
-  }
+  if (table === undefined) return forbidden(`Unknown table "${stored.intent.table}".`)
   if (stored.intent.kind === 'delete') {
-    const ids = await commitChatDelete({
-      caller: storedCaller(services, stored),
+    const ids = yield* commitChatDelete({
+      caller: storedCaller(stored),
       tableName: table.name,
       ids: stored.admittedIds,
     })
-    await logMutation(services, table.name, stored.userEmail)
-    return {
+    yield* logMutation(table.name, stored.userEmail)
+    const deleted: MutationOutcome = {
       status: 'applied',
       actions: ids.map((id) => ({
         type: 'delete' as const,
@@ -593,9 +560,10 @@ export const commitConfirmedMutation = async (
       })),
       summary: `Deleted ${String(ids.length)} record(s) from "${table.name}".`,
     }
+    return deleted
   }
-  return applyUpdateToIds(storedCaller(services, stored), stored.userEmail, table.name, {
+  return yield* applyUpdateToIds(storedCaller(stored), stored.userEmail, table.name, {
     ids: stored.admittedIds,
     data: stored.intent.kind === 'update' ? stored.intent.data : {},
   })
-}
+})

@@ -72,7 +72,7 @@ const configVersion: Effect.Effect<ConfigVersionResponse> = Effect.gen(function*
   return {
     version,
     commit: buildCommit(),
-    runtime: resolveRuntimeLabel(),
+    runtime: resolveRuntimeLabel(process.env),
     nodeVersion: Bun.version,
     startedAt: instanceStartedAt(),
   }

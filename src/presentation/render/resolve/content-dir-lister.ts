@@ -96,6 +96,13 @@ export interface CollectionNavData {
    * breadcrumb keeps its "Home" root (tabs are opt-in per collection).
    */
   readonly tabs: CollectionNavTabs | undefined
+  /**
+   * Where the tabs are drawn, mirroring `contentDir.nav.tabsPlacement`.
+   * Undefined reads as `header`: the sidebar draws no tab list.
+   */
+  readonly tabsPlacement?: 'header' | 'sidebar' | undefined
+  /** `sidebar` draws the docs search field at the top of the sidebar (`contentDir.nav.search`). */
+  readonly search?: 'sidebar' | undefined
 }
 
 /**
@@ -327,9 +334,14 @@ export const listContentDir = async (
   const sidebar = buildSidebarEntries(files, contentDir, pagePath, currentSlug)
   const collapsed = contentDir.nav?.collapsed === true
   const tabs = contentDir.nav?.tabs
-  const { previous, next } = buildPrevNext(
-    orderSidebarEntries(sidebar, tabs, collapsed),
-    currentSlug
-  )
-  return { sidebar, previous, next, collapsed, tabs }
+  const { previous, next } = buildPrevNext(orderSidebarEntries(sidebar, tabs), currentSlug)
+  return {
+    sidebar,
+    previous,
+    next,
+    collapsed,
+    tabs,
+    tabsPlacement: contentDir.nav?.tabsPlacement,
+    search: contentDir.nav?.search,
+  }
 }

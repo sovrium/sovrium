@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { executeSQL, type SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 
 /**
@@ -91,7 +90,7 @@ export const ensureCommentReadStateTable = (
   tx: TransactionLike
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    if (isSqliteRuntime()) {
+    if (tx.dialect === 'sqlite') {
       yield* executeSQL(tx, COMMENT_READ_STATE_TABLE_DDL_SQLITE)
       yield* executeSQL(tx, COMMENT_READ_STATE_UNIQUE_INDEX_SQLITE)
       return

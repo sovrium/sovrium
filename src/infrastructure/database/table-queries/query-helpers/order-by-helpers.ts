@@ -7,12 +7,13 @@
 
 import { sql } from 'drizzle-orm'
 import { INTRINSIC_ID_COLUMN } from '@/domain/models/app/tables/system-fields'
-import { languageValueSql } from '../../sql/translatable-value-sql'
+import { languageValueSqlOn } from '../../sql/translatable-value-sql'
 import { isValidColumnName, validateColumnName } from '../statement/validation'
 import type {
   CaseFoldedSortField,
   TranslatedSortKey,
 } from '@/domain/models/app/tables/text-sort-service'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 import type { SQL } from 'drizzle-orm'
 
 /**
@@ -94,6 +95,7 @@ function buildSingleSelectCaseExpression(
 
 /** Where one sort segment is resolved: the app's option orders, and the case-folded fields. */
 interface SortContext {
+  readonly dialect: Dialect
   readonly app?: OrderByAppView
   readonly tableName?: string
   readonly caseFolded?: readonly CaseFoldedSortField[]
@@ -128,7 +130,7 @@ function buildSortClause(
   )
   if (translated !== undefined) {
     // sql-literal: keyword -- `dir` is ASC or DESC
-    return sql`lower(${languageValueSql(field, translated.language)}) ${sql.raw(dir)} NULLS LAST`
+    return sql`lower(${languageValueSqlOn(context.dialect.kind, field, translated.language)}) ${sql.raw(dir)} NULLS LAST`
   }
   // A text field sorts by the alphabet whatever the capitals. Folded with
   // `lower()` explicitly, so the order never rests on how either engine — or
@@ -249,24 +251,27 @@ export const defaultOrderKeys = (primaryKey?: OrderByPrimaryKey): readonly strin
  * @param keys.primaryKey - Optional declared primary key of `tableName`, used
  *   only to resolve the DEFAULT sort key. Omit it and the default stays `id`.
  * @param keys.caseFolded - The text fields of `tableName`, sorted ignoring case.
+ * @param keys.dialect - The engine the statement runs on, which spells a
+ *   translatable field's one-language value.
  */
 export function buildOrderByClause(
-  sort?: string,
-  app?: OrderByAppView,
-  tableName?: string,
+  sort: string | undefined,
+  app: OrderByAppView | undefined,
+  tableName: string | undefined,
   keys: {
+    readonly dialect: Dialect
     readonly primaryKey?: OrderByPrimaryKey
     readonly caseFolded?: readonly CaseFoldedSortField[]
-  } = {}
+  }
 ): Readonly<ReturnType<typeof sql.raw>> {
-  const { primaryKey, caseFolded } = keys
+  const { dialect, primaryKey, caseFolded } = keys
   // sql-literal: identifier -- primary-key field names from the table's own schema
   if (!sort) return sql.raw(defaultOrderByClause(primaryKey))
 
   const sortParts = sort.split(',').map((part) => part.trim())
   const orderClauses = sortParts.flatMap((part) => {
     const [field, direction] = part.split(':')
-    return field ? [buildSortClause(field, direction, { app, tableName, caseFolded })] : []
+    return field ? [buildSortClause(field, direction, { dialect, app, tableName, caseFolded })] : []
   })
 
   return orderClauses.length > 0

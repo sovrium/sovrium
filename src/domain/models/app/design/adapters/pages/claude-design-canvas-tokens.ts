@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { PaintTokens } from '@/domain/models/app/pages/page-merge-paint-service'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+import type { PaintTokens } from '@/domain/models/app/pages/merge/paint-service'
 
 /**
  * The Claude Design page adapter, token half: the canvas's own
@@ -21,9 +22,6 @@ import type { PaintTokens } from '@/domain/models/app/pages/page-merge-paint-ser
 
 /** Where an installed design system's token file sits in a canvas project. */
 export const CANVAS_TOKENS_FILE = /^(?:.*\/)?ds\/[^/]+\/tokens\.json$/
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Each colour token's value in each theme, by token name then theme. */
 export type CanvasColourThemes = Readonly<Record<string, Readonly<Record<string, string>>>>

@@ -12,6 +12,7 @@ import {
   type AddressRefusal,
   type GuardDecision,
 } from './browser-host-guard'
+import { resolvedAddressRefusal, resolvedConnectableHosts } from './browser-host-resolution'
 import { networkLockdownSource } from './browser-network-lockdown-runtime'
 import { failRequest, gateRequest } from './browser-page-gate'
 import { gatesSends } from './browser-send-gate'
@@ -176,9 +177,14 @@ const pausedOf = (event: Event): Paused | undefined => {
   }
 }
 
-/** Re-serve a document with the browser policy added; a body that cannot be read is failed. */
+/**
+ * Re-serve a document with the browser policy added; a body that cannot be read
+ * is failed. The policy lists only the allowed hosts whose names resolve to no
+ * private address, judged afresh for every document.
+ */
 const serveDocument = async (state: PageState, send: CdpSend, paused: Paused): Promise<void> => {
   const sockets = !gatesSends(state.gate.policy)
+  const connectable = await resolvedConnectableHosts(state.allowedHosts)
   const { body, base64Encoded } = await send<{ body: string; base64Encoded: boolean }>(
     'Fetch.getResponseBody',
     { requestId: paused.requestId }
@@ -186,7 +192,7 @@ const serveDocument = async (state: PageState, send: CdpSend, paused: Paused): P
   await send('Fetch.fulfillRequest', {
     requestId: paused.requestId,
     responseCode: paused.status,
-    responseHeaders: servedHeaders(paused.headers, state.allowedHosts, { sockets }),
+    responseHeaders: servedHeaders(paused.headers, connectable, { sockets }),
     body: base64Encoded ? body : Buffer.from(body).toString('base64'),
   })
 }
@@ -205,14 +211,31 @@ const recordRefusal = (
   }
 }
 
+/**
+ * A request the spelling rules let through is refused when its host name
+ * resolves to a private address. Only the request stage is judged: a
+ * response's request already went through it.
+ */
+const resolvedDecision = async (
+  paused: Paused,
+  decision: GuardDecision
+): Promise<GuardDecision> => {
+  if (decision.kind !== 'continue' || paused.status !== undefined) return decision
+  const refusal = await resolvedAddressRefusal(paused.url)
+  return refusal === undefined ? decision : { kind: 'fail', refusal }
+}
+
 /** Answer one paused request, recording what a step must hear about. */
 const answerPaused = async (state: PageState, send: CdpSend, paused: Paused): Promise<void> => {
   const topFrame = paused.frameId === undefined || paused.frameId === state.mainFrameId
-  const decision = decideRequest(paused, {
-    allowedHosts: state.allowedHosts,
-    mainFrameId: state.mainFrameId,
-    topOrigin: state.topOrigin,
-  })
+  const decision = await resolvedDecision(
+    paused,
+    decideRequest(paused, {
+      allowedHosts: state.allowedHosts,
+      mainFrameId: state.mainFrameId,
+      topOrigin: state.topOrigin,
+    })
+  )
   if (decision.kind === 'continue') {
     if (paused.status === undefined) state.requested = [...state.requested, paused.url]
     if (paused.status !== undefined) {

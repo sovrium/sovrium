@@ -6,8 +6,8 @@
  */
 
 import { Context } from 'effect'
+import type { HttpApp } from '@/application/ports/contracts/http-app'
 import type { Effect } from 'effect'
-import type { Hono } from 'hono'
 
 /**
  * Options for static site generation
@@ -73,7 +73,7 @@ export class StaticSiteGenerator extends Context.Service<
      * @returns Effect that yields SSG result or generation error
      */
     readonly generate: (
-      app: Hono | Readonly<Hono>,
+      app: HttpApp,
       options: Readonly<SSGOptions>
     ) => Effect.Effect<SSGResult, SSGGenerationError>
 

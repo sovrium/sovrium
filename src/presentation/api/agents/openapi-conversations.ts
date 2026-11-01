@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import {
+  conversationDeletedResponseSchema,
   conversationDetailQuerySchema,
   conversationDetailResponseSchema,
   conversationEditRequestSchema,
@@ -14,7 +15,7 @@ import {
   conversationListResponseSchema,
   conversationTurnResponseSchema,
 } from '@/domain/models/api/ai/conversations'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   effectJsonBody,
   effectJsonResponse,
@@ -87,15 +88,7 @@ export const aiConversationGroup: StaticGroupSpec = {
 
       parameters: effectParameters(sessionIdParam, 'path'),
       responses: {
-        200: effectJsonResponse(
-          Schema.Struct({
-            deleted: Schema.Boolean.annotate({
-              description: 'Whether the conversation was deleted',
-            }),
-            sessionId: Schema.String.annotate({ description: 'Conversation session identifier' }),
-          }),
-          'Conversation deleted'
-        ),
+        200: effectJsonResponse(conversationDeletedResponseSchema, 'Conversation deleted'),
         401: errorResponse('Not authenticated'),
         404: errorResponse('Conversation not found'),
         500: errorResponse('Failed to delete conversation'),

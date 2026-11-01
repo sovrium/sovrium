@@ -27,7 +27,7 @@ Part of each `references/` folder is generated from the binary's own option desc
 
 ## What it writes
 
-`sovrium skills` writes every skill into `.claude/skills/<name>/` under the current directory — the `SKILL.md` and its `references/` — and a `.sovrium-skills.json` beside them. It also writes one agent file, `.claude/agents/sovrium-config-editor.md`, described below. `--output <dir>` writes under another project root instead.
+`sovrium skills` writes every skill into `.claude/skills/<name>/` under the current directory (the `SKILL.md` and its `references/`) and a `.sovrium-skills.json` beside them. It also writes one agent file, `.claude/agents/sovrium-config-editor.md`, described below. `--output <dir>` writes under another project root instead.
 
 The JSON file records, for every file it wrote, a SHA-256 of its bytes and the Sovrium version that wrote it. Commit it with the skills: it is how the next run knows which files are Sovrium's and which ones you changed. Each `SKILL.md` also names its version in its frontmatter, as `metadata.product-version`. A release build writes the release version there and in the JSON file. A build from source or from an unreleased commit writes `<version>-dev+<commit>` instead (`<version>-dev` when the commit cannot be read), so you can tell the skills came from an unreleased engine; the command says so in one line when it writes them.
 
@@ -69,7 +69,7 @@ A file whose bytes no longer match what Sovrium recorded is yours now, and the c
 - keep your version, and leave that file behind Sovrium's on purpose, or
 - run `sovrium skills --force` to take Sovrium's version. `--force` replaces only files Sovrium wrote; a file you added inside a skill folder stays.
 
-A skill directory with a Sovrium name that Sovrium never wrote — your own `sovrium-app`, say — is refused even with `--force`: without the record, nothing proves it is Sovrium's to replace. The same holds for a `.claude/agents/sovrium-config-editor.md` you wrote yourself. Skills and agent files with other names are never read or touched.
+A skill directory with a Sovrium name that Sovrium never wrote (your own `sovrium-app`, say) is refused even with `--force`: without the record, nothing proves it is Sovrium's to replace. The same holds for a `.claude/agents/sovrium-config-editor.md` you wrote yourself. Skills and agent files with other names are never read or touched.
 
 ### Symlinks
 
@@ -83,7 +83,7 @@ The skills folder itself may be a link: pointing `.claude/skills` at `.agents/sk
 sovrium skills --check
 ```
 
-`--check` writes nothing. It exits 0 when every skill is current, and 1 when a file is missing or left over from an older version — listing each one. A file you edited is listed too, but does not fail the check on its own: it is what `sovrium skills` keeps on purpose, so running `sovrium skills` and then `sovrium skills --check` passes. Run it in CI to catch a project whose skills fell behind the binary its pipeline pins.
+`--check` writes nothing. It exits 0 when every skill is current, and 1 when a file is missing or left over from an older version, and lists each one. A file you edited is listed too, but does not fail the check on its own: it is what `sovrium skills` keeps on purpose, so running `sovrium skills` and then `sovrium skills --check` passes. Run it in CI to catch a project whose skills fell behind the binary its pipeline pins.
 
 ## Other agents: `--target agents`
 

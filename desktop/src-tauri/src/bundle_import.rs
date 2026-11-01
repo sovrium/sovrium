@@ -108,7 +108,30 @@ pub enum Verdict {
     Refused,
 }
 
-/// What `init --from-bundle --inspect` prints, as far as the shell reads it.
+/// Which road a dialog came from. Both reach the one consent dialog; they
+/// differ in what the engine is asked to inspect and in what the import runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Road {
+    /// A `sovrium://new?bundle=` link: an archive, inspected with
+    /// `init --from-bundle <url> --inspect` and kept on disk for the import.
+    Bundle,
+    /// An address typed into the window, or carried by `sovrium://new?url=`:
+    /// one config document, inspected with `init --from-url <url> --inspect`.
+    /// Nothing is kept; the import fetches it again, pinned to the sha256 the
+    /// dialog showed, so other bytes are refused rather than written.
+    Document,
+}
+
+/// An automation step that runs TypeScript, as the engine names it.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct CodeStep {
+    pub automation: String,
+    pub step: String,
+}
+
+/// What `init --from-bundle --inspect` and `init --from-url --inspect` print,
+/// as far as the shell reads it. Both print this one shape.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Inspection {
@@ -126,6 +149,10 @@ pub struct Inspection {
     pub reason: Option<String>,
     #[serde(default)]
     pub contains_demo_data: bool,
+    /// Every automation step that runs code; `[]` when none. Absent means the
+    /// engine did not say, which is read as a refusal, never as "no code".
+    #[serde(default)]
+    pub contains_code: Option<Vec<CodeStep>>,
     #[serde(default)]
     pub file: Option<PathBuf>,
 }
@@ -151,6 +178,9 @@ pub enum BundleView {
     Fetching { host: String },
     /// The one consent dialog.
     Ready {
+        /// A bundle or a single document: the dialog names a publisher
+        /// verdict only for a bundle, the one road that can carry a signature.
+        road: Road,
         /// Where the archive was downloaded from, after redirects.
         host: String,
         /// The host the link named, when it differs from `host`: a short link
@@ -160,6 +190,9 @@ pub enum BundleView {
         size: u64,
         verdict: Verdict,
         contains_demo_data: bool,
+        /// Every automation step that runs code, so the dialog can say the
+        /// project contains code and name each one before anything is written.
+        contains_code: Vec<CodeStep>,
         /// A folder name to pre-fill, derived from the app name.
         folder_suggestion: String,
     },
@@ -235,12 +268,25 @@ fn is_sha256(value: &str) -> bool {
     value.len() == 64 && value.chars().all(|c| c.is_ascii_hexdigit())
 }
 
-/// Read what `init --from-bundle --inspect` printed.
+/// Whether a passed report has everything its road's import needs: a sha256,
+/// the list of code steps, and the archive for a bundle; no archive and no
+/// publisher claim for a document, which no one signs.
+fn complete_for(road: Road, report: &Inspection) -> bool {
+    let road_fits = match road {
+        Road::Bundle => report.file.is_some(),
+        Road::Document => report.file.is_none() && report.verdict == Verdict::Unverified,
+    };
+    is_sha256(&report.sha256) && report.contains_code.is_some() && road_fits
+}
+
+/// Read what `init --from-bundle --inspect` or `init --from-url --inspect`
+/// printed.
 ///
-/// Fails closed: anything other than a well-formed, non-refused report with a
-/// sha256 and a file reads as Refused, so a malformed answer can never become
-/// an import button.
-pub fn read_inspection(ok: bool, stdout: &str, stderr: &str) -> InspectOutcome {
+/// Fails closed: anything other than a well-formed, non-refused report that
+/// is complete for its road reads as Refused, so a malformed answer can never
+/// become an import button, and a report that does not say whether the project
+/// contains code is never shown as one that contains none.
+pub fn read_inspection(road: Road, ok: bool, stdout: &str, stderr: &str) -> InspectOutcome {
     let report =
         last_json_line(stdout).and_then(|line| serde_json::from_str::<Inspection>(line).ok());
     match report {
@@ -252,12 +298,10 @@ pub fn read_inspection(ok: bool, stdout: &str, stderr: &str) -> InspectOutcome {
                 .filter(|r| !r.is_empty())
                 .unwrap_or_else(|| "Sovrium refused this bundle.".into()),
         ),
-        Some(report) if ok && is_sha256(&report.sha256) && report.file.is_some() => {
-            InspectOutcome::Ready(report)
-        }
+        Some(report) if ok && complete_for(road, &report) => InspectOutcome::Ready(report),
         _ if !ok => InspectOutcome::Refused(engine_error(stderr)),
         _ => InspectOutcome::Refused(
-            "Sovrium could not read what its engine said about this bundle, so it will not open it."
+            "Sovrium could not read what its engine said about this project, so it will not open it."
                 .into(),
         ),
     }
@@ -265,7 +309,7 @@ pub fn read_inspection(ok: bool, stdout: &str, stderr: &str) -> InspectOutcome {
 
 /// The dialog for an inspection that passed. `link_host` is the host the link
 /// itself named.
-pub fn ready_view(inspection: &Inspection, link_host: &str) -> BundleView {
+pub fn ready_view(road: Road, inspection: &Inspection, link_host: &str) -> BundleView {
     let host = inspection
         .host
         .as_deref()
@@ -273,7 +317,18 @@ pub fn ready_view(inspection: &Inspection, link_host: &str) -> BundleView {
         .filter(|h| !h.is_empty())
         .unwrap_or_else(|| link_host.to_string());
     let name = shown(&inspection.name, MAX_SHOWN_CHARS);
+    // The names are the config's, and the config is a stranger's.
+    let contains_code = inspection
+        .contains_code
+        .iter()
+        .flatten()
+        .map(|s| CodeStep {
+            automation: shown(&s.automation, MAX_SHOWN_CHARS),
+            step: shown(&s.step, MAX_SHOWN_CHARS),
+        })
+        .collect();
     BundleView::Ready {
+        road,
         link_host: (host != link_host).then(|| link_host.to_string()),
         host,
         folder_suggestion: crate::claude_desktop::project_slug(&name),
@@ -281,6 +336,7 @@ pub fn ready_view(inspection: &Inspection, link_host: &str) -> BundleView {
         size: inspection.size,
         verdict: inspection.verdict,
         contains_demo_data: inspection.contains_demo_data,
+        contains_code,
     }
 }
 
@@ -362,6 +418,20 @@ struct Slot {
     /// The passed inspection behind a [`BundleView::Ready`]. The import reads
     /// `file` and `sha256` from here, never from the frontend.
     inspection: Option<Inspection>,
+    /// The address a [`Road::Document`] dialog was inspected from; `None` for
+    /// a bundle. Held beside the inspection for the same reason.
+    document_url: Option<String>,
+}
+
+/// What a confirmed dialog imports: read from Rust's own state, never from
+/// the frontend, so what is written is what the dialog showed.
+#[derive(Debug, Clone)]
+pub enum ReadyImport {
+    /// The kept archive, imported with `--expect-sha256`.
+    Bundle(Inspection),
+    /// The address, fetched again and written only if its sha256 is the one
+    /// the dialog showed.
+    Document { url: String, inspection: Inspection },
 }
 
 /// The bundle dialog's state, held in Rust so a reload of the window (the
@@ -380,12 +450,16 @@ pub fn current<R: Runtime>(app: &AppHandle<R>) -> Option<BundleView> {
     slot.view.clone()
 }
 
-/// The inspection behind the dialog, for the import. `None` unless the dialog
-/// is showing a [`BundleView::Ready`].
-pub fn ready_inspection<R: Runtime>(app: &AppHandle<R>) -> Option<Inspection> {
+/// What the dialog would import. `None` unless it is showing a
+/// [`BundleView::Ready`].
+pub fn ready_import<R: Runtime>(app: &AppHandle<R>) -> Option<ReadyImport> {
     let state = app.state::<PendingBundle>();
     let slot = state.0.lock().unwrap_or_else(|e| e.into_inner());
-    slot.inspection.clone()
+    let inspection = slot.inspection.clone()?;
+    Some(match slot.document_url.clone() {
+        Some(url) => ReadyImport::Document { url, inspection },
+        None => ReadyImport::Bundle(inspection),
+    })
 }
 
 /// Close the dialog and delete its download — on a decline, and once an import
@@ -395,18 +469,30 @@ pub fn finish<R: Runtime>(app: &AppHandle<R>) {
         let state = app.state::<PendingBundle>();
         let mut slot = state.0.lock().unwrap_or_else(|e| e.into_inner());
         slot.view = None;
+        slot.document_url = None;
         slot.inspection.take()
     };
     discard(taken);
     emit(app);
 }
 
-/// Start the flow for a link whose shape has been checked.
+/// Start the flow for a bundle link whose shape has been checked.
 pub fn begin<R: Runtime>(app: &AppHandle<R>, url: String, link_host: String) {
+    begin_road(app, Road::Bundle, url, link_host);
+}
+
+/// Start the flow for a config document's address, whose shape has been
+/// checked: the same dialog, after `init --from-url --inspect`.
+pub fn begin_document<R: Runtime>(app: &AppHandle<R>, url: String, link_host: String) {
+    begin_road(app, Road::Document, url, link_host);
+}
+
+fn begin_road<R: Runtime>(app: &AppHandle<R>, road: Road, url: String, link_host: String) {
     let (generation, previous) = {
         let state = app.state::<PendingBundle>();
         let mut slot = state.0.lock().unwrap_or_else(|e| e.into_inner());
         slot.generation += 1;
+        slot.document_url = None;
         slot.view = Some(BundleView::Fetching {
             host: link_host.clone(),
         });
@@ -418,21 +504,21 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>, url: String, link_host: String) {
     emit(app);
 
     let app = app.clone();
+    let flag = match road {
+        Road::Bundle => "--from-bundle",
+        Road::Document => "--from-url",
+    };
+    let document_url = (road == Road::Document).then(|| url.clone());
     tauri::async_runtime::spawn(async move {
         let outcome = match sidecar::run_engine_once_with_env(
             &app,
-            vec![
-                "init".into(),
-                "--from-bundle".into(),
-                url,
-                "--inspect".into(),
-            ],
+            vec!["init".into(), flag.into(), url, "--inspect".into()],
             None,
             import_env(std::env::vars_os(), Vec::new()),
         )
         .await
         {
-            Ok((ok, stdout, stderr)) => read_inspection(ok, &stdout, &stderr),
+            Ok((ok, stdout, stderr)) => read_inspection(road, ok, &stdout, &stderr),
             Err(message) => InspectOutcome::Refused(message),
         };
         let stale = {
@@ -443,11 +529,12 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>, url: String, link_host: String) {
             } else {
                 match outcome {
                     InspectOutcome::Ready(inspection) => {
-                        slot.view = Some(ready_view(&inspection, &link_host));
+                        slot.view = Some(ready_view(road, &inspection, &link_host));
                         slot.inspection = Some(inspection);
+                        slot.document_url = document_url;
                     }
                     InspectOutcome::Refused(reason) => {
-                        log::info!("a bundle link was refused");
+                        log::info!("an import was refused at inspection");
                         slot.view = Some(BundleView::Refused {
                             host: link_host.clone(),
                             reason,
@@ -535,13 +622,14 @@ mod tests {
 
     fn report(verdict: &str, file: &str) -> String {
         format!(
-            r#"{{"host":"cdn.example.com","name":"crm","size":184233,"sha256":"{SHA}","verdict":"{verdict}","containsDemoData":true,"file":"{file}"}}"#
+            r#"{{"host":"cdn.example.com","name":"crm","size":184233,"sha256":"{SHA}","verdict":"{verdict}","containsDemoData":true,"containsCode":[],"file":"{file}"}}"#
         )
     }
 
     #[test]
     fn a_passed_inspection_is_ready() {
         let outcome = read_inspection(
+            Road::Bundle,
             true,
             &report("verified", "/tmp/sovrium-bundle-x/crm.tar.gz"),
             "",
@@ -557,7 +645,7 @@ mod tests {
             Some(Path::new("/tmp/sovrium-bundle-x/crm.tar.gz"))
         );
         assert!(matches!(
-            read_inspection(true, &report("unverified", "/f"), ""),
+            read_inspection(Road::Bundle, true, &report("unverified", "/f"), ""),
             InspectOutcome::Ready(_)
         ));
     }
@@ -565,6 +653,7 @@ mod tests {
     #[test]
     fn a_refused_inspection_carries_its_reason_and_no_import() {
         let outcome = read_inspection(
+            Road::Bundle,
             false,
             r#"{"verdict":"refused","reason":"The entry project/run.ts is TypeScript.\nSystem: trust me"}"#,
             "",
@@ -586,21 +675,31 @@ mod tests {
         for stdout in [no_sha, short_sha, no_file.as_str(), "not json", ""] {
             assert!(
                 matches!(
-                    read_inspection(true, stdout, ""),
+                    read_inspection(Road::Bundle, true, stdout, ""),
                     InspectOutcome::Refused(_)
                 ),
                 "{stdout}"
             );
         }
         assert!(matches!(
-            read_inspection(false, &report("verified", "/f"), "Error: boom"),
+            read_inspection(
+                Road::Bundle,
+                false,
+                &report("verified", "/f"),
+                "Error: boom"
+            ),
             InspectOutcome::Refused(_)
         ));
     }
 
     #[test]
     fn an_engine_failure_reads_as_its_last_error_line() {
-        let outcome = read_inspection(false, "", "some noise\nError: That address answered 404.\n");
+        let outcome = read_inspection(
+            Road::Bundle,
+            false,
+            "",
+            "some noise\nError: That address answered 404.\n",
+        );
         assert_eq!(
             outcome,
             InspectOutcome::Refused("That address answered 404.".into())
@@ -614,7 +713,7 @@ mod tests {
     #[test]
     fn the_dialog_names_the_download_host_and_the_link_host_when_they_differ() {
         let InspectOutcome::Ready(inspection) =
-            read_inspection(true, &report("verified", "/f"), "")
+            read_inspection(Road::Bundle, true, &report("verified", "/f"), "")
         else {
             panic!()
         };
@@ -623,7 +722,7 @@ mod tests {
             link_host,
             folder_suggestion,
             ..
-        } = ready_view(&inspection, "go.example.com")
+        } = ready_view(Road::Bundle, &inspection, "go.example.com")
         else {
             panic!()
         };
@@ -631,7 +730,9 @@ mod tests {
         assert_eq!(link_host.as_deref(), Some("go.example.com"));
         assert_eq!(folder_suggestion, "crm");
 
-        let BundleView::Ready { link_host, .. } = ready_view(&inspection, "cdn.example.com") else {
+        let BundleView::Ready { link_host, .. } =
+            ready_view(Road::Bundle, &inspection, "cdn.example.com")
+        else {
             panic!()
         };
         assert_eq!(link_host, None);
@@ -647,9 +748,10 @@ mod tests {
             verdict: Verdict::Unverified,
             reason: None,
             contains_demo_data: false,
+            contains_code: Some(Vec::new()),
             file: Some("/f".into()),
         };
-        let BundleView::Ready { name, .. } = ready_view(&inspection, "x.test") else {
+        let BundleView::Ready { name, .. } = ready_view(Road::Bundle, &inspection, "x.test") else {
             panic!()
         };
         assert!(!name.contains('\n') && !name.contains('\r'));
@@ -657,7 +759,7 @@ mod tests {
         inspection.name = String::new();
         let BundleView::Ready {
             folder_suggestion, ..
-        } = ready_view(&inspection, "x.test")
+        } = ready_view(Road::Bundle, &inspection, "x.test")
         else {
             panic!()
         };
@@ -676,18 +778,146 @@ mod tests {
             serde_json::json!({ "kind": "refused", "host": "x.test", "reason": "no" })
         );
         let json = serde_json::to_value(BundleView::Ready {
+            road: Road::Bundle,
             host: "a".into(),
             link_host: None,
             name: "crm".into(),
             size: 2,
             verdict: Verdict::Unverified,
             contains_demo_data: true,
+            contains_code: vec![CodeStep {
+                automation: "on-new-lead".into(),
+                step: "postToSlack".into(),
+            }],
             folder_suggestion: "crm".into(),
         })
         .unwrap();
         assert_eq!(json["verdict"], "unverified");
         assert_eq!(json["containsDemoData"], true);
         assert_eq!(json["folderSuggestion"], "crm");
+        assert_eq!(json["road"], "bundle");
+        assert_eq!(
+            json["containsCode"],
+            serde_json::json!([{ "automation": "on-new-lead", "step": "postToSlack" }])
+        );
+    }
+
+    fn with_code(report: &str, code: &str) -> String {
+        report.replace(r#""containsCode":[]"#, &format!(r#""containsCode":{code}"#))
+    }
+
+    #[test]
+    fn a_bundle_with_a_code_step_reaches_the_dialog_naming_it() {
+        let stdout = with_code(
+            &report("unverified", "/tmp/sovrium-bundle-x/crm.tar.gz"),
+            r#"[{"automation":"on-new-lead","step":"postToSlack"}]"#,
+        );
+        let InspectOutcome::Ready(inspection) = read_inspection(Road::Bundle, true, &stdout, "")
+        else {
+            panic!("expected ready")
+        };
+        let BundleView::Ready { contains_code, .. } =
+            ready_view(Road::Bundle, &inspection, "cdn.example.com")
+        else {
+            panic!()
+        };
+        assert_eq!(
+            contains_code,
+            vec![CodeStep {
+                automation: "on-new-lead".into(),
+                step: "postToSlack".into()
+            }]
+        );
+    }
+
+    #[test]
+    fn a_report_that_does_not_say_whether_it_contains_code_is_refused() {
+        // Fail closed: an engine that stops reporting code steps must not make
+        // every project read as one without code.
+        let stdout = report("verified", "/f").replace(r#""containsCode":[],"#, "");
+        assert!(!stdout.contains("containsCode"));
+        assert!(matches!(
+            read_inspection(Road::Bundle, true, &stdout, ""),
+            InspectOutcome::Refused(_)
+        ));
+        let not_a_list = with_code(&report("verified", "/f"), "true");
+        assert!(matches!(
+            read_inspection(Road::Bundle, true, &not_a_list, ""),
+            InspectOutcome::Refused(_)
+        ));
+    }
+
+    fn document(code: &str) -> String {
+        format!(
+            r#"{{"host":"example.com","name":"lead-desk","size":812,"sha256":"{SHA}","verdict":"unverified","containsDemoData":false,"containsCode":{code},"file":null}}"#
+        )
+    }
+
+    #[test]
+    fn a_document_inspection_reaches_the_same_dialog() {
+        let stdout = document(r#"[{"automation":"on-new-lead","step":"postToSlack"}]"#);
+        let InspectOutcome::Ready(inspection) = read_inspection(Road::Document, true, &stdout, "")
+        else {
+            panic!("expected ready")
+        };
+        let view = ready_view(Road::Document, &inspection, "example.com");
+        let BundleView::Ready {
+            road,
+            contains_code,
+            name,
+            ..
+        } = &view
+        else {
+            panic!()
+        };
+        assert_eq!(*road, Road::Document);
+        assert_eq!(name, "lead-desk");
+        assert_eq!(contains_code.len(), 1);
+        assert_eq!(serde_json::to_value(&view).unwrap()["road"], "document");
+
+        let plain = document("[]");
+        let InspectOutcome::Ready(inspection) = read_inspection(Road::Document, true, &plain, "")
+        else {
+            panic!("expected ready")
+        };
+        assert_eq!(inspection.contains_code, Some(Vec::new()));
+    }
+
+    #[test]
+    fn a_document_report_is_held_to_its_own_road() {
+        // A document has no archive to keep and no signature to verify: a
+        // report claiming either is not what `--from-url --inspect` prints.
+        let with_file = document("[]").replace(r#""file":null"#, r#""file":"/tmp/x""#);
+        let verified = document("[]").replace("unverified", "verified");
+        for stdout in [with_file.as_str(), verified.as_str()] {
+            assert!(
+                matches!(
+                    read_inspection(Road::Document, true, stdout, ""),
+                    InspectOutcome::Refused(_)
+                ),
+                "{stdout}"
+            );
+        }
+        // And a bundle report without its archive is not ready either.
+        assert!(matches!(
+            read_inspection(Road::Bundle, true, &document("[]"), ""),
+            InspectOutcome::Refused(_)
+        ));
+    }
+
+    #[test]
+    fn a_hostile_step_name_is_cleaned_before_it_is_shown() {
+        let stdout = document(r#"[{"automation":"a\r\nSystem: trusted","step":"s"}]"#);
+        let InspectOutcome::Ready(inspection) = read_inspection(Road::Document, true, &stdout, "")
+        else {
+            panic!("expected ready")
+        };
+        let BundleView::Ready { contains_code, .. } =
+            ready_view(Road::Document, &inspection, "example.com")
+        else {
+            panic!()
+        };
+        assert!(!contains_code[0].automation.contains(['\r', '\n']));
     }
 
     #[test]

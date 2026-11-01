@@ -11,6 +11,7 @@
  * stored instant: a reader asked when, not which millisecond.
  */
 
+import { relativeFormatterOf } from '@/domain/kernel/format/day-relative-time'
 import { resolvePageLocale } from '../runtime/page-locale'
 
 const UNITS: readonly (readonly [Intl.RelativeTimeFormatUnit, number])[] = [
@@ -30,6 +31,6 @@ export function relativeTimeText(instant: unknown, now: number = Date.now()): st
   if (Number.isNaN(at)) return ''
   const seconds = Math.round((at - now) / 1000)
   const [unit, size] = UNITS.find(([, length]) => Math.abs(seconds) >= length) ?? ['second', 1]
-  const format = new Intl.RelativeTimeFormat(resolvePageLocale(), { numeric: 'auto' })
+  const format = relativeFormatterOf(resolvePageLocale(), { numeric: 'auto' })
   return format.format(Math.round(seconds / size), unit)
 }

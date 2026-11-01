@@ -26,6 +26,7 @@
 
 import { Effect } from 'effect'
 import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { STUCK_RUN_ERROR } from '@/domain/models/app/automations/automation-run-outcome-service'
 import { resolveAutomationDefaultTimeoutMs } from '@/domain/models/process-env/automations'
 import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
@@ -33,6 +34,7 @@ import { notifyPlatformFailure } from './notify-platform-failure'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationRunOutcomeDatabaseError } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import type { EmailSender } from '@/application/ports/services/email-sender'
+import type { FailureAlertHoldBack } from '@/application/ports/services/failure-alert-hold-back'
 import type { App } from '@/domain/models/app'
 
 /** How long past its timeout a run may still be `running` before it is swept. */
@@ -52,15 +54,14 @@ const declaredTimeoutMs = (automation: NonNullable<App['automations']>[number]) 
  */
 export const sweepStuckRuns = (
   app: App,
-  processEnv: Readonly<Record<string, string | undefined>> = process.env,
   now: Readonly<Date> = onDevTimeline()
 ): Effect.Effect<
   readonly string[],
   AutomationRunOutcomeDatabaseError,
-  AutomationRunOutcomeRepository | AuthRepository | EmailSender
+  AutomationRunOutcomeRepository | AuthRepository | EmailSender | FailureAlertHoldBack
 > =>
   Effect.gen(function* () {
-    const defaultTimeoutMs = resolveAutomationDefaultTimeoutMs(processEnv)
+    const defaultTimeoutMs = resolveAutomationDefaultTimeoutMs(yield* ProcessEnv)
     const cutoffOf = (timeoutMs: number) => new Date(now.getTime() - timeoutMs - STUCK_RUN_GRACE_MS)
     const repository = yield* AutomationRunOutcomeRepository
     const closed = yield* repository.timeOutStuckRuns({

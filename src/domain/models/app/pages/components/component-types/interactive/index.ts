@@ -11,3 +11,8 @@ export { AlertTypeLiteral, alertFields } from './alert'
 export { LinkTypeLiteral, linkFields } from './link'
 export { ButtonGroupTypeLiteral, buttonGroupFields } from './button-group'
 export { ThemeToggleTypeLiteral, themeToggleFields } from './theme-toggle'
+export {
+  ConsentChoiceTypeLiteral,
+  ConsentPurposeSchema,
+  consentChoiceFields,
+} from './consent-choice'

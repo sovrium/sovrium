@@ -7,7 +7,8 @@
 
 import { callerTableGate, type CallerReader } from './caller-record-gate-service'
 import { CHECKBOX_FIELD_TYPES, checkboxLiteralOf } from './checkbox-literal-service'
-import { isRecordKeyShaped, MAX_SERIAL_KEY, type RecordKeyShape } from './record-id-service'
+import { columnHoldsText } from './filter-value-fit-service'
+import { isRecordKeyShaped, type RecordKeyShape } from './record-id-service'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -40,19 +41,6 @@ export type RouteParamTable = Omit<RecordKeyShape, 'fields'> & {
   readonly fields?: readonly { readonly name?: string; readonly type?: string }[]
 }
 
-/** Field types whose column is a 32-bit integer. */
-const INTEGER_TYPES: ReadonlySet<string> = new Set([
-  'integer',
-  'rating',
-  'progress',
-  'autonumber',
-  'count',
-  'duration',
-])
-
-/** Field types whose column holds a number with decimals. */
-const NUMBER_TYPES: ReadonlySet<string> = new Set(['number', 'decimal', 'currency', 'percentage'])
-
 /** Field types whose column no single route segment can equal: a list, a document, a file. */
 const UNMATCHABLE_TYPES: ReadonlySet<string> = new Set([
   'json',
@@ -64,53 +52,11 @@ const UNMATCHABLE_TYPES: ReadonlySet<string> = new Set([
   'signature',
 ])
 
-/** Whether `value` is a whole number a 32-bit integer column holds. */
-const isInt4 = (value: string): boolean =>
-  /^-?\d{1,10}$/.test(value) &&
-  BigInt(value) <= MAX_SERIAL_KEY &&
-  BigInt(value) >= -MAX_SERIAL_KEY - 1n
-
-/** Whether `value` is a real calendar day written `YYYY-MM-DD`: February 30th is none. */
-const isCalendarDay = (value: string): boolean => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
-  if (match === null) return false
-  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])]
-  const date = new Date(Date.UTC(year, month - 1, day))
-  return (
-    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
-  )
-}
-
-/** Whether `value` is a time of day written `HH:MM` or `HH:MM:SS`, optionally with fractions. */
-const isTimeOfDay = (value: string): boolean =>
-  /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,6})?)?$/.test(value)
-
-/** Whether `value` is an ISO 8601 date-time: a real day, then optionally a time and an offset. */
-const isDateTime = (value: string): boolean => {
-  const match = /^(\d{4}-\d{2}-\d{2})(?:[T ](.+?)(Z|[+-]\d{2}:?\d{2})?)?$/.exec(value)
-  if (match === null || !isCalendarDay(match[1] as string)) return false
-  return match[2] === undefined || isTimeOfDay(match[2])
-}
-
-/** The check a segment passes to be compared with a column of each typed field. */
-const TYPE_CHECKS: ReadonlyMap<string, (value: string) => boolean> = new Map([
-  ...[...INTEGER_TYPES].map((type) => [type, isInt4] as const),
-  ...[...NUMBER_TYPES].map(
-    (type) => [type, (v: string) => /^-?\d{1,18}(\.\d+)?$/.test(v)] as const
-  ),
-  ...[...CHECKBOX_FIELD_TYPES].map(
-    (type) => [type, (v: string) => checkboxLiteralOf(v) !== undefined] as const
-  ),
-  ['date', isCalendarDay],
-  ['datetime', isDateTime],
-  ['time', isTimeOfDay],
-])
-
 /** Whether `value` can be compared with a column of a field of `type`. */
 const fitsFieldType = (type: string | undefined, value: string): boolean => {
   if (type === undefined) return true
   if (UNMATCHABLE_TYPES.has(type) || type.startsWith('ai-')) return false
-  return TYPE_CHECKS.get(type)?.(value) ?? true
+  return columnHoldsText(type, value)
 }
 
 /**

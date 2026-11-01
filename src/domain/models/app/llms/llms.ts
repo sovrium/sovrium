@@ -37,7 +37,10 @@ export const LlmsSchema = Schema.Struct({
    */
   title: Schema.optional(
     Schema.String.pipe(
-      Schema.annotate({ description: 'Override the H1 title at the top of /llms.txt' }),
+      Schema.annotate({
+        description:
+          'Override the H1 title at the top of /llms.txt; a $t: key resolves in each route language',
+      }),
       Schema.check(Schema.isMinLength(1))
     )
   ),
@@ -48,7 +51,10 @@ export const LlmsSchema = Schema.Struct({
    */
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.annotate({ description: 'Override the blockquote description in /llms.txt' }),
+      Schema.annotate({
+        description:
+          'Override the blockquote description in /llms.txt; a $t: key resolves in each route language',
+      }),
       Schema.check(Schema.isMinLength(1))
     )
   ),

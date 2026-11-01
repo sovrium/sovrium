@@ -33,7 +33,7 @@ const scope = new AsyncLocalStorage<Readonly<Date>>()
 export const renderInstant = (): Readonly<Date> | undefined => scope.getStore()
 
 /** "Now" for the render in progress: its fixed instant, else the server's clock. */
-export const renderNow = (): Readonly<Date> => renderInstant() ?? serverNow()
+export const renderNow = (): Readonly<Date> => renderInstant() ?? serverNow(process.env)
 
 /**
  * Run one render at a fixed instant.

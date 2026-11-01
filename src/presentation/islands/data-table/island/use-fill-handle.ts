@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { lockedOnRecord } from '@/presentation/design/locks-verdict'
 import {
   coerceFieldValue,
   coercionWordsFrom,
@@ -116,6 +117,28 @@ function fillDownTargets(source: GridCursor, params: FillHandleParams): readonly
   return rowIds.slice(sourceIndex + 1, lastIndex + 1)
 }
 
+/** The messages of the lock rules holding a cell of the span on its record (`_locks`). */
+function lockedTargets(
+  source: GridCursor,
+  targetRowIds: readonly string[],
+  targetColumnIds: readonly string[],
+  params: FillHandleParams
+): readonly string[] {
+  const { rows, leafColumns, fieldMeta } = params
+  return targetColumnIds.flatMap((columnId) => {
+    const column = leafColumns.find((candidate) => candidate.id === columnId)
+    const field = column?.columnDef.meta?.field
+    if (field === undefined || !canFillFrom(column, fieldMeta)) return []
+    return rows
+      .filter((row) => targetRowIds.includes(rowIdOf(row)))
+      .filter((row) => rowIdOf(row) !== source.rowId || columnId !== source.columnId)
+      .flatMap((row) => {
+        const lock = lockedOnRecord(row.original as Record<string, unknown>, field)
+        return lock?.reason === undefined ? [] : [lock.reason]
+      })
+  })
+}
+
 /** One drag's outcome: the writes it issued, and the columns it had to refuse. */
 function commitFill(
   source: GridCursor,
@@ -129,6 +152,10 @@ function commitFill(
   const sourceRow = rows.find((row) => rowIdOf(row) === source.rowId)
   if (sourceField === undefined || sourceRow === undefined || onCellCommit === undefined) return []
   const sourceValue = (sourceRow.original as Record<string, unknown>)[sourceField]
+  // A span crossing a cell a lock rule holds is refused whole, with the rule's
+  // message: half a fill landing is a column nobody asked for.
+  const held = lockedTargets(source, targetRowIds, targetColumnIds, params)
+  if (held.length > 0) return held
 
   return targetColumnIds.flatMap((columnId) => {
     const column = leafColumns.find((candidate) => candidate.id === columnId)

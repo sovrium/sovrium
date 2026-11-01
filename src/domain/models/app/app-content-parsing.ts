@@ -39,14 +39,21 @@ const asTree = (parsed: unknown): AppEncoded => {
 export const parseJsonContent = (content: string): AppEncoded => asTree(JSON.parse(content))
 
 /**
+ * The YAML parser a caller supplies. The domain names the shape and never the
+ * runtime: the CLI and the infrastructure loaders pass Bun's native parser
+ * (`Bun.YAML`), which satisfies it as is.
+ */
+export type YamlParser = { readonly parse: (text: string) => unknown }
+
+/**
  * Parse YAML content to AppEncoded
  *
- * Uses Bun's native YAML parser (`Bun.YAML.parse`). On malformed YAML this
- * throws a plain `SyntaxError` (not js-yaml's typed `YAMLException`); on a
- * well-formed document that uses anchors/aliases to share a node it throws the
- * shared-reference refusal.
+ * With Bun's native parser, malformed YAML throws a plain `SyntaxError` (not
+ * js-yaml's typed `YAMLException`); on a well-formed document that uses
+ * anchors/aliases to share a node this throws the shared-reference refusal.
  */
-export const parseYamlContent = (content: string): AppEncoded => asTree(Bun.YAML.parse(content))
+export const parseYamlContent = (content: string, yaml: YamlParser): AppEncoded =>
+  asTree(yaml.parse(content))
 
 /**
  * Parse schema content based on detected format
@@ -54,18 +61,19 @@ export const parseYamlContent = (content: string): AppEncoded => asTree(Bun.YAML
  */
 export const parseSchemaContent = (
   content: string,
-  format: SchemaFormat | undefined
+  format: SchemaFormat | undefined,
+  yaml: YamlParser
 ): AppEncoded => {
   if (format === 'json') {
     return parseJsonContent(content)
   }
   if (format === 'yaml') {
-    return parseYamlContent(content)
+    return parseYamlContent(content, yaml)
   }
   // Last fallback: try JSON first, then YAML
   try {
     return parseJsonContent(content)
   } catch {
-    return parseYamlContent(content)
+    return parseYamlContent(content, yaml)
   }
 }

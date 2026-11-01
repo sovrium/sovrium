@@ -14,8 +14,8 @@ import {
   type ParsedPart,
   type XmlElement,
 } from './ooxml-tree'
-import type { ZipEntry } from '../action-handlers/file-zip'
-import type { ZipReadEntry } from '../action-handlers/file-zip-read'
+import type { ZipEntry } from '../action-handlers/file/zip'
+import type { ZipReadEntry } from '../action-handlers/file/zip-read'
 
 /**
  * The package half of filling a Word template: what the package IS before

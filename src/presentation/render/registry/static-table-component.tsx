@@ -30,6 +30,7 @@
  * Tailwind cascade.
  */
 
+import { synthesizedComponent } from '@/presentation/render/resolve/component-rewrite'
 import { cn } from '../../design/class-merge'
 import {
   computeStaticTableBodyClasses,
@@ -214,6 +215,7 @@ export const renderTableSpecimen = (context: Parameters<ComponentRenderer>[0]) =
   return staticTableComponent({
     ...context,
     elementPropsWithSpacing: {},
-    component: seededTableContent(elementProps['columns'], seed),
+    // The seeded rows drawn as a table written with static rows would be.
+    component: synthesizedComponent(seededTableContent(elementProps['columns'], seed)),
   })
 }

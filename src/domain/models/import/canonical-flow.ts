@@ -12,7 +12,7 @@
  * Retool workflow and the automations of a Baserow workspace export all become
  * a trigger followed by a directed graph of steps. ONE mapper then turns the
  * graph into an `automations[]` entry, through the committed step registry
- * (`flow-step-mappings.ts`).
+ * (`flow/step-mappings.ts`).
  *
  * ## Expressions are tokenised, never evaluated
  *

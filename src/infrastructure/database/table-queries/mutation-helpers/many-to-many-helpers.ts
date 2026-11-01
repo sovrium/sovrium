@@ -7,10 +7,11 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { db, type DatabaseError } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { junctionKeyColumns } from '@/infrastructure/database/sql/sql-junction-tables'
 import { wrapDatabaseError } from '../statement/error-handling'
+import type { DatabaseError } from '@/infrastructure/database'
+import type { DatabaseService, TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Writing and reading a native `many-to-many` relationship field.
@@ -127,11 +128,11 @@ const buildLinkStatements = (input: LinkManyToManyInput): readonly Readonly<SQL>
  * with the record itself (a single or batch create, an update).
  */
 export const writeManyToManyLinksInTransaction = (
-  tx: Parameters<typeof executeRaw>[0],
+  { tx, dialect }: TransactionOn,
   input: LinkManyToManyInput
 ): Promise<unknown> =>
   buildLinkStatements(input).reduce<Promise<unknown>>(
-    (prev, statement) => prev.then(() => executeRaw(tx, statement)),
+    (prev, statement) => prev.then(() => executeRawOn(dialect.kind, tx, statement)),
     Promise.resolve(undefined)
   )
 
@@ -151,11 +152,11 @@ const buildUnlinkStatements = (input: LinkManyToManyInput): readonly Readonly<SQ
  * roll back the removal together with the record itself.
  */
 export const removeManyToManyLinksInTransaction = (
-  tx: Parameters<typeof executeRaw>[0],
+  { tx, dialect }: TransactionOn,
   input: LinkManyToManyInput
 ): Promise<unknown> =>
   buildUnlinkStatements(input).reduce<Promise<unknown>>(
-    (prev, statement) => prev.then(() => executeRaw(tx, statement)),
+    (prev, statement) => prev.then(() => executeRawOn(dialect.kind, tx, statement)),
     Promise.resolve(undefined)
   )
 
@@ -178,6 +179,7 @@ export type ManyToManyResult = Record<string, Record<string, readonly (string | 
 
 /** SELECT the junction rows for one field across all source records. */
 const readFieldRows = (
+  { client: db, dialect }: DatabaseService,
   sourceTable: string,
   sourceIds: readonly (string | number)[],
   field: ManyToManyReadField
@@ -188,7 +190,8 @@ const readFieldRows = (
     sourceIds.map((id) => sql`${coerceId(id)}`),
     sql.raw(', ')
   )
-  return executeRaw(
+  return executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT ${sql.identifier(srcCol)} AS src, ${sql.identifier(relCol)} AS rel FROM ${sql.identifier(junction)} WHERE ${sql.identifier(srcCol)} IN (${idList})`
   )
@@ -215,6 +218,7 @@ const foldFieldRows = (
  * only for determinism, not correctness (each field writes a distinct key).
  */
 export const readManyToMany = (
+  { client: db, dialect }: DatabaseService,
   input: ReadManyToManyInput
 ): Effect.Effect<ManyToManyResult, DatabaseError> => {
   if (input.fields.length === 0 || input.sourceIds.length === 0) return Effect.succeed({})
@@ -224,7 +228,9 @@ export const readManyToMany = (
       Effect.tryPromise({
         try: async () => ({
           field,
-          byRecord: foldFieldRows(await readFieldRows(input.sourceTable, input.sourceIds, field)),
+          byRecord: foldFieldRows(
+            await readFieldRows({ client: db, dialect }, input.sourceTable, input.sourceIds, field)
+          ),
         }),
         catch: wrapDatabaseError(`Failed to read many-to-many records for ${input.sourceTable}`),
       }),
@@ -260,6 +266,7 @@ export interface ManyToManyHoldersInput {
  * both engines.
  */
 export const readManyToManyHolders = (
+  { client: db, dialect }: DatabaseService,
   input: ManyToManyHoldersInput
 ): Effect.Effect<readonly (string | number)[], DatabaseError> => {
   if (input.relatedIds.length === 0) return Effect.succeed([])
@@ -271,7 +278,8 @@ export const readManyToManyHolders = (
   )
   return Effect.tryPromise({
     try: async () => {
-      const rows = await executeRaw(
+      const rows = await executeRawOn(
+        dialect.kind,
         db,
         sql`SELECT DISTINCT ${sql.identifier(srcCol)} AS src FROM ${sql.identifier(junction)} WHERE CAST(${sql.identifier(relCol)} AS TEXT) IN (${ids})`
       )

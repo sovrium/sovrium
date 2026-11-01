@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { DesignBreakpointsSchema } from './breakpoints'
+import { DesignCodeSchema } from './code'
 import { ColorRolesSchema } from './color-roles'
 import { DesignColorsSchema, DesignDarkColorsSchema } from './colors'
 import { DesignComponentsSchema } from './components'
@@ -48,13 +49,13 @@ import { DesignZonesSchema } from './zones'
  *    co-located, so a rename cannot half-apply. `design.components` is the
  *    operator's per-engine-type STYLE key.)
  *
- * ## Four bands, twenty keys, no second spelling of anything
+ * ## Four bands, twenty-one keys, no second spelling of anything
  *
  * - **Colour** — `colorScheme`, `colors`, `darkColors`, `ramps`, `colorRoles`.
  * - **Foundations** — `typeScale`, `spacing`, `radius`, `elevation`, `motion`,
  *   `breakpoints`.
  * - **Application** — `density`, `badgeForm`, `baseline`, `components`,
- *   `zones`.
+ *   `code`, `zones`.
  * - **Charter** — `logo`, `imagery`, `principles`, `voice`.
  *
  * The order above is the narrative order, and it is also the order the design
@@ -208,6 +209,13 @@ export const DesignSchema = Schema.Struct({
   components: Schema.optional(DesignComponentsSchema),
 
   /**
+   * How code blocks take the design: `tokens` colours each syntax role from a
+   * colour token the design declares. Absent, every code block draws the
+   * default light/dark pair, byte for byte. See `code.ts`.
+   */
+  code: Schema.optional(DesignCodeSchema),
+
+  /**
    * The zone map — which route patterns belong to which zone, and how each
    * zone's voice departs from `design.voice`.
    *
@@ -238,7 +246,7 @@ export const DesignSchema = Schema.Struct({
     identifier: 'Design',
     title: 'Design System',
     description:
-      "The app's design system in one key: the colour palette, ramps and roles; the type, space, shape, elevation, motion and layout foundations; density, baseline and per-engine-type component styling; the zone map; and the charter — logo, imagery, principles and voice.",
+      "The app's design system in one key: the colour palette, ramps and roles; the type, space, shape, elevation, motion and layout foundations; density, baseline and per-engine-type component styling; the colours of code blocks; the zone map; and the charter (logo, imagery, principles and voice).",
     // One example, exercising every band. Completeness is deliberate: this
     // block is the only place a reader sees the whole key in one shape, and a
     // partial example teaches the omitted keys as optional-in-practice.
@@ -292,6 +300,7 @@ export const DesignSchema = Schema.Struct({
         },
         baseline: 'extend',
         components: { button: { parts: { root: 'rounded-none' } } },
+        code: { tokens: { keyword: 'primary' } },
         zones: [
           { pattern: '/admin/*', zone: 'product' },
           { pattern: 'everything else', zone: 'marketing' },

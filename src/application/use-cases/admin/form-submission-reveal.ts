@@ -22,24 +22,29 @@
  */
 
 import { Effect } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   submissionLabelOf,
   submissionsResultSummary,
 } from '@/application/use-cases/admin/form-labels'
 import {
-  BuildSubmissionDetail,
-  BuildSubmissionsList,
+  answerWordsOf,
+  withSubmissionRuns,
+  withSubmissionsTriage,
+} from '@/application/use-cases/admin/form-submission-triage'
+import {
+  buildSubmissionDetail,
+  buildSubmissionsList,
   type SubmissionsListInput,
-} from '@/application/use-cases/admin/forms-overview'
+} from '@/application/use-cases/admin/form-submissions-overview'
 import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { decodeOrThrow } from '@/domain/kernel/config-parsing/decode'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { bodyCaptureDisabledErrorSchema } from '@/domain/models/api/admin/forms'
-import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
-import { readableName } from '@/domain/models/app/auth/readable-name-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { groupSubmissionAnswers } from '@/domain/models/app/forms/form-submission-answers-service'
-import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import type {
   AdminReadOutcome,
   AdminReadRequest,
@@ -56,8 +61,9 @@ export interface SubmissionRequest {
  * Whether this instance lets an admin reveal submission bodies. Read per
  * request so a restart-free env change is honoured as the route always did.
  */
-const bodyCaptureAllowed = (): boolean =>
-  process.env['ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED'] === 'true'
+const bodyCaptureAllowed = ProcessEnv.pipe(
+  Effect.map((env) => env['ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED'] === 'true')
+)
 
 const BODY_CAPTURE_DISABLED = 'body-capture-disabled'
 
@@ -70,7 +76,7 @@ export const canRevealSubmissionBodies = Effect.fn('admin.forms.can-reveal-bodie
   app: App,
   actorUserId: string
 ) {
-  if (!bodyCaptureAllowed()) return false
+  if (!(yield* bodyCaptureAllowed)) return false
   return isAdminEquivalent(yield* getUserRole(actorUserId), app)
 })
 
@@ -86,11 +92,7 @@ const withAnswers = <T extends { readonly body?: Readonly<Record<string, unknown
 ): T => {
   const form = app.forms?.find((candidate) => candidate.name === formName)
   if (submission.body === undefined || form === undefined) return submission
-  const lang = app.languages?.default ?? 'en'
-  const answers = groupSubmissionAnswers(form, submission.body, {
-    translate: (text) => resolveTranslationPattern(text, lang, app.languages),
-    readableName,
-  })
+  const answers = groupSubmissionAnswers(form, submission.body, answerWordsOf(app))
   return { ...submission, answers }
 }
 
@@ -103,11 +105,11 @@ export const readSubmission = (
   Effect.gen(function* () {
     // Judged on the ACCOUNT role, not the audit actor's coerced tier.
     const accountRole = yield* getUserRole(caller.actorUserId)
-    const outcome = yield* BuildSubmissionDetail({
+    const outcome = yield* buildSubmissionDetail({
       formName,
       submissionId,
       reveal,
-      captureAllowed: bodyCaptureAllowed(),
+      captureAllowed: yield* bodyCaptureAllowed,
       isAdmin: isAdminEquivalent(accountRole, app),
     })
     switch (outcome._tag) {
@@ -120,10 +122,12 @@ export const readSubmission = (
         } satisfies AdminReadOutcome
       case 'Ok': {
         const language = yield* resolveOperatorLanguage(caller)
-        const label = submissionLabelOf(app, outcome.body, language)
+        const operatorTimezone = parseSovriumTimezone(yield* ProcessEnv).zoneId
+        const label = submissionLabelOf(app, outcome.body, language, operatorTimezone)
+        const submission = yield* withSubmissionRuns(app, formName, outcome.body)
         return {
           _tag: 'Ok',
-          body: { ...withAnswers(app, formName, outcome.body), label },
+          body: { ...withAnswers(app, formName, submission), label },
           alsoAudit: outcome.bodyRevealed
             ? [{ action: AUDIT_ACTIONS.FORM_SUBMISSION_BODY_REVEALED, severity: 'critical' }]
             : [],
@@ -150,13 +154,14 @@ export const readSubmissionsList = (
 ) =>
   Effect.gen(function* () {
     const revealBodies = input.reveal && (yield* canRevealSubmissionBodies(app, caller.actorUserId))
-    const outcome = yield* BuildSubmissionsList(input, revealBodies)
+    const outcome = yield* buildSubmissionsList(input, revealBodies)
     if (outcome._tag !== 'Ok') return outcome
     const language = yield* resolveOperatorLanguage(caller)
     return {
       _tag: 'Ok',
       body: {
         ...outcome.body,
+        items: yield* withSubmissionsTriage(app, input.formName, outcome.body.items),
         resultSummary: submissionsResultSummary(outcome.body.total, language),
       },
       alsoAudit: revealBodies

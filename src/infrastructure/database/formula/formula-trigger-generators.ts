@@ -17,6 +17,7 @@ import {
   getViewComputedFormulaFields,
 } from './formula-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Type for formula fields that need trigger-based computation
@@ -40,9 +41,10 @@ type TriggerFormulaField = Fields[number] & { readonly type: 'formula'; readonly
  * come first, so their values are computed before dependents read them.
  */
 const getTriggerFormulaFields = (
+  dialect: DatabaseDialect,
   fields: readonly Fields[number][]
 ): readonly TriggerFormulaField[] => {
-  const triggerFieldNames = getFormulaFieldsNeedingTrigger(fields)
+  const triggerFieldNames = getFormulaFieldsNeedingTrigger(dialect, fields)
   // View-computed formulas (reference rollup/lookup/count) are computed in the
   // VIEW's CTE, not as base-table columns — so the BEFORE INSERT/UPDATE trigger
   // on the base table must NOT try to populate them (the referenced rollup
@@ -55,7 +57,7 @@ const getTriggerFormulaFields = (
     }
     if (viewComputedNames.has(field.name)) return false
     // Check volatility on translated formula
-    const translatedFormula = translateFormula(field.formula, fields)
+    const translatedFormula = translateFormula(dialect, field.formula, fields)
     return isFormulaVolatile(translatedFormula) || triggerFieldNames.has(field.name)
   })
 
@@ -82,7 +84,7 @@ export const generateVolatileFormulaTriggerFunction = (
   tableName: string,
   fields: readonly Fields[number][]
 ): string | undefined => {
-  const volatileFields = getTriggerFormulaFields(fields)
+  const volatileFields = getTriggerFormulaFields('postgres', fields)
   if (volatileFields.length === 0) {
     return undefined
   }
@@ -90,9 +92,9 @@ export const generateVolatileFormulaTriggerFunction = (
   const functionName = `compute_${tableName}_formulas`
   const assignments = volatileFields
     .map((field) => {
-      // Translate formula to the active dialect's syntax (e.g. on Postgres,
-      // SUBSTR → SUBSTRING, date::TEXT → TO_CHAR)
-      const translatedFormula = translateFormula(field.formula, fields)
+      // Translate formula to PostgreSQL's syntax (SUBSTR → SUBSTRING,
+      // date::TEXT → TO_CHAR)
+      const translatedFormula = translateFormula('postgres', field.formula, fields)
       // Qualify column references with 't.' prefix for the subquery alias
       const qualifiedFormula = qualifyColumnReferences(translatedFormula, fields, 't')
       // Cast numeric `/` division operands so integer division does not truncate
@@ -100,7 +102,7 @@ export const generateVolatileFormulaTriggerFunction = (
       // Runs AFTER qualification so it
       // matches the already-aliased references.
       const castFormula = pinFormulaClock(
-        castFormulaDivisionOperands(qualifiedFormula, fields, 't'),
+        castFormulaDivisionOperands('postgres', qualifiedFormula, fields, 't'),
         'postgres'
       )
       return `  SELECT (${castFormula}) INTO NEW.${quoteSqlIdentifier(field.name)} FROM (SELECT NEW.*) AS t;`
@@ -161,7 +163,7 @@ export const generateSqliteFormulaTriggers = (
   tableName: string,
   fields: readonly Fields[number][]
 ): readonly string[] => {
-  const triggerFields = getTriggerFormulaFields(fields)
+  const triggerFields = getTriggerFormulaFields('sqlite', fields)
   if (triggerFields.length === 0) return []
 
   const triggerComputedNames = new Set(triggerFields.map((field) => field.name))
@@ -171,8 +173,11 @@ export const generateSqliteFormulaTriggers = (
 
   const assignments = triggerFields
     .map((field) => {
-      const translated = translateFormula(field.formula, fields)
-      const castFormula = pinFormulaClock(castFormulaDivisionOperands(translated, fields), 'sqlite')
+      const translated = translateFormula('sqlite', field.formula, fields)
+      const castFormula = pinFormulaClock(
+        castFormulaDivisionOperands('sqlite', translated, fields),
+        'sqlite'
+      )
       return `  UPDATE ${tableName} SET ${quoteSqlIdentifier(field.name)} = (${castFormula}) WHERE rowid = NEW.rowid;`
     })
     .join('\n')
@@ -208,8 +213,13 @@ END`,
  * same signature compute the same values, so a migration that leaves it
  * unchanged has nothing to recompute for the rows already there.
  */
-export const triggerFormulaSignature = (fields: readonly Fields[number][]): string =>
-  JSON.stringify(getTriggerFormulaFields(fields).map((field) => [field.name, field.formula]))
+export const triggerFormulaSignature = (
+  dialect: DatabaseDialect,
+  fields: readonly Fields[number][]
+): string =>
+  JSON.stringify(
+    getTriggerFormulaFields(dialect, fields).map((field) => [field.name, field.formula])
+  )
 
 /**
  * SQLite: compute every trigger-computed formula for every row already in the
@@ -227,13 +237,16 @@ export const generateSqliteFormulaBackfill = (
   fields: readonly Fields[number][],
   updatedAtTriggers: readonly string[]
 ): readonly string[] => {
-  const triggerFields = getTriggerFormulaFields(fields)
+  const triggerFields = getTriggerFormulaFields('sqlite', fields)
   if (triggerFields.length === 0) return []
   const updates = triggerFields.map((field) => {
-    const translated = translateFormula(field.formula, fields)
+    const translated = translateFormula('sqlite', field.formula, fields)
     // The same pinned clock the trigger reads (`formula-dev-clock.ts`), so a
     // formula added while `SOVRIUM_DEV_CLOCK` is set backfills on that day.
-    const castFormula = pinFormulaClock(castFormulaDivisionOperands(translated, fields), 'sqlite')
+    const castFormula = pinFormulaClock(
+      castFormulaDivisionOperands('sqlite', translated, fields),
+      'sqlite'
+    )
     return `UPDATE ${tableName} SET ${quoteSqlIdentifier(field.name)} = (${castFormula})`
   })
   return [...updatedAtTriggers.slice(0, 1), ...updates, ...updatedAtTriggers]
@@ -250,7 +263,7 @@ export const generatePostgresFormulaBackfill = (
   tableName: string,
   fields: readonly Fields[number][]
 ): readonly string[] => {
-  const [first] = getTriggerFormulaFields(fields)
+  const [first] = getTriggerFormulaFields('postgres', fields)
   if (first === undefined) return []
   return [
     `ALTER TABLE ${tableName} DISABLE TRIGGER USER`,
@@ -268,7 +281,7 @@ export const generateVolatileFormulaTrigger = (
   tableName: string,
   fields: readonly Fields[number][]
 ): string | undefined => {
-  const volatileFields = getTriggerFormulaFields(fields)
+  const volatileFields = getTriggerFormulaFields('postgres', fields)
   if (volatileFields.length === 0) {
     return undefined
   }

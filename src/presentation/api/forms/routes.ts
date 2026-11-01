@@ -11,7 +11,6 @@ import { resolveFormOptionSources } from '@/application/use-cases/forms/resolve-
 import { findFormByName, submitFormProgram } from '@/application/use-cases/forms/submit-form'
 import { evaluateAvailabilityWindow } from '@/domain/models/app/forms/form-availability-flow'
 import { hashIp, resolveIpHashSalt } from '@/infrastructure/forms/ip-hash'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import {
   denyFormAccess,
   evaluateFormAccessForRequest,
@@ -37,17 +36,21 @@ import {
   type StepFragmentRenderer,
 } from '@/presentation/api/forms/step-handlers'
 import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
+import { acceptsUploadBody } from '@/presentation/api/middleware/request-body-limit'
 import { answerOnce, withoutIdempotencyField } from '@/presentation/api/runtime/idempotency'
 import { microphonePolicyHeaders } from '@/presentation/api/runtime/microphone-permission'
+import { pageWriteLanguage } from '@/presentation/api/runtime/page-write-language'
+import { answerNotFound } from '@/presentation/api/runtime/run-effect'
 import { formRecordsAudio } from '@/presentation/render/page/page-microphone-detection'
 import { buildPrefillContext, formForCaller } from './form-page-context'
+import { awaitForm, runFormProgram } from './form-program'
+import { answerSubmission, rememberPageApp } from './native-post-answer'
 import { submissionLinkTokens } from './submission-link-tokens'
 import { formNameRequired, formNotFound } from './submission-refusals'
 import {
   detectJsonClient,
   respondParentMissing,
   respondSubmissionFailure,
-  respondSubmissionSuccess,
 } from './submission-responses'
 import type { ReadTableAsCaller } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
@@ -131,70 +134,69 @@ export interface FormRenderers {
  * page referencing the form name + access level; role denials get a 404
  * (S1 anti-enumeration), never a 403.
  */
-async function respondWithForm(
+const respondWithForm = (
   c: Context,
   app: App,
   form: Readonly<Form>,
   view: { readonly renderers: FormRenderers; readonly editLink?: FormLinkState }
-): Promise<Response> {
-  const { renderers, editLink } = view
-  const { decision, session } = await evaluateFormAccessForRequest(c, form)
-  const denied = denyFormAccess(c, form.name, decision, 'html')
-  if (denied !== undefined) return denied
-  const activeLang = c.req.query('lang')
-  // Render the closed-form UI (no submit button)
-  // when the availability window has not yet opened or has already closed.
-  // A closed form is a page the visitor is meant to read, so this is a 200 —
-  // only the submission endpoint answers 403.
-  const windowState = evaluateAvailabilityWindow(form.availability, Date.now())
-  if (windowState.kind === 'not-yet-open') {
-    return c.html(
-      renderers.renderClosedForm(app, form, 'not-yet-open', {
-        activeLang,
-        opensAt: windowState.opensAt,
+) =>
+  Effect.gen(function* () {
+    const { renderers, editLink } = view
+    const { decision, session } = yield* evaluateFormAccessForRequest(c, form)
+    const denied = denyFormAccess(c, form.name, decision, 'html')
+    if (denied !== undefined) return yield* awaitForm(() => denied)
+    const activeLang = c.req.query('lang')
+    // Render the closed-form UI (no submit button)
+    // when the availability window has not yet opened or has already closed.
+    // A closed form is a page the visitor is meant to read, so this is a 200 —
+    // only the submission endpoint answers 403.
+    const windowState = evaluateAvailabilityWindow(form.availability, Date.now())
+    if (windowState.kind === 'not-yet-open') {
+      return c.html(
+        renderers.renderClosedForm(app, form, 'not-yet-open', {
+          activeLang,
+          opensAt: windowState.opensAt,
+        })
+      )
+    }
+    if (windowState.kind === 'closed') {
+      return c.html(renderers.renderClosedForm(app, form, 'closed', { activeLang }))
+    }
+    const prefillCtx = yield* buildPrefillContext(c)
+    const shown = yield* formForCaller(c, app, form, {
+      session,
+      read: renderers.readTableAsCaller,
+    })
+    // Choices read from tables with the FORM's authority, on every serve — so a
+    // public form lists rows its visitor could never read through the records
+    // API, and a row added since the last load is offered on this one.
+    const visitor = yield* resolveFormOptionVisitor(session)
+    const optionSets = yield* resolveFormOptionSources({ app, form: shown, visitor })
+    // A private link's page: an edit, or a draft reopened from its resume link.
+    const link = editLink ?? (yield* resolveResumeLink(c, form))
+    const html = yield* awaitForm(() =>
+      renderers.renderForm(app, shown, activeLang, {
+        ...prefillCtx,
+        optionSets,
+        ...(link === undefined ? {} : { link }),
       })
     )
-  }
-  if (windowState.kind === 'closed') {
-    return c.html(renderers.renderClosedForm(app, form, 'closed', { activeLang }))
-  }
-  const prefillCtx = await buildPrefillContext(c)
-  const shown = await formForCaller(c, app, form, { session, read: renderers.readTableAsCaller })
-  // Choices read from tables with the FORM's authority, on every serve — so a
-  // public form lists rows its visitor could never read through the records
-  // API, and a row added since the last load is offered on this one.
-  const optionSets = await runRequestEffect(
-    c,
-    provideDomain(
-      c,
-      resolveFormOptionSources({
-        app,
-        form: shown,
-        visitor: await resolveFormOptionVisitor(c, session),
-      })
-    )
-  )
-  // A private link's page: an edit, or a draft reopened from its resume link.
-  const link = editLink ?? (await resolveResumeLink(c, form))
-  const html = await renderers.renderForm(app, shown, activeLang, {
-    ...prefillCtx,
-    optionSets,
-    ...(link === undefined ? {} : { link }),
+    return c.html(html, 200, microphonePolicyHeaders(formRecordsAudio(form)))
   })
-  return c.html(html, 200, microphonePolicyHeaders(formRecordsAudio(form)))
-}
 
 /**
  * `GET /forms/:name` — render the form HTML at the canonical route.
  * Returns 404 when the form name is not registered in `app.forms[]`.
  */
-async function handleGetForm(c: Context, app: App, renderers: FormRenderers): Promise<Response> {
-  const name = c.req.param('name')
-  if (!name) return c.notFound()
-  const form = findFormByName(app, name)
-  if (!form) return c.notFound()
-  return respondWithForm(c, app, form, { renderers })
-}
+const handleGetForm = (c: Context, app: App, renderers: FormRenderers): Promise<Response> =>
+  runFormProgram(
+    c,
+    Effect.suspend(() => {
+      const name = c.req.param('name')
+      const form = name ? findFormByName(app, name) : undefined
+      return form ? respondWithForm(c, app, form, { renderers }) : answerNotFound(c)
+    })
+  )
 
 // (handleGetFormEmbed + buildFrameAncestorsCsp removed: `forms.share` schema
 // field was cut with the share-links runtime in Task #18. Iframe embedding
@@ -270,105 +272,94 @@ type TableReader = FormRenderers['readTableAsCaller']
  * `POST /api/forms/:name/submissions` — accept a submission, write to
  * the bound table when configured, then write the ledger row.
  *
- * Two response modes:
- * - JSON clients (Content-Type: application/json or Accept:
- *   application/json, plus all `multipart/form-data` posts driven by the
- *   inline runtime) get `{ submissionId, linkedRecordId }` on success /
- *   `{ error, message, fieldErrors? }` on failure.
- * - Native form submits (urlencoded `<form action>`) redirect to the
- *   Referer on success and render a small HTML error page on failure
- *   (so the browser's address bar reflects the host page rather than
- *   the JSON endpoint).
+ * JSON clients (the inline runtime included) get `{ submissionId, … }` or
+ * `{ error, message, fieldErrors? }`. A native `<form action>` post goes back
+ * to its page (with its success page in the form's place for a `successPage`
+ * form), and a refusal naming fields answers 400 with that page, the fields
+ * marked (`native-post-answer.ts`); any other refusal, a small error page.
  */
-async function handlePostSubmission(c: Context, app: App, read: TableReader): Promise<Response> {
-  const name = c.req.param('name')
-  const isJsonClient = detectJsonClient(c)
-  if (!name) return formNameRequired(c)
-  const form = findFormByName(app, name)
-  if (!form) return formNotFound(c)
-  // Enforce the form access gate before reading the
-  // body. `authenticated` denial → 401; role denial → 404 (anti-enumeration).
-  const { decision, session } = await evaluateFormAccessForRequest(c, form)
-  const denied = denyFormAccess(c, form.name, decision, 'json')
-  if (denied !== undefined) return denied
-  // A duplicate under its idempotency key is answered here, before anything
-  // below — anti-spam, availability and the cap included — counts it.
-  return answerOnce(
+const handlePostSubmission = (c: Context, app: App, read: TableReader): Promise<Response> =>
+  runFormProgram(
     c,
-    {
-      scope: { kind: 'forms', name, userId: session?.userId },
-      body: await readSubmissionFields(c),
-    },
-    (rawBody) => acceptSubmission({ c, app, form, session, isJsonClient, read }, rawBody)
+    Effect.gen(function* () {
+      const name = c.req.param('name')
+      const isJsonClient = detectJsonClient(c)
+      if (!name) return formNameRequired(c)
+      const form = findFormByName(app, name)
+      if (!form) return formNotFound(c)
+      // Enforce the form access gate before reading the
+      // body. `authenticated` denial → 401; role denial → 404 (anti-enumeration).
+      const { decision, session } = yield* evaluateFormAccessForRequest(c, form)
+      const denied = denyFormAccess(c, form.name, decision, 'json')
+      if (denied !== undefined) return yield* awaitForm(() => denied)
+      // A duplicate under its idempotency key is answered here, before anything
+      // below — anti-spam, availability and the cap included — counts it.
+      const body = yield* awaitForm(() => readSubmissionFields(c))
+      return yield* answerOnce(
+        c,
+        { scope: { kind: 'forms', name, userId: session?.userId }, body },
+        (rawBody) => acceptSubmission({ c, app, form, session, isJsonClient, read }, rawBody)
+      )
+    })
   )
-}
 
 /** A submission past the access gate: uploads, the parent check, then the program. */
-async function acceptSubmission(
+const acceptSubmission = (
   request: Omit<RunSubmitProgramConfig, 'formName' | 'body'> & { readonly read: TableReader },
   rawBody: Record<string, unknown>
-): Promise<Response> {
-  const { c, app, session, isJsonClient } = request
-  // Checked and kept over the fields the form offers this submitter.
-  const form = await formForCaller(c, app, request.form, { session, read: request.read })
-  const { name } = form
-  // An attachment value that NAMES a stored file must name one in the column's
-  // bucket that the submitter can download. Checked on the raw body — before
-  // any multipart file is uploaded, so a refusal orphans nothing — with the
-  // earlier steps' draft answers merged in, since they reach the table too.
-  const referenceError = await checkSubmissionAttachmentReferences({
-    c,
-    app,
-    form,
-    body: mergeStepDraftIntoBody(c, form, name, rawBody),
-    uploadedFields: multipartFileFieldNames(rawBody),
-    session,
-  })
-  if (referenceError) return respondSubmissionFailure(c, isJsonClient, referenceError)
-  // [internal ref] (file-uploads): Multipart bodies may carry `File` instances on
-  // attachment fields. Upload each one to the form's resolved bucket and
-  // replace the raw File with canonical `{ url, name, size, mimeType }`
-  // metadata BEFORE the inline-prefill revalidation pass and the bound-
-  // table write. JSON / urlencoded bodies pass through untouched.
-  const uploadResult = await runRequestEffect(
-    c,
-    provideDomain(c, transformMultipartFiles(app, form, rawBody, session)).pipe(Effect.result)
-  )
-  if (uploadResult._tag === 'Failure') {
-    return respondSubmissionFailure(c, isJsonClient, uploadResult.failure)
-  }
+) =>
+  Effect.gen(function* () {
+    const { c, app, session, isJsonClient } = request
+    // Checked and kept over the fields the form offers this submitter.
+    const form = yield* formForCaller(c, app, request.form, { session, read: request.read })
+    const { name } = form
+    // An attachment value that NAMES a stored file must name one in the column's
+    // bucket that the submitter can download. Checked on the raw body — before
+    // any multipart file is uploaded, so a refusal orphans nothing — with the
+    // earlier steps' draft answers merged in, since they reach the table too.
+    const referenceError = yield* checkSubmissionAttachmentReferences({
+      app,
+      form,
+      body: mergeStepDraftIntoBody(c, form, name, rawBody),
+      uploadedFields: multipartFileFieldNames(rawBody),
+      session,
+    })
+    if (referenceError) return respondSubmissionFailure(c, isJsonClient, referenceError)
+    // [internal ref] (file-uploads): Multipart bodies may carry `File` instances on
+    // attachment fields. Upload each one to the form's resolved bucket and
+    // replace the raw File with canonical `{ url, name, size, mimeType }`
+    // metadata BEFORE the inline-prefill revalidation pass and the bound-
+    // table write. JSON / urlencoded bodies pass through untouched.
+    const uploadResult = yield* Effect.result(transformMultipartFiles(app, form, rawBody, session))
+    if (uploadResult._tag === 'Failure') {
+      return respondSubmissionFailure(c, isJsonClient, uploadResult.failure)
+    }
 
-  // Y-5: Inline-prefill revalidation runs after the upload step: a deleted parent
-  // stops the submission after its files are stored (orphaned; no ledger row).
-  const revalidation = await runRequestEffect(
-    c,
-    provideDomain(
+    // Y-5: Inline-prefill revalidation runs after the upload step: a deleted parent
+    // stops the submission after its files are stored (orphaned; no ledger row).
+    const revalidation = yield* revalidateInlinePrefillParent({
+      app,
+      formName: name,
+      referer: c.req.header('referer'),
+      submitterUserId: session?.userId,
+    })
+    if (revalidation.kind === 'parent-missing') {
+      return respondParentMissing(c, isJsonClient)
+    }
+
+    return yield* submitAndAnswer({
       c,
-      revalidateInlinePrefillParent({
-        app,
-        formName: name,
-        referer: c.req.header('referer'),
-        submitterUserId: session?.userId,
-      })
-    )
-  )
-  if (revalidation.kind === 'parent-missing') {
-    return respondParentMissing(c, isJsonClient)
-  }
-
-  return runSubmitProgram({
-    c,
-    app,
-    formName: name,
-    form,
-    // Multi-step: the browser only ever submits the LAST step's inputs, so
-    // recover the earlier steps' answers from the accumulated draft. No-op for
-    // single-page forms and for any caller that posts a complete payload.
-    body: mergeStepDraftIntoBody(c, form, name, uploadResult.success),
-    isJsonClient,
-    session,
+      app,
+      formName: name,
+      form,
+      // Multi-step: the browser only ever submits the LAST step's inputs, so
+      // recover the earlier steps' answers from the accumulated draft. No-op for
+      // single-page forms and for any caller that posts a complete payload.
+      body: mergeStepDraftIntoBody(c, form, name, uploadResult.success),
+      isJsonClient,
+      session,
+    })
   })
-}
 
 interface RunSubmitProgramConfig {
   readonly c: Context
@@ -383,55 +374,70 @@ interface RunSubmitProgramConfig {
    * and the form's choice filters resolve `$currentUser`
    * for them as the page did.
    */
-  readonly session: Parameters<typeof resolveFormOptionVisitor>[1]
+  readonly session: Parameters<typeof resolveFormOptionVisitor>[0]
 }
 
 /**
  * Run the `submitFormProgram` Effect and convert the result to the right
- * HTTP response. Extracted from `handlePostSubmission` to keep both
+ * HTTP response. Extracted from `acceptSubmission` to keep both
  * functions under the project's complexity caps.
  */
-async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promise<Response> {
-  const { c, app, formName, form, body, isJsonClient, session } = config
-  const submitterUserId = session?.userId
-  const visitor = await resolveFormOptionVisitor(c, session)
-  const ipAddress = getRequestClientIp(c)
-  const userAgent = c.req.header('user-agent')
-  // An embedded form posts to `?surface=embed` (`buildFormAttributes`); the
-  // program reads that marker off the query (`splitSubmissionSurface`).
-  const query = c.req.query() as Record<string, string>
-  // A forms spec + S5: hash-on-write at the route boundary so the raw IP
-  // is bounded to the rate-limiter's volatile in-memory state and never
-  // crosses into the application layer or persistence. When the request
-  // arrives without an IP (no X-Forwarded-For / X-Real-IP), hash the empty
-  // string against the same salt so the ledger column stays populated
-  // (64 hex chars guaranteed) and anonymous traffic shares a stable
-  // rate-limit bucket.
-  const submitterIpHash = hashIp(resolveIpHashSalt(), ipAddress ?? '')
-  const links = submissionLinkTokens(c, app, formName)
-  const program = submitFormProgram({
-    app,
-    formName,
-    form,
-    body,
-    query,
-    processEnv: process.env,
-    submitterIpHash,
-    // The anti-spam bucket counts an IPv6 client by its /64; the ledger keeps the full digest.
-    rateLimitKeyHash: hashIp(resolveIpHashSalt(), getRequestRateLimitKey(c)),
-    ...(userAgent !== undefined ? { userAgent } : {}),
-    ...(submitterUserId !== undefined ? { submitterUserId } : {}),
-    ...(visitor !== undefined ? { visitor } : {}),
-    ...links.hashes,
+const submitAndAnswer = (config: Readonly<RunSubmitProgramConfig>) =>
+  Effect.gen(function* () {
+    const { c, app, formName, form, body, isJsonClient, session } = config
+    const submitterUserId = session?.userId
+    const visitor = yield* resolveFormOptionVisitor(session)
+    const ipAddress = getRequestClientIp(c)
+    const userAgent = c.req.header('user-agent')
+    // An embedded form posts to `?surface=embed` (`buildFormAttributes`); the
+    // program reads that marker off the query (`splitSubmissionSurface`).
+    const query = c.req.query() as Record<string, string>
+    // A forms spec + S5: hash-on-write at the route boundary so the raw IP
+    // is bounded to the rate-limiter's volatile in-memory state and never
+    // crosses into the application layer or persistence. When the request
+    // arrives without an IP (no X-Forwarded-For / X-Real-IP), hash the empty
+    // string against the same salt so the ledger column stays populated
+    // (64 hex chars guaranteed) and anonymous traffic shares a stable
+    // rate-limit bucket.
+    const submitterIpHash = hashIp(resolveIpHashSalt(), ipAddress ?? '')
+    const links = submissionLinkTokens(c, app, formName)
+    const program = submitFormProgram({
+      app,
+      formName,
+      form,
+      body,
+      query,
+      submitterIpHash,
+      // The anti-spam bucket counts an IPv6 client by its /64; the ledger keeps the full digest.
+      rateLimitKeyHash: hashIp(resolveIpHashSalt(), getRequestRateLimitKey(c)),
+      ...(userAgent !== undefined ? { userAgent } : {}),
+      ...(submitterUserId !== undefined ? { submitterUserId } : {}),
+      ...(visitor !== undefined ? { visitor } : {}),
+      ...links.hashes,
+      writeLanguage: pageWriteLanguage(c, app),
+    })
+    const result = yield* Effect.result(program)
+    return yield* awaitForm(() =>
+      answerSubmission(c, { form, isJsonClient, answers: body, result, links })
+    )
   })
-  const result = await runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))
-  if (result._tag === 'Failure') {
-    return respondSubmissionFailure(c, isJsonClient, result.failure)
+
+/** The four form routes that take an answer, files included: each keeps the upload-sized body limit. */
+const formUploadHandlers = (honoApp: Hono, app: App, renderers: Readonly<FormRenderers>) => {
+  const submissionBody = {
+    read: readSubmissionBody,
+    readTableAsCaller: renderers.readTableAsCaller,
   }
-  return respondSubmissionSuccess(c, isJsonClient, {
-    ...result.success,
-    ...links.editUrlFor(result.success.submissionId),
-  })
+  return {
+    submit: acceptsUploadBody((c: Context) =>
+      handlePostSubmission(rememberPageApp(c, honoApp), app, renderers.readTableAsCaller)
+    ),
+    draft: acceptsUploadBody((c: Context) => handlePostDraft(c, app, submissionBody)),
+    edit: acceptsUploadBody((c: Context) => handleEditSubmission(c, app, submissionBody)),
+    advance: acceptsUploadBody((c: Context) =>
+      handlePostStepAdvance(c, app, renderers.readTableAsCaller)
+    ),
+  }
 }
 
 /**
@@ -453,35 +459,24 @@ export function chainFormRoutes<T extends Hono>(
   renderers: Readonly<FormRenderers>
 ): T {
   const forms = app.forms ?? []
-  const submissionBody = {
-    read: readSubmissionBody,
-    readTableAsCaller: renderers.readTableAsCaller,
-  }
+  const uploads = formUploadHandlers(honoApp, app, renderers)
   const withCanonical = honoApp
     .get('/forms/:name', (c) => handleGetForm(c, app, renderers))
-    .post('/api/forms/:name/submissions', (c) =>
-      handlePostSubmission(c, app, renderers.readTableAsCaller)
-    )
+    .post('/api/forms/:name/submissions', uploads.submit)
     // Save and resume: keep a half-filled answer, mail its resume link.
-    .post('/api/forms/:name/drafts', (c) => handlePostDraft(c, app, submissionBody))
+    .post('/api/forms/:name/drafts', uploads.draft)
     // Edit after submit: the edit page, and the save (PUT, or POST from a native form).
     .get('/forms/:name/edit/:token', (c) =>
       handleGetEditPage(c, app, (form, editLink) =>
         respondWithForm(c, app, form, { renderers, editLink })
       )
     )
-    .put('/api/forms/:name/submissions/edit/:token', (c) =>
-      handleEditSubmission(c, app, submissionBody)
-    )
-    .post('/api/forms/:name/submissions/edit/:token', (c) =>
-      handleEditSubmission(c, app, submissionBody)
-    )
+    .put('/api/forms/:name/submissions/edit/:token', uploads.edit)
+    .post('/api/forms/:name/submissions/edit/:token', uploads.edit)
     // Multi-step navigation. Registered alongside the canonical submission
     // endpoint so the cross-validator's step-aware rules and the per-step
     // SSR share the same Hono app instance and access the same `app` payload.
-    .post('/api/forms/:name/steps/:stepId/advance', (c) =>
-      handlePostStepAdvance(c, app, renderers.readTableAsCaller)
-    )
+    .post('/api/forms/:name/steps/:stepId/advance', uploads.advance)
     // Draft reset backs `onSuccess: reset` on a multi-step form. Deliberately
     // NOT under `/steps/` — a form is free to declare a step whose id is
     // literally `reset`, and this must not be reachable by naming a step.
@@ -506,15 +501,19 @@ export function chainFormRoutes<T extends Hono>(
   //
   // Note this only decides correctly when the request arrives with its
   // session attached: `authMiddleware` is mounted on each declared
-  // `form.path` in `infrastructure/server/route-setup/api-routes.ts`.
+  // `form.path` in `presentation/api/middleware/api-auth-guards.ts`.
   // Without that, every caller here looks anonymous and the gate would
   // deny the users it is meant to admit.
   return forms.reduce<T>((acc, form) => {
     if (typeof form.path !== 'string') return acc
-    return acc.get(form.path, async (c) => {
-      const resolved = findFormByName(app, form.name)
-      if (!resolved) return c.notFound()
-      return respondWithForm(c, app, resolved, { renderers })
-    }) as T
+    return acc.get(form.path, (c) =>
+      runFormProgram(
+        c,
+        Effect.suspend(() => {
+          const resolved = findFormByName(app, form.name)
+          return resolved ? respondWithForm(c, app, resolved, { renderers }) : answerNotFound(c)
+        })
+      )
+    ) as T
   }, withCanonical as T)
 }

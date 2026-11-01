@@ -151,17 +151,9 @@ export async function fetchCommandMatches(query: string): Promise<readonly Comma
   }
 }
 
-/** The local rows a query matches: its pages, then whether the dark-mode toggle does. */
-export function localMatches(
-  pages: readonly PalettePage[],
-  strings: Readonly<Record<string, string>>,
-  query: string
-): { readonly pages: readonly PalettePage[]; readonly toggle: string | undefined } {
+/** The pages a query matches, by the title the navigation names them by. */
+export function pageMatches(pages: readonly PalettePage[], query: string): readonly PalettePage[] {
   const trimmed = query.trim()
-  if (trimmed.length === 0) return { pages: [], toggle: undefined }
-  const toggle = strings['toggleDarkMode'] ?? 'Toggle dark mode'
-  return {
-    pages: pages.filter((page) => actionMatchesQuery(page.title, trimmed)),
-    toggle: actionMatchesQuery(toggle, trimmed) ? toggle : undefined,
-  }
+  if (trimmed.length === 0) return []
+  return pages.filter((page) => actionMatchesQuery(page.title, trimmed))
 }

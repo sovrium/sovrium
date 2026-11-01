@@ -14,9 +14,9 @@ design:
     '2xl': '1536px'
 ```
 
-The map is open — names are lowercase alphanumeric and freely chosen — so it publishes no option table. Those five are the standard tiers: large mobile, tablet, laptop, desktop, large desktop.
+The map is open (names are lowercase alphanumeric and freely chosen), so it publishes no option table. Those five are the standard tiers: large mobile, tablet, laptop, desktop, large desktop.
 
-**Values must be pixel strings.** Each value matches `<number>px`; `rem`, `em` and `%` are refused at decode. A responsive tier is a fixed threshold, and a relative one would move with the root font size — which is the one thing a media query must not do.
+**Values must be pixel strings.** Each value matches `<number>px`; `rem`, `em` and `%` are refused at decode. A responsive tier is a fixed threshold, and a relative one would move with the root font size, which is the one thing a media query must not do.
 
 ## Per-breakpoint overrides
 
@@ -39,7 +39,7 @@ pages:
 
 In that example `grid-cols-1` applies everywhere, `md:grid-cols-2` overrides it from 768px up, and `lg:grid-cols-3` overrides it again from 1024px. `p-4` is the base padding and `md:p-6` increases it from the `md` tier.
 
-**Declare the smallest layout as the base.** Always write the unprefixed utility for the narrowest viewport and layer larger screens on top. That guarantees a sensible default before any media query matches — and it is the only ordering in which a missing breakpoint degrades rather than breaks.
+**Declare the smallest layout as the base.** Always write the unprefixed utility for the narrowest viewport and layer larger screens on top. That guarantees a sensible default before any media query matches, and it is the only ordering in which a missing breakpoint degrades rather than breaks.
 
 ## Custom tiers
 

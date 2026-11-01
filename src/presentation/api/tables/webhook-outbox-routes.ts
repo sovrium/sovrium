@@ -21,23 +21,24 @@
  */
 
 import { RecordWebhookDispatcher } from '@/application/ports/services/record-webhook-dispatcher'
-import { provideDomain } from '@/infrastructure/logging/request-effect'
+import { webhookOutboxSweepResponseSchema } from '@/domain/models/api/tables/webhooks'
 import {
   internalSchedulerNotFound,
   isInternalSchedulerRequest,
 } from '@/presentation/api/runtime/internal-scheduler-gate'
-import { runEffect } from '@/presentation/api/runtime/run-effect'
+import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 /** Sweep the due deliveries; answers `{ delivered, retrying, dead }`. */
 async function handleDeliverDue(c: Context, app: App): Promise<Response> {
   if (!isInternalSchedulerRequest(c)) return internalSchedulerNotFound(c)
-  return runEffect(
+  return runHandlerEffect(
     c,
-    provideDomain(
+    respondWith(
       c,
-      RecordWebhookDispatcher.use((dispatcher) => dispatcher.deliverDue(app))
+      RecordWebhookDispatcher.use((dispatcher) => dispatcher.deliverDue(app)),
+      webhookOutboxSweepResponseSchema
     )
   )
 }
@@ -46,8 +47,6 @@ async function handleDeliverDue(c: Context, app: App): Promise<Response> {
  * Chain the webhook outbox trigger route onto a Hono app. Registered without a
  * session requirement: the scheduler token IS the gate.
  */
-export function chainWebhookOutboxRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
-  return honoApp.post('/api/internal/webhooks/deliver-due', (c) =>
-    handleDeliverDue(c, resolveApp())
-  ) as T
+export function chainWebhookOutboxRoutes(honoApp: Hono, app: App): void {
+  honoApp.post('/api/internal/webhooks/deliver-due', (c) => handleDeliverDue(c, app))
 }

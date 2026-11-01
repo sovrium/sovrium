@@ -22,9 +22,9 @@
  */
 
 import { resolve } from 'node:path'
+import { lazyImportSchema } from '@/cli/runtime/lazy-modules'
 import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
 import { computeConfigHash } from '@/infrastructure/server/lock-file'
-import { lazyImportSchema } from './utils'
 import type { ConfigGraphOverlay } from '@/infrastructure/config'
 
 /** The bytes, the files, the `$ref` sources and the hash, in one read. */
@@ -47,7 +47,7 @@ const dirOf = (filePath: string): string => resolve(filePath, '..')
 const parseRawRoot = async (content: string, format: 'json' | 'yaml'): Promise<unknown> => {
   const { parseJsonContent, parseYamlContent } =
     await import('@/domain/models/app/app-content-parsing')
-  return format === 'json' ? parseJsonContent(content) : parseYamlContent(content)
+  return format === 'json' ? parseJsonContent(content) : parseYamlContent(content, Bun.YAML)
 }
 
 /**

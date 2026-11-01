@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { conditionKey } from './shared-filter-condition-service'
 
 /**
@@ -27,9 +28,6 @@ export interface PublisherWire {
   /** What a switch or a toggle publishes while on; `undefined` for any other form. */
   readonly onValue?: string
 }
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const text = (value: unknown): string | undefined =>
   typeof value === 'string' && value !== '' ? value : undefined

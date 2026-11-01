@@ -29,6 +29,7 @@
 
 import { Clock, Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
+import { AutomationScheduler } from '@/application/ports/services/automation-scheduler'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { parseResumeCursor } from '@/domain/models/app/automations/run-resume-cursor-service'
 import { logError } from '@/infrastructure/logging/logger'
@@ -37,11 +38,6 @@ import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import { planResume } from './run/resume-plan'
 import { runResumedSegment } from './run/resume-segment'
-import {
-  isCancelled,
-  registerCancellationIfAbsent,
-  unregisterCancellationOf,
-} from './run/scheduler'
 import type { RunRequirements } from './run/types'
 import type { AutomationRunDatabaseError } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { App } from '@/domain/models/app'
@@ -67,7 +63,6 @@ const cancelClaimed = (runId: string, error: string, now: Readonly<Date>) =>
 
 type ResumeInput = {
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly runId: string
   readonly now: Date
 }
@@ -76,13 +71,13 @@ type ResumeInput = {
 const refusalBeforeStart = (
   automation: Automation | undefined,
   cursor: unknown,
-  runId: string
+  cancelled: boolean
 ): string | undefined => {
   if (automation === undefined) {
     return 'The automation changed while the run was waiting: it no longer exists.'
   }
   if (cursor === undefined) return 'The run could not read where it paused.'
-  return isCancelled(runId) ? 'Run cancelled' : undefined
+  return cancelled ? 'Run cancelled' : undefined
 }
 
 /**
@@ -100,7 +95,8 @@ const claimAndResume = (
     if (claimed === undefined) return undefined
     const automation = app.automations?.find((a) => a.name === claimed.run.automationName)
     const cursor = parseResumeCursor(claimed.cursor)
-    const refusal = refusalBeforeStart(automation, cursor, runId)
+    const cancelled = yield* (yield* AutomationScheduler).isCancelled(runId)
+    const refusal = refusalBeforeStart(automation, cursor, cancelled)
     if (automation === undefined || cursor === undefined || refusal !== undefined) {
       yield* cancelClaimed(runId, refusal ?? 'Run cancelled', now)
       return runId
@@ -114,7 +110,6 @@ const claimAndResume = (
     }
     yield* runResumedSegment({
       app,
-      processEnv: input.processEnv,
       handlers: defaultActionHandlers,
       automation,
       automationId: claimed.run.automationId,
@@ -131,12 +126,12 @@ const claimAndResume = (
  */
 const resumeDelayedRun = (input: ResumeInput) =>
   Effect.gen(function* () {
-    const controller = registerCancellationIfAbsent(input.runId)
-    if (controller === undefined) return undefined
-    return yield* claimAndResume(input).pipe(
-      Effect.ensuring(Effect.sync(() => unregisterCancellationOf(input.runId, controller)))
-    )
+    // Held for this resume's scope, and dropped with it however the resume ends.
+    const registered = yield* (yield* AutomationScheduler).registerCancellationIfAbsent(input.runId)
+    if (registered === undefined) return undefined
+    return yield* claimAndResume(input)
   }).pipe(
+    Effect.scoped,
     Effect.withSpan('automations.resume-delayed-run', {
       attributes: { 'automation.run_id': input.runId },
     })
@@ -157,8 +152,7 @@ const resumeLogged = (input: ResumeInput) =>
  * Answers the ids of the runs this sweep claimed.
  */
 export const resumeDelayedRuns = (
-  app: App,
-  processEnv: Readonly<Record<string, string | undefined>>
+  app: App
 ): Effect.Effect<readonly string[], AutomationRunDatabaseError, RunRequirements> =>
   Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
@@ -170,8 +164,6 @@ export const resumeDelayedRuns = (
       .filter((automation) => !isAutomationOperationallyEnabled(automation, pausedNames))
       .map((automation) => automation.name)
     const due = yield* repo.listDueDelayedRuns({ now, limit: RESUME_BATCH, exceptAutomations })
-    const resumed = yield* Effect.forEach(due, (run) =>
-      resumeLogged({ app, processEnv, runId: run.id, now })
-    )
+    const resumed = yield* Effect.forEach(due, (run) => resumeLogged({ app, runId: run.id, now }))
     return resumed.filter((id): id is string => typeof id === 'string')
   }).pipe(Effect.withSpan('automations.resume-delayed-runs'))

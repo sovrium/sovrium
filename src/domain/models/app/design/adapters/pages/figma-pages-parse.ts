@@ -46,6 +46,7 @@
  */
 
 import { Chunk, HashSet } from 'effect'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import {
   MAX_JSON_NESTING,
   nestsDeeperThan,
@@ -61,7 +62,6 @@ import {
   type PageDesignTree,
   type PageDesignTreeNode,
 } from '@/domain/models/api/admin/design-system/page-design-tree'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { printNumber, roundTo } from '../adapter-units'
 import { parseJson } from '../import/canonical-tokens-service'
 import {

@@ -6,11 +6,14 @@
  */
 
 import { Data, Effect } from 'effect'
+import { faultInjectionPublicOriginRefusal } from '@/domain/models/process-env/fault-injection'
 import { validatePostureFlags } from '@/infrastructure/process/security-posture'
 
 /**
  * Raised when `SOVRIUM_ALLOW_INSECURE` or `SOVRIUM_ALLOW_PRIVATE_OUTBOUND`
- * holds a value other than `1`, `true` or empty.
+ * holds a value other than `1`, `true` or empty, or when a development seam
+ * that would make a public server fail on purpose (`SOVRIUM_FAULT_INJECTION`)
+ * is set on one.
  *
  * `message` is the one-line refusal `formatRuntimeError` prints, naming the
  * variable, the quoted value and the accepted values. Exported only because
@@ -29,10 +32,15 @@ export class PostureFlagEnvError extends Data.TaggedError('PostureFlagEnvError')
  * outbound private-address guard instead. Both flags are read by value, and
  * anything that is neither accepted nor empty stops the command here, before a
  * relaxed server could serve a single request.
+ *
+ * The same gate refuses `SOVRIUM_FAULT_INJECTION` when the public origin is not
+ * loopback: the seam is ignored there anyway, and saying so at boot tells the
+ * operator a test setting reached a real deployment.
  */
 export const validatePostureFlagEnv: Effect.Effect<void, PostureFlagEnvError> = Effect.suspend(
   () => {
-    const refusal = validatePostureFlags(process.env)
+    const refusal =
+      validatePostureFlags(process.env) ?? faultInjectionPublicOriginRefusal(process.env)
     return refusal === undefined
       ? Effect.void
       : Effect.fail(new PostureFlagEnvError({ message: refusal }))

@@ -22,18 +22,21 @@
  * server.
  */
 
-import { Effect } from 'effect'
+import { Context, Effect } from 'effect'
+import { ProcessEnv, type ProcessEnvShape } from '@/application/ports/services/process-env'
+import { ServerEnv } from '@/application/ports/services/server-env'
 import {
   deprecatedHostnameNotice,
   isStrictPortBoot,
   resolveBindHost,
   resolveListenUnix,
 } from '@/domain/models/process-env/server-lifecycle'
-import { LockFileWriteError } from '@/infrastructure/errors/lock-file-write-error'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { registerAccountPurgeScheduler } from '@/infrastructure/scheduling/register-account-purge'
 import { registerActivityLogRetentionScheduler } from '@/infrastructure/scheduling/register-activity-log-retention'
 import { registerApprovalExpiryScheduler } from '@/infrastructure/scheduling/register-approval-expiry'
+import { registerAuthExpiredRowsSweepScheduler } from '@/infrastructure/scheduling/register-auth-expired-rows-sweep'
 import { registerAutomationRunRetentionScheduler } from '@/infrastructure/scheduling/register-automation-run-retention'
 import { registerBrowserArtifactSweepScheduler } from '@/infrastructure/scheduling/register-browser-artifact-sweep'
 import { registerCronAutomations } from '@/infrastructure/scheduling/register-cron-automations'
@@ -55,13 +58,15 @@ import {
   createStopEffect,
   parsePort,
   reloadBunServer,
-  resolveMaxRequestBodySize,
   startBunServer,
 } from '@/infrastructure/server/bun-listener'
 import { fireAgentSchedule } from '@/infrastructure/server/compose-hono-app'
+import { countRunningAutomations } from '@/infrastructure/server/idle-exit'
 import { writeLockFile as writeLockFileToDisk } from '@/infrastructure/server/lock-file'
 import { registerLockFileCleanup } from '@/infrastructure/server/lock-file-cleanup'
+import { LockFileWriteError } from '@/infrastructure/server/lock-file-write-error'
 import { registerAgentSchedules } from '@/infrastructure/server/register-agent-schedules'
+import { resolveMaxRequestBodySize } from '@/infrastructure/server/request-body-ceiling'
 import { publishBoundOrigin } from '@/infrastructure/server/server-origin-live'
 import { createServerReload } from '@/infrastructure/server/server-reload'
 import { runDeferredStartupMaintenance } from '@/infrastructure/server/startup-database'
@@ -71,18 +76,17 @@ import { publishServerStatus } from '@/infrastructure/server/status-file'
 import { removeSocketFile, startUnixServer } from '@/infrastructure/server/unix-listener'
 import { validateOperatorEnv } from '@/infrastructure/server/validate-operator-env'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
+import type { CSSCompilationError } from '@/domain/errors/css-compilation-error'
+import type { ServerCreationError } from '@/domain/errors/server-creation-error'
+import type { TransformPresetError } from '@/domain/errors/transform-preset-error'
 import type {
   AuthConfigRequiredForUserFields,
   SchemaInitializationError,
 } from '@/infrastructure/database/schema/schema-initializer'
-import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
-import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
-import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 import type { ServerConfig } from '@/infrastructure/server/server-config'
 import type { Hono } from 'hono'
 
 // Re-exported so importers that name this module still resolve.
-// `apply-symbol-moves.ts` re-points the importers and deletes these.
 export type { ServerConfig } from '@/infrastructure/server/server-config'
 
 /**
@@ -168,30 +172,28 @@ const listenFields = (
  */
 const bindListener = (honoApp: Readonly<Hono>, config: ServerConfig, hostname: string) =>
   Effect.gen(function* () {
+    const env = yield* ProcessEnv
     const maxRequestBodySize = resolveMaxRequestBodySize(config.app)
-    const socketPath = resolveListenUnix(process.env)
+    const socketPath = resolveListenUnix(env)
     if (socketPath !== undefined) {
       const server = yield* startUnixServer(honoApp, socketPath, maxRequestBodySize)
       return { server, url: `unix:${socketPath}`, origin: 'http://localhost', socketPath }
     }
-    const port = config.port ?? parsePort(Bun.env.PORT) ?? 3000
-    const strict = isStrictPortBoot(process.env)
+    const port = config.port ?? parsePort((yield* ServerEnv).port) ?? 3000
+    const strict = isStrictPortBoot(env)
     const server = yield* startBunServer(honoApp, { port, hostname, strict }, maxRequestBodySize)
     const url = `http://${hostname}:${server.port}`
     return { server, url, origin: url, socketPath: undefined }
   })
 
 /**
- * Warn once at boot when a multi-language app has no public origin.
- *
- * Search engines reject relative `hreflang` alternates, so a page with no
- * absolute `canonical` omits them entirely when `BASE_URL` is unset. The
- * operator gets one line saying so rather than discovering it in a search
- * console weeks later.
+ * Warn once at boot when a multi-language app has no public origin: search
+ * engines reject relative `hreflang` alternates, so a page with no absolute
+ * `canonical` omits them entirely when `BASE_URL` is unset.
  */
-const warnWhenHreflangHasNoOrigin = (config: ServerConfig): void => {
+const warnWhenHreflangHasNoOrigin = (config: ServerConfig, baseUrl: string | undefined): void => {
   const multiLanguage = (config.app.languages?.supported.length ?? 0) > 1
-  if (!multiLanguage || config.silent || config.reload || Bun.env.BASE_URL) return
+  if (!multiLanguage || config.silent || config.reload || baseUrl !== undefined) return
   logWarning(
     '[seo] BASE_URL is not set, so pages without an absolute canonical publish no hreflang alternates. Set BASE_URL to the public origin of this multi-language app.'
   )
@@ -203,9 +205,9 @@ const warnWhenHreflangHasNoOrigin = (config: ServerConfig): void => {
  * since a `--watch` reload re-enters here with nothing new to say — else
  * `localhost`.
  */
-const resolveServerHostname = (config: ServerConfig): string => {
+const resolveServerHostname = (config: ServerConfig, env: ProcessEnvShape): string => {
   if (config.hostname !== undefined) return config.hostname
-  const bind = resolveBindHost(process.env)
+  const bind = resolveBindHost(env)
   if (bind.fromDeprecatedHostname && !config.reload) logWarning(deprecatedHostnameNotice(bind.host))
   return bind.host
 }
@@ -232,15 +234,15 @@ export const createServer = (
 > =>
   Effect.gen(function* () {
     const startTime = Date.now()
+    const env = yield* ProcessEnv
+    const { baseUrl } = yield* ServerEnv
     // Boot-time operator-environment validation, before anything is built or
-    // bound. Refuses the boot on a malformed value rather than letting it
-    // surface later on whichever request first touches that lever. Shared with
-    // the render path so the two cannot come to disagree about which levers are
-    // checked — see `validate-operator-env.ts`.
+    // bound: a malformed value refuses the boot. Shared with the render path so
+    // the two agree on which levers are checked (`validate-operator-env.ts`).
     yield* validateOperatorEnv.pipe(
-      Effect.tap(() => Effect.sync(() => warnWhenHreflangHasNoOrigin(config)))
+      Effect.tap(() => Effect.sync(() => warnWhenHreflangHasNoOrigin(config, baseUrl)))
     )
-    const hostname = resolveServerHostname(config)
+    const hostname = resolveServerHostname(config, env)
     const { configHash = '', configPath = '' } = config
 
     // Initialize infrastructure and collect phases (incl. the static-asset
@@ -248,10 +250,9 @@ export const createServer = (
     // mount path).
     const { infraPhases, cssLabel } = yield* collectAllPhases(config)
 
-    // THE DOMAIN RUNTIME, owned by this server instance and by nothing else,
-    // plus the Hono app built from its services. Never a module-level singleton
-    // — see ./domain-runtime for why `serverMode: 'inprocess'` makes that a
-    // correctness requirement rather than a preference.
+    // THE DOMAIN RUNTIME, owned by this server instance alone, plus the Hono app
+    // built from its services. Never a module-level singleton: ./domain-runtime
+    // says why `serverMode: 'inprocess'` makes that a correctness requirement.
     const domain = yield* buildDomainRuntimeAndApp(config)
 
     const { server, url, origin, socketPath } = yield* bindListener(
@@ -266,16 +267,13 @@ export const createServer = (
     // `PORT=0` on purpose — so `PORT` is the request and this is the result.
     // A background program has no request to read a `Host` header from, so
     // this is the only place it can learn where it lives.
-
     publishBoundOrigin(origin)
 
-    // Post-bind arm-ups: cron-triggered automations, scheduled agents, and the
-    // GDPR Art. 17 erasure sweep (hourly; without it, scheduled account
-    // erasures would never complete in production — see
-    // register-account-purge.ts). Agent schedules were decoded and echoed back
-    // for as long as agents have shipped but never armed; without this line
-    // `agent.schedule.cron` is a promise the binary does not keep — see
-    // register-agent-schedules.ts.
+    // Post-bind arm-ups: cron-triggered automations, scheduled agents, and the GDPR Art. 17
+    // erasure sweep (hourly; without it, scheduled account erasures would never complete in
+    // production — see register-account-purge.ts). Agent schedules were decoded and echoed back
+    // for as long as agents have shipped but never armed; without this line `agent.schedule.cron`
+    // is a promise the binary does not keep — see register-agent-schedules.ts.
     //
     // Every registrar arms its jobs on the ONE `CronScheduler` the domain runtime carries.
     // None may `Effect.provide(CronSchedulerLive)` for itself, because the scheduler is scoped:
@@ -284,12 +282,13 @@ export const createServer = (
     // instead is one build, one registry, one scope — the server's.
     yield* Effect.provide(
       Effect.all([
-        registerCronAutomations(config.app, process.env),
+        registerCronAutomations(config.app),
         registerAgentSchedules(config.app, fireAgentSchedule),
         registerAccountPurgeScheduler(config.app),
         registerActivityLogRetentionScheduler,
         registerTableRetentionScheduler(config.app),
-        registerAutomationRunRetentionScheduler(process.env),
+        registerAutomationRunRetentionScheduler,
+        registerAuthExpiredRowsSweepScheduler,
         registerFailureRollupScheduler(config.app),
         registerStuckRunSweepScheduler(config.app),
         registerWebhookOutboxScheduler(config.app),
@@ -298,11 +297,11 @@ export const createServer = (
         // resumed run's tail can take minutes and must not hold the banner —
         // then one every minute. Post-bind, because an `onTimeout: approve`
         // resumes its run through this runtime.
-        registerApprovalExpiryScheduler(config.app, process.env),
+        registerApprovalExpiryScheduler(config.app),
         // Runs parked on a long wait: at boot for those due, then every minute.
-        registerDelayedRunResumeScheduler(config.app, process.env),
+        registerDelayedRunResumeScheduler(config.app),
         // Browser screenshots past BROWSER_ARTIFACT_RETENTION_DAYS: at boot, then daily.
-        registerBrowserArtifactSweepScheduler(config.app, process.env),
+        registerBrowserArtifactSweepScheduler(config.app),
         // Saved form drafts past their resume link's life: at boot, then hourly.
         registerFormDraftExpiryScheduler(config.app),
         registerWeeklyDigestScheduler(config.app),
@@ -318,17 +317,15 @@ export const createServer = (
     )
 
     // AWAITED, not forked. The port is already bound above, so a health check
-    // or load balancer sees the process live while this runs — that is the
-    // whole boot win, and it is kept. What must NOT move ahead of it is the
-    // startup banner: the `listening on` line is the LAST line of boot and is
+    // sees the process live while this runs. What must NOT move ahead of it is
+    // the startup banner: the `listening on` line is the LAST line of boot and is
     // exactly what operators and `waitForServerPort`
     // treat as "boot complete". Forking this made the banner print while the
     // attachment-URL backfill and RAG embedding were still running, so a
     // caller that boots a server and immediately asserts on backfilled URLs or
-    // embedded knowledge raced a half-finished boot. Announcing readiness
-    // before the work that readiness implies is a correctness bug, and
-    // correctness outranks the extra seconds.
-    yield* runDeferredStartupMaintenance(config.app)
+    // embedded knowledge raced a half-finished boot. Correctness outranks the
+    // extra seconds.
+    yield* Effect.provide(runDeferredStartupMaintenance(config.app), domain.context)
 
     const durationMs = Date.now() - startTime
 
@@ -339,6 +336,7 @@ export const createServer = (
       cssLabel,
       durationMs,
       bindHost: hostname,
+      env,
     })
 
     if (!config.silent) {
@@ -382,19 +380,20 @@ export const createServer = (
       // port-release probe simply cannot arise here.
       reload: createServerReload({
         server,
-        // The SAME domain services survive the swap. `createAppLayer` reads one
-        // thing off the config — `app.auth` — and `auth` is in `RESTART_KEYS`
+        // The SAME domain services survive the swap: `auth`, the one thing
+        // `createAppLayer` reads off the config, is in `RESTART_KEYS`
         // (`classify-config-change.ts`), so a save that could invalidate them
-        // never reaches this path: it forces a full restart, which stops the
-        // server, disposes the runtime, and boots a fresh one. Rebuilding here
-        // would therefore be redundant work on every save AND would strand
-        // whatever the superseded context still holds.
+        // forces a full restart instead. Rebuilding here would strand whatever
+        // the superseded context still holds.
         buildHonoApp: (nextApp, nextHash) =>
           buildHonoAppFromConfig({ ...config, app: nextApp, configHash: nextHash }, domain.context),
         swapHandler: (nextHonoApp, nextApp) =>
           reloadBunServer(server, nextHonoApp, hostname, resolveMaxRequestBodySize(nextApp)),
+        database: Context.get(domain.context, Database),
         configPath,
         silent: config.silent === true,
       }),
+      countRunningAutomations: () =>
+        countRunningAutomations(Context.get(domain.context, Database).client),
     }
   })

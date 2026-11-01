@@ -8,6 +8,7 @@
 import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import { parseJsonArrayCell } from '@/domain/kernel/sql/sqlite-json-cell'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import { componentFields, rewriteComponent } from './component-rewrite'
 import type { Component } from '@/domain/models/app/pages/components'
 
 /**
@@ -64,19 +65,23 @@ const fieldReference = (field: string): RegExp =>
  * node is returned as it is.
  */
 export const withEditSelectRecord = (component: Component, record: Node): Component => {
-  const node = component as Node
+  const patch = pickerPatch(componentFields(component), record)
+  return patch === undefined ? component : rewriteComponent(component, patch)
+}
+
+/** The keys {@link withEditSelectRecord} writes over a picker's node; none for another node. */
+const pickerPatch = (node: Node, record: Node): Node | undefined => {
   const picker = pickerOf(node)
-  if (picker === undefined) return component
+  if (picker === undefined) return undefined
   const reference = fieldReference(picker.field)
   return {
-    ...component,
     ...(node['action'] !== undefined && {
       action: mapStringsDeep(node['action'], (value) =>
         value.replace(reference, (token) => `\\${token}`)
       ),
     }),
     [EDIT_SELECT_CURRENT_KEY]: currentValueOf(record, picker.field, picker.multiple),
-  } as Component
+  }
 }
 
 /**
@@ -90,12 +95,13 @@ export const editSelectRecordPatch = (
   component: Node,
   record: Node
 ): Readonly<Record<string, unknown>> => {
-  if (pickerOf(component) === undefined) return {}
-  const { action, ...rest } = withEditSelectRecord(component as Component, record) as Node
+  const patch = pickerPatch(component, record)
+  if (patch === undefined) return {}
+  const { action } = patch
   return {
     ...(action !== undefined && {
       action: mapStringsDeep(action, (value) => substituteRecordVars(value, record)),
     }),
-    [EDIT_SELECT_CURRENT_KEY]: rest[EDIT_SELECT_CURRENT_KEY],
+    [EDIT_SELECT_CURRENT_KEY]: patch[EDIT_SELECT_CURRENT_KEY],
   }
 }

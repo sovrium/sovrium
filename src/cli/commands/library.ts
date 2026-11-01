@@ -29,9 +29,7 @@
  * that listed nothing would read as "the library has no widgets".
  */
 
-import { printStderr } from '@/infrastructure/logging/cli-output'
-import { writeStdout } from './document-output'
-import { runLibraryAdd } from './library-add'
+import { runLibraryAdd } from '@/cli/commands/library/add'
 import {
   interleaveByProvider,
   isOperationId,
@@ -42,10 +40,12 @@ import {
   resolveOperationsRequest,
   selectsOperations,
   showOperation,
-} from './library-operations'
-import { resolveEntryId } from './library-resolve'
-import { rankEntries, termsOf } from './library-search'
-import { libraryArticleAddress } from './library-wire'
+} from '@/cli/commands/library/operations'
+import { resolveEntryId } from '@/cli/commands/library/resolve'
+import { rankEntries, termsOf } from '@/cli/commands/library/search'
+import { libraryArticleAddress } from '@/cli/commands/library/wire'
+import { stopCommand } from '@/cli/runtime/run-command'
+import { writeStdout } from './document-output'
 import { getCurrentVersion } from './update'
 import type { LibraryCatalogueApi, LibraryEntry } from '@/library/manifest/define'
 
@@ -82,10 +82,7 @@ const SUBCOMMANDS = ['list', 'search', 'show', 'add'] as const
 const SEARCH_LIMIT = 20
 
 /** Stop with a refusal on stderr and exit 1. */
-const refuse = (message: string): never => {
-  printStderr(message)
-  process.exit(1)
-}
+const refuse = (message: string): never => stopCommand(1, message)
 
 const emit = (content: string): Promise<void> =>
   writeStdout(content.endsWith('\n') ? content : `${content}\n`)

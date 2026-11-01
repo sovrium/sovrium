@@ -16,7 +16,7 @@ import {
 import {
   isRecord,
   type Raw,
-} from '@/application/use-cases/automations/action-handlers/document-run'
+} from '@/application/use-cases/automations/action-handlers/document/run'
 import { renderTemplateTextPreview } from '@/application/use-cases/automations/template-preview'
 import {
   adminTemplatePreviewResponseSchema,

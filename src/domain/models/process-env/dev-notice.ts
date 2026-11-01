@@ -130,7 +130,7 @@ const isEnablingValue = (value: string | undefined): boolean => {
  * stays a pure, directly testable function.
  */
 export const parseDevNoticeEnvConfig = (
-  processEnv: Readonly<Record<string, string | undefined>> = process.env
+  processEnv: Readonly<Record<string, string | undefined>>
 ): DevNoticeEnvConfig =>
   Schema.decodeSync(DevNoticeEnvSchema)({
     mode: processEnv['SOVRIUM_DEV_MODE'],

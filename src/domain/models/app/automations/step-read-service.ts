@@ -288,20 +288,52 @@ const stringProp = (action: StepAction, key: string): string | undefined => {
   return typeof value === 'string' ? value : undefined
 }
 
-const asActions = (value: unknown): ReadonlyArray<StepAction> =>
+/** The objects of a list as actions of the caller's shape, or none. */
+const asActions = <A extends object = StepAction>(value: unknown): ReadonlyArray<A> =>
   Array.isArray(value)
-    ? (value.filter((item) => item !== null && typeof item === 'object') as StepAction[])
+    ? (value.filter((item) => item !== null && typeof item === 'object') as A[])
     : []
 
+/** The props of an action as an object, or none. */
+const propsOf = (action: object): Readonly<Record<string, unknown>> => {
+  const { props } = action as { readonly props?: unknown }
+  return typeof props === 'object' && props !== null
+    ? (props as Readonly<Record<string, unknown>>)
+    : {}
+}
+
+/** The actions of every branch of a `path` step, first branch first. */
+const branchActions = <A extends object = StepAction>(action: A): ReadonlyArray<A> => {
+  const { paths } = propsOf(action)
+  return Array.isArray(paths)
+    ? paths.flatMap((path) =>
+        asActions<A>((path as { readonly actions?: unknown } | null)?.actions)
+      )
+    : []
+}
+
 /**
- * Every action of an automation, nested ones (loops, branches) included —
- * outer before inner, so a name both carry finds the outer one first.
+ * Every action of an automation, nested ones included — a loop's body
+ * (`props.actions`), each branch of a path (`props.paths[].actions`) and an
+ * expanded action's own `actions` — outer before inner, so a name both carry
+ * finds the outer one first.
+ *
+ * The one walk every rule and every reader of a run's steps shares: a rule
+ * that walks its own way comes to check a loop's body but not a branch, and a
+ * step a stranger may not reach is then accepted the moment it sits in a
+ * branch. Typed by its caller's action shape, since each nested action is
+ * the same kind of action as the one holding it.
  */
-export const flattenActions = (actions: ReadonlyArray<StepAction>): ReadonlyArray<StepAction> =>
+export const flattenActions = <A extends object = StepAction>(
+  actions: ReadonlyArray<A>
+): ReadonlyArray<A> =>
   actions.flatMap((action) => [
     action,
-    ...flattenActions(asActions(action.actions)),
-    ...flattenActions(asActions(action.props?.['actions'])),
+    ...flattenActions([
+      ...asActions<A>((action as { readonly actions?: unknown }).actions),
+      ...asActions<A>(propsOf(action)['actions']),
+      ...branchActions(action),
+    ]),
   ])
 
 /**
@@ -351,13 +383,6 @@ const nestedRead = (walk: Walk, actions: ReadonlyArray<StepAction>): StepRead =>
   kind: 'nested',
   reads: actions.map((nested) => classify({ ...walk, nested: true }, nested, undefined)),
 })
-
-const branchActions = (action: StepAction): ReadonlyArray<StepAction> => {
-  const paths = action.props?.['paths']
-  return Array.isArray(paths)
-    ? paths.flatMap((path) => asActions((path as { readonly actions?: unknown } | null)?.actions))
-    : []
-}
 
 const callRead = (walk: Walk, action: StepAction): StepRead => {
   // A fire-and-forget call's output is `{ result: {} }`: nothing comes back.

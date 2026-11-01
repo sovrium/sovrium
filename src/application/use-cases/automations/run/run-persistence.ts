@@ -19,6 +19,7 @@ import {
   runRecordRefs,
   type RunReads,
 } from '@/domain/models/app/automations/run-record-refs-service'
+import { boundStoredTriggerBody } from '@/domain/models/app/automations/stored-trigger-body-service'
 import {
   dropsRunHistory,
   dropsRunRow,
@@ -110,7 +111,7 @@ export const persistQueuedRun = (input: {
         automationId: input.automationId,
         status: 'queued',
         triggerName: triggerEntryName(input.trigger),
-        triggerData: input.triggerData as unknown,
+        triggerData: boundStoredTriggerBody(input.triggerData) as unknown,
         ...runActorOverlay(input.userId, input.startedByHand, input.startedAsGuest),
         ...(input.relay === undefined ? {} : { relay: input.relay }),
         // A pinned development host stamps the run on its timeline.
@@ -293,7 +294,9 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
       repo.create({
         automationId: input.automationId,
         status: toApiStatus(input.engineStatus),
-        triggerData: (minimalEnd(input) ? null : input.triggerData) as unknown,
+        triggerData: (minimalEnd(input)
+          ? null
+          : boundStoredTriggerBody(input.triggerData)) as unknown,
         startedAt: input.startedAt,
         completedAt: input.finishedAt,
         durationMs: input.finishedAt.getTime() - input.startedAt.getTime(),

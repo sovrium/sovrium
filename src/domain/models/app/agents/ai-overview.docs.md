@@ -1,6 +1,6 @@
 # AI Overview
 
-> The whole AI layer is off until one environment variable is set — and the line between what an operator controls and what a schema author declares.
+> The whole AI layer is off until one environment variable is set, and the line between what an operator controls and what a schema author declares.
 
 Every AI capability is opt-in and governed by the platform's existing roles and field-level permissions. AI never bypasses the security model, and nothing AI-related runs until `AI_PROVIDER` is set.
 
@@ -36,7 +36,7 @@ The seven computed field types live on table records and are documented with the
 
 With `AI_PROVIDER` unset or blank, the entire layer is dormant: AI fields skip computation, the chat endpoint answers with a disabled state, agents do not run, and no embedding infrastructure is provisioned. Nothing fails at boot.
 
-It is **not silent when the app was built to use it**. If the configuration declares an AI surface — an `ai-*` field, an agent, an AI automation action, or an AI component on a page — the startup banner says so:
+It is **not silent when the app was built to use it**. If the configuration declares an AI surface (an `ai-*` field, an agent, an AI automation action, or an AI component on a page), the startup banner says so:
 
 ```text
 ⚠ AI disabled — AI_PROVIDER not set (agents are inert, ai-* fields fall back to their baseline)
@@ -62,8 +62,8 @@ Fields, chat, agents and MCP all funnel through the same authorization layer. An
 
 ## What each capability needs
 
-| Requirement            | Why                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| `AI_PROVIDER` set      | The master switch; without it the whole layer is dormant                            |
-| Authentication, mostly | Agents are stored as users, and chat and MCP need roles; AI fields work without     |
-| A vector store         | RAG embeddings use PostgreSQL with pgvector, or SQLite — never an external database |
+| Requirement            | Why                                                                                |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| `AI_PROVIDER` set      | The master switch; without it the whole layer is dormant                           |
+| Authentication, mostly | Agents are stored as users, and chat and MCP need roles; AI fields work without    |
+| A vector store         | RAG embeddings use PostgreSQL with pgvector, or SQLite, never an external database |

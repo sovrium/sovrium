@@ -10,17 +10,20 @@ import {
   isTranslatedTextValue,
   TRANSLATED_TEXT_OPERATOR,
 } from '@/domain/models/app/tables/translatable-query-service'
-import { allLanguagesTextSql, languageValueSql } from '../sql/translatable-value-sql'
+import { allLanguagesTextSqlOn, languageValueSqlOn } from '../sql/translatable-value-sql'
 import { validateColumnName } from './statement/validation'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 import type { SQL } from 'drizzle-orm'
 
+/** One condition: the field it reads, the operator and the value. */
+export interface Condition {
+  readonly field: string
+  readonly operator: string
+  readonly value: unknown
+}
+
 /** The condition compiler, handed in so this module stays a leaf of it. */
-type CompileCondition = (
-  field: string,
-  operator: string,
-  value: unknown,
-  column: Readonly<SQL>
-) => Readonly<SQL>
+type CompileCondition = (condition: Condition, column: Readonly<SQL>) => Readonly<SQL>
 
 /**
  * The condition of a rewritten condition on a translatable field
@@ -33,16 +36,16 @@ type CompileCondition = (
  * operator.
  */
 export const translatedTextFragment = (
-  field: string,
-  operator: string,
-  value: unknown,
+  dialect: DatabaseDialect,
+  condition: Condition,
   compile: CompileCondition
 ): Readonly<SQL> | undefined => {
+  const { field, operator, value } = condition
   if (operator !== TRANSLATED_TEXT_OPERATOR || !isTranslatedTextValue(value)) return undefined
   validateColumnName(field)
   const text =
     value.language === EVERY_LANGUAGE
-      ? allLanguagesTextSql(field)
-      : languageValueSql(field, value.language)
-  return compile(field, value.operator, value.value, text)
+      ? allLanguagesTextSqlOn(dialect, field)
+      : languageValueSqlOn(dialect, field, value.language)
+  return compile({ field, operator: value.operator, value: value.value }, text)
 }

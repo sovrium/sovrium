@@ -212,8 +212,9 @@ function appendObjectConfirmInput(
 }
 
 /**
- * Append the two affordances: confirm then cancel inline; in a modal gate the
- * alert-dialog footer, cancel first as base-nova orders them.
+ * Append the two affordances, Cancel first and the verb after it, in both the
+ * inline row and the modal gate's alert-dialog footer: the order base-nova
+ * draws, and one order for every confirm a reader meets.
  */
 function appendObjectConfirmButtons(
   dialog: HTMLElement,
@@ -228,8 +229,7 @@ function appendObjectConfirmButtons(
     className: CANCEL_BTN_CLASS,
     onClick: cancel.dismiss,
   })
-  if (cancel.modal) row.append(cancelBtn, confirmBtn)
-  else row.append(confirmBtn, cancelBtn)
+  row.append(cancelBtn, confirmBtn)
   dialog.append(row)
 }
 

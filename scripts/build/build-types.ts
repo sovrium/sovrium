@@ -375,6 +375,12 @@ function extractTypes(): string {
       `  ${COMPONENT_STYLE_TYPE_NAME} hoisted — ${hoisted.replacements} occurrence(s) across ` +
         `${componentKeys.length} component key(s), ${(hoisted.bytesSaved / 1024).toFixed(1)} KB saved`
     )
+    if (hoisted.extendedKeys.length > 0) {
+      console.log(
+        `  ${hoisted.extendedKeys.length} key(s) extend ${COMPONENT_STYLE_TYPE_NAME} with members of their own ` +
+          `(${hoisted.extendedKeys.join(', ')})`
+      )
+    }
   }
 
   const codeContextActions = expandExport('CodeContextActions')
@@ -443,13 +449,14 @@ function extractTypes(): string {
 
   if (hoisted !== undefined) {
     lines.push('/**')
-    lines.push(` * Styling for ONE engine component type — the value of every key of`)
+    lines.push(` * Styling for ONE engine component type — the base value of every key of`)
     lines.push(' * `AppConfig["design"]["components"]`.')
     lines.push(' *')
-    lines.push(' * Named rather than inlined at each key on purpose: the shape is identical')
-    lines.push(' * for every component type, and expanding it in place is what a structural')
-    lines.push(' * type printer does by default. See the hoisting notes in')
-    lines.push(' * scripts/build/build-types.ts.')
+    lines.push(' * Named rather than inlined at each key on purpose: every component type')
+    lines.push(' * shares this shape, and expanding it in place is what a structural type')
+    lines.push(' * printer does by default. A component type with options of its own is')
+    lines.push(' * written `ComponentStyle & { … }`. See the hoisting notes in')
+    lines.push(' * scripts/build/printed-type-hoisting.ts.')
     lines.push(' */')
     lines.push(`export type ${COMPONENT_STYLE_TYPE_NAME} = ${hoisted.body}`)
     lines.push('')
@@ -498,7 +505,8 @@ function extractTypes(): string {
   // with TS18048 + TS2722. The open signature also accepted
   // `context.actions.record.lst({})` — a typo — which then failed at runtime.
   //
-  // `CodeContextActions` (src/index.ts) derives the families and their props
+  // `CodeContextActions` (src/domain/models/config-types/code-context.ts,
+  // re-exported by src/index.ts) derives the families and their props
   // from the automation action schemas, so this text cannot fall behind the
   // engine. `registry-schema-coverage.test.ts` already pins the schema against
   // the runtime handler registry in both directions, which closes the chain

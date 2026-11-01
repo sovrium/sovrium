@@ -56,6 +56,7 @@ import {
   type OptionSourceQuery,
 } from '@/domain/models/app/forms/form-option-source-service'
 import { normalizeCurrentUserRef } from '@/domain/models/app/pages/current-user-ref'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { readFilterOf } from '@/domain/models/app/tables/user-list-field-service'
 import {
   admittedWindow,
@@ -163,7 +164,7 @@ export const readAdmittedSourceRows = (
 ) =>
   Effect.gen(function* () {
     const repo = yield* DataSourceRepository
-    const declared = app.tables?.find((t) => t.name === query.table)
+    const declared = findTableByName(app.tables, query.table)
     const table = app.auth ? declared : undefined
     const reader = readerOf(visitor, app)
     const rule = visitorRowRule(table, reader)

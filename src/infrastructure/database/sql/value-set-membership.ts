@@ -6,10 +6,11 @@
  */
 
 import { sql, type Column, type Name, type SQL } from 'drizzle-orm'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
- * `column IN (<values>)` for a value set of ANY size, bound as ONE parameter.
+ * `column IN (<values>)` on `dialect` for a value set of ANY size, bound as
+ * ONE parameter.
  *
  * drizzle's `inArray` binds one placeholder per value, and both engines cap the
  * placeholders a single statement may carry — SQLite at 32,766, PostgreSQL's
@@ -36,9 +37,13 @@ import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database
  *
  * An empty set yields an empty relation, so the predicate is simply false.
  */
-export const isInValueSet = (column: SQL | Column | Name, values: readonly string[]): SQL => {
+export const isInValueSetOn = (
+  dialect: DatabaseDialect,
+  column: SQL | Column | Name,
+  values: readonly string[]
+): SQL => {
   const encoded = JSON.stringify(values)
-  if (parseDatabaseDialectConfig().dialect === 'sqlite') {
+  if (dialect === 'sqlite') {
     return sql`${column} IN (SELECT value FROM json_each(${encoded}))`
   }
   return sql`${column} IN (SELECT jsonb_array_elements_text(${encoded}::text::jsonb))`

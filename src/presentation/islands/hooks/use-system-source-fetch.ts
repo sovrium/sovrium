@@ -43,7 +43,7 @@ export interface FetchResult {
   readonly total: number
   /**
    * The search term the endpoint reports it ACTUALLY applied — the signal that
-   * decides which layer filters (`appliedQuerySchema`, `src/domain/models/api/combinators/search.ts`).
+   * decides which layer filters (`appliedQuerySchema`, `src/domain/models/api/search-term.ts`).
    *
    * Tri-state, and the third state is the whole point:
    *
@@ -149,8 +149,9 @@ export interface SystemFetchQuery extends SystemQueryInput {
 
 /**
  * Build the merged query string for a system-endpoint request: static
- * `system.query` params first, then dynamic external-filter params (empty value
- * clears a param), then the read-side position / sort / search params.
+ * `system.query` params first, then dynamic external-filter params (an empty
+ * value leaves the static one standing), then the read-side position / sort /
+ * search params.
  *
  * Two of those read-side params defer to what was already declared, because a
  * declaration that the layer below silently overwrites is a declaration that
@@ -179,11 +180,12 @@ export function buildSystemQueryString({
   Object.entries(system.query ?? {}).forEach(([key, value]) => {
     params.set(key, String(value))
   })
-  // Dynamic params from an external filter bar override the static ones. Empty
-  // values clear the param (e.g. the automation filter back to "Toutes").
+  // Dynamic params from an external filter bar override the static ones. An
+  // empty value withdraws the control's own value (the automation filter back
+  // to "Toutes", a switch turned off), so the param falls back to its static
+  // value when the grid declares one, and is absent otherwise.
   Object.entries(systemQuery ?? {}).forEach(([key, value]) => {
-    if (value === '') params.delete(key)
-    else params.set(key, value)
+    if (value !== '') params.set(key, value)
   })
   // Read-side params (endpoint-side / forwarded): position, sort, search.
   if (cursor !== undefined) params.set('cursor', cursor)

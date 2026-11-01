@@ -34,6 +34,9 @@
  *
  *   recipe defaults  <  design.components  <  props.className  <  floor
  *
+ * Inside layer 2, a `text` adds `elements.<drawn element>` after `parts.root`
+ * and before the active variant and the states.
+ *
  * The operator's app-wide block loses to a per-instance `className` because the
  * author of that node is being specific; it beats the recipe because that is
  * the entire point of the key. `replace: true` drops the RECIPE only — the
@@ -67,6 +70,7 @@ import {
 import { componentFloorFor, componentPartFloorsFor } from './component-floor'
 import { resolveClasses } from './resolve-classes'
 import type { ComponentState, ComponentStyle, Design } from '@/domain/models/app/design'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 
 /** Where one fragment of a resolved class list came from. */
 export type ClassSource = 'default' | 'app' | 'floor'
@@ -83,8 +87,8 @@ export interface ComponentDesignResolution {
   readonly replace: boolean
   /** The operator's classes for the ROOT part, states and variants folded in. */
   readonly root: string
-  /** The operator's classes for every NON-root part, keyed by part name. */
-  readonly parts: Readonly<Record<string, string>>
+  /** The operator's classes for every NON-root part, keyed by a registry part name. */
+  readonly parts: PartClassMap
   /** The non-overridable floor for the root. Empty when nothing is declared. */
   readonly floor: string
   /**
@@ -96,7 +100,7 @@ export interface ComponentDesignResolution {
    * server-side, while these have to cross as their own serialised map because
    * the elements they land on do not exist until the island builds them.
    */
-  readonly partFloors: Readonly<Record<string, string>>
+  readonly partFloors: PartClassMap
 }
 
 const EMPTY_RESOLUTION: ComponentDesignResolution = {
@@ -120,18 +124,38 @@ const appendParts = (
 }
 
 /**
+ * The `elements` entry for the element this instance draws, as a root class map.
+ * Only `design.components.text` carries `elements`; every other layer has none.
+ */
+const elementRoot = (
+  style: ComponentStyle,
+  element: string | undefined
+): Readonly<Record<string, string>> | undefined => {
+  if (element === undefined) return undefined
+  const classes = (style as { readonly elements?: Readonly<Record<string, string>> }).elements?.[
+    element
+  ]
+  return classes === undefined ? undefined : { root: classes }
+}
+
+/**
  * Collapse one type's block into a per-part class map.
  *
- * Order within a part is `parts` → `variants[<active>]` → `states[*]`, so a
- * state class is later than the base class it modifies and wins the merge on a
- * same-property conflict — which is what "the hover colour beats the resting
- * colour" has to mean.
+ * Order within a part is `parts` → `elements[<drawn>]` (root only) →
+ * `variants[<active>]` → `states[*]`, so a state class is later than the base
+ * class it modifies and wins the merge on a same-property conflict — which is
+ * what "the hover colour beats the resting colour" has to mean — and a rule
+ * about the KIND of element sits under the instance's own variant.
  */
 const collapseParts = (
   style: ComponentStyle,
-  variant: string | undefined
+  variant: string | undefined,
+  element: string | undefined
 ): Readonly<Record<string, string>> => {
-  const base = appendParts({}, style.parts as Readonly<Record<string, string>> | undefined)
+  const base = appendParts(
+    appendParts({}, style.parts as Readonly<Record<string, string>> | undefined),
+    elementRoot(style, element)
+  )
   const withVariant = appendParts(
     base,
     variant === undefined
@@ -180,20 +204,23 @@ const layerParts = (
  * @param type - The engine component type being rendered (`button`, `tabs`, …).
  * @param variant - The variant this instance renders in, if the type has one.
  * @param classes - This instance's own `classes`, if any.
+ * @param element - The element this instance draws, read by `text.elements`.
  * @returns The operator layer, the per-part map, `replace`, and the floor.
  */
-export const resolveComponentStyle = (
+// eslint-disable-next-line max-params -- the drawn element joins the resolver's existing positional inputs; every caller passes them in this order
+export function resolveComponentStyle(
   design: Design | undefined,
   type: string,
   variant?: string,
-  classes?: ComponentStyle
-): ComponentDesignResolution => {
+  classes?: ComponentStyle,
+  element?: string
+): ComponentDesignResolution {
   const style = (design?.components as Readonly<Record<string, ComponentStyle>> | undefined)?.[type]
   const layers = [style, classes].filter((layer): layer is ComponentStyle => layer !== undefined)
   if (layers.length === 0) return EMPTY_RESOLUTION
 
   const parts = layers
-    .map((layer) => collapseParts(layer, variant))
+    .map((layer) => collapseParts(layer, variant, element))
     .reduce<Readonly<Record<string, string>>>(layerParts, {})
   const { root = '', ...rest } = parts
   return {
@@ -222,24 +249,40 @@ export interface ResolveComponentClassesInput {
   readonly variant?: string
   /** The instance's own `classes`, layered above `design.components`. */
   readonly classes?: ComponentStyle
+  /** The element this instance draws, read by `design.components.text.elements`. */
+  readonly element?: string
   readonly author?: string
   readonly defaults?: string
 }
+
+/**
+ * One part of a part map read by ANY name: the console asks for the provenance
+ * of whatever part a node's own `classes` names, and those names stay open
+ * (`component-parts.ts`). The one string-keyed read of a part map.
+ */
+const partByName = (map: Readonly<Record<string, string | undefined>>, part: string): string =>
+  map[part] ?? ''
 
 /** The three layers of one part's class list, before merging. */
 const layersFor = (
   input: ResolveComponentClassesInput
 ): { defaults: string; app: string; floor: string } => {
-  const resolution = resolveComponentStyle(input.design, input.type, input.variant, input.classes)
+  const resolution = resolveComponentStyle(
+    input.design,
+    input.type,
+    input.variant,
+    input.classes,
+    input.element
+  )
   const part = input.part ?? 'root'
   const isRoot = part === 'root'
   return {
     defaults: resolution.replace ? '' : (input.defaults ?? ''),
-    app: isRoot ? resolution.root : (resolution.parts[part] ?? ''),
+    app: isRoot ? resolution.root : partByName(resolution.parts, part),
     // A named part carries its own floor when its type declares one; see the
     // entry rule on `PART_FLOOR` in `component-floor.ts` for why most parts
     // legitimately have none.
-    floor: isRoot ? resolution.floor : (resolution.partFloors[part] ?? ''),
+    floor: isRoot ? resolution.floor : partByName(resolution.partFloors, part),
   }
 }
 

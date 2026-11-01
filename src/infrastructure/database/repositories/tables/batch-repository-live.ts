@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Layer } from 'effect'
 import { BatchRepository } from '@/application/ports/repositories/tables/batch-repository'
+import { layerOverDatabase } from '@/infrastructure/database/drizzle/layer'
 import {
   batchCreateRecords,
   batchUpdateRecords,
@@ -18,9 +18,10 @@ import {
 /**
  * Live implementation of BatchRepository using table-queries infrastructure
  *
- * Maps port method names to infrastructure function names.
+ * Maps port method names to infrastructure function names, each built over the
+ * `Database` service's client and dialect.
  */
-export const BatchRepositoryLive = Layer.succeed(BatchRepository, {
+export const BatchRepositoryLive = layerOverDatabase(BatchRepository, {
   batchCreate: batchCreateRecords,
   batchUpdate: batchUpdateRecords,
   batchDelete: batchDeleteRecords,

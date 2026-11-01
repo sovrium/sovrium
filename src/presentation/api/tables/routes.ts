@@ -74,70 +74,71 @@ function provideGuestContext() {
  * `.use()` call. Registering user_access routes first means they bypass
  * validateTable / enrichUserRole / guest context — which is correct: this
  * junction has its own per-row validation (auth.scopeTables / auth.roles).
- * Auth middleware applied higher up in `api-routes.ts` still runs.
+ * Auth middleware applied higher up in `compose-api-routes.ts` still runs.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hono type inference with middleware requires flexible typing
-function chainUserAccessRoutes<T extends Hono<any, any, any>>(honoApp: T, resolveApp: () => App) {
-  return honoApp
-    .post('/api/tables/user_access/records', (c) => handleCreateUserAccessRecord(c, resolveApp()))
-    .get('/api/tables/user_access/records', (c) => handleListUserAccessRecords(c, resolveApp()))
-    .get('/api/tables/user_access/records/:grantId', (c) =>
-      handleGetUserAccessRecord(c, resolveApp())
-    )
-    .patch('/api/tables/user_access/records/:grantId', (c) =>
-      handleUpdateUserAccessRecord(c, resolveApp())
-    )
-    .delete('/api/tables/user_access/records/:grantId', (c) =>
-      handleDeleteUserAccessRecord(c, resolveApp())
-    )
+function chainUserAccessRoutes(honoApp: Hono, app: App): void {
+  honoApp
+    .post('/api/tables/user_access/records', (c) => handleCreateUserAccessRecord(c, app))
+    .get('/api/tables/user_access/records', (c) => handleListUserAccessRecords(c, app))
+    .get('/api/tables/user_access/records/:grantId', (c) => handleGetUserAccessRecord(c, app))
+    .patch('/api/tables/user_access/records/:grantId', (c) => handleUpdateUserAccessRecord(c, app))
+    .delete('/api/tables/user_access/records/:grantId', (c) => handleDeleteUserAccessRecord(c, app))
 }
 
 /**
- * Chain table routes onto a Hono app
+ * The middleware every `:tableId` route runs behind, in order:
+ * `validateTable` (404 if not found) → `enrichUserRole` with auth, or
+ * `provideGuestContext` without it; then the record-id, read, body and
+ * language gates. `requireAuth()` itself is applied in `api-auth-guards.ts`.
  *
- * **Middleware Chain** (applied before all :tableId routes):
- * ```
- * requireAuth() → validateTable() → enrichUserRole() → Handler (if auth configured)
- * validateTable() → provideGuestContext() → Handler (if no auth)
- * ```
- * - `requireAuth`: Ensures session exists (applied in api-routes.ts if auth configured)
- * - `validateTable`: Validates table exists, attaches tableName + tableId
- * - `enrichUserRole`: Fetches user role from DB, attaches userRole (if auth configured)
- * - `provideGuestContext`: Provides guest session and role (if no auth)
+ * Hono needs BOTH patterns — `/api/tables/:tableId` for the exact match and
+ * `/api/tables/:tableId/*` for nested routes — or the middleware skips one.
+ */
+function guardTableRoutes(honoApp: Hono, app: App): void {
+  const attachRole = () => (app.auth ? enrichUserRole(app) : provideGuestContext())
+  honoApp
+    .use('/api/tables/:tableId', validateTable(app))
+    .use('/api/tables/:tableId', attachRole())
+    .use('/api/tables/:tableId/*', validateTable(app))
+    .use('/api/tables/:tableId/*', attachRole())
+    // An id no key of the table could hold names no record: 404 before any query.
+    .use('/api/tables/:tableId/records/:recordId', rejectNonKeyRecordId(app))
+    .use('/api/tables/:tableId/records/:recordId/*', rejectNonKeyRecordId(app))
+    // A table the caller may not read answers as one that does not exist,
+    // before any route or request validator looks at the request.
+    .use('/api/tables/:tableId/*', gateUnreadableTable(app))
+    // A body that is not labelled JSON is refused 415 before any handler reads
+    // it — the CORS-simple shape a cross-site page can forge. Form routes opt
+    // in with `acceptsFormBody`. After the read gate, so an unreadable table
+    // still answers as one that does not exist.
+    .use('/api/tables/:tableId/*', refuseNonJsonBody())
+    // Each translatable value is filed under its language before a write route
+    // reads it, and read back in the active language (`record-write-language.ts`).
+    .use('/api/tables/:tableId/records', writesRecordLanguage(app))
+    .use('/api/tables/:tableId/records/*', writesRecordLanguage(app))
+}
+
+/**
+ * Register the table routes on a Hono app, in the order that is the contract:
+ * the routes that must bypass the table middleware first, then the middleware
+ * (`guardTableRoutes`), then every route behind it.
  *
- * **IMPORTANT**: Hono requires middleware registration for BOTH patterns:
- * 1. `/api/tables/:tableId` - Exact match (e.g., GET /api/tables/123)
- * 2. `/api/tables/:tableId/*` - Nested routes (e.g., GET /api/tables/123/records)
- *
- * Without both patterns, middleware won't run for all routes.
- *
- * **Context Variables Available After Chain** (via `ContextWithTableAndRole`):
+ * **Context Variables Available After the middleware** (via `ContextWithTableAndRole`):
  * - `session`: Session (authenticated user or guest)
  * - `tableName`: string (resolved table name)
  * - `tableId`: string (original parameter)
  * - `userRole`: string (user's role in organization or 'guest')
  *
- * Uses method chaining for proper Hono RPC type inference.
+ * The record, table and view slugs keep their own method chains: the islands'
+ * typed RPC client reads its types off them (`api/client.ts`).
  *
- * @param honoApp - Hono instance to chain routes onto
+ * @param honoApp - Hono instance to register the routes on
  * @param app - Application configuration containing table metadata
- * @returns Hono app with table routes chained
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hono type inference with middleware requires flexible typing
-export function chainTableRoutes<T extends Hono<any, any, any>>(
-  honoApp: T,
-  app: App,
-  // Optional live-App resolver. After a schema `POST /draft/publish`
-  // swaps the live App without a restart, a newly-added table must be
-  // resolvable by `validateTable` and queryable by the record handlers. The
-  // composition root (`api-routes.ts`) supplies a resolver that reads the live
-  // App store; absent a resolver (or before any publish) it falls back to the
-  // boot `app`, so existing behavior is unchanged.
-  resolveApp: () => App = () => app
-) {
+export function chainTableRoutes(honoApp: Hono, app: App): void {
   // Z-2: the `user_access` junction routes go BEFORE `validateTable` (see
   // `chainUserAccessRoutes`).
-  const honoWithUserAccess = chainUserAccessRoutes(honoApp, resolveApp)
+  chainUserAccessRoutes(honoApp, app)
 
   // The design-system catalogue's fixture, under a RESERVED table name, and
   // registered here for exactly the reason above: it is a platform constant
@@ -149,68 +150,22 @@ export function chainTableRoutes<T extends Hono<any, any, any>>(
   // nothing an operator can edit into the catalogue every instance documents.
   // See `specimen-handlers.ts` for why the sibling `?rows=` endpoint is not
   // made redundant by this binding.
-  const honoWithSpecimenTable = chainCalendarFeedReadRoute(
-    honoWithUserAccess.get(`/api/tables/${SPECIMEN_TABLE_NAME}/records`, (c) =>
-      handleListSpecimenTableRecords(c)
-    ),
-    // A calendar app polls its feed address with no cookie: the token in the
-    // path is its credential, checked by the route, so it is registered ahead
-    // of the table chain below (see `calendar-feed-routes.ts`).
-    resolveApp
+  honoApp.get(`/api/tables/${SPECIMEN_TABLE_NAME}/records`, (c) =>
+    handleListSpecimenTableRecords(c)
   )
 
-  // Apply middleware for routes with :tableId parameter
-  // Middleware order: validateTable (404 if not found) → enrichUserRole (fetch role if auth configured)
-  // Note: requireAuth() is conditionally applied in api-routes.ts based on app.auth
-  //
-  // Two patterns needed:
-  // - '/api/tables/:tableId' for exact match (e.g., GET /api/tables/:tableId)
-  // - '/api/tables/:tableId/*' for nested routes (e.g., GET /api/tables/:tableId/records)
-  //
-  // enrichUserRole is only applied when auth is configured (app.auth exists)
-  // For apps without auth, provideGuestContext creates a guest session and role
-  const honoWithMiddleware = app.auth
-    ? honoWithSpecimenTable
-        .use('/api/tables/:tableId', validateTable(resolveApp))
-        .use('/api/tables/:tableId', enrichUserRole(resolveApp))
-        .use('/api/tables/:tableId/*', validateTable(resolveApp))
-        .use('/api/tables/:tableId/*', enrichUserRole(resolveApp))
-    : honoWithSpecimenTable
-        .use('/api/tables/:tableId', validateTable(resolveApp))
-        .use('/api/tables/:tableId', provideGuestContext())
-        .use('/api/tables/:tableId/*', validateTable(resolveApp))
-        .use('/api/tables/:tableId/*', provideGuestContext())
+  // A calendar app polls its feed address with no cookie: the token in the
+  // path is its credential, checked by the route, so it is registered ahead
+  // of the table middleware (see `calendar-feed-routes.ts`).
+  chainCalendarFeedReadRoute(honoApp, app)
 
-  // Route registration order matters for Hono's router.
-  // More specific routes (batch/restore) must be registered BEFORE
-  // parameterized routes (:recordId/restore) to avoid route collisions.
-  // An id no key of the table could hold names no record: 404 before any query.
-  const honoWithRecordIdGate = honoWithMiddleware
-    .use('/api/tables/:tableId/records/:recordId', rejectNonKeyRecordId(resolveApp))
-    .use('/api/tables/:tableId/records/:recordId/*', rejectNonKeyRecordId(resolveApp))
-    // A table the caller may not read answers as one that does not exist,
-    // before any route or request validator looks at the request.
-    .use('/api/tables/:tableId/*', gateUnreadableTable(resolveApp))
-    // A body that is not labelled JSON is refused 415 before any handler reads
-    // it — the CORS-simple shape a cross-site page can forge. Form routes opt
-    // in with `acceptsFormBody`. After the read gate, so an unreadable table
-    // still answers as one that does not exist.
-    .use('/api/tables/:tableId/*', refuseNonJsonBody())
-    // Each translatable value is filed under its language before a write route
-    // reads it, and read back in the active language (`record-write-language.ts`).
-    .use('/api/tables/:tableId/records', writesRecordLanguage(resolveApp))
-    .use('/api/tables/:tableId/records/*', writesRecordLanguage(resolveApp))
-  return chainViewRoutesMethods(
-    chainRecordRoutesMethods(
-      chainBatchRoutesMethods(
-        chainTableRoutesMethods(
-          chainCalendarFeedTokenRoutes(honoWithRecordIdGate, resolveApp),
-          resolveApp
-        ),
-        resolveApp
-      ),
-      resolveApp
-    ),
-    resolveApp
-  )
+  guardTableRoutes(honoApp, app)
+
+  // Route registration order matters for Hono's router: more specific routes
+  // (batch/restore) are registered BEFORE parameterized ones (:recordId/restore).
+  chainCalendarFeedTokenRoutes(honoApp, app)
+  chainTableRoutesMethods(honoApp, app)
+  chainBatchRoutesMethods(honoApp, app)
+  chainRecordRoutesMethods(honoApp, app)
+  chainViewRoutesMethods(honoApp, app)
 }

@@ -67,7 +67,7 @@
  * dark selector switches the role token at runtime. `@source inline(...)`
  * safelists every canonical utility so it is emitted in BOTH the native PostCSS
  * path AND the candidate-driven native-free binary path — independent of the
- * source-tree scan in `generated-css-assets.ts`.
+ * source-tree scan in `generated-css-assets.generated.ts`.
  *
  * ## Dark-mode selector
  *

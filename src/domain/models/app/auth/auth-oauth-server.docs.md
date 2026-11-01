@@ -1,6 +1,6 @@
 # OAuth Server
 
-> Sovrium as the authorization server — issuing tokens for downstream apps and AI clients, and the consent screen that refuses to let a client name itself.
+> Sovrium as the authorization server: issuing tokens for downstream apps and AI clients, and the consent screen that refuses to let a client name itself.
 
 Beyond consuming social logins, Sovrium acts as an OAuth 2.1 and OpenID Connect authorization server. That is how one instance becomes the identity provider for a fleet of apps: it holds the users, and other services delegate sign-in to it.
 
@@ -43,33 +43,33 @@ What replaces per-token revocation is session liveness: introspection re-reads t
 
 ## Defaults
 
-| Setting                     | Default             | Why                                                       |
-| --------------------------- | ------------------- | --------------------------------------------------------- |
-| Dynamic client registration | Signed in           | Anonymous registration answers `401` unless opened by env |
-| Access token lifetime       | 1 hour              | The industry standard                                     |
-| Refresh token lifetime      | 30 days             | The industry standard                                     |
-| Login page                  | `/login`            | An engine page                                            |
-| Consent page                | `/oauth/consent`    | An engine page                                            |
-| Proof key exchange          | Required            | OAuth 2.1 mandates it for the authorization code flow     |
-| Token signing               | Rotating EdDSA keys | Published through the key-set endpoint                    |
+| Setting                     | Default             | Why                                                   |
+| --------------------------- | ------------------- | ----------------------------------------------------- |
+| Dynamic client registration | Administrators      | Any other caller answers `401` unless opened by env   |
+| Access token lifetime       | 1 hour              | The industry standard                                 |
+| Refresh token lifetime      | 30 days             | The industry standard                                 |
+| Login page                  | `/login`            | An engine page                                        |
+| Consent page                | `/oauth/consent`    | An engine page                                        |
+| Proof key exchange          | Required            | OAuth 2.1 mandates it for the authorization code flow |
+| Token signing               | Rotating EdDSA keys | Published through the key-set endpoint                |
 
 ## AI and MCP clients
 
-Dynamic registration exists so an assistant can obtain a token and then call your app's exposed tables — subject to exactly the same roles and table permissions as any other caller. That is what lets an AI client act **on behalf of** a real user, with the access that user would have in the interface.
+Dynamic registration exists so an assistant can obtain a token and then call your app's exposed tables, subject to exactly the same roles and table permissions as any other caller. That is what lets an AI client act **on behalf of** a real user, with the access that user would have in the interface.
 
-Registering requires a session, so an operator can mint a client by hand while signed in. A client that registers itself has no session to offer, and needs the anonymous-registration environment variable. That is off by default, because registration writes a client name of the caller's choosing.
+Registering requires an administrator's session, so an operator mints a client by hand while signed in as one; a signed-in member who is not an administrator is answered `401`, as an anonymous caller is, and no client is written. A client that registers itself has no session to offer, and needs the anonymous-registration environment variable, which opens registration to every caller, signed in or not. Both are closed by default, because registration writes a client name of the caller's choosing, and that name is what the consent screen shows.
 
 ## The consent screen
 
-This is the one moment in the flow where a person makes a trust decision, so it is also the page a phishing client most wants to reach. Registration is self-service by design, which means every string a client supplies about itself — its name, its URI, its icon — was chosen by whoever registered it. A screen showing only that name would hand an attacker a first-party-looking page on your own domain.
+This is the one moment in the flow where a person makes a trust decision, so it is also the page a phishing client most wants to reach. Registration is self-service by design, which means every string a client supplies about itself (its name, its URI, its icon) was chosen by whoever registered it. A screen showing only that name would hand an attacker a first-party-looking page on your own domain.
 
 Two things on the screen are therefore not the client's to choose.
 
-**The registered redirect origin is the primary identity shown.** It is read from the client's stored record, never from the incoming request, so it is exactly where the browser will be sent if the user accepts. A client cannot claim to be something it is not, because what the user is shown is not a name — it is the address.
+**The registered redirect origin is the primary identity shown.** It is read from the client's stored record, never from the incoming request, so it is exactly where the browser will be sent if the user accepts. A client cannot claim to be something it is not, because what the user is shown is not a name. It is the address.
 
 **Self-asserted metadata is labelled as self-asserted.** A client reads **Verified** only when a third party attested its metadata. Anything that registered itself reads **Unverified**, in the same visual weight as the name it qualifies.
 
-The self-chosen name is still shown — somebody who just pressed "connect" in an app needs to recognise it — but as a quoted claim subordinate to the origin, and escaped, because it arrives straight from a registration payload.
+The self-chosen name is still shown, because somebody who just pressed "connect" in an app needs to recognise it, but as a quoted claim subordinate to the origin, and escaped, because it arrives straight from a registration payload.
 
 Scopes are listed in plain language, and a scope the screen has no description for is shown **by its raw name rather than hidden**. The one it cannot describe is the one a user most needs to see.
 

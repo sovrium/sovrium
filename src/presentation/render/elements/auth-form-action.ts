@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import type { StampedCredentialError } from './auth-form-credential-error'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
@@ -40,6 +41,12 @@ export type AuthFormAction = {
    */
   readonly _recoveryHref?: string
   /**
+   * Stamped by the page pass on a sign-in form declaring `credentialError`: the
+   * refusal this instance draws, mail or no mail (`auth-form-facts-stamp.ts`).
+   * Never authored.
+   */
+  readonly _credentialError?: StampedCredentialError
+  /**
    * Stamped by the page pass on a `resetPassword` form: the page the emailed
    * link opens with its token (`auth-form-facts-stamp.ts`). Never authored.
    */
@@ -59,6 +66,8 @@ export type AuthFormAction = {
     readonly loginPage: string
     readonly destination?: string
   }
+  /** Stamped on a sign-in form whose page was reached from a refused session. Never authored. */
+  readonly _sessionEnded?: boolean
   /** Custom submit-button label (supports `$t:key`). Overrides the built-in. */
   readonly submitLabel?: string
   /** Custom in-flight (pending) submit-button label (supports `$t:key`). */

@@ -15,7 +15,7 @@ import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-erro
 import { publishRejectedSave, publishServerStatus } from '@/infrastructure/server/status-file'
 import { snapshotConfigGraph } from './config-snapshot-history'
 import type { createConfigGraphWatcher } from './config-graph-watcher'
-import type { ReloadFailure, ReloadServerParams, ReloadSuccess } from './utils'
+import type { ReloadFailure, ReloadServerParams, ReloadSuccess } from './reload-server'
 import type { StartOptions } from '@/application/use-cases/server/start-server-options'
 import type { ReloadKind, ReloadOutcomeLabel } from '@/infrastructure/server/status-file'
 

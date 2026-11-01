@@ -8,13 +8,13 @@
 import { useMemo } from 'react'
 import { ShapedChartCanvas, type ChartShapeProps } from './chart-shape-canvas'
 import {
-  ChartEmpty,
-  ChartError,
+  ChartFailure,
   ChartLoading,
   ChartMissingAxes,
   ChartMissingTable,
+  ChartNothing,
   type ChartEmptyStateConfig,
-} from './chart-states'
+} from './chart-skeleton'
 import { chartAggregateOverGroups, useChartAggregate } from './use-chart-aggregate'
 import { useChartRecords } from './use-chart-records'
 import { useChartSystemRecords } from './use-chart-system-records'
@@ -87,10 +87,10 @@ interface ChartIslandProps extends ChartShapeProps {
  * aggregation/series/legend stories layer on top in subsequent specs.
  *
  * The island contract:
- * - Returns `ChartMissingTable` if no `dataSource.table` is configured.
+ * - Names the missing binding (`ChartMissingTable`) if no `dataSource.table` is configured.
  * - Returns `ChartLoading` while the records query is in flight.
- * - Returns `ChartError` on fetch failure.
- * - Returns `ChartEmpty` (with `emptyMessage`) when zero records come back.
+ * - Returns `ChartFailure` on fetch failure.
+ * - Returns `ChartNothing` (with `emptyMessage`) when zero records come back.
  * - Otherwise renders a recharts SVG chart of the requested `chartType`.
  *
  * The island host names the chart (`data-component="chart"`) once, whatever
@@ -143,19 +143,17 @@ function evaluateChartGuards(args: {
   // A system source has no declared table — the `app.tables` cross-validation /
   // missing-table guard is SKIPPED entirely; rows come from the endpoint instead.
   const hasTable = isSystemSource(args.dataSource) || Boolean(args.dataSource?.table)
-  if (!hasTable) return { element: <ChartMissingTable {...args} /> }
-  if (args.isLoading) return { element: <ChartLoading {...args} /> }
-  if (args.isError) return { element: <ChartError {...args} /> }
-  if (args.records.length === 0)
+  if (!hasTable)
     return {
-      element: (
-        <ChartEmpty
-          {...args}
-          message={args.emptyMessage}
-        />
-      ),
+      element: <ChartMissingTable strings={args.strings} />,
     }
-  if (isMissingAxes(args)) return { element: <ChartMissingAxes {...args} /> }
+  if (args.isLoading) return { element: <ChartLoading {...args} /> }
+  if (args.isError) return { element: <ChartFailure {...args} /> }
+  if (args.records.length === 0) return { element: <ChartNothing {...args} /> }
+  if (isMissingAxes(args))
+    return {
+      element: <ChartMissingAxes strings={args.strings} />,
+    }
   return {}
 }
 

@@ -61,12 +61,12 @@ const toEpochMs = (
  * @param expiresAt the soonest token expiry for a connection, or a single
  *   token row's expiry; accepts a `Date`, an ISO string, or pre-computed epoch
  *   millis. `null`/`undefined` means "no expiry recorded".
- * @param now the reference instant in epoch millis (defaults to `Date.now()`;
- *   injectable so unit tests are deterministic).
+ * @param now the reference instant in epoch millis — the server's clock
+ *   (`serverNow`) in a handler, a fixed instant in a test.
  */
 export const deriveConnectionStatus = (
   expiresAt: Readonly<Date> | string | number | null | undefined,
-  now: number = Date.now()
+  now: number
 ): ConnectionStatus => {
   const expiry = toEpochMs(expiresAt)
   // No expiry recorded (no token rows OR a long-lived token) ⇒ active, never
@@ -88,7 +88,7 @@ export interface TokenHealthInput {
  * stored, and its expiry is past or within the expiring-soon window. A token
  * with no recorded expiry never needs one.
  */
-export const needsReconnect = (token: TokenHealthInput, now: number = Date.now()): boolean => {
+export const needsReconnect = (token: TokenHealthInput, now: number): boolean => {
   if (token.hasRefreshToken) return false
   const expiry = toEpochMs(token.expiresAt)
   return expiry !== null && expiry - now <= CONNECTION_EXPIRING_SOON_WINDOW_MS
@@ -98,10 +98,7 @@ export const needsReconnect = (token: TokenHealthInput, now: number = Date.now()
  * Derive one token's health, `reconnect-needed` included — the per-token
  * counterpart of {@link deriveConnectionStatus}.
  */
-export const deriveTokenStatus = (
-  token: TokenHealthInput,
-  now: number = Date.now()
-): ConnectionStatus =>
+export const deriveTokenStatus = (token: TokenHealthInput, now: number): ConnectionStatus =>
   needsReconnect(token, now) ? 'reconnect-needed' : deriveConnectionStatus(token.expiresAt, now)
 
 /**
@@ -111,7 +108,7 @@ export const deriveTokenStatus = (
  */
 export const deriveConnectionHealth = (
   tokens: readonly TokenHealthInput[],
-  now: number = Date.now()
+  now: number
 ): ConnectionStatus =>
   tokens.some((token) => needsReconnect(token, now))
     ? 'reconnect-needed'
@@ -129,7 +126,7 @@ export const deriveConnectionHealth = (
 export const deriveConnectionListStatus = (
   type: string,
   tokens: readonly TokenHealthInput[],
-  now: number = Date.now(),
+  now: number,
   credentialUnset = false
 ): ConnectionStatus => {
   if (type === 'oauth2' && tokens.length === 0) return 'not-connected'

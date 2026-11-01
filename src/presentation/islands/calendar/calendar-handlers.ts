@@ -6,6 +6,7 @@
  */
 
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import { refusalMessageOf } from '../runtime/refusal-message'
 import type { TableRecord } from '../runtime/types'
 import type { Action } from '@/domain/models/app/pages/components/action'
 
@@ -80,7 +81,7 @@ export async function persistEventDrop(args: {
   readonly tableName: string
   readonly recordId: string
   readonly patch: Record<string, string>
-}): Promise<{ readonly ok: boolean }> {
+}): Promise<{ readonly ok: boolean; readonly refusal?: string | undefined }> {
   const { tableName, recordId, patch } = args
   const url = `/api/tables/${tableName}/records/${recordId}`
   try {
@@ -90,7 +91,8 @@ export async function persistEventDrop(args: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
     })
-    return { ok: res.ok }
+    // A refusal carrying a sentence — a table rule's message — is shown as it is.
+    return res.ok ? { ok: true } : { ok: false, refusal: await refusalMessageOf(res) }
   } catch {
     return { ok: false }
   }

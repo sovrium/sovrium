@@ -126,6 +126,7 @@ function formatMetadataValue(
     ? formatCellValue(value, format, resolvePageLocale(), {
         timeZone: resolvePageTimezone(),
         currency,
+        now: new Date(),
       })
     : // An empty value (an unlinked lookup reads NULL) prints nothing, never `null`.
       String(value ?? '')

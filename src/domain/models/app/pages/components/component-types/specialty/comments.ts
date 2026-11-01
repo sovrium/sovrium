@@ -95,6 +95,39 @@ export const commentsFields = {
     })
   ),
   /**
+   * The thread's own heading.
+   *
+   * Without it a page that wants a "Discussion" heading above its thread
+   * writes a sibling `text` component, which sits outside the section: the
+   * landmark stays named by the generic label, and the heading is painted
+   * even when the section beneath it is hidden. With it the heading belongs
+   * to the section and names it. Read only under `display: thread`.
+   */
+  title: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Heading drawn at the top of the thread, inside its section, which it also names for assistive technology. Accepts a $t: key. Read under display: thread; ignored under display: count.',
+      examples: ['Discussion', '$t:comments.title'],
+    })
+  ),
+  /**
+   * Draw nothing while the thread is empty, for a reader who cannot add to it.
+   *
+   * The same key, with the same meaning, as `listDisplay.hideWhenEmpty` on a
+   * list. An empty thread shown to a reader who cannot post only says "No
+   * comments yet" to someone who can do nothing about it; with this key on, the
+   * section (and its `title`) is not drawn for that reader. A reader who may
+   * comment still gets the composer, without the empty-state sentence above
+   * it. A thread with comments draws them as usual.
+   */
+  hideWhenEmpty: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'If true, a thread with no comment draws nothing for a reader who cannot comment: no section, no title, no empty-state text. A reader who can comment gets the composer without the empty-state text, and a thread with comments draws as usual (default: false, which shows the empty state). Read under display: thread; ignored under display: count.',
+      defaultNote: 'false',
+    })
+  ),
+  /**
    * Which of the two surfaces to draw. Default `thread`.
    *
    * `thread` is the full section — the list, its pagination and its composer.

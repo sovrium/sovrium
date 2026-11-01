@@ -114,15 +114,27 @@ export const listedRuns = (
       ] as const
   )
 
+/** The page size a request answers with when the `pageSize` it sent names none. */
+export const DEFAULT_RUNS_PAGE_SIZE = 50
+
+/**
+ * A page number or size off the query: a finite number of at least 1, or
+ * `fallback`. `pagination` promises finite numbers, so `abc`, `0` and `Infinity`
+ * read as if the parameter asked for the default.
+ */
+export const readPageParam = (raw: string | undefined, fallback: number): number | undefined => {
+  if (raw === undefined) return undefined
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : fallback
+}
+
 /** The `GET /api/automations/runs` query parameters, numbers parsed. */
 export const readListRunsQuery = (c: Context) => {
-  const pageStr = c.req.query('page')
-  const pageSizeStr = c.req.query('pageSize')
   return {
     automationName: c.req.query('automationName'),
     status: c.req.query('status'),
     triggerName: c.req.query('triggerName'),
-    page: pageStr !== undefined ? Number(pageStr) : undefined,
-    pageSize: pageSizeStr !== undefined ? Number(pageSizeStr) : undefined,
+    page: readPageParam(c.req.query('page'), 1),
+    pageSize: readPageParam(c.req.query('pageSize'), DEFAULT_RUNS_PAGE_SIZE),
   }
 }

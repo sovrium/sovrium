@@ -105,7 +105,12 @@ function formattedTextDetail(
   })
   if (text === undefined || text === '') return item.detail
   // A relative reading carries its instant and its absolute moment (`time`).
-  const stamp = relativeStampOf(value, format, context.lang, parseSovriumTimezone().zoneId)
+  const stamp = relativeStampOf(
+    value,
+    format,
+    context.lang,
+    parseSovriumTimezone(process.env).zoneId
+  )
   return stamp === undefined ? (
     text
   ) : (

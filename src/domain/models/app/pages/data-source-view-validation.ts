@@ -32,10 +32,8 @@
  * and `build` reach the same verdict.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { findViewByKey } from '@/domain/models/app/tables/views/view-read-service'
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null
 
 /** The component types that read a table's records, and so may read them through a view. */
 const VIEW_READER_TYPES: ReadonlySet<string> = new Set([

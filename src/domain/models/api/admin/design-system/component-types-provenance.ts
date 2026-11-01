@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // Class provenance
@@ -51,7 +51,7 @@ export const classProvenanceEntrySchema = Schema.Struct({
   layer: classProvenanceLayerSchema,
   classes: Schema.String.annotate({
     description:
-      'The classes this layer contributed, verbatim. Never empty — a layer that contributes nothing is omitted.',
+      'The classes this layer contributed, verbatim. Never empty: a layer that contributes nothing is omitted.',
   }),
   locked: Schema.Boolean.annotate({
     description: 'Whether config can override this layer. True for the floor, false otherwise.',

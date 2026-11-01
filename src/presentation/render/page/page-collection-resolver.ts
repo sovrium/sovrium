@@ -29,6 +29,8 @@ import { resolvePageAppVars } from '@/presentation/render/resolve/app-vars-resol
 import { withAvatarUsers } from '@/presentation/render/resolve/avatar-members-binding'
 import { linksAndLabelsFor } from '@/presentation/render/resolve/bound-record-links'
 import { resolveAddressedDrawerTitle } from '@/presentation/render/resolve/drawer-record-title-resolver'
+import { withoutEmptyCommentThreads } from '@/presentation/render/resolve/empty-comment-thread-pass'
+import { drawInlineSvgs } from '@/presentation/render/resolve/inline-svg-resolver'
 import { resolvePageInvitation } from '@/presentation/render/resolve/invitation-resolver'
 import { withLocalizedRows } from '@/presentation/render/resolve/localized-rows-db'
 import {
@@ -47,14 +49,15 @@ import {
 import { resolveRouteBoundForms } from '@/presentation/render/resolve/route-bound-form-resolver'
 import { resolveRouteBoundTables } from '@/presentation/render/resolve/route-bound-table-resolver'
 import { resolvePageRouteParams } from '@/presentation/render/resolve/route-param-props-resolver'
-import { attachmentAddressing } from '@/presentation/render/resolve/row-attachment-addresses'
 import { type RowLevelReadCheck } from '@/presentation/render/resolve/row-rule-read-check'
+import { stampSessionEnded } from '@/presentation/render/resolve/session-ended-stamp'
 import { resolveTabsLazyPanels } from '@/presentation/render/resolve/tabs-lazy-resolver'
 import { translateReferencedKeys } from '@/presentation/render/resolve/translated-references-resolver'
 import { resolvePageTwoFactorAttempt } from '@/presentation/render/resolve/two-factor-attempt-resolver'
 import { readViewerRowIds } from '@/presentation/render/resolve/viewer-own-rows'
 import { resolvePageWindowProps } from '@/presentation/render/resolve/window-props-resolver'
 import { resolveSidebarState } from '../resolve/sidebar-state-resolver'
+import { collectionAttachments } from './collection-attachments'
 import { withListedFilter } from './collection-listed-filter'
 import { resolvePageLanguage } from './page-lang-resolver'
 import { definedOnly, resolveAndFilterPage } from './page-row-scope-resolver'
@@ -215,9 +218,30 @@ interface ResolveCollectionAndFilterInput {
   readonly sampleAddress?: boolean
 }
 
-/** The passes reading the request itself: the page's invitation, then its code forms. */
+/**
+ * The passes reading the request itself: the page's invitation, its code forms,
+ * then its sign-in forms when a refused session sent the reader here.
+ */
 const resolveRequestBoundPasses = async (input: ResolveCollectionAndFilterInput): Promise<Page> =>
-  resolvePageTwoFactorAttempt(await resolvePageInvitation(input.matchedPage, input), input)
+  stampSessionEnded(
+    await resolvePageTwoFactorAttempt(await resolvePageInvitation(input.matchedPage, input), input),
+    input.requestQuery
+  )
+
+/**
+ * A resolved page's two closing passes. A drawing goes last: every row exists by
+ * then, and no later pass substitutes a token into a string.
+ */
+const finishedPage = async <T extends Page | object | undefined>(
+  page: T,
+  written: Page,
+  context: Parameters<typeof withoutEmptyCommentThreads>[1] & { readonly db: DataSourceDb }
+): Promise<T> =>
+  drawInlineSvgs(
+    await withoutEmptyCommentThreads(page, context),
+    written,
+    context.db.readPublicFile
+  )
 
 /**
  * Apply the collection-page resolver to the matched page (if any), then the
@@ -270,6 +294,7 @@ export async function resolveCollectionAndFilter(
   // The record, for an embedded form's `inlinePrefill` `$record.*` (`single` is the parent's).
   const collectionRecord =
     collectionResolution.kind === 'match' ? collectionResolution.record : undefined
+  // Then a `hideWhenEmpty` thread with no comment, for a reader who cannot start it, is not drawn.
   const filtered = await resolveAndFilterPage({
     rawPage,
     app,
@@ -288,7 +313,7 @@ export async function resolveCollectionAndFilter(
       callerCapabilities: input.callerCapabilities,
     }),
     urlLanguage: input.urlLanguage,
-  })
+  }).then((page) => finishedPage(page, input.matchedPage, { app, session, db }))
   return withRecordLanguageAddresses(filtered, collectionResolution)
 }
 
@@ -362,32 +387,4 @@ const collectionGateOf = (
 ): CollectionReadGate => {
   const gate = collectionReadGateOf(page, ctx.app, ctx.session, ctx.db)
   return previewMode === true ? gate : withListedFilter(gate, { page, ...ctx })
-}
-
-/** A collection record, given its attachment parts. */
-type RecordAddress = (
-  record: Readonly<Record<string, unknown>>
-) => Promise<Readonly<Record<string, unknown>>>
-
-/**
- * A collection page's attachment addressing, as a list row's: the page with
- * each attachment token of its table rewritten (before its record is
- * substituted), and how its record, once projected, is given the parts. A page
- * naming no attachment, or no collection, is used as it is.
- */
-function collectionAttachments(
-  page: Page,
-  app: App,
-  db: DataSourceDb
-): { readonly page: Page; readonly address: RecordAddress } {
-  const tableName = page.collection?.table
-  const addressing =
-    tableName === undefined
-      ? undefined
-      : attachmentAddressing({ template: page.components, app, tableName, sign: db.signFileUrl })
-  if (addressing === undefined) return { page, address: async (record) => record }
-  return {
-    page: { ...page, components: addressing.rewrite(page.components) },
-    address: addressing.address,
-  }
 }

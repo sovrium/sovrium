@@ -43,6 +43,10 @@ import {
   chunkHoldsOnlyReadable,
   rowOfSourceRef,
 } from '@/domain/models/app/agents/rag-chunk-read-gate'
+import {
+  anonymousGrant,
+  servesNoAuthVisitor,
+} from '@/domain/models/app/auth/anonymous-grant-service'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   chatReadableColumns,
@@ -50,16 +54,20 @@ import {
   readScopeOf,
   resolveChatRowScope,
   type ChatReader,
+  type ChatReadRequirements,
 } from './chat-read-scope'
 import { projectAppTables } from './chat-table-projection'
+import type { DynamicRecordRepository } from '@/application/ports/repositories/tables/dynamic-record-repository'
 import type { App } from '@/domain/models/app'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /** What a reader may be served of one table: its rows, by id, and its fields. */
 interface ReadableSlice {
   readonly recordIds: ReadonlySet<string>
   readonly fields: ReadonlySet<string>
 }
+
+/** What reading the hits back through the read gate needs from the server. */
+export type HitReadRequirements = ChatReadRequirements | DynamicRecordRepository
 
 const NOTHING_READABLE: ReadableSlice = { recordIds: new Set(), fields: new Set() }
 
@@ -79,44 +87,41 @@ const readableFields = (app: App, tableName: string, reader: ChatReader): Readon
  * (empty when the table is refused her, or her rule admits no row), and the
  * fields of that table she may read.
  */
-const readableSlice = async (input: {
-  readonly services: DomainContext
+const readableSlice = (input: {
   readonly app: App
   readonly reader: ChatReader
   readonly tableName: string
   readonly recordIds: readonly string[]
-}): Promise<ReadableSlice> => {
+}): Effect.Effect<ReadableSlice, never, HitReadRequirements> => {
   const { app, reader, tableName } = input
   const table = app.tables?.find((candidate) => candidate.name === tableName)
   if (table === undefined || !passesChatTableGate(app, app.tables ?? [], table, reader)) {
-    return NOTHING_READABLE
+    return Effect.succeed(NOTHING_READABLE)
   }
-  return {
-    recordIds: await readableRecordIds(input),
+  return Effect.map(readableRecordIds(input), (recordIds) => ({
+    recordIds,
     fields: readableFields(app, tableName, reader),
-  }
+  }))
 }
 
 /** The ids, among `recordIds`, of the rows of `tableName` the reader may read. */
-const readableRecordIds = async (input: {
-  readonly services: DomainContext
+const readableRecordIds = (input: {
   readonly app: App
   readonly reader: ChatReader
   readonly tableName: string
   readonly recordIds: readonly string[]
-}): Promise<ReadonlySet<string>> => {
-  const { services, app, reader, tableName, recordIds } = input
-  const scope = await resolveChatRowScope(services, app, tableName, reader)
-  if (scope.kind === 'refused' || scope.kind === 'nothing') return new Set()
-  const rows = await Effect.runPromise(
-    listDynamicRecords({
+}): Effect.Effect<ReadonlySet<string>, never, HitReadRequirements> =>
+  Effect.gen(function* () {
+    const { app, reader, tableName, recordIds } = input
+    const scope = yield* resolveChatRowScope(app, tableName, reader)
+    if (scope.kind === 'refused' || scope.kind === 'nothing') return new Set<string>()
+    const rows = yield* listDynamicRecords({
       table: tableName,
       columns: ['id'],
       conditions: [{ column: 'id', operator: 'in', value: recordIds }],
       limit: recordIds.length,
       ...readScopeOf(scope),
     }).pipe(
-      Effect.provide(services),
       // A scope that cannot be read back refuses the hits, as the records API
       // refuses a read it cannot judge: logged, never guessed (E6).
       Effect.tapCause((cause) =>
@@ -128,9 +133,8 @@ const readableRecordIds = async (input: {
       ),
       Effect.orElseSucceed((): ReadonlyArray<Record<string, unknown>> => [])
     )
-  )
-  return new Set(rows.map((row) => String(row['id'])))
-}
+    return new Set(rows.map((row) => String(row['id'])))
+  })
 
 /**
  * A table chunk is served only when it names the fields it holds and every one
@@ -143,10 +147,10 @@ const holdsOnly = (
 
 /**
  * Keep the hits a table chunk could be served from at all, judged by the
- * running config alone: its table is declared and it names fields that table
- * declares. Applied where no caller is judged (an app with no `auth`), so a
- * chunk written before chunks recorded their fields is never served there
- * either.
+ * running config alone: its table is declared and opens `read` to everyone
+ * (`anonymousGrant` — nobody signs in to an app with no `auth`, where this is
+ * applied), and it names fields that table declares, so a chunk written before
+ * chunks recorded their fields is never served there either.
  */
 export const filterServableHits = <
   T extends {
@@ -163,6 +167,7 @@ export const filterServableHits = <
     const table = app?.tables?.find((candidate) => candidate.name === row.table)
     return (
       table !== undefined &&
+      (app === undefined || !servesNoAuthVisitor(app) || anonymousGrant(table, 'read', app)) &&
       holdsOnly(result.fields, new Set(table.fields.map((field) => field.name)))
     )
   })
@@ -171,18 +176,17 @@ export const filterServableHits = <
  * Keep the hits whose row `reader` may read through the records read gate, and
  * whose every recorded field she may read.
  */
-export const filterHitsThroughReadGate = async <
+export const filterHitsThroughReadGate = <
   T extends {
     readonly sourceRef: string | null
     readonly fields?: ReadonlyArray<string> | undefined
   },
 >(input: {
-  readonly services: DomainContext
   readonly app: App
   readonly reader: ChatReader
   readonly results: readonly T[]
-}): Promise<readonly T[]> => {
-  const { services, app, reader, results } = input
+}): Effect.Effect<readonly T[], never, HitReadRequirements> => {
+  const { app, reader, results } = input
   const rowsByTable = results
     .map((result) => rowOfSourceRef(result.sourceRef))
     .filter((row) => row !== undefined)
@@ -190,31 +194,27 @@ export const filterHitsThroughReadGate = async <
       (acc, row) => ({ ...acc, [row.table]: [...(acc[row.table] ?? []), row.recordId] }),
       {}
     )
-  const admitted = Object.fromEntries(
-    await Promise.all(
-      Object.entries(rowsByTable).map(
-        async ([tableName, recordIds]) =>
-          [
-            tableName,
-            await readableSlice({
-              services,
-              app,
-              reader,
-              tableName,
-              recordIds: [...new Set(recordIds)],
-            }),
-          ] as const
-      )
-    )
+  return Effect.forEach(
+    Object.entries(rowsByTable),
+    ([tableName, recordIds]) =>
+      Effect.map(
+        readableSlice({ app, reader, tableName, recordIds: [...new Set(recordIds)] }),
+        (slice) => [tableName, slice] as const
+      ),
+    { concurrency: 'unbounded' }
+  ).pipe(
+    Effect.map((slices) => {
+      const admitted = Object.fromEntries(slices)
+      return results.filter((result) => {
+        const row = rowOfSourceRef(result.sourceRef)
+        if (row === undefined) return true
+        const slice = admitted[row.table]
+        return (
+          slice !== undefined &&
+          slice.recordIds.has(row.recordId) &&
+          holdsOnly(result.fields, slice.fields)
+        )
+      })
+    })
   )
-  return results.filter((result) => {
-    const row = rowOfSourceRef(result.sourceRef)
-    if (row === undefined) return true
-    const slice = admitted[row.table]
-    return (
-      slice !== undefined &&
-      slice.recordIds.has(row.recordId) &&
-      holdsOnly(result.fields, slice.fields)
-    )
-  })
 }

@@ -1,6 +1,6 @@
 # Strategies Overview
 
-> The required `strategies` array — the three ways in, how to choose between them, and the two rules the decoder enforces.
+> The required `strategies` array: the three ways in, how to choose between them, and the two rules the decoder enforces.
 
 `strategies` declares how users authenticate. Each entry is discriminated by `type`, and **no two entries may share a type**: a strategy is configured once or not at all.
 
@@ -26,14 +26,14 @@ That block accepts credential sign-in **and** federated sign-in. Users arriving 
 
 The array is additive: every declared strategy is offered, and one user may hold credentials for several. Pick by what your users already have.
 
-| Situation                                               | Declare                                                     |
-| ------------------------------------------------------- | ----------------------------------------------------------- |
-| An internal tool whose staff already have work accounts | `oauth` alone — no password to leak, no reset flow to build |
-| A customer portal with occasional logins                | `magicLink` alone — nothing for a customer to forget        |
-| You need two-factor authentication                      | `emailAndPassword` — TOTP enrols against a password         |
-| A mixed audience, some federated and some not           | `emailAndPassword` **and** `oauth`                          |
+| Situation                                               | Declare                                                    |
+| ------------------------------------------------------- | ---------------------------------------------------------- |
+| An internal tool whose staff already have work accounts | `oauth` alone: no password to leak, no reset flow to build |
+| A customer portal with occasional logins                | `magicLink` alone: nothing for a customer to forget        |
+| You need two-factor authentication                      | `emailAndPassword`: TOTP enrols against a password         |
+| A mixed audience, some federated and some not           | `emailAndPassword` **and** `oauth`                         |
 
-Both passwordless flows send mail. With SMTP unset the app still boots, with email disabled and a logged warning — and those strategies then fail to deliver silently, which looks from the outside like a broken sign-in rather than a missing environment variable.
+Both passwordless flows send mail. With SMTP unset the app still boots, with email disabled and a logged warning, and those strategies then fail to deliver silently, which looks from the outside like a broken sign-in rather than a missing environment variable.
 
 ## What the decoder enforces
 
@@ -41,5 +41,7 @@ Two rules are checked when the configuration is decoded, so validation catches a
 
 - **At least one strategy.** An empty array is refused. Omitting `auth` entirely is how an app runs with no authentication at all.
 - **No duplicate type.** Two email-and-password entries would make the effective password policy ambiguous, and there is no defensible way to pick one.
+
+Within a `magicLink` entry, `expirationMinutes` is above `0` and at most `60`: a link waiting in an inbox is a live credential, and an hour covers a reader who opens her mail a little later.
 
 A third rule reaches across the block: configuring two-factor authentication without an email-and-password strategy is refused, because TOTP enrols on top of a password credential and there would be nothing to enrol against.

@@ -1,6 +1,6 @@
 # Deploy Sovrium on Scalingo
 
-> Push a Sovrium app to Scalingo — a git-push deploy that runs the released binary, with a managed PostgreSQL add-on and environment-variable secrets.
+> Push a Sovrium app to Scalingo: a git-push deploy that runs the released binary, with a managed PostgreSQL add-on and environment-variable secrets.
 
 You want a git-push deploy on a European PaaS, with a managed database and no server to run yourself.
 
@@ -16,22 +16,22 @@ https://github.com/sovrium/scalingo-buildpack
 ```
 
 ```text
-# .sovrium-version — the release to download; bump it to upgrade
+# .sovrium-version: the release to download; bump it to upgrade
 X.Y.Z
 ```
 
-Replace `X.Y.Z` with the release you want — the latest one is on the project's releases page, and running the newest release is how you receive security fixes. The buildpack verifies the checksum before installing it. A version that does not exist fails the build rather than deploying something unexpected. Without the file, the buildpack installs whatever release is newest at build time, so two deploys of the same commit can run different versions; pin it.
+Replace `X.Y.Z` with the release you want. The latest one is on the project's releases page, and running the newest release is how you receive security fixes. The buildpack verifies the checksum before installing it. A version that does not exist fails the build rather than deploying something unexpected. Without the file, the buildpack installs whatever release is newest at build time, so two deploys of the same commit can run different versions; pin it.
 
 You do not need a `Procfile`. The buildpack finds the config at the root of the repository (`app.yaml`, then `app.yml`, then `app.ts`) and starts the web process with `bin/sovrium start <that file>`. Add a `Procfile` only to start something else, and keep the `bin/` prefix, because the buildpack installs the binary into the app tree, not onto the system `PATH`:
 
 ```text
-# Procfile — optional; this is what the buildpack runs without one
+# Procfile: optional; this is what the buildpack runs without one
 web: bin/sovrium start app.yaml
 ```
 
 The `.env.example` that `init` wrote lists the variables a deployment reads; on Scalingo they are set with `scalingo env-set` below, never committed in a `.env` file.
 
-Then add a managed PostgreSQL database so the app runs on PostgreSQL instead of the SQLite default — the SQLite file lives on the container filesystem, which Scalingo rebuilds on every deploy and restart — and set the environment:
+Then add a managed PostgreSQL database so the app runs on PostgreSQL instead of the SQLite default (the SQLite file lives on the container filesystem, which Scalingo rebuilds on every deploy and restart), and set the environment:
 
 ```bash
 scalingo --app my-app addons-add postgresql postgresql-starter-1024
@@ -42,17 +42,17 @@ scalingo --app my-app env-set \
   TRUSTED_PROXY_HOPS=1
 ```
 
-Pick the add-on plan that fits your data; `scalingo addons-plans postgresql` shows the current list. `NODE_ENV=production` is not cosmetic — it switches Sovrium to immutable caching for content-hashed assets, including the client scripts pages reference by content-hashed names; their old unhashed names are served `no-cache`, so a browser revalidates them on every use. Without it every asset is re-fetched on each page view.
+Pick the add-on plan that fits your data; `scalingo addons-plans postgresql` shows the current list. `NODE_ENV=production` is not cosmetic: it switches Sovrium to immutable caching for content-hashed assets, including the client scripts pages reference by content-hashed names; their old unhashed names are served `no-cache`, so a browser revalidates them on every use. Without it every asset is re-fetched on each page view.
 
 `SOVRIUM_ENCRYPTION_KEY` is the only secret in that list, and it is set here for a reason worth knowing. Sovrium generates its own key when none is given, but Scalingo rebuilds the container filesystem on every deploy and restart, while the managed database keeps everything that key encrypted. Generated, the key would be new each time and the stored credentials would stop opening. Setting it once removes the problem. The session-signing secret derives from it, so there is no second value to set.
 
 `TRUSTED_PROXY_HOPS=1` accounts for Scalingo's own router, which is what stands between the internet and your container. It lets Sovrium believe the client address the router forwards, so rate limits count per visitor instead of lumping every request onto the router's address. Raise it only if you put your own CDN in front of Scalingo, and never above the number of proxies actually in the path.
 
-`BASE_URL` is the `https://` address of the app, not a `localhost` one. Sovrium decides its security posture from it: a loopback `BASE_URL` such as `http://localhost:3000` makes it treat the deployment as local, which turns off the cross-site request (CSRF) origin check and drops the `Secure` attribute from session cookies — on a public app. When you move to your own domain, update `BASE_URL` to that domain's `https://` address.
+`BASE_URL` is the `https://` address of the app, not a `localhost` one. Sovrium decides its security posture from it: a loopback `BASE_URL` such as `http://localhost:3000` makes it treat the deployment as local, which turns off the cross-site request (CSRF) origin check and drops the `Secure` attribute from session cookies, on a public app. When you move to your own domain, update `BASE_URL` to that domain's `https://` address.
 
 **Secrets are echoed.** `scalingo env-set` and `scalingo env` print values to your terminal. Generate secrets inline as shown rather than pasting them, and avoid `scalingo env` in shared or recorded sessions.
 
-Scalingo injects `DATABASE_URL` and `PORT` automatically — Sovrium reads both, so no extra wiring is needed.
+Scalingo injects `DATABASE_URL` and `PORT` automatically. Sovrium reads both, so no extra wiring is needed.
 
 ## Deploy and verify
 
@@ -65,6 +65,6 @@ curl -fsS https://my-app.osc-fr1.scalingo.io/ >/dev/null && echo "up"
 
 ## Next
 
-- **Database Infrastructure** — how `DATABASE_URL` switches Sovrium to PostgreSQL.
-- **Schema Migrations** — schema evolution applies on the next deploy's boot.
-- **Environment Variables** — the secrets to set with `env-set`.
+- **Database Infrastructure**: how `DATABASE_URL` switches Sovrium to PostgreSQL.
+- **Schema Migrations**: schema evolution applies on the next deploy's boot.
+- **Environment Variables**: the secrets to set with `env-set`.

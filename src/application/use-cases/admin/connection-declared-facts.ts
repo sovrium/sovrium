@@ -25,8 +25,11 @@ export type DeclaredConfig = Pick<App, 'connections' | 'automations' | 'env'>
  * variable that is not set on this instance — the ones every run skips. Read
  * through the same check the run applies, so the list and the run agree.
  */
-export const unconfiguredNamesOf = (config: DeclaredConfig): ReadonlySet<string> => {
-  const envLookup = buildEnvLookup(config.env, process.env)
+export const unconfiguredNamesOf = (
+  config: DeclaredConfig,
+  env: Readonly<Record<string, string | undefined>>
+): ReadonlySet<string> => {
+  const envLookup = buildEnvLookup(config.env, env)
   return new Set(
     (config.connections ?? [])
       .filter((connection) => connection.type !== 'oauth2')

@@ -50,8 +50,8 @@ export const DEFAULT_DATA_DIR = './.sovrium'
  *
  * @public
  */
-export const parseDataDir = (): string =>
-  path.resolve(parseProjectDir(), process.env.SOVRIUM_DATA_DIR || DEFAULT_DATA_DIR)
+export const parseDataDir = (env: Readonly<Record<string, string | undefined>>): string =>
+  path.resolve(parseProjectDir(env), env['SOVRIUM_DATA_DIR'] || DEFAULT_DATA_DIR)
 
 /**
  * Default SQLite database file path (`<dataDir>/database.db`), used when
@@ -59,7 +59,8 @@ export const parseDataDir = (): string =>
  *
  * @public
  */
-export const defaultSqliteDbPath = (): string => path.join(parseDataDir(), 'database.db')
+export const defaultSqliteDbPath = (env: Readonly<Record<string, string | undefined>>): string =>
+  path.join(parseDataDir(env), 'database.db')
 
 /**
  * Default lock-file directory (the data dir itself). Overridden by
@@ -67,7 +68,8 @@ export const defaultSqliteDbPath = (): string => path.join(parseDataDir(), 'data
  *
  * @public
  */
-export const defaultLockDir = (): string => parseDataDir()
+export const defaultLockDir = (env: Readonly<Record<string, string | undefined>>): string =>
+  parseDataDir(env)
 
 /**
  * Default local file-storage directory (`<dataDir>/storage`), used in SQLite
@@ -75,7 +77,8 @@ export const defaultLockDir = (): string => parseDataDir()
  *
  * @public
  */
-export const defaultUploadsDir = (): string => path.join(parseDataDir(), 'storage')
+export const defaultUploadsDir = (env: Readonly<Record<string, string | undefined>>): string =>
+  path.join(parseDataDir(env), 'storage')
 
 /**
  * Default pre-compiled stylesheet path (`<dataDir>/output.css`): the file
@@ -87,7 +90,9 @@ export const defaultUploadsDir = (): string => path.join(parseDataDir(), 'storag
  *
  * @public
  */
-export const defaultPrecompiledCssPath = (): string => path.join(parseDataDir(), 'output.css')
+export const defaultPrecompiledCssPath = (
+  env: Readonly<Record<string, string | undefined>>
+): string => path.join(parseDataDir(env), 'output.css')
 
 /**
  * File name of the per-install root secret inside the data dir.
@@ -110,8 +115,9 @@ export const ENCRYPTION_KEY_FILENAME = 'encryption-key'
  *
  * @public
  */
-export const defaultEncryptionKeyPath = (): string =>
-  path.join(parseDataDir(), ENCRYPTION_KEY_FILENAME)
+export const defaultEncryptionKeyPath = (
+  env: Readonly<Record<string, string | undefined>>
+): string => path.join(parseDataDir(env), ENCRYPTION_KEY_FILENAME)
 
 /**
  * Where a running server keeps the page-search index it builds at start
@@ -130,12 +136,15 @@ export const defaultEncryptionKeyPath = (): string =>
  *
  * @public
  */
-export const searchIndexRoot = (): string => path.join(parseDataDir(), 'search-index')
+export const searchIndexRoot = (env: Readonly<Record<string, string | undefined>>): string =>
+  path.join(parseDataDir(env), 'search-index')
 
 /**
  * The page-search directory of one server process — see {@link searchIndexRoot}.
  *
  * @public
  */
-export const searchIndexDir = (pid: number = process.pid): string =>
-  path.join(searchIndexRoot(), String(pid))
+export const searchIndexDir = (
+  env: Readonly<Record<string, string | undefined>>,
+  pid: number
+): string => path.join(searchIndexRoot(env), String(pid))

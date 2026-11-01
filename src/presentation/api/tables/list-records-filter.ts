@@ -18,6 +18,10 @@ import {
   isVocabularyTerm,
   unknownTermRefusal,
 } from '@/domain/models/app/tables/closed-vocabulary'
+import {
+  declaredFieldTypeOf,
+  filterConditionFit,
+} from '@/domain/models/app/tables/filter-value-fit-service'
 import { withLinkedRecordsConditions } from '@/domain/models/app/tables/linked-records-filter-service'
 import { withRelatedTextConditions } from '@/domain/models/app/tables/related-text-filter-service'
 import { withDefaultLanguageConditions } from '@/domain/models/app/tables/translatable-query-service'
@@ -68,12 +72,14 @@ export function parseFilter(
   // as such rather than described.
   const nonBoolean = refuseNonBooleanOperand(c, app, tableName, parsed.value)
   if (nonBoolean !== undefined) return nonBoolean
+  const fields = app.tables?.find((table) => table.name === tableName)?.fields
+  const mistyped = refuseMistypedCondition(c, parsed.value, declaredFieldTypeOf(fields))
+  if (mistyped !== undefined) return mistyped
   // A text condition on a link reads the linked record's display field, under
   // the related-value rule for THIS reader (`related-text-filter-service.ts`).
   const signedOut = isGuestSession(getSessionContext(c)?.userId)
   const reader = { role: userRole, groups: userGroups, signedOut }
   // `contains` on a list of people is membership, never a text match.
-  const fields = app.tables?.find((table) => table.name === tableName)?.fields
   return {
     error: false,
     value: withListMembershipConditions(
@@ -123,6 +129,28 @@ function refuseNonBooleanOperand(
 }
 
 /**
+ * A condition whose value its field cannot hold (a word compared with a
+ * number) or whose operator matches text on a number, refused before any query
+ * runs (`filter-value-fit-service.ts`), so both engines answer the same `400`
+ * naming the field. After the permission check, like {@link refuseNonBooleanOperand}.
+ */
+function refuseMistypedCondition(
+  c: Context,
+  filter: unknown,
+  typeOf: (field: string) => string | undefined
+): FilterResult | undefined {
+  const fitOf = (leaf: FilterLeaf) =>
+    filterConditionFit(typeOf(leaf.field), leaf.operator, leaf.value)
+  const leaf = firstLeafWhere(filter, (candidate) => fitOf(candidate) !== 'fits')
+  if (leaf === undefined) return undefined
+  const message =
+    fitOf(leaf) === 'mistyped-operator'
+      ? `The "${leaf.operator}" operator matches text; field "${leaf.field}" holds a number.`
+      : `Field "${leaf.field}" is a "${typeOf(leaf.field)}" field and cannot hold the value it is compared with.`
+  return { error: true, response: c.json({ success: false, message, code: 'BAD_REQUEST' }, 400) }
+}
+
+/**
  * Shape the request into a filter, without permission checking. `param` names
  * the query parameter holding it — `filter`, or a ratio side on the aggregate
  * read, which takes the same grammar; `filterByFormula` only stands for `filter`.
@@ -140,7 +168,7 @@ function parseFilterInput(c: Context, app: App, tableName: string, param: string
   const parsedFilterResult = parseFilterParameter({
     filterParam: c.req.query(param),
     c,
-    fieldTypeOf: (name) => fields.find((field) => field.name === name)?.type,
+    fieldTypeOf: declaredFieldTypeOf(fields),
   })
   if (!parsedFilterResult.success) return { error: true, response: parsedFilterResult.error }
 
@@ -199,7 +227,7 @@ function parseFilterInput(c: Context, app: App, tableName: string, param: string
 
 /** The request's UTC day and minute instant, read off ONE clock reading. */
 const requestClock = (): readonly [string, string] => {
-  const now = serverNow()
+  const now = serverNow(process.env)
   return [utcCalendarDay(now), utcMinuteInstant(now)]
 }
 
@@ -272,10 +300,11 @@ const lookupTarget = (
   return fieldNamed(related?.fields ?? [], field.relatedField)
 }
 
-/** A condition of a filter tree: the field it names and its operator. */
+/** A condition of a filter tree: the field it names, its operator and its value. */
 interface FilterLeaf {
   readonly field: string
   readonly operator: string
+  readonly value?: unknown
 }
 
 /** The first condition, depth first, for which `test` holds. */
@@ -292,7 +321,11 @@ function firstLeafWhere(
   if (typeof node !== 'object' || node === null) return undefined
   const record = node as Readonly<Record<string, unknown>>
   if ('operator' in record) {
-    const leaf = { field: String(record['field']), operator: String(record['operator']) }
+    const leaf = {
+      field: String(record['field']),
+      operator: String(record['operator']),
+      value: record['value'],
+    }
     return test(leaf) ? leaf : undefined
   }
   return firstLeafWhere(record['and'], test) ?? firstLeafWhere(record['or'], test)

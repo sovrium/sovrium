@@ -26,14 +26,16 @@ import {
   listAutomationApprovalsQuerySchema,
   listAutomationApprovalsResponseSchema,
 } from '@/domain/models/api/automations/automations'
-import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import { toApproverList } from '@/domain/models/app/automations/actions/approval/approver-validation'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { requireSession, validationError } from '@/presentation/api/runtime/auth-helpers'
-import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+  toErrorResponse,
+} from '@/presentation/api/runtime/run-effect'
 import { approvalsAsSeenByCaller } from './run-step-output-reach'
 import type { App } from '@/domain/models/app'
-import type { ApprovalCaller } from '@/domain/models/app/automations/actions/approval/approver-validation'
 import type { Context } from 'hono'
 
 /**
@@ -41,21 +43,16 @@ import type { Context } from 'hono'
  * instead: the canonical 401 when there is no session, the sanitized error
  * envelope when the account store did not answer.
  */
-export const resolveApprovalCaller = async (
-  c: Context
-): Promise<
-  | { readonly ok: true; readonly caller: ApprovalCaller }
-  | { readonly ok: false; readonly response: Response }
-> => {
-  const auth = requireSession(c)
-  if (!auth.ok) return { ok: false, response: auth.response }
-  const loaded = await runRequestEffect(
-    c,
-    Effect.result(provideDomain(c, loadApprovalCaller(auth.session.userId)))
-  )
-  if (loaded._tag === 'Failure') return { ok: false, response: toErrorResponse(c, loaded.failure) }
-  return { ok: true, caller: loaded.success }
-}
+export const resolveApprovalCaller = (c: Context) =>
+  Effect.gen(function* () {
+    const auth = requireSession(c)
+    if (!auth.ok) return { ok: false, response: auth.response } as const
+    const loaded = yield* Effect.result(loadApprovalCaller(auth.session.userId))
+    if (loaded._tag === 'Failure') {
+      return { ok: false, response: toErrorResponse(c, loaded.failure) } as const
+    }
+    return { ok: true, caller: loaded.success } as const
+  })
 
 const toWireApproval = (row: ListedApproval) => ({
   approvalId: row.id,
@@ -75,33 +72,37 @@ const toWireApproval = (row: ListedApproval) => ({
  * `status` defaults to `pending`. 401 without a session; 400 for any other
  * status value.
  */
-export async function handleListApprovals(c: Context, app: App): Promise<Response> {
-  const resolved = await resolveApprovalCaller(c)
-  if (!resolved.ok) return resolved.response
-
-  const query = Schema.decodeUnknownResult(listAutomationApprovalsQuerySchema)({
-    status: c.req.query('status'),
-  })
-  if (Result.isFailure(query)) {
-    return validationError(c, [
-      { field: 'status', message: 'status must be one of pending, approved, rejected' },
-    ])
-  }
-
-  const program = listAutomationApprovals({
-    status: query.success.status ?? 'pending',
-    caller: resolved.caller,
-    app,
-  })
-  const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
-  if (result._tag === 'Failure') return toErrorResponse(c, result.failure)
-  // A message is rendered from what its run carries: judged as the request
-  // step's output is, for a reader who does not read every run.
-  const seen = await approvalsAsSeenByCaller(c, app, {
-    readsEveryRun: false,
-    approvals: result.success,
-  })
-  // S4: the body leaves through its published contract.
-  const body = { approvals: seen.map(toWireApproval) }
-  return c.json(decodeOrThrow(listAutomationApprovalsResponseSchema)(body), 200)
+export function handleListApprovals(c: Context, app: App): Promise<Response> {
+  return runHandlerEffect(c, answerFailures(c, listApprovalsProgram(c, app)))
 }
+
+const listApprovalsProgram = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const resolved = yield* resolveApprovalCaller(c)
+    if (!resolved.ok) return resolved.response
+
+    const query = Schema.decodeUnknownResult(listAutomationApprovalsQuerySchema)({
+      status: c.req.query('status'),
+    })
+    if (Result.isFailure(query)) {
+      return validationError(c, [
+        { field: 'status', message: 'status must be one of pending, approved, rejected' },
+      ])
+    }
+
+    const program = listAutomationApprovals({
+      status: query.success.status ?? 'pending',
+      caller: resolved.caller,
+      app,
+    })
+    const listed = yield* program
+    // A message is rendered from what its run carries: judged as the request
+    // step's output is, for a reader who does not read every run.
+    const seen = yield* approvalsAsSeenByCaller(c, app, { readsEveryRun: false, approvals: listed })
+    // S4: the body leaves through its published contract.
+    return yield* respondWith(
+      c,
+      Effect.succeed({ approvals: seen.map(toWireApproval) }),
+      listAutomationApprovalsResponseSchema
+    )
+  })

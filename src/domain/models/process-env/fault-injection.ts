@@ -23,10 +23,15 @@
  * `SOVRIUM_FAULT_INJECTION_DETAIL` is appended to the error's message, which is
  * how a test puts a value into an error text and proves the report removes it.
  *
- * Ignored entirely when `NODE_ENV=production`, the posture of the
+ * Ignored entirely when `NODE_ENV=production` or when the public origin is not
+ * loopback (the host of `BASE_URL`, else the bind), the posture of the
  * `GET /test/error` page route: a deployed instance never fails on request.
+ * The server boot goes further and refuses the variable on a public origin
+ * ({@link faultInjectionPublicOriginRefusal}), so an operator learns it is set.
  * Pure: the environment is a parameter.
  */
+
+import { isPublicOriginEnv } from './public-origin'
 
 type Env = Readonly<Record<string, string | undefined>>
 
@@ -71,10 +76,11 @@ const parsePrefixedFault = (
 
 /**
  * The fault the environment asks for, or `undefined` when none is asked for,
- * the value names no fault, or the process runs in production.
+ * the value names no fault, the process runs in production, or the public
+ * origin is not loopback.
  */
 export const parseFaultInjection = (env: Env): FaultInjection | undefined => {
-  if (env['NODE_ENV'] === 'production') return undefined
+  if (env['NODE_ENV'] === 'production' || isPublicOriginEnv(env)) return undefined
   const value = env[SOVRIUM_FAULT_INJECTION_VAR]?.trim() ?? ''
   const rawDetail = env[SOVRIUM_FAULT_INJECTION_DETAIL_VAR] ?? ''
   const detail = rawDetail === '' ? {} : { detail: rawDetail }
@@ -92,4 +98,16 @@ export const isActionFaultInjected = (env: Env, automation: string): boolean => 
 export const isPageFaultInjected = (env: Env, path: string): boolean => {
   const fault = parseFaultInjection(env)
   return fault?.kind === 'page' && fault.path === path
+}
+
+/**
+ * The boot refusal for `SOVRIUM_FAULT_INJECTION` set on a server whose public
+ * origin is not loopback, or `undefined` when there is nothing to refuse. One
+ * line naming the variable and `BASE_URL`: an operator mistake, not a bug, so
+ * it offers no report.
+ */
+export const faultInjectionPublicOriginRefusal = (env: Env): string | undefined => {
+  const value = env[SOVRIUM_FAULT_INJECTION_VAR]?.trim() ?? ''
+  if (value === '' || !isPublicOriginEnv(env)) return undefined
+  return `${SOVRIUM_FAULT_INJECTION_VAR} makes the server fail on purpose and is refused when the public origin is not loopback (BASE_URL, else the bind host); unset it to start this server.`
 }

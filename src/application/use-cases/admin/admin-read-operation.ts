@@ -28,9 +28,10 @@
  */
 
 import { Effect, Result, Schema } from 'effect'
-import { EmitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { ProcessEnv, type ProcessEnvShape as Env } from '@/application/ports/services/process-env'
+import { emitAuditEvent } from '@/application/use-cases/admin/audit-log-emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import type { AdminReadError, AdminReadServices } from './admin-read-services'
 import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type {
@@ -251,8 +252,8 @@ export interface AdminReadDefinition<I> extends Omit<
   AdminReadOperation,
   'run' | 'parameterNames' | 'auditAction'
 > {
-  /** Decode the raw parameters; `app` is the live config, for existence checks. */
-  readonly decode: (raw: Readonly<Record<string, unknown>>, app: App) => AdminReadDecode<I>
+  /** Decode the raw parameters against the live config and the {@link ProcessEnv} environment. */
+  readonly decode: (raw: AdminReadRequest['raw'], app: App, env: Env) => AdminReadDecode<I>
   readonly read: (
     app: App,
     input: I,
@@ -280,7 +281,7 @@ const emitReadAudit = (
     yield* Effect.forEach(
       events,
       (event) =>
-        EmitAuditEvent({
+        emitAuditEvent({
           action: event.action,
           actor,
           resourceId,
@@ -317,7 +318,7 @@ export const defineAdminRead = <I>(definition: AdminReadDefinition<I>): AdminRea
     auditAction: audit?.action,
     run: (request) =>
       Effect.gen(function* () {
-        const decoded = decode(request.raw, request.app)
+        const decoded = decode(request.raw, request.app, yield* ProcessEnv)
         if (decoded._tag !== 'Ok') return decoded
         const outcome = yield* read(request.app, decoded.input, request)
         if (outcome._tag === 'Ok' && audit !== undefined) {

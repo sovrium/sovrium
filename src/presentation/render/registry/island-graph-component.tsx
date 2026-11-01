@@ -51,7 +51,7 @@ import { GraphIslandHost } from '@/presentation/render/registry/graph-island-hos
 import { islandLoadingLabel } from '@/presentation/render/registry/island-loading-label'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { GraphComponent } from '@/presentation/render/registry/graph-island-host'
-import type { GraphView } from '@/presentation/render/resolve/graph-projection'
+import type { GraphView } from '@/presentation/render/resolve/graph-view'
 import type { ReactElement } from 'react'
 
 /** One of the graph's own words (`graph.*`), in the page language. */

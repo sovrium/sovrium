@@ -8,8 +8,8 @@
 import { Result } from 'effect'
 import { entryText, readOoxmlPackage, textEntry, writeOoxmlPackage } from './ooxml-package'
 import { parseXmlPart, rewriteRoot, serializePart, type XmlElement } from './ooxml-tree'
-import type { ZipEntry } from '../action-handlers/file-zip'
-import type { ZipReadEntry } from '../action-handlers/file-zip-read'
+import type { ZipEntry } from '../action-handlers/file/zip'
+import type { ZipReadEntry } from '../action-handlers/file/zip-read'
 
 /**
  * AN OPENDOCUMENT PACKAGE (`.odt`, `.ods`, `.odp`) CLEANED BEFORE IT LEAVES

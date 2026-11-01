@@ -151,7 +151,7 @@ export const AssetSchema = Schema.Struct({
     identifier: 'Asset',
     title: 'Asset',
     description:
-      'A private file beside the config — a template, a font, an image, sample data — read by actions and never served over HTTP.',
+      'A private file beside the config (a template, a font, an image, sample data), read by actions and never served over HTTP.',
   }),
   Schema.check(
     Schema.makeFilter((entry) => resolveAssetKind(entry) !== undefined, {
@@ -191,7 +191,7 @@ export const AssetsSchema = Schema.Array(AssetSchema).pipe(
     identifier: 'Assets',
     title: 'Assets',
     description:
-      'Private files shipped beside the config — templates, fonts, images, sample data — read by actions through { asset: <path> } and never served over HTTP.',
+      'Private files shipped beside the config (templates, fonts, images, sample data), read by actions through { asset: <path> } and never served over HTTP.',
   }),
   Schema.check(
     Schema.makeFilter(

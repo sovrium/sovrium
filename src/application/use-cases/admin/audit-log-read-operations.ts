@@ -33,11 +33,15 @@ import {
   type AdminReadDecode,
   type AdminReadOperation,
 } from '@/application/use-cases/admin/admin-read-operation'
+import { resolveDateWindow } from '@/application/use-cases/admin/automations-runs-query'
 import {
+  AUDIT_FACET_LIMIT,
   auditLogEntrySchema,
+  auditLogFacetsResponseSchema,
   auditLogListResponseSchema,
   auditLogQuerySchema,
 } from '@/domain/models/api/admin/audit-log'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 
 /** A filter value as the route reads it: a non-empty string, else no filter. */
 const filterValue = (value: unknown): string | undefined =>
@@ -85,24 +89,68 @@ const decodeCursor = (raw: string): AuditPagePosition | undefined => {
 const pageParamsSchema = Schema.Struct({
   cursor: auditLogQuerySchema.fields.cursor,
   limit: auditLogQuerySchema.fields.limit,
+  q: auditLogQuerySchema.fields.q,
+  from: auditLogQuerySchema.fields.from,
+  to: auditLogQuerySchema.fields.to,
+  reads: auditLogQuerySchema.fields.reads,
 })
 
-/** The filters, the page size and the cursor; a malformed size or cursor is refused. */
+/**
+ * The search term and the period as filter fields. The period follows the run
+ * history exactly: a calendar day counts in the operator timezone and a `to`
+ * day is included; a date-time `to` is exclusive. `undefined` when the period
+ * ends before it starts.
+ */
+const narrowingOf = (
+  params: {
+    readonly q?: string | undefined
+    readonly from?: string | undefined
+    readonly to?: string | undefined
+    readonly reads?: 'true' | 'false' | undefined
+  },
+  operatorTimezone: string
+): Pick<AuditListFilter, 'q' | 'since' | 'until' | 'withoutReads'> | undefined => {
+  const window = resolveDateWindow(params.from, params.to, operatorTimezone)
+  if (window === undefined) return undefined
+  return {
+    ...(params.q === undefined ? {} : { q: params.q }),
+    // Only `false` narrows: `true` and absence both keep the reads, so a caller
+    // that never sends the parameter reads the trail it always read.
+    ...(params.reads === 'false' ? { withoutReads: true } : {}),
+    ...(window.from === undefined ? {} : { since: new Date(window.from) }),
+    ...(window.to === undefined ? {} : { until: new Date(window.to) }),
+  }
+}
+
+/**
+ * The filters, the page size and the cursor; a malformed size, cursor or period
+ * is refused. A calendar-day period is read in `operatorTimezone`.
+ */
 const decodeAuditLogPage = (
-  raw: Readonly<Record<string, unknown>>
+  raw: Readonly<Record<string, unknown>>,
+  operatorTimezone: string
 ): AdminReadDecode<AuditPageQuery> => {
   const refused = { _tag: 'InvalidInput', reason: 'malformed' } as const
-  const params = Schema.decodeOption(pageParamsSchema)({
+  const params = Schema.decodeUnknownOption(pageParamsSchema)({
     cursor: filterValue(raw['cursor']),
     limit: filterValue(raw['limit']),
+    q: typeof raw['q'] === 'string' ? raw['q'] : undefined,
+    from: filterValue(raw['from']),
+    to: filterValue(raw['to']),
+    reads: filterValue(raw['reads']),
   })
   if (Option.isNone(params)) return refused
   const { cursor, limit } = params.value
   const after = cursor === undefined ? undefined : decodeCursor(cursor)
-  if (cursor !== undefined && after === undefined) return refused
+  const narrowing = narrowingOf(params.value, operatorTimezone)
+  if ((cursor !== undefined && after === undefined) || narrowing === undefined) return refused
   return {
     _tag: 'Ok',
-    input: { filter: decodeAuditLogFilter(raw), limit, ...(after === undefined ? {} : { after }) },
+    input: {
+      filter: { ...decodeAuditLogFilter(raw), ...narrowing },
+      limit,
+      ...(after === undefined ? {} : { after }),
+    },
   }
 }
 
@@ -111,11 +159,22 @@ const auditLogList = defineAdminRead<AuditPageQuery>({
   method: 'get',
   path: '/api/admin/audit-log',
   pathParams: [],
-  queryParams: ['actorId', 'action', 'resourceType', 'transport', 'cursor', 'limit'],
+  queryParams: [
+    'actorId',
+    'action',
+    'resourceType',
+    'transport',
+    'q',
+    'from',
+    'to',
+    'reads',
+    'cursor',
+    'limit',
+  ],
   tool: {
     suffix: 'audit_log_list',
     description:
-      'Read the admin audit trail newest first, filtered by actor, action, transport or resource type and paged by cursor, as GET /api/admin/audit-log answers it (admin-only, read-only; reading it records nothing).',
+      'Read the admin audit trail newest first, filtered by actor, action, transport, resource type, period or a search term, with or without the reads, and paged by cursor, as GET /api/admin/audit-log answers it (admin-only, read-only; reading it records nothing).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -128,6 +187,25 @@ const auditLogList = defineAdminRead<AuditPageQuery>({
         resourceType: {
           type: 'string',
           description: 'Only entries on this exact resource type.',
+        },
+        q: {
+          type: 'string',
+          description: 'Search over the actor email, the action and the resource id.',
+        },
+        from: {
+          type: 'string',
+          description: 'Start of the period: a calendar day or an ISO 8601 date-time.',
+        },
+        to: {
+          type: 'string',
+          description:
+            'End of the period: a calendar day (included) or an ISO 8601 date-time (excluded).',
+        },
+        reads: {
+          type: 'string',
+          enum: ['true', 'false'],
+          description:
+            'Leave out the reads (false): the entries whose action ends in .queried or .read, which record someone looking and nothing changing. true or absent keeps them.',
         },
         limit: {
           type: 'integer',
@@ -146,8 +224,11 @@ const auditLogList = defineAdminRead<AuditPageQuery>({
     summary: 'Read the admin audit log',
     description:
       'The admin audit trail, newest first, optionally filtered by actor, action, transport ' +
-      'and resource type (all exact, combined conjunctively). An unrecognised value matches ' +
-      'nothing and answers an empty page. `limit` caps a page (default 50, at most 200) and ' +
+      'and resource type (all exact), a period (`from` / `to`) and a search term `q`, all ' +
+      'combined conjunctively. `reads=false` leaves out the reads (an action ending in `.queried` ' +
+      'or `.read`); `reads=true` or no `reads` keeps them, and any other value is refused with 400. ' +
+      'An unrecognised filter value matches nothing and answers an empty page; ' +
+      'a period that ends before it starts is refused with 400. `limit` caps a page (default 50, at most 200) and ' +
       '`nextCursor` reads the entries after it, `null` on the last page; a malformed `limit` ' +
       'or `cursor` is refused with 400. Reading the trail writes no audit event. Admin only.',
     operationIdBase: 'listAdminAuditLog',
@@ -156,7 +237,7 @@ const auditLogList = defineAdminRead<AuditPageQuery>({
     responseDescription: 'The matching audit entries',
   },
   subject: 'audit-log response',
-  decode: decodeAuditLogPage,
+  decode: (raw, _app, env) => decodeAuditLogPage(raw, parseSovriumTimezone(env).zoneId),
   // No admin audit event: reading the trail must not grow it.
   // The page is read in the database, one page of rows at a time; the cursor
   // is the last entry's instant and id, the same keys the order is read by.
@@ -166,8 +247,43 @@ const auditLogList = defineAdminRead<AuditPageQuery>({
     return answerWithSchema(auditLogListResponseSchema, {
       items: [...page.entries],
       nextCursor: page.hasMore && last !== undefined ? encodeCursor(last) : null,
+      // Present on EVERY page, `null` without a term: its presence tells the
+      // console grid the search already ran on the server.
+      appliedQuery: query.filter.q ?? null,
     })
   }),
+})
+
+const auditLogFacets = defineAdminRead<undefined>({
+  id: 'audit-log.facets',
+  method: 'get',
+  path: '/api/admin/audit-log/facets',
+  pathParams: [],
+  queryParams: [],
+  tool: {
+    suffix: 'audit_log_facets',
+    description:
+      'The actors and the actions the admin audit trail holds, each with how many entries carry it, most first, as GET /api/admin/audit-log/facets answers them (admin-only, read-only; reading it records nothing).',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  openapi: {
+    summary: 'Read the audit log facets',
+    description:
+      'The actors (by `actor.id`, labelled by email) and the actions the trail holds, each ' +
+      `with its entry count, most entries first, at most ${AUDIT_FACET_LIMIT} of each: the ` +
+      'values the list filters on. Reading it writes no audit event. Admin only.',
+    operationIdBase: 'getAdminAuditLogFacets',
+    responseSchema: auditLogFacetsResponseSchema,
+    responseDescription: 'The actors and actions of the trail',
+  },
+  subject: 'audit-log facets',
+  decode: () => ({ _tag: 'Ok', input: undefined }),
+  // No admin audit event: reading the trail must not grow it.
+  read: () =>
+    Effect.map(
+      AuditLogRepository.use((repository) => repository.facets(AUDIT_FACET_LIMIT)),
+      (facets) => answerWithSchema(auditLogFacetsResponseSchema, facets)
+    ).pipe(Effect.withSpan('admin.audit-log.facets')),
 })
 
 const auditLogEntry = defineAdminRead<string>({
@@ -214,5 +330,7 @@ const auditLogEntry = defineAdminRead<string>({
 /** The admin audit log. */
 export const AUDIT_LOG_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [
   auditLogList,
+  // Before the one-entry read, so `/facets` is not captured as an entry id.
+  auditLogFacets,
   auditLogEntry,
 ]

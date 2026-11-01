@@ -44,7 +44,7 @@ export const HttpDeleteActionSchema = Schema.Struct({
     body: Schema.optional(
       Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.Unknown)]).pipe(
         Schema.annotate({
-          description: 'Optional request body — some APIs accept a body with DELETE requests',
+          description: 'Optional request body: some APIs accept a body with DELETE requests',
         })
       )
     ),
@@ -75,7 +75,7 @@ export const HttpDeleteActionSchema = Schema.Struct({
     identifier: 'HttpDeleteAction',
     title: 'HTTP DELETE Action',
     description:
-      'Send DELETE requests to external services — optional body for APIs that accept it',
+      'Send DELETE requests to external services, with an optional body for APIs that accept it',
   })
 )
 

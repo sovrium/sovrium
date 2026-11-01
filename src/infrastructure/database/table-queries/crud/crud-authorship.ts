@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { authUserTableRef } from '@/infrastructure/database/sql/dialect-sql'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The authorship join of a trash read: the SELECT list naming the creator,
@@ -53,6 +53,7 @@ export function buildAuthorshipSelectFields(authorshipColumns: {
  * Build query with conditional JOINs for authorship tables
  */
 export function buildAuthorshipJoins(
+  dialect: Dialect,
   baseQuery: Readonly<ReturnType<typeof sql>>,
   authorshipColumns: {
     readonly hasCreatedBy: boolean
@@ -60,7 +61,7 @@ export function buildAuthorshipJoins(
     readonly hasDeletedBy: boolean
   }
 ): Readonly<ReturnType<typeof sql>> {
-  const authUser = authUserTableRef()
+  const authUser = dialect.sql.authTableRef('user')
   const queryWithCreatedBy = authorshipColumns.hasCreatedBy
     ? sql`${baseQuery} LEFT JOIN ${authUser} created_by_user ON t.created_by = created_by_user.id`
     : baseQuery

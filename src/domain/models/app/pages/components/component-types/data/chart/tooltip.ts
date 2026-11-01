@@ -14,7 +14,7 @@ export const ChartTooltipSchema = Schema.Struct({
   /** Tooltip text template with `{label}` and `{value}` placeholders */
   format: Schema.optional(
     Schema.String.annotate({
-      description: 'Tooltip text template — supports {label} and {value} placeholders',
+      description: 'Tooltip text template; supports {label} and {value} placeholders',
       examples: ['{label}: {value}', '{value}'],
     })
   ),

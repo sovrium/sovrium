@@ -41,6 +41,7 @@ import {
 } from '@/application/use-cases/tables/permissions/caller-record-gate'
 import { findPageRoute } from '@/domain/kernel/matching/localized-path'
 import { routeParamLookupOf } from '@/domain/models/app/tables/route-param-lookup-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -217,7 +218,7 @@ const segmentLookupOf = (
   readable: (field: string) => boolean
 ): ParentLookup => {
   const { dataSource, paramValue } = segment
-  const table = app.tables?.find((candidate) => candidate.name === dataSource.table)
+  const table = findTableByName(app.tables, dataSource.table)
   const row =
     table === undefined
       ? undefined
@@ -241,7 +242,7 @@ const submitterReadsParamColumn = (
   segment: Extract<RevalidationLookup, { readonly kind: 'segment' }>
 ) => {
   const { table: tableName, param } = segment.dataSource
-  const table = ctx.app.tables?.find((candidate) => candidate.name === tableName)
+  const table = findTableByName(ctx.app.tables, tableName)
   return table?.fields.some((field) => field.name === param) === true
     ? callerReadsColumn({ app: ctx.app, tableName, userId: ctx.submitterUserId, field: param })
     : Effect.succeed(true)
@@ -277,13 +278,9 @@ export const revalidateInlinePrefillParent = (ctx: RevalidationContext) =>
     const record =
       lookup.kind === 'no-parent'
         ? undefined
-        : yield* repo.fetchSingleRecord(
-            lookup.tableName,
-            lookup.paramField,
-            lookup.paramValue,
-            undefined,
-            { liveOnly: true }
-          )
+        : yield* repo.fetchSingleRecord(lookup.tableName, lookup.paramField, lookup.paramValue, {
+            liveOnly: true,
+          })
     // The parent is judged as the WHOLE of its submitter reads it — the gate the
     // page that drew it and the records API answer — and a parent she may not
     // read answers exactly as a missing one, so the 422-versus-201 answer tells

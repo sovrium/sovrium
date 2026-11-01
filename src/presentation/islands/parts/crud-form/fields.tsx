@@ -18,7 +18,7 @@
    covered by the future crud-form refactor. */
 
 import { nativeInputTypeOf } from '@/presentation/design/field-control-attributes'
-import { fieldDescribedBy } from '@/presentation/design/field-display'
+import { controlDescribedBy } from '@/presentation/design/field-display'
 import { fieldWidgetOf, type FieldWidget } from '@/presentation/design/field-type-behavior'
 import { readsAsTrue } from '../../runtime/cell-value-semantics'
 import { RecordButton } from '../../runtime/record-button'
@@ -81,7 +81,7 @@ function TextAreaField({
           {...(field.disabled && { disabled: true })}
           {...(field.required && { required: true })}
           {...(invalid && { 'aria-invalid': 'true' })}
-          {...fieldDescribedBy(field)}
+          {...controlDescribedBy(field)}
         />
       )}
     />
@@ -149,7 +149,7 @@ function TypedInputField({
           {...(field.readOnly && { readOnly: true })}
           {...(field.disabled && { disabled: true })}
           {...(invalid && { 'aria-invalid': 'true' })}
-          {...fieldDescribedBy(field)}
+          {...controlDescribedBy(field)}
         />
       )}
     />
@@ -283,13 +283,14 @@ const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.Rea
       words={uiStrings}
     />
   ),
-  select: ({ field, value, onChange, invalid }) => (
+  select: ({ field, value, onChange, invalid, uiStrings }) => (
     <SelectField
       field={field}
       value={value}
       onChange={onChange}
       options={field.options ?? []}
       invalid={invalid}
+      words={uiStrings}
     />
   ),
   checkbox: ({ field, value, onChange }) => (

@@ -40,8 +40,9 @@ import {
 } from '@/domain/models/app/tables/comment-moderation-policy'
 import { logError } from '@/infrastructure/logging/logger'
 import { announceCommentChange } from './comment-change-programs'
+import { createCommentProgram } from './comment-create-programs'
 import { resolveCreatedCommentMentions, type CommentMention } from './comment-mention-programs'
-import { createCommentProgram, type CreatedCommentWithGuestEmail } from './comment-programs'
+import type { CreatedCommentWithGuestEmail } from './comment-query-programs'
 import type { UserMetadataWithOptionalImage } from '@/application/ports/contracts/user-metadata'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { TriggerCommentEventInput } from '@/application/use-cases/automations/trigger-comment-event'
@@ -64,7 +65,7 @@ export type CommentAuthor =
     }
 
 /** A published comment, as the comment triggers read it. */
-export type PostedCommentEvent = Omit<TriggerCommentEventInput, 'app' | 'processEnv' | 'depth'>
+export type PostedCommentEvent = Omit<TriggerCommentEventInput, 'app' | 'depth'>
 
 /** The comment moderation verdicts a stored comment can carry. */
 export type CommentVerdict = 'approved' | 'pending' | 'rejected'

@@ -17,6 +17,12 @@
  * this file only orders them. Pure: no I/O.
  */
 
+import { objectNodes } from '@/domain/kernel/config-parsing/config-node-walk'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+import {
+  inlineSvgLiteralViolations,
+  inlineSvgSourceViolations,
+} from '../../component-rule-validation'
 import { validateComponentChildren } from './component-children-validation'
 import { validateAttachmentMedia } from './content/attachment-validation'
 import { validateTableFormControls } from './data/form/table-control-validation'
@@ -44,4 +50,10 @@ export const validateComponentSemantics = (config: unknown): readonly string[] =
   ...validateIconButtons(config),
   ...validateSelectOptionsFrom(config),
   ...validateTableFormControls(config),
+  ...inlineSvgLiteralViolations(config),
+  // A page's own nodes are checked with its bindings; a template's are read here.
+  ...inlineSvgSourceViolations(
+    objectNodes(isRecord(config) ? config['components'] : []),
+    'components'
+  ),
 ]

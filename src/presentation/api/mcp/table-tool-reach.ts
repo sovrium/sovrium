@@ -14,9 +14,11 @@
  * list of it admits her at least one row ({@link readerRowsOf}). Elsewhere the
  * records API answers her as a table that does not exist, so `tools/list`
  * offers her neither tool, and a call naming one is answered exactly as a call
- * naming a tool the server does not have. The write tools follow the role's
- * write permissions as before: a table she may write without reading keeps its
- * create and update tools.
+ * naming a tool the server does not have. Each write tool (`_create`,
+ * `_update`, `_delete`) exists for her only where the table's `permissions`
+ * admit her — account role and groups — to that write, and a call naming one
+ * she is not admitted to answers the same way. A table she may write without
+ * reading keeps its write tools.
  */
 
 import { synthesizeCallerSession } from '@/application/use-cases/tables/list-records-as-caller'

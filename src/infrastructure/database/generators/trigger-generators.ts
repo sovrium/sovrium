@@ -8,8 +8,8 @@
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { SQLITE_ISO_NOW } from '@/infrastructure/database/sql/dialect-ddl'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Trigger generation — dialect notes
@@ -39,10 +39,13 @@ import type { Table } from '@/domain/models/app/tables'
  * Generate triggers for created-at fields (set on INSERT, prevent UPDATE)
  * Includes intrinsic created_at column if not explicitly defined
  */
-export const generateCreatedAtTriggers = (table: Table): readonly string[] => {
+export const generateCreatedAtTriggers = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
   // SQLite: the column DEFAULT CURRENT_TIMESTAMP covers the INSERT case; the
   // PL/pgSQL "freeze on UPDATE" trigger is a Postgres-only guard.
-  if (isSqliteRuntime()) return []
+  if (dialect === 'sqlite') return []
 
   const createdAtFields = table.fields.filter((field) => field.type === 'created-at')
   const hasCreatedAtField = table.fields.some((field) => field.name === 'created_at')
@@ -140,7 +143,10 @@ END`,
  * {@link generateSqliteAutonumberAssignment}), immutability on PostgreSQL
  * (where `SERIAL` already assigns the value).
  */
-export const generateAutonumberTriggers = (table: Table): readonly string[] => {
+export const generateAutonumberTriggers = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
   const autonumberFields = table.fields.filter((field) => field.type === 'autonumber')
 
   if (autonumberFields.length === 0) return []
@@ -149,7 +155,7 @@ export const generateAutonumberTriggers = (table: Table): readonly string[] => {
 
   // SQLite: the immutability guard is a PL/pgSQL trigger and is skipped; the
   // value itself still has to be assigned, which SERIAL does on PostgreSQL.
-  if (isSqliteRuntime()) {
+  if (dialect === 'sqlite') {
     return generateSqliteAutonumberAssignment(
       sanitized,
       autonumberFields.map((f) => f.name)
@@ -180,10 +186,13 @@ EXECUTE FUNCTION ${triggerFunctionName}()`,
 /**
  * Generate trigger to automatically update updated-by fields on UPDATE
  */
-export const generateUpdatedByTriggers = (table: Table): readonly string[] => {
+export const generateUpdatedByTriggers = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
   // SQLite: the `set_updated_by()` PL/pgSQL function is a no-op stub even on
   // Postgres (it only `RETURN NEW`), so there is nothing to port — skipped.
-  if (isSqliteRuntime()) return []
+  if (dialect === 'sqlite') return []
 
   const updatedByFields = table.fields.filter((field) => field.type === 'updated-by')
 
@@ -205,7 +214,10 @@ EXECUTE FUNCTION set_updated_by()`,
  * Generate triggers to automatically set/update updated-at fields on INSERT/UPDATE
  * Includes intrinsic updated_at column if not explicitly defined
  */
-export const generateUpdatedAtTriggers = (table: Table): readonly string[] => {
+export const generateUpdatedAtTriggers = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
   const updatedAtFields = table.fields.filter((field) => field.type === 'updated-at')
   const hasUpdatedAtField = table.fields.some((field) => field.name === 'updated_at')
 
@@ -228,7 +240,7 @@ export const generateUpdatedAtTriggers = (table: Table): readonly string[] => {
   // validation (surfacing as HTTP 500 on the get-by-id read of an updated row).
   // This is the lightest portable way to keep the column current — pure SQL,
   // no PL/pgSQL, no records-CRUD change.
-  if (isSqliteRuntime()) {
+  if (dialect === 'sqlite') {
     const triggerName = `a_trigger_${sanitized}_updated_at`
     const setClause = fieldNames.map((name) => `${name} = ${SQLITE_ISO_NOW}`).join(', ')
     return [

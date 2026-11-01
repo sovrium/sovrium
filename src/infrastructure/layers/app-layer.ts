@@ -5,18 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import {
   DesignKitAssetsLive,
   makeDesignKitAssetsLive,
 } from '@/infrastructure/assets/design-kit-assets-live'
 import { PageMeasureLive } from '@/infrastructure/browser/page-measure-live'
 import { CSSCompilerLive } from '@/infrastructure/css/css-compiler-live'
+import { DatabaseUnownedLive } from '@/infrastructure/database/drizzle/layer'
 import { DevToolsLayerOptional } from '@/infrastructure/devtools'
 import {
   createAppServicesLayer,
   PageRendererWithDeps,
 } from '@/infrastructure/layers/app-services-layer'
+import { EnvironmentLayer } from '@/infrastructure/layers/server-env-layer'
+import { formatRuntimeError } from '@/infrastructure/logging'
 import { LoggerLive } from '@/infrastructure/logging/logger'
 import { ContentDirReaderLive } from '@/infrastructure/markdown/content-dir-reader-live'
 import { ServerFactoryLive } from '@/infrastructure/server/server-factory-live'
@@ -37,6 +40,12 @@ import type { Auth as AuthConfig } from '@/domain/models/app/auth'
  * import graph one-directional — `app-layer` → `server-factory-live` →
  * `domain-runtime` → `app-services-layer`, and nothing back.
  *
+ * The `Database` the services layer requires is the owning-nothing
+ * `DatabaseUnownedLive` here: the boot's steps (migrations, the first-admin
+ * bootstrap, the sweeps, the render pass) and every CLI verb read the database
+ * before, or without, a server runtime that owns the client. A server's domain
+ * runtime provides its own owning `DatabaseLive` instead (`domain-runtime.ts`).
+ *
  * @example
  * ```typescript
  * const program = startServer(appConfig).pipe(
@@ -45,7 +54,9 @@ import type { Auth as AuthConfig } from '@/domain/models/app/auth'
  * ```
  */
 export const createAppLayer = (authConfig?: AuthConfig) =>
-  Layer.mergeAll(createAppServicesLayer(authConfig), ServerFactoryLive)
+  Layer.mergeAll(createAppServicesLayer(authConfig), ServerFactoryLive, EnvironmentLayer).pipe(
+    Layer.provide(DatabaseUnownedLive)
+  )
 
 /**
  * Static build layer composition
@@ -56,6 +67,10 @@ export const createAppLayer = (authConfig?: AuthConfig) =>
  *
  * This prevents subprocess hangs when `build()` is called without
  * DATABASE_URL (e.g., in E2E tests or CI static generation).
+ *
+ * The page renderer's data-source reads require a `Database`; the
+ * owning-nothing `DatabaseUnownedLive` provides it without opening a connection,
+ * so a build that never reads a record never builds a client.
  */
 export const createStaticBuildLayer = Layer.mergeAll(
   // `ContentDirReader` — the Markdown twins and the page-search corpus read the
@@ -68,8 +83,9 @@ export const createStaticBuildLayer = Layer.mergeAll(
   DesignKitAssetsLive,
   StaticSiteGeneratorLive,
   DevToolsLayerOptional,
-  LoggerLive
-)
+  LoggerLive,
+  EnvironmentLayer
+).pipe(Layer.provide(DatabaseUnownedLive))
 
 /**
  * The static-build layer for the design-system bundle: the same services, with
@@ -80,3 +96,62 @@ export const createStaticBuildLayer = Layer.mergeAll(
  */
 export const createDesignBundleLayer = (publicDir: string | undefined) =>
   Layer.mergeAll(createStaticBuildLayer, makeDesignKitAssetsLive(publicDir), PageMeasureLive)
+
+/** Every service a program run inside {@link createAppLayer} may require. */
+export type AppLayerServices = Layer.Success<ReturnType<typeof createAppLayer>>
+
+/**
+ * How {@link runEachInAppLayer} reports items it could not run: `noAuth` is the
+ * message every item gets when the app has no `auth:` block, and `item` builds
+ * one failure — with the thrown value when a defect stopped the whole run, so
+ * the caller can classify it (an unreachable database, say) while the error
+ * object still exists.
+ */
+export interface EachRunFailure<I, F> {
+  readonly noAuth: string
+  readonly item: (item: I, message: string, error?: unknown) => F
+}
+
+/**
+ * Run a program that answers one outcome per item, providing it `layer`.
+ *
+ * The seam {@link runEachInAppLayer} binds to the app layer, kept separate so
+ * the fallback rules can be tested without a database. With no layer every
+ * item fails with `failure.noAuth`; with no items nothing is built; a rejected
+ * run (a defect, or a failure the program left in its error channel) fails
+ * every item alike. Expected failures are the program's own outcomes.
+ */
+export const runEachInLayer = async <I, O, F, R>(
+  layer: (() => Layer.Layer<R, unknown>) | undefined,
+  items: readonly I[],
+  program: Effect.Effect<readonly O[], unknown, R>,
+  failure: EachRunFailure<I, F>
+): Promise<readonly (O | F)[]> => {
+  if (layer === undefined) return items.map((item) => failure.item(item, failure.noAuth))
+  if (items.length === 0) return []
+  try {
+    // The layer is built HERE, inside the `try`, so a construction failure is
+    // reported per item like any other defect rather than escaping the caller.
+    return await Effect.runPromise(program.pipe(Effect.provide(layer())))
+  } catch (error) {
+    return items.map((item) => failure.item(item, formatRuntimeError(error), error))
+  }
+}
+
+/**
+ * Run a per-item program inside the full app layer for `auth` — the runner the
+ * entry point's account commands (`sovrium admin create`, `admin
+ * reset-password`, `seed`) share. See {@link runEachInLayer} for the rules.
+ */
+export const runEachInAppLayer = <I, O, F>(
+  auth: AuthConfig | undefined,
+  items: readonly I[],
+  program: Effect.Effect<readonly O[], unknown, AppLayerServices>,
+  failure: EachRunFailure<I, F>
+): Promise<readonly (O | F)[]> =>
+  runEachInLayer(
+    auth === undefined ? undefined : () => createAppLayer(auth),
+    items,
+    program,
+    failure
+  )

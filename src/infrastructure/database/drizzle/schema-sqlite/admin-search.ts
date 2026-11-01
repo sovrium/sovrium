@@ -35,7 +35,7 @@ import { systemTable } from './table-helpers'
  *     has no first-class virtual-table builder, so the FTS5 table — and the
  *     INSERT/UPDATE/DELETE sync triggers that keep it in lock-step with the
  *     content table — are created at boot via RAW DDL, dispatched on
- *     `isSqliteRuntime()`. This follows the established DDL-dispatch precedent
+ *     `dialect.kind`. This follows the established DDL-dispatch precedent
  *     in `infrastructure/database/lookup/lookup-view-generators.ts` (which
  *     emits inline `CREATE TRIGGER … INSTEAD OF …` on the SQLite branch and
  *     PL/pgSQL-wrapped triggers on the PG branch). The admin-search repo-live

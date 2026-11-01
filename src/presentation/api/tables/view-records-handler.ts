@@ -25,28 +25,35 @@
  * say more than the view's existence would.
  */
 
+import { Effect } from 'effect'
+import { emptyAggregations } from '@/application/use-cases/tables/aggregation-helpers'
+import { DEFAULT_PAGE_SIZE } from '@/application/use-cases/tables/list-helpers'
 import { viewReadAdmits } from '@/application/use-cases/tables/table-operations'
 import {
   getViewRecordsProgram,
   type ViewRecordsQuery,
 } from '@/application/use-cases/tables/view-records-program'
-import { getViewRecordsResponseSchema } from '@/domain/models/api/tables/tables'
+import {
+  emptyViewRecordsResponseSchema,
+  getViewRecordsResponseSchema,
+} from '@/domain/models/api/tables/tables'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { findTableByIdOrName } from '@/domain/models/app/tables/table-lookup-service'
 import {
   fieldsOutsideView,
   filterFieldNames,
   findViewByKey,
   sortFieldNames,
+  viewGroupByParam,
 } from '@/domain/models/app/tables/views/view-read-service'
-import { provideDomain } from '@/infrastructure/logging/request-effect'
-import { runEffect } from '@/presentation/api/runtime'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { respondWith, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
 import { validateAggregateParam } from './field-permission-validation'
 import { parseFilter } from './list-records-filter'
 import { buildSearchFilter } from './list-records-search'
 import { validatePaginationParams } from './pagination-validation'
 import { parseListRecordsParams } from './param-parsers'
-import { resolveAccessRolesFor, resolveGuardForTable } from './row-level-guard'
+import { guardForTable, resolveAccessRolesFor } from './row-level-guard'
 import { buildListFilter, mergeFilters } from './row-level-read-helpers'
 import { validateSortPermission } from './sort-validation'
 import type { App, Table } from '@/domain/models/app'
@@ -211,63 +218,99 @@ function prepareForAdmittedCaller(
  *
  * A view narrows what a role may read; it never lifts the row rule the table
  * declares for that role, so a member scoped to their own rows stays scoped
- * whichever view they read through. A public view never reaches this — one on
- * a table with `rowLevelPermissions` is refused when the config loads — so it
- * only ever scopes a signed-in reader. `'empty'` when the rule admits no row.
+ * whichever view they read through. A visitor reading a public view is scoped
+ * the same way: her guard is the signed-out one, in which no `$currentUser`
+ * value resolves, so a rule naming the signed-in person keeps no row for her
+ * and a rule naming no one keeps what it keeps for everyone. The rule goes
+ * into the read's filter, so the records, their total and every group count
+ * follow it. `'empty'` when the rule admits no row, or cannot be projected.
  */
-async function withRowLevelScope(
-  c: Context,
-  app: App,
-  query: ViewRecordsQuery
-): Promise<ViewRecordsQuery | 'empty'> {
+const withRowLevelScope = (app: App, c: Context, query: ViewRecordsQuery) => {
   const { session, tableName, userRole, userGroups } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
-  if (table?.rowLevelPermissions === undefined) return query
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-  const scoped = buildListFilter(table, guard, undefined, query.filter)
-  return scoped === 'empty' || scoped === 'reject' ? 'empty' : { ...query, filter: scoped }
+  if (table?.rowLevelPermissions === undefined) return Effect.succeed(query)
+  return Effect.map(
+    guardForTable(session, { userRole, userGroups }, table, app),
+    (guard): ViewRecordsQuery | 'empty' => {
+      const scoped = buildListFilter(table, guard, undefined, query.filter)
+      return scoped === 'empty' || scoped === 'reject' ? 'empty' : { ...query, filter: scoped }
+    }
+  )
 }
 
-/** What a row rule admitting no row answers: no records, and a ratio of nothing when one was asked. */
-const emptyViewAnswer = (c: Context, prepared: PreparedViewQuery | undefined): Response =>
-  c.json(
+/**
+ * What a row rule admitting no row answers: the page a read over no row gives,
+ * with every key the request asked for — the requested `limit`, `groups: []`
+ * on a grouped view, zeroed `aggregations` and a ratio of nothing — so a
+ * grouped grid or a KPI reads it as it reads any empty page.
+ */
+const emptyViewAnswer = (
+  c: Context,
+  query: ViewRecordsQuery,
+  view: TableView | undefined
+): Response =>
+  shapedJson(
+    c,
     {
       records: [],
-      pagination: { total: 0, limit: 0, offset: 0 },
-      ...(prepared?.ok === true &&
-        prepared.query.ratio !== undefined && {
-          ratio: { numerator: 0, denominator: 0, percent: null },
-        }),
+      pagination: { total: 0, limit: query.limit ?? DEFAULT_PAGE_SIZE, offset: query.offset ?? 0 },
+      ...(query.aggregate !== undefined && { aggregations: emptyAggregations(query.aggregate) }),
+      ...(viewGroupByParam(view?.groupBy) !== undefined && { groups: [] }),
+      ...(query.ratio !== undefined && { ratio: { numerator: 0, denominator: 0, percent: null } }),
     },
-    200
+    emptyViewRecordsResponseSchema
   )
 
-export async function handleListViewRecords(c: Context, app: App) {
-  const { session, tableId, userRole, userGroups } = getTableContext(c)
-  const viewId = c.req.param('viewId') ?? ''
-  const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
-  const accessRoles = await resolveAccessRolesFor(c, session, table === undefined ? [] : [table])
-  const prepared = prepareForAdmittedCaller(c, app, { viewId, accessRoles })
-  if (prepared?.ok === false) return prepared.response
-  const query = prepared?.ok === true ? await withRowLevelScope(c, app, prepared.query) : undefined
-  if (query === 'empty') return emptyViewAnswer(c, prepared)
+/**
+ * The admitted caller's query with the row rule folded in, or the empty page
+ * when the rule admits no row; `undefined` for a caller the view does not
+ * admit, whom the program refuses on its own.
+ */
+const scopedQueryOrEmpty = (
+  c: Context,
+  app: App,
+  input: { readonly prepared: PreparedViewQuery | undefined; readonly view: TableView | undefined }
+) => {
+  const { prepared, view } = input
+  if (prepared?.ok !== true) return Effect.undefined
+  return Effect.map(
+    withRowLevelScope(app, c, prepared.query),
+    (scoped): ViewRecordsQuery | Response =>
+      scoped === 'empty' ? emptyViewAnswer(c, prepared.query, view) : scoped
+  )
+}
 
-  return runEffect(
+export function handleListViewRecords(c: Context, app: App) {
+  return runHandlerEffect(
     c,
-    provideDomain(
-      c,
-      getViewRecordsProgram({
-        tableId,
-        viewId,
-        app,
-        userRole,
-        userGroups,
-        accessRoles,
-        session,
-        ...(query !== undefined && { query }),
-        origin: new URL(c.req.url).origin,
+    Effect.gen(function* () {
+      const { session, tableId, userRole, userGroups } = getTableContext(c)
+      const viewId = c.req.param('viewId') ?? ''
+      const table = findTableByIdOrName(app.tables, tableId)
+      const accessRoles = yield* resolveAccessRolesFor(session, table === undefined ? [] : [table])
+      const prepared = prepareForAdmittedCaller(c, app, { viewId, accessRoles })
+      if (prepared?.ok === false) return prepared.response
+      const query = yield* scopedQueryOrEmpty(c, app, {
+        prepared,
+        view: findViewByKey(table?.views, viewId),
       })
-    ),
-    getViewRecordsResponseSchema
+      if (query instanceof Response) return query
+
+      return yield* respondWith(
+        c,
+        getViewRecordsProgram({
+          tableId,
+          viewId,
+          app,
+          userRole,
+          userGroups,
+          accessRoles,
+          session,
+          ...(query !== undefined && { query }),
+          origin: new URL(c.req.url).origin,
+        }),
+        getViewRecordsResponseSchema
+      )
+    })
   )
 }

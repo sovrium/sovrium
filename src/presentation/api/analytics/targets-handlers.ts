@@ -27,13 +27,17 @@
 import { Effect } from 'effect'
 import { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { analyticsTargetsResponseSchema } from '@/domain/models/api/analytics/analytics'
+import { roundedShares } from '@/domain/models/app/analytics/report-rounding-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import {
+  answerFailures,
+  answerNotFound,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
+import type { AnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { Context } from 'hono'
 
@@ -47,7 +51,7 @@ import type { Context } from 'hono'
  */
 const ONE_MINUTE_MS = 60_000
 
-/** The link table as the live config declares it, for naming each index. */
+/** The link table as the config declares it, for naming each index. */
 export interface TargetLinkView {
   readonly slug: string
   readonly destinations: readonly string[]
@@ -56,66 +60,88 @@ export interface TargetLinkView {
 /** What the handler needs from the analytics route config. */
 export interface TargetsHandlerConfig {
   readonly appName: string
-  /** The live app's role ladder; its top role reads the split beside `admin`. */
-  readonly resolveApp?: () => AdminRoleResolvable
+  /** The app's role ladder; its top role reads the split beside `admin`. */
+  readonly app?: AdminRoleResolvable
   readonly resolveLinks?: () => ReadonlyArray<TargetLinkView>
+  /** The effective analytics profile; `audience-only` answers rounded figures. */
+  readonly profile: AnalyticsProfile
 }
+
+/**
+ * The split as the profile answers it. Under `audience-only` each target's
+ * clicks are rounded, and the shares and the total are those of the rounded
+ * figures, so neither can be worked back to the stored clicks.
+ */
+const reportedSplit = <E extends { readonly count: number; readonly percentage: number }>(
+  targets: readonly E[],
+  profile: AnalyticsProfile
+) =>
+  profile === 'audience-only'
+    ? roundedShares(targets)
+    : { entries: targets, total: targets.reduce((sum, row) => sum + row.count, 0) }
 
 /**
  * Answer the per-target split.
  *
  * @param c - Hono context.
- * @param config - App name plus the live link resolver.
+ * @param config - App name, role ladder and link reader.
  * @returns 200 with the split, 404 for a non-admin, 500 on a read failure.
  */
-export async function handleTargets(c: Context, config: TargetsHandlerConfig): Promise<Response> {
-  const session = getSessionContext(c)
-  if (!session) return c.notFound()
-  const role = await runDomainPromise(c, getUserRole(session.userId))
-  if (!isAdminEquivalent(role, config.resolveApp?.() ?? {})) return c.notFound()
-
-  const eventName = c.req.query('event_name')
-  const fromStr = c.req.query('from')
-  const toStr = c.req.query('to')
-
-  const result = await runRequestEffect(
+export function handleTargets(c: Context, config: TargetsHandlerConfig): Promise<Response> {
+  return runHandlerEffect(
     c,
-    provideDomain(
+    answerFailures(
       c,
       Effect.gen(function* () {
-        const repo = yield* AnalyticsRepository
-        return yield* repo.getTargets({
-          appName: config.appName,
-          eventType: c.req.query('event_type') ?? 'link_click',
-          ...(eventName === undefined ? {} : { eventName }),
-          from: fromStr === undefined ? new Date(0) : new Date(fromStr),
-          to: toStr === undefined ? new Date(Date.now() + ONE_MINUTE_MS) : new Date(toStr),
-          granularity: 'day',
-        })
+        const session = getSessionContext(c)
+        if (!session) return yield* answerNotFound(c)
+        const role = yield* getUserRole(session.userId)
+        if (!isAdminEquivalent(role, config.app ?? {})) return yield* answerNotFound(c)
+
+        const eventName = c.req.query('event_name')
+        const fromStr = c.req.query('from')
+        const toStr = c.req.query('to')
+
+        const result = yield* Effect.gen(function* () {
+          const repo = yield* AnalyticsRepository
+          return yield* repo.getTargets({
+            appName: config.appName,
+            eventType: c.req.query('event_type') ?? 'link_click',
+            ...(eventName === undefined ? {} : { eventName }),
+            from: fromStr === undefined ? new Date(0) : new Date(fromStr),
+            to: toStr === undefined ? new Date(Date.now() + ONE_MINUTE_MS) : new Date(toStr),
+            granularity: 'day',
+          })
+        }).pipe(Effect.result)
+
+        if (result._tag === 'Failure') {
+          return c.json(
+            { success: false, message: 'Failed to read the split', code: 'INTERNAL_ERROR' },
+            500
+          )
+        }
+
+        // Resolve each recorded index against the link's CURRENT target list. An index
+        // the list no longer covers reports a null destination rather than being
+        // dropped: dropping it would stop the percentages summing and would discard
+        // exactly the traffic the operator re-pointed the link because of.
+        const declared =
+          eventName === undefined
+            ? undefined
+            : config.resolveLinks?.().find((link) => link.slug === eventName)
+
+        const targets = result.success.map((row) => ({
+          ...row,
+          destination: declared?.destinations[Number(row.name)] ?? null,
+        }))
+
+        const split = reportedSplit(targets, config.profile)
+        return yield* respondWith(
+          c,
+          Effect.succeed({ targets: split.entries, total: split.total }),
+          analyticsTargetsResponseSchema
+        )
       })
-    ).pipe(Effect.result)
-  )
-
-  if (result._tag === 'Failure') {
-    return c.json(
-      { success: false, message: 'Failed to read the split', code: 'INTERNAL_ERROR' },
-      500
     )
-  }
-
-  // Resolve each recorded index against the link's CURRENT target list. An index
-  // the list no longer covers reports a null destination rather than being
-  // dropped: dropping it would stop the percentages summing and would discard
-  // exactly the traffic the operator re-pointed the link because of.
-  const declared =
-    eventName === undefined
-      ? undefined
-      : config.resolveLinks?.().find((link) => link.slug === eventName)
-
-  const targets = result.success.map((row) => ({
-    ...row,
-    destination: declared?.destinations[Number(row.name)] ?? null,
-  }))
-
-  return c.json({ targets, total: targets.reduce((sum, row) => sum + row.count, 0) }, 200)
+  )
 }

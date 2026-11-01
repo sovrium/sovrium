@@ -38,7 +38,7 @@ export const ai = defineSection({
       slug: 'ai-overview',
       title: 'AI Overview',
       description:
-        'The Sovrium AI ecosystem — providers, AI fields, conversational chat, autonomous agents, RAG knowledge, agent memory, and MCP interoperability — all driven by environment-variable configuration.',
+        "Sovrium's AI: providers, AI fields, chat, autonomous agents, RAG knowledge, agent memory and MCP, all configured through environment variables.",
       keywords: [
         'sovrium',
         'ai',
@@ -73,7 +73,7 @@ export const ai = defineSection({
       slug: 'ai-providers',
       title: 'AI Providers',
       description:
-        'Configure the LLM and embedding backend via AI_PROVIDER / AI_API_KEY / AI_MODEL — Anthropic, OpenAI, Mistral, Google Gemini, local Ollama, or any OpenAI-compatible endpoint.',
+        'Set the LLM and embedding backend with AI_PROVIDER, AI_API_KEY and AI_MODEL: Anthropic, OpenAI, Mistral, Gemini, local Ollama or any OpenAI-compatible API.',
       keywords: [
         'sovrium',
         'ai provider',
@@ -108,7 +108,7 @@ export const ai = defineSection({
       slug: 'ai-eco-routing',
       title: 'AI Eco Routing',
       description:
-        'ECO_AI_PROVIDER_PRECEDENCE routes AI calls local-first by default — prefer a reachable local Ollama model, fall back to the configured cloud provider — as a frugal-by-default platform property.',
+        'ECO_AI_PROVIDER_PRECEDENCE routes AI calls local-first by default: a reachable local Ollama model answers, and the configured cloud provider is the fallback.',
       keywords: [
         'sovrium',
         'eco',
@@ -137,7 +137,7 @@ export const ai = defineSection({
       slug: 'ai-chat',
       title: 'AI Chat',
       description:
-        'A conversational interface over your application data — query records, create/update/delete with confirmation, and trigger automations in natural language, all bounded by RBAC and logged in the activity stream.',
+        'A conversational interface over your data: query records, create, update and delete with confirmation, and start automations, all bounded by RBAC and logged.',
       keywords: [
         'sovrium',
         'ai chat',
@@ -282,7 +282,7 @@ export const agents = defineSection({
       slug: 'ai-rag',
       title: 'AI RAG',
       description:
-        'Retrieval-augmented generation — ground agents and chat in your tables and documents via vector embeddings, semantic search, per-agent knowledge scoping, and dialect-aware storage (pgvector or SQLite BLOB).',
+        'Retrieval-augmented generation: ground agents and chat in your tables and documents with embeddings, semantic search and per-agent scope, on pgvector or SQLite.',
       keywords: [
         'sovrium',
         'rag',

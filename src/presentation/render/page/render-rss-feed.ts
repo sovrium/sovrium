@@ -32,6 +32,7 @@
  */
 
 import { isAbsolute, resolve } from 'node:path'
+import { DEFAULT_FEED_PATH } from '@/domain/models/app/pages/feed-path-uniqueness-validation'
 import {
   buildMarkdownRssItems,
   buildRssFeedXml,
@@ -95,7 +96,8 @@ async function readMarkdownFeedSource(path: string): Promise<string | undefined>
 async function renderMarkdownRssFeed(
   app: App,
   page: Page,
-  baseUrl: string
+  baseUrl: string,
+  feedPath: string
 ): Promise<string | undefined> {
   const file = page.markdown?.file
   if (typeof file !== 'string' || file.length === 0) return undefined
@@ -118,6 +120,7 @@ async function renderMarkdownRssFeed(
     items,
     channelTitle,
     channelDescription,
+    feedPath,
     // Clock injected at the boundary so the domain builder stays a pure
     // function of its inputs.
     now: new Date(),
@@ -125,7 +128,8 @@ async function renderMarkdownRssFeed(
 }
 
 /**
- * Render the RSS XML feed for the first opted-in collection page.
+ * Render the RSS XML feed served at `feedPath`, built from the first public
+ * page publishing there (`/feed.xml` unless the page names its own `rss.path`).
  *
  * `baseUrl` is the absolute origin the feed advertises (eg.
  * `http://localhost:3000`). The route handler derives it with
@@ -135,9 +139,10 @@ async function renderMarkdownRssFeed(
 export async function renderRssFeed(
   app: App,
   baseUrl: string,
-  db: DataSourceDb
+  db: DataSourceDb,
+  feedPath: string = DEFAULT_FEED_PATH
 ): Promise<string | undefined> {
-  const page = findRssPage(app)
+  const page = findRssPage(app, feedPath)
   if (page === undefined) return undefined
 
   const { collection } = page
@@ -146,7 +151,7 @@ export async function renderRssFeed(
     // changelog page opting into a feed via `markdown: { file }` + `rss`).
     // Still `undefined` (→ 404) when the page is neither a collection nor a
     // usable markdown source.
-    return renderMarkdownRssFeed(app, page, baseUrl)
+    return renderMarkdownRssFeed(app, page, baseUrl, feedPath)
   }
 
   const limit = resolveRssLimit(page.rss)

@@ -120,13 +120,25 @@ const writtenManyToMany = (
   return manyToManyFieldNames(table).filter((name) => written.has(name))
 }
 
-/** Structural refusals — everything that makes the rest of planning moot. */
-const structuralErrors = (input: BuildSeedPlanInput, tables: readonly SeedTableConfig[]) => [
+/**
+ * Structural refusals — everything that makes the rest of planning moot. A
+ * translatable value is checked in the files the run writes only: a file
+ * outside `--table` is read for its keys, and its values never reach a row.
+ */
+const structuralErrors = (
+  input: BuildSeedPlanInput,
+  tables: readonly SeedTableConfig[],
+  scope: ReadonlySet<string>
+) => [
   ...checkUnknownTables(input.files, tables),
   ...checkRequestedTables(input.requestedTables, input.files),
   ...checkDuplicateKeys(input.files),
   ...checkUndeclaredFields(input.files, tables),
-  ...checkTranslatableValues(input.files, tables, recordLanguageOrder(input.app.languages)),
+  ...checkTranslatableValues(
+    input.files.filter((file) => scope.has(file.table)),
+    tables,
+    recordLanguageOrder(input.app.languages)
+  ),
 ]
 
 /** Merge keys for the in-scope tables, or the refusals that block `upsert`. */
@@ -153,6 +165,14 @@ const resolveUpsertMergeKeys = (
     errors: outcomes.flatMap(([, outcome]) => (outcome.ok ? [] : [outcome.error])),
   }
 }
+
+/**
+ * The `mergeOn` a file declares, for a table no upsert merges: a reference
+ * into it is looked up in the database on those columns, the row that file
+ * identifies by them.
+ */
+const declaredMergeOn = (files: readonly LoadedSeedFile[], table: string): readonly string[] =>
+  files.find((file) => file.table === table)?.mergeOn ?? []
 
 /** Refusals that need the planned values: the rows each reference targets. */
 const semanticErrors = (planned: readonly PlannedSeedTable[]): readonly string[] =>
@@ -269,15 +289,18 @@ const toPlannedTable = (
  */
 export const buildSeedPlan = (input: BuildSeedPlanInput): SeedPlanResult => {
   const tables = seedTablesOf(input.app)
-  const structural = structuralErrors(input, tables)
-  if (structural.length > 0) return { ok: false, errors: structural }
-
   const scope = new Set(
     input.requestedTables.length > 0 ? input.requestedTables : input.files.map((file) => file.table)
   )
+  const structural = structuralErrors(input, tables, scope)
+  if (structural.length > 0) return { ok: false, errors: structural }
 
+  // A file outside `--table` is planned for its keys and the literal values a
+  // database lookup matches a reference on, never written: a value of it that
+  // does not plan is left out of its row rather than refusing a run that
+  // writes none of its rows.
   const planned = input.files.map((file) => ({ file, ...planRecords(file, input.runAt) }))
-  const valueErrors = planned.flatMap((entry) => entry.errors)
+  const valueErrors = planned.flatMap((entry) => (scope.has(entry.file.table) ? entry.errors : []))
   if (valueErrors.length > 0) return { ok: false, errors: valueErrors }
 
   const base = planned.map((entry) =>
@@ -308,7 +331,7 @@ export const buildSeedPlan = (input: BuildSeedPlanInput): SeedPlanResult => {
 
   const plannedTables = base.map((table) => ({
     ...table,
-    mergeOn: mergeKeys.byTable.get(table.name) ?? [],
+    mergeOn: mergeKeys.byTable.get(table.name) ?? declaredMergeOn(input.files, table.name),
   }))
   const semantic = semanticErrors(plannedTables)
   if (semantic.length > 0) return { ok: false, errors: semantic }

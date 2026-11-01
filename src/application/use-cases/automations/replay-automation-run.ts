@@ -63,7 +63,6 @@ export interface ReplayAutomationRunOptions {
   readonly name: string
   readonly runId: string
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /**
    * Optional trigger data override. When omitted the replay reuses the
    * original run's `triggerData` so authors can re-fire a flow with the
@@ -179,7 +178,7 @@ export const replayAutomationRun = (
   AutomationRunRepository | ExecuteAutomationRunRequirements | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
-    const { name, runId, app, processEnv, triggerData } = options
+    const { name, runId, app, triggerData } = options
     const handlers = options.handlers ?? defaultActionHandlers
 
     const repo = yield* AutomationRunRepository
@@ -220,7 +219,6 @@ export const replayAutomationRun = (
       trigger,
       automationId,
       app,
-      processEnv,
       triggerData: replayTriggerData,
       handlers,
       // Who the replay runs as. The console's retry names its admin (`userId`).

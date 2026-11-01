@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Data, Effect } from 'effect'
 import {
   DENY_WHEN_UNDECLARED,
   evaluatePermission,
@@ -21,6 +21,7 @@ import {
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
 import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
+import { findTableByIdOrName } from '@/domain/models/app/tables/table-lookup-service'
 import {
   findViewByKey,
   maskViewDefinition,
@@ -30,21 +31,12 @@ import type { GetTableResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
 import type { PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
 
-/* eslint-disable functional/no-expression-statements -- Error subclass requires super() and this.name assignment */
-
 /**
- * Error when table is not found
+ * Error when table (or a view of it) is not found
  */
-export class TableNotFoundError extends Error {
-  readonly _tag = 'TableNotFoundError'
-
-  constructor(message: string) {
-    super(message)
-    this.name = 'TableNotFoundError'
-  }
-}
-
-/* eslint-enable functional/no-expression-statements */
+export class TableNotFoundError extends Data.TaggedError('TableNotFoundError')<{
+  readonly message: string
+}> {}
 
 /**
  * The caller the table read programs answer: a role, its group memberships and
@@ -194,17 +186,16 @@ export function createGetTableProgram(
   caller: TableCaller
 ): Effect.Effect<GetTableResponse, TableNotFoundError> {
   return Effect.gen(function* () {
-    // Find table by ID or name
-    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+    const table = findTableByIdOrName(app.tables, tableId)
 
     if (!table) {
-      return yield* Effect.fail(new TableNotFoundError('TABLE_NOT_FOUND'))
+      return yield* new TableNotFoundError({ message: 'TABLE_NOT_FOUND' })
     }
 
     // The definition admits exactly whom the table's records admit, and
     // refuses the others exactly as a table that does not exist (S1).
     if (!tableReadAdmits(app, table, caller)) {
-      return yield* Effect.fail(new TableNotFoundError('TABLE_NOT_FOUND'))
+      return yield* new TableNotFoundError({ message: 'TABLE_NOT_FOUND' })
     }
 
     const { fields, primaryKey: primaryKeyField } = readableTableShape(app, table, caller)
@@ -315,11 +306,10 @@ export function createGetPermissionsProgram(
   Error
 > {
   return Effect.gen(function* () {
-    // Find table by ID or name
-    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+    const table = findTableByIdOrName(app.tables, tableId)
 
     if (!table) {
-      return yield* Effect.fail(new TableNotFoundError('TABLE_NOT_FOUND'))
+      return yield* new TableNotFoundError({ message: 'TABLE_NOT_FOUND' })
     }
 
     // A caller refused the table is answered exactly as for a table that does
@@ -327,7 +317,7 @@ export function createGetPermissionsProgram(
     // as the table definition and its records already answer. The gate is the
     // records read's own, so the map exists exactly when the records do.
     if (!tableReadAdmits(app, table, caller)) {
-      return yield* Effect.fail(new TableNotFoundError('TABLE_NOT_FOUND'))
+      return yield* new TableNotFoundError({ message: 'TABLE_NOT_FOUND' })
     }
 
     // Past the gate above, the caller reads the table; each write flag is the
@@ -387,18 +377,17 @@ export function listViewsProgram(
   caller: TableCaller
 ): Effect.Effect<readonly unknown[], TableNotFoundError> {
   return Effect.gen(function* () {
-    // Find table by ID or name
-    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+    const table = findTableByIdOrName(app.tables, tableId)
 
     if (!table) {
-      return yield* Effect.fail(new TableNotFoundError('Table not found'))
+      return yield* new TableNotFoundError({ message: 'Table not found' })
     }
 
     // The view list admits exactly whom the table's records admit, and refuses
     // the others exactly as a table that does not exist (S1). It then names
     // only the views the caller may open.
     if (!tableReadAdmits(app, table, caller)) {
-      return yield* Effect.fail(new TableNotFoundError('TABLE_NOT_FOUND'))
+      return yield* new TableNotFoundError({ message: 'TABLE_NOT_FOUND' })
     }
 
     return viewDefinitionsFor(app, table, caller)
@@ -412,18 +401,17 @@ export function getViewProgram(
   caller: TableCaller
 ): Effect.Effect<unknown, TableNotFoundError> {
   return Effect.gen(function* () {
-    // Find table by ID or name
-    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+    const table = findTableByIdOrName(app.tables, tableId)
 
     if (!table) {
-      return yield* Effect.fail(new TableNotFoundError('Table not found'))
+      return yield* new TableNotFoundError({ message: 'Table not found' })
     }
 
     // By id OR name — the same lookup the records route and a page binding use.
     const view = findViewByKey(table.views, viewId)
 
     if (!view) {
-      return yield* Effect.fail(new TableNotFoundError('View not found'))
+      return yield* new TableNotFoundError({ message: 'View not found' })
     }
 
     // The definition endpoint enforces the same view grant the list and record
@@ -434,7 +422,7 @@ export function getViewProgram(
     // "forbidden": S1 anti-enumeration, matching what the records endpoint
     // already returns for this same caller and view.
     if (!viewReadAdmits(app, table, view, caller)) {
-      return yield* Effect.fail(new TableNotFoundError('View not found'))
+      return yield* new TableNotFoundError({ message: 'View not found' })
     }
 
     // Return view properties at root level. Shares `mapViewToResponse` with the

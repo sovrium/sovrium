@@ -141,8 +141,10 @@ const parseSqliteUrl = (raw: string): string => {
  *
  * @public
  */
-export const parseDatabaseDialectConfig = (): DatabaseDialectConfig => {
-  const databaseUrl = process.env.DATABASE_URL
+export const parseDatabaseDialectConfig = (
+  env: Readonly<Record<string, string | undefined>>
+): DatabaseDialectConfig => {
+  const databaseUrl = env['DATABASE_URL']
 
   // 1. Postgres scheme → PostgreSQL. Case-insensitive per RFC 3986:
   //    `Postgres://` is a valid DSN, and matching it case-sensitively routed it
@@ -161,7 +163,7 @@ export const parseDatabaseDialectConfig = (): DatabaseDialectConfig => {
   if (!databaseUrl) {
     return Schema.decodeSync(SqliteDialectSchema)({
       dialect: 'sqlite',
-      path: defaultSqliteDbPath(),
+      path: defaultSqliteDbPath(env),
     })
   }
 
@@ -204,8 +206,10 @@ const DEFAULT_DATABASE_POOL_MAX = 10
  *
  * @public
  */
-export const resolveDatabasePoolMax = (): number => {
-  const raw = process.env.DATABASE_POOL_MAX
+export const resolveDatabasePoolMax = (
+  env: Readonly<Record<string, string | undefined>>
+): number => {
+  const raw = env['DATABASE_POOL_MAX']
   const parsed = raw === undefined ? Number.NaN : Number(raw)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_DATABASE_POOL_MAX
 }
@@ -216,5 +220,7 @@ export const resolveDatabasePoolMax = (): number => {
  *
  * @public
  */
-export const resolveRuntimeLabel = (): SovriumRuntimeLabel =>
-  parseDatabaseDialectConfig().dialect === 'postgres' ? 'postgres' : 'sqlite-aio'
+export const resolveRuntimeLabel = (
+  env: Readonly<Record<string, string | undefined>>
+): SovriumRuntimeLabel =>
+  parseDatabaseDialectConfig(env).dialect === 'postgres' ? 'postgres' : 'sqlite-aio'

@@ -22,7 +22,6 @@ import { AiService } from '@/application/ports/services/ai-service'
 import { buildAgentSystemPrompt } from '@/domain/models/app/agents/agent-turn-service'
 import { logError } from '@/infrastructure/logging/logger'
 import type { Agent } from '@/domain/models/app/agents/agent'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /**
  * One model call for `action`, as the agent. `userMessage` overrides the
@@ -32,32 +31,28 @@ import type { DomainContext } from '@/infrastructure/logging/request-effect'
  *   reports no usage.
  */
 export const callAgentAi = (
-  services: DomainContext,
   agent: Agent,
   action: string,
   userMessage?: string
-): Promise<number> =>
-  Effect.runPromise(
-    Effect.gen(function* () {
-      const ai = yield* AiService
-      const reply = yield* ai.chat({
-        messages: [
-          { role: 'system', content: buildAgentSystemPrompt(agent) },
-          { role: 'user', content: userMessage ?? `Perform action ${action}.` },
-        ],
-        ...(agent.model !== undefined && { model: agent.model }),
-        ...(agent.temperature !== undefined && { temperature: agent.temperature }),
-        ...(agent.maxTokens !== undefined && { maxTokens: agent.maxTokens }),
+): Effect.Effect<number, never, AiService> =>
+  Effect.gen(function* () {
+    const ai = yield* AiService
+    const reply = yield* ai.chat({
+      messages: [
+        { role: 'system', content: buildAgentSystemPrompt(agent) },
+        { role: 'user', content: userMessage ?? `Perform action ${action}.` },
+      ],
+      ...(agent.model !== undefined && { model: agent.model }),
+      ...(agent.temperature !== undefined && { temperature: agent.temperature }),
+      ...(agent.maxTokens !== undefined && { maxTokens: agent.maxTokens }),
+    })
+    return reply.usage?.totalTokens ?? 0
+  }).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => {
+        logError('[agents] execute model call failed', cause, { agent: agent.name })
       })
-      return reply.usage?.totalTokens ?? 0
-    }).pipe(
-      Effect.tapCause((cause) =>
-        Effect.sync(() => {
-          logError('[agents] execute model call failed', cause, { agent: agent.name })
-        })
-      ),
-      // effect-swallow: the call is charged and observed when it succeeds; a provider failure must not fail the action the route still decides.
-      Effect.catchCause(() => Effect.succeed(0)),
-      Effect.provide(services)
-    )
+    ),
+    // effect-swallow: the call is charged and observed when it succeeds; a provider failure must not fail the action the route still decides.
+    Effect.catchCause(() => Effect.succeed(0))
   )

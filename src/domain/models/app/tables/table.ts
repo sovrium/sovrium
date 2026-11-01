@@ -8,6 +8,10 @@
 import { Schema, SchemaGetter } from 'effect'
 import { TableIdSchema } from '@/domain/kernel/identity/branded-ids'
 import { AiAccessSchema } from '@/domain/models/app/auth/ai-access'
+import {
+  validateBusinessRuleChains,
+  validateBusinessRules,
+} from '@/domain/models/app/tables/business-rule-validation'
 import { validateCalendarFeed } from '@/domain/models/app/tables/calendar-feed-validation'
 import { validateNoLookupCycle } from '@/domain/models/app/tables/lookup-cycle-validation'
 import { validateRetention } from '@/domain/models/app/tables/retention-validation'
@@ -50,6 +54,7 @@ import { TablePermissionsSchema } from './permissions'
 import { PrimaryKeySchema } from './primary-key'
 import { TableRetentionSchema } from './retention'
 import { RowLevelPermissionsSchema } from './row-level-permissions'
+import { TableRulesSchema } from './rules'
 import { TableReaderFields } from './table-display-name'
 import { ViewSchema } from './views'
 import { WebhookSchema } from './webhooks'
@@ -121,13 +126,12 @@ const validateAccessAndViews = (
     if (permissionsError) return permissionsError
   }
 
-  const rowRuleError = validateRowRuleTypes(table.rowLevelPermissions, fields)
+  const rowRuleError =
+    validateRowRuleTypes(table.rowLevelPermissions, fields) ?? validateBusinessRules(table)
   if (rowRuleError) return rowRuleError
 
   if (views && views.length > 0) {
-    const viewsError =
-      validateViews(views, fields, fieldNames) ??
-      validatePublicViews(views, table.rowLevelPermissions !== undefined)
+    const viewsError = validateViews(views, fields, fieldNames) ?? validatePublicViews(views)
     if (viewsError) return viewsError
   }
 
@@ -212,7 +216,7 @@ const TableStruct = Schema.Struct({
   views: Schema.optional(
     Schema.Array(ViewSchema).annotate({
       description:
-        'Saved ways of looking at the table — a filtered, sorted, grouped subset, or a SQL view — that the API and the operator console can be asked for by name.',
+        'Saved ways of looking at the table (a filtered, sorted, grouped subset, or a SQL view) that the API and the operator console can be asked for by name.',
     })
   ),
 
@@ -269,52 +273,21 @@ const TableStruct = Schema.Struct({
    */
   constraints: Schema.optional(CheckConstraintsSchema),
 
-  /**
-   * Table-level permissions (high-level RBAC abstraction).
-   *
-   * Configures application-layer permission enforcement.
-   * Supports public, authenticated, and role-based access control.
-   *
-   * @example Role-based permissions
-   * ```typescript
-   * permissions: {
-   *   read: 'all',
-   *   comment: 'authenticated',
-   *   create: ['admin', 'editor'],
-   *   update: ['admin', 'editor'],
-   *   delete: ['admin'],
-   * }
-   * ```
-   *
-   * @see TablePermissionsSchema for full configuration options
-   */
+  /** Who may read and write the table and each field — see `table-permissions.docs.md`. */
   permissions: Schema.optional(TablePermissionsSchema),
 
   /**
-   * Row-level permissions (Z-3 — defense-in-depth scoping).
-   *
-   * Server-side `when` predicates per CRUD operation. When present, every
-   * record-returning API call (read/write/create/delete) appends the
-   * predicate as a server-side filter. Unauthorized direct access returns
-   * 404 (not 403) to prevent enumeration.
-   *
-   * Combined with `permissions` (role-based) for defense-in-depth: the
-   * role gate runs first; the row-level predicate filters within the
-   * permitted role's scope.
-   *
-   * @example Customers see only their own client's tickets
-   * ```typescript
-   * rowLevelPermissions: {
-   *   read: { when: { field: 'client_id', operator: 'in',
-   *     value: '$currentUser.assignments.clients' } },
-   *   write: { when: { field: 'client_id', operator: 'in',
-   *     value: '$currentUser.assignments.clients' } },
-   * }
-   * ```
-   *
-   * @see RowLevelPermissionsSchema for full configuration options
+   * Server-side `when` predicates per operation, scoping the rows a permitted role
+   * reaches; a row out of reach answers 404 — see `table-permissions.docs.md`.
    */
   rowLevelPermissions: Schema.optional(RowLevelPermissionsSchema),
+
+  /**
+   * What a record write must keep, whoever makes it: locks, transitions and
+   * validations, refused with 400 and the rule's message — see {@link TableRulesSchema}
+   * and `table-rules.docs.md`. Permissions say WHO may write; rules say WHAT.
+   */
+  rules: Schema.optional(TableRulesSchema),
 
   /**
    * Allow destructive operations (column drops, table drops) without confirmation.
@@ -392,7 +365,7 @@ const TableStruct = Schema.Struct({
     Schema.Boolean.annotate({
       description:
         'Accepted and not read. It was meant to let the operator console delete a record outright instead of marking it deleted, but nothing in the engine reads it and no per-table force-delete endpoint exists. The hard delete that does ship is `DELETE /api/tables/{table}/records/{id}?permanent=true`, which is admin-only on every table and is not affected by this flag.',
-      defaultNote: 'false — and inert either way',
+      defaultNote: 'false, and inert either way',
     })
   ),
 
@@ -430,7 +403,7 @@ const TableStruct = Schema.Struct({
   activityLog: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        "Whether record writes to this table — create, update, delete, restore — are recorded in the activity log. `false` records none, so neither the activity log nor a record's history shows them; use it for a table of machine-written rows nobody audits one by one. Other tables, and the app's sign-in and administrative events, are recorded as usual.",
+        "Whether record writes to this table (create, update, delete, restore) are recorded in the activity log. `false` records none, so neither the activity log nor a record's history shows them; use it for a table of machine-written rows nobody audits one by one. Other tables, and the app's sign-in and administrative events, are recorded as usual.",
       defaultNote: 'true',
     })
   ),
@@ -604,7 +577,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
     Schema.Array(TableSchema.pipe(Schema.annotate({ identifier: 'TableWithRequiredId' }))).pipe(
       Schema.annotate({
         description:
-          'The database tables this app defines. Each one is an entity — users, products, orders — whose fields set what can be stored, and whose relationships, indexes and permissions set how it may be read and written.',
+          'The database tables this app defines. Each one is an entity (users, products, orders) whose fields set what can be stored, and whose relationships, indexes and permissions set how it may be read and written.',
       })
     ),
     {
@@ -791,7 +764,11 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
   // After the references resolve: two tables whose lookups read each other
   // cannot both be computed, and the database would refuse it at start-up.
   Schema.check(Schema.makeFilter((tables) => validateNoLookupCycle(tables))),
-  Schema.check(Schema.makeFilter((tables) => validateRowRuleChains(tables) ?? true))
+  Schema.check(
+    Schema.makeFilter(
+      (tables) => validateRowRuleChains(tables) ?? validateBusinessRuleChains(tables) ?? true
+    )
+  )
 )
 
 export type Tables = Schema.Schema.Type<typeof TablesSchema>

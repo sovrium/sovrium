@@ -26,40 +26,11 @@ import { defineArticle, defineSection } from './define'
 /**
  * CLI & API — the section manifest.
  *
- * ─── ARTICLE-SHAPED, NOT VERB-SHAPED ───────────────────────────────────────
- *
- * Nine fragments for nineteen dispatch keys, and the mismatch is the design
- * rather than a shortfall. `stop`, `restart` and `reload` all find the running
- * process through one lock file and are unreadable apart; `schema` and
- * `design-system` are both offline exporters of a config. A file per verb
- * would split prose no reader wants split, and would put the lock file in
- * three places.
- *
- * So coverage here is of the VOCABULARY: `check-doc-coverage.ts` asks whether
- * some fragment NAMES `sovrium <verb>`, not whether a directory holds a file
- * for it. All nineteen keys are named, `--help` and `--version` included.
- *
- * ─── EVERY `documents` LIST IS EMPTY, AND THAT IS CORRECT ──────────────────
- *
- * The CLI surface is not `AppSchema`. Its options live in the flag allowlist
- * in `src/cli/runtime/dispatch.ts` and its help text in the string table in
- * `src/cli/runtime/command-help.ts` — neither of which the option walk can
- * address, because neither is a schema. There is no `sovrium:options`
- * directive that could render a command's flags today.
- *
- * Rather than transcribe those tables and create a second source of truth for
- * them, each fragment quotes the `Usage:` line, says what the options are FOR,
- * and sends the reader to `sovrium <command> --help` for the authoritative
- * list. `cli-flags` keeps one cross-command table, which is the one thing a
- * single `--help` cannot show. A `sovrium:help <verb>` directive reading
- * `COMMAND_HELP` would remove even that.
- *
- * ─── `docs` DOCUMENTS ITSELF ───────────────────────────────────────────────
- *
- * The last article describes the verb that prints this manual, and absorbs
- * what the published LLM-reference page was for. It was written before the
- * verb exists — the prose is what the command will print about itself, and
- * `.docs-cli-ignore` carries a temporary row until it dispatches.
+ * Why the articles are article-shaped rather than verb-shaped, and why
+ * every `documents` list is empty:
+ * `[internal ref]`, § `cli-api`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const section = defineSection({
   slug: 'cli-api',
@@ -103,7 +74,7 @@ export const section = defineSection({
       slug: 'cli-lifecycle',
       title: 'Lifecycle Commands',
       description:
-        'Run and control a server — start, stop, restart and reload, which applies an edited config to a running server — plus the lock file that ties the four together and the status file a running instance publishes about itself.',
+        'Run and control a server with start, stop, restart and reload, which applies an edited config live, plus its lock file and the status file it publishes.',
       keywords: [
         'sovrium start',
         'sovrium stop',
@@ -167,7 +138,7 @@ export const section = defineSection({
       slug: 'cli-dev',
       title: 'The Dev Session',
       description:
-        'Boot the app for development in one command: fresh seed data, an account to sign in with printed and shown on every page, the sign-in page opened, and a reload on every save.',
+        'Boot the app for development in one command: fresh seed data, a printed account to sign in with, the sign-in page opened, and a reload on every save.',
       keywords: [
         'sovrium dev',
         'dev mode',
@@ -189,7 +160,7 @@ export const section = defineSection({
       slug: 'undo-and-reset',
       title: 'Undo and Reset',
       description:
-        'The config history watch mode keeps for you — what lands in it, what is discarded, how to restore an entry, and the two controls the desktop app puts on top of it.',
+        'The config history watch mode keeps: what lands in it, what is discarded, how to restore an entry, and the two controls the desktop app adds on top.',
       keywords: [
         'undo',
         'config history',
@@ -243,7 +214,11 @@ export const section = defineSection({
       sidebarLabel: 'Seeding Data',
       body: cliSeedBody,
       documents: [],
-      stories: ['US-CLI-SEEDING-DATA', 'US-CLI-SEEDING-INVITATIONS'],
+      stories: [
+        'US-CLI-SEEDING-DATA',
+        'US-CLI-SEEDING-DATA-SCOPED-AND-REPEATED-RUNS',
+        'US-CLI-SEEDING-INVITATIONS',
+      ],
     }),
     ...importCliArticles,
     ...operateCliArticles,
@@ -280,7 +255,7 @@ export const section = defineSection({
       slug: 'cli-validate',
       title: 'Validation & Schema Generation',
       description:
-        'Checking a config without starting anything, its `--json` report for programs, emitting the JSON Schema that describes every config, and exporting the design system for an agent.',
+        'Check a config without starting anything, read its --json report, emit the JSON Schema that describes every config, and export the design system for an agent.',
       keywords: [
         'sovrium validate',
         'sovrium validate --json',
@@ -307,7 +282,7 @@ export const section = defineSection({
       slug: 'docs',
       title: 'Reading the Manual Offline',
       description:
-        '`sovrium docs` prints this manual out of the binary — offline, with no config file, no database and no network — so what you read describes the engine you are running.',
+        '`sovrium docs` prints this manual from the binary, offline, with no config, database or network, so what you read describes the engine you run.',
       keywords: [
         'sovrium docs',
         'offline documentation',
@@ -350,7 +325,7 @@ export const section = defineSection({
       slug: 'cli-report',
       title: 'Reporting a Problem',
       description:
-        '`sovrium report` prints a new-issue address with the facts maintainers need already filled in and every secret removed, or the private form for a vulnerability. It sends nothing.',
+        '`sovrium report` prints a new-issue address prefilled with the facts maintainers need and no secret, or the private vulnerability form. It sends nothing.',
       keywords: [
         'sovrium report',
         'bug report',

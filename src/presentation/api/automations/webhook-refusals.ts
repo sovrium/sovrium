@@ -29,7 +29,7 @@
  * branch on other than the slug's spelling (standing rule E5).
  */
 
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { Context } from 'hono'
 

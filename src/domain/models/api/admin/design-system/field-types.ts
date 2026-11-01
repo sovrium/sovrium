@@ -72,7 +72,7 @@ export const fieldTypeSummarySchema = Schema.Struct({
   }),
   categoryTitle: Schema.String.annotate({
     description:
-      "Human-readable heading of this type's CATEGORY — the registry's own display string, carried on every row of the category. Not a name for the type itself; the type literal is what an author writes.",
+      "Human-readable heading of this type's CATEGORY: the registry's own display string, carried on every row of the category. Not a name for the type itself; the type literal is what an author writes.",
     examples: ['Text fields', 'Selection fields'],
   }),
   // ─── THE GROUP BOUNDARY, AND WHY IT IS PUBLISHED ─────────────────────────
@@ -96,7 +96,7 @@ export const fieldTypeSummarySchema = Schema.Struct({
   // own, published as the array order of this response.
   firstInCategory: Schema.Boolean.annotate({
     description:
-      'Whether this row is the FIRST of its category in this response — the gate a page reads to head each group once. `true` on exactly one row per category. A page cannot compute it: a row template sees only its own row.',
+      'Whether this row is the FIRST of its category in this response: the gate a page reads to head each group once. `true` on exactly one row per category. A page cannot compute it: a row template sees only its own row.',
   }),
   // ─── THE TWO FACTS A DRAWING NEEDS, AND WHY A PAGE CANNOT HAVE THEM ──────
   //
@@ -113,7 +113,7 @@ export const fieldTypeSummarySchema = Schema.Struct({
   // concept, hand-written forty-nine times, drifting from the day it was typed.
   sampleValue: Schema.String.annotate({
     description:
-      'A deterministic value for a control of this type to hold, for a drawing with no record behind it. A STRING for every type, because its only consumer is a `field-specimen`’s `value`, which is a string — a wider type here would publish something no page could bind. Neutral data, never copy.',
+      'A deterministic value for a control of this type to hold, for a drawing with no record behind it. A STRING for every type, because its only consumer is a `field-specimen`’s `value`, which is a string. A wider type here would publish something no page could bind. Neutral data, never copy.',
     examples: ['ada@example.com', '2026-03-05T09:30:00Z', 'true'],
   }),
   readOnly: Schema.Boolean.annotate({
@@ -143,7 +143,7 @@ export const fieldTypeListResponseSchema = Schema.Struct({
   }),
   total: Schema.Int.annotate({
     description:
-      'How many field types this response carries — the whole catalogue, never a page of it',
+      'How many field types this response carries: the whole catalogue, never a page of it',
   }),
 }).annotate({
   strictKeys: true,

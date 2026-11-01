@@ -49,7 +49,9 @@
  * `DATABASE_URL` and nothing else.
  */
 
-import { printDocument, printFailure, printProgress } from '@/infrastructure/logging/cli-output'
+import { defineFlags, flag } from '@/cli/runtime/flag-schema'
+import { refuseCommand, rethrowCliStop, withFlagsAsync } from '@/cli/runtime/run-command'
+import { printDocument, printProgress } from '@/infrastructure/logging/cli-output'
 import { applyDatabaseMigrations, discoverConfigFile, refuse, requireApp } from './app-prelude'
 import {
   appliedBlock,
@@ -63,7 +65,7 @@ import {
 import type { App } from '@/domain/models/app'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import type { MigrationFolderState } from '@/infrastructure/database/drizzle/migrate'
+import type { MigrationFolderState } from '@/infrastructure/database/drizzle/migration-folder-state'
 
 /**
  * What every mode hands the planner and the apply path alike: the one-shot
@@ -91,13 +93,16 @@ export interface MigrateCommandOptions {
 const dialectConfig = async (): Promise<DatabaseDialectConfig> => {
   const { parseDatabaseDialectConfig } =
     await import('@/domain/models/process-env/database/database-dialect')
-  return parseDatabaseDialectConfig()
+  return parseDatabaseDialectConfig(process.env)
 }
 
 /** Where the migration set stands, read without applying anything. */
 const readFolderState = async (): Promise<MigrationFolderState> => {
-  const { readMigrationFolderState } = await import('@/infrastructure/database/drizzle/migrate')
+  const { readMigrationFolderState } =
+    await import('@/infrastructure/database/drizzle/migration-folder-state')
   const { Effect } = await import('effect')
+  // Run here rather than by the command runner: every Effect module `migrate`
+  // reads stays behind its lazy database import, and each mode is a Promise step.
   return Effect.runPromise(readMigrationFolderState(await dialectConfig()))
 }
 
@@ -111,12 +116,9 @@ const readFolderState = async (): Promise<MigrationFolderState> => {
 const describeFailure = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
 
-/** Print a refusal to stderr and exit 1. */
-const fail = (headline: string, detail: readonly string[], guidance: string): never => {
-  printFailure({ headline, detail, guidance })
-  process.exit(1)
-  throw new Error('unreachable')
-}
+/** Refuse in the failure shape; the command exits 1. */
+const fail = (headline: string, detail: readonly string[], guidance: string): never =>
+  refuseCommand({ headline, detail, guidance })
 
 /**
  * `--check`: report where the database stands, and refuse if it cannot be
@@ -150,6 +152,7 @@ const runCheck = async (app: App, options: MigrateRunOptions): Promise<void> => 
 
   const config = await dialectConfig()
   const state = await readFolderState()
+  // A Promise step, like every mode: the handler rewords any failure but a refusal.
   const findings = await Effect.runPromise(readMigrationPreflight(config))
   // Read-only: `planConfigTableChanges` introspects and, for a changing column,
   // SELECTs its rows. It emits no DDL, which is what keeps `--check`'s
@@ -168,8 +171,6 @@ const runCheck = async (app: App, options: MigrateRunOptions): Promise<void> => 
       'Resolve what is named above, then run sovrium migrate --check again.'
     )
   }
-
-  process.exit(0)
 }
 
 /** `--dry-run`: name what would change, on both machines, and write nothing. */
@@ -179,6 +180,7 @@ const runDryRun = async (app: App, options: MigrateRunOptions): Promise<void> =>
 
   const config = await dialectConfig()
   const state = await readFolderState()
+  // A Promise step, like every mode: the handler rewords any failure but a refusal.
   const changes = await Effect.runPromise(planConfigTableChanges(app, config, options))
 
   printDocument(dryRunBlocks(state, changes))
@@ -196,8 +198,6 @@ const runDryRun = async (app: App, options: MigrateRunOptions): Promise<void> =>
       'Resolve what is named above, then run sovrium migrate --dry-run again.'
     )
   }
-
-  process.exit(0)
 }
 
 /** The apply path: run both machines, then report the difference they made. */
@@ -223,7 +223,6 @@ const runApply = async (app: App, options: MigrateRunOptions): Promise<void> => 
     appliedBlock(before, after),
     configTablesBlock((app.tables ?? []).map((table) => table.name)),
   ])
-  process.exit(0)
 }
 
 /**
@@ -260,11 +259,26 @@ export const handleMigrateCommand = async (options: MigrateCommandOptions): Prom
       ? () => runDryRun(app, runOptions)
       : () => runApply(app, runOptions)
 
-  return run().catch((error: unknown) =>
-    fail(
+  return run().catch((error: unknown) => {
+    // A refusal the run already made stands; only a failure to reach the database is reworded.
+    rethrowCliStop(error)
+    return fail(
       'The database could not be reached.',
       describeFailure(error).split('\n'),
       'Check DATABASE_URL and that the database is reachable, then try again.'
     )
-  )
+  })
 }
+
+/** The flags `sovrium migrate` reads beyond the shared ones. */
+export const migrateFlags = defineFlags({ allowDestructive: flag.switch('--allow-destructive') })
+
+/** `sovrium migrate`, as the dispatcher runs it. */
+export const migrateCommand = withFlagsAsync(migrateFlags, ({ flags, ...args }) =>
+  handleMigrateCommand({
+    configFile: args.configFile,
+    dryRun: args.dryRun ?? false,
+    check: args.check ?? false,
+    allowDestructive: flags.allowDestructive,
+  })
+)

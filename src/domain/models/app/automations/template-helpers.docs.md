@@ -4,7 +4,7 @@
 
 Helpers transform a value where it is written. They work in every template Sovrium renders: an action prop (`subject: 'Order {{uppercase trigger.data.ref}}'`), an email body, and the templates of document and email actions (HTML, SVG, Word, plain text). The same names behave the same way everywhere; only the escaping around them changes with the output.
 
-The helpers that exist only in a document or email template — `pageBreak`, `image`, `qrcode` and `t` — together with partials, layouts, Word templates and templates stored in a bucket, are described in Document Template Helpers.
+The helpers that exist only in a document or email template (`pageBreak`, `image`, `qrcode` and `t`), together with partials, layouts, Word templates and templates stored in a bucket, are described in Document Template Helpers.
 
 ## Calling a helper
 
@@ -19,13 +19,13 @@ The helpers that exist only in a document or email template — `pageBreak`, `im
 
 - An argument is a path (`trigger.data.name`, `this.city`, `@index` inside `{{#each}}`), a quoted string, a number, `true`/`false`, or a call in parentheses.
 - A path that resolves to nothing renders as an empty string, never as `undefined`.
-- `{{now}}` and `{{today}}` take no value. Passed to another helper they must be wrapped in parentheses — `{{formatDate (now) "yyyy-MM-dd"}}` — or they are read as a variable that does not exist, and the expression renders empty.
+- `{{now}}` and `{{today}}` take no value. Passed to another helper they must be wrapped in parentheses (`{{formatDate (now) "yyyy-MM-dd"}}`), or they are read as a variable that does not exist, and the expression renders empty.
 - The template language's own block helpers are always there: `{{#each}}` (with `@index`, `@first`, `@last` and `this`), `{{#if}}`/`{{else}}`, `{{#unless}}`, `{{#with}}` and `{{lookup}}`. `if` also works inline: `{{if cond "yes" "no"}}`.
-- A misspelled helper is the usual silent failure. In an action prop, a call to a name that is no helper leaves the whole prop as written, braces included; in a document or email template it fails the step, naming the helper. A bare name with no arguments (`{{totl}}`) is read as a missing value everywhere and renders empty. Several helpers have aliases for exactly this reason — they are listed in the tables below.
+- A misspelled helper is the usual silent failure. In an action prop, a call to a name that is no helper leaves the whole prop as written, braces included; in a document or email template it fails the step, naming the helper. A bare name with no arguments (`{{totl}}`) is read as a missing value everywhere and renders empty. Several helpers have aliases for exactly this reason; they are listed in the tables below.
 
 ## Escaping: the output decides, not the author
 
-A template's own text is never touched. What an expression inserts is encoded for the place it lands, so a value can never change the structure around it — a name like `Dupont & Fils <SARL>` prints as written and never breaks the file. The mode is chosen by where the template is used; you never set it.
+A template's own text is never touched. What an expression inserts is encoded for the place it lands, so a value can never change the structure around it: a name like `Dupont & Fils <SARL>` prints as written and never breaks the file. The mode is chosen by where the template is used; you never set it.
 
 | Where the template is used                                                               | Mode   | A value from an expression is…                                                               | Helpers whose output is kept as is                        |
 | ---------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
@@ -33,7 +33,7 @@ A template's own text is never touched. What an expression inserts is encoded fo
 | An SVG template, a Word (`.docx`) template                                               | `xml`  | XML-escaped, and characters XML cannot hold (control characters) are removed                 | none                                                      |
 | The plain-text part of an email (`text`), a plain-text template, every other action prop | `text` | inserted unchanged                                                                           | —                                                         |
 | The `url` of an `http` or `webhook/send` step                                            | `url`  | percent-encoded as one path segment or one query value; a `.` or `..` segment fails the step | `urlEncode`, `encodeUri`, `encodeUriComponent`, `urlPath` |
-| A string `body` sent as JSON by an `http` or `webhook/send` step                         | `json` | escaped as the content of a JSON string — only when the expression sits inside quotes        | none                                                      |
+| A string `body` sent as JSON by an `http` or `webhook/send` step                         | `json` | escaped as the content of a JSON string, only when the expression sits inside quotes         | none                                                      |
 
 Three rules hold in every mode:
 
@@ -45,8 +45,8 @@ Caveats worth knowing before they surprise you:
 
 - **Do not escape a value yourself in an SVG or Word template.** `{{escapeHtml name}}` there is escaped a second time: `Dupont & Fils` prints as `Dupont &amp; Fils`. Drop the helper; the value is escaped already. In HTML it is harmless but redundant.
 - **`escapeHtml` in a plain-text output escapes for real.** In a `text` template or an ordinary prop, nothing else escapes, so `{{escapeHtml value}}` is how you hand HTML-safe text to a system that will place it in a page.
-- **In a URL**, a `url` that is exactly one expression (`'{{steps.list.response.body.next}}'`) is the whole address and is sent as given. For a path of several segments — `owner/repo`, `exports/2026/report.pdf` — use `{{urlPath value}}`: it keeps the slashes, encodes each segment, and fails the step on a `..` segment.
-- **In a JSON body**, an expression outside quotes is inserted unencoded. That is what lets `"items": {{json steps.fetch.result}}` place a whole structure, and it is also why a value from data belongs inside quotes: `"name": "{{trigger.data.name}}"`. An object `body` avoids the question altogether — it is serialised for you. Leave a space between an expression and a closing brace of the JSON (`{{json list}} }`): `}}}` reads as the end of a triple-brace expression, the template no longer compiles, and the body is sent as written.
+- **In a URL**, a `url` that is exactly one expression (`'{{steps.list.response.body.next}}'`) is the whole address and is sent as given. For a path of several segments (`owner/repo`, `exports/2026/report.pdf`), use `{{urlPath value}}`: it keeps the slashes, encodes each segment, and fails the step on a `..` segment.
+- **In a JSON body**, an expression outside quotes is inserted unencoded. That is what lets `"items": {{json steps.fetch.result}}` place a whole structure, and it is also why a value from data belongs inside quotes: `"name": "{{trigger.data.name}}"`. An object `body` avoids the question altogether: it is serialised for you. Leave a space between an expression and a closing brace of the JSON (`{{json list}} }`): `}}}` reads as the end of a triple-brace expression, the template no longer compiles, and the body is sent as written.
 
 ## Text
 

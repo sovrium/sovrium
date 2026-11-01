@@ -33,11 +33,13 @@ import {
   resolveChunkSettings,
   type ChunkSettings,
 } from '@/domain/models/app/agents/rag-chunking'
+import { bestEffort } from '@/infrastructure/logging/best-effort'
 import { logError, logWarning } from '@/infrastructure/logging/logger'
 import { isSupportedDocument, parseDocument } from './document-parser'
-import { countRowsBy, embedChunksToRows, RagSyncLayer, swallowLogged } from './embed-pipeline'
+import { countRowsBy, embedChunksToRows, ragSyncLayerOver, swallowLogged } from './embed-pipeline'
 import type { NewEmbedding } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** Default knowledge directory when `AI_KNOWLEDGE_DIR` is unset. */
 const DEFAULT_KNOWLEDGE_DIR = './knowledge'
@@ -190,27 +192,32 @@ const syncDocuments = (input: {
  * block server startup.
  */
 export const runSyncDocuments = async (
-  env: Readonly<Record<string, string | undefined>>
+  env: Readonly<Record<string, string | undefined>>,
+  database: DatabaseService
 ): Promise<SyncDocumentStats> => {
   const dir = resolveKnowledgeDir(env)
   const documents = await discoverDocuments(dir).catch((): ReadonlyArray<DiscoveredDocument> => [])
   if (documents.length === 0) return { documents: {}, totalChunks: 0 }
   const chunkSettings = resolveChunkSettings(env)
   const program = syncDocuments({ dir, documents, chunkSettings }).pipe(
-    Effect.provide(RagSyncLayer)
+    Effect.provide(ragSyncLayerOver(database))
   )
-  return Effect.runPromise(program).catch((): SyncDocumentStats => ({
-    documents: {},
-    totalChunks: 0,
-  }))
+  // A defect, or a RAG layer that failed to build, must not block the boot; it is logged, not lost.
+  const empty: SyncDocumentStats = { documents: {}, totalChunks: 0 }
+  return bestEffort('[ai-rag] document sync aborted', { dir }).promise(
+    Effect.runPromise(program),
+    empty
+  )
 }
 
 /**
- * Startup runner — discovers and embeds document knowledge. Best-effort: a
- * failure is logged but never thrown.
+ * Startup runner — discovers and embeds document knowledge, and returns the
+ * per-document stats. Best-effort: a failure is logged but never thrown.
  */
-export const runSyncDocumentsAtStartup = async (): Promise<void> => {
-  await runSyncDocuments(process.env).catch((error: unknown) => {
+export const runSyncDocumentsAtStartup = async (
+  database: DatabaseService
+): Promise<SyncDocumentStats> =>
+  runSyncDocuments(process.env, database).catch((error: unknown) => {
     logError('[ai-rag] document sync failed', error)
+    return { documents: {}, totalChunks: 0 }
   })
-}

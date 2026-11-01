@@ -6,11 +6,11 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { preprocessed } from '@/domain/models/api/combinators/preprocess'
-import { transformed } from '@/domain/models/api/combinators/transform'
-import { withDefault } from '../combinators/schema-defaults'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import { preprocessed } from '@/domain/kernel/config-parsing/preprocess'
+import { transformed } from '@/domain/kernel/config-parsing/transform'
+import { withDefault } from '../schema-defaults'
 import { fieldValueSchema } from './tables'
 
 // ============================================================================

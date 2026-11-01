@@ -26,7 +26,7 @@ import type { RowRuleReader } from '@/domain/models/app/tables/visitor-row-rule-
 export type PageRenderResult =
   | string
   | undefined
-  | { readonly redirect: string }
+  | { readonly redirect: string; readonly signIn?: true } // `signIn`: an access rule's way to sign in
   | { readonly error: string }
   | { readonly unauthorized: true }
 
@@ -165,14 +165,15 @@ export type FetchSitemapRecords = (
 ) => Promise<readonly Readonly<Record<string, unknown>>[]>
 
 /**
- * Render the RSS feed of the first public page opting in. `readQueryMasks`
+ * Render the RSS feed at `feedPath` (default `/feed.xml`). `readQueryMasks`
  * reads the lookups and counts its collection filter names as a signed-out
  * reader's records list reads them; absent, the feed steers on stored values.
  */
 export type RenderRssFeed = (
   app: App,
   baseUrl: string,
-  readQueryMasks?: ReadQueryMasks
+  readQueryMasks?: ReadQueryMasks,
+  feedPath?: string
 ) => Promise<string | undefined>
 
 /**
@@ -232,6 +233,8 @@ export class PageRenderer extends Context.Service<
          * privileged opt-in, not a security boundary.
          */
         readonly previewMode?: boolean
+        /** A file's text under the app's public directory; absent, an `inlineSvg` falls back to `<img>`. */
+        readonly readPublicFile?: (path: string) => Promise<string | undefined>
         /**
          * The `/:lang/` URL-prefix locale.
          *
@@ -358,8 +361,7 @@ export class PageRenderer extends Context.Service<
     ) => PageRenderResult | Promise<PageRenderResult>
 
     /**
-     * Renders the 404 Not Found page
-     *
+     * Renders the 404 Not Found page, drawn for `session` as `/404` itself is drawn
      * @param app - Optional validated application data (for custom 404 pages)
      * @param detectedLanguage - Optional detected language
      * @returns Complete HTML document as string with 404 error message
@@ -367,7 +369,8 @@ export class PageRenderer extends Context.Service<
     readonly renderNotFound: (
       app?: App,
       detectedLanguage?: string,
-      requestPath?: string
+      requestPath?: string,
+      session?: SessionInfo
     ) => string | Promise<string>
 
     /**
@@ -384,12 +387,9 @@ export class PageRenderer extends Context.Service<
     ) => string | Promise<string>
 
     /**
-     * Render the RSS 2.0 feed XML for the first PUBLIC page that opts in via
-     * `page.rss !== false && page.rss !== undefined` — see `findRssPage`.
-     *
-     * Returns `undefined` when no public page in `app.pages` declares `rss`,
-     * which the route handler maps to a 404 — the `/feed.xml` endpoint only
-     * exists when at least one collection page opts in. The `baseUrl` is the
+     * Render the RSS 2.0 feed XML served at the requested address, for the
+     * first PUBLIC page publishing there (its `rss.path`, else `/feed.xml`).
+     * `undefined` when none does (the route answers 404). The `baseUrl` is the
      * request's absolute origin (eg. `http://localhost:3000`); per-item links
      * and the channel `<atom:link rel="self">` are built relative to it.
      */

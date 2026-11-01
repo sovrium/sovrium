@@ -32,6 +32,7 @@
  * against the fixtures under `[internal ref]<tool>/`.
  */
 
+import { RETOOL_DATABASE, SUPABASE } from './postgres-field-type-mappings'
 import type { ImportSourceTool } from './import-source'
 import type { FieldType } from '@/domain/models/app/tables/fields/field'
 
@@ -55,6 +56,7 @@ export type TableSourceTool = Extract<
   | 'xlsx'
   | 'baserow'
   | 'retool-database'
+  | 'supabase'
   | 'webflow'
   | 'zapier-tables'
   | 'zite'
@@ -271,33 +273,6 @@ const BASEROW: readonly FieldTypeMapping[] = [
 ]
 
 /**
- * Retool Database, by PostgreSQL `data_type`. A column holding a one-column
- * foreign key is typed by its constraint, `FOREIGN KEY`, whatever its type.
- */
-const RETOOL_DATABASE: readonly FieldTypeMapping[] = [
-  { source: 'text', sovrium: 'single-line-text' },
-  { source: 'character varying', sovrium: 'single-line-text' },
-  { source: 'character', sovrium: 'single-line-text' },
-  { source: 'uuid', sovrium: 'single-line-text' },
-  { source: 'smallint', sovrium: 'integer' },
-  { source: 'integer', sovrium: 'integer' },
-  { source: 'bigint', sovrium: 'integer' },
-  { source: 'numeric', sovrium: 'decimal' },
-  { source: 'real', sovrium: 'decimal' },
-  { source: 'double precision', sovrium: 'decimal' },
-  { source: 'boolean', sovrium: 'checkbox' },
-  { source: 'date', sovrium: 'date' },
-  { source: 'timestamp without time zone', sovrium: 'datetime' },
-  { source: 'timestamp with time zone', sovrium: 'datetime' },
-  { source: 'time without time zone', sovrium: 'time' },
-  { source: 'interval', sovrium: 'duration' },
-  { source: 'json', sovrium: 'json' },
-  { source: 'jsonb', sovrium: 'json' },
-  { source: 'ARRAY', sovrium: 'array' },
-  { source: 'FOREIGN KEY', sovrium: 'relationship' },
-]
-
-/**
  * Webflow CMS, as its Data API v2 types fields. The collection CSV carries no
  * type and is read through the shared inference instead. A `User` field names a
  * Webflow site member, which has no Sovrium account, so it is left unlisted and
@@ -373,6 +348,7 @@ export const FIELD_TYPE_MAPPINGS: Readonly<Record<TableSourceTool, readonly Fiel
   xlsx: INFERRED,
   baserow: BASEROW,
   'retool-database': RETOOL_DATABASE,
+  supabase: SUPABASE,
   webflow: WEBFLOW,
   'zapier-tables': INFERRED,
   zite: ZITE,

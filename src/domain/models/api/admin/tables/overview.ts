@@ -26,13 +26,13 @@
  */
 
 import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import {
   periodPresetSchema,
   seriesIntervalSchema,
 } from '@/domain/models/api/admin/envelope/period-preset'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { withDefault } from '../../combinators/schema-defaults'
+import { withDefault } from '../../schema-defaults'
 
 /**
  * Query parameters for `GET /api/admin/tables/overview`.
@@ -84,7 +84,7 @@ export const tableOverviewBreakdownItemSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isMinLength(1))),
   label: Schema.String.annotate({
     description:
-      'The name a person reads for the table as a collection: its `labelPlural`, else its `label`, with a `$t:` key resolved, else its `name` made readable — hyphens and underscores read as spaces, a camelCase boundary as a space, the first letter capitalised (`site_visits` reads `Site visits`). Display text only; links and lookups use `name`.',
+      'The name a person reads for the table as a collection: its `labelPlural`, else its `label`, with a `$t:` key resolved, else its `name` made readable: hyphens and underscores read as spaces, a camelCase boundary as a space, the first letter capitalised (`site_visits` reads `Site visits`). Display text only; links and lookups use `name`.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   description: optionalField(
     Schema.String.annotate({

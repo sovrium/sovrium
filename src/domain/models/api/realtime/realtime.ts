@@ -6,8 +6,8 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime, uri } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { looseIsoDateTime, uri } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // Realtime record payload

@@ -19,14 +19,14 @@
  * doorway ends up ungated.
  */
 
+import { Effect } from 'effect'
 import { findUserEmailById } from '@/application/use-cases/auth/find-user-email'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import {
   evaluateFormAccess,
   type FormAccessDecision,
 } from '@/domain/models/app/forms/form-access-flow'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { Form } from '@/domain/models/app/forms'
@@ -44,12 +44,15 @@ export interface FormRequestSession {
  * any request that never passed through `authMiddleware`, which is why the
  * middleware has to be mounted on every route that reaches a form.
  */
-export async function resolveFormSession(c: Context): Promise<FormRequestSession | undefined> {
-  const session = getSessionContext(c)
-  if (!session) return undefined
-  const role = await runDomainPromise(c, getUserRole(session.userId))
-  return { userId: session.userId, role }
-}
+export const resolveFormSession = (c: Context) =>
+  Effect.suspend(() => {
+    const session = getSessionContext(c)
+    if (!session) return Effect.undefined
+    return Effect.map(getUserRole(session.userId), (role): FormRequestSession => ({
+      userId: session.userId,
+      role,
+    }))
+  })
 
 /**
  * The signed-in visitor a table-backed choice filter resolves
@@ -59,35 +62,25 @@ export async function resolveFormSession(c: Context): Promise<FormRequestSession
  * and each multi-step fragment — so both offer the same choices. A reference
  * the map does not carry still fails closed in `resolveFormOptionSources`.
  */
-export async function resolveFormOptionVisitor(
-  c: Context,
-  session: FormRequestSession | undefined
-): Promise<Readonly<Record<string, unknown>> | undefined> {
-  if (session === undefined) return undefined
-  const email = await runDomainPromise(c, findUserEmailById(session.userId))
-  return {
-    id: session.userId,
-    role: session.role,
-    ...(email !== undefined ? { email } : {}),
-  }
-}
+export const resolveFormOptionVisitor = (session: FormRequestSession | undefined) =>
+  session === undefined
+    ? Effect.undefined
+    : Effect.map(findUserEmailById(session.userId), (email): Readonly<Record<string, unknown>> => ({
+        id: session.userId,
+        role: session.role,
+        ...(email !== undefined ? { email } : {}),
+      }))
 
 /**
  * Evaluate a form's `access.require` for the current request. Returns the
  * resolved session (when present) alongside the access decision so the
  * caller can both gate the request and capture the submitter identity.
  */
-export async function evaluateFormAccessForRequest(
-  c: Context,
-  form: Readonly<Form>
-): Promise<{
-  readonly decision: FormAccessDecision
-  readonly session: FormRequestSession | undefined
-}> {
-  const session = await resolveFormSession(c)
-  const decision = evaluateFormAccess(form.access?.require, session)
-  return { decision, session }
-}
+export const evaluateFormAccessForRequest = (c: Context, form: Readonly<Form>) =>
+  Effect.map(resolveFormSession(c), (session) => ({
+    decision: evaluateFormAccess(form.access?.require, session),
+    session,
+  }))
 
 /**
  * Render a minimal HTML 401 page for an access-gated form. The body

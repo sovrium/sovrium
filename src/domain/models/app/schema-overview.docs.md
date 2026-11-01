@@ -1,8 +1,8 @@
 # Schema Overview
 
-> The root properties of a Sovrium app config — what each one declares, how they are validated together, and the three formats you can write them in.
+> The root properties of a Sovrium app config: what each one declares, how they are validated together, and the three formats you can write them in.
 
-A Sovrium app is one declarative configuration object. Only `name` is required; everything else is optional. That lets an app grow in steps — from a single identifier to a full-stack application — without rewriting what came before.
+A Sovrium app is one declarative configuration object. Only `name` is required; everything else is optional. That lets an app grow in steps, from a single identifier to a full-stack application, without rewriting what came before.
 
 ## Root properties
 
@@ -34,7 +34,7 @@ Adding a property never invalidates what was already there. That is the point of
 
 ## Configuration formats
 
-YAML, JSON and TypeScript are all accepted. YAML reads best by hand; JSON suits programmatic generation; TypeScript adds type checking against the declaration `sovrium types` writes into your project — with no package to install, because the declaration comes out of the binary.
+YAML, JSON and TypeScript are all accepted. YAML reads best by hand; JSON suits programmatic generation; TypeScript adds type checking against the declaration `sovrium types` writes into your project, with no package to install, because the declaration comes out of the binary.
 
 ```yaml
 name: my-app
@@ -60,7 +60,7 @@ tables:
 }
 ```
 
-A large config can be split across files with `$ref`, which resolves before validation — so a split config is validated as the single object it assembles into, and an error names the property rather than the file.
+A large config can be split across files with `$ref`, which resolves before validation, so a split config is validated as the single object it assembles into, and an error names the property rather than the file.
 
 ## Cross-section validation
 
@@ -75,4 +75,4 @@ This is why a config either boots or is refused with a path, rather than booting
 
 ## Unknown properties are refused
 
-A property no schema declares is an error, not an ignored key. A silently accepted typo is the failure mode this rule exists to remove: `tabels:` would otherwise validate, boot, and serve an app with no tables in it — and nothing anywhere would say why.
+A property no schema declares is an error, not an ignored key. A silently accepted typo is the failure mode this rule exists to remove: `tabels:` would otherwise validate, boot, and serve an app with no tables in it, and nothing anywhere would say why.

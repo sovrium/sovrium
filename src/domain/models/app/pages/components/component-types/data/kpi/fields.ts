@@ -44,6 +44,17 @@ export const kpiFields = {
       description: 'Descriptive text displayed above the KPI metric value',
     })
   ),
+  /**
+   * The tile's legend: one line under the value saying what the figure means,
+   * so the reader does not need a page of explanation beside the tile.
+   */
+  description: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Legend drawn under the KPI value, inside the tile: what the figure measures or how to read it (e.g. "Share of pages answered under 200 ms"). Supports $t:key.',
+      examples: ['Share of pages answered under 200 ms'],
+    })
+  ),
   icon: Schema.optional(
     Schema.String.annotate({
       description: 'Lucide icon name displayed alongside the KPI metric (e.g., dollar-sign)',

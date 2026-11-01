@@ -38,12 +38,9 @@
 // prefixes them with the console's base at render time. The root carries
 // `data-admin-base-path` for the same reason the shell does.
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consoleLogin = {
+export const consoleLogin: TemplateEncoded = {
   name: 'console-login',
   type: 'container',
   render: 'transparent',
@@ -174,4 +171,4 @@ export const consoleLogin = {
       ],
     },
   ],
-} as unknown as Template
+}

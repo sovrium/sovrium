@@ -13,15 +13,15 @@
  * Slug control.
  */
 
+import { Effect } from 'effect'
 import { getCookie } from 'hono/cookie'
 import {
   phraseFieldRefusal,
   type FieldRefusalCode,
 } from '@/application/use-cases/admin/field-refusal-words'
+import { decodeOrThrow } from '@/domain/kernel/config-parsing/decode'
 import { linkMutationConflictSchema } from '@/domain/models/api/admin/links'
-import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import { LANGUAGE_PREFERENCE_COOKIE } from '@/domain/models/app/languages/language-detection'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { LinkMutationConflictCode } from '@/application/use-cases/links'
 import type { Context } from 'hono'
@@ -57,32 +57,37 @@ const fieldWordsFor = (code: ConflictCode, mint: boolean): FieldRefusalCode | un
   return mint ? 'LINK_SLUG_TAKEN' : undefined
 }
 
+/** The conflict's body, through its contract. */
+const toConflictBody = (
+  code: ConflictCode,
+  slug: string,
+  phrased: Effect.Success<ReturnType<typeof phraseFieldRefusal>> | undefined
+) =>
+  decodeOrThrow(linkMutationConflictSchema)({
+    success: false,
+    code,
+    message: CONFLICT_MESSAGES[code](slug),
+    ...(phrased === undefined ? {} : { errors: phrased }),
+  })
+
 /**
  * 409 with the stable discriminant the console branches on; a slug refusal
  * names `slug`. `mint` is set by the create route, the one write whose slug the
  * caller chose.
  */
-export const conflict = async (c: Context, code: ConflictCode, slug: string, mint = false) => {
+export const conflict = (c: Context, code: ConflictCode, slug: string, mint = false) => {
   const userId = getSessionContext(c)?.userId
   const words = fieldWordsFor(code, mint)
   const preferredLanguage = getCookie(c, LANGUAGE_PREFERENCE_COOKIE)
-  const phrased =
-    words !== undefined && userId !== undefined
-      ? await runDomainPromise(
-          c,
-          phraseFieldRefusal(words, {
-            actorUserId: userId,
-            ...(preferredLanguage === undefined ? {} : { preferredLanguage }),
-          })
-        )
-      : undefined
-  const errors = phrased === undefined ? {} : { errors: phrased }
-  const message = CONFLICT_MESSAGES[code](slug)
-  const body = decodeOrThrow(linkMutationConflictSchema)({
-    success: false,
-    code,
-    message,
-    ...errors,
-  })
-  return c.json(body, 409)
+  const answer = (phrased: Parameters<typeof toConflictBody>[2]) =>
+    c.json(toConflictBody(code, slug, phrased), 409)
+  return words !== undefined && userId !== undefined
+    ? Effect.map(
+        phraseFieldRefusal(words, {
+          actorUserId: userId,
+          ...(preferredLanguage === undefined ? {} : { preferredLanguage }),
+        }),
+        answer
+      )
+    : Effect.sync(() => answer(undefined))
 }

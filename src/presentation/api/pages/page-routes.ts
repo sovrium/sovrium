@@ -7,7 +7,6 @@
 
 import { type Context, type Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
-import { resolveRequestBaseUrl } from '@/domain/kernel/url/request-base-url'
 import { requestedPath } from '@/domain/kernel/url/requested-path'
 import {
   LANGUAGE_PREFERENCE_COOKIE,
@@ -16,14 +15,17 @@ import {
   resolvePreferredLanguage,
   validateLanguageSubdirectory,
 } from '@/domain/models/app/languages/language-detection'
+import { listFeedPaths } from '@/domain/models/app/pages/rss-feed-builder'
 import { isProduction as isProductionEnv } from '@/infrastructure/process/env'
+import { isPublicOrigin } from '@/infrastructure/process/security-posture'
 import { applyCredentialedPageIpCeiling } from '@/presentation/api/middleware/api-ip-ceiling'
 import { answerRenderFailure } from '@/presentation/api/runtime/render-failure-answer'
+import { resolveRequestBaseUrl } from '@/presentation/api/runtime/request-origin'
 import { varyOnAcceptLanguage, varyOnCookie } from '@/presentation/api/runtime/vary'
 import { queryMasksReader } from './caller-table-reader'
 import { setupContentDirIndexRedirectRoutes } from './content-dir-index-redirect-routes'
 import { applyFormFlash } from './form-flash-middleware'
-import { answerLanguageRemainder } from './language-remainder-route'
+import { answerLanguageRemainder, answerNotFound } from './language-remainder-route'
 import { setupMarkdownExportRoutes } from './markdown-export-routes'
 import {
   extractSession,
@@ -144,7 +146,7 @@ const preferredAddressFor = (
  * Setup homepage route
  */
 export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfig): Readonly<Hono> {
-  const { app, renderErrorPage, renderNotFoundPage } = config
+  const { app, renderErrorPage } = config
 
   return honoApp.get('/', async (c) => {
     try {
@@ -166,7 +168,7 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
       // ordinary 404, exactly as any other path that renders nothing.
       const renderRoot = async (): Promise<Response> =>
         (await renderTracedPage(c, config, '/', reqCtx)) ??
-        c.html(await renderNotFoundPage(app, urlLanguage, requestedPath(c.req.url)), 404)
+        answerNotFound(config, c, urlLanguage, session)
 
       // A remembered choice names its own address, whatever detection is doing.
       // This sits ABOVE the guard below on purpose: that guard is a statement
@@ -244,7 +246,7 @@ function handleBareLanguageRoute(config: HonoAppConfig) {
  * Handle /:lang/ route (homepage in specific language)
  */
 function handleLanguageHomepageRoute(config: HonoAppConfig) {
-  const { app, renderNotFoundPage, renderErrorPage } = config
+  const { app, renderErrorPage } = config
   return async (c: Context) => {
     try {
       const { path } = c.req
@@ -271,19 +273,10 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
       )
       if (exact) return exact
       if (!urlLanguage) {
-        return c.html(
-          await renderNotFoundPage(
-            app,
-            notFoundLanguage(config, c, base),
-            requestedPath(c.req.url)
-          ),
-          404
-        )
+        return answerNotFound(config, c, notFoundLanguage(config, c, base), session)
       }
       const lang = await renderWithCache(config, '/', { ...base, detectedLanguage: urlLanguage }, c)
-      return (
-        lang ?? c.html(await renderNotFoundPage(app, urlLanguage, requestedPath(c.req.url)), 404)
-      )
+      return lang ?? answerNotFound(config, c, urlLanguage, session)
     } catch (error) {
       const detectedLang = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
       return answerRenderFailure(c, error, (id) => renderErrorPage(app, detectedLang, id))
@@ -295,7 +288,7 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
  * Handle /:lang/* route (pages in specific language)
  */
 function handleLanguagePageRoute(config: HonoAppConfig) {
-  const { app, renderNotFoundPage, renderErrorPage } = config
+  const { app, renderErrorPage } = config
   return async (c: Context) => {
     const { path } = c.req
     const session = await extractSession(config, c.req.raw.headers)
@@ -321,10 +314,7 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
       )
       if (exact) return exact
       if (!urlLanguage) {
-        return c.html(
-          await renderNotFoundPage(app, ranked ?? detectedLanguage, requestedPath(c.req.url)),
-          404
-        )
+        return answerNotFound(config, c, ranked ?? detectedLanguage, session)
       }
       return await answerLanguageRemainder(config, c, base, urlLanguage)
     } catch (error) {
@@ -353,7 +343,7 @@ export function setupDynamicPageRoutes(
   honoApp: Readonly<Hono>,
   config: HonoAppConfig
 ): Readonly<Hono> {
-  const { app, renderNotFoundPage } = config
+  const { app } = config
 
   return honoApp.get('*', async (c) => {
     const { path } = c.req
@@ -379,58 +369,52 @@ export function setupDynamicPageRoutes(
     // A path that names no page is still read by someone: the not-found page
     // speaks the reader's remembered language before the browser's guess, the
     // same rank every declared page applies.
-    return (
-      response ??
-      c.html(
-        await renderNotFoundPage(app, urlLanguage ?? detectedLanguage, requestedPath(c.req.url)),
-        404
-      )
-    )
+    return response ?? answerNotFound(config, c, urlLanguage ?? detectedLanguage, session)
   })
 }
 
 /**
- * Setup the `/feed.xml` RSS endpoint.
- *
- * Mounted BEFORE the dynamic-page catch-all (`*`) so the rss handler wins
- * the route match — the catch-all would otherwise treat `/feed.xml` as a
- * page path and 404 because no page declares that path.
- *
- * Behaviour:
- *   - When `config.renderRssFeed` returns an XML string, respond `200 application/rss+xml`.
- *   - When the renderer returns `undefined` (no opted-in collection page),
- *     fall through to a 404 rendered with the standard not-found page so
- *     the response stays consistent with other unmapped paths.
- *   - Errors are logged and surfaced as a 500 via the standard error page.
+ * Setup the RSS endpoints: `/feed.xml`, and every address a page names with
+ * `rss.path` (a gated page's too, so it answers the standard 404). Mounted
+ * BEFORE the language routes and the catch-all (`*`), which would otherwise
+ * swallow `/journal/feed.xml`; a reload builds a new app, so the addresses
+ * read here never go stale. XML answers `200 application/rss+xml`; no public
+ * page publishing at the address answers the standard not-found page (404);
+ * an error is logged and answers the standard error page (500).
  */
 export function setupRssFeedRoute(honoApp: Readonly<Hono>, config: HonoAppConfig): Readonly<Hono> {
   const { app, renderRssFeed, renderNotFoundPage, renderErrorPage } = config
 
-  return honoApp.get('/feed.xml', async (c) => {
-    if (!renderRssFeed) {
-      return c.html(await renderNotFoundPage(app, undefined, requestedPath(c.req.url)), 404)
-    }
-    try {
-      // `BASE_URL` first, as the sitemap: the feed advertises the canonical
-      // address, not the internal one a proxied request came in on.
-      const xml = await renderRssFeed(app, resolveRequestBaseUrl(c), queryMasksReader(c))
-      if (xml === undefined) {
-        return c.html(await renderNotFoundPage(app, undefined, requestedPath(c.req.url)), 404)
-      }
-      return c.body(xml, 200, {
-        'Content-Type': 'application/rss+xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=300',
-      })
-    } catch (error) {
-      return answerRenderFailure(c, error, (requestId) =>
-        renderErrorPage(app, undefined, requestId)
-      )
-    }
-  })
+  return listFeedPaths(app).reduce<Readonly<Hono>>(
+    (routes, feedPath) =>
+      routes.get(feedPath, async (c) => {
+        const notFound = async () =>
+          c.html(await renderNotFoundPage(app, undefined, requestedPath(c.req.url)), 404)
+        if (!renderRssFeed) return notFound()
+        try {
+          // `BASE_URL` first, as the sitemap: the feed advertises the canonical
+          // address, not the internal one a proxied request came in on.
+          const baseUrl = resolveRequestBaseUrl(c)
+          const xml = await renderRssFeed(app, baseUrl, queryMasksReader(c), feedPath)
+          if (xml === undefined) return notFound()
+          return c.body(xml, 200, {
+            'Content-Type': 'application/rss+xml; charset=utf-8',
+            'Cache-Control': 'public, max-age=300',
+          })
+        } catch (error) {
+          return answerRenderFailure(c, error, (requestId) =>
+            renderErrorPage(app, undefined, requestId)
+          )
+        }
+      }),
+    honoApp
+  )
 }
 
 /**
- * Setup test error route
+ * Setup test error route: a deliberate 500 for a developer's own server. Any
+ * public origin answers the not-found page instead, whatever `NODE_ENV` says —
+ * the binary never sets it — and `NODE_ENV=production` closes it on loopback.
  */
 export function setupTestErrorRoute(
   honoApp: Readonly<Hono>,
@@ -439,7 +423,7 @@ export function setupTestErrorRoute(
   const { app, renderNotFoundPage } = config
 
   return honoApp.get('/test/error', (c) => {
-    if (isProductionEnv()) {
+    if (isProductionEnv() || isPublicOrigin()) {
       const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
       return c.html(renderNotFoundPage(app, detectedLanguage, requestedPath(c.req.url)), 404)
     }

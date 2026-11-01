@@ -6,6 +6,12 @@
  */
 
 import { recordFieldRefsIn } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  componentField,
+  entryAsComponent,
+  rewriteComponent,
+  type ComponentEntry,
+} from './component-rewrite'
 import type { Component } from '@/domain/models/app/pages/components'
 
 /**
@@ -19,8 +25,8 @@ const extractFieldRefsFromString = recordFieldRefsIn
  * Extracts the set of field names referenced via $record.* in a component's content and props.
  */
 function extractRecordFieldRefs(component: Component): readonly string[] {
-  const contentRefs =
-    typeof component.content === 'string' ? extractFieldRefsFromString(component.content) : []
+  const content = componentField(component, 'content')
+  const contentRefs = typeof content === 'string' ? extractFieldRefsFromString(content) : []
 
   const propRefs = component.props
     ? Object.values(component.props).flatMap((v) =>
@@ -38,20 +44,25 @@ function extractRecordFieldRefs(component: Component): readonly string[] {
  * and props only, and its children are left for its own pass.
  */
 function withoutRestrictedRefs(
-  children: Component['children'],
+  children: readonly ComponentEntry[] | undefined,
   restrictedFields: ReadonlySet<string>
-): Component['children'] {
+): readonly ComponentEntry[] | undefined {
   if (!children) return children
   return children
-    .filter((child: Component | string) => {
+    .filter((child) => {
       if (typeof child === 'string') return true
-      return !extractRecordFieldRefs(child).some((ref) => restrictedFields.has(ref))
+      const refs = extractRecordFieldRefs(entryAsComponent(child))
+      return !refs.some((ref) => restrictedFields.has(ref))
     })
-    .map((child: Component | string) =>
-      typeof child === 'string' || child.dataSource !== undefined || !child.children
+    .map((child) => {
+      if (typeof child === 'string') return child
+      const node = entryAsComponent(child)
+      return componentField(node, 'dataSource') !== undefined || !node.children
         ? child
-        : { ...child, children: withoutRestrictedRefs(child.children, restrictedFields) }
-    )
+        : rewriteComponent(node, {
+            children: withoutRestrictedRefs(node.children, restrictedFields),
+          })
+    })
 }
 
 /**
@@ -77,10 +88,9 @@ export function applyFieldLevelPermissions(
     : requestedFields
 
   return {
-    component: {
-      ...component,
+    component: rewriteComponent(component, {
       children: withoutRestrictedRefs(component.children, restrictedFields),
-    },
+    }),
     fields: filteredFields,
   }
 }

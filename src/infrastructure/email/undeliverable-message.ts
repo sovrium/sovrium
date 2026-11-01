@@ -8,6 +8,7 @@
 import { printJournalWarning } from '@/infrastructure/logging/cli-output'
 import { logWarning } from '@/infrastructure/logging/logger'
 import { isProduction } from '@/infrastructure/process/env'
+import { isStrictlyLocalOrigin } from '@/infrastructure/process/security-posture'
 import type { SendMailOptions } from './nodemailer'
 
 /**
@@ -19,22 +20,26 @@ import type { SendMailOptions } from './nodemailer'
  * The same event is reported two different ways, and the difference is not
  * verbosity — it is who reads the stream.
  *
- * In **development** the terminal belongs to one person, who is at that moment
- * blocked. Dropping the message silently is what makes local work on an auth
- * flow impossible: the reset link they need in order to click it exists for one
- * instant inside the process and is then discarded, and a one-line notice
- * naming the recipient and the subject would still omit the URL — the one
- * part of the message nobody can reconstruct by hand. So the whole message
- * joins the journal they are already watching.
+ * On a **strictly local** server the terminal belongs to one person, who is at
+ * that moment blocked. Dropping the message silently is what makes local work
+ * on an auth flow impossible: the reset link they need in order to click it
+ * exists for one instant inside the process and is then discarded, and a
+ * one-line notice naming the recipient and the subject would still omit the
+ * URL — the one part of the message nobody can reconstruct by hand. So the
+ * whole message joins the journal they are already watching.
  *
- * In **production** the log is shipped, retained, and read by people who are
+ * **Anywhere else** the log is shipped, retained, and read by people who are
  * not the developer. A reset link is a BEARER CREDENTIAL: writing one into a
- * retained log hands account takeover to anyone with log access. So production
- * keeps the single line it has always had, with no body and no links, and that
+ * retained log hands account takeover to anyone with log access. So every
+ * other deployment gets a single line, with no body and no links, and that
  * asymmetry is the point rather than an inconsistency to tidy away.
  *
- * a CLI log journal spec (the dev journal carries To/Subject/body/Link) against
- * a CLI log journal spec (production carries none of them).
+ * "Strictly local" is decided by the deployment posture, not by `NODE_ENV`:
+ * the binary and the container image never set it, so a check keyed on it
+ * alone would dump links on every real deployment. The server must be on a
+ * loopback origin with no reverse proxy declared
+ * ({@link isStrictlyLocalOrigin}); `NODE_ENV=production` still switches the
+ * dump off on top of that, and `SOVRIUM_ALLOW_INSECURE` never switches it on.
  */
 
 /**
@@ -51,6 +56,9 @@ const JOURNAL_TAG = 'email'
 
 /** Absolute `http`/`https` URLs, greedily up to the first whitespace. */
 const URL_PATTERN = /https?:\/\/\S+/g
+
+/** What a link becomes in the one-line notice: a link is a credential. */
+const REDACTED_LINK = '[link redacted]'
 
 /**
  * Punctuation a URL can pick up from the prose around it — a closing quote from
@@ -130,10 +138,11 @@ export const reportUndeliverableMessage = (options: Readonly<SendMailOptions>): 
   const recipient = describeRecipient(options.to)
   const subject = asText(options.subject) ?? ''
 
-  if (isProduction()) {
+  if (isProduction() || !isStrictlyLocalOrigin()) {
     logWarning(
       `[${JOURNAL_TAG}] Email sending disabled (SMTP not configured) — ` +
-        `skipped sending to "${recipient}" with subject "${subject}"`
+        `skipped sending to "${recipient}" with subject "${subject.replace(URL_PATTERN, REDACTED_LINK)}"; ` +
+        'set SMTP_HOST or EMAIL_PROVIDER to deliver it'
     )
     return
   }

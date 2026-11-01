@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The JSON-RPC 2.0 framing of the MCP Streamable HTTP transport, at the
  * protocol revision {@link MCP_PROTOCOL_VERSION}: the request bodies the client
@@ -57,9 +59,6 @@ export type RpcOutcome =
   | { readonly kind: 'error'; readonly message: string }
   /** No response with that id: the body was not JSON-RPC. */
   | { readonly kind: 'malformed'; readonly message: string }
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const parseJson = (text: string): unknown => {
   try {

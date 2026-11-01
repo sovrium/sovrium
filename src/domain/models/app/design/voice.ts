@@ -37,7 +37,7 @@ export const VoicePronounSchema = Schema.String.pipe(
   Schema.annotate({
     title: 'Address Pronoun',
     description:
-      "How the system addresses the reader (e.g. 'tu', 'vous', 'you'). Free-form, because the register contract is per-language.",
+      "How the system addresses the reader in this app's default language (e.g. 'tu', 'vous', 'you'). Free-form, because the register contract is per-language: the other languages an app declares choose their own.",
     examples: ['tu', 'vous', 'you'],
   }),
   Schema.check(Schema.isMinLength(1, { message: 'Voice pronoun must not be empty' }))

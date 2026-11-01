@@ -29,6 +29,8 @@
 
 import { Effect } from 'effect'
 import { LinkRepository } from '@/application/ports/repositories/links/link-repository'
+import { resolveAnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
+import { roundReportCount } from '@/domain/models/app/analytics/report-rounding-service'
 import { buildCatalog, dbEntry, configEntry, primaryDestination } from './catalog'
 import { configSlugs, declaredLink } from './config-slugs'
 import { clicksWindowOf, countRecentLinkClicks, resolveEntryState } from './link-state'
@@ -71,6 +73,14 @@ export interface LinkCatalogPage {
   readonly nextCursor: string | null
   readonly total: number
 }
+
+/**
+ * The clicks figure as the app's analytics profile answers it: rounded under
+ * `audience-only` (the default), stored under `full`. Only the ANSWER is
+ * rounded; a link's `maxClicks` is enforced on the stored count.
+ */
+const reportedClicks = (app: App, clicks: number): number =>
+  resolveAnalyticsProfile(app.analytics) === 'audience-only' ? roundReportCount(clicks) : clicks
 
 /** Opaque base64 cursor over the slug — the catalog's sort key. */
 const encodeCursor = (slug: string): string => btoa(slug)
@@ -150,7 +160,10 @@ export const listLinkCatalog = (input: {
     )
     return {
       ...page,
-      items: page.items.map((row) => ({ ...row, clicks: clicks.get(row.entry.slug) ?? 0 })),
+      items: page.items.map((row) => ({
+        ...row,
+        clicks: reportedClicks(app, clicks.get(row.entry.slug) ?? 0),
+      })),
     }
   }).pipe(Effect.withSpan('links.list-catalog'))
 
@@ -201,5 +214,5 @@ export const readLinkEntry = (input: {
     if (entry === undefined) return undefined
     const state = yield* resolveEntryState(app.name, entry, now)
     const clicks = yield* countRecentLinkClicks(app.name, [entry.slug], clicksWindowOf(now))
-    return { entry, state, clicks: clicks.get(entry.slug) ?? 0 }
+    return { entry, state, clicks: reportedClicks(app, clicks.get(entry.slug) ?? 0) }
   }).pipe(Effect.withSpan('links.read-entry'))

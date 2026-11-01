@@ -102,6 +102,8 @@ export type ResolvedFieldDef = TypedColumnConfig & {
   readonly autocomplete?: string
   readonly readOnly?: boolean
   readonly disabled?: boolean
+  /** Why the field is drawn disabled: the message of the lock rule holding it on the record. */
+  readonly lockReason?: string
   readonly defaultValue?: string | number | boolean
   readonly hidden?: boolean
   readonly visibleWhen?: VisibleWhenCondition

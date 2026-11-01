@@ -34,13 +34,11 @@ import {
   type ReleaseNotes,
 } from '@/domain/kernel/markdown/release-notes'
 import RAW_PAYLOAD from './embedded-changelog.generated.json' with { type: 'file' }
+import { embeddedFilePath } from './embedded-file-path'
 
 export type { EmbeddedChangelogPayload, ReleaseNotes } from '@/domain/kernel/markdown/release-notes'
 
-// A `with { type: 'file' }` import is a path string at runtime, while TypeScript
-// types it as the JSON's shape. Cast through `unknown` to recover the runtime
-// type — the same recovery `embedded-skills.ts` and `embedded-docs.ts` make.
-const PAYLOAD_PATH = RAW_PAYLOAD as unknown as string
+const PAYLOAD_PATH = embeddedFilePath(RAW_PAYLOAD)
 
 /**
  * The embedded payload, decoded once per call.

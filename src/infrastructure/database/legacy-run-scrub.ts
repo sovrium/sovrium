@@ -33,13 +33,11 @@
 
 import { sql } from 'drizzle-orm'
 import { readStoredRecords } from '@/domain/models/app/automations/run-record-refs-service'
-import { db } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { logError, logInfo } from '@/infrastructure/logging/logger'
 import { scrubRuns } from './account-purge-runs'
-import { executeRaw } from './sql/dialect-execute'
-import { systemTableRef } from './sql/dialect-sql'
 import type { App } from '@/domain/models/app'
-import type { DrizzleDB, DrizzleTransaction } from '@/infrastructure/database'
+import type { TransactionOn, DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** How many marked runs one batch reads and settles. */
 const BATCH = 200
@@ -74,25 +72,30 @@ const parsedJson = (value: unknown): unknown => {
 const UNFINISHED_STATUSES = ['queued', 'running', 'waiting-approval'] as const
 
 /** The next batch of ended runs still marked as recorded before the refs. */
-const markedRuns = async (database: Readonly<DrizzleDB>): Promise<readonly LegacyRun[]> => {
+const markedRuns = async ({
+  client: database,
+  dialect,
+}: DatabaseService): Promise<readonly LegacyRun[]> => {
   const unfinished = sql.join(
     UNFINISHED_STATUSES.map((status) => sql`${status}`),
     sql`, `
   )
-  const runs = await executeRaw(
+  const runs = await executeRawOn(
+    dialect.kind,
     database,
     sql`SELECT r.id AS id, d.name AS automation_name, r.trigger_data AS trigger_data
-        FROM ${systemTableRef('automation_run_refs')} AS m
-        INNER JOIN ${systemTableRef('automation_runs')} AS r ON r.id = m.run_id
-        LEFT JOIN ${systemTableRef('automation_definitions')} AS d ON d.id = r.automation_id
+        FROM ${dialect.sql.systemTableRef('automation_run_refs')} AS m
+        INNER JOIN ${dialect.sql.systemTableRef('automation_runs')} AS r ON r.id = m.run_id
+        LEFT JOIN ${dialect.sql.systemTableRef('automation_definitions')} AS d ON d.id = r.automation_id
         WHERE m.table_name = '' AND r.status NOT IN (${unfinished})
         LIMIT ${BATCH}`
   )
   return Promise.all(
     runs.map(async (run) => {
-      const steps = await executeRaw(
+      const steps = await executeRawOn(
+        dialect.kind,
         database,
-        sql`SELECT action_name, status, output FROM ${systemTableRef('automation_run_steps')}
+        sql`SELECT action_name, status, output FROM ${dialect.sql.systemTableRef('automation_run_steps')}
             WHERE run_id = ${String(run['id'])} ORDER BY step_index`
       )
       return {
@@ -111,49 +114,51 @@ const markedRuns = async (database: Readonly<DrizzleDB>): Promise<readonly Legac
 
 /** Scrub the runs of one batch that read stored records, and drop the batch's markers. */
 const settleBatch = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   app: App,
   batch: readonly LegacyRun[]
 ): Promise<number> => {
   const toScrub = batch.filter((run) => readStoredRecords({ app, ...run })).map((run) => run.id)
-  const scrubbed = await scrubRuns(tx, toScrub)
+  const scrubbed = await scrubRuns({ tx, dialect }, toScrub)
   const ids = sql.join(
     batch.map((run) => sql`${run.id}`),
     sql`, `
   )
-  await executeRaw(
+  await executeRawOn(
+    dialect.kind,
     tx,
-    sql`DELETE FROM ${systemTableRef('automation_run_refs')} WHERE table_name = '' AND run_id IN (${ids})`
+    sql`DELETE FROM ${dialect.sql.systemTableRef('automation_run_refs')} WHERE table_name = '' AND run_id IN (${ids})`
   )
   return scrubbed
 }
 
 /** Settle every marked run, batch after batch. Returns how many were scrubbed. */
 const settleAll = async (
-  database: Readonly<DrizzleDB>,
+  { client: database, dialect }: DatabaseService,
   app: App,
   sofar: number
 ): Promise<number> => {
-  const batch = await markedRuns(database)
+  const batch = await markedRuns({ client: database, dialect })
   if (batch.length === 0) return sofar
-  const scrubbed = await database.transaction((tx) => settleBatch(tx, app, batch))
-  return settleAll(database, app, sofar + scrubbed)
+  const scrubbed = await database.transaction((tx) => settleBatch({ tx, dialect }, app, batch))
+  return settleAll({ client: database, dialect }, app, sofar + scrubbed)
 }
 
 /**
  * Scrub, once, every run recorded before runs kept refs that read stored
  * records (see the module header). Returns how many runs were scrubbed.
  */
-export const scrubLegacyRuns = (app: App, database: Readonly<DrizzleDB> = db): Promise<number> =>
+export const scrubLegacyRuns = (app: App, database: DatabaseService): Promise<number> =>
   settleAll(database, app, 0)
 
 /**
- * The boot step: {@link scrubLegacyRuns}, logged, never failing the start. A
- * failure leaves the remaining markers for the next start to settle.
+ * The boot step: {@link scrubLegacyRuns} on the boot's database, logged, never
+ * failing the start. A failure leaves the remaining markers for the next start
+ * to settle.
  */
-export const runLegacyRunScrub = async (app: App): Promise<void> => {
+export const runLegacyRunScrub = async (app: App, database: DatabaseService): Promise<void> => {
   try {
-    const scrubbed = await scrubLegacyRuns(app)
+    const scrubbed = await scrubLegacyRuns(app, database)
     if (scrubbed > 0) {
       logInfo(
         `[legacy-run-scrub] emptied the values of ${String(scrubbed)} automation run(s) recorded before runs kept the records they read`

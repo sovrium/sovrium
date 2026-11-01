@@ -24,10 +24,13 @@
  * types exist" — and `[internal ref]` belongs to a different owner besides.
  *
  * Nothing is re-derived here. Adding a component type is still one edit, in
- * `allComponents`.
+ * `allComponents`. The `text` element tuple crosses the same hop, for
+ * `design.components.text.elements`.
  */
 
 export {
   ENGINE_COMPONENT_TYPES,
+  TEXT_ELEMENTS,
   type EngineComponentType,
+  type TextElement,
 } from './pages/components/component-types'

@@ -1,6 +1,6 @@
 # Reading the Manual Offline
 
-> `sovrium docs` prints this manual out of the binary — offline, with no config file, no database and no network — so what you read describes the engine you are actually running.
+> `sovrium docs` prints this manual out of the binary (offline, with no config file, no database and no network), so what you read describes the engine you are actually running.
 
 The manual for the binary ships **inside** the binary. That is the same promise `sovrium types` already makes for the TypeScript surface, extended from types to prose: the declaration `sovrium types` emits describes the schema **that** binary accepts, and the manual `sovrium docs` prints describes **that** binary's behaviour. A version skew between the running engine and the documentation it hands you is not representable.
 
@@ -34,7 +34,7 @@ Two of those names are also section slugs, so the section cannot be reached by n
 | `sovrium docs admin`  | The `admin <page>` lookup, asking for a page    |
 | `sovrium docs search` | The `search <query>` lookup, asking for a query |
 
-Both exit non-zero rather than printing the section. Address those two sections either through an article — `sovrium docs admin/admin-dashboard` — or through the flag, which never competes with a subcommand:
+Both exit non-zero rather than printing the section. Address those two sections either through an article (`sovrium docs admin/admin-dashboard`) or through the flag, which never competes with a subcommand:
 
 ```bash
 sovrium docs --section admin
@@ -45,7 +45,7 @@ Every other section is addressable by name.
 
 ## Two halves, assembled at read time
 
-The narrative is authored as markdown fragments co-located with the code they describe — the article about the `llms` key sits beside the schema file and its tests. The option tables are **not authored at all**: a fragment carries a directive naming a schema, and the command expands it from that schema's own annotations when it prints.
+The narrative is authored as markdown fragments co-located with the code they describe: the article about the `llms` key sits beside the schema file and its tests. The option tables are **not authored at all**: a fragment carries a directive naming a schema, and the command expands it from that schema's own annotations when it prints.
 
 A table can therefore never fall behind the option it documents, because it does not exist until the moment it is read. A directive naming a schema that no longer exists is a build error; a hand-written table describing a schema that no longer exists is a lie nobody notices.
 
@@ -67,9 +67,9 @@ What this does **not** prove is worth stating plainly rather than implying: "aut
 
 ## Exporting for a documentation site
 
-`sovrium docs --export <dir>` writes the whole manual as a directory a documentation site can build from, using nothing but the binary — no source tree, no network.
+`sovrium docs --export <dir>` writes the whole manual as a directory a documentation site can build from, using nothing but the binary, with no source tree and no network.
 
-- **One file per article**, `<dir>/<slug>.md`: a six-key frontmatter block (`title`, `description`, `keywords`, `section`, `order`, `sidebarLabel`) followed by exactly the body `sovrium docs <section>/<slug>` prints. Links a website cannot follow — a relative path, a source file — are flattened to their words. The files are byte-identical to the English articles on the published Sovrium site, which are generated from this same renderer.
+- **One file per article**, `<dir>/<slug>.md`: a six-key frontmatter block (`title`, `description`, `keywords`, `section`, `order`, `sidebarLabel`) followed by exactly the body `sovrium docs <section>/<slug>` prints. Links a website cannot follow (a relative path, a source file) are flattened to their words. The files are byte-identical to the English articles on the published Sovrium site, which are generated from this same renderer.
 - **One manifest**, `<dir>/_nav.json`, carrying what a sidebar needs without re-reading the articles:
 
   ```json
@@ -100,32 +100,32 @@ What this does **not** prove is worth stating plainly rather than implying: "aut
   }
   ```
 
-  Sections are in reading order and articles in section order; `tabs` is in first-appearance order; `files` is every file the export wrote other than the manifest, sorted. Labels, icons and landing paths are not in it — they are your site's copy.
+  Sections are in reading order and articles in section order; `tabs` is in first-appearance order; `files` is every file the export wrote other than the manifest, sorted. Labels, icons and landing paths are not in it: they are your site's copy.
 
 - **A non-empty directory is refused** without `--force`, and nothing is written. A missing directory is created with its parents; an empty one is accepted.
-- **`--force` replaces what the export owns and nothing else.** Ownership is the previous export's own `_nav.json` `files` list: those files are removed, the new set is written, and anything the manifest never listed — pages your site authors beside the exported ones — is left untouched. A directory with no manifest has no owned files, so `--force` then only overwrites the paths it writes. It never clears the directory.
+- **`--force` replaces what the export owns and nothing else.** Ownership is the previous export's own `_nav.json` `files` list: those files are removed, the new set is written, and anything the manifest never listed (pages your site authors beside the exported ones) is left untouched. A directory with no manifest has no owned files, so `--force` then only overwrites the paths it writes. It never clears the directory.
 - **It is its own output mode.** It refuses to run without a directory, and refuses to combine with an address, a subcommand, `--full`, `--list-sections`, `--section`, `--output` or `--format`, naming both flags.
-- **Deterministic.** Two exports from one binary are byte-identical, manifest included — no timestamp, no absolute path — so a site can pin a version, regenerate, and treat any diff as a real change.
+- **Deterministic.** Two exports from one binary are byte-identical, manifest included (no timestamp, no absolute path), so a site can pin a version, regenerate, and treat any diff as a real change.
 
 ## Pointing an agent at it
 
-The whole point is that an agent configuring your app reads the rules from the artifact it is configuring, rather than from pretrained knowledge that may describe a different version. Put this in the project's `CLAUDE.md` — `sovrium init` scaffolds it for you:
+The whole point is that an agent configuring your app reads the rules from the artifact it is configuring, rather than from pretrained knowledge that may describe a different version. Put this in the project's `CLAUDE.md`. `sovrium init` scaffolds it for you:
 
 ```markdown
-The complete manual ships in the `sovrium` binary — do not search the web.
+The complete manual ships in the `sovrium` binary. Do not search the web.
 Run `sovrium docs search <topic>`, then `sovrium docs config <path>`.
 The docs describe THIS binary: check `sovrium --version`.
 ```
 
 A practical loop for authoring a config with an agent:
 
-1. **Give it the context it needs, and no more.** `sovrium docs search <topic>` finds the article; `sovrium docs <section>/<slug>` prints it. Reach for `--full` only when a tool genuinely needs the whole corpus in one call — it is large enough to crowd out everything else in a context window.
+1. **Give it the context it needs, and no more.** `sovrium docs search <topic>` finds the article; `sovrium docs <section>/<slug>` prints it. Reach for `--full` only when a tool genuinely needs the whole corpus in one call: it is large enough to crowd out everything else in a context window.
 2. **Author in TypeScript.** Run `sovrium types` once, then have the agent generate an `app.ts` checked with `satisfies AppConfig`. Your editor validates its output as it writes, catching invalid field types and misshaped sections inline.
 3. **Validate before running.** `sovrium validate app.ts` confirms the config decodes, surfacing unknown field types and structural errors with exit code `1`.
 4. **Iterate against the running app.** `sovrium start app.ts --watch` reloads on save, so the agent can refine the config and see the result.
 
-Pairing the manual (context) with the declaration `sovrium types` writes (compile-time validation) and `sovrium validate` (runtime decode) gives the agent a tight feedback loop: generated configs are checked at author time and at validate time, before they ever boot. **When this manual and `sovrium schema` disagree, the schema wins** — it is derived from the same definitions the decoder runs.
+Pairing the manual (context) with the declaration `sovrium types` writes (compile-time validation) and `sovrium validate` (runtime decode) gives the agent a tight feedback loop: generated configs are checked at author time and at validate time, before they ever boot. **When this manual and `sovrium schema` disagree, the schema wins**, since it is derived from the same definitions the decoder runs.
 
 ## The published-website equivalents
 
-A Sovrium app can publish its own machine-readable documentation over HTTP — an `llms.txt` index, an `llms-full.txt` corpus, and a raw-markdown twin of every page — through the `llms` key of the config. That is a different surface with a different audience: those files describe **your** app to a crawler, where `sovrium docs` describes **the engine** to whoever is configuring it. See the App Schema section for the key.
+A Sovrium app can publish its own machine-readable documentation over HTTP (an `llms.txt` index, an `llms-full.txt` corpus, and a raw-markdown twin of every page) through the `llms` key of the config. That is a different surface with a different audience: those files describe **your** app to a crawler, where `sovrium docs` describes **the engine** to whoever is configuring it. See the App Schema section for the key.

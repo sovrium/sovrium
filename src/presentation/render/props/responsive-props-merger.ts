@@ -10,9 +10,9 @@ import {
   applyResponsiveOverrides,
   buildResponsiveClasses,
   buildResponsiveColumnClasses,
+  type Breakpoint,
 } from './responsive-resolver'
 import type { Responsive, VariantOverrides } from '@/domain/models/app/pages/components/responsive'
-import type { Breakpoint } from '@/presentation/render/props/use-breakpoint'
 
 /**
  * Result of merging responsive props

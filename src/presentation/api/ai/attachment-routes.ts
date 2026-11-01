@@ -12,27 +12,33 @@ import {
   type ChatAttachmentRefused,
 } from '@/application/use-cases/ai/chat-attachments'
 import { resolveUploadBucket } from '@/application/use-cases/buckets/resolve-bucket'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
+import { isInlineSafeImageMime } from '@/domain/kernel/identity/mime-types'
 import { buildContentDisposition } from '@/domain/kernel/url/content-disposition'
 import {
   chatAttachmentUploadQuerySchema,
   chatAttachmentUploadResponseSchema,
 } from '@/domain/models/api/ai/chat'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import {
   findChatAttachmentPolicy,
   tooLargeMessage,
   UNSUPPORTED_TYPE_MESSAGE,
   type ChatAttachmentPolicy,
 } from '@/domain/models/app/pages/components/component-types/ai/ai-chat-attachments-validation'
+import { checkPersonAiRateLimit } from '@/infrastructure/ai/agents/chat-rate-limit'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { checkChatRateLimit } from '@/infrastructure/process/chat-rate-limit'
-import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
+import { acceptsUploadBody } from '@/presentation/api/middleware/request-body-limit'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { readMultipartFile } from '@/presentation/api/runtime/multipart-file'
-import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import { readMultipartFile, readUploadedBytes } from '@/presentation/api/runtime/multipart-file'
+import { rateLimitedResponse } from '@/presentation/api/runtime/rate-limit-response'
+import {
+  answerFailures,
+  runHandlerEffect,
+  toErrorResponse,
+} from '@/presentation/api/runtime/run-effect'
+import { UNTRUSTED_FILE_CSP } from '@/presentation/api/runtime/untrusted-file-headers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -123,7 +129,7 @@ const gateUpload = (c: Context, app: App): UploadTarget | Response => {
   if (userId === undefined) return notFound(c)
   const target = resolveTarget(c, app)
   if (target === undefined) return notFound(c)
-  const rate = checkChatRateLimit(`attachments:${userId}`)
+  const rate = checkPersonAiRateLimit('attachments', userId)
   if (rate.limited) return rateLimitedResponse(c, rate.retryAfter)
   if (declaresOversizedBody(c, target.policy)) {
     return refusal(c, 413, tooLargeMessage(target.policy.maxSizeMb))
@@ -132,77 +138,100 @@ const gateUpload = (c: Context, app: App): UploadTarget | Response => {
 }
 
 /** Store an admitted file and answer its 201, or the refusal. */
-const storeUpload = async (c: Context, target: UploadTarget, file: File): Promise<Response> => {
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  const incoming = { name: file.name, declaredType: file.type, bytes }
-  const result = await runRequestEffect(
-    c,
-    provideDomain(c, storeChatAttachment({ ...target, file: incoming })).pipe(Effect.result)
-  )
-  if (result._tag === 'Failure') {
-    const { failure } = result
-    if (failure._tag === 'ChatAttachmentRefused') return refusedResponse(c, failure)
-    return failed(c, '[ai] chat attachment upload failed', failure)
-  }
-  const { success: stored } = result
-  const shaped = decodeSafe(chatAttachmentUploadResponseSchema)({
-    attachmentId: stored.id,
-    name: stored.name,
-    size: stored.size,
-    mimeType: stored.mimeType,
-    bucket: stored.bucket,
+const storeUpload = (c: Context, target: UploadTarget, file: File) =>
+  Effect.gen(function* () {
+    const bytes = yield* readUploadedBytes(file)
+    const incoming = { name: file.name, declaredType: file.type, bytes }
+    const result = yield* storeChatAttachment({ ...target, file: incoming }).pipe(Effect.result)
+    if (result._tag === 'Failure') {
+      const { failure } = result
+      if (failure._tag === 'ChatAttachmentRefused') return refusedResponse(c, failure)
+      return failed(c, '[ai] chat attachment upload failed', failure)
+    }
+    const { success: stored } = result
+    const shaped = decodeSafe(chatAttachmentUploadResponseSchema)({
+      attachmentId: stored.id,
+      name: stored.name,
+      size: stored.size,
+      mimeType: stored.mimeType,
+      bucket: stored.bucket,
+    })
+    if (!shaped.success) return toErrorResponse(c, shaped.error)
+    return c.json(shaped.data, 201)
   })
-  if (!shaped.success) return toErrorResponse(c, shaped.error)
-  return c.json(shaped.data, 201)
-}
 
-const handleUpload = async (c: Context, app: App): Promise<Response> => {
-  const target = gateUpload(c, app)
-  if (target instanceof Response) return target
-  const file = await readMultipartFile(c, 'file')
-  if (file === undefined) {
-    return c.json(
-      errorBody({ error: 'Send the file in the "file" field.', code: ApiErrorCode.BAD_REQUEST }),
-      400
-    )
-  }
-  return storeUpload(c, target, file)
-}
-
-const handleRead = async (c: Context): Promise<Response> => {
-  const userId = getSessionContext(c)?.userId
-  const attachmentId = c.req.param('attachmentId')
-  if (userId === undefined || attachmentId === undefined) return notFound(c)
-  const result = await runRequestEffect(
+const handleUpload = (c: Context, app: App) =>
+  runHandlerEffect(
     c,
-    provideDomain(c, readChatAttachment({ attachmentId, userId })).pipe(Effect.result)
-  )
-  if (result._tag === 'Failure') {
-    const { failure } = result
-    if (failure._tag === 'ChatAttachmentNotFound') return notFound(c)
-    logError('[ai] chat attachment read failed', failure)
-    return c.json(
-      errorBody({ error: 'The file could not be read.', code: ApiErrorCode.STORAGE_ERROR }),
-      500
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const target = gateUpload(c, app)
+        if (target instanceof Response) return target
+        // effect-promise: total -- a body that does not parse reads as no file.
+        const file = yield* Effect.promise(() => readMultipartFile(c, 'file'))
+        if (file === undefined) {
+          return c.json(
+            errorBody({
+              error: 'Send the file in the "file" field.',
+              code: ApiErrorCode.BAD_REQUEST,
+            }),
+            400
+          )
+        }
+        return yield* storeUpload(c, target, file)
+      })
     )
-  }
-  const { record, bytes } = result.success
-  const inline = record.mimeType === 'application/pdf' || record.mimeType.startsWith('image/')
-  return new Response(Uint8Array.from(bytes), {
-    status: 200,
-    headers: {
-      'Content-Type': record.mimeType,
-      'Content-Length': String(bytes.length),
-      'Content-Disposition': buildContentDisposition(record.name, inline ? 'inline' : 'attachment'),
-      'X-Content-Type-Options': 'nosniff',
-      'Cache-Control': 'private, no-store',
-    },
-  })
-}
+  )
+
+const handleRead = (c: Context) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const userId = getSessionContext(c)?.userId
+        const attachmentId = c.req.param('attachmentId')
+        if (userId === undefined || attachmentId === undefined) return notFound(c)
+        const result = yield* readChatAttachment({ attachmentId, userId }).pipe(Effect.result)
+        if (result._tag === 'Failure') {
+          const { failure } = result
+          if (failure._tag === 'ChatAttachmentNotFound') return notFound(c)
+          logError('[ai] chat attachment read failed', failure)
+          return c.json(
+            errorBody({ error: 'The file could not be read.', code: ApiErrorCode.STORAGE_ERROR }),
+            500
+          )
+        }
+        const { record, bytes } = result.success
+        // Only a PDF and a raster image are previewed inline: an SVG carries script,
+        // so it is downloaded, and every answer keeps the stored-file CSP.
+        const inline =
+          record.mimeType === 'application/pdf' || isInlineSafeImageMime(record.mimeType)
+        return new Response(Uint8Array.from(bytes), {
+          status: 200,
+          headers: {
+            'Content-Type': record.mimeType,
+            'Content-Length': String(bytes.length),
+            'Content-Disposition': buildContentDisposition(
+              record.name,
+              inline ? 'inline' : 'attachment'
+            ),
+            'Content-Security-Policy': UNTRUSTED_FILE_CSP,
+            'X-Content-Type-Options': 'nosniff',
+            'Cache-Control': 'private, no-store',
+          },
+        })
+      })
+    )
+  )
 
 /** Chain the chat attachment routes onto the app. Always registered. */
 export function chainAiChatAttachmentRoutes(honoApp: Hono, app: App): Hono {
   return honoApp
-    .post('/api/ai/chat/attachments', (c) => handleUpload(c, app))
+    .post(
+      '/api/ai/chat/attachments',
+      acceptsUploadBody((c: Context) => handleUpload(c, app))
+    )
     .get('/api/ai/chat/attachments/:attachmentId', (c) => handleRead(c))
 }

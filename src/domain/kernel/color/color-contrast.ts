@@ -160,6 +160,32 @@ const linearFromRgb = (parts: readonly string[]): LinearRgb => {
   return [r ?? Number.NaN, g ?? Number.NaN, b ?? Number.NaN]
 }
 
+/** One HSL channel of the published HSL → sRGB conversion, gamma-encoded, 0–1. */
+const hslChannel = (n: number, hue: number, saturation: number, lightness: number): number => {
+  const k = (n + hue / 30) % 12
+  const a = saturation * Math.min(lightness, 1 - lightness)
+  return lightness - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+}
+
+/**
+ * `hsl(210 40% 50%)` / `hsla(210, 40%, 50%, 0.5)` → linear-light sRGB.
+ *
+ * HSL is a re-parametrisation of gamma-encoded sRGB, so it goes through the
+ * same transfer function as hex and `rgb()`. A bare saturation or lightness
+ * number is read as a percentage, the way CSS Color 4 reads one.
+ */
+const linearFromHsl = (parts: readonly string[]): LinearRgb => {
+  const hue = ((Number.parseFloat(parts[0] ?? '') % 360) + 360) % 360
+  const [saturation, lightness] = [1, 2].map((index) => Number.parseFloat(parts[index] ?? '') / 100)
+  if ([hue, saturation, lightness].some((part) => part === undefined || Number.isNaN(part))) {
+    return [Number.NaN, Number.NaN, Number.NaN]
+  }
+  const [r, g, b] = [0, 8, 4].map((n) =>
+    linearise(clamp01(hslChannel(n, hue, clamp01(saturation ?? 0), clamp01(lightness ?? 0))))
+  )
+  return [r ?? Number.NaN, g ?? Number.NaN, b ?? Number.NaN]
+}
+
 /**
  * Any supported CSS colour string → linear-light sRGB.
  *
@@ -170,6 +196,8 @@ const COLOR_SPACES: Readonly<Record<string, (parts: readonly string[]) => Linear
   oklch: linearFromOklch,
   rgb: linearFromRgb,
   rgba: linearFromRgb,
+  hsl: linearFromHsl,
+  hsla: linearFromHsl,
 }
 
 /** A functional colour notation, or `undefined` for a space this cannot read. */
@@ -204,7 +232,7 @@ const luminanceOfLinear = ([r, g, b]: LinearRgb): number => 0.2126 * r + 0.7152 
  * and used at whatever size the author reaches for — grading it at the lenient
  * threshold would certify a pair that fails wherever it is most read.
  *
- * @param foreground - the ink, in hex, `rgb()`, `oklch()`, or `white`/`black`.
+ * @param foreground - the ink, in hex, `rgb()`, `hsl()`, `oklch()`, or `white`/`black`.
  * @param background - the ground it sits on, in the same forms.
  * @returns the measurement, or `undefined` if either colour is not understood.
  */
@@ -288,6 +316,31 @@ export const srgbHex = (value: string): string | undefined => {
 
   return `#${linear
     .map((channel) => encodeChannel(channel).toString(16).padStart(2, '0'))
+    .join('')}`.toUpperCase()
+}
+
+/** One byte of a `#RRGGBB` string, read at `offset`. */
+const byteAt = (hex: string, offset: number): number =>
+  Number.parseInt(hex.slice(offset, offset + 2), 16)
+
+/**
+ * The `#RRGGBB` a browser paints when `ink` is laid over `ground` at `alpha`
+ * (0–1): what a translucent tint such as a 5 % highlight band looks like.
+ *
+ * Composited channel by channel in GAMMA-ENCODED sRGB, because that is where a
+ * browser blends a translucent fill with what is under it; blending the linear
+ * values would give a lighter tint than the one on screen. `undefined` when
+ * either colour has no faithful sRGB hex ({@link srgbHex}).
+ */
+export const overlayColor = (ground: string, ink: string, alpha: number): string | undefined => {
+  const [base, top] = [srgbHex(ground), srgbHex(ink)]
+  if (base === undefined || top === undefined) return undefined
+  return `#${[1, 3, 5]
+    .map((offset) =>
+      Math.round(byteAt(base, offset) * (1 - alpha) + byteAt(top, offset) * alpha)
+        .toString(16)
+        .padStart(2, '0')
+    )
     .join('')}`.toUpperCase()
 }
 

@@ -29,6 +29,7 @@ import { emptyRowProps } from './select-empty-row'
 import { ChevronDown, ChevronUp, XMark } from './select-icons'
 import { SelectOptions } from './select-option-renderers'
 import type { OptionItem, SelectIslandProps } from './select-island-types'
+import type { ComponentPartName } from '@/domain/models/app/design/component-parts'
 
 /**
  * Non-searchable select rendered with Base UI Select primitives.
@@ -107,7 +108,7 @@ const partClasses = (
   designFloor: Readonly<Record<string, string>> | undefined,
   designReplace: boolean | undefined
 ): SelectPartClasses => {
-  const part = (name: string, recipe: () => string): string =>
+  const part = (name: Exclude<ComponentPartName<'select'>, 'root'>, recipe: () => string): string =>
     resolveClasses(
       designReplace === true ? '' : recipe(),
       designClasses?.[name],

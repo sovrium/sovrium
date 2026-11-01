@@ -94,6 +94,11 @@ const injectPassThroughAttrs = (fragment: string, attrs: string): string =>
  * Shiki-highlighted, sanitised markup. Returns the input verbatim when the page
  * has no such placeholders. Every block is drawn with shadcn/ui's default
  * light/dark pair.
+ *
+ * This is the FALLBACK path: `code-highlight-resolver.ts` highlights every
+ * `code` component before render, and only a block it could not split reaches
+ * here. It writes no syntax-role class (`tok-<role>`), so under `design.code` a
+ * block drawn here keeps the default token colours rather than the design's.
  */
 export const highlightComponentCodeBlocks = async (html: string): Promise<string> => {
   const matches = [...html.matchAll(PLACEHOLDER_RE)]

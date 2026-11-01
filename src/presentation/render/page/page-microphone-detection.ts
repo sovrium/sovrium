@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { componentFields } from '@/presentation/render/resolve/component-rewrite'
 import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -62,6 +63,6 @@ export const pageCapturesMicrophone = (
   if (page === undefined) return false
   const forms = app.forms ?? []
   return someComponentInTree(page.components, app.components, (node) =>
-    componentCapturesMicrophone(node, forms)
+    componentCapturesMicrophone(componentFields(node), forms)
   )
 }

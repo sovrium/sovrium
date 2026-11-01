@@ -34,6 +34,13 @@ export interface DataSourceQueryOptions {
   readonly lookupMasks?: readonly LookupReadMask[]
 }
 
+/** How `fetchSingleRecord` reads its one row. */
+export interface SingleRecordReadOptions {
+  readonly fields?: readonly string[]
+  readonly liveOnly?: boolean
+  readonly paramLanguage?: string
+}
+
 // ============================================================================
 // Error type
 // ============================================================================
@@ -78,14 +85,13 @@ export class DataSourceRepository extends Context.Service<
       tableName: string,
       paramField: string,
       paramValue: string,
-      fields?: readonly string[],
       /**
+       * `fields`: the columns to read (every column when absent or empty).
        * `liveOnly`: a soft-deleted row reads as absent (`deleted_at IS NULL`).
        * `paramLanguage`: `paramField` is translatable, and `paramValue` is
        * compared with its STORED value in that language code — never a fallback.
        */
-      options?: { readonly liveOnly?: boolean; readonly paramLanguage?: string }
-      // eslint-disable-next-line max-params -- positional signature kept for its existing callers; `options` is an optional fifth argument
+      options?: SingleRecordReadOptions
     ) => Effect.Effect<Record<string, unknown> | undefined, DataSourceDatabaseError>
 
     /**

@@ -68,7 +68,7 @@ No chains: a redirect's target answers 200 directly. After restructuring, update
 | ------------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Size                     | ≤ 50 000 URLs and ≤ 50 MB uncompressed per file | `/sitemap.xml`; past 5 000 URLs an index over `/sitemap-N.xml`, each ≤ 5 000                                               |
 | Contents                 | Only canonical, indexable, 200 URLs             | Public pages minus noindex, `/_*`, `sitemap: false`                                                                        |
-| `lastmod`                | The real last significant change, W3C datetime  | Only when known (file modification time, record `updated-at`), ISO 8601 with time; absent otherwise                        |
+| `lastmod`                | The real last significant change, W3C datetime  | Only when known (a content article's front matter `updated`, record `updated-at`), ISO 8601 with time; absent otherwise    |
 | `priority`, `changefreq` | Ignored by Google                               | Emitted (defaults 0.5, monthly); per page via `sitemap`                                                                    |
 | Record detail pages      | Should be listed when public                    | Listed when anonymously readable (table `read: all`, no row rule, address field readable by all, not deleted); cached 60 s |
 

@@ -13,8 +13,9 @@
  */
 
 import { Effect, Schema } from 'effect'
+import { CliRefusal } from '@/cli/runtime/run-command'
 import { deploymentRecordFieldsSchema } from '@/domain/models/api/automations/automations'
-import { CliRefusal, readCloudRecord, say } from './cloud-session'
+import { readCloudRecord, say } from './cloud-session'
 import {
   attemptLines,
   describeDeploymentStatus,

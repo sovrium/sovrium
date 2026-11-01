@@ -17,6 +17,7 @@
  * reads back. Pausing and resuming the turn is the agent runtime's.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import type { ChatToolDefinition } from './ai-chat-tools'
 
 /** The built-in tool through which an agent asks the person it is chatting with. */
@@ -127,9 +128,6 @@ export const askUserToolDefinition = (): ChatToolDefinition => ({
     },
   },
 })
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const optionalText = (value: unknown): { readonly description?: string } =>
   typeof value === 'string' && value.trim() !== '' ? { description: value } : {}

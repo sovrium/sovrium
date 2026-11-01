@@ -14,7 +14,7 @@
  * already in flight: a browser holding a cached copy of the old script keeps
  * sending the old shape for as long as its cache lives.
  *
- * SAME FIVE STEPS, deliberately — excluded-path → DNT → fire-and-forget → 204.
+ * SAME FIVE STEPS, deliberately — excluded-path → DNT/GPC → fire-and-forget → 204.
  * The privacy gating is identical to every other event, and the exclusion is
  * applied to the PAGE the click happened on rather than the destination: an
  * operator excluding a page means "do not measure activity here", and a click is
@@ -33,17 +33,21 @@
 import { Effect } from 'effect'
 import { collectOutboundClick } from '@/application/use-cases/analytics/collect-outbound-click'
 import { matchesAnyGlobPattern } from '@/domain/kernel/matching/glob-matcher'
+import { requestDeclinesTracking } from '@/domain/models/app/analytics/privacy-signals-service'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import type { AnalyticsClickPayload } from '@/domain/models/api/analytics/analytics'
+import type { AnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
 import type { ValidatedContext } from '@/presentation/api/runtime/effect-validator'
 
 /** The slice of the analytics route config this handler reads. */
 export interface ClickHandlerConfig {
   readonly appName: string
   readonly excludedPaths?: readonly string[]
-  readonly respectDoNotTrack?: boolean
+  readonly respectDoNotTrack: boolean
+  readonly respectGlobalPrivacyControl: boolean
+  readonly profile: AnalyticsProfile
 }
 
 /** Record one outbound click, or decline to, and answer 204 either way. */
@@ -56,7 +60,7 @@ export function handleClick(
   const noContent = (): Response => c.body(null, 204)
 
   if (matchesAnyGlobPattern(config.excludedPaths, body.pagePath)) return noContent()
-  if (config.respectDoNotTrack === true && c.req.header('DNT') === '1') return noContent()
+  if (requestDeclinesTracking(config, (name) => c.req.header(name))) return noContent()
 
   void Effect.runPromise(
     provideDomain(
@@ -68,7 +72,8 @@ export function handleClick(
         pagePath: body.pagePath,
         ip: getRequestClientIp(c),
         userAgent: c.req.header('user-agent') ?? '',
-        timeZone: resolveOperatorTimezone(),
+        timeZone: resolveOperatorTimezone(process.env),
+        profile: config.profile,
       })
     ).pipe(
       // effect-swallow: an outbound-click beacon. The visitor has already left for the destination, so there is nobody to report a failure to, and the endpoint answers 204 either way.

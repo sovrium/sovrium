@@ -10,9 +10,14 @@ import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Buckets } from '@/domain/models/app/buckets'
 import type { Design } from '@/domain/models/app/design'
 import type { Languages } from '@/domain/models/app/languages'
-import type { Component, ComponentType } from '@/domain/models/app/pages/components'
+import type {
+  Component,
+  ComponentOfType,
+  ComponentType,
+} from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
+import type { ComponentField } from '@/presentation/render/resolve/component-rewrite'
 import type { ReactElement } from 'react'
 
 /**
@@ -21,24 +26,57 @@ import type { ReactElement } from 'react'
  * `li` is synthesized at render time by `expandDataSourceChildren`
  * (`data-source-resolver.ts`), which wraps each record of a data-bound list in
  * one before substituting record vars — so it reaches the registry without ever
- * appearing in `ComponentTypeSchema`.
+ * appearing in `ComponentTypeSchema`. `favorites-button` is the star a
+ * single-record binding injects for a signed-in reader (`favoritesStar`,
+ * `data-source-modes.ts`).
  *
- * Kept as a NAMED one-member union rather than widening the registry key back to
+ * Kept as a NAMED union rather than widening the registry key back to
  * `string`: that widening is what let a typo'd key compile as a renderer nothing
  * would ever dispatch to. Anything added here must be a real synthesis site, and
  * the comment must name it.
  */
-export type SynthesizedOnlyComponentType = 'li'
+export type SynthesizedOnlyComponentType = 'li' | 'favorites-button'
 
 /** Every type {@link COMPONENT_REGISTRY} may be keyed on. */
 export type DispatchableComponentType = ComponentType | SynthesizedOnlyComponentType
 
 /**
+ * The component a renderer for `K` is handed: THAT type's branch of the closed
+ * component union, so a key its schema does not declare does not compile. The
+ * synthesized `li` has no branch and is handed the union.
+ *
+ * Distributes over `K`: for the whole union of types it is the whole
+ * component union, which is what a renderer not yet typed per type receives.
+ */
+export type DispatchedComponent<K extends DispatchableComponentType> = K extends ComponentType
+  ? ComponentOfType<K>
+  : Component
+
+/** Key `F` of the component a renderer for `K` is handed, on the branches that declare it. */
+type DispatchedField<K extends DispatchableComponentType, F extends string> =
+  DispatchedComponent<K> extends infer C
+    ? C extends unknown
+      ? F extends keyof C
+        ? C[F]
+        : never
+      : never
+    : never
+
+/**
  * Configuration object for component dispatching
  * Replaces multiple function parameters with a single config object
+ *
+ * `K` ties the config to the type being drawn: the registry hands the
+ * renderer registered for `K` a config whose `component` is that type's branch
+ * (`component-type-dispatcher.ts`). The tie holds because the config is built
+ * from the component itself (`type` is `component.type`), and the component is
+ * a member of its own type's branch because the app config was decoded at boot,
+ * where a component that is not is refused.
  */
-export interface ComponentDispatchConfig {
-  readonly type: DispatchableComponentType
+export interface ComponentDispatchConfig<
+  K extends DispatchableComponentType = DispatchableComponentType,
+> {
+  readonly type: K
   readonly elementProps: Record<string, unknown>
   readonly elementPropsWithSpacing: Record<string, unknown>
   readonly content: string | undefined
@@ -51,10 +89,10 @@ export interface ComponentDispatchConfig {
    * its built-in submit/field labels through `meta.lang` + app `languages`.
    */
   readonly currentLang?: string
-  readonly interactions?: Component['interactions']
-  readonly action?: Component['action']
+  readonly interactions?: ComponentField<'interactions'>
+  readonly action?: DispatchedField<K, 'action'>
   /** Original component definition (for element/variant routing) */
-  readonly component?: Component
+  readonly component?: DispatchedComponent<K>
   /** Original component props before transformation (for island components) */
   readonly rawProps?: Record<string, unknown>
   readonly tables?: Tables
@@ -103,6 +141,15 @@ export interface ComponentDispatchConfig {
 }
 
 /**
- * Component renderer function type
+ * Component renderer function type. A renderer typed for one `K` reads that
+ * type's branch off `config.component`; the default is a renderer that has
+ * not been typed per type yet and reads the whole union.
  */
-export type ComponentRenderer = (config: ComponentDispatchConfig) => ReactElement | null
+export type ComponentRenderer<K extends DispatchableComponentType = DispatchableComponentType> = (
+  config: ComponentDispatchConfig<K>
+) => ReactElement | null
+
+/** The registry's shape: for each type, a renderer typed for that type. */
+export type ComponentRegistry = {
+  readonly [K in DispatchableComponentType]?: ComponentRenderer<K>
+}

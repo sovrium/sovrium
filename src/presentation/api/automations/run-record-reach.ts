@@ -22,6 +22,7 @@
  * the linked row's columns) is judged the same way, as a read of its own table.
  */
 
+import { Effect } from 'effect'
 import { buildSyntheticSession } from '@/application/use-cases/automations/build-guest-session'
 import { rowsReadWholeBy } from '@/application/use-cases/tables/rows-read-whole'
 import {
@@ -36,9 +37,8 @@ import {
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
 import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import type { App } from '@/domain/models/app'
-import type { Context } from 'hono'
+import type { DomainServices } from '@/infrastructure/logging/request-effect'
 
 export type AppTable = NonNullable<App['tables']>[number]
 
@@ -139,34 +139,39 @@ const expandedByTable = (
  * reader with no signed-in identity, or rows nested past
  * {@link MAX_EXPANDED_DEPTH}, cannot be judged: not whole.
  */
-export const recordsReadWhole = async (input: {
-  readonly c: Context
+export const recordsReadWhole = (input: {
   readonly app: App
   readonly table: AppTable
   readonly records: readonly Row[]
   readonly reader: Reader
   readonly depth?: number
-}): Promise<boolean> => {
-  const { c, app, table, records, reader } = input
-  const depth = input.depth ?? 0
-  if (reader.userId === undefined || depth > MAX_EXPANDED_DEPTH) return false
-  const columns = new Set(table.fields.map((field) => field.name))
-  if (!readsColumns(app, table, columns, reader)) return false
-  const linkReader = {
-    session: buildSyntheticSession(reader.userId),
-    role: reader.role,
-    groups: reader.groups,
-  }
-  const rowsWhole = await runDomainPromise(
-    c,
-    rowsReadWholeBy(app, table.name, records, linkReader)
-  ).catch(() => false)
-  if (!rowsWhole) return false
-  // Sequential: each related table may cost reads on the shared pool.
-  return expandedByTable(app, table, records).reduce<Promise<boolean>>(
-    async (verdict, [related, rows]) =>
-      (await verdict) &&
-      recordsReadWhole({ c, app, table: related, records: rows, reader, depth: depth + 1 }),
-    Promise.resolve(true)
-  )
-}
+}): Effect.Effect<boolean, never, DomainServices> =>
+  Effect.gen(function* () {
+    const { app, table, records, reader } = input
+    const depth = input.depth ?? 0
+    if (reader.userId === undefined || depth > MAX_EXPANDED_DEPTH) return false
+    const columns = new Set(table.fields.map((field) => field.name))
+    if (!readsColumns(app, table, columns, reader)) return false
+    const linkReader = {
+      session: buildSyntheticSession(reader.userId),
+      role: reader.role,
+      groups: reader.groups,
+    }
+    const rowsWhole = yield* rowsReadWholeBy(app, table.name, records, linkReader).pipe(
+      // effect-swallow: fails closed, the reader sees these records masked
+      Effect.catchCause(() => Effect.succeed(false))
+    )
+    if (!rowsWhole) return false
+    // Sequential: each related table may cost reads on the shared pool.
+    return yield* expandedByTable(app, table, records).reduce<
+      Effect.Effect<boolean, never, DomainServices>
+    >(
+      (verdict, [related, rows]) =>
+        Effect.flatMap(verdict, (whole) =>
+          whole
+            ? recordsReadWhole({ app, table: related, records: rows, reader, depth: depth + 1 })
+            : Effect.succeed(false)
+        ),
+      Effect.succeed(true)
+    )
+  })

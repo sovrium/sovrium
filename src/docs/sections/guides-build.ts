@@ -12,6 +12,7 @@ import migrateFromAirtableBody from '@/docs/guides/migrate-from-airtable.md' wit
 import migrateFromMakeBody from '@/docs/guides/migrate-from-make.md' with { type: 'file' }
 import migrateFromN8nBody from '@/docs/guides/migrate-from-n8n.md' with { type: 'file' }
 import migrateFromNotionBody from '@/docs/guides/migrate-from-notion.md' with { type: 'file' }
+import migrateFromSupabaseBody from '@/docs/guides/migrate-from-supabase.md' with { type: 'file' }
 import migrateFromTypeformBody from '@/docs/guides/migrate-from-typeform.md' with { type: 'file' }
 import migrateFromZapierBody from '@/docs/guides/migrate-from-zapier.md' with { type: 'file' }
 import templatesExamplesBody from '@/docs/guides/templates-examples.md' with { type: 'file' }
@@ -20,17 +21,10 @@ import { defineArticle, defineSection } from './define'
 /**
  * Guides: build — the section manifest.
  *
- * Task-based walkthroughs, each answering one question with a complete,
- * runnable config. A guide spans several features at once, which is the whole
- * reason it cannot sit beside any one of them.
- *
- * The four guide sections share ONE directory, `src/docs/guides/`. The
- * directory is the placement — decided by the placement rule — and the section
- * is the reading order, which follows the published corpus so a reader who
- * knows the site finds the same grouping in the terminal.
- *
- * None of them carries a directive. Where a guide restated an option's values
- * it names the feature article instead, so the option is documented once.
+ * Why the guide sections share one directory and carry no directive:
+ * `[internal ref]`, § `the four guides-* sections`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const section = defineSection({
   slug: 'guides-build',
@@ -155,6 +149,26 @@ export const section = defineSection({
       order: 10_032,
       sidebarLabel: 'From Notion',
       body: migrateFromNotionBody,
+      documents: [],
+      stories: [],
+    }),
+    defineArticle({
+      slug: 'migrate-from-supabase',
+      title: 'Migrate from Supabase to Sovrium',
+      description:
+        'Move a Supabase project with sovrium import: tables, row-level security, users and storage buckets, then point your front-end at the app with a typed client.',
+      keywords: [
+        'sovrium',
+        'supabase',
+        'migrate from supabase',
+        'self-hosted backend',
+        'row-level security',
+        'sovrium import',
+        'sovrium client',
+      ],
+      order: 10_034,
+      sidebarLabel: 'From Supabase',
+      body: migrateFromSupabaseBody,
       documents: [],
       stories: [],
     }),

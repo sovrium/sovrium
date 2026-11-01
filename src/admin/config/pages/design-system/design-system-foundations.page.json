@@ -266,7 +266,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-[10px] leading-snug opacity-75"
+                                            "className": "text-xs leading-snug opacity-75"
                                           },
                                           "visibility": {
                                             "record": {
@@ -278,64 +278,91 @@
                                         },
                                         {
                                           "type": "container",
-                                          "key": "design-system-swatches-1-2-4",
+                                          "key": "design-system-swatches-1-2-4-text-role",
                                           "element": "div",
                                           "props": {
                                             "className": "contents"
                                           },
                                           "visibility": {
                                             "record": {
-                                              "field": "contrastLevel",
-                                              "in": ["fail", "AA", "AAA"]
+                                              "field": "leaf",
+                                              "notIn": [
+                                                "background",
+                                                "card",
+                                                "popover",
+                                                "primary",
+                                                "secondary",
+                                                "muted",
+                                                "accent",
+                                                "border",
+                                                "input",
+                                                "ring"
+                                              ]
                                             }
                                           },
                                           "children": [
                                             {
                                               "type": "container",
-                                              "key": "design-system-swatches-1-2-4-1",
+                                              "key": "design-system-swatches-1-2-4",
                                               "element": "div",
                                               "props": {
-                                                "className": "bg-muted text-foreground-subtle mt-0.5 self-start rounded px-1 font-mono text-[10px]",
-                                                "data-design-contrast": "$record.leaf",
-                                                "data-design-contrast-level": "$record.contrastLevel",
-                                                "data-design-contrast-against": "$record.contrastAgainst"
+                                                "className": "contents"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "contrastLevel",
+                                                  "in": ["fail", "AA", "AAA"]
+                                                }
                                               },
                                               "children": [
                                                 {
-                                                  "type": "text",
-                                                  "element": "span",
+                                                  "type": "container",
+                                                  "key": "design-system-swatches-1-2-4-1",
+                                                  "element": "div",
                                                   "props": {
-                                                    "className": ""
+                                                    "className": "bg-muted text-foreground-subtle mt-0.5 self-start rounded px-1 font-mono text-xs",
+                                                    "data-design-contrast": "$record.leaf",
+                                                    "data-design-contrast-level": "$record.contrastLevel",
+                                                    "data-design-contrast-against": "$record.contrastAgainst"
                                                   },
-                                                  "content": "$t:admin.ds.found.on $record.contrastAgainst · $record.contrastRatio:1 "
-                                                },
-                                                {
-                                                  "type": "text",
-                                                  "element": "span",
-                                                  "props": {
-                                                    "className": ""
-                                                  },
-                                                  "visibility": {
-                                                    "record": {
-                                                      "field": "contrastLevel",
-                                                      "eq": "fail"
+                                                  "children": [
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": ""
+                                                      },
+                                                      "content": "$t:admin.ds.found.on $record.contrastAgainst · $record.contrastRatio:1 "
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": ""
+                                                      },
+                                                      "visibility": {
+                                                        "record": {
+                                                          "field": "contrastLevel",
+                                                          "eq": "fail"
+                                                        }
+                                                      },
+                                                      "content": "$t:admin.ds.found.failsAa"
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": ""
+                                                      },
+                                                      "visibility": {
+                                                        "record": {
+                                                          "field": "contrastLevel",
+                                                          "in": ["AA", "AAA"]
+                                                        }
+                                                      },
+                                                      "content": "$record.contrastLevel"
                                                     }
-                                                  },
-                                                  "content": "$t:admin.ds.found.failsAa"
-                                                },
-                                                {
-                                                  "type": "text",
-                                                  "element": "span",
-                                                  "props": {
-                                                    "className": ""
-                                                  },
-                                                  "visibility": {
-                                                    "record": {
-                                                      "field": "contrastLevel",
-                                                      "in": ["AA", "AAA"]
-                                                    }
-                                                  },
-                                                  "content": "$record.contrastLevel"
+                                                  ]
                                                 }
                                               ]
                                             }
@@ -432,7 +459,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-[10px] leading-snug opacity-75"
+                                            "className": "text-xs leading-snug opacity-75"
                                           },
                                           "visibility": {
                                             "record": {
@@ -446,7 +473,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-[10px] leading-snug opacity-75"
+                                            "className": "text-xs leading-snug opacity-75"
                                           },
                                           "visibility": {
                                             "record": {
@@ -460,7 +487,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-[10px] leading-snug opacity-75"
+                                            "className": "text-xs leading-snug opacity-75"
                                           },
                                           "visibility": {
                                             "record": {
@@ -472,64 +499,91 @@
                                         },
                                         {
                                           "type": "container",
-                                          "key": "design-system-swatches-1-3-6",
+                                          "key": "design-system-swatches-1-3-6-text-role",
                                           "element": "div",
                                           "props": {
                                             "className": "contents"
                                           },
                                           "visibility": {
                                             "record": {
-                                              "field": "darkContrastLevel",
-                                              "in": ["fail", "AA", "AAA"]
+                                              "field": "leaf",
+                                              "notIn": [
+                                                "background",
+                                                "card",
+                                                "popover",
+                                                "primary",
+                                                "secondary",
+                                                "muted",
+                                                "accent",
+                                                "border",
+                                                "input",
+                                                "ring"
+                                              ]
                                             }
                                           },
                                           "children": [
                                             {
                                               "type": "container",
-                                              "key": "design-system-swatches-1-3-6-1",
+                                              "key": "design-system-swatches-1-3-6",
                                               "element": "div",
                                               "props": {
-                                                "className": "bg-muted text-foreground-subtle mt-0.5 self-start rounded px-1 font-mono text-[10px]",
-                                                "data-design-contrast": "$record.leaf",
-                                                "data-design-contrast-level": "$record.darkContrastLevel",
-                                                "data-design-contrast-against": "$record.darkContrastAgainst"
+                                                "className": "contents"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "darkContrastLevel",
+                                                  "in": ["fail", "AA", "AAA"]
+                                                }
                                               },
                                               "children": [
                                                 {
-                                                  "type": "text",
-                                                  "element": "span",
+                                                  "type": "container",
+                                                  "key": "design-system-swatches-1-3-6-1",
+                                                  "element": "div",
                                                   "props": {
-                                                    "className": ""
+                                                    "className": "bg-muted text-foreground-subtle mt-0.5 self-start rounded px-1 font-mono text-xs",
+                                                    "data-design-contrast": "$record.leaf",
+                                                    "data-design-contrast-level": "$record.darkContrastLevel",
+                                                    "data-design-contrast-against": "$record.darkContrastAgainst"
                                                   },
-                                                  "content": "$t:admin.ds.found.on $record.darkContrastAgainst · $record.darkContrastRatio:1 "
-                                                },
-                                                {
-                                                  "type": "text",
-                                                  "element": "span",
-                                                  "props": {
-                                                    "className": ""
-                                                  },
-                                                  "visibility": {
-                                                    "record": {
-                                                      "field": "darkContrastLevel",
-                                                      "eq": "fail"
+                                                  "children": [
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": ""
+                                                      },
+                                                      "content": "$t:admin.ds.found.on $record.darkContrastAgainst · $record.darkContrastRatio:1 "
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": ""
+                                                      },
+                                                      "visibility": {
+                                                        "record": {
+                                                          "field": "darkContrastLevel",
+                                                          "eq": "fail"
+                                                        }
+                                                      },
+                                                      "content": "$t:admin.ds.found.failsAa"
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": ""
+                                                      },
+                                                      "visibility": {
+                                                        "record": {
+                                                          "field": "darkContrastLevel",
+                                                          "in": ["AA", "AAA"]
+                                                        }
+                                                      },
+                                                      "content": "$record.darkContrastLevel"
                                                     }
-                                                  },
-                                                  "content": "$t:admin.ds.found.failsAa"
-                                                },
-                                                {
-                                                  "type": "text",
-                                                  "element": "span",
-                                                  "props": {
-                                                    "className": ""
-                                                  },
-                                                  "visibility": {
-                                                    "record": {
-                                                      "field": "darkContrastLevel",
-                                                      "in": ["AA", "AAA"]
-                                                    }
-                                                  },
-                                                  "content": "$record.darkContrastLevel"
+                                                  ]
                                                 }
                                               ]
                                             }
@@ -554,7 +608,7 @@
                                   "type": "text",
                                   "element": "p",
                                   "props": {
-                                    "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                    "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                   },
                                   "content": "$t:admin.ds.found.series"
                                 },
@@ -591,7 +645,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                            "className": "text-foreground-subtle font-mono text-xs"
                                           },
                                           "content": "chart-1"
                                         }
@@ -622,7 +676,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                            "className": "text-foreground-subtle font-mono text-xs"
                                           },
                                           "content": "chart-2"
                                         }
@@ -653,7 +707,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                            "className": "text-foreground-subtle font-mono text-xs"
                                           },
                                           "content": "chart-3"
                                         }
@@ -684,7 +738,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                            "className": "text-foreground-subtle font-mono text-xs"
                                           },
                                           "content": "chart-4"
                                         }
@@ -715,7 +769,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                            "className": "text-foreground-subtle font-mono text-xs"
                                           },
                                           "content": "chart-5"
                                         }
@@ -738,7 +792,7 @@
                                   "type": "text",
                                   "element": "p",
                                   "props": {
-                                    "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                    "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                   },
                                   "content": "$t:admin.common.state"
                                 },
@@ -886,7 +940,7 @@
                               "type": "text",
                               "element": "p",
                               "props": {
-                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                               },
                               "content": "$t:admin.ds.found.faces"
                             },
@@ -944,7 +998,7 @@
                               "type": "text",
                               "element": "p",
                               "props": {
-                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                               },
                               "content": "$t:admin.ds.found.ladder"
                             },
@@ -1088,7 +1142,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                               },
                                               "content": "$t:admin.ds.found.platformLadder"
                                             },
@@ -1120,7 +1174,7 @@
                                                       "type": "text",
                                                       "element": "span",
                                                       "props": {
-                                                        "className": "text-foreground-subtle w-[90px] shrink-0 font-mono text-[11px]"
+                                                        "className": "text-foreground-subtle w-[90px] shrink-0 font-mono text-xs"
                                                       },
                                                       "content": "$record.utility"
                                                     },
@@ -1128,7 +1182,7 @@
                                                       "type": "text",
                                                       "element": "span",
                                                       "props": {
-                                                        "className": "text-foreground-subtle w-[70px] shrink-0 font-mono text-[11px]"
+                                                        "className": "text-foreground-subtle w-[70px] shrink-0 font-mono text-xs"
                                                       },
                                                       "content": "$record.sizePx / $record.leadingPx"
                                                     },
@@ -1156,7 +1210,7 @@
                               "type": "text",
                               "element": "p",
                               "props": {
-                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                               },
                               "content": "$t:admin.ds.found.emphasis"
                             },
@@ -1180,7 +1234,7 @@
                                       "type": "text",
                                       "element": "p",
                                       "props": {
-                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                       },
                                       "content": "$t:admin.ds.found.primary"
                                     },
@@ -1206,7 +1260,7 @@
                                       "type": "text",
                                       "element": "p",
                                       "props": {
-                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                       },
                                       "content": "$t:admin.ds.found.muted"
                                     },
@@ -1232,7 +1286,7 @@
                                       "type": "text",
                                       "element": "p",
                                       "props": {
-                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                       },
                                       "content": "$t:admin.common.disabled"
                                     },
@@ -1376,7 +1430,7 @@
                                   "type": "text",
                                   "element": "p",
                                   "props": {
-                                    "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                    "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                   },
                                   "content": "$t:admin.ds.found.density"
                                 },
@@ -1414,7 +1468,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                            "className": "text-foreground-subtle font-mono text-xs"
                                           },
                                           "content": "density.buttonH"
                                         }
@@ -1454,7 +1508,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                            "className": "text-foreground-subtle font-mono text-xs"
                                           },
                                           "content": "density.controlH"
                                         }
@@ -1644,7 +1698,7 @@
                                       "type": "text",
                                       "element": "p",
                                       "props": {
-                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                       },
                                       "content": "$t:admin.ds.found.cardSample"
                                     },
@@ -1680,7 +1734,7 @@
                                       "type": "text",
                                       "element": "p",
                                       "props": {
-                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                       },
                                       "content": "$t:admin.ds.found.subtle"
                                     },
@@ -1739,7 +1793,7 @@
                                   "type": "text",
                                   "element": "p",
                                   "props": {
-                                    "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                    "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                   },
                                   "content": "$t:admin.ds.found.duration"
                                 },
@@ -1774,7 +1828,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground font-mono text-[11px]"
+                                            "className": "text-foreground font-mono text-xs"
                                           },
                                           "content": "$record.leaf"
                                         },
@@ -1782,7 +1836,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                            "className": "text-foreground-subtle font-mono text-xs"
                                           },
                                           "content": "$record.value"
                                         }
@@ -1805,7 +1859,7 @@
                                   "type": "text",
                                   "element": "p",
                                   "props": {
-                                    "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                    "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                   },
                                   "content": "$t:admin.ds.found.easing"
                                 },
@@ -1851,7 +1905,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                            "className": "text-foreground-subtle font-mono text-xs"
                                           },
                                           "content": "$record.leaf"
                                         }
@@ -1942,7 +1996,7 @@
                               "type": "text",
                               "element": "p",
                               "props": {
-                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                               },
                               "content": "$t:admin.ds.found.inert"
                             },
@@ -2027,7 +2081,7 @@
                               "type": "text",
                               "element": "p",
                               "props": {
-                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                               },
                               "content": "$t:admin.ds.found.noDtcg"
                             },
@@ -2135,7 +2189,7 @@
                           "type": "text",
                           "element": "p",
                           "props": {
-                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                           },
                           "content": "$t:admin.ds.onThisPage"
                         }

@@ -156,6 +156,16 @@ const CommandItemSchema = Schema.Struct({
       Schema.check(Schema.isMinLength(1))
     )
   ),
+  description: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'A caption drawn under the label, saying what the item leads to. Typing matches it as it matches the label, so a reader who remembers the purpose rather than the name still finds the item. Accepts a $t: key.',
+        examples: ['Accounts and roles', 'Who did what, and when'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
   icon: Schema.optional(
     Schema.String.annotate({
       description: 'Lucide icon drawn before the label',

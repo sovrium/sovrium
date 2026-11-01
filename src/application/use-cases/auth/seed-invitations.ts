@@ -5,16 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Data, Effect, Result } from 'effect'
-import { InvitationIssuer } from '@/application/ports/services/invitation-issuer'
+import { Effect, Result } from 'effect'
 import { buildAcceptInvitationUrl } from './admin-invitation'
 import { findOrCreateInvitedUser, issueInvitation } from './invitation-issuance'
+import type { InvitationIssuer } from '@/application/ports/services/invitation-issuer'
 import type { App } from '@/domain/models/app'
 
-/** The issuance itself rejected — the store or the engine was unreachable. */
-export class InvitationIssueError extends Data.TaggedError('InvitationIssueError')<{
-  readonly cause: unknown
-}> {}
+/** Why the store or the engine could not be reached, in the words a seed run prints. */
+const unreachableMessage = (cause: unknown): string =>
+  cause instanceof Error ? cause.message : String(cause)
 
 /** One pending invitation a seed run issues. */
 export interface SeedInvitee {
@@ -43,41 +42,32 @@ export const issueSeedInvitations = (input: {
   readonly invitees: readonly SeedInvitee[]
   readonly origin: string
 }): Effect.Effect<readonly SeedInvitationOutcome[], never, InvitationIssuer> =>
-  Effect.gen(function* () {
-    const services = yield* InvitationIssuer
-    return yield* Effect.forEach(input.invitees, (invitee) =>
-      Effect.tryPromise({
-        try: () =>
-          issueInvitation({
-            services,
-            authConfig: input.app.auth,
-            invitee,
-            inviterId: invitee.inviterId,
-          }),
-        catch: (cause) => new InvitationIssueError({ cause }),
-      }).pipe(
-        Effect.result,
-        Effect.map((issued): SeedInvitationOutcome => {
-          if (Result.isFailure(issued)) {
-            const { cause } = issued.failure
-            return {
-              ok: false,
-              email: invitee.email,
-              message: cause instanceof Error ? cause.message : String(cause),
-            }
+  Effect.forEach(input.invitees, (invitee) =>
+    issueInvitation({
+      authConfig: input.app.auth,
+      invitee,
+      inviterId: invitee.inviterId,
+    }).pipe(
+      Effect.result,
+      Effect.map((issued): SeedInvitationOutcome => {
+        if (Result.isFailure(issued)) {
+          return {
+            ok: false,
+            email: invitee.email,
+            message: unreachableMessage(issued.failure.cause),
           }
-          const result = issued.success
-          return result.status === 'invited'
-            ? {
-                ok: true,
-                email: invitee.email,
-                link: buildAcceptInvitationUrl(input.origin, result.token, input.app.pages),
-              }
-            : { ok: false, email: invitee.email, message: result.message }
-        })
-      )
+        }
+        const result = issued.success
+        return result.status === 'invited'
+          ? {
+              ok: true,
+              email: invitee.email,
+              link: buildAcceptInvitationUrl(input.origin, result.token, input.app.pages),
+            }
+          : { ok: false, email: invitee.email, message: result.message }
+      })
     )
-  }).pipe(Effect.withSpan('auth.issue-seed-invitations'))
+  ).pipe(Effect.withSpan('auth.issue-seed-invitations'))
 
 /** One unclaimed account a seed run creates: who it is, never a credential. */
 export interface SeedUnclaimedAccount {
@@ -101,28 +91,21 @@ export type SeedUnclaimedOutcome =
 export const createSeedUnclaimedAccounts = (input: {
   readonly accounts: readonly SeedUnclaimedAccount[]
 }): Effect.Effect<readonly SeedUnclaimedOutcome[], never, InvitationIssuer> =>
-  Effect.gen(function* () {
-    const services = yield* InvitationIssuer
-    return yield* Effect.forEach(input.accounts, (account) =>
-      Effect.tryPromise({
-        try: () => findOrCreateInvitedUser(services, account),
-        catch: (cause) => new InvitationIssueError({ cause }),
-      }).pipe(
-        Effect.result,
-        Effect.map((created): SeedUnclaimedOutcome => {
-          if (Result.isFailure(created)) {
-            const { cause } = created.failure
-            return {
-              ok: false,
-              email: account.email,
-              message: cause instanceof Error ? cause.message : String(cause),
-            }
+  Effect.forEach(input.accounts, (account) =>
+    findOrCreateInvitedUser(account).pipe(
+      Effect.result,
+      Effect.map((created): SeedUnclaimedOutcome => {
+        if (Result.isFailure(created)) {
+          return {
+            ok: false,
+            email: account.email,
+            message: unreachableMessage(created.failure.cause),
           }
-          const result = created.success
-          return 'outcome' in result
-            ? { ok: true, email: account.email }
-            : { ok: false, email: account.email, message: result.message }
-        })
-      )
+        }
+        const result = created.success
+        return 'outcome' in result
+          ? { ok: true, email: account.email }
+          : { ok: false, email: account.email, message: result.message }
+      })
     )
-  }).pipe(Effect.withSpan('auth.create-seed-unclaimed-accounts'))
+  ).pipe(Effect.withSpan('auth.create-seed-unclaimed-accounts'))

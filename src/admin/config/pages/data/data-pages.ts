@@ -25,6 +25,7 @@ import agents from './agents'
 import { automationPages } from './automations'
 import buckets from './buckets'
 import connections from './connections'
+import footprint from './footprint'
 import forms from './forms'
 import links from './links'
 import organisation from './organisation'
@@ -49,9 +50,9 @@ export const dataPages: readonly PageConfig[] = [
   // question an operator arrives with.
   organisation,
   ...users,
-  // `/pages` and the retained `/footprint`, which is the same page opened on
-  // the other tab.
+  // Analytics, then Footprint, its own page since it describes the instance.
   ...pages,
+  footprint,
   // Application
   ...automationPages,
   ...tables,

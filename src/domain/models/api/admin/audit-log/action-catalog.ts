@@ -91,19 +91,6 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // must be answerable afterwards. `config` is the resource — the export
   // describes the running configuration, it is not an entity of its own.
   'config.design.queried': 'config',
-  // Schema-config MUTATIONS.
-  // Every config-mutation path funnels through `emitAuditEvent` so the Activity
-  // feed records who changed the config, how (the `transport` canal), and which
-  // action. All key on the singular `config` resource type — the schema config
-  // is the single target resource regardless of the mutation verb.
-  //   - `schema.draft.update`   — a full-draft PUT (`PUT …/schema/draft`)
-  //   - `schema.draft.rebase`   — the file-reconcile rebase (`POST …/draft/rebase`)
-  //   - `schema.draft.publish`  — a publish (`POST …/draft/publish`)
-  //   - `schema.version.restore`— a version restore (`POST …/versions/:n/restore`)
-  'schema.draft.update': 'config',
-  'schema.draft.rebase': 'config',
-  'schema.draft.publish': 'config',
-  'schema.version.restore': 'config',
   // Admin tables overview readback. `table` singular because the action
   // TARGETS the table itself — a naive derivation from the action prefix would
   // produce `table.overview`, which names no entity. This entry is the override.
@@ -327,10 +314,6 @@ export const AUDIT_ACTIONS = {
   CONFIG_SCHEMA_QUERIED: 'config.schema.queried',
   CONFIG_ENV_QUERIED: 'config.env.queried',
   CONFIG_DESIGN_QUERIED: 'config.design.queried',
-  SCHEMA_DRAFT_UPDATE: 'schema.draft.update',
-  SCHEMA_DRAFT_REBASE: 'schema.draft.rebase',
-  SCHEMA_DRAFT_PUBLISH: 'schema.draft.publish',
-  SCHEMA_VERSION_RESTORE: 'schema.version.restore',
   TABLE_OVERVIEW_QUERIED: 'table.overview.queried',
   TABLE_RECORD_BUTTON_INVOKED: 'table.record.button.invoked',
   BUCKET_LIST_QUERIED: 'bucket.list.queried',

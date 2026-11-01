@@ -22,7 +22,8 @@
  * threaded through it. They share ONE guard — `requireAdminCaller`
  * (`isAdminEquivalent`, denying with **404**, never 403) — so the whole
  * invitation surface answers a non-admin identically and none of it is
- * discoverable by probing. The `/api/admin/*` wildcard in `api-routes.ts` sits
+ * discoverable by probing. The `/api/admin/*` wildcard in
+ * `middleware/admin-route-guards.ts` sits
  * in front as defence in depth.
  *
  * **An invitation is addressed by its row id, never by its token.** The token
@@ -33,6 +34,7 @@
 
 import { Effect } from 'effect'
 import { getCookie } from 'hono/cookie'
+import { Invitations } from '@/application/ports/services/invitations'
 import {
   consoleLabels,
   resolveOperatorLanguage,
@@ -46,18 +48,16 @@ import {
   adminInvitationResendResponseSchema,
   adminInvitationRevokeResponseSchema,
 } from '@/domain/models/api/admin/invitations/lifecycle'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { readableName } from '@/domain/models/app/auth/readable-name-service'
 import { LANGUAGE_PREFERENCE_COOKIE } from '@/domain/models/app/languages/language-detection'
 import { logError } from '@/infrastructure/logging/logger'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { requireAdminCaller } from '@/presentation/api/auth/admin-invitation-guard'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import type { InvitationServices } from '@/application/ports/contracts/invitation-services'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
-import type { Schema } from 'effect'
 import type { Context, Hono } from 'hono'
 
 type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
@@ -80,34 +80,20 @@ const respondToActionFailure = (
     : c.json({ success: false, message: result.message, code: 'INTERNAL_ERROR' }, 500)
 
 /**
- * The response-schema surface this module needs, described STRUCTURALLY.
- *
- * Zod is restricted to `domain/models/api` and `presentation` (see
- * `[internal ref]`), and this route module lives in
- * infrastructure — so the gate is typed by the one method it calls rather than
- * by importing Zod's types across that boundary.
+ * Whatever a program left unanswered, or a crash inside it: logged, and the
+ * action's own 500.
  */
-
-/**
- * Gate an assembled body through its response schema before it goes on the
- * wire, answering 500 rather than shipping a body that violates the contract.
- *
- * The schemas are `.strict()`, so this is the boundary that would catch a stray
- * key — a token above all — smuggled into an invitation payload.
- */
-const respondValidated = (
+export const answerCrash = <E, R>(
   c: Context,
-  schema: Schema.Top,
-  body: unknown,
-  what: string
-): Response => {
-  const parsed = decodeSafe(schema)(body)
-  if (!parsed.success) {
-    logError(`[admin-invitation] ${what} response validation failed`, parsed.error)
-    return c.json({ success: false, message: `Failed to ${what}`, code: 'INTERNAL_ERROR' }, 500)
-  }
-  return c.json(parsed.data as Record<string, unknown>, 200)
-}
+  program: Effect.Effect<Response, E, R>,
+  action: { readonly name: string; readonly message: string }
+): Effect.Effect<Response, never, R> =>
+  Effect.catchCause(program, (cause) =>
+    Effect.sync(() => {
+      logError(`[admin-invitation] ${action.name} handler crashed`, cause)
+      return c.json({ success: false, message: action.message, code: 'INTERNAL_ERROR' }, 500)
+    })
+  )
 
 /**
  * What the console calls `role` for the caller, as the invitations read
@@ -116,28 +102,25 @@ const respondValidated = (
  * read falls back to English rather than failing a resend that already went
  * out.
  */
-const roleLabelForCaller = async (
+const roleLabelForCaller = (
   c: Context,
   app: Readonly<App> | undefined,
   actorUserId: string,
   role: string
-): Promise<string> => {
-  if (app === undefined) return readableName(role)
+) => {
+  if (app === undefined) return Effect.succeed(readableName(role))
   const preferredLanguage = getCookie(c, LANGUAGE_PREFERENCE_COOKIE)
-  const language = await runDomainPromise(
-    c,
-    resolveOperatorLanguage({
-      actorUserId,
-      ...(preferredLanguage === undefined ? {} : { preferredLanguage }),
-    }).pipe(
-      Effect.tapCause((cause) =>
-        Effect.sync(() => logError('[admin-invitation] operator language read failed', cause))
-      ),
-      // Swallowed on purpose: the label is presentation, the resend is done.
-      Effect.orElseSucceed(() => 'en' as const)
-    )
+  return resolveOperatorLanguage({
+    actorUserId,
+    ...(preferredLanguage === undefined ? {} : { preferredLanguage }),
+  }).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError('[admin-invitation] operator language read failed', cause))
+    ),
+    // Swallowed on purpose: the label is presentation, the resend is done.
+    Effect.orElseSucceed(() => 'en' as const),
+    Effect.map((language) => consoleLabels(app, language).role(role))
   )
-  return consoleLabels(app, language).role(role)
 }
 
 /**
@@ -155,41 +138,40 @@ const createResendInvitationHandler =
     resolveBaseURL,
     invitations,
   }: InvitationLifecycleRouteDeps) =>
-  async (c: Context) => {
-    try {
-      const authorized = await requireAdminCaller(authInstance, c, app)
-      if (authorized instanceof Response) return authorized
+  (c: Context) =>
+    runHandlerEffect(
+      c,
+      answerCrash(
+        c,
+        Effect.gen(function* () {
+          const authorized = yield* requireAdminCaller(authInstance, c, app)
+          if (authorized instanceof Response) return authorized
 
-      const result = await resendInvitation({
-        store: invitations.store,
-        authConfig: app?.auth,
-        emailHandlers,
-        baseURL: resolveBaseURL(c),
-        inviterName: authorized.session.user.name ?? 'An administrator',
-        id: c.req.param('id') ?? '',
-        pages: [...(app?.pages ?? []), ...(invitations.linkPages ?? [])],
-      })
-      if (result.status !== 'ok') return respondToActionFailure(c, result)
-      const roleLabel = await roleLabelForCaller(
-        c,
-        app,
-        authorized.session.user.id,
-        result.value.role
+          const resend = resendInvitation({
+            authConfig: app?.auth,
+            emailHandlers,
+            baseURL: resolveBaseURL(c),
+            inviterName: authorized.session.user.name ?? 'An administrator',
+            id: c.req.param('id') ?? '',
+            pages: [...(app?.pages ?? []), ...(invitations.linkPages ?? [])],
+          })
+          const result = yield* Effect.provideService(resend, Invitations, invitations)
+          if (result.status !== 'ok') return respondToActionFailure(c, result)
+          const roleLabel = yield* roleLabelForCaller(
+            c,
+            app,
+            authorized.session.user.id,
+            result.value.role
+          )
+          return yield* respondWith(
+            c,
+            Effect.succeed({ invitation: { ...result.value, roleLabel } }),
+            adminInvitationResendResponseSchema
+          )
+        }),
+        { name: 'resend-invitation', message: 'Failed to resend invitation' }
       )
-      return respondValidated(
-        c,
-        adminInvitationResendResponseSchema,
-        { invitation: { ...result.value, roleLabel } },
-        'resend invitation'
-      )
-    } catch (error) {
-      logError('[admin-invitation] resend-invitation handler crashed', error)
-      return c.json(
-        { success: false, message: 'Failed to resend invitation', code: 'INTERNAL_ERROR' },
-        500
-      )
-    }
-  }
+    )
 
 /**
  * DELETE /api/admin/invitations/:id
@@ -201,27 +183,30 @@ const createResendInvitationHandler =
  */
 const createRevokeInvitationHandler =
   ({ authInstance, app, invitations }: InvitationLifecycleRouteDeps) =>
-  async (c: Context) => {
-    try {
-      const authorized = await requireAdminCaller(authInstance, c, app)
-      if (authorized instanceof Response) return authorized
-
-      const result = await revokeInvitation(invitations.store, c.req.param('id') ?? '')
-      if (result.status !== 'ok') return respondToActionFailure(c, result)
-      return respondValidated(
+  (c: Context) =>
+    runHandlerEffect(
+      c,
+      answerCrash(
         c,
-        adminInvitationRevokeResponseSchema,
-        { id: result.value, revoked: true },
-        'revoke invitation'
+        Effect.gen(function* () {
+          const authorized = yield* requireAdminCaller(authInstance, c, app)
+          if (authorized instanceof Response) return authorized
+
+          const result = yield* Effect.provideService(
+            revokeInvitation(c.req.param('id') ?? ''),
+            Invitations,
+            invitations
+          )
+          if (result.status !== 'ok') return respondToActionFailure(c, result)
+          return yield* respondWith(
+            c,
+            Effect.succeed({ id: result.value, revoked: true }),
+            adminInvitationRevokeResponseSchema
+          )
+        }),
+        { name: 'revoke-invitation', message: 'Failed to revoke invitation' }
       )
-    } catch (error) {
-      logError('[admin-invitation] revoke-invitation handler crashed', error)
-      return c.json(
-        { success: false, message: 'Failed to revoke invitation', code: 'INTERNAL_ERROR' },
-        500
-      )
-    }
-  }
+    )
 
 /** Everything the three lifecycle routes need to be constructed. */
 export interface InvitationLifecycleRouteDeps {

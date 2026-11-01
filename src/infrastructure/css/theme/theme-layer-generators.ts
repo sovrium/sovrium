@@ -73,15 +73,49 @@ export function buildBodyClasses(hasBodyFont: boolean): readonly string[] {
 
 /**
  * Build heading classes — canonical `fg` text token (always present); the font
- * class still tracks the author's title-font token.
+ * class follows the faces the author named: `title`, then `body`, then the
+ * default, so a heading is never set in a typeface the design does not mention
+ * while it names one for running text.
  *
  * @param hasTitleFont - Whether design defines title font
+ * @param hasBodyFont - Whether design defines body font
  * @returns Array of CSS class names for heading elements
  */
-export function buildHeadingClasses(hasTitleFont: boolean): readonly string[] {
-  const fontClass = hasTitleFont ? 'font-title' : 'font-sans'
-  return [fontClass, 'font-semibold', 'tracking-tight', 'text-foreground']
+export function buildHeadingClasses(
+  hasTitleFont: boolean,
+  hasBodyFont: boolean
+): readonly string[] {
+  const bodyOrDefault = hasBodyFont ? 'font-body' : 'font-sans'
+  const fontClass = hasTitleFont ? 'font-title' : bodyOrDefault
+  return [fontClass, 'text-foreground']
 }
+
+/**
+ * A heading's default weight, written as a plain declaration rather than
+ * `@apply font-semibold`. The utility would also set `--tw-font-weight`, and a
+ * `text-{step}` utility reads that variable BEFORE its own
+ * `--text-{step}--font-weight`, so the default would beat every step's declared
+ * weight. A plain `font-weight` leaves the variable unset: a step utility then
+ * applies its own weight, and a step that declares none leaves this one alone.
+ */
+export const HEADING_DEFAULT_WEIGHT_DECLARATION = 'font-weight: 600;'
+
+/**
+ * A heading's default tight tracking, written as a plain declaration for the
+ * same reason as its weight. `@apply tracking-tight` would set
+ * `--tw-tracking`, which a `text-{step}` utility reads BEFORE its own
+ * `--text-{step}--letter-spacing`, so the default would beat every step's
+ * declared letter spacing. A plain `letter-spacing` leaves the variable unset:
+ * a step utility then applies its own spacing, and a step that declares none
+ * leaves this one alone.
+ */
+export const HEADING_DEFAULT_TRACKING_DECLARATION = 'letter-spacing: var(--tracking-tight);'
+
+/** A heading's default declarations, before any the `title` family adds. */
+const HEADING_DEFAULT_DECLARATIONS = [
+  HEADING_DEFAULT_WEIGHT_DECLARATION,
+  HEADING_DEFAULT_TRACKING_DECLARATION,
+] as const
 
 /**
  * Build link classes — canonical `primary` tokens (always present via the
@@ -266,14 +300,14 @@ export function generateBaseLayer(design?: Design): string {
   const fontFlags = extractThemeFontFlags(design)
 
   const bodyClasses = buildBodyClasses(fontFlags.hasBodyFont)
-  const headingClasses = buildHeadingClasses(fontFlags.hasTitleFont)
+  const headingClasses = buildHeadingClasses(fontFlags.hasTitleFont, fontFlags.hasBodyFont)
   const linkClasses = buildLinkClasses()
   const focusVisibleClasses = buildFocusVisibleClasses()
   const paragraphClasses = buildParagraphClasses()
   const headingSizes = buildHeadingSizeClasses()
 
-  const titleFont = extractTitleFontProperties(design)
-  const headingStyleProps = buildHeadingStyleProperties(titleFont)
+  const titleFontProps = buildHeadingStyleProperties(extractTitleFontProperties(design))
+  const headingStyleProps = [...HEADING_DEFAULT_DECLARATIONS, ...titleFontProps]
   const headingStyles = generateHeadingStyles(headingClasses, headingStyleProps)
 
   return `@layer base {

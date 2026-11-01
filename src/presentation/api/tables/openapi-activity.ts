@@ -10,7 +10,7 @@ import {
   listActivityLogsResponseSchema,
 } from '@/domain/models/api/activity/activity'
 import { activityIdParamSchema, activityQuerySchema } from '@/domain/models/api/activity/params'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import { effectJsonResponse, effectParameters } from '@/presentation/api/openapi/route-fragments'
 import { type StaticGroupSpec } from '../openapi/route-spec'
 

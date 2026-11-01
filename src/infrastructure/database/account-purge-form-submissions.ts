@@ -6,9 +6,8 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { executeRaw } from './sql/dialect-execute'
-import { systemTableRef } from './sql/dialect-sql'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Erase an account's form-submission ledger rows.
@@ -27,14 +26,19 @@ import type { DrizzleTransaction } from '@/infrastructure/database'
  *    not be read is never matched as an empty string.
  */
 export async function deleteFormSubmissionsOf(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string,
   erasedEmail: string | undefined
 ): Promise<void> {
-  const ledger = systemTableRef('form_submissions')
-  await executeRaw(tx, sql`DELETE FROM ${ledger} WHERE submitter_user_id = ${userId}`)
+  const ledger = dialect.sql.systemTableRef('form_submissions')
+  await executeRawOn(
+    dialect.kind,
+    tx,
+    sql`DELETE FROM ${ledger} WHERE submitter_user_id = ${userId}`
+  )
   if (erasedEmail === undefined || erasedEmail === '') return
-  await executeRaw(
+  await executeRawOn(
+    dialect.kind,
     tx,
     sql`DELETE FROM ${ledger} WHERE status = 'draft' AND guest_email = ${erasedEmail}`
   )

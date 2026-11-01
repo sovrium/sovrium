@@ -12,17 +12,29 @@
  * Used by element-renderers.tsx to reduce file size and complexity
  */
 
+/** Whether the author named the element (`aria-label` / `aria-labelledby`). */
+function hasAccessibleName(props: Readonly<Record<string, unknown>>): boolean {
+  return [props['aria-label'], props['aria-labelledby']].some(
+    (value) => typeof value === 'string' && value.trim() !== ''
+  )
+}
+
 /**
- * Adds accessibility role based on element type and content
+ * Adds accessibility role based on element type and content.
+ *
+ * A `section` is a region landmark only when it has an accessible name
+ * (`aria-label` or `aria-labelledby`): an unnamed one stays a plain grouping,
+ * so a landmark list never reads an anonymous "region". An author role wins.
  */
 export function buildAccessibilityRole(
   type: string,
   hasChildren: boolean,
   hasContent: boolean,
-  existingRole: unknown
+  authorProps: Readonly<Record<string, unknown>>
 ): Record<string, unknown> {
+  const existingRole = authorProps['role']
   if (type === 'section') {
-    return { role: 'region' }
+    return hasAccessibleName(authorProps) && !existingRole ? { role: 'region' } : {}
   }
   if (type === 'div' && hasChildren && !hasContent && !existingRole) {
     return { role: 'group' }

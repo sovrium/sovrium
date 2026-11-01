@@ -6,6 +6,7 @@
  */
 
 import { Context, type Effect } from 'effect'
+import type { StorageFootprintRepository } from '@/application/ports/repositories/admin/storage-footprint-repository'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { KeptServerFailureReport } from '@/domain/kernel/url/issue-report-address'
 import type { IssueReportFacts } from '@/domain/kernel/url/issue-report-failure'
@@ -45,10 +46,13 @@ export class AdminReadHost extends Context.Service<
     readonly configVersion: Effect.Effect<ConfigVersionResponse>
     /**
      * The environmental footprint body for `app`, assembled from the live
-     * telemetry and the object store's total. Validated by the read against its
-     * wire schema.
+     * telemetry, the database footprint and the object store's total. Validated
+     * by the read against its wire schema. Both stores are read off the domain
+     * services the read runs on, never built per call.
      */
-    readonly footprintOverview: (app: App) => Effect.Effect<unknown, never, StorageService>
+    readonly footprintOverview: (
+      app: App
+    ) => Effect.Effect<unknown, never, StorageService | StorageFootprintRepository>
     /**
      * Encode rows as CSV text, header row first (written even for zero rows),
      * in `columns` order — the one encoder every CSV export shares, so an HTTP

@@ -30,7 +30,7 @@
  *    until it is `live`, `failed` or `replaced` — and on `live`, wait for the
  *    app's address to answer before saying so;
  * 7. under `--seed`, once it is live, seed it `if-empty` from the bundle's
- *    `seed/` folder, as `sovrium seed --app <slug> --yes` does (`seed-remote.ts`).
+ *    `seed/` folder, as `sovrium seed --app <slug> --yes` does (`seed/remote.ts`).
  *
  * The archive never travels in the webhook body: a body is kept with its run.
  * Every answer is decoded through the deploy wire contract before it is read.
@@ -45,27 +45,41 @@
  */
 
 import { Effect } from 'effect'
-import { readValueFlag } from '@/cli/runtime/flag-vocabulary'
+import { seedAfterDeploy } from '@/cli/commands/seed/remote'
+import { defineFlags, flag, type FlagsOf } from '@/cli/runtime/flag-schema'
+import { CliRefusal, withFlags } from '@/cli/runtime/run-command'
 import { explicitAddress, readLink } from './cloud-app-lookup'
-import { CliRefusal, assertNetworkAllowed, runCliProgram } from './cloud-session'
-import { signedInCloud } from './cloud-sign-in'
+import { assertNetworkAllowed } from './cloud-session'
+import { cloudTargetFlags, signedInCloud } from './cloud-sign-in'
 import { announceAndFollow } from './deploy-follow'
 import { requestPromotion } from './deploy-promote'
-import { DEPLOY_INTAKE, ship } from './deploy-ship'
+import { DEPLOY_INTAKE, ship, shipFlags } from './deploy-ship'
 import { configPathOf } from './deploy-target'
-import { seedAfterDeploy } from './seed-remote'
 import type { SignedInCloud } from './cloud-sign-in'
 import type { DeployResponse } from '@/domain/models/api/automations/automations'
+
+/** The flags `sovrium deploy` reads. */
+export const deployFlags = defineFlags({
+  ...cloudTargetFlags,
+  ...shipFlags,
+  seed: flag.switch('--seed'),
+  noWait: flag.switch('--no-wait'),
+  fromPreview: flag.named('--from-preview'),
+  /** `--env` in both spellings, for refusing it under `--from-preview`. */
+  envNamed: flag.named('--env'),
+})
+
+type DeployFlags = FlagsOf<typeof deployFlags>
 
 /** Everything `sovrium deploy` reads from the command line. */
 export interface DeployCommandOptions {
   readonly configFile: string | undefined
-  readonly argv: readonly string[]
+  readonly flags: DeployFlags
 }
 
 /** `--seed` seeds once the deployment is live, so it cannot return before it is. */
-const refuseSeedWithoutWait = (argv: readonly string[]): Effect.Effect<void, CliRefusal> =>
-  argv.includes('--seed') && argv.includes('--no-wait')
+const refuseSeedWithoutWait = (flags: DeployFlags): Effect.Effect<void, CliRefusal> =>
+  flags.seed && flags.noWait
     ? Effect.fail(
         new CliRefusal({
           headline:
@@ -96,7 +110,7 @@ const seedWhenLive = (
  */
 const followDeployment = (
   cloud: SignedInCloud,
-  argv: readonly string[],
+  flags: DeployFlags,
   accepted: { readonly deployment: DeployResponse; readonly slug: string; readonly url: string }
 ) =>
   Effect.gen(function* () {
@@ -106,16 +120,16 @@ const followDeployment = (
       slug,
       replayed: `Already deployed (revision ${id}).`,
       url: deployment.url === '' ? accepted.url : deployment.url,
-      noWait: argv.includes('--no-wait'),
+      noWait: flags.noWait,
     })
-    if (ended !== undefined && argv.includes('--seed')) {
+    if (ended !== undefined && flags.seed) {
       yield* seedWhenLive(cloud, { id, app: slug, ended })
     }
   })
 
 /** What a given `--from-preview` names: the preview's id, or the refusal of a flag given none. */
-const previewToPromote = (argv: readonly string[]): Effect.Effect<string, CliRefusal> => {
-  const { value } = readValueFlag(argv, '--from-preview')
+const previewToPromote = (flags: DeployFlags): Effect.Effect<string, CliRefusal> => {
+  const { value } = flags.fromPreview
   if (value === undefined) {
     return Effect.fail(
       new CliRefusal({
@@ -125,7 +139,7 @@ const previewToPromote = (argv: readonly string[]): Effect.Effect<string, CliRef
       })
     )
   }
-  return readValueFlag(argv, '--env').given
+  return flags.envNamed.given
     ? Effect.fail(
         new CliRefusal({
           headline: '--env cannot set variables while deploying a preview — nothing was sent.',
@@ -156,28 +170,31 @@ const promotedApp = (explicit: string | undefined, configPath: string, origin: U
  */
 const deploy = (options: DeployCommandOptions) =>
   Effect.gen(function* () {
-    const { argv } = options
-    yield* refuseSeedWithoutWait(argv)
-    const promoted = readValueFlag(argv, '--from-preview').given
-      ? yield* previewToPromote(argv)
-      : undefined
-    const explicit = yield* explicitAddress(argv)
+    const { flags } = options
+    yield* refuseSeedWithoutWait(flags)
+    const promoted = flags.fromPreview.given ? yield* previewToPromote(flags) : undefined
+    const explicit = yield* explicitAddress(flags.app)
     yield* assertNetworkAllowed('deploy')
-    const cloud = yield* signedInCloud(argv)
+    const cloud = yield* signedInCloud(flags.host)
     const configPath = yield* configPathOf(options.configFile)
     if (promoted !== undefined) {
       const slug = yield* promotedApp(explicit, configPath, cloud.origin)
       const deployment = yield* requestPromotion(cloud, slug, promoted)
-      return yield* followDeployment(cloud, argv, { deployment, slug, url: '' })
+      return yield* followDeployment(cloud, flags, { deployment, slug, url: '' })
     }
-    const { deployment, target } = yield* ship(cloud, { argv, configPath, explicit }, DEPLOY_INTAKE)
-    yield* followDeployment(cloud, argv, {
+    const { deployment, target } = yield* ship(
+      cloud,
+      { flags, configPath, explicit },
+      DEPLOY_INTAKE
+    )
+    yield* followDeployment(cloud, flags, {
       deployment,
       slug: target.slug,
       url: target.app?.url ?? '',
     })
   })
 
-/** Handle `sovrium deploy`. Exits 1 on any refusal; returns on success. */
-export const handleDeployCommand = async (options: DeployCommandOptions): Promise<void> =>
-  runCliProgram(deploy(options))
+/** Handle `sovrium deploy`: the config, and its flags. */
+export const handleDeployCommand = withFlags(deployFlags, ({ configFile, flags }) =>
+  deploy({ configFile, flags })
+)

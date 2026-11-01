@@ -515,7 +515,7 @@
                               },
                               "props": {
                                 "href": "/connections?connections-filter.q=$record.failedStep.connectionLabel",
-                                "className": "inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted"
+                                "className": "inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground no-underline shadow-xs hover:bg-muted"
                               },
                               "content": "$t:admin.automations.runs.detail.failure.connections"
                             },
@@ -523,7 +523,7 @@
                               "type": "link",
                               "props": {
                                 "href": "/env",
-                                "className": "inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted"
+                                "className": "inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground no-underline shadow-xs hover:bg-muted"
                               },
                               "content": "$t:admin.automations.runs.detail.failure.env"
                             }

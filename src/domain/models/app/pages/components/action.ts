@@ -224,7 +224,7 @@ export const RowClickActionSchema = Schema.Union([
     identifier: 'RowClickAction',
     title: 'Row Click Action',
     description:
-      'Action triggered by a table row click. Three variants are honoured at runtime: `navigate` (pure URL navigation, discriminated by `type: navigate`, `path` supports `$record.X` substitution), `openSheet` (opens a sibling drawer component, discriminated by `action: openSheet`) and `seek` (moves a video or audio player on the page to the moment the row names, `time` supports `$record.X`). The remaining Action variants (auth, crud, automation, toast, fetch, fill, clipboard, openImport) are rejected here because the row-click handler ignores them — put richer behaviour on the footer actions of the referenced drawer component instead.',
+      'Action triggered by a table row click. Three variants are honoured at runtime: `navigate` (pure URL navigation, discriminated by `type: navigate`, `path` supports `$record.X` substitution), `openSheet` (opens a sibling drawer component, discriminated by `action: openSheet`) and `seek` (moves a video or audio player on the page to the moment the row names, `time` supports `$record.X`). The remaining Action variants (auth, crud, automation, toast, fetch, fill, clipboard, openImport) are rejected here because the row-click handler ignores them. Put richer behaviour on the footer actions of the referenced drawer component instead.',
   })
 )
 
@@ -257,7 +257,7 @@ export const CardClickActionSchema = Schema.Union([
   identifier: 'CardClickAction',
   title: 'Card Click Action',
   description:
-    'What a click on a card does: `navigate` follows a path, with `$record.*` read from the card record and `$param.*` from the page address; `openSheet` opens that record in the named drawer on the page, as a grid row click does; `seek` moves a video or audio player on the page to the moment the card names. Any other action is refused — put richer behaviour on the drawer footer actions instead.',
+    'What a click on a card does: `navigate` follows a path, with `$record.*` read from the card record and `$param.*` from the page address; `openSheet` opens that record in the named drawer on the page, as a grid row click does; `seek` moves a video or audio player on the page to the moment the card names. Any other action is refused. Put richer behaviour on the drawer footer actions instead.',
 })
 
 /**

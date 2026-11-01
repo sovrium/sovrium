@@ -27,6 +27,7 @@ import {
   STEPPER_INDICATOR_CLASSES,
   STEPPER_TITLE_CLASSES,
 } from '@/presentation/design/stepper-anatomy-classes'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 import type { ReactElement } from 'react'
 
 /** One authored step, read loosely off the component root. */
@@ -134,7 +135,7 @@ export function stepRail(ctx: {
   readonly linear: boolean
   readonly vertical: boolean
   readonly compactOnly: boolean
-  readonly parts: Readonly<Record<string, string>>
+  readonly parts: PartClassMap
 }): ReactElement {
   const { steps, ariaLabel, linear, vertical, compactOnly, parts } = ctx
   return (

@@ -13,7 +13,6 @@ import type { Component } from '@/domain/models/app/pages/components'
  * Apply all component-specific animations functionally using composition
  * Compose fadeOut animation for toast components
  * Compose scaleUp animation for card components with scroll trigger
- * Compose float animation for fab components (continuous floating effect)
  */
 export function applyComponentAnimations(
   type: Component['type'],
@@ -38,7 +37,7 @@ export function applyComponentAnimations(
           animationName: 'scaleUp',
           design,
           defaultDuration: '500ms',
-          defaultEasing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+          defaultEasing: 'cubic-bezier(0.22, 1, 0.36, 1)',
           options: {
             animationPlayState: 'paused',
             animationFillMode: 'forwards',
@@ -47,19 +46,5 @@ export function applyComponentAnimations(
         })
       : styleWithFadeOut
 
-  const finalStyle =
-    type === 'fab'
-      ? composeAnimation({
-          baseStyle: styleWithScaleUp,
-          animationName: 'float',
-          design,
-          defaultDuration: '3s',
-          defaultEasing: 'ease-in-out',
-          options: {
-            infinite: true,
-          },
-        })
-      : styleWithScaleUp
-
-  return finalStyle
+  return styleWithScaleUp
 }

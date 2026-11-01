@@ -319,35 +319,6 @@
                           ]
                         }
                       }
-                    },
-                    {
-                      "type": "button",
-                      "label": "$t:admin.users.endAll",
-                      "variant": "outline",
-                      "size": "sm",
-                      "props": {
-                        "type": "button"
-                      },
-                      "confirm": {
-                        "title": "$t:admin.users.endConfirm",
-                        "message": "$t:admin.users.endMessage",
-                        "role": "alertdialog",
-                        "confirmLabel": "$t:admin.users.endSessions",
-                        "cancelLabel": "$t:admin.common.cancel"
-                      },
-                      "action": {
-                        "type": "fetch",
-                        "url": "/api/auth/admin/revoke-user-sessions",
-                        "method": "POST",
-                        "body": {
-                          "userId": "$record.id"
-                        },
-                        "responseEnvelope": "better-auth",
-                        "onSuccess": {
-                          "type": "toast",
-                          "message": "$t:admin.users.sessionsEnded"
-                        }
-                      }
                     }
                   ]
                 }
@@ -517,7 +488,8 @@
                         "format": "short-date"
                       }
                     ],
-                    "emptyMessage": "$t:admin.users.noAccess"
+                    "emptyMessage": "$t:admin.users.noAccess",
+                    "emptyDescription": "$t:admin.users.noAccess.guidance"
                   }
                 }
               ]
@@ -627,64 +599,103 @@
                         }
                       },
                       "props": {
-                        "className": "flex flex-wrap items-center justify-between gap-4 rounded-xl px-4 py-4 ring-1 ring-foreground/10",
+                        "className": "flex flex-col gap-3 rounded-xl px-4 py-4 ring-1 ring-foreground/10",
                         "data-testid": "user-account-danger"
                       },
                       "children": [
                         {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "text-foreground text-sm font-medium"
+                          },
+                          "content": "$t:admin.users.account.danger.heading"
+                        },
+                        {
                           "type": "container",
-                          "key": "danger-text",
+                          "key": "danger-end",
                           "element": "div",
                           "props": {
-                            "className": "flex min-w-0 flex-col gap-1"
+                            "className": "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3 first-of-type:border-t-0 first-of-type:pt-0"
                           },
                           "children": [
-                            {
-                              "type": "text",
-                              "element": "h2",
-                              "props": {
-                                "className": "text-foreground text-sm font-medium"
-                              },
-                              "content": "$t:admin.users.account.danger.heading"
-                            },
                             {
                               "type": "text",
                               "element": "p",
                               "props": {
-                                "className": "text-muted-foreground max-w-xl text-sm"
+                                "className": "text-muted-foreground min-w-0 max-w-xl flex-1 text-sm",
+                                "data-testid": "user-account-danger-consequence"
                               },
-                              "content": "$t:admin.users.account.danger.body"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "container",
-                          "key": "danger-actions",
-                          "element": "div",
-                          "props": {
-                            "className": "flex flex-wrap items-center gap-2"
-                          },
-                          "children": [
+                              "content": "$t:admin.users.account.danger.end"
+                            },
                             {
                               "type": "button",
-                              "label": "$t:admin.users.ban",
-                              "variant": "outline",
+                              "label": "$t:admin.users.endAll",
+                              "variant": "destructive",
                               "size": "sm",
                               "props": {
                                 "type": "button"
                               },
                               "confirm": {
-                                "title": "$t:admin.users.confirmBan",
-                                "message": "$t:admin.users.banMessage",
+                                "title": "$t:admin.users.endConfirm",
+                                "message": "$t:admin.users.endMessage",
                                 "role": "alertdialog",
-                                "confirmLabel": "$t:admin.users.confirmBan",
+                                "confirmLabel": "$t:admin.users.endSessions",
                                 "cancelLabel": "$t:admin.common.cancel"
                               },
-                              "visibility": {
-                                "record": {
-                                  "field": "banned",
-                                  "eq": false
+                              "action": {
+                                "type": "fetch",
+                                "url": "/api/auth/admin/revoke-user-sessions",
+                                "method": "POST",
+                                "body": {
+                                  "userId": "$record.id"
+                                },
+                                "responseEnvelope": "better-auth",
+                                "onSuccess": {
+                                  "type": "toast",
+                                  "message": "$t:admin.users.sessionsEnded",
+                                  "refetch": [
+                                    "admin-user-account-header",
+                                    "admin-user-account-actions",
+                                    "admin-user-account-facts",
+                                    "admin-user-account-danger"
+                                  ]
                                 }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "danger-ban",
+                          "element": "div",
+                          "props": {
+                            "className": "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3 first-of-type:border-t-0 first-of-type:pt-0"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-muted-foreground min-w-0 max-w-xl flex-1 text-sm",
+                                "data-testid": "user-account-danger-consequence"
+                              },
+                              "content": "$t:admin.users.account.danger.ban"
+                            },
+                            {
+                              "type": "button",
+                              "label": "$t:admin.users.ban",
+                              "variant": "destructive",
+                              "size": "sm",
+                              "props": {
+                                "type": "button"
+                              },
+                              "confirm": {
+                                "title": "$t:admin.users.banConfirm",
+                                "message": "$t:admin.users.banMessage",
+                                "role": "alertdialog",
+                                "confirmLabel": "$t:admin.users.ban",
+                                "cancelLabel": "$t:admin.common.cancel"
                               },
                               "action": {
                                 "type": "fetch",
@@ -705,11 +716,36 @@
                                   ]
                                 }
                               }
+                            }
+                          ],
+                          "visibility": {
+                            "record": {
+                              "field": "banned",
+                              "eq": false
+                            }
+                          }
+                        },
+                        {
+                          "type": "container",
+                          "key": "danger-delete",
+                          "element": "div",
+                          "props": {
+                            "className": "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3 first-of-type:border-t-0 first-of-type:pt-0"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-muted-foreground min-w-0 max-w-xl flex-1 text-sm",
+                                "data-testid": "user-account-danger-consequence"
+                              },
+                              "content": "$t:admin.users.account.danger.delete"
                             },
                             {
                               "type": "button",
                               "label": "$t:admin.users.delete",
-                              "variant": "outline",
+                              "variant": "destructive",
                               "size": "sm",
                               "props": {
                                 "type": "button"
@@ -719,7 +755,8 @@
                                 "message": "$t:admin.users.deleteMessage",
                                 "role": "alertdialog",
                                 "confirmLabel": "$t:admin.users.delete",
-                                "cancelLabel": "$t:admin.common.cancel"
+                                "cancelLabel": "$t:admin.common.cancel",
+                                "irreversible": true
                               },
                               "action": {
                                 "type": "fetch",
@@ -741,8 +778,8 @@
                       ]
                     },
                     {
-                      "type": "text",
-                      "element": "p",
+                      "type": "container",
+                      "element": "div",
                       "visibility": {
                         "condition": {
                           "field": "$user.id",
@@ -754,7 +791,24 @@
                         "className": "text-muted-foreground text-sm",
                         "data-testid": "user-account-self-note"
                       },
-                      "content": "$t:admin.users.account.danger.self"
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground font-medium"
+                          },
+                          "content": "$t:admin.users.account.danger.self.chrome"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "ml-1"
+                          },
+                          "content": "$t:admin.users.account.danger.self.guidance"
+                        }
+                      ]
                     }
                   ]
                 }

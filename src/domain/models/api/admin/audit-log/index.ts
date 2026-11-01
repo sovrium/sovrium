@@ -7,3 +7,4 @@
 
 export * from './action-catalog'
 export * from './entry'
+export * from './facets'

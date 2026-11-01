@@ -5,7 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-export { TextTypeLiteral, TextElementSchema, textFields } from './text'
+export {
+  TEXT_ELEMENTS,
+  TextTypeLiteral,
+  TextElementSchema,
+  textFields,
+  type TextElement,
+} from './text'
 export { IconTypeLiteral, iconFields } from './icon'
 export { ImageTypeLiteral, ImageVariantSchema, imageFields } from './image'
 export { VideoTypeLiteral, videoFields } from './video'

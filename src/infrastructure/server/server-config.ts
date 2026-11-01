@@ -68,6 +68,8 @@ export interface ServerConfig {
       readonly requestQuery?: Readonly<Record<string, string>>
       /** The `/:lang/` URL-prefix locale, when present. */
       readonly urlLanguage?: string
+      /** The text of a file under this server's public directory: see the port (`page-renderer.ts`). */
+      readonly readPublicFile?: (path: string) => Promise<string | undefined>
     }
   ) => PageRenderResult | Promise<PageRenderResult>
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string | Promise<string>

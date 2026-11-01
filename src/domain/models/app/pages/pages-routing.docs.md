@@ -1,31 +1,31 @@
 # Routing & Paths
 
-> How a page path resolves — static routes, dynamic `:param` segments, record detail routes, wildcards, trailing slashes and the language segment.
+> How a page path resolves: static routes, dynamic `:param` segments, record detail routes, wildcards, trailing slashes and the language segment.
 
 A page's `path` is the URL it answers. It is matched literally unless it contains a `:param` or `*` segment, in which case it becomes a pattern.
 
 ## Path forms
 
-| Form      | Example             | Matches                                                                   |
-| --------- | ------------------- | ------------------------------------------------------------------------- |
-| Root      | `/`                 | The home page.                                                            |
-| Static    | `/about`            | That exact path, and nothing else.                                        |
-| Nested    | `/settings/billing` | Any number of static segments.                                            |
-| Dynamic   | `/blog/:slug`       | One segment, captured as `slug`.                                          |
-| Catch-all | `/docs/:rest*`      | The remainder of the path, captured as `rest` — must be the last segment. |
-| Wildcard  | `/files/*`          | Anything below `/files/`, captured under no name.                         |
+| Form      | Example             | Matches                                                                  |
+| --------- | ------------------- | ------------------------------------------------------------------------ |
+| Root      | `/`                 | The home page.                                                           |
+| Static    | `/about`            | That exact path, and nothing else.                                       |
+| Nested    | `/settings/billing` | Any number of static segments.                                           |
+| Dynamic   | `/blog/:slug`       | One segment, captured as `slug`.                                         |
+| Catch-all | `/docs/:rest*`      | The remainder of the path, captured as `rest`. Must be the last segment. |
+| Wildcard  | `/files/*`          | Anything below `/files/`, captured under no name.                        |
 
-**The home page is yours once you declare it.** An app that declares no `/` page is served a built-in placeholder there, naming the app. An app that declares one never falls back to it: when the declared home page cannot render for a visitor — because its record-bound data source is not readable by them — `/` answers the ordinary `404`, like any other record-bound page. An embedded app mounted under a base path never shows the placeholder either.
+**The home page is yours once you declare it.** An app that declares no `/` page is served a built-in placeholder there, naming the app. An app that declares one never falls back to it: when the declared home page cannot render for a visitor (because its record-bound data source is not readable by them), `/` answers the ordinary `404`, like any other record-bound page. An embedded app mounted under a base path never shows the placeholder either. A page declared at `/404` answers every address no page claims, with a `404`, and is drawn for the reader as `/404` itself is: blocks shown only to signed-in readers or to a role appear for them there too.
 
-A path starts with `/` and allows **only lowercase letters**. `/users/:userId` is rejected — write `/users/:userid`, or better, `/users/:id`.
+A path starts with `/` and allows **only lowercase letters**. `/users/:userId` is rejected: write `/users/:userid`, or better, `/users/:id`.
 
-**A path with no `:` and no `*` is compared as an exact string.** There is no prefix matching: `/about` is not the same route as `/about/`. A request carrying a trailing slash is not lost, though — it is normalized away with a `301` and resolved again, so `/about/` reaches `/about`.
+**A path with no `:` and no `*` is compared as an exact string.** There is no prefix matching: `/about` is not the same route as `/about/`. A request carrying a trailing slash is not lost, though: it is normalized away with a `301` and resolved again, so `/about/` reaches `/about`.
 
 **One address belongs to one page.** Because `/about/` and `/about` are one address, `sovrium validate` refuses two pages declaring it, written either way, and names both pages and the address (`Pages "menu" and "seasonal-menu" both claim /menu`), with the file of a page kept in its own `$ref` file. A static path beside a dynamic one under it, such as `/menu` and `/menu/:slug`, shares no address.
 
 ## Dynamic segments
 
-A `:param` segment captures exactly one path segment — it never spans a `/`. `/blog/:slug` matches `/blog/hello` but not `/blog/2026/hello`; use `/blog/:slug*` for the latter. The captured value is percent-decoded: `/users/:email` reached at `/users/ada%40example.com` captures `ada@example.com`, and a breadcrumb derived from the address labels that segment decoded while still linking to the address as written. A segment that is not valid percent-encoding, such as `100%`, is kept as it arrived.
+A `:param` segment captures exactly one path segment: it never spans a `/`. `/blog/:slug` matches `/blog/hello` but not `/blog/2026/hello`; use `/blog/:slug*` for the latter. The captured value is percent-decoded: `/users/:email` reached at `/users/ada%40example.com` captures `ada@example.com`, and a breadcrumb derived from the address labels that segment decoded while still linking to the address as written. A segment that is not valid percent-encoding, such as `100%`, is kept as it arrived.
 
 Dynamic routes are usually paired with a `collection` block, so one page definition generates a route per record (**Collection & Markdown Pages** documents the `collection` contract):
 
@@ -46,7 +46,7 @@ pages:
 
 ## Record detail routes
 
-To serve one record at a URL without generating a route per record, pair a dynamic segment with a `single`-mode data source. `param` names the path segment, and the segment is matched against the column of that name when the table declares one (`/authors/:slug` on a table with a `slug` field), and against the record id otherwise — so `/tasks/:id` and `/shelves/:shelf` both read the record by its id:
+To serve one record at a URL without generating a route per record, pair a dynamic segment with a `single`-mode data source. `param` names the path segment, and the segment is matched against the column of that name when the table declares one (`/authors/:slug` on a table with a `slug` field), and against the record id otherwise, so `/tasks/:id` and `/shelves/:shelf` both read the record by its id:
 
 ```yaml
 name: my-app
@@ -67,23 +67,23 @@ pages:
       - { type: text, content: '$record.description' }
 ```
 
-A request whose parameter matches no record returns a `404`, and so does a value no record could hold, such as `abc` where the id is a number. A segment the column's type cannot hold — an impossible date such as February 30th, a number out of an integer column's range — answers `404` too, and so does any segment compared with a column holding a list, a document or a file. A segment compared with a column the reader's field permissions do not let her read answers `404` for her whatever its value, as on the records API; a reader of that column reads the record, and a segment naming the record id is unaffected. A page-level `dataSource` may also name a platform endpoint through `system` instead of a table. That record is read on the server, before the page is sent, **as the visitor**: someone who cannot read the record gets the page's `404`, never a page with empty placeholders. The read is addressed to the running server's own listener over loopback, not to the address the request arrived on, so it behaves identically behind a reverse proxy, a load balancer or a custom domain, whatever `BASE_URL` says. Such a record has no field types, so where page text prints one of its values — a sentence, a description list — a date and time the endpoint writes in ISO form prints as a date and time in the page language, and a list prints its items joined as the page language joins a list; a link built from the same value keeps it as stored.
+A request whose parameter matches no record returns a `404`, and so does a value no record could hold, such as `abc` where the id is a number. A segment the column's type cannot hold (an impossible date such as February 30th, a number out of an integer column's range) answers `404` too, and so does any segment compared with a column holding a list, a document or a file. A segment compared with a column the reader's field permissions do not let her read answers `404` for her whatever its value, as on the records API; a reader of that column reads the record, and a segment naming the record id is unaffected. A page-level `dataSource` may also name a platform endpoint through `system` instead of a table. That record is read on the server, before the page is sent, **as the visitor**: someone who cannot read the record gets the page's `404`, never a page with empty placeholders. The read is addressed to the running server's own listener over loopback, not to the address the request arrived on, so it behaves identically behind a reverse proxy, a load balancer or a custom domain, whatever `BASE_URL` says. Such a record has no field types, so where page text prints one of its values (a sentence, a description list), a date and time the endpoint writes in ISO form prints as a date and time in the page language, and a list prints its items joined as the page language joins a list; a link built from the same value keeps it as stored.
 
-A page bound to one record — either arm — may also draw a list the record carries with a `container` `repeat`: the copies are drawn on the server, so they arrive in the first response like every other `$record.` value on the page. The contract is the drawer's (see **Overlays**), with one difference in position: a `repeat` inside a component that reads rows of its own (a `dataSource` row template) is refused, because there `$record.` is the row and not the page's record.
+A page bound to one record, by either arm or as a `collection` page, may also draw a list the record carries with a `container` `repeat`: the copies are drawn on the server, so they arrive in the first response like every other `$record.` value on the page. A component bound with `{ table, mode: single }` does the same with its own record, on any page. The contract is the drawer's (see **Overlays**), with one difference in position: a `repeat` inside a component that reads rows of its own (a `dataSource` row template) is refused, because there `$record.` is the row and not the page's record.
 
-A `code` component whose **whole** `content` is exactly one token — `$record.fare`, or a named repeat's `$leg.stops` — prints an object or an array as JSON indented by two spaces, keys in alphabetical order. It is always printed as text. Anywhere else, including a lone token in a `text` component or a token mixed with other text in a `code` component, an object-valued token is left as its literal `$record.<key>` rather than printed as `[object Object]`.
+A `code` component whose **whole** `content` is exactly one token (`$record.fare`, or a named repeat's `$leg.stops`) prints an object or an array as JSON indented by two spaces, keys in alphabetical order. It is always printed as text. Anywhere else, including a lone token in a `text` component or a token mixed with other text in a `code` component, an object-valued token is left as its literal `$record.<key>` rather than printed as `[object Object]`.
 
 A token can reach into a nested object with a dotted path: `$record.address.city`, or `$parcel.carrier.name` inside a repeat. It works in text, in props such as `href`, in a fallback chain (`$record.address.region|$record.address.city`) and in a `code` component's lone token. When the first part is plain text, the rest prints as written: `$record.reference.pdf` reads `INV-204.pdf`. A key the object does not have prints nothing, and a value that is itself an object prints as its own token. A final `.raw` still means the stored value, so a nested key named `raw` cannot be reached.
 
 Inside a copy, a `description-list` reads the element too: its `term` and `detail` print as text, its `action.href` takes the stored value, and a `detail` that is one token with a `format` (`detail: '$step.durationMs', format: 'duration'`) formats the element's stored value, as the grid column does.
 
-`visibility.item` keeps a component only in the copies whose element matches, with the same `field` and operators as `visibility.record`: `visibility: { item: { field: status, eq: failed } }` draws a badge on the failed step alone. It tests the element of the nearest enclosing repeat, and a copy it hides is left out of the HTML. It works on a page bound to one record, where the server draws the copies; it is refused when the config loads outside any repeat and inside a record drawer, whose copies the browser draws. `visibility.record` stays refused inside a repeat.
+`visibility.item` keeps a component only in the copies whose element matches, with the same `field` and operators as `visibility.record`: `visibility: { item: { field: status, eq: failed } }` draws a badge on the failed step alone. It tests the element of the nearest enclosing repeat, and a copy it hides is left out of the HTML. It works wherever the server draws the copies: on a page bound to one record, a `collection` page included, and under a component bound with `mode: single`; it is refused when the config loads outside any repeat and inside a record drawer, whose copies the browser draws. `visibility.record` stays refused inside a repeat.
 
-A `visibility.record` operand may name the reader: `$currentUser.id`, `$currentUser.email`, `$currentUser.role` or `$currentUser.isUnrestricted`. `visibility: { record: { field: owner, eq: $currentUser.id } }` draws the owner's controls for the record's owner alone, `neq` draws its twin for everyone else, and `contains` matches a reader listed in a multi-value user field. It works on a page bound to one record and on every row of a list. The server resolves the reference for each request, so it never reaches the page. A visitor who is not signed in matches no such gate, whatever the operator.
+A `visibility.record` operand may name the reader: `$currentUser.id`, `$currentUser.email`, `$currentUser.role` or `$currentUser.isUnrestricted`. `visibility: { record: { field: owner, eq: $currentUser.id } }` draws the owner's controls for the record's owner alone, `neq` draws its twin for everyone else, and `contains` matches a reader listed in a multi-value user field. It works on a page bound to one record, a `collection` page included, and on every row of a list. A top-level component whose gate the record fails is left out of the HTML, as a nested one is. The server resolves the reference for each request, so it never reaches the page. A visitor who is not signed in matches no such gate, whatever the operator. A gate also holds inside `responsive.<breakpoint>.children`, where `$record.*` fills as it does in `children`. A `tabs` or `stepper` child left out by a gate takes its tab or step label with it. A gate needs a record to read: written on a page routed by `contentDir`, whose articles hand a component none, it is refused when the config loads, as on a page bound to nothing, while a row template on that page still reads its rows. A template holding a gate can be placed on any page, and on a page with no single record to read (no binding, `contentDir`, a page-level list, a custom error page bound to a system endpoint) the component is left out.
 
-A page bound to a runs read (`/api/admin/automations/runs/:id`) prints each status — the run's and each step's — in the reader's language, and keeps the engine's own value under `status.raw`: `$record.status.raw` prints `completed`, and a gate on `field: status.raw` matches it in any language.
+A page bound to a runs read (`/api/admin/automations/runs/:id`) prints each status (the run's and each step's) in the reader's language, and keeps the engine's own value under `status.raw`: `$record.status.raw` prints `completed`, and a gate on `field: status.raw` matches it in any language.
 
-To print a token as text rather than fill it — documenting a template, say, or quoting an example — put a backslash before its `$`: `\$record.photo` prints `$record.photo`, `\$app.name` prints `$app.name`, `\$t:greeting` prints `$t:greeting`. It works for every token a page reads, in any text a page writes (content, labels, attribute values such as `alt` and `aria-label`), inside a template's own text, its input values and its slots, and the token is never filled afterwards. Only the backslash directly before the `$` is consumed: `\\$app.name` prints a backslash and then `$app.name`. A backslash before anything else prints as written. In a double-quoted YAML string or a TypeScript string, escape the backslash itself.
+To print a token as text rather than fill it (documenting a template, say, or quoting an example), put a backslash before its `$`: `\$record.photo` prints `$record.photo`, `\$app.name` prints `$app.name`, `\$t:greeting` prints `$t:greeting`. It works for every token a page reads, in any text a page writes (content, labels, attribute values such as `alt` and `aria-label`), inside a template's own text, its input values and its slots, and the token is never filled afterwards. Only the backslash directly before the `$` is consumed: `\\$app.name` prints a backslash and then `$app.name`. A backslash before anything else prints as written. In a double-quoted YAML string or a TypeScript string, escape the backslash itself.
 
 **`$id` is not a path syntax.** `$` is not a legal character in a `path`, so `/tasks/$id` fails validation. The dynamic-segment marker is `:` everywhere; `$record.*` is a _content_ reference, not a route one.
 
@@ -91,7 +91,7 @@ To print a token as text rather than fill it — documenting a template, say, or
 
 Sovrium never prefixes a path that already resolves. When `languages` is configured, the runtime reads the **first path segment**, and if it matches a configured language code it becomes the active language for `$t:` translation lookups.
 
-Localized routes are therefore authored explicitly — one page per language, each carrying its own segment:
+Localized routes are therefore authored explicitly: one page per language, each carrying its own segment:
 
 ```yaml
 name: my-app
@@ -122,24 +122,24 @@ The one place a prefix is _added_ is the 404 branch. An unprefixed path that res
 
 Page paths are authored without a trailing slash, and that slash-free form is canonical: it is what every internal link, `hreflang` alternate and sitemap entry the engine emits points at. A request that arrives with a trailing slash is normalized toward it with a `301`, then resolved again.
 
-| Request     | Answer                                                  |
-| ----------- | ------------------------------------------------------- |
-| `/about/`   | `301` to `/about`                                       |
-| `/en/docs/` | `301` to `/en/docs` — the arriving locale is kept       |
-| `/docs//`   | `301` to `/docs` — repeated slashes collapse in one hop |
-| `/`         | `200` — the root is exempt                              |
-| `/en/`      | `200` — the bare language root is exempt                |
-| `/nope/`    | `404`, with no `Location`                               |
+| Request     | Answer                                                 |
+| ----------- | ------------------------------------------------------ |
+| `/about/`   | `301` to `/about`                                      |
+| `/en/docs/` | `301` to `/en/docs`, keeping the arriving locale       |
+| `/docs//`   | `301` to `/docs`: repeated slashes collapse in one hop |
+| `/`         | `200`: the root is exempt                              |
+| `/en/`      | `200`: the bare language root is exempt                |
+| `/nope/`    | `404`, with no `Location`                              |
 
 The incoming query string is carried onto the target byte-identically, so campaign attribution on an inbound link survives the hop.
 
-**The two exemptions are not cosmetic.** `/en` already redirects **to** `/en/`, so stripping `/en/` back to `/en` would bounce the browser between the two forever. Only the _bare_ language root is exempt — `/en/docs/` is normalized like any other path.
+**The two exemptions are not cosmetic.** `/en` already redirects **to** `/en/`, so stripping `/en/` back to `/en` would bounce the browser between the two forever. Only the _bare_ language root is exempt: `/en/docs/` is normalized like any other path.
 
-**The canonical form must resolve.** A `301` is emitted only when the slash-free path actually answers — directly, or through the unprefixed-path fallback. `/nope/` therefore stays a clean `404` rather than becoming a `301` into a `404`, which burns the redirect, still fails, and walks a crawler into a dead end.
+**The canonical form must resolve.** A `301` is emitted only when the slash-free path actually answers, directly or through the unprefixed-path fallback. `/nope/` therefore stays a clean `404` rather than becoming a `301` into a `404`, which burns the redirect, still fails, and walks a crawler into a dead end.
 
 A page may also be authored _with_ a trailing slash: a `path` of `/docs/` is legal, and a request to `/docs/` is then served in place rather than stripped. The config is the authority.
 
-**Canonicalization never reveals a page you cannot read.** A canonicalizing `301` or `302` fires only toward a page an anonymous visitor may open. If `/vault` is role-gated, `/vault/` answers `404` — byte-identical to the answer for a path that was never declared. Redirecting would announce that `/vault` exists, which is exactly the fact its own `404` is there to hide. The cost is that the convenience does not extend to gated pages for anyone, signed in or not: the check runs in the router, which has no session.
+**Canonicalization never reveals a page you cannot read.** A canonicalizing `301` or `302` fires only toward a page an anonymous visitor may open. If `/vault` is role-gated, `/vault/` answers `404`, byte-identical to the answer for a path that was never declared. Redirecting would announce that `/vault` exists, which is exactly the fact its own `404` is there to hide. The cost is that the convenience does not extend to gated pages for anyone, signed in or not: the check runs in the router, which has no session.
 
 ## Resolution order
 
@@ -147,9 +147,9 @@ An incoming request is answered by the first of these that matches:
 
 1. A real file in the public directory.
 2. A redirect rule.
-3. A page path — compared exactly, including a trailing slash the `path` was authored with.
-4. Trailing-slash normalization — a `301` to the slash-free path, when that path resolves.
-5. The unprefixed-path language fallback — a `302` to the prefixed path, when that one resolves.
+3. A page path, compared exactly, including a trailing slash the `path` was authored with.
+4. Trailing-slash normalization: a `301` to the slash-free path, when that path resolves.
+5. The unprefixed-path language fallback: a `302` to the prefixed path, when that one resolves.
 6. The 404 catch-all.
 
 Steps 4 and 5 run only where step 3 declined, so every URL that resolves today keeps resolving byte-identically. They also compose: `/docs/` is answered `301` to `/docs`, and the follow-up request is answered `302` to `/en/docs`.
@@ -186,14 +186,14 @@ The `{field}` placeholders in `hrefTemplate` are filled from that first row, so 
 
 **An empty collection renders the page.** With no row there is no target, so the page is served normally and shows its own empty message. A redirect that fired anyway would either loop or land on a path that does not exist.
 
-**The first row is the first one the visitor may read.** The redirect names its row to whoever asks, so it is chosen exactly as the records API would list the table to that visitor: a row the table's row-level read rule hides from them is skipped, and a table they may not read offers no row — the page then renders, as for an empty collection. A system data source is read with the visitor's own credentials, so its endpoint answers the same question.
+**The first row is the first one the visitor may read.** The redirect names its row to whoever asks, so it is chosen exactly as the records API would list the table to that visitor: a row the table's row-level read rule hides from them is skipped, and a table they may not read offers no row, and the page then renders, as for an empty collection. A system data source is read with the visitor's own credentials, so its endpoint answers the same question.
 
-The page must declare a list source — a component-level system data source, or a page-level `dataSource` in `list` mode. Without one the redirect could never fire, so it is refused at startup rather than left silently inert. `hrefTemplate` must also be a path carrying at least one `{field}` placeholder: a constant target needs no first row, and therefore no `redirectToFirst`.
+The page must declare a list source: a component-level system data source, or a page-level `dataSource` in `list` mode. Without one the redirect could never fire, so it is refused at startup rather than left silently inert. `hrefTemplate` must also be a path carrying at least one `{field}` placeholder: a constant target needs no first row, and therefore no `redirectToFirst`.
 
 ## Related reading
 
-- **Pages Overview** — the full page property table.
-- **Collection & Markdown Pages** — one route per record.
-- **Data Binding** — `single` mode and `param`.
-- **Redirects** — retiring a path without breaking links.
-- **Languages** — configuring language codes and `$t:` keys.
+- **Pages Overview**: the full page property table.
+- **Collection & Markdown Pages**: one route per record.
+- **Data Binding**: `single` mode and `param`.
+- **Redirects**: retiring a path without breaking links.
+- **Languages**: configuring language codes and `$t:` keys.

@@ -15,6 +15,7 @@
  * applies them in the one order that works.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   COMPONENT_REF_PREFIX,
   EXTENDS_MARKER_PREFIX,
@@ -43,9 +44,7 @@ import type { JsonSchema } from './markers'
 const flattenAllOf = (schema: JsonSchema): JsonSchema => {
   const branches = schema['allOf']
   if (!Array.isArray(branches) || branches.length === 0) return schema
-  const isPlainObject = (value: unknown): value is JsonSchema =>
-    typeof value === 'object' && value !== null && !Array.isArray(value)
-  if (!branches.every(isPlainObject)) return schema
+  if (!branches.every(isRecord)) return schema
   // A `$ref` branch is a COMPOSITION, not a bag of keywords. Folding it would
   // erase the reference and inline nothing in its place.
   if (branches.some((branch) => '$ref' in branch)) return schema
@@ -177,7 +176,7 @@ export const emptyToNullable = (schema: unknown): unknown => {
  * Zod's `.optional()` accepts an ABSENT key and a PRESENT key holding
  * `undefined`, and emitted a bare `{ type: 'string' }` for both. Effect splits
  * those apart: `Schema.optionalKey` covers only the absent case, so
- * `optionalField` (`src/domain/models/api/combinators/optional-field.ts`) uses
+ * `optionalField` (`src/domain/kernel/config-parsing/optional-field.ts`) uses
  * `Schema.optional`, which is `optionalKey(UndefinedOr(S))`.
  *
  * That restores the runtime contract and CHANGES the document, because

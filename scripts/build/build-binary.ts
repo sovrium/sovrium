@@ -694,6 +694,16 @@ const main: Effect.Effect<void, BuildBinaryError, CommandService> = Effect.gen(f
     CODEGEN_TIMEOUT_MS
   )
 
+  // The `sovrium client` runtime wrapper, embedded as source text. Regenerated
+  // rather than trusted for the config-types payload's reason, and it carries the
+  // same kind of build-boundary refusal: the generator fails if the runtime ever
+  // imports anything, because the generated client promises zero dependencies.
+  yield* run(
+    ['bun', 'run', 'scripts/build/generate-embedded-client-runtime.ts'],
+    'Generate embedded client runtime',
+    CODEGEN_TIMEOUT_MS
+  )
+
   // The in-binary manual, LAST, and the position is load-bearing in
   // one direction only. Its behaviour payload is derived from
   // `[internal ref]`, which no preceding step touches, so ordering buys
@@ -773,7 +783,7 @@ const main: Effect.Effect<void, BuildBinaryError, CommandService> = Effect.gen(f
   // binary from a stale one without rebuilding to find out.
   //
   // Written AFTER the compile, deliberately: the asset-generation steps above
-  // rewrite inputs in place (`generated-css-assets.ts` and the three
+  // rewrite inputs in place (`generated-css-assets.generated.ts` and the three
   // `*.generated.ts` embed manifests), so a fingerprint taken earlier would
   // describe a tree that no longer exists and would mark this very binary stale.
   //

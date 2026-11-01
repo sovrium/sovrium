@@ -73,7 +73,7 @@ const platformAdminSubject = (env: Env): string | undefined => {
  * `undefined` otherwise. `AUTH_ADMIN_NAME` defaults to "Administrator",
  * `AUTH_ADMIN_ROLE` to `admin`.
  */
-export const parseAdminBootstrapConfig = (env: Env = process.env): AdminBootstrap | undefined => {
+export const parseAdminBootstrapConfig = (env: Env): AdminBootstrap | undefined => {
   const email = env['AUTH_ADMIN_EMAIL']
   const password = env['AUTH_ADMIN_PASSWORD']
   const name = env['AUTH_ADMIN_NAME'] || 'Administrator'
@@ -89,7 +89,7 @@ export const parseAdminBootstrapConfig = (env: Env = process.env): AdminBootstra
  * neither a password nor the platform sign-in naming the owner — which seeds
  * nobody and so leaves an empty app with no way in.
  */
-export const adminEmailWithoutWayIn = (env: Env = process.env): boolean =>
+export const adminEmailWithoutWayIn = (env: Env): boolean =>
   Boolean(env['AUTH_ADMIN_EMAIL']) && parseAdminBootstrapConfig(env) === undefined
 
 /** The startup warning for {@link adminEmailWithoutWayIn}, naming what is missing. */
@@ -97,7 +97,7 @@ export const ADMIN_EMAIL_WITHOUT_WAY_IN_WARNING =
   'AUTH_ADMIN_EMAIL is set but no admin was created: set AUTH_ADMIN_PASSWORD, or the SOVRIUM_PLATFORM_SSO_ variables with SOVRIUM_PLATFORM_SSO_ADMIN_SUBJECT, so the first admin has a way to sign in.'
 
 /** The address `AUTH_ADMIN_EMAIL` names, or `undefined` when it is unset or blank. */
-export const configuredAdminEmail = (env: Env = process.env): string | undefined => {
+export const configuredAdminEmail = (env: Env): string | undefined => {
   const email = env['AUTH_ADMIN_EMAIL']?.trim()
   return email ? email : undefined
 }

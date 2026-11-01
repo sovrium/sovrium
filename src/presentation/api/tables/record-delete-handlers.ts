@@ -15,24 +15,29 @@ import { restoreRecordWithSideEffects } from '@/application/use-cases/tables/rec
 import { deleteRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
 import { resolveRedirectAgainst } from '@/domain/kernel/url/redirect-resolution'
-import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
+  deleteRecordResponseSchema,
+  restoreRecordResponseSchema,
+} from '@/domain/models/api/tables/tables'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import { readFormBody } from '@/presentation/api/runtime/request-body'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { handleRestoreRecordError, handleRouteError } from './error-handlers'
 import { refuseUnlistedRow } from './readable-table-gate'
 import { checkDeleteGate } from './record-delete-gate'
+import { withWebhookReceipt } from './record-webhook-receipt'
 import {
-  enforceFormMutationGate,
   enforceRestoreGate,
+  formMutationGate,
+  guardForTable,
   passesUnguardedTableGate,
-  resolveGuardForTable,
 } from './row-level-guard'
 import { stillLinkedConflict } from './still-linked-conflict'
 import { maskUnreadableUniqueConflict, restoredWrite } from './unique-conflict-mask'
@@ -62,21 +67,23 @@ type SessionContext = ReturnType<typeof getTableContext>['session']
  * enumerator could use, and answering it 404 would instead hide a permanent
  * contract refusal behind a status that invites a retry. The delete path's
  * repository methods declare `DatabaseError` alone, so nothing else arrives
- * here under that tag.
+ * here under that tag. A `BusinessRuleViolationError` is a lock blocking the
+ * delete: it is raised only after the caller's own access was judged, so its
+ * 400 never answers for a record she cannot reach.
  */
 function deleteFailureResponse(c: Context, error: unknown): Response {
   const isValidationRefusal =
     typeof error === 'object' &&
     error !== null &&
     '_tag' in error &&
-    error._tag === 'ValidationError'
+    (error._tag === 'ValidationError' || error._tag === 'BusinessRuleViolationError')
   if (isDriverOriginatedFailure(error) || isValidationRefusal) return handleRouteError(c, error)
   return notFound(c)
 }
 
 /**
  * Run one delete — the write and every side effect it carries, in the order
- * `record-delete-orchestration.ts` pins — on the request's services.
+ * `record-delete-orchestration.ts` pins — as a step of the handler's program.
  */
 function runDelete(
   c: Context,
@@ -88,69 +95,81 @@ function runDelete(
     readonly mode: DeleteMode
   }
 ) {
-  const program = deleteRecordWithSideEffects({
+  const { userRole, userGroups } = getTableContext(c)
+  return deleteRecordWithSideEffects({
     ...input,
-    requester: recordWriteRequester(input.session.userId, getTableContext(c).userRole),
-    processEnv: process.env,
+    requester: recordWriteRequester(input.session.userId, userRole),
+    userGroups,
     forgetDerivedVariants: evictTransformCacheForKey,
-  })
-  return runRequestEffect(c, Effect.result(provideDomain(c, program)))
+  }).pipe(withWebhookReceipt(c), Effect.result)
 }
 
+/** The `{ success: true }` a delete answers, through its published schema. */
+const deletedResponse = (c: Context) =>
+  respondWith(c, Effect.succeed({ success: true }), deleteRecordResponseSchema)
+
 /** Map a soft-delete result to a JSON HTTP response. */
-function softDeleteResultToResponse(c: Context, result: DeleteResult): Response {
+function softDeleteResultToResponse(c: Context, result: DeleteResult) {
   if (result.restrictViolation) {
-    return c.json(
-      {
-        success: false,
-        message: 'Cannot delete record: child records exist and onDelete is set to restrict',
-        code: 'CONFLICT',
-      },
-      400
+    return Effect.succeed(
+      c.json(
+        {
+          success: false,
+          message: 'Cannot delete record: child records exist and onDelete is set to restrict',
+          code: 'CONFLICT',
+        },
+        400
+      )
     )
   }
-  if (!result.success) return notFound(c)
-  if (result.setNullPerformed) return c.json({ success: true }, 200)
-  return c.body(null, 204)
+  if (!result.success) return Effect.succeed(notFound(c))
+  if (result.setNullPerformed) return deletedResponse(c)
+  return Effect.succeed(c.body(null, 204))
 }
 
 export async function handleDeleteRecord(c: Context, app: App) {
-  const { session, tableName, userRole, userGroups } = getTableContext(c)
-
-  const table = app.tables?.find((t) => t.name === tableName)
-  const recordId = c.req.param('recordId')!
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-
-  const gateError = await checkDeleteGate({
-    c,
-    app,
-    table,
-    session,
-    tableName,
-    userRole,
-    userGroups,
-    recordId,
-    guard,
-  })
-  if (gateError) return gateError
-
-  // Both irreversible deletes — a permanent delete and a purge — are reserved
-  // to an admin-equivalent role, whatever the caller's `delete` grant.
-  // S1 anti-enumeration: anyone else gets the 404 of a missing record, so
-  // the boundary is not discoverable, and nothing is deleted.
-  const mode = requestedDeleteMode(c)
-  if (mode !== 'soft' && !isAdminEquivalent(userRole, app)) return notFound(c)
-
-  const outcome = await runDelete(c, { session, app, tableName, recordId, mode })
-  if (outcome._tag === 'Failure') {
-    // A record other rows still link to answers 409, naming the linking table
-    // only to a caller who reads it; every other failure as before.
-    const stillLinked = await stillLinkedConflict(c, app, outcome.failure)
-    return stillLinked ?? deleteFailureResponse(c, outcome.failure)
-  }
-  if (mode === 'soft') return softDeleteResultToResponse(c, outcome.success)
-  return outcome.success.success ? c.json({ success: true }, 200) : notFound(c)
+  return runHandlerEffect(c, answerFailures(c, deleteResponse(c, app)))
 }
+
+/** Gate, delete and answer a `DELETE`, as one program. */
+const deleteResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const { session, tableName, userRole, userGroups } = getTableContext(c)
+
+    const table = app.tables?.find((t) => t.name === tableName)
+    const recordId = c.req.param('recordId')!
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
+
+    const gateError = yield* checkDeleteGate({
+      c,
+      app,
+      table,
+      session,
+      tableName,
+      userRole,
+      userGroups,
+      recordId,
+      guard,
+    })
+    if (gateError) return gateError
+
+    // Both irreversible deletes — a permanent delete and a purge — are reserved
+    // to an admin-equivalent role, whatever the caller's `delete` grant.
+    // S1 anti-enumeration: anyone else gets the 404 of a missing record, so
+    // the boundary is not discoverable, and nothing is deleted.
+    const mode = requestedDeleteMode(c)
+    if (mode !== 'soft' && !isAdminEquivalent(userRole, app)) return notFound(c)
+
+    const outcome = yield* runDelete(c, { session, app, tableName, recordId, mode })
+    if (outcome._tag === 'Failure') {
+      // A record other rows still link to answers 409, naming the linking table
+      // only to a caller who reads it; every other failure as before.
+      const stillLinked = yield* stillLinkedConflict(c, app, outcome.failure)
+      return stillLinked ?? deleteFailureResponse(c, outcome.failure)
+    }
+    if (mode === 'soft') return yield* softDeleteResultToResponse(c, outcome.success)
+    return outcome.success.success ? yield* deletedResponse(c) : notFound(c)
+  })
 
 /**
  * The delete a request asks for: `?permanent=true` deletes for good,
@@ -170,117 +189,114 @@ function requestedDeleteMode(c: Context): DeleteMode {
  * Performs soft delete and redirects to the _redirect path from form body.
  */
 export async function handleFormDeleteRecord(c: Context, app: App) {
-  const { session, tableName, userRole, userGroups } = getTableContext(c)
-
-  const table = app.tables?.find((t) => t.name === tableName)
-  const recordId = c.req.param('recordId')!
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-
-  // Z-3: row-level scoping. Falls back to canonical role-only check when
-  // the table doesn't declare rowLevelPermissions (preserves existing
-  // behaviour for non-row-level-enforced tables).
-  if (guard) {
-    const gateError = await enforceFormMutationGate({
-      c,
-      table,
-      session,
-      tableName,
-      recordId,
-      guard,
-      op: 'delete',
-    })
-    if (gateError) return gateError
-  } else if (!passesUnguardedTableGate(app, table, { userRole, userGroups }, 'delete')) {
-    // S1 anti-enumeration: delete-permission denial returns 404.
-    return c.json(
-      {
-        success: false,
-        error: 'Not Found',
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
-  }
-
-  // A record her list of the table does not admit is a missing one.
-  const unlisted = await runDomainPromise(c, refuseUnlistedRow(c, app, recordId))
-  if (unlisted) return unlisted
-
-  // Parse form body for redirect path
-  const body = await c.req.parseBody()
-  const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
-
-  // The same delete the JSON verb runs, so its automations and webhooks fire alike.
-  const result = await runDelete(c, { session, app, tableName, recordId, mode: 'soft' })
-
-  if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)
-  if (!result.success.success) {
-    return notFound(c)
-  }
-
-  // The address arrives in the request body — a relative one resolved against
-  // the page that posted it — so it is only honoured once proven same-origin:
-  // otherwise it is an open redirect off this site.
-  const target = resolveRedirectAgainst(redirectPath, c.req.header('referer'))
-  if (target !== undefined) return c.redirect(target, 302)
-
-  return c.body(null, 204)
+  return runHandlerEffect(c, answerFailures(c, formDeleteResponse(c, app)))
 }
+
+/** The refusal of a delete or restore naming one record, by the door's own row gate. */
+const refuseUnguardedOrUnlisted = (input: {
+  readonly c: Context
+  readonly app: App
+  readonly table: ReturnType<NonNullable<App['tables']>['find']>
+  readonly recordId: string
+  readonly caller: { readonly userRole: string; readonly userGroups: readonly string[] }
+  readonly guarded: boolean
+}) => {
+  const { c, app, table, recordId, caller, guarded } = input
+  // S1 anti-enumeration: a delete- or restore-permission denial returns 404.
+  if (!guarded && !passesUnguardedTableGate(app, table, caller, 'delete')) {
+    return Effect.succeed(notFound(c))
+  }
+  // A record her list of the table does not admit is a missing one.
+  return refuseUnlistedRow(c, app, recordId)
+}
+
+/** Gate, delete and redirect a form's delete, as one program. */
+const formDeleteResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const { session, tableName, userRole, userGroups } = getTableContext(c)
+
+    const table = app.tables?.find((t) => t.name === tableName)
+    const recordId = c.req.param('recordId')!
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
+
+    // Z-3: row-level scoping. Falls back to canonical role-only check when
+    // the table doesn't declare rowLevelPermissions (preserves existing
+    // behaviour for non-row-level-enforced tables).
+    const gateError = guard
+      ? yield* formMutationGate({ c, table, session, tableName, recordId, guard, op: 'delete' })
+      : undefined
+    const refusal =
+      gateError ??
+      (yield* refuseUnguardedOrUnlisted({
+        ...{ c, app, table, recordId },
+        caller: { userRole, userGroups },
+        guarded: guard !== undefined,
+      }))
+    if (refusal) return refusal
+
+    // Parse form body for redirect path
+    const body = yield* readFormBody(c)
+    const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
+
+    // The same delete the JSON verb runs, so its automations and webhooks fire alike.
+    const result = yield* runDelete(c, { session, app, tableName, recordId, mode: 'soft' })
+
+    if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)
+    if (!result.success.success) {
+      return notFound(c)
+    }
+
+    // The address arrives in the request body — a relative one resolved against
+    // the page that posted it — so it is only honoured once proven same-origin:
+    // otherwise it is an open redirect off this site.
+    const target = resolveRedirectAgainst(redirectPath, c.req.header('referer'))
+    if (target !== undefined) return c.redirect(target, 302)
+
+    return c.body(null, 204)
+  })
 
 export async function handleRestoreRecord(c: Context, app: App) {
-  const { session, tableName, userRole, userGroups } = getTableContext(c)
-
-  const table = app.tables?.find((t) => t.name === tableName)
-  const recordId = c.req.param('recordId')!
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-
-  // Z-3: row-level scoping. Restore reuses the delete role gate AND the
-  // read and delete rules, judged on the trashed row itself.
-  if (guard) {
-    const gateError = await enforceRestoreGate({
-      c,
-      table,
-      session,
-      tableName,
-      ids: [recordId],
-      guard,
-    })
-    if (gateError) return gateError
-  } else if (!passesUnguardedTableGate(app, table, { userRole, userGroups }, 'delete')) {
-    // S1 anti-enumeration: restore-permission denial returns 404.
-    return c.json(
-      {
-        success: false,
-        error: 'Not Found',
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
-  }
-
-  // A record her list of the table does not admit is a missing one.
-  const unlisted = await runDomainPromise(c, refuseUnlistedRow(c, app, recordId))
-  if (unlisted) return unlisted
-
-  const result = await runOnRequest(
-    c,
-    restoreRecordWithSideEffects({
-      ...{ session, app, tableName, recordId, userRole, userGroups },
-      requester: recordWriteRequester(session.userId, userRole),
-      processEnv: process.env,
-    })
-  )
-
-  if (result._tag === 'Failure') {
-    const refusal = handleRestoreRecordError(c, result.failure)
-    return maskUnreadableUniqueConflict(c, app, restoredWrite(c, [recordId]), refusal)
-  }
-
-  if (!result.success.success) {
-    return notFound(c)
-  }
-
-  return c.json(result.success, 200)
+  return runHandlerEffect(c, answerFailures(c, restoreResponse(c, app)))
 }
+
+/** Gate, restore and answer a record restore, as one program. */
+const restoreResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const { session, tableName, userRole, userGroups } = getTableContext(c)
+
+    const table = app.tables?.find((t) => t.name === tableName)
+    const recordId = c.req.param('recordId')!
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
+
+    // Z-3: row-level scoping. Restore reuses the delete role gate AND the
+    // read and delete rules, judged on the trashed row itself.
+    const gateError = guard
+      ? yield* enforceRestoreGate({ c, table, session, tableName, ids: [recordId], guard })
+      : undefined
+    const refusal =
+      gateError ??
+      (yield* refuseUnguardedOrUnlisted({
+        ...{ c, app, table, recordId },
+        caller: { userRole, userGroups },
+        guarded: guard !== undefined,
+      }))
+    if (refusal) return refusal
+
+    const result = yield* Effect.result(
+      restoreRecordWithSideEffects({
+        ...{ session, app, tableName, recordId, userRole, userGroups },
+        requester: recordWriteRequester(session.userId, userRole),
+      }).pipe(withWebhookReceipt(c))
+    )
+
+    if (result._tag === 'Failure') {
+      const failed = handleRestoreRecordError(c, result.failure)
+      return yield* maskUnreadableUniqueConflict(c, app, restoredWrite(c, [recordId]), failed)
+    }
+
+    if (!result.success.success) {
+      return notFound(c)
+    }
+
+    return yield* respondWith(c, Effect.succeed(result.success), restoreRecordResponseSchema)
+  })

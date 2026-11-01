@@ -11,6 +11,7 @@ import {
   OAuthClientRegistrar,
 } from '@/application/ports/services/oauth-client-registrar'
 import { SIGN_IN_CLIENT_SCOPES } from '@/domain/models/app/automations/actions/auth/oauth-client-validation'
+import { Database, type DatabaseService } from '@/infrastructure/database/drizzle/layer'
 import type { Auth } from '@/domain/models/app/auth'
 
 /**
@@ -66,9 +67,15 @@ interface ClientAdapter {
 }
 
 /** The engine built from the app's auth config, and its adapter. */
-const engineFor = async (authConfig: Auth | undefined) => {
-  const { createAuthInstance } = await import('./auth')
-  const { adapter } = await createAuthInstance(authConfig).$context
+const engineFor = async (database: DatabaseService, authConfig: Auth | undefined) => {
+  const [{ createAuthInstance }, { makeAuthHookPolicies }] = await Promise.all([
+    import('./auth'),
+    import('@/infrastructure/server/auth-hook-policies'),
+  ])
+  const { adapter } = await createAuthInstance(authConfig, {
+    policies: makeAuthHookPolicies(database),
+    database,
+  }).$context
   // eslint-disable-next-line sovrium/no-double-assertion -- the adapter is typed against the engine's whole model map; these steps touch the provider's client model only, through the four calls `ClientAdapter` names.
   return { adapter: adapter as unknown as ClientAdapter }
 }
@@ -112,10 +119,11 @@ const findRegistered = async (adapter: ClientAdapter, clientId: string) => {
 }
 
 const register = async (
+  database: DatabaseService,
   authConfig: Auth | undefined,
   client: { readonly name: string; readonly redirectUri: string }
 ) => {
-  const { adapter } = await engineFor(authConfig)
+  const { adapter } = await engineFor(database, authConfig)
   const clientId = randomToken(24)
   const clientSecret = randomToken(32)
   const now = new Date()
@@ -144,8 +152,12 @@ const register = async (
   return { clientId, clientSecret }
 }
 
-const rotateSecret = async (authConfig: Auth | undefined, clientId: string) => {
-  const { adapter } = await engineFor(authConfig)
+const rotateSecret = async (
+  database: DatabaseService,
+  authConfig: Auth | undefined,
+  clientId: string
+) => {
+  const { adapter } = await engineFor(database, authConfig)
   if ((await findRegistered(adapter, clientId)) === undefined) return Option.none()
   const clientSecret = randomToken(32)
   await adapter.update({
@@ -156,30 +168,36 @@ const rotateSecret = async (authConfig: Auth | undefined, clientId: string) => {
   return Option.some({ clientId, clientSecret })
 }
 
-const remove = async (authConfig: Auth | undefined, clientId: string) => {
-  const { adapter } = await engineFor(authConfig)
+const remove = async (
+  database: DatabaseService,
+  authConfig: Auth | undefined,
+  clientId: string
+) => {
+  const { adapter } = await engineFor(database, authConfig)
   if ((await findRegistered(adapter, clientId)) === undefined) return false
   await adapter.delete({ model: 'oauthClient', where: [{ field: 'clientId', value: clientId }] })
   return true
 }
 
-export const OAuthClientRegistrarLive = Layer.succeed(
+export const OAuthClientRegistrarLive = Layer.effect(
   OAuthClientRegistrar,
-  OAuthClientRegistrar.of({
-    register: (authConfig, client) =>
-      Effect.tryPromise({
-        try: () => register(authConfig, client),
-        catch: (cause) => new OAuthClientError({ cause }),
-      }).pipe(Effect.withSpan('auth.register-oauth-client')),
-    rotateSecret: (authConfig, clientId) =>
-      Effect.tryPromise({
-        try: () => rotateSecret(authConfig, clientId),
-        catch: (cause) => new OAuthClientError({ cause }),
-      }).pipe(Effect.withSpan('auth.rotate-oauth-client-secret')),
-    remove: (authConfig, clientId) =>
-      Effect.tryPromise({
-        try: () => remove(authConfig, clientId),
-        catch: (cause) => new OAuthClientError({ cause }),
-      }).pipe(Effect.withSpan('auth.delete-oauth-client')),
-  })
+  Effect.map(Database, (database) =>
+    OAuthClientRegistrar.of({
+      register: (authConfig, client) =>
+        Effect.tryPromise({
+          try: () => register(database, authConfig, client),
+          catch: (cause) => new OAuthClientError({ cause }),
+        }).pipe(Effect.withSpan('auth.register-oauth-client')),
+      rotateSecret: (authConfig, clientId) =>
+        Effect.tryPromise({
+          try: () => rotateSecret(database, authConfig, clientId),
+          catch: (cause) => new OAuthClientError({ cause }),
+        }).pipe(Effect.withSpan('auth.rotate-oauth-client-secret')),
+      remove: (authConfig, clientId) =>
+        Effect.tryPromise({
+          try: () => remove(database, authConfig, clientId),
+          catch: (cause) => new OAuthClientError({ cause }),
+        }).pipe(Effect.withSpan('auth.delete-oauth-client')),
+    })
+  )
 )

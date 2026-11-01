@@ -12,11 +12,11 @@ import {
   INTRINSIC_UPDATED_AT_COLUMN,
 } from '@/domain/models/app/tables/system-fields'
 import { SQLITE_ISO_NOW } from '@/infrastructure/database/sql/dialect-ddl'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
- * The DB-side timestamp `DEFAULT` clause for the active dialect.
+ * The DB-side timestamp `DEFAULT` clause for the named dialect.
  *
  * - PostgreSQL: `DEFAULT CURRENT_TIMESTAMP` — yields a `timestamptz`.
  * - SQLite: `DEFAULT (strftime(...))` — bare `CURRENT_TIMESTAMP` on SQLite is
@@ -25,8 +25,8 @@ import type { Table } from '@/domain/models/app/tables'
  *   (see {@link SQLITE_ISO_NOW}). SQLite requires a parenthesised expression
  *   for a non-constant column default.
  */
-const timestampDefaultClause = (): string =>
-  isSqliteRuntime() ? `DEFAULT (${SQLITE_ISO_NOW})` : 'DEFAULT CURRENT_TIMESTAMP'
+const timestampDefaultClause = (dialect: DatabaseDialect): string =>
+  dialect === 'sqlite' ? `DEFAULT (${SQLITE_ISO_NOW})` : 'DEFAULT CURRENT_TIMESTAMP'
 
 /**
  * SQLite UUID DB-side default.
@@ -53,6 +53,7 @@ const SQLITE_UUID_DEFAULT = 'lower(hex(randomblob(16)))'
  *
  * @param primaryKeyType - Type of primary key (uuid, bigserial, text, or default serial)
  * @param isPrimaryKey - Whether this id column is the primary key (PK is emitted inline)
+ * @param dialect - The engine the DDL is written for
  *
  * `text` is used for tables declared in `auth.scopeTables` so applications
  * can use portable string IDs (e.g., 'acme', 'globex') in the multi-tenant
@@ -75,11 +76,12 @@ const SQLITE_UUID_DEFAULT = 'lower(hex(randomblob(16)))'
  */
 export const generateIdColumn = (
   primaryKeyType: string | undefined,
-  isPrimaryKey: boolean
+  isPrimaryKey: boolean,
+  dialect: DatabaseDialect
 ): string => {
   const pkConstraint = isPrimaryKey ? ' PRIMARY KEY' : ''
 
-  if (isSqliteRuntime()) {
+  if (dialect === 'sqlite') {
     // Schema-author opt-ins to opaque string ids — TEXT on both dialects.
     if (primaryKeyType === 'uuid' || primaryKeyType === 'text') {
       return `id TEXT NOT NULL DEFAULT (${SQLITE_UUID_DEFAULT})${pkConstraint}`
@@ -122,13 +124,18 @@ export const generateIdColumn = (
  * the FK column types collapse accordingly.
  *
  * @param primaryKeyType - the table's `primaryKey.type` (undefined ⇒ default serial)
+ * @param dialect - The engine the DDL is written for
  * @returns the FK column SQL type that matches the referenced `id` column
  * @public
  */
-export const resolvePrimaryKeyColumnType = (primaryKeyType: string | undefined): string => {
-  if (primaryKeyType === 'uuid') return isSqliteRuntime() ? 'TEXT' : 'UUID'
+export const resolvePrimaryKeyColumnType = (
+  primaryKeyType: string | undefined,
+  dialect: DatabaseDialect
+): string => {
+  const sqlite = dialect === 'sqlite'
+  if (primaryKeyType === 'uuid') return sqlite ? 'TEXT' : 'UUID'
   if (primaryKeyType === 'text') return 'TEXT'
-  if (primaryKeyType === 'bigserial') return isSqliteRuntime() ? 'INTEGER' : 'BIGINT'
+  if (primaryKeyType === 'bigserial') return sqlite ? 'INTEGER' : 'BIGINT'
   // default / omitted serial → INTEGER on both dialects.
   return 'INTEGER'
 }
@@ -170,7 +177,7 @@ export const needsAutomaticIdColumn = (
 }
 
 /**
- * Timestamp column type for the active dialect — the INTRINSIC path (this file
+ * Timestamp column type for the named dialect — the INTRINSIC path (this file
  * adds `created_at` / `updated_at` / `deleted_at` when the config declares none).
  *
  * Postgres uses `TIMESTAMPTZ`. SQLite has no timezone-aware timestamp type;
@@ -190,20 +197,24 @@ export const needsAutomaticIdColumn = (
  * not UTC.
  *
  */
-const timestampColumnType = (): string => (isSqliteRuntime() ? 'TEXT' : 'TIMESTAMPTZ')
+const timestampColumnType = (dialect: DatabaseDialect): string =>
+  dialect === 'sqlite' ? 'TEXT' : 'TIMESTAMPTZ'
+
+/** The `NOT NULL` timestamp column the intrinsic path adds, named `column`. */
+const intrinsicTimestampColumn = (column: string, dialect: DatabaseDialect): string =>
+  `${column} ${timestampColumnType(dialect)} NOT NULL ${timestampDefaultClause(dialect)}`
 
 /**
  * Generate created_at column definition if not explicitly defined
  * Note: Includes DEFAULT CURRENT_TIMESTAMP to support INSERT ... DEFAULT VALUES
  * Triggers also set the value to ensure consistency
  */
-export const generateCreatedAtColumn = (table: Table): readonly string[] => {
+export const generateCreatedAtColumn = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
   const hasCreatedAtField = table.fields.some((field) => field.name === INTRINSIC_CREATED_AT_COLUMN)
-  return !hasCreatedAtField
-    ? [
-        `${INTRINSIC_CREATED_AT_COLUMN} ${timestampColumnType()} NOT NULL ${timestampDefaultClause()}`,
-      ]
-    : []
+  return !hasCreatedAtField ? [intrinsicTimestampColumn(INTRINSIC_CREATED_AT_COLUMN, dialect)] : []
 }
 
 /**
@@ -211,19 +222,23 @@ export const generateCreatedAtColumn = (table: Table): readonly string[] => {
  * Note: Includes DEFAULT CURRENT_TIMESTAMP to support INSERT ... DEFAULT VALUES
  * Triggers update the value on INSERT and UPDATE to ensure currency
  */
-export const generateUpdatedAtColumn = (table: Table): readonly string[] => {
+export const generateUpdatedAtColumn = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
   const hasUpdatedAtField = table.fields.some((field) => field.name === INTRINSIC_UPDATED_AT_COLUMN)
-  return !hasUpdatedAtField
-    ? [
-        `${INTRINSIC_UPDATED_AT_COLUMN} ${timestampColumnType()} NOT NULL ${timestampDefaultClause()}`,
-      ]
-    : []
+  return !hasUpdatedAtField ? [intrinsicTimestampColumn(INTRINSIC_UPDATED_AT_COLUMN, dialect)] : []
 }
 
 /**
  * Generate deleted_at column definition if not explicitly defined
  */
-export const generateDeletedAtColumn = (table: Table): readonly string[] => {
+export const generateDeletedAtColumn = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
   const hasDeletedAtField = table.fields.some((field) => field.name === INTRINSIC_DELETED_AT_COLUMN)
-  return !hasDeletedAtField ? [`${INTRINSIC_DELETED_AT_COLUMN} ${timestampColumnType()}`] : []
+  return !hasDeletedAtField
+    ? [`${INTRINSIC_DELETED_AT_COLUMN} ${timestampColumnType(dialect)}`]
+    : []
 }

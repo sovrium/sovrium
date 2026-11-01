@@ -1,6 +1,6 @@
 # Filtering, Sorting and Pagination
 
-> The query grammar of the list endpoint — every parameter it reads, the three that behave unlike their neighbours, and the two mistakes that return a wrong answer instead of an error.
+> The query grammar of the list endpoint: every parameter it reads, the three that behave unlike their neighbours, and the two mistakes that return a wrong answer instead of an error.
 
 `GET /api/tables/:tableId/records` always answers with the list envelope, never a bare array. Every parameter below is optional and they combine freely.
 
@@ -25,11 +25,11 @@ GET /api/tables/tasks/records?limit=20&page=3      # the same rows
 
 `page` resolves to `offset = (page - 1) * limit` and applies **only when the request sends no `offset`**, so adding `page` to a request that already works cannot change which rows it returns. A `page` that is not a positive number is ignored and the request falls back to the first page.
 
-`limit` is an integer from `1` to `100`; `offset` is `0` or greater. Anything else — `?limit=0`, `?limit=500`, `?limit=abc`, `?offset=-5` — is refused with `400`, naming the parameter and the range it accepts.
+`limit` is an integer from `1` to `100`; `offset` is `0` or greater. Anything else (`?limit=0`, `?limit=500`, `?limit=abc`, `?offset=-5`) is refused with `400`, naming the parameter and the range it accepts.
 
 The same ceiling holds in configuration. A page component naming a larger page size is refused at validate, so a grid offering `200 / page` never reaches a reader who could pick it.
 
-Nothing is clamped, deliberately. Serving 100 rows to a request that asked for 500 is a silent wrong answer: a client walking the table with `offset += limit` would skip 400 rows per step and never be told. And `?limit=0` carries no intent to clamp toward. This is where `limit` parts company with `page`, which is ignored rather than refused — an unusable `page` names no window at all, while an out-of-range `limit` names one the envelope cannot describe. The range check runs _after_ the read gate, so a caller who may not read the table still receives the anti-enumeration `404` rather than a `400` that would confirm the table exists.
+Nothing is clamped, deliberately. Serving 100 rows to a request that asked for 500 is a silent wrong answer: a client walking the table with `offset += limit` would skip 400 rows per step and never be told. And `?limit=0` carries no intent to clamp toward. This is where `limit` parts company with `page`, which is ignored rather than refused: an unusable `page` names no window at all, while an out-of-range `limit` names one the envelope cannot describe. The range check runs _after_ the read gate, so a caller who may not read the table still receives the anti-enumeration `404` rather than a `400` that would confirm the table exists.
 
 `total` counts every matching row independently of the page, and the envelope derives `totalPages`, `hasNextPage` and `hasPreviousPage` from it. Both `limit` and `offset` are applied by the database, so page 40 of a large table costs what one page costs. Adding `groupBy` is the exception: a group spans the whole result set, so that request reads every matching row before grouping.
 
@@ -49,11 +49,11 @@ GET /api/tables/tasks/records?sort=priority:desc,name:asc
 
 A segment sorts ascending unless its direction is exactly `desc`. A single-select field sorts by its declared option order rather than alphabetically, so `low` / `medium` / `high` orders the way it was authored instead of the way it spells.
 
-A text field — single-line text, long text, rich text, an email, a URL or a phone number — sorts by the alphabet whatever the capitals: `atelier nord` comes before `Brasserie Martin`, on SQLite and PostgreSQL alike. Accents are compared as stored.
+A text field (single-line text, long text, rich text, an email, a URL or a phone number) sorts by the alphabet whatever the capitals: `atelier nord` comes before `Brasserie Martin`, on SQLite and PostgreSQL alike. Accents are compared as stored.
 
 A record with no value in the sorted field comes last, ascending and descending.
 
-A caller may sort by exactly the fields they may read — a field read grant, one naming a group they belong to, or the built-in role defaults when the table declares no field rules — and by the system fields. A sort on a field the caller may not read is answered with the same `404` as a filter on it, never with rows ordered by the hidden value — and so is a sort on a field the table does not have, so the two cannot be told apart.
+A caller may sort by exactly the fields they may read (a field read grant, one naming a group they belong to, or the built-in role defaults when the table declares no field rules) and by the system fields. A sort on a field the caller may not read is answered with the same `404` as a filter on it, never with rows ordered by the hidden value. So is a sort on a field the table does not have, so the two cannot be told apart.
 
 ## Choosing columns
 
@@ -61,9 +61,9 @@ A caller may sort by exactly the fields they may read — a field read grant, on
 GET /api/tables/contacts/records?fields=id,name,status
 ```
 
-`fields` is a projection: only the named columns are read from the database, so a narrow selection over a wide table is cheaper in the query as well as on the wire. Each record still carries `id`, `createdAt` and `updatedAt` at its root alongside the authorship keys — narrowing the list never drops the metadata beside it. Those three system names are accepted inside the list and served from the record root. A name matching neither them nor a field of the table selects nothing, as a field the caller may not read selects nothing — a misspelt name is never reported, so check a selection against the records it returns.
+`fields` is a projection: only the named columns are read from the database, so a narrow selection over a wide table is cheaper in the query as well as on the wire. Each record still carries `id`, `createdAt` and `updatedAt` at its root alongside the authorship keys: narrowing the list never drops the metadata beside it. Those three system names are accepted inside the list and served from the record root. A name matching neither them nor a field of the table selects nothing, as a field the caller may not read selects nothing. A misspelt name is never reported, so check a selection against the records it returns.
 
-A many-to-many field is returned only when the list names it. Fields the caller may not read are omitted whether or not the list names them — omitted from an ordinary `200`, never turned into an error.
+A many-to-many field is returned only when the list names it. Fields the caller may not read are omitted whether or not the list names them: omitted from an ordinary `200`, never turned into an error.
 
 ## Relationship labels
 
@@ -97,7 +97,7 @@ GET /api/tables/tasks/records?filter={"and":[{"field":"status","operator":"in","
 
 **`?filter` is an `and` list.** A flat object (`{"status":"active"}`), a lone condition, a bare array or a top-level `or` is refused with a `400` naming the `and` list the API takes. Use the shortcut or the `and` tree.
 
-The operators are `equals`, `notEquals`, `greaterThan`, `lessThan`, `greaterThanOrEqual`, `lessThanOrEqual`, `contains`, `startsWith`, `endsWith`, `isNull`, `isNotNull`, `isEmpty`, `isNotEmpty`, `isTrue`, `isFalse`, `in`, `notIn` and `between`. `between` takes a two-item `value`, `[low, high]`, and keeps the values from one to the other, both ends included, on a number or a date (`{"field": "amount", "operator": "between", "value": [250, 980]}`); any other value is refused with a `400` naming the field. `isEmpty` keeps the rows whose field is NULL, empty text, an empty list or an empty object, `isNotEmpty` the others, on any column type; neither takes a `value`. `isTrue` and `isFalse` take a checkbox, a formula whose `resultType` is `boolean`, or a lookup of a checkbox; on any other field they are refused with a `400` naming the field.
+The operators are `equals`, `notEquals`, `greaterThan`, `lessThan`, `greaterThanOrEqual`, `lessThanOrEqual`, `contains`, `startsWith`, `endsWith`, `isNull`, `isNotNull`, `isEmpty`, `isNotEmpty`, `isTrue`, `isFalse`, `in`, `notIn` and `between`. `between` takes a two-item `value`, `[low, high]`, and keeps the values from one to the other, both ends included, on a number or a date (`{"field": "amount", "operator": "between", "value": [250, 980]}`); any other value is refused with a `400` naming the field. `isEmpty` keeps the rows whose field is NULL, empty text, an empty list or an empty object, `isNotEmpty` the others, on any column type; neither takes a `value`. `isTrue` and `isFalse` take a checkbox, a formula whose `resultType` is `boolean`, or a lookup of a checkbox; on any other field they are refused with a `400` naming the field. A value its field cannot hold, such as text compared with a number, or a text operator (`contains`, `startsWith`, `endsWith`) on a number, is refused with a `400` naming the field, on both engines.
 
 A `value` compared with a checkbox, in a JSON filter or the shorthand, is read as yes or no on both engines: `true`, `1`, `"true"`, `"1"` and `"t"` mean ticked, `false`, `0`, `"false"`, `"0"` and `"f"` unticked, in any case and inside `or` groups and `in` lists alike. Prefer `true` and `false`.
 
@@ -113,9 +113,9 @@ An operator outside that set is refused with a `400` naming it and listing the s
 
 `filterByFormula` is an alternative syntax accepting an `AND(…)` wrapper over `{field}` references compared with `=`, `!=`, `<`, `<=`, `>` and `>=`.
 
-A condition's `value` may be a relative date — `$today`, `$today+Nd`, `$today-Nd`, `$today+Nw`, `$today-Nw`, `$startOfMonth` or `$startOfNextMonth` — which the server resolves to the calendar day it names on the day of the request, before the filter reaches the database. A value that starts like one of these but is outside the list — `$today+1m`, `$startOfYear` — is refused with a `400` naming the value and the tokens that exist, rather than compared as text.
+A condition's `value` may be a relative date (`$today`, `$today+Nd`, `$today-Nd`, `$today+Nw`, `$today-Nw`, `$startOfMonth` or `$startOfNextMonth`), which the server resolves to the calendar day it names on the day of the request, before the filter reaches the database. A value that starts like one of these but is outside the list, such as `$today+1m` or `$startOfYear`, is refused with a `400` naming the value and the tokens that exist, rather than compared as text.
 
-A condition on a `datetime` field may name an instant instead: `$now`, or `$now+N` / `$now-N` with a unit of `m` (minutes), `h` (hours), `d` (days) or `w` (weeks) — `$now-1h` is the last hour, `$now-7d` the last seven days to the minute rather than since a midnight. The server resolves it once per request to a UTC instant rounded down to the minute, and every token in one request reads the same instant. A value that starts with `$now` but is outside the list — `$now-1y`, `$now-90s` — is refused with a `400` naming the value and the tokens that exist.
+A condition on a `datetime` field may name an instant instead: `$now`, or `$now+N` / `$now-N` with a unit of `m` (minutes), `h` (hours), `d` (days) or `w` (weeks). `$now-1h` is the last hour, `$now-7d` the last seven days to the minute rather than since a midnight. The server resolves it once per request to a UTC instant rounded down to the minute, and every token in one request reads the same instant. A value that starts with `$now` but is outside the list, such as `$now-1y` or `$now-90s`, is refused with a `400` naming the value and the tokens that exist.
 
 ## Searching
 
@@ -127,6 +127,6 @@ GET /api/tables/contacts/records?q=zinc
 
 When the table declares `fullTextSearch` on one or more `long-text` fields, `q` searches **those fields only**, by word and from an index: each word of the term must appear in the same field and matches a word that starts with it, a double-quoted span is a phrase, and with no `sort` the most relevant records come first. Characters such as `-`, `*`, `:` or parentheses are plain text, never syntax. **Full-Text Search** documents the grammar. The rest of this section describes a table declaring no such field.
 
-The term is matched against text-shaped fields only — single-line text, long text, rich text, email, URL, phone number, single-select, status, code and barcode. Numbers, dates and booleans are not searched, and computed fields are excluded because they are view expressions rather than stored columns.
+The term is matched against text-shaped fields only: single-line text, long text, rich text, email, URL, phone number, single-select, status, code and barcode. Numbers, dates and booleans are not searched, and computed fields are excluded because they are view expressions rather than stored columns.
 
 Only fields the caller may read are searched, so a match can never disclose the content of a field hidden from that role. A table exposing no readable text field to the caller matches nothing, rather than matching everything.

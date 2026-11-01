@@ -161,11 +161,12 @@ jobs:
 
       # Ad-hoc, because this workflow has no certificate. The entitlements are
       # NOT optional even here: JavaScriptCore is a JIT, and without `allow-jit`
-      # and `allow-unsigned-executable-memory` the kernel kills the sidecar at
-      # launch rather than failing with a message — which presents as "the app
-      # does nothing when I open it". A `--deep` signature on the bundle does not
-      # apply entitlements to a nested Mach-O, so the sidecar is signed on its
-      # own and BEFORE the bundle.
+      # the sidecar still starts but runs with its JIT off, about seven times
+      # slower (measured, ADR-036 A3) — a regression this smoke test cannot
+      # see, which is why the entitlement is asserted. The sidecar is signed on its own and
+      # BEFORE the bundle, and this signature is the one that ships: on macOS
+      # `desktop/tauri-cli.ts` hands the engine to the bundler as a plain file,
+      # so Tauri does not re-sign it with the shell's minimal entitlements.
       - name: Ad-hoc sign the sidecar (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -212,6 +213,23 @@ jobs:
             echo "FAIL: the shell executable is named '${EXE_NAME}', which collides with the"
             echo "      sidecar 'sovrium' on a case-insensitive filesystem. One has overwritten"
             echo "      the other. Do not set bundle.mainBinaryName to the product name."
+            exit 1
+          fi
+          # Each Mach-O carries its own entitlements: the shell none of the
+          # engine's library and dyld keys, the engine the JIT key.
+          SHELL_ENTITLEMENTS=$(codesign -d --entitlements :- "$APP/Contents/MacOS/${EXE_NAME}" 2>/dev/null)
+          for KEY in disable-library-validation allow-dyld-environment-variables; do
+            if printf '%s' "${SHELL_ENTITLEMENTS}" | grep -q "com.apple.security.cs.${KEY}"; then
+              echo "FAIL: the app shell carries ${KEY}; it belongs to the engine alone"
+              exit 1
+            fi
+          done
+          # Exactly allow-jit: missing, the engine runs with its JIT off; any
+          # other key is one the founder dropped on 2026-10-30 (ADR-036 A3).
+          ENGINE_KEYS=$(codesign -d --entitlements :- "$APP/Contents/MacOS/sovrium" 2>/dev/null \
+            | grep -o 'com\.apple\.security\.[A-Za-z0-9.-]*' | LC_ALL=C sort -u | tr '\n' ' ')
+          if [ "${ENGINE_KEYS}" != "com.apple.security.cs.allow-jit " ]; then
+            echo "FAIL: the engine must carry exactly com.apple.security.cs.allow-jit (ADR-036 A3); it carries: ${ENGINE_KEYS:-nothing}"
             exit 1
           fi
           bun run scripts/build/smoke-desktop-app.ts --exe "$APP/Contents/MacOS/${EXE_NAME}"

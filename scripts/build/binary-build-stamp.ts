@@ -36,7 +36,7 @@
  *     restored backup, some editors' atomic-save paths). The binary then looks
  *     newer than inputs it was never built from.
  *   - `bun run build:binary` REGENERATES several inputs in place
- *     (`generated-css-assets.ts`, the four `*.generated.ts` manifests) before
+ *     (`generated-css-assets.generated.ts`, the four `*.generated.ts` manifests) before
  *     compiling, so the mtime ordering after a build depends on step ordering
  *     inside the build script rather than on anything the gate controls.
  *
@@ -207,7 +207,7 @@ export interface BinaryBuildStamp {
  * Record the fingerprint of the tree the binary was JUST compiled from.
  *
  * Called at the very end of `build-binary.ts`, after the compile, deliberately:
- * the build regenerates inputs in place (`generated-css-assets.ts` and the embed
+ * the build regenerates inputs in place (`generated-css-assets.generated.ts` and the embed
  * manifests), so a fingerprint taken BEFORE the compile would describe a tree
  * that no longer exists and would report the fresh binary as stale on the very
  * next check.

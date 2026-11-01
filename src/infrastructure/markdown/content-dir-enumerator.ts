@@ -32,17 +32,15 @@
 import { stat } from 'node:fs/promises'
 import { isAbsolute, resolve } from 'node:path'
 import { splitFrontmatter } from '@/domain/kernel/markdown/markdown-renderer'
-import {
-  frontmatterAccess,
-  type ContentDirArticleBody,
-} from '@/domain/models/app/pages/content-dir-access'
 import { matchesContentDirFilter } from '@/domain/models/app/pages/content-dir-filter'
 import { deriveContentDirIndexBasePath } from '@/domain/models/app/pages/content-dir-index-base-path'
+import { accessOverlay, lastmodOverlay } from '@/infrastructure/markdown/content-dir-front-matter'
 import type {
   ContentDirBody,
   ContentDirEntry,
 } from '@/application/ports/services/content-dir-reader'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
+import type { ContentDirArticleBody } from '@/domain/models/app/pages/content-dir-access'
 
 /**
  * Parsed file record before slug derivation — one file of a cached corpus.
@@ -53,8 +51,6 @@ export interface ParsedFile {
   readonly relativePath: string
   readonly frontmatter: Readonly<Record<string, string>>
   readonly body: string
-  /** The file's modification time in epoch milliseconds, when readable. */
-  readonly modifiedAtMs?: number
 }
 
 /** Strip trailing `/` from `contentDir.directory` (defensive). */
@@ -131,7 +127,7 @@ const readFile = async (
     const file = Bun.file(absolutePath)
     if (!(await file.exists())) return undefined
     const { frontmatter, body } = splitFrontmatter(await file.text())
-    return { relativePath, frontmatter, body, modifiedAtMs: file.lastModified }
+    return { relativePath, frontmatter, body }
   } catch {
     return undefined
   }
@@ -196,17 +192,9 @@ const toEntry = (
     group,
     description: file.frontmatter['description'],
     path: resolveEntryPath(contentDir, pagePath, slug),
-    ...(file.modifiedAtMs !== undefined ? { modifiedAt: new Date(file.modifiedAtMs) } : {}),
+    ...lastmodOverlay(file.frontmatter),
     ...accessOverlay(file.frontmatter),
   }
-}
-
-/** The `access` overlay of one entry: its front matter's, when it declares one. */
-const accessOverlay = (
-  frontmatter: Readonly<Record<string, string>>
-): Pick<ContentDirEntry, 'access'> => {
-  const access = frontmatterAccess(frontmatter)
-  return access === undefined ? {} : { access }
 }
 
 /** A cached scan+parse result for one `(directory, include)` pair. */

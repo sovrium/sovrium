@@ -1,6 +1,6 @@
 # Image Resize & Fit
 
-> Resizing a stored image at request time from query parameters on the ordinary download URL — and why cropping is a `400` rather than a fallback.
+> Resizing a stored image at request time from query parameters on the ordinary download URL, and why cropping is a `400` rather than a fallback.
 
 There is no separate image service, no build step and no second copy in storage: the original is read, transformed and cached, and it is never modified.
 
@@ -8,7 +8,7 @@ There is no separate image service, no build step and no second copy in storage:
 GET /api/buckets/photos/files/{key}?width=400&height=300&fit=inside
 ```
 
-The same parameters work on a signed URL and on the URL a record's attachment hands you. They apply to images only — a transform parameter on a PDF or a CSV answers `400`.
+The same parameters work on a signed URL and on the URL a record's attachment hands you. They apply to images only: a transform parameter on a PDF or a CSV answers `400`.
 
 ## Resize
 
@@ -22,7 +22,7 @@ Give one dimension and the other follows from the aspect ratio. An integer outsi
 
 **Sources above 50 million pixels are not transformed.** What an image costs to transform is the buffer its decoder allocates from the dimensions in its header, not its size on disk: a file of a few hundred bytes can declare 16000 by 16000 pixels, about a gigabyte once decoded. The header is read first, and a source declaring more than 50,000,000 pixels answers `422` with a message naming its dimensions, before anything is decoded. The original still downloads untouched without transform parameters. The same limit applies to the `file` automation action's `transformImage`, which fails instead.
 
-**A non-numeric dimension is ignored, not rejected.** A width of `abc` produces the untransformed image rather than an error — only an out-of-range **integer** is a `400`. If you build URLs from user input, validate before you interpolate: a silently ignored parameter is easy to miss in review.
+**A non-numeric dimension is ignored, not rejected.** A width of `abc` produces the untransformed image rather than an error. Only an out-of-range **integer** is a `400`. If you build URLs from user input, validate before you interpolate: a silently ignored parameter is easy to miss in review.
 
 ## Fit modes
 
@@ -37,13 +37,13 @@ An unrecognised value answers `400`.
 
 `inside` is what you want almost always. Its one surprise: asking for a 200 by 200 box gives a 200 by 50 image when the source is four to one, because fitting inside a box is not the same as filling it. Size your layout for the box rather than for the returned image.
 
-Reach for `fill` essentially never — it is the only mode that distorts, which is why it has to be named explicitly.
+Reach for `fill` essentially never: it is the only mode that distorts, which is why it has to be named explicitly.
 
 ## Cropping is not offered
 
 The crop parameter is gone, and with it the three fit modes that crop or pad to reach an exact box. All of them answer `400`.
 
-The image pipeline exposes no crop primitive, so none of the old strategies — centre, entropy, attention, or a focal point — can be honoured.
+The image pipeline exposes no crop primitive, so none of the old strategies (centre, entropy, attention, or a focal point) can be honoured.
 
 ### Why an error rather than a fallback
 

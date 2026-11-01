@@ -6,10 +6,11 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
+import { StaticMarkup } from '@/presentation/design/static-markup'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import {
   isOpenSpecimen,
-  renderOpenOverlay,
+  openOverlayElement,
   type OpenOverlayContent,
   type OpenOverlayKind,
 } from '@/presentation/render/resolve/open-specimen-markup'
@@ -58,11 +59,10 @@ const contentOf = (kind: OpenOverlayKind, context: ComponentDispatchConfig): Ope
 
 /** The frame holding the open overlay, on the host the renderer would have drawn. */
 const openOverlayHost = (kind: OpenOverlayKind, context: ComponentDispatchConfig): ReactElement => (
-  <div
+  <StaticMarkup
+    html={renderToStaticMarkup(openOverlayElement(kind, contentOf(kind, context)))}
     data-component-type={hostComponentType(context.elementProps)}
     data-testid={context.elementProps['data-testid'] as string | undefined}
-    // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
-    dangerouslySetInnerHTML={{ __html: renderOpenOverlay(kind, contentOf(kind, context)) }}
   />
 )
 

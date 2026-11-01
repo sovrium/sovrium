@@ -6,7 +6,7 @@
  */
 
 import { useCallback, type ReactElement } from 'react'
-import { fieldDescriptionId } from '@/presentation/design/field-display'
+import { controlDescriptionIds } from '@/presentation/design/field-display'
 import { DateTextBox } from '../date-text-box'
 import { FieldHelpText } from './field-help-text'
 import { FieldLabelText, LabelledControl } from './field-label'
@@ -30,6 +30,7 @@ export function DateField({
   uiStrings,
 }: DateFieldProps): ReactElement {
   const change = useCallback((day: string) => onChange(field.name, day), [onChange, field.name])
+  const describedBy = controlDescriptionIds(field)
   return (
     <LabelledControl
       label={<FieldLabelText field={field} />}
@@ -46,9 +47,7 @@ export function DateField({
           {...(field.readOnly === true && { readOnly: true })}
           {...(field.placeholder === undefined ? {} : { placeholder: field.placeholder })}
           {...(invalid === true && { invalid: true })}
-          {...(field.description === undefined
-            ? {}
-            : { describedBy: fieldDescriptionId(field.name) })}
+          {...(describedBy === undefined ? {} : { describedBy })}
         />
       )}
     />

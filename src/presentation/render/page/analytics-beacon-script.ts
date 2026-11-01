@@ -5,46 +5,56 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
+import { buildPageViewTracker } from '@/domain/models/app/analytics/page-view-tracker-service'
+import { analyticsConsentHold } from '@/domain/models/app/consent/consent-version-service'
 import { generateClickDelegateScript } from '@/presentation/render/scripts/click-delegate-script'
+import type { PrivacySignalSettings } from '@/domain/models/app/analytics/privacy-signals-service'
+import type { Consent } from '@/domain/models/app/consent'
+import type { Languages } from '@/domain/models/app/languages'
+
+/** What a page reads from the app about its `consent` block. */
+export type PageConsent = {
+  readonly declaration: Consent
+  /** The app's languages, for the purposes' `$t:` keys and the banner's strings. */
+  readonly languages: Languages | undefined
+}
+
+/** What the beacon reads from the app's `analytics` settings. */
+export type AnalyticsBeaconSettings = PrivacySignalSettings & {
+  /** `analytics.sessionTimeout`, default 30 */
+  readonly sessionTimeoutMinutes: number
+  /** The app's `consent` block, when it declares one. */
+  readonly consent?: PageConsent
+}
 
 /**
  * The built-in analytics beacon, inlined into `<head>`.
  *
- * Extracted VERBATIM from `dynamic-page.tsx` — the emitted string is unchanged.
- * It moved because it is a self-contained string builder that was holding ~25
- * lines of a file permanently at its `max-lines` cap, so every unrelated feature
- * touching the page shell had to pay for it.
+ * The ONE tracker a page or the fallback not-found page inlines: the shared
+ * page-view tracker (`buildPageViewTracker`) plus the on-page outbound-click
+ * delegate, which only this copy carries.
  *
  * Deliberately hand-minified rather than built: it must run BEFORE anything else
  * on the page, so it ships as an inline script with no fetch of its own.
  *
+ * It reads the operator's Do Not Track and Global Privacy Control settings, and
+ * sends nothing from a browser reporting a signal they honour. When the app
+ * declares an `analytics` purpose it also holds until that purpose is accepted.
+ *
  * @param appName - `page.name`, reported as the analytics app identifier
- * @param sessionTimeoutMinutes - `analytics.sessionTimeout`, default 30
+ * @param settings - The app's resolved analytics settings
  */
 export function buildAnalyticsBeaconScript(
   appName: string,
-  sessionTimeoutMinutes: number | undefined
+  settings: AnalyticsBeaconSettings
 ): string {
-  return `(function(){
-"use strict";
-var E="/api/analytics/collect",A=${serializeJsonForScript(appName)},D=true,sessionTimeout=${sessionTimeoutMinutes ?? 30};
-if(D&&navigator.doNotTrack==="1")return;
-var u=function(){
-try{var s=new URLSearchParams(location.search);
-var d={p:location.pathname,t:document.title,r:document.referrer||void 0,
-sw:screen.width,sh:screen.height,
-us:s.get("utm_source")||void 0,um:s.get("utm_medium")||void 0,
-uc:s.get("utm_campaign")||void 0,ux:s.get("utm_content")||void 0,
-ut:s.get("utm_term")||void 0};
-var b=JSON.stringify(d);
-if(navigator.sendBeacon){navigator.sendBeacon(E,new Blob([b],{type:"application/json"}))}
-else{var x=new XMLHttpRequest();x.open("POST",E,true);x.setRequestHeader("Content-Type","application/json");x.send(b)}
-}catch(e){}};
-u();
-var op=history.pushState;
-history.pushState=function(){op.apply(this,arguments);u()};
-window.addEventListener("popstate",u);
-${generateClickDelegateScript()}
-})();`
+  const consentHold = analyticsConsentHold(settings.consent?.declaration)
+  return buildPageViewTracker({
+    endpoint: '/api/analytics/collect',
+    appName,
+    privacySignals: settings,
+    ...(consentHold === undefined ? {} : { consentHold }),
+    extraDeclarations: `,sessionTimeout=${settings.sessionTimeoutMinutes}`,
+    epilogue: generateClickDelegateScript(),
+  })
 }

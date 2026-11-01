@@ -149,6 +149,10 @@ const derivedLinksOf = (
   })
 }
 
+/** The lookups, rollups and counts of `tableName` whose relationship links to a declared table. */
+export const relatedValueLinksOf = (app: App, tableName: string): readonly LookupLink[] =>
+  derivedLinksOf(app, tableName, DERIVED)
+
 /** The lookups of `tableName` whose relationship links to a declared table. */
 export const lookupLinksOf = (app: App, tableName: string): readonly LookupLink[] =>
   derivedLinksOf(app, tableName, LOOKUPS)

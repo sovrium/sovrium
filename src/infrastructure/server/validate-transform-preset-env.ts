@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
+import { TransformPresetError } from '@/domain/errors/transform-preset-error'
 import { parsePresetEnv } from '@/domain/models/app/buckets/image-transform-presets'
-import { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 
 /**
  * Fail-fast on a malformed `STORAGE_TRANSFORM_PRESETS` env var (invalid JSON, a

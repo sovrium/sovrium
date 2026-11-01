@@ -6,6 +6,7 @@
  */
 
 import { Clock, Duration, Effect } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   MAX_DELAY_LABEL,
   MAX_DELAY_MS,
@@ -13,9 +14,10 @@ import {
   parseDelayDurationMs,
   resolveUntilInstantMs,
 } from '@/domain/models/app/automations/actions/delay/delay-wait-service'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
+import type { ProcessEnvShape } from '@/application/ports/services/process-env'
 
 /**
  * `delay/*` handlers — pause an automation run.
@@ -51,15 +53,20 @@ const ok = (output?: Readonly<Record<string, unknown>>): ActionOutcome =>
 /**
  * The instant a `delay/wait` resumes at, in epoch milliseconds. `duration`
  * and `until` are mutually exclusive at the schema level; `duration` wins when
- * both somehow arrive. A missing or unreadable value resumes at once.
+ * both somehow arrive. A missing or unreadable value resumes at once. A
+ * wall-clock `until` naming no zone is read in the operator timezone, from `env`.
  */
-const resolveWaitUntil = (props: Readonly<Record<string, unknown>>, nowMs: number): number => {
+const resolveWaitUntil = (
+  props: Readonly<Record<string, unknown>>,
+  nowMs: number,
+  env: ProcessEnvShape
+): number => {
   const { duration, until } = props
   if (typeof duration === 'string' && duration.trim() !== '') {
     return nowMs + parseDelayDurationMs(duration)
   }
   if (typeof until === 'string') {
-    return resolveUntilInstantMs(until, resolveOperatorTimezone()) ?? nowMs
+    return resolveUntilInstantMs(until, parseSovriumTimezone(env).zoneId) ?? nowMs
   }
   return nowMs
 }
@@ -100,7 +107,7 @@ const isoNow = (): Effect.Effect<string> =>
 export const handleDelayWait: ActionHandler = (action) =>
   Effect.gen(function* () {
     const nowMs = yield* Clock.currentTimeMillis
-    const resumeAtMs = resolveWaitUntil(propsOf(action), nowMs)
+    const resumeAtMs = resolveWaitUntil(propsOf(action), nowMs, yield* ProcessEnv)
     const outcome = yield* waitUntil({
       operator: 'wait',
       resumeAtMs,

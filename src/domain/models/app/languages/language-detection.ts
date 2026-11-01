@@ -145,6 +145,32 @@ export function resolvePreferredLanguage(
   return findDeclaredLanguage(languages, rawPreference)
 }
 
+/** What a request offers toward the language a page is served in. */
+export interface ServedPageLanguageInputs {
+  readonly languages: Languages | undefined
+  /** The `/{lang}/` address prefix, else the persisted preference: one rank. */
+  readonly addressed: string | undefined
+  /** The page's own `meta.lang`. */
+  readonly pageLang: string | undefined
+  /** The browser's language, when the app detects it (`detectLanguageIfEnabled`). */
+  readonly detected: string | undefined
+}
+
+/**
+ * The language a page is served in, highest first: its address (else the
+ * remembered choice), the page's own `meta.lang`, the browser's language when
+ * the app detects it, `languages.default`, and `en-US` for an app declaring
+ * none. The page renderer and a write posted from the page both read it, so a
+ * page saves translatable text in the language it showed.
+ *
+ * @example
+ * servedPageLanguage({ languages, addressed: undefined, pageLang: undefined, detected: 'en' }) // => 'en'
+ */
+export function servedPageLanguage(inputs: ServedPageLanguageInputs): string {
+  const { languages, addressed, pageLang, detected } = inputs
+  return addressed ?? pageLang ?? detected ?? languages?.default ?? 'en-US'
+}
+
 /**
  * The declared `supported[]` entry a language value names, by either spelling
  * — the short `code` (`fr`) or the full `locale` (`fr-FR`). The one match the

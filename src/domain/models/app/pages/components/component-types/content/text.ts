@@ -16,7 +16,12 @@ import { visibilityFields } from '../modules/visibility'
 
 export const TextTypeLiteral = Schema.Literal('text')
 
-export const TextElementSchema = Schema.Literals([
+/**
+ * The elements a `text` node may name. One tuple, read by the `element` field
+ * here and by `design.components.text.elements`, which is keyed by the same
+ * names so a styling rule exists for exactly the elements a text can be.
+ */
+export const TEXT_ELEMENTS = [
   'p',
   'span',
   'h1',
@@ -30,10 +35,15 @@ export const TextElementSchema = Schema.Literals([
   'kbd',
   'blockquote',
   'code',
-]).annotate({
-  defaultNote: 'p',
+] as const
+
+/** One element a `text` node may name. */
+export type TextElement = (typeof TEXT_ELEMENTS)[number]
+
+export const TextElementSchema = Schema.Literals(TEXT_ELEMENTS).annotate({
+  defaultNote: 'span',
   title: 'Text Element',
-  description: 'HTML element to render. Defaults to "p".',
+  description: 'HTML element to render. Without one, the text is drawn as a `span`.',
 })
 
 export const textFields = {

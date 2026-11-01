@@ -74,6 +74,11 @@ export interface CommentThreadIslandProps {
   readonly paginationStyle: 'loadMore' | 'numbered'
   readonly placeholder: string
   readonly emptyText: string
+  /** The thread's heading, redrawn with the server's id so it still names the host section. */
+  readonly title?: string
+  readonly titleId?: string
+  /** `hideWhenEmpty`: an empty thread draws no empty-state sentence. */
+  readonly hideEmptyText?: boolean
   readonly currentUserId?: string
   readonly currentUserIsAdmin?: boolean
   readonly currentUserName?: string

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { createAggregateRecordsProgram } from '@/application/use-cases/tables/aggregate-records-program'
 import { readerRowsOf, type ReaderRows } from '@/application/use-cases/tables/row-read-admission'
 import { aggregateRecordsResponseSchema } from '@/domain/models/api/tables/aggregate'
@@ -12,16 +13,18 @@ import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { describeUnknownPercentile } from '@/domain/models/app/tables/aggregate-percentile-service'
 import { minMaxKindOf } from '@/domain/models/app/tables/min-max-order-service'
 import { fieldReadOnEveryAdmittedRow } from '@/domain/models/app/tables/row-read-admission-service'
-import { provideTableLive } from '@/infrastructure/layers/table-layer'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
-import { runEffect } from '@/presentation/api/runtime'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { validateAggregateParam, validateGroupByParam } from './field-permission-validation'
 import { parseFilter } from './list-records-filter'
 import { buildSearchFilter } from './list-records-search'
 import { parseAggregateParam, unknownPercentileIn } from './param-parsers'
-import { resolveGuardForTable } from './row-level-guard'
+import { guardForTable } from './row-level-guard'
 import { buildListFilter, checkListReadGate, mergeFilters } from './row-level-read-helpers'
 import type { FilterStructure } from './row-level-read-helpers'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -190,49 +193,59 @@ const emptyAnswer = (question: { readonly groupBy?: string; readonly ratio?: Rat
  * The question, asked of exactly the rows the reader's list returns her: a
  * reader who may list none of them is answered as for a missing table.
  */
-const readReaderQuestion = async (
+const readReaderQuestion = (
   c: Context,
   access: Omit<ReadAccess, 'rows' | 'signedOut'> & { readonly session: UserSession }
-): Promise<
-  Response | (Exclude<ReadAggregateQuestion, Response> & { readonly rows: ReaderRows })
-> => {
+) => {
   const { app, tableName, session, userRole, userGroups } = access
   const reader = { session, role: userRole, groups: userGroups }
-  const rows = await runDomainPromise(c, readerRowsOf(app, tableName, reader))
-  if (rows.admission.kind === 'no-row') return notFound(c)
-  const signedOut = isGuestSession(session.userId)
-  const question = readQuestion(c, { app, tableName, userRole, userGroups, rows, signedOut })
-  return question instanceof Response ? question : { ...question, rows }
+  return Effect.map(
+    readerRowsOf(app, tableName, reader),
+    (
+      rows
+    ): Response | (Exclude<ReadAggregateQuestion, Response> & { readonly rows: ReaderRows }) => {
+      if (rows.admission.kind === 'no-row') return notFound(c)
+      const signedOut = isGuestSession(session.userId)
+      const question = readQuestion(c, { app, tableName, userRole, userGroups, rows, signedOut })
+      return question instanceof Response ? question : { ...question, rows }
+    }
+  )
 }
 
-export async function handleAggregateRecords(c: Context, app: App) {
-  const { session, tableName, userRole, userGroups } = getTableContext(c)
-  const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
+export function handleAggregateRecords(c: Context, app: App) {
+  return runHandlerEffect(c, answerFailures(c, aggregateResponse(c, app)))
+}
 
-  const gateError = checkListReadGate({ c, app, table, userRole, userGroups, guard })
-  if (gateError) return gateError
+/** Gate and answer an aggregate read, as one program. */
+const aggregateResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const { session, tableName, userRole, userGroups } = getTableContext(c)
+    const table = app.tables?.find((t) => t.name === tableName)
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
 
-  const question = await readReaderQuestion(c, { app, tableName, session, userRole, userGroups })
-  if (question instanceof Response) return question
-  const { rows } = question
-  const { aggregate, groupBy, interval, ratio } = question
+    const gateError = checkListReadGate({ c, app, table, userRole, userGroups, guard })
+    if (gateError) return gateError
 
-  // `?q=` narrows the figures exactly as it narrows the list's rows, and a
-  // ratio side adds its conditions to that same filter.
-  const search = buildSearchFilter({ c, app, tableName, userRole, userGroups, table })
-  const requested = mergeFilters(question.filter.value, search)
-  const build = (filter: FilterStructure) => buildListFilter(table, guard, undefined, filter)
-  const finalFilter = build(requested)
-  const sides = ratio && ratioFilters(build, requested, ratio)
-  if (typeof finalFilter === 'string' || sides === 'empty') {
-    // The row rule admits nothing: every figure is over no records.
-    return c.json(emptyAnswer(question), 200)
-  }
+    const question = yield* readReaderQuestion(c, { app, tableName, session, userRole, userGroups })
+    if (question instanceof Response) return question
+    const { rows } = question
+    const { aggregate, groupBy, interval, ratio } = question
 
-  return runEffect(
-    c,
-    provideTableLive(
+    // `?q=` narrows the figures exactly as it narrows the list's rows, and a
+    // ratio side adds its conditions to that same filter.
+    const search = buildSearchFilter({ c, app, tableName, userRole, userGroups, table })
+    const requested = mergeFilters(question.filter.value, search)
+    const build = (filter: FilterStructure) => buildListFilter(table, guard, undefined, filter)
+    const finalFilter = build(requested)
+    const sides = ratio && ratioFilters(build, requested, ratio)
+    if (typeof finalFilter === 'string' || sides === 'empty') {
+      // The row rule admits nothing: every figure is over no records.
+      const answer = Effect.succeed(emptyAnswer(question))
+      return yield* respondWith(c, answer, aggregateRecordsResponseSchema)
+    }
+
+    return yield* respondWith(
+      c,
       createAggregateRecordsProgram({
         session,
         tableName,
@@ -246,8 +259,7 @@ export async function handleAggregateRecords(c: Context, app: App) {
         ...(groupBy ? { groupBy } : {}),
         ...interval,
         ...(sides ? { ratio: sides } : {}),
-      })
-    ),
-    aggregateRecordsResponseSchema
-  )
-}
+      }),
+      aggregateRecordsResponseSchema
+    )
+  })

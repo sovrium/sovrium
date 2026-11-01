@@ -9,6 +9,7 @@ import { type ReactElement } from 'react'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ElementProps } from './html-element-renderer'
+import type { SvgDrawing } from '@/domain/kernel/sanitize/html-sanitization'
 
 /**
  * Loading defaults for an `<img>`: an image the author left unconfigured is
@@ -93,11 +94,65 @@ export function renderHeroImage(props: ElementProps): ReactElement {
   )
 }
 
+/** The camelCase prop React writes a hyphenated SVG attribute from. */
+const svgPropName = (attribute: string): string =>
+  attribute.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
+
+/** A sanitised `style` attribute as the object React takes. */
+const styleObject = (style: string): Readonly<Record<string, string>> =>
+  Object.fromEntries(
+    style.split('; ').map((declaration) => {
+      const colon = declaration.indexOf(':')
+      return [svgPropName(declaration.slice(0, colon)), declaration.slice(colon + 1).trim()]
+    })
+  )
+
+/** The root attributes of a drawing as React props. */
+const drawingRootProps = (attributes: SvgDrawing['attributes']): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.entries(attributes).map(([name, value]) =>
+      name === 'style' ? [name, styleObject(value)] : [svgPropName(name), value]
+    )
+  )
+
+/** Whether a prop of the image node means anything on a drawing: an image's own do not. */
+const reachesDrawing = (prop: string): boolean =>
+  ['id', 'className', 'width', 'height', 'style', 'hidden'].includes(prop) ||
+  prop.startsWith('aria-') ||
+  (prop.startsWith('data-') && !/^data-(?:src|alt|loading|object|fetch|decoding|sizes)/.test(prop))
+
+/**
+ * Renders a sanitised drawing into the page, as the image it stands for: named
+ * by `alt` alone through `role="img"`, or hidden from assistive technology when
+ * it has none, as an `<img>` with an empty `alt` reads. The markup is the output
+ * of `sanitizeSvgDrawing`, the only thing this ever writes.
+ */
+export function renderInlineDrawing(props: ElementProps, drawing: SvgDrawing): ReactElement {
+  const own = Object.fromEntries(
+    Object.entries(omitInternalMarkers(props)).filter(([prop]) => reachesDrawing(prop))
+  )
+  const name =
+    typeof props.alt === 'string' && props.alt !== ''
+      ? { role: 'img', 'aria-label': props.alt }
+      : { 'aria-hidden': true }
+  return (
+    <svg
+      {...drawingRootProps(drawing.attributes)}
+      {...own}
+      {...name}
+      data-slot="image"
+      // eslint-disable-next-line sovrium/require-sanitized-html -- SvgDrawing.markup is sanitizeSvgDrawing output: the caller reads it through inlineDrawingOf, whose private symbol only the sanitising pass writes
+      dangerouslySetInnerHTML={{ __html: drawing.markup }}
+    />
+  )
+}
+
 interface VideoTrack {
   readonly src: string
   readonly kind?: string
   readonly srclang?: string
   readonly label?: string
+  readonly default?: boolean
 }
 
 /**
@@ -151,7 +206,8 @@ function toEmbedUrl(src: string | undefined, start: number | undefined): string 
  * - YouTube/Vimeo URLs auto-convert to an iframe embed.
  * - `autoplay` maps to React's `autoPlay`; `tracks[]` render as `<track>`
  *   children; non-DOM props (`aspectRatio`, `tracks`, `sources`, `start`) are
- *   stripped.
+ *   stripped. `aspectRatio` has already reached `style`, for either element
+ *   (`processComponentStyle`).
  * - `start` cues the player at that second: in the embed's address, or in the
  *   file's media fragment.
  */
@@ -199,6 +255,7 @@ export function renderVideo(
       kind={track.kind}
       srcLang={track.srclang}
       label={track.label}
+      default={track.default}
     />
   ))
 
@@ -240,15 +297,17 @@ export function renderAudio(
 }
 
 /**
- * Renders iframe element
+ * Renders iframe element. `aspectRatio` has already reached `style`
+ * (`processComponentStyle`), and is never written onto the element.
  */
 export function renderIframe(
   props: ElementProps,
   children: readonly React.ReactNode[]
 ): ReactElement {
+  const { aspectRatio: _ratio, ...rest } = omitInternalMarkers(props)
   return (
     <iframe
-      {...omitInternalMarkers(props)}
+      {...rest}
       data-slot="iframe"
     >
       {children}

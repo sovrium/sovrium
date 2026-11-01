@@ -46,9 +46,11 @@ import {
   ReadValueEntry,
 } from './record-drawer-entry'
 import { DrawerError, type DrawerFailedRequest } from './record-drawer-error'
-import { isStructured, readsAsValue } from './record-drawer-field'
+import { isStructured, readsAsValueOn } from './record-drawer-field'
+import { DrawerLockNotice } from './record-drawer-lock-notice'
 import { TranslatableFieldInput } from './record-drawer-translatable-input'
 import { useUploadsInFlight } from './record-drawer-uploads'
+import { readRecordPath } from './record-drawer-visibility'
 import type { RecordDrawerField, Values, RawRecord } from './record-drawer-field'
 import type { DrawerBuiltInLabels } from './record-drawer-labels'
 import type { ReactElement, ReactNode } from 'react'
@@ -168,7 +170,7 @@ function EditableField({
     return (
       <StructuredFieldDisplay
         field={field}
-        value={record[field.name]}
+        value={readRecordPath(record, field.name)}
       />
     )
   }
@@ -221,7 +223,7 @@ function DrawerField({
       />
     )
   }
-  if (canEdit && readsAsValue(field)) {
+  if (canEdit && readsAsValueOn(field, record)) {
     return (
       <ReadValueEntry
         field={field}
@@ -359,6 +361,12 @@ export function DrawerContent(props: DrawerContentProps): ReactElement {
         name={labels?.validationError}
         failedRequest={props.failedRequest}
       />
+      {canEdit && (
+        <DrawerLockNotice
+          fields={props.fields}
+          record={record}
+        />
+      )}
       <DrawerFields
         {...props}
         loading={loading}

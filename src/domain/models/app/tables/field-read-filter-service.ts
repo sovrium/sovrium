@@ -227,6 +227,12 @@ export function isFieldReadableUnderFieldRules(
 export const declaresFieldRules = (app: App, tableName: string): boolean =>
   app.tables?.find((t) => t.name === tableName)?.permissions?.fields !== undefined
 
+/** Whether `tableName`'s `permissions.fields` carries an entry of its own for `fieldName`. */
+export const declaresFieldRuleFor = (app: App, tableName: string, fieldName: string): boolean =>
+  (app.tables?.find((t) => t.name === tableName)?.permissions?.fields ?? []).some(
+    (entry) => entry.field === fieldName
+  )
+
 /**
  * Filter fields from a record based on user's read permissions
  *

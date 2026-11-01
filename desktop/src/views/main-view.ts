@@ -31,8 +31,8 @@ import {
   bundleDiscard,
   bundleImport,
   createProject,
-  createProjectFromUrl,
   errorText,
+  inspectFromUrl,
   openAppInBrowser,
   openProject,
   openSettingsWindow,
@@ -41,6 +41,7 @@ import {
   settingsRead,
   type BundleImported,
   type BundleView,
+  type CodeStep,
   type ProjectRef,
   type StatePayload,
 } from '../bridge'
@@ -276,15 +277,18 @@ const createFromTemplate = (
  * are what the decision is made on: what arrives, what does not run, and what
  * is recorded. The shell fetches nothing itself — `sovrium init --from-url`
  * owns the retrieval and every guard around it.
+ *
+ * The button writes nothing. The engine inspects the address first, and the
+ * answer is the same consent dialog a bundle link gets: what the project is,
+ * whether it contains code, and only then where it goes. That is why this form
+ * asks for no folder.
  */
 const createFromUrl = (context: ViewContext): HTMLElement => {
-  const nameInput = nameField(context, 'my-app')
   const create = h(
     'button',
-    { class: 'button button--primary', type: 'button', disabled: true },
-    'Create project'
+    { class: 'button button--primary', type: 'button' },
+    urlCopy.checkAction
   )
-  const { choose, location, parent } = destination(create)
 
   const urlInput = h('input', {
     class: 'field__input',
@@ -296,8 +300,6 @@ const createFromUrl = (context: ViewContext): HTMLElement => {
   })
 
   create.addEventListener('click', () => {
-    const parentDir = parent()
-    if (parentDir === null) return
     const url = urlInput.value.trim()
     // Checked here as well as in Rust so the message arrives before a round
     // trip: the commonest mistake is pasting an http address, and saying so
@@ -308,12 +310,12 @@ const createFromUrl = (context: ViewContext): HTMLElement => {
       return
     }
     create.setAttribute('disabled', '')
-    create.textContent = createCopy.creating
+    create.textContent = urlCopy.checking
     void (async () => {
       try {
-        await createProjectFromUrl(parentDir, nameInput.value.trim(), url)
-        context.setPendingUrl(null)
-        context.setDraftName('')
+        // The dialog arrives through `onBundle`. The address stays in the
+        // form, so cancelling the dialog comes back to it.
+        await inspectFromUrl(url)
         context.setNotice(null)
       } catch (error) {
         context.setNotice(errorText(error))
@@ -337,14 +339,7 @@ const createFromUrl = (context: ViewContext): HTMLElement => {
         urlInput
       ),
       h('ul', { class: 'safety' }, ...urlCopy.safety.map((line) => h('li', {}, line))),
-      h(
-        'div',
-        { class: 'field' },
-        h('label', { class: 'field__label', for: 'folder-name' }, createCopy.folderLabel),
-        nameInput
-      ),
-      h('div', { class: 'form__actions' }, choose, create),
-      location
+      h('div', { class: 'form__actions' }, create)
     )
   )
 }
@@ -374,6 +369,25 @@ const bundleRow = (label: string, value: string, detail?: string | null): HTMLEl
         : h('span', { class: 'bundle__detail' }, ` ${detail}`)
     )
   )
+
+/**
+ * Whether the project runs code, said before anything is written: the
+ * sentence `sovrium init` prints, then each automation step by name. Nothing
+ * when it runs none. An Alert, because the person is about to choose to run it.
+ */
+const codeNotice = (steps: readonly CodeStep[]): HTMLElement | null =>
+  steps.length === 0
+    ? null
+    : h(
+        'div',
+        { class: 'bundle__alert', role: 'alert', 'data-state': 'contains-code' },
+        h('p', { class: 'bundle__alert-text' }, bundleCopy.containsCode),
+        h(
+          'ul',
+          { class: 'safety' },
+          ...steps.map(({ automation, step }) => h('li', {}, bundleCopy.codeStep(automation, step)))
+        )
+      )
 
 const discardBundle = (context: ViewContext): void => {
   context.setNotice(null)
@@ -443,6 +457,7 @@ const bundleDialog = (context: ViewContext, view: BundleView): HTMLElement => {
   )
   const { choose, location, parent } = destination(create)
   const verified = view.verdict === 'verified'
+  const title = view.road === 'document' ? bundleCopy.documentTitle : bundleCopy.title
 
   create.addEventListener('click', () => {
     const parentDir = parent()
@@ -452,6 +467,7 @@ const bundleDialog = (context: ViewContext, view: BundleView): HTMLElement => {
     void (async () => {
       try {
         const imported = await bundleImport(parentDir, nameInput.value.trim())
+        if (view.road === 'document') context.setPendingUrl(null)
         context.setDraftName('')
         context.setNotice(null)
         if (imported.credentials === null && imported.warning === null) {
@@ -471,44 +487,44 @@ const bundleDialog = (context: ViewContext, view: BundleView): HTMLElement => {
   // alone), then what it means. Unverified gets shadcn's destructive Alert —
   // the stronger warning — and verified a plain note, because a signature is
   // a fact about the publisher, not a reason to celebrate.
-  const verdict = verified
-    ? h(
-        'div',
-        { class: 'bundle__publisher' },
-        h(
-          'p',
-          { class: 'bundle__badge bundle__badge--verified', 'data-state': view.verdict },
-          bundleCopy.verifiedBadge
-        ),
-        h('p', { class: 'panel__note' }, bundleCopy.verifiedNote)
-      )
-    : h(
-        'div',
-        { class: 'bundle__publisher' },
-        h(
-          'p',
-          { class: 'bundle__badge bundle__badge--unverified', 'data-state': view.verdict },
-          bundleCopy.unverifiedBadge
-        ),
-        h(
-          'div',
-          { class: 'bundle__alert', role: 'alert' },
-          h('p', { class: 'bundle__alert-text' }, bundleCopy.unverifiedWarning)
-        )
-      )
+  // A document carries no signature, so it gets no publisher verdict at all.
+  const verdict =
+    view.road === 'document'
+      ? null
+      : verified
+        ? h(
+            'div',
+            { class: 'bundle__publisher' },
+            h(
+              'p',
+              { class: 'bundle__badge bundle__badge--verified', 'data-state': view.verdict },
+              bundleCopy.verifiedBadge
+            ),
+            h('p', { class: 'panel__note' }, bundleCopy.verifiedNote)
+          )
+        : h(
+            'div',
+            { class: 'bundle__publisher' },
+            h(
+              'p',
+              { class: 'bundle__badge bundle__badge--unverified', 'data-state': view.verdict },
+              bundleCopy.unverifiedBadge
+            ),
+            h(
+              'div',
+              { class: 'bundle__alert', role: 'alert' },
+              h('p', { class: 'bundle__alert-text' }, bundleCopy.unverifiedWarning)
+            )
+          )
 
   return h(
     'div',
     { class: 'view view--form', 'data-state': 'bundle-ready' },
     noticeBar(context),
-    h(
-      'div',
-      { class: 'form__header' },
-      h('h1', { class: 'view__title view__title--form' }, bundleCopy.title)
-    ),
+    h('div', { class: 'form__header' }, h('h1', { class: 'view__title view__title--form' }, title)),
     h(
       'section',
-      { class: 'panel bundle', 'aria-label': bundleCopy.title },
+      { class: 'panel bundle', 'aria-label': title },
       verdict,
       h(
         'dl',
@@ -521,6 +537,7 @@ const bundleDialog = (context: ViewContext, view: BundleView): HTMLElement => {
         bundleRow(bundleCopy.nameLabel, view.name),
         bundleRow(bundleCopy.sizeLabel, formatSize(view.size))
       ),
+      codeNotice(view.containsCode),
       view.containsDemoData ? h('p', { class: 'panel__note' }, bundleCopy.demoData) : null,
       h(
         'div',

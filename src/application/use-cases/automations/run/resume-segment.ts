@@ -24,6 +24,8 @@
 import { Effect, Ref } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
+import { AutomationScheduler } from '@/application/ports/services/automation-scheduler'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { TemplateEngine } from '@/application/ports/services/template-engine'
 import { triggerNamedOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
 import { logError } from '@/infrastructure/logging/logger'
@@ -34,17 +36,11 @@ import {
 } from '../run-automation'
 import { resolveRunTimeoutMs, runActionsWithTimeout } from './action-loop'
 import { buildAutomationInvoker } from './automation-call-invoker'
+import { resolveConcurrencyLimit } from './concurrency-limit'
 import { finaliseOnAbandon } from './defect-finaliser'
 import { restoreRunLedgers, type RunLedgers } from './run-ledger-persistence'
 import { finalisePausableRun, stepRowOf } from './run-persistence'
 import { withPriorTolerated } from './run-status'
-import {
-  acquireSlot,
-  isCancelled,
-  releaseSlot,
-  resolveConcurrencyLimit,
-  unregisterCancellation,
-} from './scheduler'
 import { segmentStarterOf } from './segment-starter'
 import { unlessStarterGone } from './starter-standing'
 import { buildStepContext } from './step-context'
@@ -62,7 +58,6 @@ import type { Trigger } from '@/domain/models/app/automations/trigger'
 /** What a resumed segment runs. */
 export interface ResumedSegmentInput {
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly handlers: ReadonlyMap<ActionKey, ActionHandler>
   readonly automation: NonNullable<App['automations']>[number]
   readonly automationId: string
@@ -137,7 +132,7 @@ const storeSegment = (
 /** Run the segment's actions under what remains of the run timeout, with the run's ledgers. */
 const runSegmentActions = (input: ResumedSegmentInput, ledgers: RunLedgers) =>
   Effect.gen(function* () {
-    const { app, processEnv, handlers, automation, run, segment } = input
+    const { app, handlers, automation, run, segment } = input
     const startedBy = startedByOf(run)
     const services = yield* Effect.context<RunRequirements>()
     const runProgram = (yield* AutomationFiberBridge).promiseRunner(services)
@@ -147,18 +142,18 @@ const runSegmentActions = (input: ResumedSegmentInput, ledgers: RunLedgers) =>
       app,
       automation,
       trigger: runEntryOf(input),
-      processEnv,
       triggerData: triggerDataOf(run.triggerData),
       handlers,
       ...startedBy,
       runId: run.id,
       runProgram,
       templates: yield* TemplateEngine,
+      processEnv: yield* ProcessEnv,
       ledgers,
     })
     const container = segment.container === undefined ? {} : { container: segment.container }
     const ctx = { ...base, resume: { base: segment.base, ...container } }
-    const remainingMs = resolveRunTimeoutMs(automation, processEnv) - (run.durationMs ?? 0)
+    const remainingMs = resolveRunTimeoutMs(automation, base.processEnv) - (run.durationMs ?? 0)
     const steps = runActionsWithTimeout(segment.actions, ctx, {
       timeoutMs: Math.max(1, remainingMs),
       skipActionNames: new Set(),
@@ -171,27 +166,32 @@ const runSegmentActions = (input: ResumedSegmentInput, ledgers: RunLedgers) =>
 /** The admitted segment: run, stored, released, its failure fanned out like any run's. */
 const runAdmittedSegment = (
   input: ResumedSegmentInput,
-  admission: { readonly admittedAt: Date; readonly finalised: Ref.Ref<boolean> }
+  admission: {
+    readonly admittedAt: Date
+    readonly finalised: Ref.Ref<boolean>
+    /** Gives the segment's slot back once; its scope gives it back otherwise. */
+    readonly releaseSlot: Effect.Effect<void>
+  }
 ) =>
   Effect.gen(function* () {
     const { run, automation } = input
+    const scheduler = yield* AutomationScheduler
     // The files the run stored and read before it paused, less any changed meanwhile.
     const ledgers = yield* restoreRunLedgers(run.filesLedger)
     // A cancel that came while the segment waited for its slot: nothing runs.
-    const ran = isCancelled(run.id)
+    const ran = (yield* scheduler.isCancelled(run.id))
       ? EMPTY_RUN_ACCUMULATOR
       : yield* runSegmentActions(input, ledgers)
-    const state: RunAccumulator = isCancelled(run.id)
+    const state: RunAccumulator = (yield* scheduler.isCancelled(run.id))
       ? { ...ran, runStatus: 'cancelled', runError: ran.runError ?? 'Run cancelled' }
       : withPriorTolerated(ran, input.segment.priorTolerated)
     const finishedAt = new Date()
     yield* storeSegment(input, state, { admittedAt: admission.admittedAt, finishedAt }, ledgers)
     yield* Ref.set(admission.finalised, true)
-    releaseSlot(automation.name)
-    unregisterCancellation(run.id)
+    // Given back before the failure fan-out; the caller's scope drops the canceller.
+    yield* admission.releaseSlot
     yield* dispatchPostRunFailureEffects({
       app: input.app,
-      processEnv: input.processEnv,
       automation,
       trigger: runEntryOf(input),
       name: automation.name,
@@ -211,20 +211,25 @@ export const runResumedSegment = (
   input: ResumedSegmentInput
 ): Effect.Effect<RunAccumulator, never, RunRequirements> =>
   Effect.gen(function* () {
-    const { run, automation, processEnv } = input
+    const { run, automation } = input
     // The canceller is registered by the caller before its claim (`resume-delayed-runs.ts`).
-    const limit = resolveConcurrencyLimit(automation, processEnv)
-    // effect-promise: total -- `acquireSlot` resolves now or when a slot frees; it never rejects.
-    yield* Effect.promise(() => acquireSlot(automation.name, limit))
+    // The slot belongs to this segment's scope: interrupted while it waits, it takes none.
+    const releaseSlot = yield* (yield* AutomationScheduler).admit(
+      automation.name,
+      resolveConcurrencyLimit(automation, yield* ProcessEnv)
+    )
     const admittedAt = new Date()
     const finalised = yield* Ref.make(false)
-    return yield* finaliseOnAbandon(runAdmittedSegment(input, { admittedAt, finalised }), {
-      name: automation.name,
-      automationId: input.automationId,
-      runId: run.id,
-      triggerData: triggerDataOf(run.triggerData),
-      admittedAt,
-      userId: startedByOf(run).userId,
-      finalised,
-    })
-  }).pipe(Effect.withSpan('automations.run-resumed-segment'))
+    return yield* finaliseOnAbandon(
+      runAdmittedSegment(input, { admittedAt, finalised, releaseSlot }),
+      {
+        name: automation.name,
+        automationId: input.automationId,
+        runId: run.id,
+        triggerData: triggerDataOf(run.triggerData),
+        admittedAt,
+        userId: startedByOf(run).userId,
+        finalised,
+      }
+    )
+  }).pipe(Effect.scoped, Effect.withSpan('automations.run-resumed-segment'))

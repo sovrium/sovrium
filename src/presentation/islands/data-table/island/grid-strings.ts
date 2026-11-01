@@ -51,3 +51,15 @@ export function useResultCount(count: number): string {
     { count }
   )
 }
+
+/**
+ * The count line of a grid whose rows fit on one page: `3 rows`. At one row a
+ * grid that names no noun for its rows draws no line, since the reader sees the
+ * row; a grid that does (`rowsOne`, the endpoint's own sentence) keeps it.
+ */
+export function useRowCount(count: number): string {
+  const other = useGridString('datatable.pagination.rows', '{count} rows', { count })
+  const one = useGridString('datatable.pagination.rowsOne', '', { count })
+  if (count === 0) return ''
+  return count === 1 ? one : other
+}

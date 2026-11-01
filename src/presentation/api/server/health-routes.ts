@@ -6,8 +6,8 @@
  */
 
 /**
- * `GET /api/health` — the liveness probe, and the only route `api-routes.ts`
- * ever answered inline.
+ * `GET /api/health` — the liveness probe, and the only route the API route
+ * composer (`compose-api-routes.ts`) ever answered inline.
  *
  * The handler lives here and the `.get` call stays in the chain: that is the
  * shape every other route family already uses, and it keeps the route in the
@@ -15,17 +15,17 @@
  */
 
 import { Data, Effect } from 'effect'
-import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
+import { decodeOrThrow } from '@/domain/kernel/config-parsing/decode'
 import {
   buildAiHealthStatusWithEcoRouting,
   healthMinimalResponseSchema,
   healthProbeResponseSchema,
   healthResponseSchema,
-} from '@/domain/models/api/health/health'
-import { buildSpeechHealthStatus } from '@/domain/models/api/health/speech-health'
+} from '@/domain/models/api/server/health'
+import { buildSpeechHealthStatus } from '@/domain/models/api/server/speech-health'
 import { resolveOllamaBaseUrl } from '@/domain/models/process-env/ai/ai-eco-routing'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
-import { probeDatabaseReadiness } from '@/infrastructure/database/database-readiness'
+import { databaseReadiness } from '@/infrastructure/database/database-readiness'
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { badRequest, internalError } from '@/presentation/api/runtime/auth-helpers'
@@ -34,11 +34,12 @@ import {
   type ReadUserRole,
   type SessionReader,
 } from '@/presentation/api/runtime/caller-tier'
+import { shapedJson } from '@/presentation/api/runtime/run-effect'
 import type {
   HealthMinimalResponse,
   HealthProbeResponse,
   HealthResponse,
-} from '@/domain/models/api/health/health'
+} from '@/domain/models/api/server/health'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -138,8 +139,7 @@ const detailedHealthProgram = (app: App) =>
  */
 const readinessProgram = (app: App) =>
   Effect.gen(function* () {
-    // effect-promise: total -- `probeDatabaseReadiness` reports a failed or slow query as an outcome (`error`, `timeout`) and never rejects.
-    const db = yield* Effect.promise(() => probeDatabaseReadiness())
+    const db = yield* databaseReadiness()
     const response: HealthProbeResponse = {
       status: db === 'ok' ? 'ok' : 'degraded',
       ...appVersionField(app),
@@ -151,7 +151,7 @@ const readinessProgram = (app: App) =>
 /** `GET /api/health?probe=db`: 200 when ready, 503 `degraded` when not. */
 const handleReadinessProbe = async (c: Context, app: App) => {
   try {
-    const data = await Effect.runPromise(readinessProgram(app))
+    const data = await runDomainPromise(c, readinessProgram(app))
     return c.json(data, data.status === 'ok' ? 200 : 503)
   } catch (error) {
     logError('[Health] Readiness response could not be built', error)
@@ -173,7 +173,7 @@ export const handleHealthCheck = async (c: Context, app: App, auth?: SessionRead
   try {
     // Run Effect program and return result
     const data = await Effect.runPromise(program)
-    return c.json(data, 200)
+    return shapedJson(c, data, detailed ? healthResponseSchema : healthMinimalResponseSchema)
   } catch (error) {
     logError('[Health] Health response could not be built', error)
     // The canonical envelope, like every other 500 on this API — not a bespoke

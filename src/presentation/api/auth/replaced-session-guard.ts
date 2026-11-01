@@ -37,6 +37,7 @@ import {
   sessionTokensSet,
   type RememberedTokens,
 } from '@/domain/models/app/auth/session-cookie-rotation-service'
+import { replaceResponse } from '@/presentation/api/runtime/replace-response'
 import type { Hono } from 'hono'
 
 /** How long a replaced token is remembered: far past any request in flight at the change. */
@@ -95,9 +96,6 @@ export const applyReplacedSessionGuard = (honoApp: Readonly<Hono>): Readonly<Hon
     if (kept.length === headers.length) return
     const answer = withoutSetCookies(c.res, kept)
     // Hono's `res` setter merges the previous response's headers back in;
-    // clearing it first keeps the dropped Set-Cookie headers dropped.
-    // eslint-disable-next-line no-param-reassign -- Hono's middleware contract replaces the response by assignment
-    c.res = undefined
-    // eslint-disable-next-line no-param-reassign -- as above
-    c.res = answer
+    // replacing outright keeps the dropped Set-Cookie headers dropped.
+    replaceResponse(c, answer)
   })

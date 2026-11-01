@@ -1,10 +1,10 @@
 # Invitations
 
-> Onboarding somebody without inventing their password — a single-use link, a role carried explicitly, and a delegated grant with three limits.
+> Onboarding somebody without inventing their password: a single-use link, a role carried explicitly, and a delegated grant with three limits.
 
 Creating a user directly makes an admin choose the new password and sends the person nothing: workable for a script, unusable for onboarding a customer. An invitation closes that gap. The admin supplies an address, a name and a role with **no password**, Sovrium emails a single-use link, and the invitee sets their own password and lands authenticated.
 
-The link opens the app's own invitation page — the first page declaring `invitation`, at its path, with the token under the key its `param` names — or, when the app declares none, the operator console's invitation page under its mount (`/_admin/accept-invitation`) if the console is served and declares one, and the built-in `/accept-invitation` otherwise. It names this instance: `BASE_URL` when it is set, otherwise the address the request reached — the forwarded one only behind a declared proxy (`TRUSTED_PROXY_HOPS`). The `Origin` or `Referer` the inviting browser sent is never used, so nobody issuing an invitation can point it at another domain.
+The link opens the app's own invitation page (the first page declaring `invitation`, at its path, with the token under the key its `param` names). When the app declares none, it opens the operator console's invitation page under its mount (`/_admin/accept-invitation`) if the console is served and declares one, and the built-in `/accept-invitation` otherwise. It names this instance: `BASE_URL` when it is set, otherwise the address the request reached, the forwarded one only behind a declared proxy (`TRUSTED_PROXY_HOPS`). The `Origin` or `Referer` the inviting browser sent is never used, so nobody issuing an invitation can point it at another domain.
 
 ```yaml
 auth:
@@ -29,7 +29,7 @@ auth:
 | `POST /api/auth/admin/accept-invitation` | Backs the public accept page; the invitee sets a password and lands authenticated |
 | `POST /api/auth/decline-invitation`      | Backs the decline form; takes the token alone and withdraws the invitation        |
 
-Issuing answers `401` when unauthenticated and **`404`** when the caller may not invite that role — never `403`, so the endpoint leaks nothing about which roles exist. It answers `400` for invalid input, and `422` when the address already maps to a fully onboarded user.
+Issuing answers `401` when unauthenticated and **`404`** when the caller may not invite that role. It never answers `403`, so the endpoint leaks nothing about which roles exist. It answers `400` for invalid input, and `422` when the address already maps to a fully onboarded user.
 
 Accepting answers `400` for an invalid token and `410` for an expired one.
 
@@ -39,9 +39,9 @@ Declining needs no session: the token from the email is the credential. Once dec
 
 The accept page sends nothing until its script has run: its Accept button waits for it, so the token and the chosen password never travel in the page address.
 
-Tokens expire after `invitationTokenExpiry` — 72 hours by default — and are **single-use**, consumed on the first successful accept. A replay is refused rather than silently re-onboarding somebody.
+Tokens expire after `invitationTokenExpiry` (72 hours by default) and are **single-use**, consumed on the first successful accept. A replay is refused rather than silently re-onboarding somebody.
 
-Accepting verifies the invitee's address — following the link proves they read that mailbox — and starts the app's `auth` automations listening to `emailVerified` (when the address was not verified yet) and `invitationAccepted`, before the `signIn` of the session it opens. See [Auth & Form Triggers](/en/docs/trigger-auth-form).
+Accepting verifies the invitee's address, since following the link proves they read that mailbox, and starts the app's `auth` automations listening to `emailVerified` (when the address was not verified yet) and `invitationAccepted`, before the `signIn` of the session it opens. See [Auth & Form Triggers](/en/docs/trigger-auth-form).
 
 Closing public self-registration does **not** block invitations. That is precisely when you need this flow: admin-driven user creation stays available whenever authentication is configured.
 
@@ -87,14 +87,14 @@ The default is validated against the built-ins plus your declared roles, so a ty
 
 ## Invitation or create-user
 
-| You want                                       | Reach for                                                  |
-| ---------------------------------------------- | ---------------------------------------------------------- |
-| A customer to choose their own password        | An invitation — they never see an admin-set secret         |
-| A service or seed account, no mailbox involved | Create-user — you set the password and nothing is sent     |
-| To onboard while SMTP is not configured        | Create-user — an invitation email would never be delivered |
+| You want                                       | Reach for                                                 |
+| ---------------------------------------------- | --------------------------------------------------------- |
+| A customer to choose their own password        | An invitation: they never see an admin-set secret         |
+| A service or seed account, no mailbox involved | Create-user: you set the password and nothing is sent     |
+| To onboard while SMTP is not configured        | Create-user: an invitation email would never be delivered |
 
 ## Onboarding and access assignment are separate
 
 An admin-equivalent inviter creates the account and grants no tenant scope: wiring the user to the data they may reach is a separate step, so you can invite first and assign later, or the reverse.
 
-A delegated inviter is the exception. The invitee inherits that inviter's own reach — one grant per scope table, under the invited role, naming every record the inviter reaches there — because a tenant-scoped person onboarding a colleague into a tenant they do not themselves share would be the surprising outcome.
+A delegated inviter is the exception. The invitee inherits that inviter's own reach: one grant per scope table, under the invited role, naming every record the inviter reaches there. Otherwise a tenant-scoped person could onboard a colleague into a tenant they do not themselves share, which would be the surprising outcome.

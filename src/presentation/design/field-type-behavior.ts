@@ -327,14 +327,15 @@ export function recordValueText(value: unknown): string {
  * `relationship` holding a LIST of links: the record picker reads its value as
  * a JSON array of ids, and the native save parses the same encoding, where the
  * comma list `String()` makes would read back as one link named "1,2,3"; and
- * no links at all is `''`, the picker's own empty value, never `'[]'`. Every
- * other type keeps its long-standing `String()` coercion: an `array` or
- * `multi-select` value still reaches its control as a comma list, which is what
- * those controls have always read.
+ * no links at all is `''`, the picker's own empty value, never `'[]'`. A
+ * `multi-select` is written the same way: its checkboxes read the JSON list,
+ * and a comma list read back as one option named `hot,no_code`, which the
+ * save refused. Every other type keeps its long-standing `String()` coercion:
+ * an `array` value still reaches its control as a comma list.
  */
 export function skeletonValueText(type: string | undefined, value: unknown): string {
   if (type === 'json') return recordValueText(value)
-  if (type === 'relationship' && Array.isArray(value)) {
+  if ((type === 'relationship' || type === 'multi-select') && Array.isArray(value)) {
     // No links is the empty string, the picker's own "nothing linked" sentinel.
     return value.length === 0 ? '' : recordValueText(value)
   }

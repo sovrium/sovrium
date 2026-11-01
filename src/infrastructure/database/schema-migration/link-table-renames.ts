@@ -22,7 +22,6 @@
  */
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { shouldUseView } from '../lookup/lookup-view-generators'
 import { isManyToManyRelationship } from '../sql/sql-field-predicates'
 import {
@@ -33,11 +32,13 @@ import {
   junctionKeyColumns,
 } from '../sql/sql-junction-tables'
 import { buildTablePrimaryKeyTypesMap } from '../table-operations/column-generators'
+import type { LiveCatalogue } from './table-classification'
 import type { Table } from '@/domain/models/app/tables'
 import type {
   LinkField,
   LinkSourceTable,
 } from '@/domain/models/app/tables/table-derived-name-validation'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * A link table's two ends, as CONFIG names: the table declaring the field (with
@@ -61,6 +62,8 @@ interface LinkMove {
   readonly to: string
   readonly ends: LinkEnds
   readonly columns: readonly [KeyColumn, KeyColumn]
+  /** The engine of the live catalog the move is planned against. */
+  readonly dialect: DatabaseDialect
   readonly tableUsesView: ReadonlyMap<string, boolean>
   readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
 }
@@ -127,15 +130,8 @@ const constraintNamesFit = ({ from, to, columns }: Pick<LinkMove, 'from' | 'to' 
  * renamed table's stale trigger body. The new table references the parents by
  * their new names; with foreign keys off it may be created before they exist.
  */
-const rebuild = ({
-  from,
-  to,
-  ends,
-  columns,
-  tableUsesView,
-  tablePrimaryKeyTypes,
-}: LinkMove): readonly string[] => [
-  generateJunctionTableDDL(ends.source, ends.field, tableUsesView, tablePrimaryKeyTypes),
+const rebuild = ({ from, to, ends, columns, ...ddl }: LinkMove): readonly string[] => [
+  generateJunctionTableDDL(ends.source, ends.field, ddl),
   `INSERT INTO ${quoted(to)} (${columns.map(([, after]) => quoted(after)).join(', ')}) ` +
     `SELECT ${columns.map(([before]) => quoted(before)).join(', ')} FROM ${quoted(from)}`,
   `DROP TABLE ${quoted(from)}`,
@@ -146,7 +142,7 @@ const planOne = (
   ends: LinkEnds,
   previousName: (configName: string) => string,
   existing: ReadonlySet<string>,
-  views: Pick<LinkMove, 'tableUsesView' | 'tablePrimaryKeyTypes'>
+  views: Pick<LinkMove, 'dialect' | 'tableUsesView' | 'tablePrimaryKeyTypes'>
 ): readonly LinkTableRename[] => {
   const { source, field } = ends
   const before: LinkEnds = {
@@ -164,7 +160,8 @@ const planOne = (
   const to = generateJunctionTableName(source, field)
   // Nothing to carry, or somewhere it cannot go: an existing target is left
   // alone, and the old table then meets the populated-drop refusal.
-  if (from === to || !isLiveRelation(existing, from) || isLiveRelation(existing, to)) return []
+  const live = (name: string): boolean => isLiveRelation(existing, name, views.dialect)
+  if (from === to || !live(from) || live(to)) return []
   const [sourceBefore, relatedBefore] = junctionKeyColumns(
     before.source.name,
     before.field.relatedTable
@@ -180,7 +177,9 @@ const planOne = (
     ],
     ...views,
   }
-  return [{ from, to, statements: isSqliteRuntime() ? rebuild(move) : renameInPlace(move) }]
+  return [
+    { from, to, statements: views.dialect === 'sqlite' ? rebuild(move) : renameInPlace(move) },
+  ]
 }
 
 /**
@@ -192,12 +191,14 @@ const planOne = (
 export const planLinkTableRenames = (
   renames: ReadonlyMap<string, string>,
   tables: readonly Table[],
-  existing: ReadonlySet<string>
+  live: Pick<LiveCatalogue, 'tables' | 'dialect'>
 ): readonly LinkTableRename[] => {
   if (renames.size === 0) return []
   const previousByNew = new Map([...renames].map(([oldName, newName]) => [newName, oldName]))
   const previousName = (configName: string): string => previousByNew.get(configName) ?? configName
+  const existing = live.tables
   const views = {
+    dialect: live.dialect,
     tableUsesView: new Map(tables.map((table) => [table.name, shouldUseView(table)])),
     tablePrimaryKeyTypes: buildTablePrimaryKeyTypesMap(tables),
   }

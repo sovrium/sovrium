@@ -6,6 +6,7 @@
  */
 
 import { BACKUP_HELP_TEXT, RESTORE_HELP_TEXT } from './backup-help'
+import { CLIENT_HELP_TEXT } from './client-help'
 import { CLOUD_COMMAND_HELP } from './cloud-help'
 import { DESIGN_SYSTEM_HELP_TEXT } from './design-system-help'
 import { DEV_HELP_TEXT } from './dev-help'
@@ -326,6 +327,7 @@ const COMMAND_HELP: Readonly<Record<string, string>> = {
   build: BUILD_HELP_TEXT,
   schema: SCHEMA_HELP_TEXT,
   types: TYPES_HELP_TEXT,
+  client: CLIENT_HELP_TEXT,
   skills: SKILLS_HELP_TEXT,
   'design-system': DESIGN_SYSTEM_HELP_TEXT,
   import: IMPORT_HELP_TEXT,

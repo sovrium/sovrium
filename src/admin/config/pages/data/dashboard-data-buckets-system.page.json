@@ -311,7 +311,8 @@
                                           "message": "$t:admin.buckets.deleteAttached",
                                           "title": "$t:admin.buckets.deleteConfirm",
                                           "confirmLabel": "$t:admin.buckets.deleteFile",
-                                          "cancelLabel": "$t:admin.common.cancel"
+                                          "cancelLabel": "$t:admin.common.cancel",
+                                          "irreversible": true
                                         }
                                       }
                                     ]
@@ -319,7 +320,11 @@
                                 ],
                                 "emptyMessage": "$t:admin.buckets.emptyFiles",
                                 "noMatchMessage": "$t:admin.buckets.noMatch",
-                                "viewOptions": "toolbar"
+                                "viewOptions": "toolbar",
+                                "countLabel": {
+                                  "one": "$t:admin.count.files.one",
+                                  "other": "$t:admin.count.files.other"
+                                }
                               }
                             }
                           ]

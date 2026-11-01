@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { ENGLISH_WORDS, expiryIn, greetingsOf, type EmailWords } from './email-words'
 
 /**
@@ -128,7 +128,7 @@ export const resolveBrand = (appName: string | undefined): string =>
  * a verification) and one the instance sends on its own (an operator alert).
  */
 const requestedEmailNotice = (brand: string, words: EmailWords): string =>
-  `<p>${words.t('requestedNotice', { app: escapeHtml(brand) })}</p>`
+  `<p>${words.t('requestedNotice', { app: escapeHtmlAttribute(brand) })}</p>`
 
 /** What {@link emailLayout} frames its content with. */
 export interface EmailLayoutOptions {
@@ -151,12 +151,12 @@ export interface EmailLayoutOptions {
  * the operator's, not the engine vendor's.
  */
 export function emailLayout(content: string, options: EmailLayoutOptions = {}): string {
-  const brand = escapeHtml(resolveBrand(options.appName))
+  const brand = escapeHtmlAttribute(resolveBrand(options.appName))
   const words = options.words ?? ENGLISH_WORDS
   const footerHtml =
     options.footerHtml ?? requestedEmailNotice(resolveBrand(options.appName), words)
   return `<!DOCTYPE html>
-<html lang="${escapeHtml(words.lang)}">
+<html lang="${escapeHtmlAttribute(words.lang)}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -198,7 +198,7 @@ export function passwordResetEmail(data: PasswordResetEmailData): {
   const greeting = greetingsOf(words, data.userName)
   const expires = words.t('linkExpires', { expiry: expiryIn(words, data.expiresIn ?? '1 hour') })
   const brand = resolveBrand(data.appName)
-  const htmlBrand = escapeHtml(brand)
+  const htmlBrand = escapeHtmlAttribute(brand)
 
   const content = `
     <div class="content">
@@ -206,11 +206,11 @@ export function passwordResetEmail(data: PasswordResetEmailData): {
       <p>${words.t('resetPassword.intro', { app: htmlBrand })}</p>
       <p>${words.t('resetPassword.cta')}</p>
       <p style="text-align: center;">
-        <a href="${escapeHtml(data.resetUrl)}" class="button">${words.t('resetPassword.button')}</a>
+        <a href="${escapeHtmlAttribute(data.resetUrl)}" class="button">${words.t('resetPassword.button')}</a>
       </p>
       <p class="link-fallback">
         ${words.t('linkFallback')}<br>
-        ${escapeHtml(data.resetUrl)}
+        ${escapeHtmlAttribute(data.resetUrl)}
       </p>
       <div class="warning">
         ${expires} ${words.t('resetPassword.ignore')}
@@ -261,7 +261,7 @@ export function emailVerificationEmail(data: EmailVerificationData): {
   const greeting = greetingsOf(words, data.userName)
   const expires = words.t('linkExpires', { expiry: expiryIn(words, data.expiresIn ?? '24 hours') })
   const brand = resolveBrand(data.appName)
-  const htmlBrand = escapeHtml(brand)
+  const htmlBrand = escapeHtmlAttribute(brand)
 
   const content = `
     <div class="content">
@@ -269,11 +269,11 @@ export function emailVerificationEmail(data: EmailVerificationData): {
       <p>${words.t('verification.intro', { app: htmlBrand })}</p>
       <p>${words.t('verification.cta')}</p>
       <p style="text-align: center;">
-        <a href="${escapeHtml(data.verifyUrl)}" class="button">${words.t('verification.button')}</a>
+        <a href="${escapeHtmlAttribute(data.verifyUrl)}" class="button">${words.t('verification.button')}</a>
       </p>
       <p class="link-fallback">
         ${words.t('linkFallback')}<br>
-        ${escapeHtml(data.verifyUrl)}
+        ${escapeHtmlAttribute(data.verifyUrl)}
       </p>
       <div class="warning">
         ${expires} ${words.t('verification.ignore', { app: htmlBrand })}
@@ -315,10 +315,10 @@ export function accountDeletionEmail(data: AccountDeletionEmailData): {
   readonly text: string
 } {
   const greeting = data.userName ? `Hi ${data.userName},` : 'Hi,'
-  const htmlGreeting = data.userName ? `Hi ${escapeHtml(data.userName)},` : 'Hi,'
+  const htmlGreeting = data.userName ? `Hi ${escapeHtmlAttribute(data.userName)},` : 'Hi,'
   const expiry = data.expiresIn ?? '24 hours'
   const brand = resolveBrand(data.appName)
-  const htmlBrand = escapeHtml(brand)
+  const htmlBrand = escapeHtmlAttribute(brand)
 
   const content = `
     <div class="content">
@@ -326,11 +326,11 @@ export function accountDeletionEmail(data: AccountDeletionEmailData): {
       <p>We received a request to delete your ${htmlBrand} account.</p>
       <p>Following the link below erases your account and everything in it, for good. This cannot be undone.</p>
       <p style="text-align: center;">
-        <a href="${escapeHtml(data.confirmUrl)}" class="button">Delete my account</a>
+        <a href="${escapeHtmlAttribute(data.confirmUrl)}" class="button">Delete my account</a>
       </p>
       <p class="link-fallback">
         If the button doesn't work, copy and paste this link into your browser:<br>
-        ${escapeHtml(data.confirmUrl)}
+        ${escapeHtmlAttribute(data.confirmUrl)}
       </p>
       <div class="warning">
         This link will expire in ${expiry} and works only while you are signed in to this account. If you didn't ask to delete your account, ignore this email: nothing changes.

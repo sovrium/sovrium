@@ -8,8 +8,8 @@
 import { resolveArrayItemSqlType } from '@/domain/models/app/tables/fields/field-types/advanced/array-item-type'
 import { declaresTranslatable } from '@/domain/models/app/tables/translatable-field-service'
 import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import type { Fields } from '@/domain/models/app/tables/fields'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Field type to PostgreSQL type mapping
@@ -173,30 +173,29 @@ export const mapPostgresTypeToSqlite = (postgresType: string): string => {
 }
 
 /**
- * Map a field type to the column type for the active database dialect.
+ * Map a field type to the column type for the named database dialect.
  *
  * PostgreSQL is the historical path (`mapFieldTypeToPostgres`); SQLite
  * translates that result through `mapPostgresTypeToSqlite`.
  *
  * @public
  */
-export const mapFieldTypeToDialect = (field: Fields[number]): string => {
+export const mapFieldTypeToDialect = (field: Fields[number], dialect: DatabaseDialect): string => {
   const postgresType = mapFieldTypeToPostgres(field)
-  return parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? mapPostgresTypeToSqlite(postgresType)
-    : postgresType
+  return dialect === 'sqlite' ? mapPostgresTypeToSqlite(postgresType) : postgresType
 }
 
 /**
- * Map a formula `resultType` to the column type for the active dialect.
+ * Map a formula `resultType` to the column type for the named dialect.
  *
  * @public
  */
-export const mapFormulaResultTypeToDialect = (resultType: string | undefined): string => {
+export const mapFormulaResultTypeToDialect = (
+  resultType: string | undefined,
+  dialect: DatabaseDialect
+): string => {
   const postgresType = mapFormulaResultTypeToPostgres(resultType)
-  return parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? mapPostgresTypeToSqlite(postgresType)
-    : postgresType
+  return dialect === 'sqlite' ? mapPostgresTypeToSqlite(postgresType) : postgresType
 }
 
 const NUMERIC_TYPES_WITH_PRECISION = new Set(['decimal', 'number', 'currency', 'percentage'])

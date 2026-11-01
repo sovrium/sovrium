@@ -20,7 +20,9 @@
  * driver failure and the use-cases decide which rejections are best-effort.
  */
 
+import type { Invitations } from '@/application/ports/services/invitations'
 import type { InvitationLinkPage } from '@/domain/models/app/pages/invitation-link-service'
+import type { Effect } from 'effect'
 
 /** The invitee's account, as the flow reads it. */
 export interface InvitationUser {
@@ -145,4 +147,11 @@ export interface InvitationServices {
    * built: the fallback for an app declaring none. Absent when nothing is mounted.
    */
   readonly linkPages?: readonly InvitationLinkPage[]
+  /**
+   * Run an invitation program on THIS bundle and await it — the bridge for a
+   * caller that is still Promise-shaped (the automation step
+   * `auth.inviteUser`). Built by the infrastructure that built the bundle, so
+   * no use-case starts a fiber itself.
+   */
+  readonly run: <A, E>(program: Effect.Effect<A, E, Invitations>) => Promise<A>
 }

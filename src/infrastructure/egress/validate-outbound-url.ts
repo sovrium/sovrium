@@ -55,18 +55,18 @@ export type ValidateOutboundUrlResult =
  *     `64:ff9b::/96`) → whatever that IPv4 address is. Addresses are compared
  *     by value, so every spelling of one address gets one answer.
  *
- * Out of scope: DNS-level SSRF — `https://internal.local` resolving to
- * 10.0.0.1 is NOT caught here because pure URL parsing has no DNS context.
- * Pure-function semantics also avoid the TOCTOU window between `validate`
- * and `fetch`. If/when the threat model demands DNS resolution, layer it on
- * top by calling `dns.lookup(parsed.hostname)` and re-validating the
- * resolved IP.
+ * Spelling only: a NAME is judged here by how it is written, so
+ * `https://internal.example` resolving to 10.0.0.1 passes this function. What a
+ * name resolves to is `host-resolution.ts`'s: it asks the resolver, refuses a
+ * name when any answer is an address this function refuses as a literal, and
+ * pins the request to the address it checked. `guardedFetch` applies it by
+ * default on every hop; a caller opts out only with `resolveHost: null` and a
+ * stated reason.
  *
- * Trust model today: every consumer (webhook dispatcher, OAuth refresh,
- * automation http/webhook actions) is fed URLs from operator-controlled
- * app config. The helper is preventive — once connections / automations
- * become end-user-creatable via the admin UI, every consumer is already
- * guarded.
+ * Trust model: an outbound URL is not always the operator's. A whole-URL
+ * template (`url: '{{trigger.data.url}}'`) takes it from the request that
+ * triggered the run, and a redirect takes it from whoever answered. Every
+ * consumer therefore treats the URL as untrusted input.
  */
 export function validateOutboundUrl(rawUrl: string): ValidateOutboundUrlResult {
   const parsed = parseUrl(rawUrl)

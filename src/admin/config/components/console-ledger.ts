@@ -23,12 +23,9 @@
  * Each ledger binds its read, its columns and their labels, and its empty line.
  */
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consoleLedger = {
+export const consoleLedger: TemplateEncoded = {
   name: 'console-ledger',
   type: 'table',
   render: 'transparent',
@@ -60,4 +57,4 @@ export const consoleLedger = {
   dataSource: '$dataSource',
   columns: '$columns',
   emptyMessage: '$emptyMessage',
-} as unknown as Template
+}

@@ -19,6 +19,7 @@
  */
 
 import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-match-service'
+import { resolveButtonUrl } from '@/domain/models/app/tables/fields/field-types/advanced/button-url-service'
 import { disabledOnRecord } from '@/presentation/design/disabled-verdict'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
@@ -84,9 +85,18 @@ export function RecordButton(props: RecordButtonProps): React.ReactNode {
     `field:${props.fieldName}`,
     props.config.disabledReason
   )
+  // A `url` naming `$record.*` opens the address of THIS record. Any field the
+  // reader may not read was taken out of the template on the server, and is
+  // absent from the record she holds.
+  const { url } = props.config
+  const config =
+    url === undefined
+      ? props.config
+      : { ...props.config, url: resolveButtonUrl(url, props.record ?? {}) }
   return (
     <RecordButtonCore
       {...core}
+      config={config}
       {...(verdict === undefined ? {} : { disabledOnRecord: verdict })}
       classFor={(pending) =>
         resolveClasses(pending ? RECORD_BUTTON_PENDING_CLASS : RECORD_BUTTON_CLASS, className)

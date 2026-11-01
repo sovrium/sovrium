@@ -9,11 +9,12 @@ import { sql } from 'drizzle-orm'
 import { redactHeadersNamed } from '@/domain/kernel/sanitize/http-header-redaction'
 import { buildEnvLookup } from '@/domain/models/app/env-reference-service'
 import { type CustomizedWebhookData, type Webhook } from '@/domain/models/app/tables/webhooks'
-import { getDb } from '@/infrastructure/database/drizzle/db-bun'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { buildAuthHeaders } from './auth-headers'
 import { deliverWebhook } from './dispatcher'
+import type { TestDeliveryResult } from '@/application/ports/services/webhook-delivery-log'
 import type { EnvVar } from '@/domain/models/app/env'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The app's `env` declarations. Webhook credentials resolve `$env` against the
@@ -92,7 +93,10 @@ const toNullableParams = (input: LogDeliveryInput) => ({
   isTest: input.isTest ?? false,
 })
 
-export const logDelivery = async (input: LogDeliveryInput): Promise<number | undefined> => {
+export const logDelivery = async (
+  { client, dialect }: DatabaseService,
+  input: LogDeliveryInput
+): Promise<number | undefined> => {
   const { webhookName, tableName, event, url, payload, requestHeaders } = input
   const { status, durationMs, requestedAt, completedAt } = input
   const p = toNullableParams(input)
@@ -104,10 +108,11 @@ export const logDelivery = async (input: LogDeliveryInput): Promise<number | und
   // `requested_at`/`completed_at` as INTEGER `timestamp_ms`. The plain bound
   // values land in both schemas without an explicit cast — and the casts
   // crash SQLite at the `::` parser token.
-  // `executeRaw` runs `.execute()` on PostgreSQL and `.all()` on SQLite, which
+  // `executeRawOn` runs `.execute()` on PostgreSQL and `.all()` on SQLite, which
   // has no `.execute()`: the log is written on both engines.
-  const result = await executeRaw(
-    getDb(),
+  const result = await executeRawOn(
+    dialect.kind,
+    client,
     sql`
     INSERT INTO _webhook_deliveries
       (webhook_name, table_name, event, url, payload, request_headers, status,
@@ -149,11 +154,11 @@ const BASE_HEADERS: Readonly<Record<string, string>> = {
  * Hard timeout for a single table-webhook delivery attempt, in milliseconds.
  *
  * Shorter than the 30s default so an unreachable or non-responsive upstream
- * fails fast enough for the retry policy to run several attempts within the
- * caller's request budget (table-webhook dispatch is awaited synchronously
- * on the record-mutation response path).
+ * fails fast enough for the retry policy to run several attempts in short
+ * order. It also bounds how long a record write that asked to wait for its
+ * deliveries waits (`record-webhook-dispatcher-live.ts`).
  */
-const DELIVERY_TIMEOUT_MS = 3000
+export const DELIVERY_TIMEOUT_MS = 3000
 
 /** The result-derived fields persisted to a delivery-log row. */
 export interface DeliveryOutcomeFields {
@@ -263,14 +268,17 @@ export const attemptDelivery = async (
  *
  * @public
  */
-export const deliverAndLog = async (input: {
-  readonly webhook: Webhook
-  readonly tableName: string
-  readonly payload: TableWebhookPayload
-  readonly appEnv: AppEnv
-  /** The outbox delivery being re-sent: its id rides on the retry, as on every attempt. */
-  readonly outboxDeliveryId: string | undefined
-}): Promise<{ readonly deliveryId: number | undefined; readonly success: boolean }> => {
+export const deliverAndLog = async (
+  database: DatabaseService,
+  input: {
+    readonly webhook: Webhook
+    readonly tableName: string
+    readonly payload: TableWebhookPayload
+    readonly appEnv: AppEnv
+    /** The outbox delivery being re-sent: its id rides on the retry, as on every attempt. */
+    readonly outboxDeliveryId: string | undefined
+  }
+): Promise<{ readonly deliveryId: number | undefined; readonly success: boolean }> => {
   const { webhook, tableName, payload } = input
   const requestedAt = new Date().toISOString()
   const outboxDeliveryId = input.outboxDeliveryId ?? crypto.randomUUID()
@@ -280,7 +288,7 @@ export const deliverAndLog = async (input: {
     envLookupFor(input.appEnv),
     outboxDeliveryId
   )
-  const deliveryId = await logDelivery({
+  const deliveryId = await logDelivery(database, {
     webhookName: webhook.name,
     tableName,
     event: payload.event,
@@ -303,14 +311,6 @@ export interface TableWebhookTestPayload extends TableWebhookPayload {
   readonly test: true
 }
 
-/** Outcome of {@link deliverTestWebhook}, surfaced by the test endpoint. */
-export interface TestDeliveryResult {
-  readonly success: boolean
-  readonly httpStatus: number
-  readonly duration: number
-  readonly error: string | undefined
-}
-
 /**
  * Deliver a one-off test payload to a webhook and record it in
  * `_webhook_deliveries` as a test delivery (`is_test = true`).
@@ -323,12 +323,15 @@ export interface TestDeliveryResult {
  *
  * @public
  */
-export const deliverTestWebhook = async (input: {
-  readonly webhook: Webhook
-  readonly tableName: string
-  readonly sampleRecord: Record<string, unknown>
-  readonly appEnv: AppEnv
-}): Promise<TestDeliveryResult> => {
+export const deliverTestWebhook = async (
+  database: DatabaseService,
+  input: {
+    readonly webhook: Webhook
+    readonly tableName: string
+    readonly sampleRecord: Record<string, unknown>
+    readonly appEnv: AppEnv
+  }
+): Promise<TestDeliveryResult> => {
   const { webhook, tableName, sampleRecord } = input
   const payload: TableWebhookTestPayload = {
     event: 'webhook.test',
@@ -345,7 +348,7 @@ export const deliverTestWebhook = async (input: {
     envLookupFor(input.appEnv),
     crypto.randomUUID()
   )
-  await logDelivery({
+  await logDelivery(database, {
     webhookName: webhook.name,
     tableName,
     event: 'webhook.test',

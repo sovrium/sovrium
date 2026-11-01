@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { ConsentSchema } from '@/domain/models/app/consent'
+import consentBody from '@/domain/models/app/consent/consent.docs.md' with { type: 'file' }
 import { PageAccessExtendedSchema } from '@/domain/models/app/pages/access'
 import { AutoSaveConfigSchema } from '@/domain/models/app/pages/components/auto-save'
 import { ClickInteractionSchema } from '@/domain/models/app/pages/components/interactions/click'
@@ -42,36 +44,11 @@ import { defineArticle, defineSection } from './define'
 /**
  * Pages — the section manifest.
  *
- * Ten articles over ONE property directory, `src/domain/models/app/pages/`,
- * plus one that documents a sibling property. Its fragments are named after
- * the article, not the directory, as `design`'s are: `pages` is one key of
- * `AppSchema` whose members split several ways a reader cares about —
- * routing, data binding, layout, metadata — and the tree cannot show that.
- *
- * ─── THE ONE FRAGMENT THAT IS NOT UNDER `pages/` ───────────────────────────
- *
- * `system-sources` documents the ROOT `systemSources` catalogue, which has its
- * own property directory, so its fragment sits there. It is in this SECTION
- * because a reader meets it while binding a component, one article after
- * `pages-data-binding` — the section is the reading order, the directory is
- * the placement, and only the second is decided by the placement rule.
- *
- * ─── THE TWO ARTICLES THAT ARRIVED FROM `theming` ──────────────────────────
- *
- * `interactions` documents `pages[].components[].interactions` and
- * `interactivity-scripts` documents `pages[].scripts`. The published corpus
- * filed both under theming — they are about behaviour that LOOKS like design.
- * None is about `design`, so by the placement rule both moved here, fragment
- * and row together, keeping their published orders: after the rest of the
- * section, since a page must exist before its behaviour matters.
- *
- * ─── WHERE THE SEO ARTICLES WENT ───────────────────────────────────────────
- *
- * `seo-meta` and `seo-structured-data` are in `pages-seo.ts`: a section
- * manifest is capped at 400 lines, and both are about what a machine makes of
- * the page. `pages-references` and `pages-relative-dates` are splits of
- * `pages-data-binding` — the reference families that read what a binding
- * resolved, and the relative filter values — each one subject per fragment.
+ * Why the section spans `pages/` and `system-sources/`, and where the
+ * theming and SEO articles went:
+ * `[internal ref]`, § `pages`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const section = defineSection({
   slug: 'pages',
@@ -172,7 +149,7 @@ export const section = defineSection({
       slug: 'pages-references',
       title: 'Page References',
       description:
-        'The reference families a page resolves — `$record`, `$vars`, `$currentUser`, `$t:` and the browser-side `$session` — plus the `query`, `params` and `window` page inputs.',
+        'The references a page resolves, `$record`, `$vars`, `$currentUser`, `$t:` and the browser-side `$session`, plus the `query`, `params` and `window` inputs.',
       keywords: [
         'sovrium',
         '$record',
@@ -352,6 +329,27 @@ export const section = defineSection({
         'US-PAGES-INTERACTIVITY-SCRIPTS-INLINE-FEATURES',
         'US-PAGES-INTERACTIVITY-SCRIPTS-LOADING',
       ],
+    }),
+    defineArticle({
+      slug: 'consent',
+      title: 'Visitor Consent',
+      description:
+        'Ask visitors before page scripts and the analytics tracker run: declare the purposes, and a banner holds back what they gate until the visitor accepts.',
+      keywords: [
+        'sovrium',
+        'consent',
+        'consent banner',
+        'cookie banner',
+        'purposes',
+        'privacy',
+        'Global Privacy Control',
+        'expiresAfterDays',
+      ],
+      order: 3632,
+      sidebarLabel: 'Visitor Consent',
+      body: consentBody,
+      documents: [ConsentSchema],
+      stories: ['US-PAGES-INTERACTIVITY-CONSENT-BANNER'],
     }),
     defineArticle({
       slug: 'interactions',

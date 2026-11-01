@@ -159,3 +159,28 @@ export interface GroupPartition {
   /** Present only when the request also carried `?aggregate=`. */
   readonly aggregations?: AggregationOutput
 }
+
+/**
+ * The figures `?aggregate=` answers over no row at all, in the shape a read
+ * over rows gives: `count` is zero, and every other figure is `null` for each
+ * field it names. For a read that knows, before asking the database, that no
+ * row can match.
+ */
+export function emptyAggregations(aggregate: Readonly<AggregateConfig>): AggregationOutput {
+  const nulls = (fields: readonly string[] | undefined) =>
+    fields === undefined
+      ? undefined
+      : Object.fromEntries(fields.map((field) => [field, NO_VALUES] as const))
+  const figures = Object.entries({
+    sum: nulls(aggregate.sum),
+    avg: nulls(aggregate.avg),
+    min: nulls(aggregate.min),
+    max: nulls(aggregate.max),
+    ...Object.fromEntries(AGGREGATE_PERCENTILES.map((p) => [p, nulls(aggregate[p])] as const)),
+  }).filter(([, value]) => value !== undefined)
+  const raw = {
+    ...(aggregate.count === true ? { count: '0' } : {}),
+    ...Object.fromEntries(figures),
+  } as RawAggregations
+  return aggregate.shortcut === true ? reshapeShortcutAggregations(raw, aggregate) : raw
+}

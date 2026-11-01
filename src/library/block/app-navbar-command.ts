@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { span } from '@/library/manifest/app-block-kit'
+import { span } from '@/library/kit/app-block-kit'
 import {
   asComponent,
   flex,
@@ -13,9 +13,9 @@ import {
   PLACE_NOTE,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
+import { buttonLink } from '@/library/kit/navigation-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import { buttonLink } from '@/library/manifest/navigation-block-kit'
 
 /** A slim top bar: where you are, the search shortcut, and one action. */
 export const entry = defineLibraryEntry({

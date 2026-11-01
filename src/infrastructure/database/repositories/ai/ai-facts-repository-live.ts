@@ -6,17 +6,20 @@
  */
 
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AiFactsDatabaseError,
   AiFactsRepository,
 } from '@/application/ports/repositories/ai/ai-facts-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { aiFacts as aiFactsPg } from '@/infrastructure/database/drizzle/schema/ai'
 import { aiFacts as aiFactsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import type { AiFact } from '@/application/ports/repositories/ai/ai-facts-repository'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const aiFacts = resolveDialectSchema(aiFactsPg, aiFactsSqlite)
 
@@ -31,7 +34,7 @@ const wrap = makeDbWrap((cause) => new AiFactsDatabaseError({ cause }))
  * surplus older rows are deleted. The cap is enforced per `namespace` so two
  * agents sharing a namespace share the budget.
  */
-const enforceMaxFacts = (namespace: string, maxFacts: number): Promise<void> =>
+const enforceMaxFacts = (db: PortableDb, namespace: string, maxFacts: number): Promise<void> =>
   db
     .select({ id: aiFacts.id })
     .from(aiFacts)
@@ -62,41 +65,47 @@ const tablesOf = (metadata: unknown): ReadonlyArray<string> => {
     : []
 }
 
+const members: MembersOverDatabase<typeof AiFactsRepository> = {
+  storeFact:
+    (db) =>
+    ({ namespace, agentName, userId, fact, maxFacts, tables }) =>
+      wrap((): Promise<void> =>
+        db
+          .insert(aiFacts)
+          .values({
+            namespace,
+            agentName,
+            userId,
+            fact,
+            ...(tables !== undefined && tables.length > 0 && { metadata: { tables: [...tables] } }),
+          })
+          .then(() => enforceMaxFacts(db, namespace, maxFacts))
+      ),
+
+  recallFacts:
+    (db) =>
+    ({ namespace, userId }) =>
+      wrap(async (): Promise<ReadonlyArray<AiFact>> => {
+        const rows = await db
+          .select({
+            fact: aiFacts.fact,
+            namespace: aiFacts.namespace,
+            agentName: aiFacts.agentName,
+            userId: aiFacts.userId,
+            createdAt: aiFacts.createdAt,
+            metadata: aiFacts.metadata,
+          })
+          .from(aiFacts)
+          .where(and(eq(aiFacts.namespace, namespace), eq(aiFacts.userId, userId)))
+          .orderBy(asc(aiFacts.createdAt))
+        return rows.map(({ metadata, ...row }) => ({ ...row, tables: tablesOf(metadata) }))
+      }),
+}
+
 /**
  * AI Facts Repository Implementation (Drizzle).
  *
  * Persists learned facts to `system.ai_facts`, scoped by namespace, agent,
  * and user so facts never leak across namespaces or users.
  */
-export const AiFactsRepositoryLive = Layer.succeed(AiFactsRepository, {
-  storeFact: ({ namespace, agentName, userId, fact, maxFacts, tables }) =>
-    wrap((): Promise<void> =>
-      db
-        .insert(aiFacts)
-        .values({
-          namespace,
-          agentName,
-          userId,
-          fact,
-          ...(tables !== undefined && tables.length > 0 && { metadata: { tables: [...tables] } }),
-        })
-        .then(() => enforceMaxFacts(namespace, maxFacts))
-    ),
-
-  recallFacts: ({ namespace, userId }) =>
-    wrap(async (): Promise<ReadonlyArray<AiFact>> => {
-      const rows = await db
-        .select({
-          fact: aiFacts.fact,
-          namespace: aiFacts.namespace,
-          agentName: aiFacts.agentName,
-          userId: aiFacts.userId,
-          createdAt: aiFacts.createdAt,
-          metadata: aiFacts.metadata,
-        })
-        .from(aiFacts)
-        .where(and(eq(aiFacts.namespace, namespace), eq(aiFacts.userId, userId)))
-        .orderBy(asc(aiFacts.createdAt))
-      return rows.map(({ metadata, ...row }) => ({ ...row, tables: tablesOf(metadata) }))
-    }),
-})
+export const AiFactsRepositoryLive = layerOverDatabase(AiFactsRepository, members)

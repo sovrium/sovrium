@@ -45,6 +45,7 @@
 
 import { Effect, Layer } from 'effect'
 import { ServerOrigin } from '@/application/ports/services/server-origin'
+import { declaredBaseUrl, preBindOrigin } from '@/domain/models/process-env/server'
 
 /** Strip any trailing slashes so callers can concatenate a path directly. */
 const normalise = (origin: string): string => origin.replace(/\/+$/, '')
@@ -73,10 +74,8 @@ export const publishBoundOrigin = (origin: string): void => {
  * no Effect context to reach the port through.
  */
 export const resolveServerOrigin = (): string => {
-  const declared = process.env['BASE_URL']
-  if (declared) return normalise(declared)
-  if (boundOrigin !== undefined) return boundOrigin
-  return `http://localhost:${process.env['PORT'] || 3000}`
+  const { env } = process
+  return declaredBaseUrl(env) ?? boundOrigin ?? preBindOrigin(env)
 }
 
 /**

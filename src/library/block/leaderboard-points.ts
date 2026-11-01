@@ -5,19 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  asComponent,
-  DATA_NOTE,
-  param,
-  PLACE_NOTE,
-  stringParam,
-} from '@/library/manifest/block-kit'
+import { asComponent, DATA_NOTE, param, PLACE_NOTE, stringParam } from '@/library/kit/block-kit'
 import {
   CHART_THEME_NOTE,
   chartCard,
   chartCardContent,
   chartCardHeader,
-} from '@/library/manifest/chart-block-kit'
+} from '@/library/kit/chart-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /**

@@ -18,7 +18,7 @@
  * is the wrong tool: an error message is shown as the characters it holds.
  */
 
-import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { emailLayout } from './templates'
 
 /**
@@ -78,14 +78,14 @@ const groupRuns = (lines: readonly string[]): readonly LineRun[] =>
 
 const runHtml = (run: LineRun, paragraphStyle: string): string =>
   run.kind === 'list'
-    ? `<ul>${run.lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
-    : `<p style="${paragraphStyle}">${run.lines.map((line) => escapeHtml(line)).join('<br>')}</p>`
+    ? `<ul>${run.lines.map((line) => `<li>${escapeHtmlAttribute(line)}</li>`).join('')}</ul>`
+    : `<p style="${paragraphStyle}">${run.lines.map((line) => escapeHtmlAttribute(line)).join('<br>')}</p>`
 
 const sectionHtml = (section: SystemNotificationSection): string => {
   const heading =
     section.heading === undefined
       ? ''
-      : `<h3 style="margin-bottom:4px">${escapeHtml(section.heading)}</h3>`
+      : `<h3 style="margin-bottom:4px">${escapeHtmlAttribute(section.heading)}</h3>`
   const paragraphStyle = section.nowrap === true ? 'white-space:nowrap' : 'white-space:pre-wrap'
   return `${heading}${groupRuns(section.lines)
     .map((run) => runHtml(run, paragraphStyle))
@@ -93,7 +93,7 @@ const sectionHtml = (section: SystemNotificationSection): string => {
 }
 
 const linkHtml = (link: SystemNotificationLink, className?: string): string =>
-  `<a href="${escapeHtml(link.href)}"${className === undefined ? '' : ` class="${className}"`}>${escapeHtml(link.label)}</a>`
+  `<a href="${escapeHtmlAttribute(link.href)}"${className === undefined ? '' : ` class="${className}"`}>${escapeHtmlAttribute(link.label)}</a>`
 
 const sectionText = (section: SystemNotificationSection): string =>
   [...(section.heading === undefined ? [] : [section.heading]), ...section.lines].join('\n')
@@ -105,8 +105,8 @@ const renderHtml = (input: SystemNotificationInput): string => {
       : `<p style="text-align: center;">${linkHtml(input.action, 'button')}</p>`
   const content = `
     <div class="content">
-      <h2>${escapeHtml(input.title)}</h2>
-      <p>${escapeHtml(input.intro)}</p>
+      <h2>${escapeHtmlAttribute(input.title)}</h2>
+      <p>${escapeHtmlAttribute(input.intro)}</p>
       ${input.sections.map(sectionHtml).join('\n')}
       ${action}
     </div>
@@ -114,7 +114,7 @@ const renderHtml = (input: SystemNotificationInput): string => {
   const footer = input.footerLinks.map((link) => `<p>${linkHtml(link)}</p>`).join('')
   return emailLayout(content, {
     appName: input.appName,
-    footerHtml: `<p>${escapeHtml(input.appIdentity)}</p>${footer}`,
+    footerHtml: `<p>${escapeHtmlAttribute(input.appIdentity)}</p>${footer}`,
   })
 }
 

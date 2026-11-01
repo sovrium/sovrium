@@ -14,7 +14,8 @@
  *
  *  - a `TechArticle` (or `Article`) document from the file's frontmatter
  *    (`headline` = title, `description` = description, optional `datePublished`
- *    from a parseable `date` frontmatter), and
+ *    from a parseable `date` and `dateModified` from a parseable `updated`;
+ *    the head adds the served language with {@link withArticleLanguage}), and
  *  - a `BreadcrumbList` reflecting the nav section → page position, derived
  *    from the `groupBy` frontmatter value (the docs "category") and the page
  *    title. Its position-1 root defaults to a nameless "Home", but the caller may
@@ -79,16 +80,24 @@ export const parseStructuredDataConfig = (
 }
 
 /**
- * Parse a frontmatter `date` value into an ISO-8601 `datePublished`. Returns
- * `undefined` when absent or unparseable so the article carries the field only
- * when the frontmatter genuinely declares a date.
+ * Parse the first frontmatter value among `keys` into an ISO-8601 date.
+ * Returns `undefined` when absent or unparseable so the article carries the
+ * field only when the frontmatter genuinely declares a date.
  */
-const parseDatePublished = (frontmatter: Readonly<Record<string, string>>): string | undefined => {
-  const raw = frontmatter['date'] ?? frontmatter['datePublished'] ?? frontmatter['published']
+const parseFrontmatterDate = (
+  frontmatter: Readonly<Record<string, string>>,
+  keys: readonly string[]
+): string | undefined => {
+  const raw = keys.map((key) => frontmatter[key]).find((value) => value !== undefined)
   if (typeof raw !== 'string' || raw.length === 0) return undefined
   const parsed = new Date(raw)
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString()
 }
+
+/** `datePublished` from `date` (or its two older spellings). */
+const PUBLISHED_KEYS = ['date', 'datePublished', 'published'] as const
+/** `dateModified` from `updated`, the key the sitemap's `lastmod` reads. */
+const MODIFIED_KEYS = ['updated', 'dateModified'] as const
 
 /**
  * Build the TechArticle/Article document from frontmatter. `headline` always
@@ -101,13 +110,15 @@ const buildArticle = (
   url: string
 ): Readonly<Record<string, unknown>> => {
   const { title: headline, description } = frontmatter
-  const datePublished = parseDatePublished(frontmatter)
+  const datePublished = parseFrontmatterDate(frontmatter, PUBLISHED_KEYS)
+  const dateModified = parseFrontmatterDate(frontmatter, MODIFIED_KEYS)
   return {
     '@context': SCHEMA_CONTEXT,
     '@type': config.type ?? DEFAULT_ARTICLE_TYPE,
     ...(headline ? { headline } : {}),
     ...(description ? { description } : {}),
     ...(datePublished ? { datePublished } : {}),
+    ...(dateModified ? { dateModified } : {}),
     ...(config.organization
       ? { publisher: { '@type': 'Organization', name: config.organization } }
       : {}),
@@ -165,12 +176,45 @@ const buildRootCrumbItems = (
   return [{ name: rootCrumb.name, item: rootCrumb.url }]
 }
 
-const buildBreadcrumbList = (
-  frontmatter: Readonly<Record<string, string>>,
-  url: string,
-  groupBy: string | undefined,
-  rootCrumb: BreadcrumbRootCrumb | undefined
-): Readonly<Record<string, unknown>> => {
+/**
+ * How a section crumb is named and linked: `labels` maps a raw section value to
+ * the label the sidebar shows (`nav.groupLabels`), `urls` to the address of the
+ * section's first article in the collection's order. A section with neither is
+ * named by its raw value and carries no link.
+ */
+export interface BreadcrumbSections {
+  readonly labels?: Readonly<Record<string, string>>
+  readonly urls?: Readonly<Record<string, string>>
+}
+
+/** What the synthesiser reads: see {@link buildContentDirStructuredData}. */
+interface StructuredDataInput {
+  readonly config: ContentDirStructuredDataConfig | undefined
+  readonly frontmatter: Readonly<Record<string, string>>
+  readonly url: string
+  readonly groupBy: string | undefined
+  readonly rootCrumb?: BreadcrumbRootCrumb
+  readonly sections?: BreadcrumbSections
+}
+
+/** The section crumb, linked unless the link would point at this very page. */
+const buildSectionItem = (
+  section: string,
+  sections: BreadcrumbSections | undefined,
+  url: string
+): { readonly name: string; readonly item?: string } => {
+  const name = sections?.labels?.[section] ?? section
+  const item = sections?.urls?.[section]
+  return item === undefined || item === url ? { name } : { name, item }
+}
+
+const buildBreadcrumbList = ({
+  frontmatter,
+  url,
+  groupBy,
+  rootCrumb,
+  sections,
+}: StructuredDataInput): Readonly<Record<string, unknown>> => {
   const sectionField = groupBy ?? 'category'
   const rawSection = frontmatter[sectionField] ?? frontmatter['section'] ?? frontmatter['category']
   const pageName = frontmatter['title'] ?? url
@@ -183,8 +227,8 @@ const buildBreadcrumbList = (
 
   // Crumbs without their position (added after collapses, so numbering has no gaps).
   const rootItems = buildRootCrumbItems(rootCrumb, url)
-  const sectionItems: readonly { readonly name: string }[] =
-    section !== undefined ? [{ name: section }] : []
+  const sectionItems: readonly { readonly name: string; readonly item?: string }[] =
+    section !== undefined ? [buildSectionItem(section, sections, url)] : []
   const pageItem = { name: pageName, item: url }
 
   const itemListElement = [...rootItems, ...sectionItems, pageItem].map((item, index) => ({
@@ -215,17 +259,35 @@ const buildBreadcrumbList = (
  * @param rootCrumb - Optional docs-zone root-crumb override (see {@link BreadcrumbRootCrumb}).
  *   When provided, the BreadcrumbList's position-1 item becomes the active docs-zone
  *   tab (name + link) instead of the default nameless `Home`. Absent ⇒ unchanged.
+ * @param sections - How the section crumb is named and linked (see {@link BreadcrumbSections}).
  */
-export const buildContentDirStructuredData = (input: {
-  readonly config: ContentDirStructuredDataConfig | undefined
-  readonly frontmatter: Readonly<Record<string, string>>
-  readonly url: string
-  readonly groupBy: string | undefined
-  readonly rootCrumb?: BreadcrumbRootCrumb
-}): readonly Record<string, unknown>[] => {
-  const { config, frontmatter, url, groupBy, rootCrumb } = input
+export const buildContentDirStructuredData = (
+  input: StructuredDataInput
+): readonly Record<string, unknown>[] => {
+  const { config, frontmatter, url } = input
   if (!config?.enabled) return []
   const article = buildArticle(config, frontmatter, url)
   if (config.breadcrumbs === false) return [article]
-  return [article, buildBreadcrumbList(frontmatter, url, groupBy, rootCrumb)]
+  return [article, buildBreadcrumbList(input)]
 }
+
+/** The two article types the synthesiser emits. */
+const ARTICLE_TYPES: ReadonlySet<string> = new Set(['TechArticle', 'Article'])
+
+/**
+ * The synthesised documents with each article naming `lang` — the language the
+ * page is served in, the value of its `<html lang>` — as `inLanguage`. Known
+ * only once the document is rendered, so the head applies it; the breadcrumb is
+ * left as it is, and an empty `lang` adds nothing.
+ */
+export const withArticleLanguage = (
+  documents: readonly Record<string, unknown>[],
+  lang: string
+): readonly Record<string, unknown>[] =>
+  lang === ''
+    ? documents
+    : documents.map((document) =>
+        ARTICLE_TYPES.has(String(document['@type'])) && document['inLanguage'] === undefined
+          ? { ...document, inLanguage: lang }
+          : document
+      )

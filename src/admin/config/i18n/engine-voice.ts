@@ -39,8 +39,7 @@ export default {
   'sovrium.apiKeys.newKey': 'Your new API key',
   'sovrium.commandPalette.commandPlaceholder': 'Type a command or search…',
   'sovrium.commandPalette.searchAll': 'Search all your data',
-  'sovrium.commandPalette.startTyping':
-    'Start typing to search records, submissions, files, automations and users.',
+  'sovrium.commandPalette.startTyping': 'Type to search {kinds}.',
   'sovrium.component.configHint': 'Add it to this component in your app config, then redeploy.',
   'sovrium.component.refreshToRetry': 'Refresh the page to try again.',
   'sovrium.csvImport.drop': 'Drag and drop a CSV file here',
@@ -50,7 +49,7 @@ export default {
   'sovrium.dialog.typeToConfirmAsked': 'To confirm, type the text asked for',
   'sovrium.filePreview.cannotShow': '{name} cannot be shown here. Download it to open it.',
   'sovrium.fileUpload.dropPrompt': 'Drop files here',
-  'sovrium.form.confirmPrompt': 'Are you sure?',
+  'sovrium.form.confirmPrompt': 'This takes effect right away.',
   'sovrium.form.dropFiles': 'Drop files here or click to browse',
   'sovrium.form.selectUser': 'Select a user...',
   'sovrium.form.uploadFailed': 'The file couldn’t upload. Try again.',

@@ -6,6 +6,7 @@
  */
 
 import { Result, Schema } from 'effect'
+import { blankToUndefined } from '@/domain/kernel/config-parsing/blank-text'
 import type { RendererConfig } from './renderer'
 
 /**
@@ -98,11 +99,6 @@ export interface BrowserConfig {
 export type BrowserEnvParse =
   | { readonly ok: true; readonly config: BrowserConfig }
   | { readonly ok: false; readonly error: string }
-
-const blankToUndefined = (value: string | undefined): string | undefined => {
-  const trimmed = value?.trim()
-  return trimmed === undefined || trimmed === '' ? undefined : trimmed
-}
 
 /** Whether the engine runs inside the desktop app: the marker its shell sets, and nothing else. */
 export const isDesktopEnv = (env: Readonly<Record<string, string | undefined>>): boolean =>

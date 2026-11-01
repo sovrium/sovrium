@@ -16,22 +16,22 @@
  */
 
 import { and, gt, inArray } from 'drizzle-orm'
-import { db } from '@/infrastructure/database/drizzle'
 import { authSessionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * The ids among `sessionIds` whose session row still exists and has not
- * expired. Rejects when the read fails: the caller decides what an unanswered
- * liveness question means.
+ * expired, read through `client`. Rejects when the read fails: the caller
+ * decides what an unanswered liveness question means.
  */
-export const readLiveSessionIds = async (
-  sessionIds: readonly string[]
-): Promise<ReadonlySet<string>> => {
-  if (sessionIds.length === 0) return new Set()
-  const sessions = authSessionsTable()
-  const rows = await db
-    .select({ id: sessions.id })
-    .from(sessions)
-    .where(and(inArray(sessions.id, [...sessionIds]), gt(sessions.expiresAt, new Date())))
-  return new Set(rows.map((row) => row.id))
-}
+export const readLiveSessionIdsIn =
+  (client: PortableDb) =>
+  async (sessionIds: readonly string[]): Promise<ReadonlySet<string>> => {
+    if (sessionIds.length === 0) return new Set()
+    const sessions = authSessionsTable()
+    const rows = await client
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(and(inArray(sessions.id, [...sessionIds]), gt(sessions.expiresAt, new Date())))
+    return new Set(rows.map((row) => row.id))
+  }

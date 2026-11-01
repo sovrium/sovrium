@@ -34,11 +34,12 @@ import {
   type UsersOverviewDatabaseError,
   type UserOverviewRow,
 } from '@/application/ports/repositories/tables/users-overview-repository'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
+import { HOUR_MS } from '@/domain/kernel/time/durations'
 import {
   bucketRowsByTimestamp,
   buildDenseBucketGrid,
   coerceTimestampToMs,
-  HOUR_MS,
   intervalStepMs,
 } from '@/domain/kernel/time/time-series-bucketing'
 import {
@@ -51,7 +52,6 @@ import {
   type UsersOverviewResponse,
   type UsersOverviewSeriesPoint,
 } from '@/domain/models/api/admin/users'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { assignableRoleNames, type AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 
 // ─── Role / bucket tallies ─────────────────────────────────────────────────
@@ -202,17 +202,17 @@ export type UsersOverviewOutcome =
  * the assembled body does not match `usersOverviewResponseSchema`. The audit
  * emit is composed by the route after a successful read.
  */
-export const BuildUsersOverview = (
+export const buildUsersOverview = (
   app: AdminRoleResolvable,
   period: PeriodPreset
 ): Effect.Effect<UsersOverviewOutcome, UsersOverviewDatabaseError, UsersOverviewRepository> =>
   Effect.gen(function* () {
     const repo = yield* UsersOverviewRepository
 
-    const window = resolvePeriodWindow(period)
+    const nowMs = Date.now()
+    const window = resolvePeriodWindow(period, new Date(nowMs))
     const fromDate = new Date(window.from)
     const fromMs = fromDate.getTime()
-    const nowMs = Date.now()
     const last24hDate = new Date(nowMs - 24 * HOUR_MS)
 
     // 1) totals.users + roles + without_role + invited + in-period signups —

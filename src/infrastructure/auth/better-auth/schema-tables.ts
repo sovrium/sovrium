@@ -62,12 +62,12 @@ export const users = authSchema.table('user', {
   banExpires: timestamp('ban_expires', { withTimezone: true }),
   // Two-factor plugin fields
   twoFactorEnabled: boolean('two_factor_enabled').default(false),
-  // GDPR account-erasure scheduling (Art. 17). When set, the account is
-  // scheduled for a hard delete at this timestamp; the purge scheduler
-  // physically removes the account once `scheduledErasureAt <= NOW()`.
-  // NULL means no erasure is pending. Column is intentionally camelCase-
-  // quoted to match the Better Auth naming convention used by callers.
+  // GDPR erasure (Art. 17): hard-deleted once `scheduledErasureAt <= NOW()`, NULL when none
+  // is pending. camelCase-quoted to match the Better Auth naming convention callers use.
   scheduledErasureAt: timestamp('scheduledErasureAt', { withTimezone: true }),
+  // Agents mirrored from `app.agents[]` (`agent-user-sync.ts`): type 'agent', removal tombstone.
+  type: text('type'),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 })
 
 export const sessions = authSchema.table(
@@ -196,7 +196,7 @@ export const members = authSchema.table(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('member_organizationId_idx').on(table.organizationId),
+    uniqueIndex('member_organizationId_userId_uidx').on(table.organizationId, table.userId),
     index('member_userId_idx').on(table.userId),
   ]
 )

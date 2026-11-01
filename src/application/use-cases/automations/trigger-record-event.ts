@@ -13,6 +13,7 @@ import {
   withStringRecordId,
   withStringRelationshipValues,
 } from '@/domain/models/app/tables/record-id-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
@@ -47,11 +48,6 @@ export interface TriggerRecordEventInput {
   readonly event: 'create' | 'update' | 'delete' | 'restore'
   readonly record: Record<string, unknown>
   readonly previousRecord?: Record<string, unknown>
-  /**
-   * Process env captured at the route boundary, so action handlers resolve `$env.VAR_NAME`
-   * and secrets are redacted from run-history (no `process.env` read in this layer).
-   */
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /** The user who triggered the record event (creator/updater). */
   readonly userId?: string
   /** Who made the write, as `{{trigger.user}}`: absent for a guest's write. */
@@ -81,7 +77,7 @@ const readableRecords = (
   readonly previousRecord: Readonly<Record<string, unknown>> | undefined
 } => {
   // A relationship value is the related record's id, and reads as a string too.
-  const links = relationshipFieldNames(input.app.tables?.find((t) => t.name === input.tableName))
+  const links = relationshipFieldNames(findTableByName(input.app.tables, input.tableName))
   return {
     record: withStringRelationshipValues(withStringRecordId(input.record), links),
     previousRecord:
@@ -113,7 +109,7 @@ export const triggerRecordEventAutomations = (
   | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
-    const { app, tableName, event, processEnv, userId } = input
+    const { app, tableName, event, userId } = input
     const { record, previousRecord } = readableRecords(input)
     // Entry point: one read of the operational pauses per record event.
     const pausedNames = yield* loadPausedAutomationNames
@@ -143,7 +139,6 @@ export const triggerRecordEventAutomations = (
           automation,
           trigger,
           app,
-          processEnv,
           triggerData: triggerData as TriggerData,
           userId,
           recordEventDepth: input.depth ?? 0,

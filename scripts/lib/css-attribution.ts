@@ -127,7 +127,7 @@ const rel = (path: string): string => posix.relative(ROOT, toPosixPath(path))
  * data and a prototype, never rendered by the binary), and the co-located unit tests.
  */
 export const SCAN_NEGATIONS: readonly string[] = [
-  'infrastructure/css/generated-css-assets.ts',
+  'infrastructure/css/generated-css-assets.generated.ts',
   'infrastructure/assets/embedded-config-types.generated.ts',
   'infrastructure/assets/embedded-docs.generated.ts',
   'infrastructure/assets/embedded-docs-behaviour.generated.ts',

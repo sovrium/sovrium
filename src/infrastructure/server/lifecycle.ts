@@ -205,7 +205,7 @@ export const createShutdownController = (
         host.on('SIGINT', onSignal('SIGINT'))
         host.on('SIGTERM', onSignal('SIGTERM'))
         // Conditional, never unconditional: see `parseShutdownOnStdinClose`.
-        if (parseShutdownOnStdinClose()) host.onStdinClose(onStdinClose)
+        if (parseShutdownOnStdinClose(process.env)) host.onStdinClose(onStdinClose)
       }),
   }
 }

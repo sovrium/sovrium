@@ -51,7 +51,7 @@ export const SignatureFieldSchema = BaseFieldSchema.pipe(
   Schema.annotate({
     title: 'Signature Field',
     description:
-      'Stores one signature — image, signer name, date, method and the statement agreed to. Written once by a signature-pad; a signed value cannot be changed by an edit.',
+      'Stores one signature: image, signer name, date, method and the statement agreed to. Written once by a signature-pad; a signed value cannot be changed by an edit.',
     examples: [{ id: 7, name: 'client_signature', type: 'signature', bucket: 'signatures' }],
   })
 )

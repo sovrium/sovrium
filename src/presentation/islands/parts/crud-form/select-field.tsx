@@ -6,7 +6,7 @@
  */
 
 import { useCallback, type ReactElement } from 'react'
-import { fieldDescriptionId } from '@/presentation/design/field-display'
+import { controlDescriptionIds } from '@/presentation/design/field-display'
 import { ChoiceSelect } from '../choice-select'
 import { FieldHelpText } from './field-help-text'
 import { FieldLabelText, LabelledControl } from './field-label'
@@ -23,6 +23,8 @@ export interface SelectFieldProps {
   readonly onChange: (name: string, value: string) => void
   readonly options: NonNullable<FieldDef['options']>
   readonly invalid?: boolean
+  /** The island's page-language strings: `select.placeholder` names the empty row. */
+  readonly words?: Readonly<Record<string, string>> | undefined
 }
 
 export function SelectField({
@@ -31,8 +33,10 @@ export function SelectField({
   onChange,
   options,
   invalid,
+  words,
 }: SelectFieldProps): ReactElement {
   const change = useCallback((next: string) => onChange(field.name, next), [onChange, field.name])
+  const describedBy = controlDescriptionIds(field)
   return (
     <LabelledControl
       label={<FieldLabelText field={field} />}
@@ -44,13 +48,11 @@ export function SelectField({
           value={value}
           onValueChange={change}
           options={options}
-          emptyLabel={field.placeholder ?? 'Select...'}
+          emptyLabel={field.placeholder ?? words?.['select.placeholder'] ?? 'Select...'}
           {...(field.required === true && { required: true })}
           {...(field.disabled === true && { disabled: true })}
           {...(invalid === true && { invalid: true })}
-          {...(field.description === undefined
-            ? {}
-            : { describedBy: fieldDescriptionId(field.name) })}
+          {...(describedBy === undefined ? {} : { describedBy })}
         />
       )}
     />

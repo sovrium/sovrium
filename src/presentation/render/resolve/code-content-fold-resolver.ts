@@ -72,9 +72,14 @@
  */
 
 import { flattenRecordFields } from '@/domain/models/app/pages/record-envelope'
+import {
+  componentFields,
+  keyOf,
+  synthesizedComponent,
+} from '@/presentation/render/resolve/component-rewrite'
 import { substituteRecordVars } from '@/presentation/render/resolve/data-source-contracts'
 import type { Page } from '@/domain/models/app/pages'
-import type { Component } from '@/domain/models/app/pages/components'
+import type { Component, ComponentOfType } from '@/domain/models/app/pages/components'
 import type { CodeContentFrom } from '@/domain/models/app/pages/components/component-types/content/code-content-from'
 import type { SystemRowsFetcher } from '@/presentation/render/resolve/first-object-redirect-resolver'
 
@@ -101,15 +106,14 @@ const DEFAULT_SEPARATOR = '\n'
 const MAX_FOLDED_ROWS = 1000
 
 /** A `code` node carrying a fold binding, as the walk recognises it. */
-type FoldNode = Component & { readonly contentFrom: CodeContentFrom }
+type FoldNode = ComponentOfType<'code'> & { readonly contentFrom: CodeContentFrom }
 
 function isFoldNode(node: unknown): node is FoldNode {
   if (typeof node !== 'object' || node === null) return false
-  const component = node as { readonly type?: unknown; readonly contentFrom?: unknown }
-  if (component.type !== 'code') return false
-  const binding = component.contentFrom
+  if (keyOf(node, 'type') !== 'code') return false
+  const binding = keyOf(node, 'contentFrom')
   if (typeof binding !== 'object' || binding === null) return false
-  return typeof (binding as { endpoint?: unknown }).endpoint === 'string'
+  return typeof keyOf(binding, 'endpoint') === 'string'
 }
 
 /**
@@ -158,7 +162,7 @@ async function foldNode(
           binding.rowsKey ?? DEFAULT_ROWS_KEY
         ).catch(() => [])
 
-  const { contentFrom: _spent, ...rest } = node as Component & { contentFrom?: unknown }
+  const { contentFrom: _spent, ...rest } = node
 
   const content =
     rows.length === 0
@@ -175,7 +179,7 @@ async function foldNode(
           .map((row) => substituteRecordVars(binding.template, flattenRecordFields(row)))
           .join(binding.separator ?? DEFAULT_SEPARATOR)
 
-  return { ...(rest as Component), content }
+  return synthesizedComponent({ ...rest, content })
 }
 
 /**
@@ -196,11 +200,11 @@ async function mapNode(
   if (typeof node !== 'object' || node === null) return node
   if (isFoldNode(node)) return foldNode(node, fetchSystemRows)
 
-  const { children } = node as { readonly children?: unknown }
+  const { children } = componentFields(node)
   if (children === undefined) return node
   const mappedChildren = await mapNode(children, fetchSystemRows)
   if (mappedChildren === children) return node
-  return { ...(node as Record<string, unknown>), children: mappedChildren }
+  return { ...node, children: mappedChildren }
 }
 
 /**

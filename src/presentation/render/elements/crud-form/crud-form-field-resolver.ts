@@ -16,7 +16,7 @@ import {
 } from '@/presentation/design/field-display'
 import { showsDeclaredDefault } from '@/presentation/design/field-type-behavior'
 import { humanizeFieldName } from '@/presentation/design/string-utils'
-import { readColumnOptions } from '@/presentation/render/forms/form-field-resolver'
+import { readColumnOptions } from '@/presentation/render/forms/form-table-field'
 import {
   callerTableOf,
   readableFieldsOf,
@@ -239,14 +239,35 @@ function resolveButtonConfig(
   }
 }
 
-function resolveFieldDef(
+/**
+ * The column as this form offers it: a field entry's own `options` narrows a
+ * choice column to that list, in its order and with its labels — an entry
+ * naming no label keeps the column's own for that value.
+ */
+function withFieldOptions<T extends { readonly type: string }>(
+  tableField: T,
+  cfg: FormFieldConfig | undefined
+): T & { readonly options?: unknown } {
+  if (cfg?.options === undefined) return tableField
+  const declared = (tableField as { readonly options?: unknown }).options
+  const own = Array.isArray(declared)
+    ? (declared as readonly { readonly value?: unknown; readonly label?: unknown }[])
+    : []
+  const options = cfg.options.map((entry) => ({
+    value: entry.value,
+    label: entry.label ?? own.find((option) => option.value === entry.value)?.label ?? entry.value,
+  }))
+  return { ...tableField, options }
+}
+
+export function resolveFieldDef(
   tableField: { readonly name: string; readonly type: string; readonly required?: boolean },
   cfg: FormFieldConfig | undefined,
   imageBucket: string | undefined
 ): ResolvedFieldDef {
   // Each option as `{ value, label }`, read as a `formRef` form reads it; the
   // renderer translates a `$t:` label in the page language.
-  const options = readColumnOptions(tableField, undefined, undefined)
+  const options = readColumnOptions(withFieldOptions(tableField, cfg), undefined, undefined)
   const fallbackLabel = humanizeFieldName(tableField.name)
   const passthrough = extractFieldTypePassthrough(tableField)
   // imageBucket is only meaningful for rich-text; including it on every type

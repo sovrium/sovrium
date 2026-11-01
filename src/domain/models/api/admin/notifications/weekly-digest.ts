@@ -30,7 +30,7 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
 
 /** A count: a non-negative integer. */
 const count = (description: string) =>
@@ -132,7 +132,7 @@ const digestDataSchema = Schema.Struct({
     files: count('Files stored in the period'),
     bytes: count('Bytes stored in the period'),
   }).annotate({ description: 'Files uploaded to buckets in the period' }),
-}).annotate({ description: 'What the app data did in the period — counts only, never values' })
+}).annotate({ description: 'What the app data did in the period: counts only, never values' })
 
 // ─── system ───────────────────────────────────────────────────────────────────
 

@@ -20,6 +20,7 @@
  * compiled binary) and is only ever handed to `Bun.file()`.
  */
 
+import { embeddedFilePath } from './embedded-file-path'
 import {
   isEmbeddedLicensesPayload,
   type EmbeddedLicensesPayload,
@@ -28,10 +29,7 @@ import RAW_PAYLOAD from './embedded-licenses.generated.json' with { type: 'file'
 
 export type { EmbeddedLicensesPayload } from './embedded-licenses-payload'
 
-// A `with { type: 'file' }` import is a path string at runtime, while TypeScript
-// types it as the JSON's shape — the same recovery `embedded-changelog.ts` makes.
-// eslint-disable-next-line sovrium/no-double-assertion -- a `with { type: 'file' }` import is a path at runtime but typed as the JSON; the decoded payload is checked by isEmbeddedLicensesPayload
-const PAYLOAD_PATH = RAW_PAYLOAD as unknown as string
+const PAYLOAD_PATH = embeddedFilePath(RAW_PAYLOAD)
 
 /**
  * The embedded payload. Rejects rather than returning an empty list: "this

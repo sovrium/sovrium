@@ -1,6 +1,6 @@
 # Label
 
-> The `label` component — the visible name of one form control, wired to it so a click on the name focuses the control.
+> The `label` component: the visible name of one form control, wired to it so a click on the name focuses the control.
 
 A `label` names one control on its page and is connected to it: clicking the words moves the focus into the control, and the words become the control's accessible name, the one a screen reader announces. Reference: shadcn/ui Label.
 

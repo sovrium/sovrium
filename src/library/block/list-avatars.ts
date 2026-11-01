@@ -16,7 +16,7 @@ import {
   stack,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** People from one of your tables as rows: photo, name, role and a status word. */

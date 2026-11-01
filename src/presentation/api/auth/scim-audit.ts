@@ -6,8 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { EmitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
-import { AuditLogRepositoryLive } from '@/infrastructure/database/repositories/admin/audit-log-repository-live'
+import { emitAuditEvent } from '@/application/use-cases/admin/audit-log-emit'
 import { logError } from '@/infrastructure/logging/logger'
 import type { AuditAction } from '@/domain/models/api/admin/audit-log/action-catalog'
 
@@ -15,29 +14,24 @@ import type { AuditAction } from '@/domain/models/api/admin/audit-log/action-cat
 type ScimAuditAction = Extract<AuditAction, `scim.${string}`>
 
 /**
- * Record one SCIM write. The identity provider is the actor: no person, so
- * `actor.id` is null and the entry says where it came from in its metadata.
+ * Record one SCIM write, through the one audit funnel (`emitAuditEvent`, run
+ * as `admin/audit-events.ts` runs it — a sibling slug this one may not import)
+ * on THIS request's services. The identity provider is the actor: no person,
+ * so `actor.id` is null and the entry says where it came from in its metadata.
  * A failure to record is logged and never fails the write that already stood.
  */
-export const recordScimWrite = async (
-  action: ScimAuditAction,
-  resourceId: string
-): Promise<void> => {
-  try {
-    await Effect.runPromise(
-      Effect.provide(
-        EmitAuditEvent({
-          action,
-          actor: { id: null, type: 'system', role: 'system' },
-          resourceId,
-          severity: action === 'scim.user.deactivated' ? 'warning' : 'info',
-          result: 'success',
-          metadata: { source: 'scim' },
-        }),
-        AuditLogRepositoryLive
-      )
-    )
-  } catch (error) {
-    logError(`[scim] could not record ${action}`, error)
-  }
-}
+export const recordScimWrite = (action: ScimAuditAction, resourceId: string) =>
+  emitAuditEvent({
+    action,
+    actor: { id: null, type: 'system', role: 'system' },
+    resourceId,
+    severity: action === 'scim.user.deactivated' ? 'warning' : 'info',
+    result: 'success',
+    metadata: { source: 'scim' },
+  }).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError(`[scim] could not record ${action}`, cause))
+    ),
+    // effect-swallow: logged above; the audit entry never fails the write that already stood.
+    Effect.ignoreCause
+  )

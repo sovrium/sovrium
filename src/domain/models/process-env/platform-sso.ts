@@ -128,7 +128,7 @@ const partialSetRefusal = (set: readonly string[], missing: readonly string[]): 
  * self-hosted app. A partial set, or an issuer that is not an https address,
  * is refused: the message names the variables and never prints a value.
  */
-export const parsePlatformSso = (env: Env = process.env): PlatformSsoConfig | undefined => {
+export const parsePlatformSso = (env: Env): PlatformSsoConfig | undefined => {
   const set = [...REQUIRED_VARS, ...OPTIONAL_VARS].filter(
     (name) => valueOf(env, name) !== undefined
   )

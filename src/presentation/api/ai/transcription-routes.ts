@@ -7,25 +7,30 @@
 
 import { Effect } from 'effect'
 import { transcribeRecording } from '@/application/use-cases/ai/transcribe-recording'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import { canonicalMimeType, inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import {
   transcriptionRequestFieldsSchema,
   transcriptionResponseSchema,
 } from '@/domain/models/api/ai/transcriptions'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
+import { checkPersonAiRateLimit } from '@/infrastructure/ai/agents/chat-rate-limit'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { checkChatRateLimit } from '@/infrastructure/process/chat-rate-limit'
-import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import {
   createAiAnonRateLimit,
   type AiAnonRateLimit,
 } from '@/presentation/api/middleware/ai-anon-rate-limit'
 import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
+import { acceptsUploadBody } from '@/presentation/api/middleware/request-body-limit'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import { readUploadedBytes } from '@/presentation/api/runtime/multipart-file'
+import { rateLimitedResponse } from '@/presentation/api/runtime/rate-limit-response'
+import {
+  answerFailures,
+  runHandlerEffect,
+  toErrorResponse,
+} from '@/presentation/api/runtime/run-effect'
 import type { SpeechError, Transcript } from '@/application/ports/services/speech-service'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -197,51 +202,53 @@ const gateCaller = (
   const anonymous = anonLimit(c, app, 'transcriptions')
   if (anonymous !== undefined) return anonymous
   const principal = session?.userId ?? `ip:${getRequestRateLimitKey(c)}`
-  const rate = checkChatRateLimit(`transcriptions:${principal}`)
+  const rate = checkPersonAiRateLimit('transcriptions', principal)
   return rate.limited ? rateLimitedResponse(c, rate.retryAfter) : undefined
 }
 
 /** Transcribe an accepted recording and shape the 200, or map the failure. */
-const transcribeAccepted = async (
+const transcribeAccepted = (
   c: Context,
   request: Exclude<ParsedRequest, { readonly refusal: string }>
-): Promise<Response> => {
-  const bytes = new Uint8Array(await request.file.arrayBuffer())
-  const result = await runRequestEffect(
-    c,
-    provideDomain(
-      c,
-      transcribeRecording({
-        bytes,
-        fileName: request.file.name || 'recording',
-        mimeType: request.mimeType,
-        quality: request.quality ?? 'fast',
-        ...(request.language !== undefined ? { language: request.language } : {}),
-      })
-    ).pipe(Effect.result)
-  )
-  if (result._tag === 'Failure') return speechFailureResponse(c, result.failure)
-  const encoded = decodeSafe(transcriptionResponseSchema)(toResponseBody(result.success))
-  if (!encoded.success) return toErrorResponse(c, encoded.error)
-  return c.json(encoded.data, 200)
-}
+) =>
+  Effect.gen(function* () {
+    const bytes = yield* readUploadedBytes(request.file)
+    const result = yield* transcribeRecording({
+      bytes,
+      fileName: request.file.name || 'recording',
+      mimeType: request.mimeType,
+      quality: request.quality ?? 'fast',
+      ...(request.language !== undefined ? { language: request.language } : {}),
+    }).pipe(Effect.result)
+    if (result._tag === 'Failure') return speechFailureResponse(c, result.failure)
+    const encoded = decodeSafe(transcriptionResponseSchema)(toResponseBody(result.success))
+    if (!encoded.success) return toErrorResponse(c, encoded.error)
+    return c.json(encoded.data, 200)
+  })
 
-const handleTranscription = async (
-  c: Context,
-  app: App | undefined,
-  anonLimit: AiAnonRateLimit
-): Promise<Response> => {
-  const refused = gateCaller(c, app, anonLimit)
-  if (refused !== undefined) return refused
-  // After the anonymous gate, so an oversized anonymous request is still a 404.
-  if (declaresOversizedBody(c)) return badRequest(c, OVERSIZED_REFUSAL)
-  const parsed = await parseTranscriptionRequest(c)
-  if ('refusal' in parsed) return badRequest(c, parsed.refusal)
-  return transcribeAccepted(c, parsed)
-}
+const handleTranscription = (c: Context, app: App | undefined, anonLimit: AiAnonRateLimit) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const refused = gateCaller(c, app, anonLimit)
+        if (refused !== undefined) return refused
+        // After the anonymous gate, so an oversized anonymous request is still a 404.
+        if (declaresOversizedBody(c)) return badRequest(c, OVERSIZED_REFUSAL)
+        // effect-promise: total -- every read failure answers as a refusal.
+        const parsed = yield* Effect.promise(() => parseTranscriptionRequest(c))
+        if ('refusal' in parsed) return badRequest(c, parsed.refusal)
+        return yield* transcribeAccepted(c, parsed)
+      })
+    )
+  )
 
 /** Chain `POST /api/ai/transcriptions` onto the app. Always registered. */
 export function chainAiTranscriptionRoutes(honoApp: Hono, app?: App): Hono {
   const anonLimit = createAiAnonRateLimit()
-  return honoApp.post('/api/ai/transcriptions', (c) => handleTranscription(c, app, anonLimit))
+  return honoApp.post(
+    '/api/ai/transcriptions',
+    acceptsUploadBody((c: Context) => handleTranscription(c, app, anonLimit))
+  )
 }

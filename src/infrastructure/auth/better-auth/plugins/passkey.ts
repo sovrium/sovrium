@@ -33,10 +33,9 @@ const loadPasskeyPackage = (): typeof PasskeyPackage =>
 /** The endpoint whose sessions a passkey opened. */
 export const PASSKEY_SIGN_IN_PATH = '/passkey/verify-authentication'
 
-/** The origin of `BASE_URL`, or `undefined` when it is unset or does not parse. */
-const baseUrlOrigin = (): URL | undefined => {
-  const baseUrl = process.env['BASE_URL'] ?? ''
-  if (baseUrl === '') return undefined
+/** The declared base URL, parsed, or `undefined` when there is none or it does not parse. */
+const baseUrlOrigin = (baseUrl: string | undefined): URL | undefined => {
+  if (baseUrl === undefined) return undefined
   try {
     return new URL(baseUrl)
   } catch {
@@ -55,11 +54,18 @@ const baseUrlOrigin = (): URL | undefined => {
  *
  * Passkeys are created as discoverable credentials (`residentKey: required`)
  * so that "Sign in with a passkey" needs no email first.
+ *
+ * `declaredBaseUrl` is the value `createAuthInstance` built Better Auth's
+ * `baseURL` from, so the relying party and the sign-in origin never diverge.
  */
-export const buildPasskeyPlugin = (authConfig: Auth | undefined, appName: string | undefined) => {
+export const buildPasskeyPlugin = (
+  authConfig: Auth | undefined,
+  appName: string | undefined,
+  declaredBaseUrl?: string
+) => {
   if (!authConfig?.passkeys) return []
   const config = typeof authConfig.passkeys === 'boolean' ? {} : authConfig.passkeys
-  const base = baseUrlOrigin()
+  const base = baseUrlOrigin(declaredBaseUrl)
   const { passkey } = loadPasskeyPackage()
   const plugin = passkey({
     ...(base === undefined ? {} : { rpID: base.hostname, origin: base.origin }),

@@ -162,7 +162,7 @@ export const breadcrumbFields = {
     Schema.String.pipe(
       Schema.annotate({
         description:
-          "Label of the current crumb — the page the reader is on. Accepts $record.<field> (a record page names its record) and $t: keys. On a derived trail it names the last crumb and also accepts $param.<name>: when the page binds a grid to the table that param names, it reads the table's plural label. On an enumerated trail it is drawn after `breadcrumbItems` as the current crumb.",
+          "Label of the current crumb, the page the reader is on. Accepts $record.<field> (a record page names its record) and $t: keys. On a derived trail it names the last crumb and also accepts $param.<name>: when the page binds a grid to the table that param names, it reads the table's plural label. On an enumerated trail it is drawn after `breadcrumbItems` as the current crumb.",
         examples: ['$record.title', '$t:nav.current'],
       }),
       Schema.check(Schema.isMinLength(1))

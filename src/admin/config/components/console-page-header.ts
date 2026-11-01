@@ -26,12 +26,9 @@
 // Re-install with `sovrium library add block/page-header --update`. The
 // bindings are the two lines' text and the design-system kit marker.
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consolePageHeader = {
+export const consolePageHeader: TemplateEncoded = {
   name: 'console-page-header',
   type: 'container',
   render: 'transparent',
@@ -57,4 +54,4 @@ export const consolePageHeader = {
       content: '$content',
     },
   ],
-} as unknown as Template
+}

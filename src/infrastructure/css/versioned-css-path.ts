@@ -155,7 +155,7 @@ export const engineCssFingerprint = (): string =>
  * The cache key standing in for EVERY `/_admin` operator-console surface.
  *
  * The console is not one app but a family. `synthesiseMountSurface`
- * (`application/use-cases/mount/embedded-app-mount.ts`) returns a FRESH `App`
+ * (`application/use-cases/admin/embedded-app-mount.ts`) returns a FRESH `App`
  * for the paths that need one — the preset spread with the operator tables,
  * components or language table that path administers. Hashing each of those the
  * ordinary way mints a per-surface URL, and the CSS route, which sees only a

@@ -7,12 +7,17 @@
 
 import { tableControls } from '@/domain/models/app/pages/record-control-service'
 import { filterFieldsReadableByAny } from '@/domain/models/app/tables/field-read-filter-service'
+import { transformRecords } from '@/domain/models/app/tables/record-transformer-service'
 import { callersOfRow, type RowGrants } from '@/domain/models/app/tables/row-read-admission-service'
 import { disabledControlsBlock } from './disabled-controls-block'
-import { transformRecords } from './record-transformer'
+import { locksBlock } from './locks-block'
 import { writeOnlyBlock } from './write-only-presence'
-import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from './record-transformer'
 import type { App } from '@/domain/models/app'
+import type {
+  TransformedRecord,
+  RecordFieldValue,
+  FormattedFieldValue,
+} from '@/domain/models/app/tables/record-transformer-service'
 
 /**
  * The names `?fields=` accepts that are NOT user columns.
@@ -166,6 +171,8 @@ export function processRecords(config: {
   readonly userGroups: readonly string[]
   readonly format?: 'display'
   readonly timezone?: string
+  /** The operator timezone a display-formatted date falls back to (see `TransformOptions`). */
+  readonly operatorTimezone?: string
   readonly fields?: string
   /** The rows a scope grant names, read under each role it gives as well. */
   readonly grants?: RowGrants
@@ -173,6 +180,7 @@ export function processRecords(config: {
   readonly language?: string | undefined
 }): readonly TransformedRecord[] {
   const { records, app, tableName, userRole, userGroups, format, timezone, fields } = config
+  const { operatorTimezone } = config
 
   // Apply field-level read permissions filtering
   const caller = { role: userRole, groups: userGroups }
@@ -183,19 +191,21 @@ export function processRecords(config: {
     })
   )
 
-  // Each record says which of its write-only fields hold a value, and which of
-  // its controls are disabled, both judged on the stored row.
+  // Each record says which of its write-only fields hold a value, which of its
+  // controls are disabled and what the rules lock, all judged on the stored row.
   const controls = tableControls(app, tableName)
   const transformedRecords = transformRecords(filteredRecords, {
     format,
     app,
     tableName,
     timezone,
+    ...(operatorTimezone === undefined ? {} : { operatorTimezone }),
     ...(config.language === undefined ? {} : { language: config.language }),
   }).map((record, index) => ({
     ...record,
     ...writeOnlyBlock({ app, tableName, userRole, userGroups, record: records[index] ?? {} }),
     ...disabledControlsBlock(controls, records[index] ?? {}),
+    ...locksBlock({ app, tableName, userRole, userGroups, record: records[index] ?? {} }),
   })) as TransformedRecord[]
 
   // Apply field selection if specified

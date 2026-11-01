@@ -34,7 +34,7 @@
  * scaffold writes.
  */
 
-import { asWritten } from '@/application/use-cases/admin/docs-lookup-encoded-ast'
+import { asWritten, isSharedKeyword } from '@/application/use-cases/admin/docs-lookup-encoded-ast'
 import { schemaOptionAt } from '@/domain/models/app/design/schema-option-tree'
 import type { SchemaOption } from '@/domain/models/app/design/schema-option-tree'
 import type { SchemaNode } from '@/domain/models/app/design/type-introspection'
@@ -86,8 +86,11 @@ const owningArticle = (
     .reduce<string | undefined>(
       (found, node) =>
         found ??
-        corpus.find((entry) => entry.documents.some((document) => astOfValue(document) === node))
-          ?.address,
+        (isSharedKeyword(node)
+          ? undefined
+          : corpus.find((entry) =>
+              entry.documents.some((document) => astOfValue(document) === node)
+            )?.address),
       undefined
     )
 

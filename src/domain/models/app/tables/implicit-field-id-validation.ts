@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Report fields whose `id` is left to be assigned by position.
  *
@@ -46,9 +48,6 @@ const MAX_NAMED_FIELDS = 5
 export const IMPLICIT_FIELD_ID_TOKEN = 'field-id-implicit'
 
 const NOTICE_TOKEN = IMPLICIT_FIELD_ID_TOKEN
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** How a field with no `name` is referred to — by the position that IS its id. */
 const fieldLabel = (field: Readonly<Record<string, unknown>>, index: number): string =>

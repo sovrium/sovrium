@@ -83,7 +83,7 @@ const openState = (
     return openWebkitSession({
       allowedHosts: options.allowedHosts,
       sessionName: options.sessionName,
-      dataDir: parseDataDir(),
+      dataDir: parseDataDir(process.env),
     })
   }
   const source = backendSource(target, CONNECT_TIMEOUT_MS, {

@@ -118,12 +118,30 @@ function findForbiddenFilterField(
   if (typeof node !== 'object' || node === null) return undefined
 
   const { field, and, or } = node as UnknownFilterNode
-  if (typeof field === 'string') {
-    return isFilterableField(access.app, access.tableName, field) && canRead(access, field)
-      ? undefined
-      : field
-  }
-  return findForbiddenFilterField(access, and) ?? findForbiddenFilterField(access, or)
+  return (
+    forbiddenOwnField(access, node, field) ??
+    findForbiddenFilterField(access, and) ??
+    findForbiddenFilterField(access, or)
+  )
+}
+
+/**
+ * The field a node names itself, when the caller may not filter on it. Every
+ * node is judged on its own field AND walked into its groups: the SQL builder
+ * reads a node carrying no operator as a group, whatever else it holds, so the
+ * walk never stops at a node because it names a field. A `field` that is not
+ * a string names no column a caller may read.
+ */
+function forbiddenOwnField(
+  access: Omit<FieldAccessContext, 'c'>,
+  node: object,
+  field: unknown
+): string | undefined {
+  if (!('field' in node)) return undefined
+  if (typeof field !== 'string') return String(field)
+  return isFilterableField(access.app, access.tableName, field) && canRead(access, field)
+    ? undefined
+    : field
 }
 
 /**

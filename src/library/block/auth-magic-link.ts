@@ -11,8 +11,8 @@ import {
   authHeading,
   authPage,
   footerLink,
-} from '@/library/manifest/auth-block-kit'
-import { asComponent, param, stringParam, THEME_NOTE } from '@/library/manifest/block-kit'
+} from '@/library/kit/auth-block-kit'
+import { asComponent, param, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** Sign in by emailed link: one field, then a sent state naming the address. */
@@ -27,7 +27,7 @@ export const entry = defineLibraryEntry({
   notes: [
     AUTH_PLACE_NOTE,
     'It needs the `magicLink` strategy in `auth.strategies`, and an email sender: without one the link is written to the server log, which is enough while you build.',
-    'The sent state names the address and never says whether an account exists for it, so the page cannot be used to find out who has one.',
+    'The sent state names the address and never says whether an account exists for it, nor takes longer to say it, so the page cannot be used to find out who has one.',
     THEME_NOTE,
   ],
   params: [

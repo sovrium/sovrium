@@ -23,15 +23,18 @@
  */
 
 import { and, asc, eq } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
+import { Effect } from 'effect'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { userAccess as userAccessPg } from '@/infrastructure/database/drizzle/schema/user-access'
 import { userAccess as userAccessSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/user-access'
+import { withPromiseTransaction } from '@/infrastructure/database/transaction'
 import {
-  lockGrantsOf,
+  lockGrantsOfOn,
   type GrantTransaction,
 } from '@/infrastructure/database/user-access-grant-lock'
 import { logError } from '@/infrastructure/logging/logger'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const userAccess = resolveDialectSchema(userAccessPg, userAccessSqlite)
 
@@ -40,6 +43,7 @@ const userAccess = resolveDialectSchema(userAccessPg, userAccessSqlite)
  * lock, unless the invitee already holds one there; whether it was written.
  */
 const inheritOne = async (
+  dialect: DatabaseDialect,
   tx: GrantTransaction,
   grant: {
     readonly inviterId: string
@@ -49,7 +53,7 @@ const inheritOne = async (
     readonly recordIds: readonly string[]
   }
 ): Promise<boolean> => {
-  await lockGrantsOf(tx, { userId: grant.inviteeId, tableSlug: grant.tableSlug })
+  await lockGrantsOfOn(dialect, tx, { userId: grant.inviteeId, tableSlug: grant.tableSlug })
   const [held] = await tx
     .select({ id: userAccess.id })
     .from(userAccess)
@@ -96,11 +100,14 @@ const inheritOne = async (
  *
  * @returns how many scope grants were inherited.
  */
-export const inheritScopeAssignments = async (params: {
-  readonly inviterId: string
-  readonly inviteeId: string
-  readonly role: string
-}): Promise<number> => {
+export const inheritScopeAssignments = async (
+  { db, dialect }: { readonly db: PortableDb; readonly dialect: DatabaseDialect },
+  params: {
+    readonly inviterId: string
+    readonly inviteeId: string
+    readonly role: string
+  }
+): Promise<number> => {
   try {
     const inviterGrants = await db
       .select()
@@ -116,14 +123,23 @@ export const inheritScopeAssignments = async (params: {
         ]),
       new Map<string, readonly string[]>()
     )
-    return await db.transaction(async (tx) => {
-      // One table after the other: a transaction's statements run in sequence.
-      let written = 0
-      for (const [tableSlug, recordIds] of reachByTable) {
-        if (await inheritOne(tx, { ...params, tableSlug, recordIds })) written += 1
-      }
-      return written
-    })
+    // Through the one transaction door (`withPromiseTransaction`): its span,
+    // its transaction counter and the guard that refuses a body reaching the
+    // shared `db`. The body's own rejection reaches the `catch` below verbatim.
+    return await Effect.runPromise(
+      withPromiseTransaction(
+        db,
+        async (tx) => {
+          // One table after the other: a transaction's statements run in sequence.
+          let written = 0
+          for (const [tableSlug, recordIds] of reachByTable) {
+            if (await inheritOne(dialect, tx, { ...params, tableSlug, recordIds })) written += 1
+          }
+          return written
+        },
+        (cause) => cause
+      )
+    )
   } catch (error) {
     logError('[admin-invitation] Failed to inherit inviter scope assignments', error, {
       inviterId: params.inviterId,

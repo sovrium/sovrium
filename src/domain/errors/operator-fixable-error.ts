@@ -61,6 +61,9 @@ const ENV_TAG_FIXES: Readonly<Record<string, OperatorFix>> = {
   MissingRequiredEnvVarError: 'missing-env',
   InvalidEnvVarError: 'invalid-env',
   InvalidOperatorTimezoneError: 'invalid-env',
+  // A posture flag holding a refused value, or a development seam set on a
+  // public origin: the operator's environment, never an engine defect.
+  PostureFlagEnvError: 'invalid-env',
 }
 
 /**

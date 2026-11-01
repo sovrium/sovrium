@@ -16,13 +16,14 @@ import {
   maskWriteOnlyChanges,
   writeOnlyColumnsOf,
 } from '@/domain/models/app/tables/write-only-field-service'
-import { db, DatabaseError } from '@/infrastructure/database'
+import { DatabaseError } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
 import { logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * The audit table for the active dialect — `system.activity_logs` on Postgres,
@@ -73,6 +74,7 @@ const ENTRIES_PER_INSERT = 500
 
 /** {@link insertActivityEntries}, once the entries of unaudited tables are dropped. */
 const insertAuditedEntries = (
+  db: PortableDb,
   actor: Readonly<Session>,
   entries: readonly ActivityEntry[]
 ): Effect.Effect<void, never> => {
@@ -136,6 +138,7 @@ const withoutWriteOnlyValues = (
  * recorded by name, its values masked ({@link withoutWriteOnlyValues}).
  */
 const insertActivityEntries = (
+  db: PortableDb,
   actor: Readonly<Session>,
   entries: readonly ActivityEntry[]
 ): Effect.Effect<void, never> =>
@@ -145,6 +148,7 @@ const insertActivityEntries = (
     const audited =
       unaudited.size === 0 ? entries : entries.filter((entry) => !unaudited.has(entry.tableName))
     yield* insertAuditedEntries(
+      db,
       actor,
       audited.map((entry) => withoutWriteOnlyValues(entry, writeOnly))
     )
@@ -165,8 +169,8 @@ const insertActivityEntries = (
  * stays visible. It taps the CAUSE rather than the error so a defect thrown
  * inside the promise is logged too, not just the mapped `DatabaseError`.
  */
-export function logActivity(config: ActivityEntry): Effect.Effect<void, never> {
-  return insertActivityEntries(config.session, [config])
+export function logActivity(db: PortableDb, config: ActivityEntry): Effect.Effect<void, never> {
+  return insertActivityEntries(db, config.session, [config])
 }
 
 /** The activity-log action a committed row change is recorded as. */
@@ -183,15 +187,17 @@ const ACTION_BY_EVENT = {
  *
  * A batch logs after its transaction rather than inside it, for two reasons.
  * An entry for a row the rollback undid would record a change that never
- * happened. And the entry is written through the shared `db`, which on SQLite
+ * happened. And the entry is written through the shared client, which on SQLite
  * waits for any open transaction to end: issued from inside the body, it would
  * wait for its own transaction.
  */
 export function logCommittedRowChanges(
+  db: PortableDb,
   session: Readonly<Session>,
   changes: readonly CommittedRowChange[]
 ): Effect.Effect<void, never> {
   return insertActivityEntries(
+    db,
     session,
     changes.map((change) => ({
       session,

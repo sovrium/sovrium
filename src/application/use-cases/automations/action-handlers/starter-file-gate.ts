@@ -14,7 +14,7 @@ import {
 import {
   attachmentFieldsOf,
   bucketForField,
-} from '@/application/use-cases/attachments/attachment-fields'
+} from '@/application/use-cases/buckets/attachment-fields'
 import {
   resolveDownloadBucket,
   resolveUploadBucket,
@@ -39,7 +39,7 @@ import {
   type StoragePublicAccess,
 } from '@/domain/models/process-env/storage/storage-public-access'
 import { logError } from '@/infrastructure/logging/logger'
-import { CALLER_REFUSAL } from './record-caller-gate'
+import { CALLER_REFUSAL } from './record/caller-gate'
 import type { AutomationContext } from './shared'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { StorageError } from '@/application/ports/services/storage-service'
@@ -170,7 +170,7 @@ export const catalogBucket = (storage: Effect.Success<typeof StorageService>, ke
 /** The operator's public storage paths, as the files API reads them; `undefined` when unreadable. */
 const publicStorageAccess = (): StoragePublicAccess | undefined => {
   try {
-    return resolveStoragePublicAccess()
+    return resolveStoragePublicAccess(process.env)
   } catch (error) {
     // Boot refuses a malformed value, so this is not expected; it refuses, never opens.
     logError('[automations] the public storage paths could not be read', error)
@@ -275,8 +275,8 @@ export const firstStarterRefusal = (
  * run wrote the file (in its bucket, or in none). Never a chat attachment, a
  * file in a table attachment field's bucket, or a file no catalog row records.
  * Otherwise the bucket's `delete` rung decides as the files API judges it, and
- * an undeclared `delete` in an app with sign-in admits only the file's
- * recorded uploader.
+ * an undeclared `delete` admits only the file's recorded uploader (on an app
+ * without sign-in, nobody).
  */
 export const starterMayRemove = (
   app: App,
@@ -301,17 +301,12 @@ const filesApiMayDelete = (
 ): boolean => {
   const declared = resolveUploadBucket(app, entry.bucket)
   if (declared === undefined || !permitsBucketFileDelete(declared, caller, { app })) return false
-  const { permissions } = declared
-  const appHasAuth = app.auth !== undefined
-  if (!ownershipGovernsAction({ permissions, action: 'delete', appHasAuth })) return true
-  return (
-    userId !== undefined &&
-    mayReplaceOrRemoveObject({
-      uploadedBy: entry.uploadedBy,
-      callerId: userId,
-      callerIsAdmin: false,
-    })
-  )
+  if (!ownershipGovernsAction({ permissions: declared.permissions, action: 'delete' })) return true
+  return mayReplaceOrRemoveObject({
+    uploadedBy: entry.uploadedBy,
+    callerId: userId,
+    callerIsAdmin: false,
+  })
 }
 
 /**

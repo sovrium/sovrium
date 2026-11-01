@@ -81,6 +81,19 @@
  * per-part table instead, under the stricter entry rule documented on it.
  */
 
+import type {
+  ComponentPartName,
+  PartClassMap,
+  StyledComponentKey,
+} from '@/domain/models/app/design/component-parts'
+
+/** One floor per non-root part a key draws, named as the part registry names it. */
+type PartFloors = {
+  readonly [K in StyledComponentKey]?: Readonly<
+    Partial<Record<Exclude<ComponentPartName<K>, 'root'>, string>>
+  >
+}
+
 /**
  * shadcn/ui's focus affordance on a form control: the border takes the ring
  * colour and a 3px ring at half its strength draws around it. The block the
@@ -174,7 +187,7 @@ const ROOT_FLOOR: Readonly<Record<string, string>> = {
  * Each of those becomes eligible the moment its island reads the part map —
  * and not before.
  */
-const PART_FLOOR: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+const PART_FLOOR: PartFloors = {
   select: { trigger: CONTROL_FOCUS_RING },
   // The `toggle` variant's `<a>` — the element that takes focus — drawn as a
   // ghost button, whose focus block is the control ring.
@@ -185,7 +198,7 @@ const PART_FLOOR: Readonly<Record<string, Readonly<Record<string, string>>>> = {
 }
 
 /** Shared empty map, so an unfloored type costs no allocation per render. */
-const NO_PART_FLOOR: Readonly<Record<string, string>> = {}
+const NO_PART_FLOOR: PartClassMap = {}
 
 /**
  * The floor for one engine component type's root, or `''` when it has none.
@@ -207,8 +220,8 @@ export const componentFloorFor = (type: string): string => ROOT_FLOOR[type] ?? '
  * @param type - The engine component type being rendered.
  * @returns The non-overridable class list for each floored part of that type.
  */
-export const componentPartFloorsFor = (type: string): Readonly<Record<string, string>> =>
-  PART_FLOOR[type] ?? NO_PART_FLOOR
+export const componentPartFloorsFor = (type: string): PartClassMap =>
+  (PART_FLOOR as Readonly<Record<string, PartClassMap | undefined>>)[type] ?? NO_PART_FLOOR
 
 /** The engine types that carry a root floor, for tests and the console. */
 export const FLOORED_COMPONENT_TYPES: readonly string[] = Object.keys(ROOT_FLOOR)

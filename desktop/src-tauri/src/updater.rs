@@ -343,4 +343,32 @@ mod tests {
             "the comment names key id {comment:?} but the key carries {key_id}"
         );
     }
+
+    /// The update endpoint's response is served over TLS but is not itself
+    /// signed, and an update signature covers only the downloaded file. With
+    /// `requireSignedVersion` the plugin also reads the version from the
+    /// signature's trusted comment (which the signature covers) and refuses an
+    /// update whose announced version differs: a crafted response pairing a
+    /// higher version number with an older, genuinely signed release is
+    /// refused instead of installed. Asserted through the plugin's own
+    /// deserializer, so a misspelt key, which serde would silently drop to the
+    /// default `false`, fails here.
+    #[test]
+    fn the_updater_requires_the_signed_version() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).expect("tauri.conf.json");
+        let updater = conf["plugins"]["updater"].clone();
+        assert_eq!(
+            updater["requireSignedVersion"],
+            serde_json::Value::Bool(true),
+            "plugins.updater.requireSignedVersion must be true"
+        );
+        let parsed: tauri_plugin_updater::Config =
+            serde_json::from_value(updater).expect("the plugin parses its configuration");
+        assert!(parsed.require_signed_version);
+        assert!(
+            !parsed.allow_downgrades,
+            "downgrades stay refused: the version check is the other half of this guard"
+        );
+    }
 }

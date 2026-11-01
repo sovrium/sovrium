@@ -207,6 +207,9 @@ function TimelineRows({
   )
 }
 
+// Spelled locally, not imported from `kernel/time/durations`: this module ships in
+// the island bundle, where a shared constants module becomes a chunk of its own
+// and adds a request and graph bytes to every island that mounts it.
 const ONE_DAY_MS = 86_400_000
 const ONE_YEAR_MS = 365 * ONE_DAY_MS
 

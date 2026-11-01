@@ -16,6 +16,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { ClockGlyph, MinusGlyph, PlusGlyph } from '@/presentation/design/control-glyphs'
 import {
   computeDateTriggerClasses,
@@ -41,6 +42,7 @@ import {
   computeInputGroupRootClasses,
 } from '@/presentation/design/input-group-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { StaticMarkup } from '@/presentation/design/static-markup'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import type { ElementProps } from './html-element-renderer'
 
@@ -228,14 +230,11 @@ export interface RenderDatePickerIslandConfig {
   readonly placeholder?: string
   readonly disabled?: boolean
   /**
-   * Draw the control with its calendar DOWN, as a still depiction.
-   *
-   * Set only by the design-system console's `open` state cell, through the
-   * state vocabulary's own reach. It replaces the island marker rather than
-   * adding to it: a drawing that hydrated would open on a click and stop being
-   * a drawing, so the two are mutually exclusive by construction.
+   * Draw the control with its calendar DOWN, as a still depiction: set only by the
+   * design-system console's `open` state cell. It replaces the island marker, since
+   * a drawing that hydrated would open on a click and stop being a drawing.
    */
-  readonly openPopupHtml?: string
+  readonly openPopup?: ReactElement
 }
 
 export function renderDatePickerIsland(config: RenderDatePickerIslandConfig): ReactElement {
@@ -243,11 +242,11 @@ export function renderDatePickerIsland(config: RenderDatePickerIslandConfig): Re
   // hydration; the SSR placeholder is always non-interactive (it's just a
   // visual skeleton waiting for `createRoot.render` to swap in the real
   // popover trigger).
-  const { props, islandProps, label, placeholder, openPopupHtml } = config
+  const { props, islandProps, label, placeholder, openPopup } = config
   const id = props.id as string | undefined
   const className = props.className as string | undefined
   const testId = props['data-testid'] as string | undefined
-  const depicted = openPopupHtml !== undefined
+  const depicted = openPopup !== undefined
   const buttonLabel = label
     ? placeholder
       ? `${label} — ${placeholder}`
@@ -283,13 +282,13 @@ export function renderDatePickerIsland(config: RenderDatePickerIslandConfig): Re
       data-island-props={depicted ? undefined : JSON.stringify(islandProps)}
       data-specimen-open={depicted ? 'true' : undefined}
     >
-      {depicted ? (
+      {openPopup !== undefined ? (
         <>
           {trigger}
-          {/* The island's own `DatePickerPopup` markup, rendered server-side;
-          `open-specimen-markup.ts` says why a string is safe here. */}
-          {/* eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value */}
-          <span dangerouslySetInnerHTML={{ __html: openPopupHtml }} />
+          <StaticMarkup
+            as="span"
+            html={renderToStaticMarkup(openPopup)}
+          />
         </>
       ) : (
         // Drawn from the island's recipes, so it keeps its size on mount.

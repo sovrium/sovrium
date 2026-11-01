@@ -17,6 +17,19 @@ import type { ViewerIdentity } from '@/domain/models/app/pages/component-session
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
 import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 
+/** One session cookie as the auth layer sets it: its name and the attributes it is set with. */
+export interface SessionCookie {
+  readonly name: string
+  readonly attributes: {
+    readonly path?: string
+    readonly domain?: string
+    readonly secure?: boolean
+    readonly httpOnly?: boolean
+    readonly sameSite?: 'strict' | 'lax' | 'none' | 'Strict' | 'Lax' | 'None'
+    readonly partitioned?: boolean
+  }
+}
+
 /**
  * Hono app configuration for route setup
  */
@@ -100,7 +113,9 @@ export interface HonoAppConfig {
   readonly renderNotFoundPage: (
     app?: App,
     detectedLanguage?: string,
-    requestPath?: string
+    requestPath?: string,
+    /** The reader, so a block gated on sign-in or a role shows as on `/404` itself. */
+    session?: SessionInfo
   ) => string | Promise<string>
   readonly renderErrorPage: (
     app?: App,
@@ -122,4 +137,12 @@ export interface HonoAppConfig {
    */
   readonly fetchSitemapRecords?: FetchSitemapRecords
   readonly getSession?: (headers: Headers) => Promise<SessionInfo | undefined>
+  /**
+   * The session cookies to expire for a request whose session `getSession`
+   * refused (presented from another browser) or found ended, as signing out
+   * expires them; `undefined` for a request that carried no session cookie or
+   * a session that was honoured. Read after `getSession` ran on the same
+   * `headers`.
+   */
+  readonly endedSession?: (headers: Headers) => readonly SessionCookie[] | undefined
 }

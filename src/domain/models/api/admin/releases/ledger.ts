@@ -90,8 +90,8 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * The scalar fields every ledger row publishes, in both reads.
@@ -104,11 +104,11 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
 const releaseScalars = {
   id: Schema.String.annotate({
     description:
-      'Row identity — the exact, permanent address of one boot. Accepted by the detail read alongside the config hash, and the only address that stays unambiguous when a configuration is reverted and re-deployed.',
+      'Row identity: the exact, permanent address of one boot. Accepted by the detail read alongside the config hash, and the only address that stays unambiguous when a configuration is reverted and re-deployed.',
   }),
   version: Schema.NullOr(Schema.String).annotate({
     description:
-      'app.version as this boot decoded it. Null when the configuration declares none, which most do not — the ledger still records the boot, keyed on the config hash.',
+      'app.version as this boot decoded it. Null when the configuration declares none, which most do not; the ledger still records the boot, keyed on the config hash.',
   }),
   engineVersion: Schema.String.annotate({
     description: 'The Sovrium engine version that ran this boot.',
@@ -119,19 +119,19 @@ const releaseScalars = {
   }),
   configHash: Schema.String.annotate({
     description:
-      'Twelve hex characters over the canonical JSON of the REDACTED snapshot — not over the config file bytes, so re-formatting app.ts writes no row and rotating a hardcoded secret writes no row. It is a different number from the one in the CLI lock file, which hashes file content.',
+      'Twelve hex characters over the canonical JSON of the REDACTED snapshot, not over the config file bytes, so re-formatting app.ts writes no row and rotating a hardcoded secret writes no row. It is a different number from the one in the CLI lock file, which hashes file content.',
   }),
   previousConfigHash: Schema.NullOr(Schema.String).annotate({
     description:
-      "The config hash of the previous ledger row — the other side of this row's diff, and itself a boot that happened. Null on the baseline row.",
+      "The config hash of the previous ledger row: the other side of this row's diff, and itself a boot that happened. Null on the baseline row.",
   }),
   bootedAt: looseIsoDateTime({
     description:
-      'ISO 8601 UTC timestamp of the capture, which runs after the migrator and before the listener binds — within a second of the boot it records.',
+      'ISO 8601 UTC timestamp of the capture, which runs after the migrator and before the listener binds, within a second of the boot it records.',
   }),
   bootedBy: Schema.NullOr(Schema.String).annotate({
     description:
-      'How the process started: "sovrium <verb>" when it entered through the CLI, "embedded" for a library boot. Never a person — the engine holds no operator identity at boot, and naming one would be the more precise-looking lie.',
+      'How the process started: "sovrium <verb>" when it entered through the CLI, "embedded" for a library boot. Never a person: the engine holds no operator identity at boot, and naming one would be the more precise-looking lie.',
   }),
   current: Schema.Boolean.annotate({
     description:
@@ -139,7 +139,7 @@ const releaseScalars = {
   }),
   summary: Schema.String.annotate({
     description:
-      'A one-line label generated from the diff at capture time. Derived, never operator prose — the ledger accepts no message.',
+      'A one-line label generated from the diff at capture time. Derived, never operator prose: the ledger accepts no message.',
   }),
   added: Schema.Finite.annotate({
     description: 'Diff lines added against the previous row. Zero on the baseline row.',
@@ -205,7 +205,7 @@ export type AdminReleaseEngineMigration = typeof engineMigrationEntrySchema.Type
 export const schemaChangeEntrySchema = Schema.Struct({
   statement: Schema.String.annotate({
     description:
-      'The DDL statement, after the same capture-time redaction pass as the snapshot — a DEFAULT clause derived from config can carry a config value with it.',
+      'The DDL statement, after the same capture-time redaction pass as the snapshot, since a DEFAULT clause derived from config can carry a config value with it.',
   }),
   table: Schema.String.annotate({ description: 'The table the statement operates on.' }),
   appliedAt: looseIsoDateTime({ description: 'The boot timestamp of the row that derived it.' }),
@@ -239,7 +239,7 @@ export const releaseSummarySchema = Schema.Struct({
   engineMigrationsLabel: optionalField(
     Schema.String.annotate({
       description:
-        'What the engine did to its own tables at this boot, as one phrase in the operator’s language built from `engineMigrationCount`: `43 engine migrations applied`, `1 engine migration applied` in English, `43 migrations moteur appliquées`, `1 migration moteur appliquée` in French. Absent when the boot applied none, so a cell reads as empty rather than as `0 … applied`. The language is the operator’s own — their account language, else the `sovrium_language` preference — and English otherwise.',
+        'What the engine did to its own tables at this boot, as one phrase in the operator’s language built from `engineMigrationCount`: `43 engine migrations applied`, `1 engine migration applied` in English, `43 migrations moteur appliquées`, `1 migration moteur appliquée` in French. Absent when the boot applied none, so a cell reads as empty rather than as `0 … applied`. The language is the operator’s own: their account language, else the `sovrium_language` preference, else English.',
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
 }).annotate({
@@ -268,7 +268,7 @@ export const releasesListResponseSchema = Schema.Struct({
   total: Schema.Finite.annotate({ description: 'How many rows the ledger retains.' }),
   since: Schema.NullOr(looseIsoDateTime()).annotate({
     description:
-      "The boot time of the oldest retained row — the beginning of what this ledger can still answer for, which is not necessarily the instance's first boot once pruning has run.",
+      "The boot time of the oldest retained row: the beginning of what this ledger can still answer for, which is not necessarily the instance's first boot once pruning has run.",
   }),
   engineMigrations: Schema.Finite.annotate({
     description: 'Engine migrations across every retained row.',
@@ -323,12 +323,12 @@ export const releaseDetailResponseSchema = Schema.Struct({
   }),
   diff: Schema.Array(Schema.String).annotate({
     description:
-      'Unified lines against the previous row: "@@ path @@" hunk headers, "+" additions, "-" removals. Secrets are already redacted — they were redacted before either snapshot was stored. EMPTY on the baseline row, which has no previous boot to diff against: A6 requires both sides of a diff to have run, so the whole configuration rendered as additions would be a diff against something that never booted.',
+      'Unified lines against the previous row: "@@ path @@" hunk headers, "+" additions, "-" removals. Secrets are already redacted: they were redacted before either snapshot was stored. EMPTY on the baseline row, which has no previous boot to diff against: A6 requires both sides of a diff to have run, so the whole configuration rendered as additions would be a diff against something that never booted.',
   }),
   previousUnavailable: optionalField(
     Schema.Boolean.annotate({
       description:
-        'Present and true when previousConfigHash names a row that retention has pruned. The diff is then empty because its other side is gone — stated rather than fabricated, and distinct from the baseline row, whose previousConfigHash is null.',
+        'Present and true when previousConfigHash names a row that retention has pruned. The diff is then empty because its other side is gone. That is stated rather than fabricated, and distinct from the baseline row, whose previousConfigHash is null.',
     })
   ),
   generatedAt: looseIsoDateTime({

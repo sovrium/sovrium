@@ -31,6 +31,7 @@ import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timez
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import type { EmailSender } from '@/application/ports/services/email-sender'
+import type { FailureAlertHoldBack } from '@/application/ports/services/failure-alert-hold-back'
 import type { App } from '@/domain/models/app'
 
 /** Hourly — top of every hour. */
@@ -44,11 +45,15 @@ export const registerFailureRollupScheduler = (
 ): Effect.Effect<
   string | undefined,
   never,
-  CronScheduler | AutomationRunOutcomeRepository | AuthRepository | EmailSender
+  | CronScheduler
+  | AutomationRunOutcomeRepository
+  | AuthRepository
+  | EmailSender
+  | FailureAlertHoldBack
 > =>
   Effect.gen(function* () {
     const services = yield* Effect.context<
-      AutomationRunOutcomeRepository | AuthRepository | EmailSender
+      AutomationRunOutcomeRepository | AuthRepository | EmailSender | FailureAlertHoldBack
     >()
     const scheduler = yield* CronScheduler
     return yield* scheduler
@@ -64,7 +69,7 @@ export const registerFailureRollupScheduler = (
             Effect.catchCause(() => Effect.void),
             Effect.asVoid
           ),
-        { jobId: ROLLUP_JOB_ID, timezone: resolveOperatorTimezone() }
+        { jobId: ROLLUP_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
       )
       .pipe(
         Effect.catch((err) =>

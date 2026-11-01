@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   boundCheckboxColumns,
   coerceCheckboxAnswers,
@@ -132,13 +133,6 @@ export interface SubmitFormConfig {
    */
   readonly query?: Readonly<Record<string, string>>
   /**
-   * Process env captured at the route boundary. Threaded through to the
-   * form-trigger dispatcher so action handlers can resolve `$env.VAR_NAME`
-   * references and so secrets get redacted from run-history. Mirrors the
-   * pattern used by record-event / webhook / cron triggers.
-   */
-  readonly processEnv?: Readonly<Record<string, string | undefined>>
-  /**
    * Authenticated submitter id, captured by the route from the resolved
    * session. Stored on the ledger row's `submitter_user_id` column
    *. Absent for anonymous submissions.
@@ -154,6 +148,8 @@ export interface SubmitFormConfig {
   readonly editTokenHash?: string
   /** Digest of the resume-link token it was sent from; the draft is consumed. */
   readonly resumeTokenHash?: string
+  /** The language a translatable answer is filed under; `?lang=` on the submission when absent. */
+  readonly writeLanguage?: string
 }
 
 /**
@@ -277,7 +273,10 @@ export const processSubmissionBody = (
     const checked = coerceCheckboxAnswers(withDefaults, checkboxColumns)
     // A date-and-time control posts a wall-clock reading; it is stored as the
     // instant it names in its column's zone, the zone the page drew it in.
-    const answered = coerceDatetimeAnswers(checked, boundDatetimeZones(app, form))
+    const answered = coerceDatetimeAnswers(
+      checked,
+      boundDatetimeZones(app, form, yield* ProcessEnv)
+    )
     // Drop values for fields hidden by `visibleWhen`.
     const fieldVisibilityFiltered = stripHiddenFields(form, answered)
     // Drop values for steps skipped by `visibleWhen`.
@@ -296,7 +295,7 @@ export const processSubmissionBody = (
         : withheldChoiceRefusal(withheld.column)
     }
     // Server-side format validation (email, etc.) before any DB write so garbage never lands in the bound table.
-    yield* validateFieldFormats(app, form, visibilityFiltered)
+    yield* validateFieldFormats(app, form, visibilityFiltered, shaping.query['lang'])
     // Calculations are recomputed from the inputs in dependency order: an
     // omitted value is filled, a disagreeing one refused against its field.
     const calculated = recomputeSubmittedCalculations(form.fields, visibilityFiltered)

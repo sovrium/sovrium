@@ -8,11 +8,10 @@
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getPhysicalTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import { sqliteTranslatableCopyExpressions } from '../sql/sql-translatable-columns'
-import { generateCreateTableSQL, type TableDdlInputs } from './create-table-sql'
+import { generateCreateTableSQL, type TableDdlOptions } from './create-table-sql'
 import {
   planHandMadeReplay,
   readHandMadeObjects,
@@ -20,6 +19,7 @@ import {
 } from './sqlite-hand-made-objects'
 import { areTypesCompatible } from './type-compatibility'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Get compatible columns between existing and new table for data migration
@@ -29,7 +29,8 @@ export const getCompatibleColumns = (
     string,
     { dataType: string; isNullable: string; columnDefault: string | null }
   >,
-  newColumnInfo: ReadonlyMap<string, { columnDefault: string | null; dataType: string }>
+  newColumnInfo: ReadonlyMap<string, { columnDefault: string | null; dataType: string }>,
+  dialect: DatabaseDialect
 ): readonly string[] => {
   // SQLite uses type affinity: `INSERT INTO temp (col) SELECT col FROM old`
   // copies any stored value into any column without a type error, so column
@@ -40,7 +41,7 @@ export const getCompatibleColumns = (
   // column from the copy and lose its data. Postgres enforces column types on
   // `INSERT ... SELECT`, so it keeps the strict check below (byte-for-byte
   // unchanged).
-  if (isSqliteRuntime()) {
+  if (dialect === 'sqlite') {
     return Array.from(existingColumns.keys()).filter((col) => newColumnInfo.has(col))
   }
   return Array.from(existingColumns.keys()).filter((col) => {
@@ -134,10 +135,11 @@ const fetchColumnInfo = (
   tableName: string
 ): Effect.Effect<Map<string, NewColumnInfo>, SQLExecutionError> =>
   Effect.gen(function* () {
-    const query = isSqliteRuntime()
-      ? `SELECT name AS column_name, dflt_value AS column_default, type AS data_type, "notnull" AS not_null FROM pragma_table_info('${tableName}')`
-      : // A generated column computes its own value and refuses one: it is never a copy target.
-        `SELECT column_name, column_default, data_type, is_nullable = 'NO' AS not_null FROM information_schema.columns WHERE table_name = '${tableName}' AND is_generated = 'NEVER'`
+    const query =
+      tx.dialect === 'sqlite'
+        ? `SELECT name AS column_name, dflt_value AS column_default, type AS data_type, "notnull" AS not_null FROM pragma_table_info('${tableName}')`
+        : // A generated column computes its own value and refuses one: it is never a copy target.
+          `SELECT column_name, column_default, data_type, is_nullable = 'NO' AS not_null FROM information_schema.columns WHERE table_name = '${tableName}' AND is_generated = 'NEVER'`
     const columns = yield* executeSQL(tx, query)
     return new Map(
       (
@@ -196,10 +198,10 @@ const finalizeTableRecreation = (
   scopedConstraints: readonly ScopedConstraint[]
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
+    const cascadeSuffix = tx.dialect === 'sqlite' ? '' : ' CASCADE'
     yield* executeSQL(tx, `DROP TABLE ${physicalTableName}${cascadeSuffix}`)
     yield* executeSQL(tx, `ALTER TABLE ${tempTableName} RENAME TO ${physicalTableName}`)
-    if (isSqliteRuntime()) return
+    if (tx.dialect === 'sqlite') return
     yield* Effect.forEach(
       scopedConstraints,
       ({ canonical, scoped }) =>
@@ -265,20 +267,20 @@ const scopeConstraintNames = (
  * Identical to the DDL the create path would emit for this table, with two
  * textual re-scopings applied: the table name, and every table-prefixed inline
  * constraint name (see {@link scopeConstraintNames}). Driven by the SAME
- * {@link TableDdlInputs} the fresh-create path takes — a recreate that fed the
+ * {@link TableDdlOptions} the fresh-create path takes — a recreate that fed the
  * generator anything less would not reproduce the table the create path would
- * have built.
+ * have built — written for the engine of the migration connection `inputs.tx`.
  */
 const buildTempTableDDL = (
   table: Table,
   physicalTableName: string,
   tempTableName: string,
-  inputs: TableDdlInputs
+  inputs: TableDdlOptions & { readonly tx: TransactionLike }
 ): { readonly ddl: string; readonly scopedConstraints: readonly ScopedConstraint[] } => {
-  const generated = generateCreateTableSQL(table, inputs).replace(
-    `CREATE TABLE IF NOT EXISTS ${physicalTableName}`,
-    `CREATE TABLE ${tempTableName}`
-  )
+  const generated = generateCreateTableSQL(table, {
+    ...inputs,
+    dialect: inputs.tx.dialect,
+  }).replace(`CREATE TABLE IF NOT EXISTS ${physicalTableName}`, `CREATE TABLE ${tempTableName}`)
   // Defense-in-depth (the idempotent schema re-initialisation rule fix #2): building the temp table under the live
   // constraint names collides with the still-present live table's same-named
   // backing index; `finalizeTableRecreation` restores the names after the swap.
@@ -340,7 +342,7 @@ const guardEmptyCopy = (
  * rebuilt table no longer has (`sqlite-hand-made-objects.ts`).
  */
 export const recreateTableWithDataEffect = (
-  options: TableDdlInputs & {
+  options: TableDdlOptions & {
     readonly tx: TransactionLike
     readonly table: Table
     readonly existingColumns: ReadonlyMap<
@@ -353,12 +355,12 @@ export const recreateTableWithDataEffect = (
     const { tx, table, existingColumns } = options
     const physicalTableName = getPhysicalTableName(table)
     const tempTableName = `${physicalTableName}_migration_temp`
-    const handMade = isSqliteRuntime()
-      ? yield* readHandMadeObjects(tx, table, physicalTableName)
-      : []
-    const conversions = isSqliteRuntime()
-      ? yield* sqliteTranslatableCopyExpressions(tx, table, physicalTableName)
-      : undefined
+    const handMade =
+      tx.dialect === 'sqlite' ? yield* readHandMadeObjects(tx, table, physicalTableName) : []
+    const conversions =
+      tx.dialect === 'sqlite'
+        ? yield* sqliteTranslatableCopyExpressions(tx, table, physicalTableName)
+        : undefined
 
     // Create temporary table with new schema
     const { ddl: createTableSQL, scopedConstraints } = yield* Effect.try({
@@ -373,7 +375,7 @@ export const recreateTableWithDataEffect = (
 
     // Get new table column info and copy compatible data
     const newColumnInfo = yield* fetchColumnInfo(tx, tempTableName)
-    const commonColumns = getCompatibleColumns(existingColumns, newColumnInfo)
+    const commonColumns = getCompatibleColumns(existingColumns, newColumnInfo, tx.dialect)
     if (commonColumns.length === 0) yield* guardEmptyCopy(tx, table.name, physicalTableName)
     yield* copyDataAndResetSequences({
       tx,

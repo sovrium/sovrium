@@ -6,27 +6,25 @@
  */
 
 /**
- * The audit funnel's async spelling, for Hono handlers.
+ * The audit funnel, as a handler reaches it: a step of the handler's one
+ * program, which reads the actor and persists the entry on the request's
+ * services, so the entry is written before the answer leaves. (The read side,
+ * `listAuditEvents`, is served through the admin read registry.) The store is
+ * the one the server's domain runtime resolved at boot
+ * (`createAppServicesLayer` names `AuditLogRepositoryLive`), read off THIS
+ * request: nothing is built per call.
  *
- * `EmitAuditEvent` is an Effect program that reaches the store through the
- * `AuditLogRepository` port. Handlers that are still written in the async/await
- * style — and a few that run with no request in reach, after the response —
- * call this instead. (The read side, `ListAuditEvents`, is served through the
- * admin read registry and needs no async spelling.) This is the composition seam: the Live store
- * is named HERE, at the presentation edge, never inside the use-case.
- *
- * The program is total (the store absorbs and logs its own failures), so the
- * returned promise only rejects on a defect.
+ * The emit is total (the store absorbs and logs its own failures); only the
+ * actor read can fail.
  */
 
 import { Effect } from 'effect'
-import { EmitAuditEvent, type EmitAuditInput } from '@/application/use-cases/admin/audit-log/emit'
-import { AuditLogRepositoryLive } from '@/infrastructure/database/repositories/admin/audit-log-repository-live'
-import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
+import {
+  emitAuditEvent as emitAuditEventEffect,
+  type EmitAuditInput,
+} from '@/application/use-cases/admin/audit-log-emit'
+import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 
-const runAudit = <A>(program: Effect.Effect<A, never, AuditLogRepository>): Promise<A> =>
-  Effect.runPromise(Effect.provide(program, AuditLogRepositoryLive))
-
-/** Emit one audit-log entry; resolves once it is persisted (or the failure logged). */
-export const emitAuditEvent = (input: EmitAuditInput): Promise<void> =>
-  runAudit(EmitAuditEvent(input))
+/** One audit-log entry whose actor is the person `userId` names. */
+export const emitAuditEventAs = (userId: string, input: Omit<EmitAuditInput, 'actor'>) =>
+  resolveActor(userId).pipe(Effect.flatMap((actor) => emitAuditEventEffect({ ...input, actor })))

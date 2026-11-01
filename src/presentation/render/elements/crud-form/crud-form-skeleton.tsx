@@ -17,7 +17,9 @@ import { CrudFieldShell } from './crud-field-shell'
 import { attachmentFilenames } from './crud-form-attachment-names'
 import { renderButtonSkeleton } from './crud-form-button-skeleton'
 import { renderDateSkeleton, renderSelectSkeleton } from './crud-form-choice-skeletons'
+import { isMultiLineField, renderTextareaSkeleton } from './crud-form-textarea-skeleton'
 import {
+  controlStateAttributes,
   inputTypeOf,
   inputValueOf,
   typedInputAttributes,
@@ -175,6 +177,8 @@ function renderHiddenSkeleton(field: SkeletonFieldDef): ReactElement {
 }
 
 function renderDefaultSkeleton(field: SkeletonFieldDef): ReactElement {
+  if (isMultiLineField(field))
+    return renderTextareaSkeleton(field, String(field.defaultValue ?? ''))
   const inputType = inputTypeOf(field)
   return (
     <CrudFieldShell
@@ -187,15 +191,10 @@ function renderDefaultSkeleton(field: SkeletonFieldDef): ReactElement {
           type={inputType}
           name={field.name}
           {...typedInputAttributes(field)}
-          {...(field.required && { required: true, 'data-required': 'true' })}
-          {...(field.placeholder && { placeholder: field.placeholder })}
-          {...(field.autocomplete && { autoComplete: field.autocomplete })}
-          {...(field.readOnly && { readOnly: true })}
-          {...(field.disabled && { disabled: true })}
+          {...controlStateAttributes(field)}
           {...(field.defaultValue !== undefined && {
             defaultValue: inputValueOf(field, String(field.defaultValue)),
           })}
-          {...fieldDescribedBy(field)}
         />
       )}
     </CrudFieldShell>
@@ -210,11 +209,15 @@ function renderDefaultSkeleton(field: SkeletonFieldDef): ReactElement {
  * box — the fall-through that made a `status` field render as a free-text
  * input and post a value its CHECK constraint rejects.
  *
- * `textarea` and `checkbox` deliberately render as plain inputs: the SSR
- * skeleton is a progressive-enhancement placeholder, and the island swaps in
- * the richer control on hydration.
+ * `checkbox` deliberately renders as a plain input: the SSR skeleton is a
+ * progressive-enhancement placeholder, and the island swaps in the richer
+ * control on hydration. `textarea` goes through the same renderer, which draws
+ * it as a real `<textarea>` so its line breaks survive.
  */
-const SKELETON_RENDERERS: Record<FieldWidget, (field: SkeletonFieldDef) => ReactElement> = {
+const SKELETON_RENDERERS: Record<
+  FieldWidget,
+  (field: SkeletonFieldDef, words?: Readonly<Record<string, string>>) => ReactElement
+> = {
   button: renderButtonSkeleton,
   code: renderCodeSkeleton,
   'rich-text': renderRichTextSkeleton,
@@ -240,7 +243,11 @@ const SKELETON_RENDERERS: Record<FieldWidget, (field: SkeletonFieldDef) => React
   rating: renderDefaultSkeleton,
 }
 
-export function renderSkeletonField(field: SkeletonFieldDef): ReactElement {
+/** `words` are the island's page-language strings, so a skeleton draws what the island will. */
+export function renderSkeletonField(
+  field: SkeletonFieldDef,
+  words?: Readonly<Record<string, string>>
+): ReactElement {
   if (field.hidden) return renderHiddenSkeleton(field)
   if (field.visibleWhen) {
     // Conditionally visible fields start hidden in SSR; the island controls visibility
@@ -251,7 +258,7 @@ export function renderSkeletonField(field: SkeletonFieldDef): ReactElement {
       />
     )
   }
-  return SKELETON_RENDERERS[fieldWidgetOf(field.type)](field)
+  return SKELETON_RENDERERS[fieldWidgetOf(field.type)](field, words)
 }
 
 function renderUpdateRichTextSkeleton(field: SkeletonFieldDef, currentValue: string): ReactElement {
@@ -262,10 +269,9 @@ function renderUpdateRichTextSkeleton(field: SkeletonFieldDef, currentValue: str
   // unavailable.
   //
   // SECURITY: Defence-in-depth sanitization. The value was already
-  // scrubbed at write time by `sanitizeRichTextFields` in
-  // `record-rules.ts`, but we also scrub at read time so legacy rows
-  // persisted before that feature shipped can't smuggle XSS payloads
-  // through this SSR sink. See `@/domain/utils/html-sanitization`.
+  // cleaned at write time by every record write (`record-write-values.ts`),
+  // but we also scrub at read time so legacy rows persisted before that
+  // shipped can't smuggle XSS payloads through this SSR sink.
   const sanitized = sanitizeRichTextHTML(currentValue)
   return (
     <CrudFieldShell
@@ -299,6 +305,7 @@ function renderUpdateHiddenSkeleton(field: SkeletonFieldDef, currentValue: strin
 }
 
 function renderUpdateInputSkeleton(field: SkeletonFieldDef, currentValue: string): ReactElement {
+  if (isMultiLineField(field)) return renderTextareaSkeleton(field, currentValue)
   const inputType = inputTypeOf(field)
   return (
     <CrudFieldShell
@@ -312,12 +319,7 @@ function renderUpdateInputSkeleton(field: SkeletonFieldDef, currentValue: string
           name={field.name}
           defaultValue={inputValueOf(field, currentValue)}
           {...typedInputAttributes(field)}
-          {...(field.required && { required: true, 'data-required': 'true' })}
-          {...(field.placeholder && { placeholder: field.placeholder })}
-          {...(field.autocomplete && { autoComplete: field.autocomplete })}
-          {...(field.readOnly && { readOnly: true })}
-          {...(field.disabled && { disabled: true })}
-          {...fieldDescribedBy(field)}
+          {...controlStateAttributes(field)}
         />
       )}
     </CrudFieldShell>

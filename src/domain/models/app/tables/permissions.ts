@@ -506,7 +506,7 @@ export const TablePermissionsSchema = Schema.Struct({
   Schema.annotate({
     title: 'Table Permissions',
     description:
-      "Permissions for table operations. Each operation accepts 'all', 'authenticated', or a role array. Declaring ANY operation (read, create, update, delete, comment) turns the table into a gated one: every operation you then leave out is denied to non-admins. A table with no permissions block — or a block that only sets 'fields', 'inherit' or 'override' — declares no operation and stays open to every non-viewer role.",
+      "Permissions for table operations. Each operation accepts 'all', 'authenticated', or a role array. Declaring ANY operation (read, create, update, delete, comment) turns the table into a gated one: every operation you then leave out is denied to non-admins. A table with no permissions block, or a block that only sets 'fields', 'inherit' or 'override', declares no operation and stays open to every non-viewer role. On an app with no auth block, a visitor holds only the operations a table opens with 'all'.",
     examples: [
       // Public read, admin-only write
       {

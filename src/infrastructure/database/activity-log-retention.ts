@@ -7,7 +7,6 @@
 
 import { count, lt } from 'drizzle-orm'
 import { activityLogRetentionCutoff } from '@/domain/models/app/admin/activity-log-retention'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
@@ -17,6 +16,7 @@ import {
 } from '@/infrastructure/database/read-write-sweep'
 import { logInfo } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The activity-log retention EXECUTOR.
@@ -65,15 +65,19 @@ const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
  * the outcome is logged every time, zero included, so the journal shows the
  * sweep ran.
  *
+ * @param database - the database the sweep reads and deletes in.
  * @param now - the reference instant, injected so the sweep is testable.
  * @returns the number of rows deleted.
  */
-export async function purgeExpiredActivityLogs(now: Date = new Date()): Promise<number> {
-  const cutoff = activityLogRetentionCutoff(now, resolveOperatorTimezone())
+export async function purgeExpiredActivityLogs(
+  database: DatabaseService,
+  now: Date = new Date()
+): Promise<number> {
+  const cutoff = activityLogRetentionCutoff(now, resolveOperatorTimezone(process.env))
   const expired = lt(activityLogs.createdAt, cutoff)
-  const [due] = await db.select({ n: count() }).from(activityLogs).where(expired)
+  const [due] = await database.client.select({ n: count() }).from(activityLogs).where(expired)
   const attempted = Number(due?.n ?? 0)
-  const deleted = await inReadWriteTransaction((tx) =>
+  const deleted = await inReadWriteTransaction(database, (tx) =>
     tx.delete(activityLogs).where(expired).returning({ id: activityLogs.id })
   ).catch((cause: unknown) => {
     throw new RetentionSweepFailure({ table: 'system.activity_logs', attempted, cause })

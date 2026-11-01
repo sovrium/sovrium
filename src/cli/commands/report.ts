@@ -7,13 +7,16 @@
 
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { Console, Effect } from 'effect'
 import { isHeadless, openInBrowser } from '@/cli/runtime/browser-launch'
-import { readValueFlag } from '@/cli/runtime/flag-vocabulary'
+import { failureReportGuidance } from '@/cli/runtime/failure-report'
+import { defineFlags, flag, type FlagsOf } from '@/cli/runtime/flag-schema'
+import { lazyImportSchema } from '@/cli/runtime/lazy-modules'
+import { refuseCommand, stopCommand, withFlagsAsync } from '@/cli/runtime/run-command'
 import { OPERATOR_FIX_GUIDANCE } from '@/domain/errors/operator-fixable-error'
-import { serverFailureReportUrl } from '@/domain/kernel/url/issue-report-address'
+import { REQUEST_SURFACE, serverFailureReportUrl } from '@/domain/kernel/url/issue-report-address'
 import {
   bugReportFields,
+  parseFailureTitle,
   redactEnvDefaults,
   redactValues,
   scrubReportText,
@@ -21,10 +24,9 @@ import {
   secretEnvValues,
 } from '@/domain/kernel/url/issue-report-failure'
 import { SECURITY_ADVISORY_URL, buildIssueReportUrl } from '@/domain/kernel/url/issue-report-url'
-import { printFailure, printStderr } from '@/infrastructure/logging/cli-output'
+import { printLine, printStderr } from '@/infrastructure/logging/cli-output'
 import { readIssueReportFacts, readReportScrub } from '@/infrastructure/logging/issue-report-facts'
 import { findServerFailure, readLastCliFailure } from '@/infrastructure/logging/issue-report-store'
-import { lazyImportSchema } from './utils'
 
 /**
  * `sovrium report` — print the address of a new issue, prefilled.
@@ -54,32 +56,42 @@ const FEATURE_FORMS = {
 
 type FeatureKind = keyof typeof FEATURE_FORMS
 
+/** The flags `sovrium report` reads. */
+export const reportFlags = defineFlags({
+  security: flag.switch('--security'),
+  feature: flag.named('--feature'),
+  lastError: flag.switch('--last-error'),
+  /** `--last-error` in either spelling, for saying `--security` attached nothing. */
+  lastErrorSpelled: flag.occurrence('--last-error'),
+  requestId: flag.named('--request-id'),
+  config: flag.named('--config'),
+  open: flag.switch('--open'),
+})
+
+type ReportFlags = FlagsOf<typeof reportFlags>
+
 const isFeatureKind = (kind: string): kind is FeatureKind => Object.hasOwn(FEATURE_FORMS, kind)
 
 /** Print the address, open it when asked, and stop. */
-const answer = (url: string, argv: readonly string[]): void => {
-  Effect.runSync(Console.log(url))
-  if (argv.includes('--open') && !isHeadless()) openInBrowser(url)
+const answer = (url: string, flags: ReportFlags): void => {
+  printLine(url)
+  if (flags.open && !isHeadless()) openInBrowser(url)
 }
 
-const refuse = (headline: string, guidance: string): never => {
-  printFailure({ headline, guidance })
-  // Terminate process - imperative statement required for CLI
-  process.exit(1)
-}
+const refuse = (headline: string, guidance: string): never => refuseCommand({ headline, guidance })
 
 /** `--security`: the advisory form, bare. Nothing else is attached, ever. */
-const reportVulnerability = (argv: readonly string[]): void => {
-  const attachable = ['--config', '--last-error', '--request-id', '--feature']
-  if (attachable.some((flag) => argv.some((arg) => arg === flag || arg.startsWith(`${flag}=`)))) {
+const reportVulnerability = (flags: ReportFlags): void => {
+  const attachable = [flags.config, flags.lastErrorSpelled, flags.requestId, flags.feature]
+  if (attachable.some((attached) => attached.given)) {
     printStderr(
       'A vulnerability is reported privately, and you write the report yourself, so --security attached nothing.'
     )
   }
-  answer(SECURITY_ADVISORY_URL, argv)
+  answer(SECURITY_ADVISORY_URL, flags)
 }
 
-const reportFeature = (kind: string | undefined, argv: readonly string[]): void => {
+const reportFeature = (kind: string | undefined, flags: ReportFlags): void => {
   const kinds = Object.keys(FEATURE_FORMS).join(', ')
   if (kind === undefined || !isFeatureKind(kind)) {
     refuse(
@@ -90,10 +102,10 @@ const reportFeature = (kind: string | undefined, argv: readonly string[]): void 
     )
     return
   }
-  answer(buildIssueReportUrl({ form: FEATURE_FORMS[kind], title: '' }), argv)
+  answer(buildIssueReportUrl({ form: FEATURE_FORMS[kind], title: '' }), flags)
 }
 
-const reportLastError = (argv: readonly string[]): void => {
+const reportLastError = (flags: ReportFlags): void => {
   const kept = readLastCliFailure()
   if (kept === undefined) {
     refuse(
@@ -102,10 +114,13 @@ const reportLastError = (argv: readonly string[]): void => {
     )
     return
   }
-  answer(kept.url, argv)
+  const title = parseFailureTitle(kept.title)
+  if (title !== undefined)
+    printStderr(failureReportGuidance(title.surface, title.signature).join('\n'))
+  answer(kept.url, flags)
 }
 
-const reportServerError = (requestId: string | undefined, argv: readonly string[]): void => {
+const reportServerError = (requestId: string | undefined, flags: ReportFlags): void => {
   if (requestId === undefined) {
     refuse(
       '--request-id needs the id of a request. No address was printed.',
@@ -128,7 +143,8 @@ const reportServerError = (requestId: string | undefined, argv: readonly string[
     )
     return
   }
-  answer(serverFailureReportUrl(kept, readIssueReportFacts()), argv)
+  printStderr(failureReportGuidance(REQUEST_SURFACE, kept.signature).join('\n'))
+  answer(serverFailureReportUrl(kept, readIssueReportFacts()), flags)
 }
 
 /** A configuration's verdict, as the bug report's logs state it. */
@@ -172,7 +188,7 @@ const redactedConfig = async (path: string, parsed: unknown): Promise<string> =>
 
 const reportBug = async (
   configFlag: { readonly given: boolean; readonly value?: string },
-  argv: readonly string[]
+  flags: ReportFlags
 ): Promise<void> => {
   if (configFlag.given && configFlag.value === undefined) {
     refuse(
@@ -183,7 +199,8 @@ const reportBug = async (
   const path = await configToCheck(configFlag.value)
   const verdict: Verdict = path === undefined ? { kind: 'none' } : await validate(path)
   if (verdict.kind === 'refused') {
-    printStderr(
+    return stopCommand(
+      1,
       [
         'Error: This configuration does not validate, so no report was made.',
         '',
@@ -193,8 +210,6 @@ const reportBug = async (
         'Run `sovrium validate` to check it again, and `sovrium docs` to look an option up.',
       ].join('\n')
     )
-    // Terminate process - imperative statement required for CLI
-    process.exit(1)
   }
   const attached =
     configFlag.value !== undefined && verdict.kind === 'passed'
@@ -212,16 +227,16 @@ const reportBug = async (
   printStderr(
     `Filled in: the version, the operating system, the install channel, the database and the validation result${attached['repro-config'] === undefined ? '' : ', and the configuration with its secrets redacted'}. Nothing is sent until you submit the form.`
   )
-  answer(url, argv)
+  answer(url, flags)
+}
+
+const report = async (flags: ReportFlags): Promise<void> => {
+  if (flags.security) return reportVulnerability(flags)
+  if (flags.feature.given) return reportFeature(flags.feature.value, flags)
+  if (flags.lastError) return reportLastError(flags)
+  if (flags.requestId.given) return reportServerError(flags.requestId.value, flags)
+  return reportBug(flags.config, flags)
 }
 
 /** Handle `sovrium report`. */
-export const handleReportCommand = async (argv: readonly string[]): Promise<void> => {
-  if (argv.includes('--security')) return reportVulnerability(argv)
-  const feature = readValueFlag(argv, '--feature')
-  if (feature.given) return reportFeature(feature.value, argv)
-  if (argv.includes('--last-error')) return reportLastError(argv)
-  const requestId = readValueFlag(argv, '--request-id')
-  if (requestId.given) return reportServerError(requestId.value, argv)
-  return reportBug(readValueFlag(argv, '--config'), argv)
-}
+export const handleReportCommand = withFlagsAsync(reportFlags, ({ flags }) => report(flags))

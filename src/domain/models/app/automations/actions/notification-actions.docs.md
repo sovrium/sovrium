@@ -1,6 +1,6 @@
 # Notification Actions
 
-> Notify people from a workflow — one notification per recipient, of a kind the app declares, sent where each recipient chose for that kind.
+> Notify people from a workflow: one notification per recipient, of a kind the app declares, sent where each recipient chose for that kind.
 
 | Operator | Props                                             | Does                                                            |
 | -------- | ------------------------------------------------- | --------------------------------------------------------------- |

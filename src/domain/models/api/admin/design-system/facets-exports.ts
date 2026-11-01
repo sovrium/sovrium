@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // What each export weighs
@@ -67,7 +67,7 @@ export const designSystemExportRowSchema = Schema.Struct({
   sections: optionalField(
     Schema.Int.annotate({
       description:
-        'How many top-level sections the document is divided into. Markdown only — a JSON document has groups, not sections, and inventing a count for it would put a false parallel on the page.',
+        'How many top-level sections the document is divided into. Markdown only: a JSON document has groups, not sections, and inventing a count for it would put a false parallel on the page.',
     })
   ),
   excerpt: Schema.String.annotate({

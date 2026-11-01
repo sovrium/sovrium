@@ -6,7 +6,7 @@
  */
 
 import { optionColor, type SelectOptionLike } from '@/domain/models/app/tables/select-option'
-import { readColumnOptions } from '@/presentation/render/forms/form-field-resolver'
+import { readColumnOptions } from '@/presentation/render/forms/form-table-field'
 import type { Languages } from '@/domain/models/app/languages'
 
 /**

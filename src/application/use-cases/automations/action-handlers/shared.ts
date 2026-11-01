@@ -10,6 +10,7 @@ import {
   findUndeclaredMultiSelectValues,
 } from '@/domain/models/app/tables/multi-select-values-validation'
 import { findUndeclaredSingleSelectValues } from '@/domain/models/app/tables/single-select-values-validation'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { LoopScope } from './loop-scope'
 import type { ParkedStepCell } from './parked-step-files'
 import type { ContainerResume, RunPark } from './run-park'
@@ -181,6 +182,8 @@ export interface ActionRunContext {
   readonly templateVars?: Readonly<Record<string, unknown>>
   /** Resolved env lookup for `$env.X` substitution + sandbox `context.env`. */
   readonly envLookup: Readonly<Record<string, string>>
+  /** The process environment the run started with: the operator switches a handler reads. */
+  readonly env?: Readonly<Record<string, string | undefined>>
   /**
    * The template engine the run read from the `TemplateEngine` port, for a
    * handler that renders its own props (`resolveOwnProp`, the code action's
@@ -279,21 +282,6 @@ export type NestedStepInvoker = (input: {
 }) => Promise<{ readonly outcome: ActionOutcome; readonly step: ExecutedStep }>
 
 /**
- * Action handler signature.
- *
- * Handlers receive the resolved (env-substituted) action object, the app
- * schema, the running automation's identity, and an optional mid-run
- * context (for handlers that need to read prior step outputs or the raw
- * trigger payload). Returns an Effect that yields an ActionOutcome.
- * Returning `Effect` rather than `Promise` lets callers compose handlers
- * with the rest of the runtime (sequencing, retries, telemetry) without
- * a context switch.
- *
- * Required services come from the handler's repository / port dependencies
- * — handlers do not provide their own layers.
- */
-
-/**
  * The span attribute every action handler carries: WHICH step ran.
  *
  * One helper rather than the same `String(action['type'] ?? …)` at fifty-seven
@@ -306,6 +294,12 @@ export const actionAttributes = (
   'automation.action': String(action['type'] ?? 'unknown'),
 })
 
+/**
+ * What the registry dispatches: the action with its props filled in, the app,
+ * the running automation and the mid-run context. A family whose settings are
+ * decoded at dispatch registers a typed handler behind `decodedHandler`
+ * (`decoded-handler.ts`); its services come from its ports, never its own layers.
+ */
 export type ActionHandler = (
   action: Readonly<Record<string, unknown>>,
   app: App,
@@ -344,9 +338,8 @@ export const findOptionViolationMessage = (
   tableName: string,
   fields: Readonly<Record<string, unknown>>
 ): string | undefined => {
-  const table = app.tables?.find((candidate) => candidate.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   if (!table) return undefined
-
   const undeclaredOne = findUndeclaredSingleSelectValues(table.fields, fields)[0]
   if (undeclaredOne) {
     return `Invalid option for field '${undeclaredOne.field}'. Allowed options: ${undeclaredOne.allowed.join(', ')}`
@@ -381,6 +374,11 @@ export type ActionKey = string
  */
 export const actionKey = (type: string | undefined, operator: string | undefined): ActionKey =>
   operator ? `${type ?? ''}/${operator}` : (type ?? '')
+
+/** The environment an operator switch is read from: the run's, or the host's outside a run. */
+export const runEnvOf = (
+  runContext: ActionRunContext | undefined
+): Readonly<Record<string, string | undefined>> => runContext?.env ?? process.env
 
 // ---------------------------------------------------------------------------
 // Internal prop-extraction helpers shared across handlers

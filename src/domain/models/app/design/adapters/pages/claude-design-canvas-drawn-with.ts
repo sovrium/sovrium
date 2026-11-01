@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * What a canvas was drawn with, as its stamp file records it: the drawing
  * inputs of a `--pages` export that make its boards draw values the config
@@ -26,9 +28,6 @@ export interface CanvasDrawnWith {
   /** The prototype kind (`--prototype`). */
   readonly prototype?: 'board' | 'app' | undefined
 }
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const textOf = (value: unknown): string | undefined =>
   typeof value === 'string' && value !== '' ? value : undefined

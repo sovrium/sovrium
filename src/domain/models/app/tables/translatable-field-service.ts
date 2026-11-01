@@ -56,6 +56,34 @@ export const recordLanguageOrder = (languages: RecordLanguages | undefined): rea
 export const isLanguageMapShape = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
+/** The shape of a language code a map is keyed by. */
+const LANGUAGE_CODE = /^[a-z]{2}$/
+
+/**
+ * The texts a language map names, one per language code — the languages a
+ * merge key on a translatable field is matched on, one by one. A map is an
+ * object with at least one key, every key a language code and every value
+ * text or `null`; `null` and `''` are no value for their language, so they
+ * name nothing. `undefined` for anything that is not a language map, an empty
+ * object included (a JSON field's value, compared as itself).
+ */
+export const languageTextsOf = (value: unknown): LanguageMap | undefined => {
+  if (!isLanguageMapShape(value)) return undefined
+  const entries = Object.entries(value)
+  const isMap =
+    entries.length > 0 &&
+    entries.every(
+      ([code, text]) => LANGUAGE_CODE.test(code) && (text === null || typeof text === 'string')
+    )
+  return isMap
+    ? Object.fromEntries(
+        entries.flatMap(([code, text]) =>
+          typeof text === 'string' && text !== '' ? [[code, text] as const] : []
+        )
+      )
+    : undefined
+}
+
 /**
  * A value as the map a translatable field stores: a string is the value of
  * `defaultLanguage`, a map keeps its entries. An empty string is no value, so

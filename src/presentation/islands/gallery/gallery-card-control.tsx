@@ -102,9 +102,11 @@ function CardButton({
     if (toast?.message !== undefined) renderToast(toast.message, toast.variant)
     if (row !== undefined) own.setRow(item, row)
   }
+  const row = own?.rows[String(record['id'])]
   return (
     <button
       type="button"
+      aria-pressed={toggles ? row !== null && row !== undefined : undefined}
       disabled={busy}
       onClick={(event) => {
         keepOffCard(event)

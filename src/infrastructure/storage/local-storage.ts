@@ -15,7 +15,7 @@ import {
 import { logWarning } from '@/infrastructure/logging/logger'
 import { boundedDownload } from './bounded-read'
 import { deleteFileMetadata, type CatalogWrite } from './bytea-adapter'
-import { withoutClaimedKeys } from './catalog-claim'
+import { isClaimed, withoutClaimedKeys } from './catalog-claim'
 import {
   assertBucketBinding,
   catalogBucketsOf,
@@ -42,18 +42,11 @@ import {
 import { probeLocalCaseOnce } from './local-case-probe'
 import { sweepOrphanedStagingOnce } from './local-staging-sweep'
 import { replaceOutsideCatalog } from './replacing-write'
-import {
-  absentWhileClaimed,
-  localObjectIdentity,
-  storedObjectIdentity,
-} from './stored-object-identity'
+import { attemptStorage, toStorageError } from './storage-attempt'
+import { absentWhileClaimed, localObjectIdentity } from './stored-object-identity'
 import { storedObjectSize } from './stored-object-size'
 import type { BucketBinding } from '@/application/ports/services/storage-service'
-
-const makeError = (cause: unknown): StorageError => new StorageError({ cause })
-
-const attempt = <A>(run: () => Promise<A>): Effect.Effect<A, StorageError> =>
-  Effect.tryPromise({ try: run, catch: (e: unknown) => makeError(e) })
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Remove the bytes of writes that never finished — staged files a stopped
@@ -61,10 +54,7 @@ const attempt = <A>(run: () => Promise<A>): Effect.Effect<A, StorageError> =>
  * directory that cannot be swept is logged and served all the same.
  */
 const removeOrphanedStaging = (dir: string): Effect.Effect<void> =>
-  Effect.tryPromise({
-    try: () => sweepOrphanedStagingOnce(dir),
-    catch: (e: unknown) => new StorageError({ cause: e }),
-  }).pipe(
+  attemptStorage(() => sweepOrphanedStagingOnce(dir)).pipe(
     Effect.tap((removed) =>
       removed.length === 0
         ? Effect.void
@@ -116,7 +106,11 @@ const prepareLocalDirectory = (dir: string): Effect.Effect<SpellingStore, Storag
 
 /** The local provider's `upload`: the file under `dir`, then the catalog row. */
 const localStorageUpload =
-  (dir: string, localStore: SpellingStore): StorageService['Service']['upload'] =>
+  (
+    client: PortableDb,
+    dir: string,
+    localStore: SpellingStore
+  ): StorageService['Service']['upload'] =>
   (key, content, mimeType, target) => {
     const { bucket, uploadedById, generatedBy, mode } = uploadTargetParts(target)
     const recorded: CatalogWrite = {
@@ -131,11 +125,13 @@ const localStorageUpload =
     const write =
       mode === 'create-only'
         ? createOnlyOutsideCatalog({
+            client,
             catalog: recorded,
             store: localStore,
             writeBytes: () => localUploadCreateOnly(dir, key, content),
           })
         : replaceOutsideCatalog({
+            client,
             catalog: recorded,
             store: localStore,
             writeBytes: () => localUpload(dir, key, content),
@@ -144,44 +140,53 @@ const localStorageUpload =
     return write.pipe(withSpellingLock(key))
   }
 
-/** The local provider: bytes under `dir`, metadata in the catalog. */
+/** The local provider: bytes under `dir`, metadata in the catalog `client` holds. */
 export const makeLocalStorage = (
-  dir: string
+  dir: string,
+  client: PortableDb
 ): Effect.Effect<StorageService['Service'], StorageError> =>
   Effect.gen(function* () {
     const localStore = yield* prepareLocalDirectory(dir)
     return StorageService.of({
-      upload: localStorageUpload(dir, localStore),
+      upload: localStorageUpload(client, dir, localStore),
       downloadBounded: (key: string, bucket: BucketBinding, maxBytes: number) =>
-        assertBucketBinding(key, bucket).pipe(
+        assertBucketBinding(client, key, bucket).pipe(
           Effect.andThen(
             boundedDownload(key, maxBytes, () => localDownloadWithin(dir, key, maxBytes))
           )
         ),
       delete: (key: string, bucket: BucketBinding) =>
-        attempt(() => deleteFileMetadata(key, bucket)).pipe(
+        attemptStorage(() => deleteFileMetadata(client, key, bucket)).pipe(
           Effect.flatMap((found) =>
             found
-              ? attempt(() => localDelete(dir, key))
-              : Effect.fail(makeError(storageObjectNotFound(key)))
+              ? attemptStorage(() => localDelete(dir, key))
+              : Effect.fail(toStorageError(storageObjectNotFound(key)))
           )
         ),
-      deleteUncataloguedBytes: (key: string) => attempt(() => localDeleteIfPresent(dir, key)),
+      deleteUncataloguedBytes: (key: string) =>
+        attemptStorage(() => localDeleteIfPresent(dir, key)),
       getSignedUrl: (_key: string, _expiresIn: number) =>
         Effect.fail(new StorageError({ cause: 'Signed URLs not supported for local storage' })),
-      getMetadata: getMetadataFromCatalog,
-      findOtherSpelling: findOtherSpellingIn(localStore),
+      getMetadata: getMetadataFromCatalog(client),
+      findOtherSpelling: findOtherSpellingIn(client, localStore),
       statObject: (key: string) => storedObjectSize(key, () => localStoredSize(dir, key)),
       objectIdentity: (key: string) =>
-        storedObjectIdentity(absentWhileClaimed(key, () => localObjectIdentity(dir, key))),
-      hashObject: (key: string) => attempt(() => localHashObject(dir, key)),
-      list: (prefix: string) => attempt(() => localList(dir, prefix).then(withoutClaimedKeys)),
+        absentWhileClaimed(
+          key,
+          () => localObjectIdentity(dir, key),
+          (claimedKey) => isClaimed(client, claimedKey)
+        ),
+      hashObject: (key: string) => attemptStorage(() => localHashObject(dir, key)),
+      list: (prefix: string) =>
+        attemptStorage(() =>
+          localList(dir, prefix).then((keys) => withoutClaimedKeys(client, keys))
+        ),
       listPage: (input) =>
-        attempt(async () => {
+        attemptStorage(async () => {
           const page = await localListPage(dir, input)
-          return { ...page, keys: await withoutClaimedKeys(page.keys) }
+          return { ...page, keys: await withoutClaimedKeys(client, page.keys) }
         }),
-      catalogBuckets: catalogBucketsOf,
-      getTotalBytes: attempt(() => localGetTotalBytes(dir)),
+      catalogBuckets: catalogBucketsOf(client),
+      getTotalBytes: attemptStorage(() => localGetTotalBytes(dir)),
     })
   }).pipe(Effect.withSpan('storage.make-local-storage'))

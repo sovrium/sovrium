@@ -7,17 +7,29 @@
 
 import { Effect } from 'effect'
 import { UserDirectoryRepository } from '@/application/ports/repositories/auth/user-directory-repository'
+import { OnlinePeople } from '@/application/ports/services/online-people'
 import { lastSeenOfProgram } from '@/application/use-cases/auth/user-presence-programs'
+import {
+  getUserAccessRoles,
+  getUserGroups,
+  tableEffectiveRoles,
+} from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { userDirectoryResponseSchema } from '@/domain/models/api/admin/user-directory'
+import { ApiErrorCode } from '@/domain/models/api/error'
+import {
+  hasCreatePermissionForRoles,
+  hasUpdatePermissionForRoles,
+} from '@/domain/models/app/auth/permission-evaluator-service'
 import { seesPresence } from '@/domain/models/app/auth/presence-audience-service'
-import { UserDirectoryRepositoryLive } from '@/infrastructure/database/repositories/auth/user-directory-repository-live'
+import {
+  appListsUserDirectory,
+  tablesHoldingPersonField,
+} from '@/domain/models/app/tables/fields/field-types/user/user-directory-need-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { isPersonOnline, onlinePeopleOf } from '@/infrastructure/realtime/app-connections'
-import { errorBody, unauthorized } from '@/presentation/api/runtime/auth-helpers'
+import { errorBody, notFound, unauthorized } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext, requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -43,9 +55,17 @@ import type { Context, Hono } from 'hono'
  * account, permanently, to solve a display problem. A picker needs a label, not
  * an address.
  *
- * A `user` field is unusable without this list, so the exposure — every signed-in
- * user can enumerate display names — is the price of the feature, and it is
- * exactly why the body must not carry email.
+ * A `user` field is unusable without this list, so the exposure — a signed-in
+ * user who may pick a person can enumerate display names — is the price of the
+ * feature, and it is exactly why the body must not carry email.
+ *
+ * ## Who it answers
+ *
+ * Only a caller with a NEED to pick a person: she may create or update records
+ * of a table holding a `user`, `created-by` or `updated-by` field, or her role
+ * is shown presence, or a page of the app lists the directory (a need every
+ * signed-in caller shares). Anyone else signed in is answered the standard
+ * `404`, as if the list did not exist for her.
  *
  * ## Where the query lives
  *
@@ -69,11 +89,9 @@ import type { Context, Hono } from 'hono'
  *
  * ## 401, not 404
  *
- * An unauthenticated caller gets **401**. The anti-enumeration 404 belongs to
- * the `requireAdminTier` paths, where the very existence of an admin surface is
- * what is being hidden. This endpoint is not admin-tier: it is readable by every
- * signed-in account, so a 404 would claim it does not exist while it plainly
- * does for anyone with a session.
+ * An unauthenticated caller gets **401**, checked first, so a visitor learns
+ * only that the list needs a session. A signed-in caller with no need gets the
+ * 404 above.
  */
 
 /** Default page size. Performance, not a boundary — see the module docblock. */
@@ -92,11 +110,43 @@ function resolveLimit(raw: string | undefined): number {
 type PresenceFacts = { readonly online: boolean; readonly lastSeen?: string | null }
 
 /** Whether the reader's role is in `auth.presence.visibleTo`, so she is shown presence. */
-const isShownPresence = async (c: Context, app: App, readerId: string): Promise<boolean> => {
-  if (app.auth?.presence === undefined) return false
-  const role = await runOnRequest(c, getUserRole(readerId, app))
-  return role._tag === 'Success' && seesPresence(app, { role: role.success, signedIn: true })
-}
+const isShownPresence = (app: App, readerId: string) =>
+  Effect.gen(function* () {
+    if (app.auth?.presence === undefined) return false
+    const role = yield* Effect.result(getUserRole(readerId, app))
+    return role._tag === 'Success' && seesPresence(app, { role: role.success, signedIn: true })
+  })
+
+/**
+ * Whether the reader needs the directory to pick a person, other than through
+ * presence: a page of the app lists it, or she may create or update records of
+ * a table holding a person field — judged by the records API's own evaluator,
+ * over her role, her groups and, under row-level rules, her assignment roles.
+ */
+const needsDirectory = (app: App, readerId: string) =>
+  Effect.gen(function* () {
+    if (appListsUserDirectory(app)) return true
+    const tables = tablesHoldingPersonField(app)
+    if (tables.length === 0) return false
+    const underRowRules = tables.some((table) => table.rowLevelPermissions !== undefined)
+    // effect-swallow: a caller whose identity cannot be read shows no need; she is answered the 404.
+    const identity = yield* Effect.result(
+      Effect.all([
+        getUserRole(readerId, app),
+        getUserGroups(readerId),
+        underRowRules ? getUserAccessRoles(readerId) : Effect.succeed([] as readonly string[]),
+      ])
+    )
+    if (identity._tag === 'Failure') return false
+    const [role, groups, accessRoles] = identity.success
+    return tables.some((table) => {
+      const roles = tableEffectiveRoles(table, { role, groups, accessRoles })
+      return (
+        hasCreatePermissionForRoles(table, roles, app) ||
+        hasUpdatePermissionForRoles(table, roles, app)
+      )
+    })
+  })
 
 /**
  * The presence facts of the listed people, for a reader shown presence:
@@ -104,25 +154,28 @@ const isShownPresence = async (c: Context, app: App, readerId: string): Promise<
  * while she is online, or when she never was). Any other reader gets none, so
  * her entries carry neither key.
  */
-const presenceFactsFor = async (
-  c: Context,
+const presenceFactsFor = (
   app: App,
   input: { readonly shown: boolean; readonly userIds: readonly string[] }
-): Promise<ReadonlyMap<string, PresenceFacts>> => {
-  const presence = app.auth?.presence
-  if (presence === undefined || !input.shown) return new Map()
-  const seen =
-    presence.lastSeen === true ? await runOnRequest(c, lastSeenOfProgram(input.userIds)) : undefined
-  if (seen?._tag === 'Failure') logError('[users] last-seen read failed', seen.failure)
-  const lastSeen = seen?._tag === 'Success' ? seen.success : new Map<string, Date>()
-  return new Map(
-    input.userIds.map((userId) => {
-      const online = isPersonOnline(app.name, userId)
-      const last = online ? null : (lastSeen.get(userId)?.toISOString() ?? null)
-      return [userId, { online, ...(presence.lastSeen === true && { lastSeen: last }) }] as const
-    })
-  )
-}
+) =>
+  Effect.gen(function* () {
+    const presence = app.auth?.presence
+    if (presence === undefined || !input.shown) return new Map<string, PresenceFacts>()
+    const seen =
+      presence.lastSeen === true
+        ? yield* Effect.result(lastSeenOfProgram(input.userIds))
+        : undefined
+    if (seen?._tag === 'Failure') logError('[users] last-seen read failed', seen.failure)
+    const lastSeen = seen?._tag === 'Success' ? seen.success : new Map<string, Date>()
+    const people = yield* OnlinePeople
+    return new Map<string, PresenceFacts>(
+      input.userIds.map((userId) => {
+        const online = people.isOnline(app.name, userId)
+        const last = online ? null : (lastSeen.get(userId)?.toISOString() ?? null)
+        return [userId, { online, ...(presence.lastSeen === true && { lastSeen: last }) }] as const
+      })
+    )
+  })
 
 /**
  * The presence the `?filter=` expression asks for — `true` for people
@@ -152,57 +205,74 @@ function onlineAskedBy(raw: string | undefined): boolean | undefined {
 /**
  * `GET /api/users/directory?q=&limit=&filter=`
  */
-const handleDirectory = async (c: Context, app: App): Promise<Response> => {
+const handleDirectory = (c: Context, app: App): Promise<Response> | Response => {
   const session = getSessionContext(c)
   if (!session) return unauthorized(c)
-
-  const term = c.req.query('q')?.trim()
-  const limit = resolveLimit(c.req.query('limit'))
-  const shown = await isShownPresence(c, app, session.userId)
-  // Asked who is (or is not) online, a reader shown presence gets exactly those
-  // people; any other reader gets no one, so the answer never tells her who is
-  // connected.
-  const online = onlineAskedBy(c.req.query('filter'))
-  if (online !== undefined && !shown) return c.json({ users: [] }, 200)
-
-  const program = Effect.gen(function* () {
-    const repository = yield* UserDirectoryRepository
-    // Narrowed to who is (or is not) online in the query itself: one page in
-    // the directory's order, however far into it those people sort.
-    return yield* repository.listPickableUsers({
-      term,
-      limit,
-      ids: online === undefined ? undefined : { within: online, ids: onlinePeopleOf(app.name) },
-    })
-  }).pipe(Effect.provide(UserDirectoryRepositoryLive))
-
-  const result = await runRequestEffect(c, program.pipe(Effect.result))
-  if (result._tag === 'Failure') {
-    logError('[users] directory read failed', result.failure, requestLogAttributes(c))
-    return c.json(
-      errorBody({
-        error: 'Failed to read the user directory',
-        code: ApiErrorCode.INTERNAL_ERROR,
-      }),
-      500
-    )
-  }
-
-  const facts = await presenceFactsFor(c, app, {
-    shown,
-    userIds: result.success.map((user) => user.id),
-  })
-  return c.json({ users: result.success.map((user) => ({ ...user, ...facts.get(user.id) })) }, 200)
+  return runHandlerEffect(c, directoryProgram(c, app, session.userId))
 }
+
+/** Who asks decides who is listed; what is listed leaves through the directory's contract. */
+const directoryProgram = (c: Context, app: App, readerId: string) =>
+  Effect.gen(function* () {
+    const shown = yield* isShownPresence(app, readerId)
+    if (!shown && !(yield* needsDirectory(app, readerId))) return notFound(c)
+
+    const term = c.req.query('q')?.trim()
+    const limit = resolveLimit(c.req.query('limit'))
+    // Asked who is (or is not) online, a reader shown presence gets exactly those
+    // people; any other reader gets no one, so the answer never tells her who is
+    // connected.
+    const online = onlineAskedBy(c.req.query('filter'))
+    if (online !== undefined && !shown) {
+      return yield* respondWith(c, Effect.succeed({ users: [] }), userDirectoryResponseSchema)
+    }
+
+    const listed = yield* Effect.result(
+      Effect.gen(function* () {
+        const repository = yield* UserDirectoryRepository
+        const people = yield* OnlinePeople
+        // Narrowed to who is (or is not) online in the query itself: one page in
+        // the directory's order, however far into it those people sort.
+        return yield* repository.listPickableUsers({
+          term,
+          limit,
+          ids:
+            online === undefined ? undefined : { within: online, ids: people.onlineOf(app.name) },
+        })
+      })
+    )
+    if (listed._tag === 'Failure') {
+      logError('[users] directory read failed', listed.failure, requestLogAttributes(c))
+      return c.json(
+        errorBody({
+          error: 'Failed to read the user directory',
+          code: ApiErrorCode.INTERNAL_ERROR,
+        }),
+        500
+      )
+    }
+
+    const facts = yield* presenceFactsFor(app, {
+      shown,
+      userIds: listed.success.map((user) => user.id),
+    })
+    return yield* respondWith(
+      c,
+      Effect.succeed({
+        users: listed.success.map((user) => ({ ...user, ...facts.get(user.id) })),
+      }),
+      userDirectoryResponseSchema
+    )
+  })
 
 /**
  * Chain the user-directory route onto a Hono app.
  *
  * **Authentication**: `authMiddleware` is applied to `/api/users/*` in
- * `api-routes.ts` when `app.auth` is configured, so `getSessionContext` can
+ * `middleware/api-auth-guards.ts` when `app.auth` is configured, so `getSessionContext` can
  * resolve the caller. The handler returns 401 itself when no session is
  * attached, so the route behaves the same whether or not auth is wired.
  */
-export function chainUserDirectoryRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
-  return honoApp.get('/api/users/directory', (c) => handleDirectory(c, resolveApp())) as T
+export function chainUserDirectoryRoutes(honoApp: Hono, app: App): Hono {
+  return honoApp.get('/api/users/directory', (c) => handleDirectory(c, app))
 }

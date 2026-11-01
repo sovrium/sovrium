@@ -13,6 +13,10 @@
 
 import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import {
+  anonymousGrant,
+  servesNoAuthVisitor,
+} from '@/domain/models/app/auth/anonymous-grant-service'
+import {
   hasCreatePermission,
   hasReadPermission,
 } from '@/domain/models/app/auth/permission-evaluator-service'
@@ -24,13 +28,16 @@ import { tableLabelPlural } from '@/domain/models/app/tables/table-display-name-
 import {
   paletteNavPages,
   paletteTablePages,
+  withoutAuthoredDestinations,
   type PaletteTable,
 } from '@/presentation/render/page/palette-nav-pages'
+import { declaredSearchKinds } from '@/presentation/render/page/palette-search-kinds'
 import {
   unreadableTableFields,
   unreadableTables,
 } from '@/presentation/render/props/resolve-record-drawer-access'
 import { substituteAppVars } from '@/presentation/render/resolve/app-vars-resolver'
+import { keyOf } from '@/presentation/render/resolve/component-rewrite'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
@@ -130,12 +137,13 @@ export const buildCommandPaletteComponent = (
   // A table this caller may not read is not named at all, nor its fields.
   const hiddenTables = unreadableTables(app, session)
   // "Create new record in" is offered only where this caller may create: in an
-  // app with no `auth` block every table, as the records API admits anyone.
-  const uncreatable = (app.auth === undefined ? [] : (app.tables ?? []))
-    .filter(
-      (table) =>
-        session === undefined ||
-        !hasCreatePermission(table, session.role, app, session.groups ?? [])
+  // app with no `auth` block, where the table opens `create` to everyone.
+  const uncreatable = (app.tables ?? [])
+    .filter((table) =>
+      app.auth === undefined
+        ? servesNoAuthVisitor(app) && !anonymousGrant(table, 'create', app)
+        : session === undefined ||
+          !hasCreatePermission(table, session.role, app, session.groups ?? [])
     )
     .map((table) => table.name)
   return {
@@ -279,11 +287,22 @@ const searchTableLabels = (
 }
 
 /**
+ * Whether a SEARCH palette queries the console's own index, whose kinds are
+ * those the app declares. An app's own endpoint answers with whatever it
+ * finds, so its palette names no kind.
+ */
+const searchesConsoleIndex = (node: {
+  readonly search?: unknown
+  readonly props?: Record<string, unknown>
+}): boolean =>
+  node.props?.['adminSearch'] === true || keyOf(node.search, 'endpoint') === '/api/admin/search'
+
+/**
  * Stamp every SEARCH-mode palette with the readable tables' plural labels
  * (`props._tableLabels`) and the pages its navigation names
  * (`props._navPages`, from `pagesApp` — the app whose pages are rendered),
- * at any depth. A palette in any other mode is left
- * alone. Runs whether or not the app appends its own palette: a console that
+ * and the kinds of data `hostApp` declares (`props._searchKinds`), at any
+ * depth. A palette in any other mode is left alone. Runs whether or not the app appends its own palette: a console that
  * opts out of the appended one still declares its search palette.
  */
 export const withSearchTableLabels = (
@@ -301,16 +320,24 @@ export const withSearchTableLabels = (
     if (node.type === 'command') {
       if (node.search === undefined && node.props?.['adminSearch'] !== true) return item
       const _tableLabels = searchTableLabels(context, context.lang)
-      const _navPages = [
-        ...paletteNavPages(context.pagesApp, context.session, context),
-        ...paletteTablePages(
-          context.pagesApp,
-          context.session,
-          readablePaletteTables(context, context.lang),
-          context
-        ),
-      ]
-      return { ...node, props: { ...node.props, _tableLabels, _navPages } } as Component
+      const _navPages = withoutAuthoredDestinations(
+        [
+          ...paletteNavPages(context.pagesApp, context.session, context),
+          ...paletteTablePages(
+            context.pagesApp,
+            context.session,
+            readablePaletteTables(context, context.lang),
+            context
+          ),
+        ],
+        node,
+        context.pagesApp
+      )
+      const _searchKinds = searchesConsoleIndex(node) ? declaredSearchKinds(context.hostApp) : []
+      return {
+        ...node,
+        props: { ...node.props, _tableLabels, _navPages, _searchKinds },
+      } as Component
     }
     if (node.children === undefined) return item
     return { ...node, children: withSearchTableLabels(node.children, context) } as Component

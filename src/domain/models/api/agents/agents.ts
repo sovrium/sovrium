@@ -6,14 +6,13 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * AI agent API contract schemas.
  *
- * These mirror the runtime presenter shapes in
- * `src/presentation/api/routes/agents/`. They back the OpenAPI documentation
- * for the agent route group.
+ * These mirror the runtime presenter shapes in `src/presentation/api/agents/`.
+ * They back the OpenAPI documentation for the agent route group.
  */
 
 /** Approval lifecycle status. */
@@ -46,6 +45,18 @@ export const serializedAgentSchema = Schema.Struct({
     Schema.Struct({
       tables: Schema.Array(Schema.String),
       actions: Schema.Array(Schema.String),
+      browser: optionalField(
+        Schema.Struct({
+          allowedHosts: Schema.Array(Schema.String).annotate({
+            description: 'Hosts the agent may open',
+          }),
+          sessions: optionalField(
+            Schema.Array(Schema.String).annotate({
+              description: 'Stored browser sessions the agent may use',
+            })
+          ),
+        })
+      ),
     })
   ),
   limits: Schema.Struct({
@@ -54,6 +65,9 @@ export const serializedAgentSchema = Schema.Struct({
     maxConcurrentTasks: Schema.Finite,
   }),
 })
+
+/** The agents the caller may trigger, as `GET /api/agents` lists them. */
+export const agentListResponseSchema = Schema.Array(serializedAgentSchema)
 
 /** A serialized agent approval request. */
 export const serializedApprovalSchema = Schema.Struct({
@@ -91,11 +105,23 @@ export const executeResultSchema = Schema.Union([
   }),
 ])
 
-/** @public */
-export type ApprovalStatus = typeof approvalStatusSchema.Type
-/** @public */
-export type SerializedAgent = typeof serializedAgentSchema.Type
-/** @public */
-export type SerializedApproval = typeof serializedApprovalSchema.Type
-/** @public */
-export type ExecuteResult = typeof executeResultSchema.Type
+/** An agent's token usage for the current UTC day. */
+export const agentUsageResponseSchema = Schema.Struct({
+  tokensUsedToday: Schema.Finite,
+  maxTokensPerDay: Schema.Finite,
+  day: Schema.String.annotate({ description: 'UTC date (YYYY-MM-DD)' }),
+})
+
+/** An agent's approval requests. */
+export const agentApprovalListResponseSchema = Schema.Struct({
+  approvals: Schema.Array(serializedApprovalSchema),
+})
+
+/** An agent's declared schedule and its next run. */
+export const agentScheduleResponseSchema = Schema.Struct({
+  agent: Schema.String,
+  cron: Schema.String,
+  timezone: Schema.String,
+  taskPrompt: Schema.String,
+  nextRunAt: Schema.optionalKey(Schema.String),
+})

@@ -25,6 +25,8 @@
  * without importing a feature-model type into a shared service.
  */
 
+import { findTableByName } from './table-lookup-service'
+
 /** Minimal structural shape of a table field needed for authorship resolution. */
 interface AuthorshipFieldShape {
   readonly name: string
@@ -37,11 +39,6 @@ interface AuthorshipTableShape {
   readonly fields: ReadonlyArray<AuthorshipFieldShape>
 }
 
-const findTable = (
-  tables: ReadonlyArray<AuthorshipTableShape> | undefined,
-  tableName: string
-): AuthorshipTableShape | undefined => tables?.find((table) => table.name === tableName)
-
 /**
  * Names of the `created-by`-typed fields declared on the named table. Includes
  * the literal `created_by` as well as any custom-named field (e.g. `author`).
@@ -50,7 +47,7 @@ export const createdByFieldNames = (
   tables: ReadonlyArray<AuthorshipTableShape> | undefined,
   tableName: string
 ): readonly string[] =>
-  (findTable(tables, tableName)?.fields ?? [])
+  (findTableByName(tables, tableName)?.fields ?? [])
     .filter((field) => field.type === 'created-by')
     .map((field) => field.name)
 
@@ -61,7 +58,7 @@ export const updatedByFieldNames = (
   tables: ReadonlyArray<AuthorshipTableShape> | undefined,
   tableName: string
 ): readonly string[] =>
-  (findTable(tables, tableName)?.fields ?? [])
+  (findTableByName(tables, tableName)?.fields ?? [])
     .filter((field) => field.type === 'updated-by')
     .map((field) => field.name)
 
@@ -78,7 +75,7 @@ export const deletedByFieldNames = (
   tables: ReadonlyArray<AuthorshipTableShape> | undefined,
   tableName: string
 ): readonly string[] =>
-  (findTable(tables, tableName)?.fields ?? [])
+  (findTableByName(tables, tableName)?.fields ?? [])
     .filter((field) => field.type === 'deleted-by')
     .map((field) => field.name)
 
@@ -137,7 +134,7 @@ export const buildCurrentUserDefaults = (
   actorId: string,
   fields: Readonly<Record<string, unknown>>
 ): Readonly<Record<string, string>> => {
-  const names = (findTable(tables, tableName)?.fields ?? [])
+  const names = (findTableByName(tables, tableName)?.fields ?? [])
     .filter(
       (field) =>
         field.type === 'user' &&

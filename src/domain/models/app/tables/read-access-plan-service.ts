@@ -64,11 +64,8 @@ import {
   SIGNED_OUT_VISITOR_ROLE,
   type PermissionCaller,
 } from '@/domain/models/app/auth/permission-evaluation'
-import {
-  hasReadPermissionForRoles,
-  readOpensToEveryone,
-  readRequiresSession,
-} from '../auth/permission-evaluator-service'
+import { anonymousGrant } from '../auth/anonymous-grant-service'
+import { hasReadPermissionForRoles } from '../auth/permission-evaluator-service'
 import {
   isFieldReadableByCaller,
   isFieldReadableUnderFieldRules,
@@ -431,16 +428,11 @@ const resolvePresenceColumns = (
  * `'authenticated'` and an undeclared grant for every role, because the
  * records API's session gate has already refused a signed-out request unless
  * the table's resolved read is `'all'`. A page render has no such gate, so the
- * plan asks the same question here: in an app with an `auth` block, only
- * `'all'` admits her. An app with no `auth` block has no sessions at all, and
- * only a grant naming the `'authenticated'` rung keeps her out.
+ * plan asks the same question here: only a resolved `'all'` admits her, in an
+ * app with an `auth` block and in one without ({@link anonymousGrant}).
  */
-export const admitsSignedOut = (app: App, table: TableLike): boolean => {
-  const tables = app.tables as Parameters<typeof readOpensToEveryone>[1]
-  return app.auth === undefined
-    ? !readRequiresSession(table, tables)
-    : readOpensToEveryone(table, tables)
-}
+export const admitsSignedOut = (app: App, table: TableLike): boolean =>
+  anonymousGrant(table, 'read', app as Parameters<typeof anonymousGrant>[2])
 
 /**
  * The principal a plan is judged on. A caller WITHOUT a session is judged as

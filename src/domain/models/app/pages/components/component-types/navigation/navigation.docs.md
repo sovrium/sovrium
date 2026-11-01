@@ -1,6 +1,6 @@
 # Navigation Components
 
-> The eight types that move a reader around — navigation-menu, dropdown-menu, context-menu, menubar, breadcrumb, command, notification-bell and pagination.
+> The eight types that move a reader around: navigation-menu, dropdown-menu, context-menu, menubar, breadcrumb, command, notification-bell and pagination.
 
 Navigation components carry a reader from one place to another: top-level menus, dropdown and context menus, an application menu bar, a breadcrumb trail, a command palette and pagination controls. All accept the shared `props` bag plus the `visibility` and `responsive` modules.
 
@@ -28,15 +28,15 @@ A top-level navigation bar supporting nested items and mega-menu layouts. Refere
 
 Each nav item takes `label`, `href` (omitted on a parent carrying `children`), `description` for the second line in a mega-menu, `icon`, `target` and `rel`, and `children` for a sub-menu.
 
-`layout: bottom-bar` draws the menu as a phone's tab bar instead: fixed to the bottom of the screen above the safe area, each item its `icon` over its `label`, the current page marked, and the page's bottom padding reserved so nothing hides under it. It holds at most five items and no `children`; more, or a sub-menu, is refused at startup. When it shows is the `responsive` key's job — `responsive: { md: { visible: false } }` keeps it to phones — and `props: { aria-label: Sections }` names its navigation landmark.
+`layout: bottom-bar` draws the menu as a phone's tab bar instead: fixed to the bottom of the screen above the safe area, each item its `icon` over its `label`, the current page marked, and the page's bottom padding reserved so nothing hides under it. It holds at most five items and no `children`; more, or a sub-menu, is refused at startup. When it shows is the `responsive` key's job: `responsive: { md: { visible: false } }` keeps it to phones, and `props: { aria-label: Sections }` names its navigation landmark.
 
 ## `dropdown-menu`
 
-A menu that opens from a trigger button, with optional nested sub-menus. Reference: shadcn/ui Dropdown Menu. Its panel paints the `popover` colour (`design.colors.popover`) and draws a faint ring around its edge rather than a border; a `separator` row is a hairline in the `border` colour, and a row under the pointer or the keyboard takes the `accent` colour — a `destructive` row a light tint of `destructive`.
+A menu that opens from a trigger button, with optional nested sub-menus. Reference: shadcn/ui Dropdown Menu. Its panel paints the `popover` colour (`design.colors.popover`) and draws a faint ring around its edge rather than a border; a `separator` row is a hairline in the `border` colour, and a row under the pointer or the keyboard takes the `accent` colour, and a `destructive` row a light tint of `destructive`.
 
 <!-- sovrium:options type:dropdown-menu depth=3 -->
 
-`triggerLabel` defaults to `Menu` and stays the button's accessible name even when `children` supply what is visible. `children` are drawn INSIDE the trigger, for a richer affordance than a word — an avatar over a name and an email, say; the menu itself is `menuItems`, so children can only be the trigger.
+`triggerLabel` defaults to `Menu` and stays the button's accessible name even when `children` supply what is visible. `children` are drawn INSIDE the trigger, for a richer affordance than a word, such as an avatar over a name and an email; the menu itself is `menuItems`, so children can only be the trigger.
 
 ### Item actions
 
@@ -57,7 +57,7 @@ menuItems:
 
 ### Toggle items
 
-A menu item may hold a state instead of performing an action. Give it `toggle: checked` or `toggle: unchecked` and it renders as a two-state row — label on the left, switch on the right — that a reader can flip without the menu closing.
+A menu item may hold a state instead of performing an action. Give it `toggle: checked` or `toggle: unchecked` and it renders as a two-state row (label on the left, switch on the right) that a reader can flip without the menu closing.
 
 ```yaml
 menuItems:
@@ -65,7 +65,7 @@ menuItems:
   - { label: Show archived, icon: archive, toggle: checked }
 ```
 
-The value is where the switch **starts**, not a binding: the state lives in the reader's browser and nothing is written when they flip it. A toggle row does not run an `action`: one declared beside `toggle` is ignored, so flipping the switch never navigates, submits or calls an automation. `toggle` is inert on a `separator` row — the divider wins.
+The value is where the switch **starts**, not a binding: the state lives in the reader's browser and nothing is written when they flip it. A toggle row does not run an `action`: one declared beside `toggle` is ignored, so flipping the switch never navigates, submits or calls an automation. `toggle` is inert on a `separator` row: the divider wins.
 
 Rows that share a `radioGroup` name, one after the other, are the radio items of one group: the row whose `toggle` is `checked` starts checked, and choosing another moves the check while the menu stays open. Like a toggle, the choice is a starting position held in the reader's browser. A row with `heading: true` draws its `label` as a group heading above the rows that follow; it is not a menu item, and the keyboard passes over it. Both apply to a `dropdown-menu`, a `context-menu` and a `menubar` alike.
 
@@ -78,7 +78,7 @@ menuItems:
   - { label: Export as CSV, icon: download }
 ```
 
-A menu item whose `action` is `{ type: theme, value: light | dark | system }` sets the colour theme, as an account menu often does. A run of such rows is one radio group, checked on the reader's current choice when the menu opens — `system` when nothing is stored. Choosing a row switches the page at once and remembers the choice exactly as a `theme-toggle` does, so the next page loads in it; `system` forgets the stored choice and follows the device. The `theme` action is accepted on menu items only, not on buttons or other components.
+A menu item whose `action` is `{ type: theme, value: light | dark | system }` sets the colour theme, as an account menu often does. A run of such rows is one radio group, checked on the reader's current choice when the menu opens, or `system` when nothing is stored. Choosing a row switches the page at once and remembers the choice exactly as a `theme-toggle` does, so the next page loads in it; `system` forgets the stored choice and follows the device. The `theme` action is accepted on menu items only, not on buttons or other components.
 
 ## `context-menu`
 
@@ -90,7 +90,7 @@ A right-click menu, anchored to the pointer position rather than to a trigger bu
 
 ## `menubar`
 
-A horizontal application menu bar — File, Edit, View — each top-level entry opening a menu of the same item shape. Reference: shadcn/ui Menubar. The bar itself is outlined in the `border` colour; the menus it opens are drawn like a dropdown's. From the keyboard, ArrowRight and ArrowLeft move between its menus, wrapping at either end; with a menu open, they open the neighbouring menu instead.
+A horizontal application menu bar (File, Edit, View), each top-level entry opening a menu of the same item shape. Reference: shadcn/ui Menubar. The bar itself is outlined in the `border` colour; the menus it opens are drawn like a dropdown's. From the keyboard, ArrowRight and ArrowLeft move between its menus, wrapping at either end; with a menu open, they open the neighbouring menu instead.
 
 <!-- sovrium:options type:menubar depth=3 -->
 
@@ -104,7 +104,7 @@ A trail of navigation segments. Reference: shadcn/ui Breadcrumb. The trail is dr
 
 ### Deriving the trail from the path
 
-A page's hierarchy is already stated in its `path`, so enumerating it a second time in `breadcrumbItems` means restating it on every page — and a dynamic `:param` route cannot state it at all, because the last segment differs per URL.
+A page's hierarchy is already stated in its `path`, so enumerating it a second time in `breadcrumbItems` means restating it on every page, and a dynamic `:param` route cannot state it at all, because the last segment differs per URL.
 
 `derive: path` reads the request path instead: one crumb per segment, each linking to its own prefix, the last marked as the current page.
 
@@ -118,11 +118,11 @@ A page's hierarchy is already stated in its `path`, so enumerating it a second t
 
 At `/data/tables/customers` that renders **Data › Tables › customers**, with `Data` linking to `/data` and `Tables` to `/data/tables`. A segment with no `labels` entry falls back to itself, so the map stays optional rather than exhaustive.
 
-Declaring `breadcrumbItems` and `derive` together is refused at startup — there is no defensible precedence between an authored trail and a derived one. So is `labels` without `derive`, which would silently do nothing.
+Declaring `breadcrumbItems` and `derive` together is refused at startup: there is no defensible precedence between an authored trail and a derived one. So is `labels` without `derive`, which would silently do nothing.
 
 ### The root crumb
 
-A derived trail starts at the first path segment, so it offers no way back to the root — the one destination every trail should have. `home` prepends that crumb, declared once instead of per page:
+A derived trail starts at the first path segment, so it offers no way back to the root, the one destination every trail should have. `home` prepends that crumb, declared once instead of per page:
 
 ```yaml
 - type: breadcrumb
@@ -148,11 +148,11 @@ Every derived ancestor links to its own path prefix, and not every prefix is a p
   unlinked: [runs]
 ```
 
-At `/automations/runs/42` that renders **Automations › Run › 42**, with `Automations` linking to `/automations`, `Run` as text with no link, and `42` as the current page. The segment stays in the trail because it still tells the reader where they are; only the dead link goes. Name the segment as it appears in the URL, not its label: `labels` still applies to it. Like `labels`, `unlinked` requires `derive` and is refused at startup without it — on an enumerated trail, leave `href` off the item instead.
+At `/automations/runs/42` that renders **Automations › Run › 42**, with `Automations` linking to `/automations`, `Run` as text with no link, and `42` as the current page. The segment stays in the trail because it still tells the reader where they are; only the dead link goes. Name the segment as it appears in the URL, not its label: `labels` still applies to it. Like `labels`, `unlinked` requires `derive` and is refused at startup without it. On an enumerated trail, leave `href` off the item instead.
 
 ### Naming the current page
 
-The last crumb of a derived trail is the page the reader is on, and on a record page its segment is an id. `currentLabel` names that crumb directly — `currentLabel: $record.title` turns `Orders / 42` into `Orders / Acme — spring order`. It also works without `derive`: on an enumerated trail it is drawn after `breadcrumbItems` as the current, unlinked crumb. In a crumb's `label` and in `currentLabel`, a `$record.<field>` naming a relationship prints the linked record's display field; in an `href` it keeps the stored id. On a page whose grid is bound to the table its route names (`dataSource.table: $param.table`), `currentLabel: $param.table` reads that table's plural label rather than the identifier in the URL — `labelPlural`, else `label`, else the table `name` — so `/records/invoice_lines` ends on **Invoice lines**.
+The last crumb of a derived trail is the page the reader is on, and on a record page its segment is an id. `currentLabel` names that crumb directly: `currentLabel: $record.title` turns `Orders / 42` into `Orders / Spring order for Acme`. It also works without `derive`: on an enumerated trail it is drawn after `breadcrumbItems` as the current, unlinked crumb. In a crumb's `label` and in `currentLabel`, a `$record.<field>` naming a relationship prints the linked record's display field; in an `href` it keeps the stored id. On a page whose grid is bound to the table its route names (`dataSource.table: $param.table`), `currentLabel: $param.table` reads that table's plural label rather than the identifier in the URL (`labelPlural`, else `label`, else the table `name`), so `/records/invoice_lines` ends on **Invoice lines**.
 
 ### A catch-all page
 
@@ -166,11 +166,11 @@ The palette's "Go to" actions list only the pages the visitor may open. An anony
 
 <!-- sovrium:options type:command depth=3 -->
 
-`groups` replaces the built-in quick actions with your own commands: each group has a `label` and its `items`, and each item a `label`, an optional `icon`, an optional `shortcut` drawn as one keycap per key (`['G', 'I']`), and either an `href` or an `action` (`toast` or `navigate`). Typing narrows the items across groups, keeping an item when the words match its label or its group's name (typing `help` keeps every item of a Help group), and hides a group left with no match; choosing an item closes the command, then goes where it points or runs its action. In search mode (`search`), your groups are drawn above the result groups and narrowed by typing the same way; drop `groups` to show the results alone. Search mode also matches, as you type, the pages your sidebar names — under **Pages**, each by its sidebar label, only those the visitor may open — and the **Toggle dark mode** action under **Quick actions**; a group with no match is not drawn. The no-results line appears only when nothing matched at all, your own items included.
+`groups` replaces the built-in quick actions with your own commands: each group has a `label` and its `items`, and each item a `label`, an optional `icon`, an optional `shortcut` drawn as one keycap per key (`['G', 'I']`), and either an `href` or an `action` (`toast` or `navigate`). An item's `description` is drawn under its label, and typing matches it as it matches the label. Typing narrows the items across groups, keeping an item when the words match its label or its group's name (typing `help` keeps every item of a Help group), and hides a group left with no match; choosing an item closes the command, then goes where it points or runs its action. In search mode (`search`), your groups are drawn above the result groups and narrowed by typing the same way; drop `groups` to show the results alone. Search mode also matches, as you type, the pages your sidebar names (under **Pages**, each by its sidebar label, only those the visitor may open); a group with no match is not drawn. It carries no theme action. Pointed at the console's own search (`/api/admin/search`), the palette names only the kinds of data the app declares, in the prompt under an empty list and in a **Search data** row once the reader types: records for `tables`, submissions for `forms`, runs for `automations`, files for `buckets`, conversations for `agents`, connections for `connections`, and users for `auth`. The no-results line appears only when nothing matched at all, your own items included.
 
 The built-in palette also finds records: as the reader types, one **Records** group lists the matches of every table she may read, each with its table's name in her language. A row or a column she may not read through the records API is never searched nor shown, and typing sends one search for the settled words. Its **Create new record in** actions are offered only on the tables she may create in.
 
-A group or an item takes the same `visibility` a component takes — `runtime: ai`, `capability`, `roles`, `when` — and one whose conditions do not hold is left out of the page entirely, not hidden in it. An item's `label` and `href` may carry `$query`, the words typed so far (URL-encoded in `href`): `label: Ask "$query" about this app` with `href: /?q=$query` turns what the reader typed into a question carried to another page. Such an item always matches the words it reads. While nothing is typed it shows its `emptyLabel`, or is not drawn if it has none. Bare `$query` is the palette's own; a page's `$query.<name>` is a different thing.
+A group or an item takes the same `visibility` a component takes (`runtime: ai`, `capability`, `roles`, `when`), and one whose conditions do not hold is left out of the page entirely, not hidden in it. An item's `label` and `href` may carry `$query`, the words typed so far (URL-encoded in `href`): `label: Ask "$query" about this app` with `href: /?q=$query` turns what the reader typed into a question carried to another page. Such an item always matches the words it reads. While nothing is typed it shows its `emptyLabel`, or is not drawn if it has none. Bare `$query` is the palette's own; a page's `$query.<name>` is a different thing.
 
 ## `notification-bell`
 

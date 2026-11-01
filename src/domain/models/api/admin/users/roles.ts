@@ -33,7 +33,7 @@ export const adminRoleItemSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isMinLength(1))),
   label: Schema.String.annotate({
     description:
-      'What the console shows for the role, resolved in this order: the `label` the app declares for the role in `auth.roles` (a `$t:` key is translated into the operator\'s console language: the account language, then the language preference, then English); otherwise, for the roles every app carries, the console\'s own words (in English "Admin", "Member", "Viewer", and "Admin (read-only)" for `admin-viewer`); otherwise the name made readable, its first letter capitalised and its hyphens as spaces (`accounting-read` reads "Accounting read"). Always present. Display only — every write still takes `name`.',
+      'What the console shows for the role, resolved in this order: the `label` the app declares for the role in `auth.roles` (a `$t:` key is translated into the operator\'s console language: the account language, then the language preference, then English); otherwise, for the roles every app carries, the console\'s own words (in English "Admin", "Member", "Viewer", and "Admin (read-only)" for `admin-viewer`); otherwise the name made readable, its first letter capitalised and its hyphens as spaces (`accounting-read` reads "Accounting read"). Always present. Display only; every write still takes `name`.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   description: Schema.NullOr(
     Schema.String.annotate({
@@ -41,6 +41,10 @@ export const adminRoleItemSchema = Schema.Struct({
         'What the role is for, verbatim from `auth.roles[].description`. Null for a role declared without a description, and for every built-in and admin-tier name, which the configuration cannot redeclare.',
     })
   ),
+  consoleAccess: Schema.Boolean.annotate({
+    description:
+      "Whether an account holding this role can open the operator console. Decided by the role's level, as for a custom role declared above the admin threshold, so it is answered here rather than inferred from the name. `GET /api/admin/users?consoleAccess=yes` lists the accounts holding a role marked `true`.",
+  }),
 }).annotate({ identifier: 'AdminRoleItem' })
 
 /**

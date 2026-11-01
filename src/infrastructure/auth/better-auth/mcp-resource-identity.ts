@@ -36,6 +36,7 @@
  * rather than adding a hand-rolled database predicate of its own.
  */
 
+import { preBindOrigin } from '@/domain/models/process-env/server'
 import { deriveSubkey } from '@/infrastructure/crypto/root-secret'
 
 /** Fixed path the MCP endpoint is mounted at, as a resource identifier suffix. */
@@ -46,8 +47,7 @@ const MCP_RESOURCE_PATH = '/mcp'
  * resolves Better Auth's `baseURL` — the two must agree, because the `iss` of
  * every token the provider mints is derived from that same value.
  */
-export const resolveAuthOrigin = (): string =>
-  (process.env['BASE_URL'] || `http://localhost:${process.env['PORT'] || 3000}`).replace(/\/+$/, '')
+export const resolveAuthOrigin = (): string => preBindOrigin(process.env)
 
 /**
  * Canonical RFC 8707 / RFC 9728 protected-resource identifier for this

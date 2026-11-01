@@ -32,9 +32,9 @@ import {
   type AdminReadOutcome,
 } from '@/application/use-cases/admin/admin-read-operation'
 import {
-  BuildAgentConversationDetail,
-  BuildAgentConversations,
-  ListAllAgentConversations,
+  buildAgentConversationDetail,
+  buildAgentConversations,
+  listAllAgentConversations,
   type AgentConversationsListInput,
   type TableLabelOf,
 } from '@/application/use-cases/admin/agent-conversations'
@@ -53,6 +53,7 @@ import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalo
 import { isConversationSourceAgent } from '@/domain/models/app/agents/agent-identity'
 import { tableLabelsFor } from '@/domain/models/app/auth/readable-name-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { toolLabelOf } from './agent-tool-labels'
 import type { App } from '@/domain/models/app'
 
@@ -122,7 +123,7 @@ const CONVERSATIONS_CSV_COLUMNS = ['title', 'person', 'messages', 'started', 'la
  */
 const conversationsCsv = (input: ConversationsListRequest) =>
   Effect.gen(function* () {
-    const items = yield* ListAllAgentConversations(input)
+    const items = yield* listAllAgentConversations(input)
     const host = yield* AdminReadHost
     const csv = host.encodeCsv(
       items.map((item) => ({
@@ -215,7 +216,7 @@ const conversationsList = defineAdminRead<ConversationsListRequest>({
   subject: 'agent conversation list',
   decode: decodeConversationsList,
   read: (_app, input) =>
-    input.format === 'csv' ? conversationsCsv(input) : BuildAgentConversations(input),
+    input.format === 'csv' ? conversationsCsv(input) : buildAgentConversations(input),
   audit: {
     action: AUDIT_ACTIONS.AGENT_CONVERSATION_LIST_QUERIED,
     resourceId: (_app, input) => input.agentName,
@@ -230,7 +231,7 @@ const conversationsList = defineAdminRead<ConversationsListRequest>({
 const tableLabelOf =
   (app: App, language: ConsoleLanguage): TableLabelOf =>
   (name) => {
-    const table = app.tables?.find((candidate) => candidate.name === name)
+    const table = findTableByName(app.tables, name)
     if (table === undefined) return undefined
     const translate = (text: string) => resolveTranslationPattern(text, language, app.languages)
     return tableLabelsFor(table, translate).labelPlural
@@ -283,7 +284,7 @@ const conversationRead = defineAdminRead<ConversationAddress>({
     Effect.flatMap(resolveOperatorLanguage(request), (language) =>
       // A step the server ran itself (`chat.<type>`) is named for the reader; an
       // agent's own call keeps the identifier the agent called it by.
-      BuildAgentConversationDetail(agentName, id, tableLabelOf(app, language), (name) =>
+      buildAgentConversationDetail(agentName, id, tableLabelOf(app, language), (name) =>
         name.startsWith('chat.') ? toolLabelOf(name, language) : undefined
       )
     ),

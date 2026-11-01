@@ -9,8 +9,14 @@
  * Ambient declaration for the co-located documentation fragments.
  *
  * A `*.docs.md` sits beside the schema it documents and is pulled into a
- * section manifest by import, so that moving or deleting a fragment fails
- * `tsc` rather than silently emptying an article.
+ * section manifest by import. The import is what makes a moved or deleted
+ * fragment LOUD, but not through the typecheck: the wildcard below accepts any
+ * specifier ending in `.docs.md`, a missing file included, so `bun check` stays
+ * green over a dangling import. The guards are runtime ones —
+ * `docs-structure.test.ts` ("every article body resolves to a fragment that
+ * exists") in the unit suite, and Bun's module load, which refuses a missing
+ * file the moment anything imports the manifest (`bun run build:docs`,
+ * `sovrium docs`).
  *
  * ─── THE IMPORT ATTRIBUTE IS LOAD-BEARING, AND THIS SHIM CANNOT ENFORCE IT ──
  *

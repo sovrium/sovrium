@@ -53,7 +53,7 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config pages[].meta.openGraph.image` | string | Image URL for social sharing: PNG, JPEG or WebP, 1200x630px recommended. A path starting with `/` or a `$t:` key (one image per language) is emitted as a full address on the host the request arrived on. An AVIF path is refused, because X, LinkedIn, Slack and iMessage do not render AVIF sharing images. |
 | `sovrium docs config pages[].meta.openGraph.imageAlt` | string | Alternative text for the Open Graph image |
 | `sovrium docs config pages[].meta.openGraph.siteName` | string | Name of the overall website |
-| `sovrium docs config pages[].meta.openGraph.locale` | string | Locale in format language_TERRITORY |
+| `sovrium docs config pages[].meta.openGraph.locale` | string | Locale in format language_TERRITORY, or a `$t:` key resolved in the served language. Omitted, it is the served language's `locale`. |
 | `sovrium docs config pages[].meta.openGraph.determiner` | enum | Word that appears before the title |
 | `sovrium docs config pages[].meta.openGraph.video` | string | Video URL if sharing video content |
 | `sovrium docs config pages[].meta.openGraph.audio` | string | Audio URL if sharing audio content |
@@ -80,7 +80,7 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config pages[].meta.twitter.appUrl.iPhone` | string | Deep-link URL for iPhone app |
 | `sovrium docs config pages[].meta.twitter.appUrl.iPad` | string | Deep-link URL for iPad app |
 | `sovrium docs config pages[].meta.twitter.appUrl.googlePlay` | string | Deep-link URL for Google Play app |
-| `sovrium docs config pages[].meta.schema` | unknown | Schema.org structured data describing this page, either in the shorthand form (organization, faqPage, …) or as a full Schema.org object. |
+| `sovrium docs config pages[].meta.schema` | unknown | Schema.org structured data describing this page, either in the shorthand form (organization, faqPage, …) or as a full Schema.org object. Passed through to the page as JSON-LD without validation; the shorthand keys are in `sovrium docs seo-structured-data`. |
 | `sovrium docs config pages[].meta.preload` | array | Preload critical resources for performance optimization |
 | `sovrium docs config pages[].meta.preload[]` | object | Preload resource |
 | `sovrium docs config pages[].meta.preload[].href` | string | Resource URL to preload |
@@ -100,14 +100,14 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config pages[].meta.analytics.providers[].scripts[].src` | string | Script source URL |
 | `sovrium docs config pages[].meta.analytics.providers[].scripts[].async` | boolean | Load script asynchronously |
 | `sovrium docs config pages[].meta.analytics.providers[].scripts[].defer` | boolean | Defer script execution |
-| `sovrium docs config pages[].meta.analytics.providers[].initScript` | string | Inline JavaScript to initialize the analytics |
+| `sovrium docs config pages[].meta.analytics.providers[].initScript` | string | Inline JavaScript to initialize the analytics, sent exactly as written: a page reference in it, such as `$record.title`, is not filled. |
 | `sovrium docs config pages[].meta.analytics.providers[].dnsPrefetch` | string | Domain to DNS prefetch for this provider |
 | `sovrium docs config pages[].meta.analytics.providers[].config` | object | Provider-specific configuration |
 | `sovrium docs config pages[].meta.customElements` | array | Additional custom elements to add to the page head |
 | `sovrium docs config pages[].meta.customElements[]` | object | Custom head element |
 | `sovrium docs config pages[].meta.customElements[].type` | enum | HTML element type |
 | `sovrium docs config pages[].meta.customElements[].attrs` | object | Element attributes |
-| `sovrium docs config pages[].meta.customElements[].content` | string | Inner content for script or style elements |
+| `sovrium docs config pages[].meta.customElements[].content` | string | Inner content for script or style elements, sent exactly as written: a page reference in it, such as `$record.title`, is not filled. |
 | `sovrium docs config pages[].meta.twitterCard` | object | Twitter Card metadata for rich Twitter/X sharing |
 | `sovrium docs config pages[].meta.twitterCard.card` | enum | Type of Twitter Card |
 | `sovrium docs config pages[].meta.twitterCard.title` | string | Twitter Card title |
@@ -155,6 +155,7 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config pages[].rss.limit` | number | Maximum number of items in the RSS feed |
 | `sovrium docs config pages[].rss.title` | string | The feed's name as a feed reader lists it. Takes precedence over the page's `meta.title`, and is the way to name the feed of a collection page whose title names one record. Accepts a `$t:` key. |
 | `sovrium docs config pages[].rss.description` | string | One line a feed reader shows under the feed's name. Takes precedence over the page's `meta.description`. Accepts a `$t:` key. |
+| `sovrium docs config pages[].rss.path` | string | The address this page's feed is served at, an absolute path with no route parameter and no trailing slash. A page that names none publishes at `/feed.xml`, so an app with one feed needs no `path`; give each further feed its own, such as `/journal/feed.xml`. The page announces its feed at this address in its head. A `path` another feed already uses, `/feed.xml` included, is refused, naming both pages. |
 
 ## `pages[].contentDir`
 
@@ -184,8 +185,10 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config pages[].contentDir.nav.tabs[].href` | string | Tab landing URL used as the breadcrumb root href. Absent = derived from the tab's first sidebar entry (self-healing). |
 | `sovrium docs config pages[].contentDir.nav.tabs[].sections` | array | Section slugs owned by this tab, in sidebar group order within the tab (orthogonal to contentDir.sort, which orders entries inside each group) |
 | `sovrium docs config pages[].contentDir.nav.tabs[].sections[]` | string | A groupBy section slug owned by this tab |
+| `sovrium docs config pages[].contentDir.nav.tabsPlacement` | enum | Where the docs tabs are drawn: 'header' (default) leaves them to the app's header; 'sidebar' lists them at the top of the docs sidebar, the current tab expanded. Needs tabs. |
+| `sovrium docs config pages[].contentDir.nav.search` | enum | Draws the docs search field at the top of the docs sidebar. It finds the collection's articles the reader may open. |
 | `sovrium docs config pages[].contentDir.editUrl` | string | Edit-this-page URL template for docs articles. Placeholders: {slug} (resolved article slug), {path} (source file path relative to directory, = {slug}.md), {lang} (active request language, empty when no /:lang/ prefix). Absent = no edit link (opt-in, default off). E.g. https://github.com/acme/repo/edit/main/docs/{lang}/{slug}.md |
-| `sovrium docs config pages[].contentDir.issueUrl` | string | Report-an-issue URL template for docs articles. Same placeholders as editUrl ({slug}, {path}, {lang}) but OPTIONAL — a bare issue-tracker URL with no placeholder is valid (passes through verbatim). Absent = no issue link (opt-in, default off). E.g. https://github.com/acme/repo/issues/new |
+| `sovrium docs config pages[].contentDir.issueUrl` | string | Report-an-issue URL template for docs articles. Same placeholders as editUrl ({slug}, {path}, {lang}) but OPTIONAL: a bare issue-tracker URL with no placeholder is valid (passes through verbatim). Absent = no issue link (opt-in, default off). E.g. https://github.com/acme/repo/issues/new |
 | `sovrium docs config pages[].contentDir.contributionNote` | string | Per-locale contribution note rendered (raw string) in the docs article contribution footer, beside the edit/issue links. Not interpolated. Absent = no note (opt-in, default off). |
 
 ## `llms`
@@ -194,8 +197,8 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | --- | --- | --- |
 | `sovrium docs config llms` | object | Configuration for the auto-generated /llms.txt and /llms-full.txt routes (llmstxt.org). |
 | `sovrium docs config llms.enabled` | boolean | Enable the auto-generated /llms.txt routes (default: true when docs exist) |
-| `sovrium docs config llms.title` | string | Override the H1 title at the top of /llms.txt |
-| `sovrium docs config llms.description` | string | Override the blockquote description in /llms.txt |
+| `sovrium docs config llms.title` | string | Override the H1 title at the top of /llms.txt; a $t: key resolves in each route language |
+| `sovrium docs config llms.description` | string | Override the blockquote description in /llms.txt; a $t: key resolves in each route language |
 | `sovrium docs config llms.full` | boolean | Serve /llms-full.txt with concatenated bodies |
 
 ## `languages`
@@ -213,7 +216,7 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config languages.supported[].flag` | string | Flag emoji or icon path |
 | `sovrium docs config languages.fallback` | string | Short language code (2 letters) for URLs and routing |
 | `sovrium docs config languages.detectBrowser` | boolean | Picks the language from the reader's browser on a first visit, when the address itself does not name one. |
-| `sovrium docs config languages.persistSelection` | boolean | Remember the reader’s language choice (default: true). Remembered in BOTH halves at once: the browser, and the `sovrium_language` cookie the SERVER reads — so the next document is composed in the chosen language rather than repainted after it arrives. `false` disables both sides: the switcher writes nothing, and a cookie or account preference that arrives anyway is ignored. It never disables the language feature itself — a `/{lang}/` address still works. |
+| `sovrium docs config languages.persistSelection` | boolean | Remember the reader’s language choice (default: true). Remembered in BOTH halves at once: the browser, and the `sovrium_language` cookie the SERVER reads, so the next document is composed in the chosen language rather than repainted after it arrives. `false` disables both sides: the switcher writes nothing, and a cookie or account preference that arrives anyway is ignored. It never disables the language feature itself: a `/{lang}/` address still works. |
 | `sovrium docs config languages.translations` | object | Translation dictionaries for all supported languages (keyed by short codes: en, fr, es). Use $t:key syntax to reference translations. |
 
 ## `redirects[]`
@@ -222,6 +225,6 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | --- | --- | --- |
 | `sovrium docs config redirects[]` | object | A single URL redirect: the retired path, its replacement, and the HTTP status to answer with. |
 | `sovrium docs config redirects[].from` | string | Root-relative path to redirect FROM (e.g. '/products/platform', '/tables/:table'). A ':name' segment matches any one segment and can be reused in 'to'. Matched locale-agnostically unless it already begins with a configured language segment. |
-| `sovrium docs config redirects[].to` | string | Redirect target — a root-relative path (e.g. '/', '/records/:table?tab=access') or an absolute http(s) URL. A ':name' declared in 'from' is replaced by the segment it captured, in the path or the query. A path target inherits the request's language prefix; an absolute URL is used verbatim. |
+| `sovrium docs config redirects[].to` | string | Redirect target: a root-relative path (e.g. '/', '/records/:table?tab=access') or an absolute http(s) URL. A ':name' declared in 'from' is replaced by the segment it captured, in the path or the query. A path target inherits the request's language prefix; an absolute URL is used verbatim. |
 | `sovrium docs config redirects[].status` | enum | HTTP redirect status code. Defaults to 301 (Moved Permanently) when omitted. |
 | `sovrium docs config redirects[].localizeTarget` | boolean | Whether a root-relative target inherits the language prefix matched by 'from' (default: true). Set false when the target lives outside the locale namespace (e.g. '/_admin/login'), so it is emitted verbatim. |

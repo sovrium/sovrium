@@ -29,11 +29,12 @@
  * "no value submitted" and the table layer encodes them correctly.
  *
  * Only `multi-select` is coerced here. `multiple-attachments` is backed
- * by JSONB and `buildInsertClauses` falls back to `jsonbLiteral` for
+ * by JSONB and `buildInsertClauses` falls back to `bindJsonb` for
  * unknown shapes, which accepts both scalars and arrays without throwing,
  * so a separate path is unnecessary for the foundation tier.
  */
 
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -65,7 +66,7 @@ const collectArrayTypedColumnNames = (
   app: Readonly<App>,
   tableName: string
 ): ReadonlySet<string> => {
-  const table = app.tables?.find((t) => t.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   if (table === undefined) return new Set()
   const fields = (table.fields ?? []) as ReadonlyArray<TableFieldShape>
   const names = fields

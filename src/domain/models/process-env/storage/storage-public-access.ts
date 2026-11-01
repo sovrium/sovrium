@@ -84,7 +84,7 @@ export const parseStorageDefaultAccess = (raw: string | undefined): boolean => {
  * @throws Error when either env var is set to an invalid value.
  */
 export const resolveStoragePublicAccess = (
-  env: Record<string, string | undefined> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): StoragePublicAccess => ({
   publicPaths: parseStoragePublicPaths(env['STORAGE_PUBLIC_PATHS']),
   defaultPublic: parseStorageDefaultAccess(env['STORAGE_DEFAULT_ACCESS']),

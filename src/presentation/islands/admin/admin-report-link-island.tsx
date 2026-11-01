@@ -8,7 +8,7 @@
 import { useEffect, useId, type ReactElement } from 'react'
 import { ReportNote, ReportProblemLink } from '../parts/report-problem-link'
 import {
-  RETRY_BUTTON_CLASS,
+  REPORT_LINK_OUTLINE_CLASS,
   reportStringsOf,
   requestReportEndpoint,
   useReportRead,
@@ -149,7 +149,11 @@ const stampedRequestId = (): string | undefined =>
 /** The console 500 page's own sentence, which asks for a report when nothing else will help. */
 const PAGE_SENTENCE_ID = 'admin-internal-error-body'
 
-/** The console 500 page's body: the id, the report before Reload, and the note. */
+/**
+ * The console 500 page's report, drawn inside the page's action row (the container
+ * is `display: contents`): the id on a line above, the report and Reload after the
+ * page's own actions, and the note on a line under them.
+ */
 function PageFailureReport({ strings }: { readonly strings: ReportStrings }): ReactElement | null {
   const requestId = stampedRequestId()
   const read = useReportRead(requestId === undefined ? undefined : requestReportEndpoint(requestId))
@@ -162,7 +166,7 @@ function PageFailureReport({ strings }: { readonly strings: ReportStrings }): Re
   if (requestId === undefined) return null
   return (
     <>
-      <div className="[&>p]:justify-center">
+      <div className="order-first basis-full [&>p]:justify-center">
         <CopyableId
           id={requestId}
           label={strings.requestId}
@@ -170,27 +174,27 @@ function PageFailureReport({ strings }: { readonly strings: ReportStrings }): Re
           copiedLabel={strings.copied}
         />
       </div>
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <ReportProblemLink
-          read={read}
-          strings={strings}
-          hintId={hintId}
-          fallback
-        />
-        <button
-          type="button"
-          data-slot="button"
-          className={RETRY_BUTTON_CLASS}
-          onClick={() => window.location.reload()}
-        >
-          {strings.reload}
-        </button>
-      </div>
-      <ReportNote
+      <ReportProblemLink
         read={read}
         strings={strings}
-        id={hintId}
+        hintId={hintId}
+        fallback
       />
+      <button
+        type="button"
+        data-slot="button"
+        className={REPORT_LINK_OUTLINE_CLASS}
+        onClick={() => window.location.reload()}
+      >
+        {strings.reload}
+      </button>
+      <div className="order-last basis-full">
+        <ReportNote
+          read={read}
+          strings={strings}
+          id={hintId}
+        />
+      </div>
     </>
   )
 }

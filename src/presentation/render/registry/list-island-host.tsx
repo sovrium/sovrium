@@ -174,7 +174,11 @@ export function renderListIsland(
     ...shell,
     // The list's loading and failure chrome in the page language, sent only
     // where it differs from the English the island is written in.
-    uiStrings: resolveInterpreterStringOverrides(['list.', 'rateLimit.'], currentLang, languages),
+    uiStrings: resolveInterpreterStringOverrides(
+      ['list.', 'rateLimit.', 'component.readFailure.'],
+      currentLang,
+      languages
+    ),
     // The list's accessible name, which only the island's `<ul>` can carry, and
     // whether its items are the reader's sessions (each then marked current or not).
     ariaLabel: elementProps['aria-label'],

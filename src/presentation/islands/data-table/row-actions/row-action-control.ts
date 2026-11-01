@@ -14,6 +14,7 @@
  */
 
 import { disabledOnRecord, type DisabledVerdict } from '@/presentation/design/disabled-verdict'
+import { deleteLocked } from '@/presentation/design/locks-verdict'
 import type { TableRecord } from '../../runtime/types'
 import type { ActionColumnItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
@@ -23,16 +24,24 @@ export function controlIdOf(item: ActionColumnItem): string | undefined {
   return typeof id === 'string' ? id : undefined
 }
 
+/** Whether the action deletes its row (`crud` `delete`). */
+const deletesRow = (item: ActionColumnItem): boolean =>
+  'type' in item.action && item.action.type === 'crud' && item.action.operation === 'delete'
+
 /**
  * The action is disabled on this row — its id is in the row's `_disabled` —
  * with its reason filled from the row (a field the reader may not read is not
- * in the row, and reads as empty). `undefined` when it is usable.
+ * in the row, and reads as empty); or it deletes a row a lock rule keeps
+ * (`_locks.delete`), with the lock's message. `undefined` when it is usable.
  */
 export function rowActionDisabledOn(
   item: ActionColumnItem,
   record: TableRecord
 ): DisabledVerdict | undefined {
-  return disabledOnRecord(record, controlIdOf(item), item.disabledReason)
+  return (
+    disabledOnRecord(record, controlIdOf(item), item.disabledReason) ??
+    (deletesRow(item) ? deleteLocked(record) : undefined)
+  )
 }
 
 /** The record a row action's press names, for the server to judge it on; `undefined` when none. */

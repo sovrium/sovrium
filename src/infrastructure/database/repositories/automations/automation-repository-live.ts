@@ -6,13 +6,15 @@
  */
 
 import { eq } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AutomationDatabaseError,
   AutomationRepository,
 } from '@/application/ports/repositories/automations/automation-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { automationDefinitions as automationDefinitionsPg } from '@/infrastructure/database/drizzle/schema/automation'
 import { automationDefinitions as automationDefinitionsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -30,17 +32,8 @@ const automationDefinitions = resolveDialectSchema(
 /** Wrap a DB promise, adapting failures to AutomationDatabaseError. */
 const wrap = makeDbWrap((cause) => new AutomationDatabaseError({ cause }))
 
-/**
- * Automation Repository Implementation (Drizzle).
- *
- * Backs `system.automation_definitions` — the catalogue of automations the
- * runtime knows about. Currently the only writer; the runtime lazily
- * upserts a row on first webhook trigger via `findByName` then `create` if
- * absent (see `run-automation.ts`). All FK-bearing tables (`automation_runs`,
- * `automation_state`, `automation_run_steps`, etc.) join back here by `id`.
- */
-export const AutomationRepositoryLive = Layer.succeed(AutomationRepository, {
-  findById: (id) =>
+const members: MembersOverDatabase<typeof AutomationRepository> = {
+  findById: (db) => (id) =>
     wrap(async () => {
       const rows = await db
         .select()
@@ -50,7 +43,7 @@ export const AutomationRepositoryLive = Layer.succeed(AutomationRepository, {
       return rows[0] as Record<string, unknown> | undefined
     }),
 
-  findByName: (name) =>
+  findByName: (db) => (name) =>
     wrap(async () => {
       const rows = await db
         .select()
@@ -60,12 +53,13 @@ export const AutomationRepositoryLive = Layer.succeed(AutomationRepository, {
       return rows[0] as Record<string, unknown> | undefined
     }),
 
-  list: wrap(async () => {
-    const rows = await db.select().from(automationDefinitions)
-    return rows as readonly Record<string, unknown>[]
-  }),
+  list: (db) =>
+    wrap(async () => {
+      const rows = await db.select().from(automationDefinitions)
+      return rows as readonly Record<string, unknown>[]
+    }),
 
-  create: (definition) =>
+  create: (db) => (definition) =>
     wrap(async () => {
       const [row] = await db
         .insert(automationDefinitions)
@@ -79,7 +73,7 @@ export const AutomationRepositoryLive = Layer.succeed(AutomationRepository, {
       return row as Record<string, unknown>
     }),
 
-  update: (id, data) =>
+  update: (db) => (id, data) =>
     wrap(async () => {
       const [row] = await db
         .update(automationDefinitions)
@@ -89,8 +83,19 @@ export const AutomationRepositoryLive = Layer.succeed(AutomationRepository, {
       return row as Record<string, unknown>
     }),
 
-  delete: (id) =>
+  delete: (db) => (id) =>
     wrap(async () => {
       await db.delete(automationDefinitions).where(eq(automationDefinitions.id, id))
     }),
-})
+}
+
+/**
+ * Automation Repository Implementation (Drizzle).
+ *
+ * Backs `system.automation_definitions` — the catalogue of automations the
+ * runtime knows about. Currently the only writer; the runtime lazily
+ * upserts a row on first webhook trigger via `findByName` then `create` if
+ * absent (see `run-automation.ts`). All FK-bearing tables (`automation_runs`,
+ * `automation_state`, `automation_run_steps`, etc.) join back here by `id`.
+ */
+export const AutomationRepositoryLive = layerOverDatabase(AutomationRepository, members)

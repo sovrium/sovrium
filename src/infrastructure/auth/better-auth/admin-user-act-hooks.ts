@@ -5,16 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// eslint-disable-next-line boundaries/dependencies -- Better Auth owns the write to the ban columns, so whether an account WAS banned before an unban can only be read from inside its `before` hook. Same justification as the role guards in `admin-role-guards.ts`.
-import { readUserBannedById } from '@/application/use-cases/auth/read-user-ban-state'
-/* eslint-disable boundaries/dependencies -- see readUserBannedById above: a ban, a lifted ban or a password set that Better Auth performed can only be observed, and so recorded, from inside its `after` hook. */
-import {
-  recordBan,
-  recordPasswordSet,
-  recordUnban,
-} from '@/application/use-cases/auth/record-user-acts'
-/* eslint-enable boundaries/dependencies */
-import { runAuthHookProgram } from './admin-role-guards'
 import {
   endpointSucceeded,
   readTargetUserId,
@@ -22,6 +12,7 @@ import {
   sessionUserId,
   type AuthMiddlewareCtx,
 } from './hook-context'
+import type { AuthHookPolicies } from '@/application/ports/contracts/auth-hook-policies'
 
 /**
  * What follows the account acts Better Auth performs on its own routes:
@@ -35,53 +26,15 @@ import {
  * signed-in admin; the account is named by its id alone.
  */
 
-/** A ban that stood, as the `after` hook hands it to the audit trail. */
-export type BanRecord = {
-  readonly adminId: string
-  readonly userId: string
-  /** ISO timestamp the ban ends, or `null` for a ban without an end. */
-  readonly expiresAt: string | null
-}
-
-/** A lifted ban or an admin-set password, attributed to the admin. */
-export type AccountActRecord = {
-  readonly adminId: string
-  readonly userId: string
-}
-
 /**
- * Injectable reads and recorders, so unit tests exercise the hooks without a
- * database (and without `mock.module()`). All default to the real use cases.
+ * The ban read and the three recorders, built by the server and handed in
+ * (`AuthHookPolicies`), so unit tests exercise the hooks without a database
+ * (and without `mock.module()`).
  */
-export type AdminUserActDeps = {
-  /** Whether the account is banned now; `undefined` when unreadable. */
-  readonly isUserBanned?: (userId: string) => Promise<boolean | undefined>
-  readonly recordBan?: (input: BanRecord) => Promise<void>
-  readonly recordUnban?: (input: AccountActRecord) => Promise<void>
-  readonly recordPasswordSet?: (input: AccountActRecord) => Promise<void>
-}
-
-const banReader = (deps?: AdminUserActDeps) =>
-  deps?.isUserBanned ?? ((userId: string) => runAuthHookProgram(readUserBannedById(userId)))
-const banRecorder = (deps?: AdminUserActDeps) =>
-  deps?.recordBan ??
-  ((input: BanRecord) =>
-    runAuthHookProgram(
-      recordBan({
-        author: { kind: 'user', userId: input.adminId },
-        userId: input.userId,
-        expiresAt: input.expiresAt,
-      })
-    ))
-const unbanRecorder = (deps?: AdminUserActDeps) =>
-  deps?.recordUnban ??
-  ((input: AccountActRecord) =>
-    runAuthHookProgram(
-      recordUnban({ author: { kind: 'user', userId: input.adminId }, userId: input.userId })
-    ))
-const passwordSetRecorder = (deps?: AdminUserActDeps) =>
-  deps?.recordPasswordSet ??
-  ((input: AccountActRecord) => runAuthHookProgram(recordPasswordSet(input)))
+export type AdminUserActPolicies = Pick<
+  AuthHookPolicies,
+  'isUserBanned' | 'recordBan' | 'recordUnban' | 'recordPasswordSet'
+>
 
 /** The Better Auth routes whose successful requests this module follows up. */
 const RECORDED_PATHS: ReadonlySet<string> = new Set([
@@ -103,13 +56,13 @@ const bannedBeforeUnban = new WeakSet<object>()
  */
 export async function applyAdminUserActBeforeHooks(
   ctx: AuthMiddlewareCtx,
-  deps?: AdminUserActDeps
+  policies: AdminUserActPolicies
 ) {
   if (ctx.path !== '/admin/unban-user') return
   const userId = readTargetUserId(ctx)
   const key = requestKey(ctx)
   if (userId === undefined || key === undefined) return
-  if ((await banReader(deps)(userId)) !== true) return
+  if ((await policies.isUserBanned(userId)) !== true) return
   bannedBeforeUnban.add(key)
 }
 
@@ -163,7 +116,10 @@ const revokeSessionsAfterPasswordSet = (ctx: AuthMiddlewareCtx, userId: string) 
  * refusal to the after hooks as an `APIError` in `returned`, so "a value came
  * back" is not success.
  */
-export async function applyAdminUserActAfterHooks(ctx: AuthMiddlewareCtx, deps?: AdminUserActDeps) {
+export async function applyAdminUserActAfterHooks(
+  ctx: AuthMiddlewareCtx,
+  policies: AdminUserActPolicies
+) {
   const { path } = ctx
   if (!RECORDED_PATHS.has(path)) return
   const { returned, session } = ctx.context
@@ -176,14 +132,14 @@ export async function applyAdminUserActAfterHooks(ctx: AuthMiddlewareCtx, deps?:
   if (adminId === undefined) return
 
   if (path === '/admin/ban-user') {
-    await banRecorder(deps)({ adminId, userId, expiresAt: returnedBanExpiry(returned) })
+    await policies.recordBan({ adminId, userId, expiresAt: returnedBanExpiry(returned) })
     return
   }
   if (path === '/admin/unban-user') {
     const key = requestKey(ctx)
     if (key === undefined || !bannedBeforeUnban.has(key)) return
-    await unbanRecorder(deps)({ adminId, userId })
+    await policies.recordUnban({ adminId, userId })
     return
   }
-  await passwordSetRecorder(deps)({ adminId, userId })
+  await policies.recordPasswordSet({ adminId, userId })
 }

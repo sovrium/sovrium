@@ -12,7 +12,7 @@
 
 import { Option, Schema } from 'effect'
 import { formsSubmissionsListQuerySchema } from '@/domain/models/api/admin/forms'
-import type { SubmissionsListInput } from '@/application/use-cases/admin/forms-overview'
+import type { SubmissionsListInput } from '@/application/use-cases/admin/form-submissions-overview'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 

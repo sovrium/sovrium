@@ -25,13 +25,10 @@
  * binary; nothing is published to npm. See src/cli/index.ts for the CLI entry point.
  */
 
-import { Cause, Effect, Exit, Result, type Layer } from 'effect'
+import { Cause, Effect, Exit, Result } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { ServerEnv } from '@/application/ports/services/server-env'
 import { ServerFactory } from '@/application/ports/services/server-factory'
-import { buildDesignSystemBundle as buildDesignSystemBundleUseCase } from '@/application/use-cases/admin/design-system-bundle'
-import {
-  buildDesignSystemBundleWithPages,
-  type PageExportSelection,
-} from '@/application/use-cases/admin/design-system-pages'
 import {
   createAdminAccount,
   describeBootstrapDatabaseError,
@@ -54,6 +51,11 @@ import {
   findCodeActionRefusalInCause,
   validateCodeActionBodies,
 } from '@/application/use-cases/config/validate-code-actions'
+import { buildDesignSystemBundle as buildDesignSystemBundleUseCase } from '@/application/use-cases/design/bundle'
+import {
+  buildDesignSystemBundleWithPages,
+  type PageExportSelection,
+} from '@/application/use-cases/design/pages'
 import { generateSearchIndex } from '@/application/use-cases/server/generate-search-index'
 import { generateStatic as generateStaticUseCase } from '@/application/use-cases/server/generate-static'
 import { prebuildSearchIndex as prebuildSearchIndexUseCase } from '@/application/use-cases/server/prebuild-search-index'
@@ -67,32 +69,31 @@ import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-searc
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { parseFaultInjection } from '@/domain/models/process-env/fault-injection'
-import { resolveIdleExitSeconds } from '@/domain/models/process-env/server-lifecycle'
 import { provisionRootSecret } from '@/infrastructure/crypto/root-secret'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import {
   createAppLayer,
   createDesignBundleLayer,
   createStaticBuildLayer,
+  runEachInAppLayer,
 } from '@/infrastructure/layers/app-layer'
 import { formatRuntimeError, logDebug } from '@/infrastructure/logging'
-import { armIdleExit } from '@/infrastructure/server/idle-exit'
+import { withIdleExit } from '@/infrastructure/server/idle-exit'
 import { installShutdownHandlers, requestGracefulStop } from '@/infrastructure/server/lifecycle'
 import type { AuthDatabaseError } from '@/application/ports/repositories/auth/auth-repository'
 import type { PasswordReset } from '@/application/ports/services/account-provisioner'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
-import type { DesignSystemBundle } from '@/application/use-cases/admin/design-system-bundle'
 import type {
   DecodeAppConfigOptions,
   DecodeAppConfigResult,
 } from '@/application/use-cases/config/decode-app-config'
+import type { DesignSystemBundle } from '@/application/use-cases/design/bundle'
 import type {
   GenerateStaticOptions,
   GenerateStaticResult,
 } from '@/application/use-cases/server/generate-static'
 import type { StartOptions } from '@/application/use-cases/server/start-server-options'
 import type { App, AppEncoded } from '@/domain/models/app'
-import type { Action as AutomationActionUnion } from '@/domain/models/app/automations/actions'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 
 // ============================================================================
@@ -197,19 +198,21 @@ export const start = async (
     provisionRootSecret()
 
     const startServerWithLayers = Effect.gen(function* () {
-      const server = yield* startServer(rawApp, options)
+      const started = yield* startServer(rawApp, options)
+      // `SOVRIUM_IDLE_EXIT_SECONDS`: the same graceful stop, once nobody uses
+      // the server. The monitor belongs to this server: its stop ends it, so a
+      // `--watch` restart arms the next server's afresh (`idle-exit.ts`).
+      const idleSeconds = (yield* ServerEnv).idleExitSeconds
+      const server =
+        idleSeconds === undefined
+          ? started
+          : yield* withIdleExit(started, validatedApp, idleSeconds, requestGracefulStop)
       // Registered on THIS fiber, deliberately. A handler forked into a child
       // that parks on `Effect.never` would be interrupted when its parent
       // completes (Effect 4), so `process.on(...)` would never run and the
       // server would ignore SIGTERM outright. `installShutdownHandlers`
       // registers and returns — there is no fiber left to interrupt.
       yield* installShutdownHandlers(server)
-      // `SOVRIUM_IDLE_EXIT_SECONDS`: the same graceful stop, once nobody uses
-      // the server. Idempotent across `--watch` reloads (`idle-exit.ts`).
-      const idleSeconds = resolveIdleExitSeconds(process.env)
-      if (idleSeconds !== undefined) {
-        yield* Effect.sync(() => armIdleExit(validatedApp, idleSeconds, requestGracefulStop))
-      }
       return server
     }).pipe(Effect.provide(createAppLayer(validatedApp.auth)))
     // The connection budget is checked before the layers are built: the
@@ -360,7 +363,7 @@ export const build = async (
  * artifacts — see `application/use-cases/server/prebuild-search-index.ts`. What
  * remains here is the standalone entry point: the `--watch` reload path calls
  * it to re-emit the index after a config change (via `buildSearchIndex` in
- * `cli/commands/utils.ts`), where there is no boot to hang the work on, and it
+ * `cli/commands/reload-server.ts`), where there is no boot to hang the work on, and it
  * stays part of the published `sovrium` specifier surface.
  *
  * Trade-off (v1): the full `generateStatic` pipeline (CSS, hydration, asset
@@ -499,68 +502,53 @@ const describeAccountFailure = (
  *
  * Results come back in input order. Expected failures are returned, not thrown.
  */
-export const createAccounts = async (
+export const createAccounts = (
   app: Readonly<App>,
   accounts: readonly CreateAccountCredentials[]
-): Promise<readonly CreateAdminResult[]> => {
-  if (!app.auth) {
-    return accounts.map(() => ({
-      ok: false as const,
-      message:
-        'Auth is not configured for this app. Add an `auth:` block to your config before creating an account.',
-    }))
-  }
-
-  try {
-    const program = Effect.gen(function* () {
-      yield* runMigrations(parseDatabaseDialectConfig())
+): Promise<readonly CreateAdminResult[]> =>
+  runEachInAppLayer(
+    app.auth,
+    accounts,
+    Effect.gen(function* () {
+      yield* runMigrations(parseDatabaseDialectConfig(yield* ProcessEnv))
       return yield* Effect.forEach(accounts, (account) =>
-        createAdminAccount(app, account).pipe(Effect.result)
+        createAdminAccount(app, account).pipe(
+          Effect.result,
+          Effect.map((result): CreateAdminResult =>
+            Result.isSuccess(result)
+              ? { ok: true, created: !result.success.alreadyExists, email: account.email }
+              : {
+                  ok: false,
+                  message: describeAccountFailure(result.failure),
+                  databaseUnreachable: isDatabaseUnreachable(result.failure),
+                }
+          )
+        )
       )
-    }).pipe(Effect.provide(createAppLayer(app.auth)))
-
-    const results = await Effect.runPromise(program)
-    return results.map((result, position): CreateAdminResult => {
-      const email = accounts[position]?.email ?? ''
-      if (Result.isSuccess(result))
-        return { ok: true, created: !result.success.alreadyExists, email }
-      return {
+    }),
+    {
+      noAuth:
+        'Auth is not configured for this app. Add an `auth:` block to your config before creating an account.',
+      // A defect (e.g. a migration connection failure) bypasses the typed channel.
+      item: (_account, message, error): CreateAdminResult => ({
         ok: false,
-        message: describeAccountFailure(result.failure),
-        databaseUnreachable: isDatabaseUnreachable(result.failure),
-      }
-    })
-  } catch (error) {
-    // Defects (e.g. migration connection failure) bypass the typed channel.
-    return accounts.map(() => ({
-      ok: false as const,
-      message: formatRuntimeError(error),
-      databaseUnreachable: isDatabaseUnreachable(error),
-    }))
-  }
-}
+        message,
+        databaseUnreachable: isDatabaseUnreachable(error),
+      }),
+    }
+  )
 
 /** One account a seed run could not create or invite. */
 type SeedAccountFailure = { readonly ok: false; readonly email: string; readonly message: string }
 
-/**
- * Run a seed program listing one outcome per email in the app layer. Expected
- * failures are the program's own outcomes; with no auth, or on a defect (an
- * unreachable database bypasses the typed channel), every email fails alike.
- */
-const runSeedAccounts = async <O>(
-  app: Readonly<App>,
-  emails: readonly { readonly email: string }[],
-  program: Effect.Effect<readonly O[], never, Layer.Success<ReturnType<typeof createAppLayer>>>
-): Promise<readonly (O | SeedAccountFailure)[]> => {
-  const failAll = (message: string) =>
-    emails.map(({ email }): SeedAccountFailure => ({ ok: false, email, message }))
-  if (!app.auth || emails.length === 0) return failAll('Auth is not configured for this app.')
-  try {
-    return await Effect.runPromise(program.pipe(Effect.provide(createAppLayer(app.auth))))
-  } catch (error) {
-    return failAll(formatRuntimeError(error))
-  }
+/** Every email fails alike: no auth, or a defect stopped the run. */
+const seedAccountFailure = {
+  noAuth: 'Auth is not configured for this app.',
+  item: ({ email }: { readonly email: string }, message: string): SeedAccountFailure => ({
+    ok: false,
+    email,
+    message,
+  }),
 }
 
 /**
@@ -575,7 +563,12 @@ export const inviteAccounts = (
   invitees: readonly SeedInvitee[],
   origin: string
 ): Promise<readonly SeedInvitationOutcome[]> =>
-  runSeedAccounts(app, invitees, issueSeedInvitations({ app, invitees, origin }))
+  runEachInAppLayer(
+    app.auth,
+    invitees,
+    issueSeedInvitations({ app, invitees, origin }),
+    seedAccountFailure
+  )
 
 /**
  * Create unclaimed accounts against an already-decoded app: the path
@@ -587,7 +580,12 @@ export const createUnclaimedAccounts = (
   app: Readonly<App>,
   accounts: readonly SeedUnclaimedAccount[]
 ): Promise<readonly SeedUnclaimedOutcome[]> =>
-  runSeedAccounts(app, accounts, createSeedUnclaimedAccounts({ accounts }))
+  runEachInAppLayer(
+    app.auth,
+    accounts,
+    createSeedUnclaimedAccounts({ accounts }),
+    seedAccountFailure
+  )
 
 /**
  * Give existing accounts a new password each and sign their sessions out: the
@@ -595,331 +593,40 @@ export const createUnclaimedAccounts = (
  * refused (`unknownAccount`) and nothing is created. Failures are returned.
  */
 export const resetPasswords = (app: Readonly<App>, resets: readonly PasswordReset[]) =>
-  runSeedAccounts(app, resets, resetAccountPasswords(resets))
+  runEachInAppLayer(app.auth, resets, resetAccountPasswords(resets), seedAccountFailure)
 
 // ============================================================================
 // Type Exports (consumed by scripts/build/build-types.ts → the shipped sovrium.d.ts)
 // ============================================================================
+//
+// The config types live in `src/domain/models/config-types/`; this file
+// re-exports them so `build-types.ts` reads ONE entry and the in-repo
+// `sovrium` path alias resolves the same surface the declaration ships.
 
-/**
- * Application configuration type for YAML/JSON/TypeScript config files.
- *
- * Every `*Config` type below describes the config AS IT IS WRITTEN — the
- * encoded side of the app schema, the one `sovrium validate` reads and
- * `sovrium schema` prints. The decoded side is what the engine works on after
- * defaults and normalisations ran: an automation's single `trigger` is gone
- * from it (it became a one-entry `triggers`), and a key with a decoding default
- * is required there. Typing an author's file against that side reports errors
- * on configs the binary accepts. So each element type is DERIVED from
- * `AppConfig` by position rather than from the domain model's decoded type: it
- * can never drift to the other side, and it names exactly what the position
- * accepts. The one exception is an automation's steps, whose encoded side is
- * erased to `unknown`; see `AuthoredAutomationAction`. `AppConfig` itself takes
- * its automations as `AutomationConfig`, so a step is checked the same way in a
- * whole app as in one automation typed on its own.
- *
- * The functions above take the raw `AppEncoded` instead: what the CLI hands
- * them was parsed from a file, not authored against this type, and every
- * `AppConfig` is one.
- */
-export type AppConfig = Omit<AppEncoded, 'automations'> & {
-  readonly automations?: readonly AutomationConfig[]
-}
-
-/** An element of one of `AppConfig`'s list-valued keys, as it is written. */
-type AppConfigEntry<K extends keyof AppConfig> =
-  NonNullable<AppConfig[K]> extends readonly (infer E)[] ? E : never
-
-/** Single page configuration (element of `AppConfig['pages']`). */
-export type PageConfig = AppConfigEntry<'pages'>
-
-/** Single table configuration (element of `AppConfig['tables']`). */
-export type TableConfig = AppConfigEntry<'tables'>
-
-/** Reusable component template (element of `AppConfig['components']`). */
-export type ComponentConfig = AppConfigEntry<'components'>
-
-/**
- * Design / design tokens configuration.
- *
- * The canonical position is `AppConfig['design']['design']`; top-level
- * `AppConfig['design']` is a deprecated alias for the same type, removed at the
- * next major. The alias here is unchanged — one type serves both positions.
- */
-export type ThemeConfig = NonNullable<AppConfig['design']>
-
-/** Design-system configuration (`AppConfig['design']`) — tokens, principles, voice, usage rules. */
-export type DesignConfig = NonNullable<AppConfig['design']>
-
-/** Authentication configuration (`AppConfig['auth']`). */
-export type AuthConfig = NonNullable<AppConfig['auth']>
-
-/** Multi-language configuration (`AppConfig['languages']`). */
-export type LanguageConfig = NonNullable<AppConfig['languages']>
-
-/** Built-in analytics configuration (`AppConfig['analytics']`). */
-export type AnalyticsConfig = NonNullable<AppConfig['analytics']>
-
-/** The step a `$ref` names an action template with; its `type` defaults to `'ref'`. */
-type AuthoredRefStep = Omit<Extract<AutomationActionUnion, { readonly type: 'ref' }>, 'type'> & {
-  readonly type?: 'ref'
-}
-
-/** Nested steps, written the way top-level ones are. */
-type AuthoredSteps = { readonly actions: readonly AuthoredAutomationAction[] }
-
-/** A `loop` step, whose nested steps are authored steps. */
-type LoopStep = Extract<AutomationActionUnion, { readonly type: 'loop' }>
-type AuthoredLoopStep = Omit<LoopStep, 'props'> & {
-  readonly props: Omit<LoopStep['props'], 'actions'> & AuthoredSteps
-}
-
-/** A `path` step, whose branches hold authored steps. */
-type PathStep = Extract<AutomationActionUnion, { readonly type: 'path' }>
-type AuthoredPathStep = Omit<PathStep, 'props'> & {
-  readonly props: Omit<PathStep['props'], 'paths'> & {
-    readonly paths: readonly (Omit<PathStep['props']['paths'][number], 'actions'> & AuthoredSteps)[]
-  }
-}
-
-/**
- * One automation step as it is written: the step union, with a `$ref` step's
- * `type` optional because it defaults to `'ref'` — at the top level and inside
- * the two steps that nest others, `loop` and `path`.
- *
- * The step schema's ENCODED side is `unknown` (the union is far too large for
- * TypeScript to serialise, so its codec is declared `Codec<Action, unknown>`),
- * which would leave every step untyped here. So the steps are described by the
- * hand-written step union instead, relaxed by the one default it does not
- * express. Exported so the declaration can name it, recursive as it is.
- */
-export type AuthoredAutomationAction =
-  | Exclude<AutomationActionUnion, { readonly type: 'ref' | 'loop' | 'path' }>
-  | AuthoredRefStep
-  | AuthoredLoopStep
-  | AuthoredPathStep
-
-/**
- * Single automation configuration (element of `AppConfig['automations']`).
- * Declares either `trigger` (one) or `triggers` (1 to 10); `sovrium validate`
- * refuses an automation that declares both.
- */
-export type AutomationConfig = Omit<NonNullable<AppEncoded['automations']>[number], 'actions'> & {
-  readonly actions: readonly AuthoredAutomationAction[]
-}
-
-/** Single external connection configuration (element of `AppConfig['connections']`). */
-export type ConnectionConfig = AppConfigEntry<'connections'>
-
-/** Single form configuration (element of `AppConfig['forms']`). */
-export type FormConfig = AppConfigEntry<'forms'>
-
-/** Single env-var declaration (element of `AppConfig['env']`). */
-export type EnvConfig = AppConfigEntry<'env'>
-
-/** Single autonomous AI agent configuration (element of `AppConfig['agents']`). */
-export type AgentConfig = AppConfigEntry<'agents'>
-
-/**
- * Reusable action template (element of `AppConfig['actions']`).
- *
- * Deliberately NOT named `ActionConfig`, which the `*Config` convention above would
- * suggest: `ActionTemplate` is already the public name every config author writes,
- * and one public name per concept beats naming symmetry.
- */
-export type ActionTemplate = AppConfigEntry<'actions'>
+export type {
+  AgentConfig,
+  AnalyticsConfig,
+  AppConfig,
+  AuthConfig,
+  ComponentConfig,
+  ConnectionConfig,
+  DesignConfig,
+  EnvConfig,
+  FormConfig,
+  LanguageConfig,
+  PageConfig,
+  TableConfig,
+  ThemeConfig,
+} from '@/domain/models/config-types/app-config'
+export type {
+  ActionTemplate,
+  AuthoredAutomationAction,
+  AutomationConfig,
+} from '@/domain/models/config-types/automation-config'
+export type { CodeContext, CodeContextActions } from '@/domain/models/config-types/code-context'
 
 // Re-export function parameter and return types
 export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
-
-// ============================================================================
-// Sandbox action surface (`CodeContext['actions']`)
-// ============================================================================
-
-/**
- * The action families callable from a `code` action body, DERIVED from the
- * automation action schemas rather than restated by hand.
- *
- * WHY DERIVED, AND WHY CLOSED
- * ---------------------------
- * `actions` is not an open index signature such as:
- *
- *   { ref: … } & Record<string, Record<string, (props?: Record<string, unknown>) => Promise<any>>>
- *
- * Two things would be wrong with it. `sovrium types` emits a `tsconfig.json`
- * setting `noUncheckedIndexedAccess: true`, and under that flag every
- * index-signature access gains `| undefined` — so the call the docs give,
- * `context.actions.http.request({…})`, would produce TS18048 + TS2722 against
- * the very tsconfig the same command wrote. And an open signature accepts
- * `context.actions.record.lst({})` — a typo for `list` — which then fails at
- * runtime with nothing having warned.
- *
- * A closed surface fixes both at once, and deriving it means the closed surface cannot
- * fall behind the schema the way a hand-written list would.
- *
- * `ref` is deliberately NOT part of this map: it is a reserved method on
- * `actions`, not a family, and `Exclude<…, 'ref'>` keeps the `ref` action type
- * (a declaration-time indirection, expanded before dispatch) out of the surface.
- *
- * WHAT THESE TYPES DO NOT PROMISE
- * -------------------------------
- * Props are NOT validated against these schemas at runtime — the native dispatch
- * path performs template substitution and no schema decode. So a wrong prop is
- * caught in the editor and nowhere else; treat these as authoring aids, not as a
- * runtime contract. *
- * TWO MEMBERS ARE TYPED BUT DO NOT WORK FROM A CODE BODY
- * ------------------------------------------------------
- * The surface describes what DISPATCH accepts, which is every registered
- * handler. Two of them are inert in this position, for one shared reason: the
- * dispatcher in `run/action-invokers.ts` hands a script only an action's
- * `output`, and these two act through the rest of the outcome.
- *
- *   - `filter.continue`   Silent no-op. Returns `{status:'filtered'}`, which the
- *                         dispatcher does not treat as failure, so it resolves
- *                         `undefined` and the halt never propagates.
- *   - `flow.stop`         Inert. Its effect rides in `responseOverride` /
- *                         `returnData`, both discarded by the dispatcher.
- *
- * They are NOT excluded from the type. Excluding them would mean a hand-kept
- * deny-list that silently goes stale the day one is fixed, and nothing can
- * mechanically prove "still broken". These are runtime defects; the fix belongs
- * in the sandbox context, not in a type that hides them.
- */
-type ActionFamily = Exclude<AutomationActionUnion['type'], 'ref'>
-
-type ActionMemberOf<T extends ActionFamily> = Extract<AutomationActionUnion, { readonly type: T }>
-
-/**
- * `A` is a naked defaulted parameter so the conditional DISTRIBUTES over the
- * union — that is what collects every member's operator into one union, and what
- * flattens a member whose `operator` is itself a union (`http` declares one
- * schema member with `"post" | "put" | "patch"`, since the three share a shape).
- */
-type ActionOperatorOf<T extends ActionFamily, A = ActionMemberOf<T>> = A extends {
-  readonly operator: infer O
-}
-  ? O
-  : never
-
-/**
- * Reverse assignability on purpose: `O extends Op`, never
- * `Extract<…, { operator: O }>`. Extract fails on the merged `http` member
- * because `"post" | "put" | "patch"` is not assignable to `"post"`, which would
- * silently drop props for three real operators.
- */
-type ActionPropsOf<T extends ActionFamily, O extends string, A = ActionMemberOf<T>> = A extends {
-  readonly operator: infer Op
-  readonly props: infer P
-}
-  ? O extends Op
-    ? P
-    : never
-  : never
-
-/**
- * `{} extends P` holds exactly when every prop of `P` is optional, so the
- * argument is optional for those operators (`context.actions.date.now()`) and
- * required for the rest (`context.actions.http.request()` is an error).
- */
-export type CodeContextActions = {
-  readonly [T in ActionFamily]: {
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- `{} extends P` is the all-props-optional test; Record<never, never> does not behave the same here
-    readonly [O in ActionOperatorOf<T> & string]: {} extends ActionPropsOf<T, O>
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- handler return shapes are per-operator and not modelled in the schema
-        (props?: ActionPropsOf<T, O>) => Promise<any>
-      : // eslint-disable-next-line @typescript-eslint/no-explicit-any -- same
-        (props: ActionPropsOf<T, O>) => Promise<any>
-  }
-}
-
-// `CodeContext` is an INTERFACE and must stay one. `build-types.ts` cannot extract it
-// structurally: its loop only resolves `SymbolFlags.TypeAlias`, so `typeToString` on an
-// interface prints the interface NAME and would emit `export type CodeContext =
-// CodeContext` (TS2456). Declaring it as a type alias to force extraction is worse —
-// `typeToString` emits no comments at all, which would strip the `log` warning below
-// from every user's generated `sovrium.d.ts`. The emitter therefore hand-writes this
-// text (see its `lines.push` block); `[internal ref]`
-// keeps the copies honest.
-//
-// That check slices from the FIRST occurrence of the declaration keyword+name pair
-// below, so no comment in this file may spell that pair literally — the slice would
-// start in the comment and parse zero properties. This paragraph is deliberately
-// worded around it; the first draft was not, and failed exactly that way.
-
-/**
- * CodeContext - typed context object passed to every runTypescript code action.
- *
- * Operators MUST annotate their execute() parameter as CodeContext:
- *   async function execute(context: CodeContext) { ... }
- *
- * The TypeScriptValidator rejects any code action whose execute() declares a
- * first parameter without this annotation, so type errors on context.<key>
- * accesses surface at server startup instead of failing silently at request
- * time.
- *
- * Five properties: `inputData`, `actions`, `env`, `log`, `run`. The
- * trigger payload and prior step outputs are NOT exposed directly — every
- * value the code needs must be declared explicitly via the action's
- * `inputData` prop using `{{trigger.data.X}}` / `{{steps.Y.Z}}` template
- * references, resolved before the sandbox sees the data. This makes a
- * code action a pure function of its declared inputs.
- *
- * `actions` references reusable action templates declared at the schema
- * root (`app.actions[]`), NOT sibling steps in the same automation.
- * `context.actions.<templateName>(input)` invokes the named template,
- * substituting its `$vars` with the caller-supplied `input` shallow-
- * merged on top of declared variable defaults.
- *
- * `inputData` and the `actions` return type use `any` (not `unknown`):
- * they hold dynamic JSON / action-output shapes, and `unknown` would
- * force narrowing on every property access. `log` is strictly typed so
- * `context.log.debug()` (or any unknown method) fails type-checking at
- * startup.
- */
-export interface CodeContext {
-  /** Template-resolved key-value pairs declared in the action's inputData prop */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic JSON shape, see interface JSDoc
-  readonly inputData: Record<string, any>
-  /**
-   * Two-shape callable surface:
-   * - `actions.ref('<templateName>', vars)` — invoke a template declared at app.actions[]
-   * - `actions.<actionType>.<operator>(props)` — invoke a native action type directly (no template required)
-   *
-   * The reserved method `ref` disambiguates templates from native types;
-   * a template named `ref` is rejected at schema validation.
-   */
-  readonly actions: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic return shape (templates return arbitrary handler output). No Readonly<> here: this interface is a hand-maintained MIRROR of the CodeContext text emitted by scripts/build/build-types.ts (and of CODE_CONTEXT_PRELUDE in src/infrastructure/automations/typescript-validator/layer.ts).
-    readonly ref: (templateName: string, vars?: Record<string, unknown>) => Promise<any>
-  } & CodeContextActions
-  /** Environment variables (values redacted in logs when length >= 8) */
-  readonly env: Record<string, string>
-  /**
-   * Structured logging — info/warn/error.
-   *
-   * NOT YET WIRED: all three methods currently DISCARD their arguments. The
-   * sandbox is handed a no-op implementation, so `context.log.info(…)` emits
-   * nothing — not to stdout, not to run history, not to the error tracker.
-   * The surface is typed and stable so code actions can call it today and
-   * start producing output when a real sink lands, without a rewrite; until
-   * then, anything a code action must actually surface belongs in its return
-   * value (which is persisted as the step output) or in a thrown error.
-   */
-  readonly log: {
-    readonly info: (...args: ReadonlyArray<unknown>) => void
-    readonly warn: (...args: ReadonlyArray<unknown>) => void
-    readonly error: (...args: ReadonlyArray<unknown>) => void
-  }
-  /**
-   * Run-scoped metadata. `attempt` is the 1-indexed retry attempt number —
-   * 1 on the initial dispatch, 2 on the first retry, etc. Used by code
-   * actions that want to short-circuit retry on a recoverable transient:
-   * `if (context.run.attempt === 1) throw …`.
-   */
-  readonly run: {
-    readonly attempt: number
-  }
-}
 
 // ============================================================================
 // Removed: `validateConfig` and the `generateAppJsonSchema` re-export

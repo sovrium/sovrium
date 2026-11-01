@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  anonymousGrant,
+  isNoAuthVisitor,
+  type TableOperation,
+} from '@/domain/models/app/auth/anonymous-grant-service'
 import { splitGroupReferences } from '@/domain/models/app/auth/groups/group-reference'
 import {
   classifyPermissionRung,
@@ -13,6 +18,12 @@ import {
   matchesRoleList,
   toPermissionValue,
 } from '@/domain/models/app/auth/permission-evaluation'
+import {
+  getEffectivePermissions,
+  inheritanceFailed,
+  tablesOf,
+  type TableGateScope,
+} from '@/domain/models/app/auth/permission-inheritance-service'
 import { checkPermissionWithAdminOverride, isAdminRole } from '@/domain/models/app/auth/permissions'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles/role'
@@ -21,26 +32,9 @@ import type {
   TablePermissions,
 } from '@/domain/models/app/tables/permissions'
 
-/** The app's tables, as every evaluator below resolves `inherit` against them. */
-type TableList = readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
-
-/**
- * What a table-level evaluator is judged against: the app's tables alone, or
- * the app itself (its tables AND its role ladder).
- *
- * Passing the APP is what lets the admin override admit the app's top role:
- * the built-in `admin` and the role {@link resolveAdminRole} names are both
- * admin-equivalent (`isAdminEquivalent`), and only the app knows the second.
- * A bare table list keeps the historical reading — the built-in `admin` alone
- * outranks a grant — which is what a unit test asking about a table in
- * isolation means.
- */
-export type TableGateScope = TableList | (AdminRoleResolvable & Readonly<{ tables?: TableList }>)
-
-const tablesOf = (scope: TableGateScope | undefined): TableList | undefined =>
-  scope === undefined || Array.isArray(scope)
-    ? (scope as TableList | undefined)
-    : (scope as Readonly<{ tables?: TableList }>).tables
+/** Re-exported for the gates that judge a table on its resolved grants. */
+export { resolveInheritedPermissions } from '@/domain/models/app/auth/permission-inheritance-service'
+export type { TableGateScope } from '@/domain/models/app/auth/permission-inheritance-service'
 
 /**
  * The admin override: does this role outrank every declared grant?
@@ -72,94 +66,6 @@ export function evaluateFieldPermissions(
       },
     ])
   )
-}
-
-/**
- * Resolve effective permissions considering inheritance
- */
-function getEffectivePermissions(
-  table: Readonly<{ name: string; permissions?: unknown }> | undefined,
-  scope: TableGateScope | undefined
-): unknown {
-  const allTables = tablesOf(scope)
-  if (!allTables || !table) return table?.permissions
-
-  const tableWithInheritance = table as Readonly<{
-    name: string
-    permissions?: Readonly<{ inherit?: string }>
-  }>
-
-  if (!tableWithInheritance.permissions?.inherit) {
-    return table.permissions
-  }
-
-  try {
-    return resolveInheritedPermissions(
-      table as Readonly<{ name: string; permissions?: TablePermissions }>,
-      allTables as readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
-    )
-  } catch {
-    return undefined
-  }
-}
-
-/**
- * Check if inheritance resolution failed
- */
-function inheritanceFailed(
-  table: Readonly<{ permissions?: Readonly<{ inherit?: string }> }> | undefined,
-  scope: TableGateScope | undefined,
-  effectivePermissions: unknown
-): boolean {
-  return Boolean(tablesOf(scope) && table?.permissions?.inherit && !effectivePermissions)
-}
-
-/**
- * Check if circular inheritance exists
- */
-function hasCircularInheritance(tableName: string, visited: ReadonlySet<string>): boolean {
-  return visited.has(tableName)
-}
-
-/**
- * Find parent table by name
- */
-function findParentTable(
-  parentName: string | undefined,
-  allTables: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
-): Readonly<{ name: string; permissions?: TablePermissions }> | undefined {
-  if (!parentName) return undefined
-  return allTables.find((t) => t.name === parentName)
-}
-
-/**
- * Merge a single permission property with override support
- */
-function mergePermission<T>(
-  overrideValue: T | undefined,
-  currentValue: T | undefined,
-  parentValue: T | undefined
-): T | undefined {
-  return overrideValue ?? currentValue ?? parentValue
-}
-
-/**
- * Merge parent and current permissions with override support
- */
-function mergePermissions(
-  permissions: TablePermissions,
-  parentPermissions: TablePermissions
-): TablePermissions {
-  const { override, read, comment, create, update, delete: deletePerms, fields } = permissions
-
-  return {
-    read: mergePermission(override?.read, read, parentPermissions.read),
-    comment: mergePermission(override?.comment, comment, parentPermissions.comment),
-    create: mergePermission(override?.create, create, parentPermissions.create),
-    update: mergePermission(override?.update, update, parentPermissions.update),
-    delete: mergePermission(override?.delete, deletePerms, parentPermissions.delete),
-    fields: fields ?? parentPermissions.fields,
-  }
 }
 
 /**
@@ -203,6 +109,21 @@ function omittedOperationIsOpen(effectivePermissions: unknown): boolean {
   if (effectivePermissions === undefined || effectivePermissions === null) return true
   const block = effectivePermissions as Readonly<Record<string, unknown>>
   return !PERMISSION_OPERATION_KEYS.some((operation) => block[operation] !== undefined)
+}
+
+/**
+ * What an evaluator answers before it reads a table's grants: `true` for a
+ * caller who outranks every grant, the no-auth rule ({@link anonymousGrant})
+ * for the visitor of an app without sign-in, `undefined` for anyone else.
+ */
+function answerBeforeGrants(
+  table: Readonly<{ name: string; permissions?: unknown }> | undefined,
+  operation: TableOperation,
+  userRole: string,
+  scope: TableGateScope | undefined
+): boolean | undefined {
+  if (outranksEveryGrant(userRole, scope)) return true
+  return isNoAuthVisitor(userRole, scope) ? anonymousGrant(table, operation, scope) : undefined
 }
 
 /**
@@ -269,8 +190,183 @@ function writingRoles(effectiveRoles: readonly string[]): readonly string[] {
   return effectiveRoles[0] === 'viewer' ? ['viewer'] : effectiveRoles
 }
 
+/** The five operations a table's `permissions` block grants. */
+export type PermissionOperation = TableOperation
+
+/** The table shape every operation is judged on: its grants, and a `comments` block. */
+type GatedTable = Readonly<{ name: string; comments?: unknown; permissions?: unknown }>
+
+/** What an operation's grant is judged against, once its effective permissions are resolved. */
+interface GrantJudgement {
+  readonly table: GatedTable | undefined
+  readonly userRole: string
+  readonly groups: readonly string[]
+  readonly scope: TableGateScope | undefined
+  /** The table's permissions, inheritance and override resolved. */
+  readonly effectivePerms: unknown
+}
+
+/** How ONE operation departs from the shared algorithm of {@link hasOperationPermission}. */
+export interface OperationRule {
+  /**
+   * The answer given before the grants are read — `undefined` hands on to the
+   * grant. For every operation but `comment` that is the admin override, then
+   * the no-auth visitor's rule ({@link answerBeforeGrants}).
+   */
+  readonly before: (
+    table: GatedTable | undefined,
+    userRole: string,
+    scope: TableGateScope | undefined
+  ) => boolean | undefined
+  /** Judge the operation's declared grant (`undefined` when it declares none). */
+  readonly judge: (grant: unknown, judgement: GrantJudgement) => boolean
+  /**
+   * Whether the effective roles are folded as a WRITE ({@link writingRoles}):
+   * a `viewer` account is then judged on her own role alone.
+   */
+  readonly writes: boolean
+}
+
 /**
- * Check if user has role-based create permission for a table
+ * The permission ladder every operation but `comment` judges a grant on:
+ *
+ *  1. an open literal (`'all'`, or `'authenticated'` for a signed-in caller)
+ *     admits every role, viewer included — the literals are honoured on writes
+ *     exactly as on reads;
+ *  2. a declared allowlist is authoritative, and is consulted BEFORE the
+ *     default below: naming a role is the plainest statement of intent the
+ *     permission format allows, so `create: ['viewer']` grants;
+ *  3. nothing declared for this role: closed to every role that does not hold
+ *     the default grant — `viewer`, a caller whose stored role grants nothing, a
+ *     signed-out visitor. Without this a table with no `permissions` key would
+ *     fall through to step 4, which is `true`, and open the operation to each of
+ *     them product-wide;
+ *  4. else open, unless the block gates the table ({@link omittedOperationIsOpen}).
+ *
+ * An allowlist and an open literal never overlap, so steps 1 and 2 may be read
+ * in either order.
+ */
+function judgeOnLadder(grant: unknown, judgement: GrantJudgement): boolean {
+  const { userRole, groups, effectivePerms } = judgement
+  if (isOpenPermissionLiteral(grant, userRole)) return true
+  if (Array.isArray(grant)) return grantAdmits(grant, userRole, groups)
+  if (!holdsDefaultGrant(userRole)) return false
+  return omittedOperationIsOpen(effectivePerms)
+}
+
+/** The rule of `read`, `create` and `update`: the shared start, then the ladder. */
+const laddered = (operation: TableOperation, writes: boolean): OperationRule => ({
+  before: (table, userRole, scope) => answerBeforeGrants(table, operation, userRole, scope),
+  judge: judgeOnLadder,
+  writes,
+})
+
+/**
+ * Every operation's rule — the ONE place an operation departs from the shared
+ * algorithm, so the five cannot drift apart in order again:
+ *
+ *  - `delete` refuses every non-admin on a table that declares an admin-scoped
+ *    delete override (`permissions.override.admin.delete`), whatever its base
+ *    `delete` grant — admins having been admitted just before;
+ *  - `comment` follows `permissions.comment`, NOT read. It has no admin
+ *    early return (the admin override applies inside a declared grant), refuses
+ *    a table it is not given, and when no grant is declared a `comments` block
+ *    still marks the table commentable (configs written before the `comment`
+ *    grant existed) — else it is open unless the block gates the table: a
+ *    "post-it" table, such as an anonymized feedback table, declares a gating
+ *    block and neither a grant nor a `comments` block. A false answer is a 404
+ *    at every caller (S1: a non-commentable surface is not discoverable).
+ */
+export const OPERATION_RULES: Readonly<Record<PermissionOperation, OperationRule>> = {
+  read: laddered('read', false),
+  create: laddered('create', true),
+  update: laddered('update', true),
+  delete: {
+    before: (table, userRole, scope) =>
+      answerBeforeGrants(table, 'delete', userRole, scope) ??
+      (hasAdminScopedDeleteOverride(table as Parameters<typeof hasAdminScopedDeleteOverride>[0])
+        ? false
+        : undefined),
+    judge: judgeOnLadder,
+    writes: true,
+  },
+  comment: {
+    before: (table, userRole, scope) => {
+      if (!table) return false
+      // An app with no `auth` block: the visitor holds only what the table opens with `'all'`.
+      return isNoAuthVisitor(userRole, scope) ? anonymousGrant(table, 'comment', scope) : undefined
+    },
+    judge: (grant, { table, userRole, groups, scope, effectivePerms }) => {
+      if (grant !== undefined) return evaluateCommentGrant(grant, userRole, groups, scope)
+      if (table?.comments !== undefined && table.comments !== null) return true
+      return omittedOperationIsOpen(effectivePerms)
+    },
+    writes: false,
+  },
+}
+
+/** Who asks: one role, and the names of the groups she belongs to (un-prefixed). */
+export interface OperationCaller {
+  readonly role: string
+  readonly groups?: readonly string[]
+}
+
+/**
+ * May a caller holding `role` (and the `groups` memberships) perform
+ * `operation` on a table? The ONE algorithm behind every table-level grant:
+ *
+ *  1. the operation's early answer ({@link OperationRule.before});
+ *  2. the table's effective permissions, `inherit` and `override` resolved — an
+ *     inheritance that does not resolve denies;
+ *  3. the operation's declared grant, judged by its rule
+ *     ({@link OperationRule.judge}).
+ */
+export function hasOperationPermission(
+  operation: PermissionOperation,
+  table: GatedTable | undefined,
+  caller: OperationCaller,
+  allTables?: TableGateScope
+): boolean {
+  const { role: userRole, groups = [] } = caller
+  const rule = OPERATION_RULES[operation]
+  const early = rule.before(table, userRole, allTables)
+  if (early !== undefined) return early
+
+  const effectivePerms = getEffectivePermissions(table, allTables) as
+    Readonly<Record<string, unknown>> | undefined
+  const inheriting = table as Readonly<{ permissions?: Readonly<{ inherit?: string }> }> | undefined
+  if (inheritanceFailed(inheriting, allTables, effectivePerms)) return false
+
+  const grant = effectivePerms?.[operation]
+  return rule.judge(grant, { table, userRole, groups, scope: allTables, effectivePerms })
+}
+
+/** An operation's group-aware evaluator, over an effective-roles list. */
+export type RolesEvaluator = (
+  table: GatedTable | undefined,
+  effectiveRoles: readonly string[],
+  allTables?: TableGateScope
+) => boolean
+
+/**
+ * The group-aware evaluator of `operation` (most-permissive-wins): true when
+ * ANY of the caller's effective roles is granted it. `effectiveRoles` is the
+ * account role plus a `group:<name>` entry per group (`buildEffectiveRoles`);
+ * each role is judged with every membership alongside
+ * ({@link anyEffectiveCallerAdmits}), and a write is judged on the viewer's own
+ * role alone ({@link writingRoles}).
+ */
+export const forRoles =
+  (operation: PermissionOperation): RolesEvaluator =>
+  (table, effectiveRoles, allTables) =>
+    anyEffectiveCallerAdmits(
+      OPERATION_RULES[operation].writes ? writingRoles(effectiveRoles) : effectiveRoles,
+      (role, groups) => hasOperationPermission(operation, table, { role, groups }, allTables)
+    )
+
+/**
+ * Check if user has role-based create permission for a table — an alias of
+ * {@link hasOperationPermission}`('create', …)`, kept for its callers.
  * Returns true if permission granted, false if denied
  *
  * Permission logic:
@@ -294,37 +390,7 @@ export function hasCreatePermission(
   allTables?: TableGateScope,
   groups: readonly string[] = []
 ): boolean {
-  // Admin override: admins always have create access
-  if (outranksEveryGrant(userRole, allTables)) return true
-
-  const effectivePerms = getEffectivePermissions(table, allTables) as
-    Readonly<{ create?: unknown }> | undefined
-
-  if (inheritanceFailed(table, allTables, effectivePerms)) return false
-
-  const createPermission = effectivePerms?.create
-
-  // A table declaring `create: 'all'` opens create to every role, viewer
-  // included — the literals are honoured on writes exactly as on reads.
-  if (isOpenPermissionLiteral(createPermission, userRole)) return true
-
-  // A declared allowlist is authoritative, and it is consulted BEFORE the
-  // viewer default — the order `update` has always had. Naming a role in an
-  // allowlist is the plainest statement of intent the permission format
-  // allows, so `create: ['viewer']` grants, exactly as `update: ['viewer']`
-  // and `delete: ['viewer']` already do.
-  if (Array.isArray(createPermission)) {
-    return grantAdmits(createPermission, userRole, groups)
-  }
-
-  // Nothing declared for this role: the default is closed to every role that
-  // does not hold it — `viewer`, a caller whose stored role grants nothing, a
-  // signed-out visitor. Removing this would drop a table with no `permissions`
-  // key through to `omittedOperationIsOpen`, which is `true`, silently granting
-  // each of them create access product-wide.
-  if (!holdsDefaultGrant(userRole)) return false
-
-  return omittedOperationIsOpen(effectivePerms)
+  return hasOperationPermission('create', table, { role: userRole, groups }, allTables)
 }
 
 /**
@@ -343,7 +409,8 @@ function hasAdminScopedDeleteOverride(
 }
 
 /**
- * Check if user has delete permission for the table
+ * Check if user has delete permission for the table — an alias of
+ * {@link hasOperationPermission}`('delete', …)`, kept for its callers.
  *
  * Supports permission inheritance via the `inherit` field.
  */
@@ -362,40 +429,12 @@ export function hasDeletePermission(
   allTables?: TableGateScope,
   groups: readonly string[] = []
 ): boolean {
-  // Admin override: admins always have delete access
-  if (outranksEveryGrant(userRole, allTables)) return true
-
-  // Admin-scoped override restricts delete to admins (already granted above).
-  if (hasAdminScopedDeleteOverride(table)) return false
-
-  const effectivePerms = getEffectivePermissions(table, allTables) as
-    Readonly<{ delete?: unknown }> | undefined
-
-  if (inheritanceFailed(table, allTables, effectivePerms)) return false
-
-  const deletePermission = effectivePerms?.delete
-
-  // `delete: 'all'` / `'authenticated'` admits a viewer. The rule below is
-  // deliberately NOT the create/update one: a viewer named in an explicit
-  // delete allowlist keeps its grant. A role that does not hold the default
-  // gets an allowlist's grant and nothing else.
-  if (isOpenPermissionLiteral(deletePermission, userRole)) return true
-
-  if (!holdsDefaultGrant(userRole)) {
-    return Array.isArray(deletePermission) && grantAdmits(deletePermission, userRole, groups)
-  }
-
-  // `Array.isArray` already answers false for `undefined`, `null` and the two
-  // rung literals, so a separate `!deletePermission` check would never decide
-  // anything on its own.
-  if (!Array.isArray(deletePermission)) {
-    return omittedOperationIsOpen(effectivePerms)
-  }
-  return grantAdmits(deletePermission, userRole, groups)
+  return hasOperationPermission('delete', table, { role: userRole, groups }, allTables)
 }
 
 /**
- * Check if user has update permission for a table
+ * Check if user has update permission for a table — an alias of
+ * {@link hasOperationPermission}`('update', …)`, kept for its callers.
  * Returns true if permission granted, false if denied
  *
  * Note: When no explicit permissions are defined:
@@ -419,26 +458,7 @@ export function hasUpdatePermission(
   allTables?: TableGateScope,
   groups: readonly string[] = []
 ): boolean {
-  // Admin override: admins always have update access
-  if (outranksEveryGrant(userRole, allTables)) return true
-
-  const effectivePerms = getEffectivePermissions(table, allTables) as
-    Readonly<{ update?: unknown }> | undefined
-
-  if (inheritanceFailed(table, allTables, effectivePerms)) return false
-
-  const updatePermission = effectivePerms?.update
-
-  // `update: 'all'` / `'authenticated'` admits a viewer.
-  if (isOpenPermissionLiteral(updatePermission, userRole)) return true
-
-  if (Array.isArray(updatePermission)) {
-    return grantAdmits(updatePermission, userRole, groups)
-  }
-
-  if (!holdsDefaultGrant(userRole)) return false
-
-  return omittedOperationIsOpen(effectivePerms)
+  return hasOperationPermission('update', table, { role: userRole, groups }, allTables)
 }
 
 /**
@@ -484,7 +504,8 @@ export function hasInlineEditDefault(
 }
 
 /**
- * Check if user has read permission for a table
+ * Check if user has read permission for a table — an alias of
+ * {@link hasOperationPermission}`('read', …)`, kept for its callers.
  * Returns true if permission granted, false if denied
  *
  * Note: When no explicit permissions are defined:
@@ -504,45 +525,7 @@ export function hasReadPermission(
   allTables?: TableGateScope,
   groups: readonly string[] = []
 ): boolean {
-  // Admin override: admins always have read access
-  if (outranksEveryGrant(userRole, allTables)) return true
-
-  const effectivePerms = getEffectivePermissions(table, allTables) as
-    Readonly<{ read?: unknown }> | undefined
-
-  if (inheritanceFailed(table, allTables, effectivePerms)) return false
-
-  const readPermission = effectivePerms?.read
-
-  if (Array.isArray(readPermission)) {
-    return grantAdmits(readPermission, userRole, groups)
-  }
-
-  if (isOpenPermissionLiteral(readPermission, userRole)) return true
-
-  if (!holdsDefaultGrant(userRole)) return false
-
-  return omittedOperationIsOpen(effectivePerms)
-}
-
-/**
- * True when the table's EFFECTIVE read grant (inheritance resolved) is the
- * `'authenticated'` rung — any session, no role required.
- *
- * {@link hasReadPermission} answers that rung `true` for every role, because
- * every caller of the records API already holds a session: the route's session
- * gate answers an anonymous request 401 before any evaluator runs. A server
- * render has no such gate in front of it — it is the one reader an anonymous
- * visitor reaches — so the read plan asks this separately and refuses the rung
- * to a principal without a session.
- */
-export function readRequiresSession(
-  table: Readonly<{ name: string; permissions?: unknown }> | undefined,
-  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
-): boolean {
-  const effective = getEffectivePermissions(table, allTables) as
-    Readonly<{ read?: unknown }> | undefined
-  return classifyPermissionRung(toPermissionValue(effective?.read)) === 'any-session'
+  return hasOperationPermission('read', table, { role: userRole, groups }, allTables)
 }
 
 /**
@@ -564,7 +547,8 @@ export function readOpensToEveryone(
 }
 
 /**
- * Check if a user may comment on records in a table.
+ * Check if a user may comment on records in a table — an alias of
+ * {@link hasOperationPermission}`('comment', …)`, kept for its callers.
  *
  * Comment-ability follows `permissions.comment`, NOT read. The rule:
  *
@@ -590,29 +574,7 @@ export function hasCommentPermission(
   allTables?: TableGateScope,
   groups: readonly string[] = []
 ): boolean {
-  if (!table) return false
-
-  const effectivePerms = getEffectivePermissions(table, allTables) as
-    Readonly<{ comment?: unknown }> | undefined
-
-  // Inheritance declared but unresolved → deny (mirrors the read/create paths).
-  if (inheritanceFailed(table, allTables, effectivePerms)) return false
-
-  // A declared comment grant is authoritative — enforce it (admin override).
-  const commentGrant = effectivePerms?.comment
-  if (commentGrant !== undefined) {
-    return evaluateCommentGrant(commentGrant, userRole, groups, allTables)
-  }
-
-  // No comment grant, but a `comments` block still marks a commentable surface.
-  if (table.comments !== undefined && table.comments !== null) return true
-
-  // No comment grant and no `comments` block: non-commentable ONLY when the
-  // table declares a GATING `permissions` block (a "post-it"). A block that
-  // names no operation — absent, `{}`, or `fields`-only — leaves the table
-  // commentable, the same omitted-operation default the four evaluators above
-  // apply. One default across all five is the point.
-  return omittedOperationIsOpen(effectivePerms)
+  return hasOperationPermission('comment', table, { role: userRole, groups }, allTables)
 }
 
 /**
@@ -639,7 +601,7 @@ function evaluateCommentGrant(
 }
 
 /**
- * Group-aware read permission check (most-permissive-wins).
+ * Group-aware read permission check (most-permissive-wins): {@link forRoles}`('read')`.
  *
  * Returns true when ANY of the user's effective roles is granted read
  * access. `effectiveRoles` is the user's global role plus a `group:<name>`
@@ -654,9 +616,7 @@ export function hasReadPermissionForRoles(
   effectiveRoles: readonly string[],
   allTables?: TableGateScope
 ): boolean {
-  return anyEffectiveCallerAdmits(effectiveRoles, (role, groups) =>
-    hasReadPermission(table, role, allTables, groups)
-  )
+  return forRoles('read')(table, effectiveRoles, allTables)
 }
 
 /**
@@ -711,7 +671,7 @@ export function hasReadPermissionForCaller(
 }
 
 /**
- * Group-aware create permission check (most-permissive-wins).
+ * Group-aware create permission check (most-permissive-wins): {@link forRoles}`('create')`.
  *
  * Returns true when ANY of the user's effective roles is granted create
  * access. See `hasReadPermissionForRoles` for the effective-roles contract.
@@ -721,35 +681,29 @@ export function hasCreatePermissionForRoles(
   effectiveRoles: readonly string[],
   allTables?: TableGateScope
 ): boolean {
-  return anyEffectiveCallerAdmits(writingRoles(effectiveRoles), (role, groups) =>
-    hasCreatePermission(table, role, allTables, groups)
-  )
+  return forRoles('create')(table, effectiveRoles, allTables)
 }
 
 /**
- * Group-aware update permission check (most-permissive-wins).
+ * Group-aware update permission check (most-permissive-wins): {@link forRoles}`('update')`.
  */
 export function hasUpdatePermissionForRoles(
   table: Parameters<typeof hasUpdatePermission>[0],
   effectiveRoles: readonly string[],
   allTables?: TableGateScope
 ): boolean {
-  return anyEffectiveCallerAdmits(writingRoles(effectiveRoles), (role, groups) =>
-    hasUpdatePermission(table, role, allTables, groups)
-  )
+  return forRoles('update')(table, effectiveRoles, allTables)
 }
 
 /**
- * Group-aware delete permission check (most-permissive-wins).
+ * Group-aware delete permission check (most-permissive-wins): {@link forRoles}`('delete')`.
  */
 export function hasDeletePermissionForRoles(
   table: Parameters<typeof hasDeletePermission>[0],
   effectiveRoles: readonly string[],
   allTables?: TableGateScope
 ): boolean {
-  return anyEffectiveCallerAdmits(writingRoles(effectiveRoles), (role, groups) =>
-    hasDeletePermission(table, role, allTables, groups)
-  )
+  return forRoles('delete')(table, effectiveRoles, allTables)
 }
 
 /**
@@ -771,7 +725,7 @@ export function hasInlineEditDefaultForRoles(
 }
 
 /**
- * Group-aware comment permission check (most-permissive-wins).
+ * Group-aware comment permission check (most-permissive-wins): {@link forRoles}`('comment')`.
  *
  * Returns true when ANY of the user's effective roles may comment. The fifth
  * member of the `*ForRoles` family, added because the comment CREATE gate
@@ -792,59 +746,5 @@ export function hasCommentPermissionForRoles(
   effectiveRoles: readonly string[],
   allTables?: TableGateScope
 ): boolean {
-  return anyEffectiveCallerAdmits(effectiveRoles, (role, groups) =>
-    hasCommentPermission(table, role, allTables, groups)
-  )
-}
-
-/**
- * Resolve inherited permissions for a table
- *
- * Recursively resolves permissions by following the inheritance chain.
- * Handles circular inheritance detection and merges override permissions.
- *
- * @param table - The table to resolve permissions for
- * @param allTables - All tables in the app (for parent lookup)
- * @param visited - Set of visited table names (for circular detection)
- * @returns Resolved permissions or undefined if inheritance chain is invalid
- * @throws Error if circular inheritance detected or parent table not found
- */
-export function resolveInheritedPermissions(
-  table: Readonly<{ name: string; permissions?: TablePermissions }> | undefined,
-  allTables: readonly Readonly<{ name: string; permissions?: TablePermissions }>[],
-  visited: ReadonlySet<string> = new Set()
-): TablePermissions | undefined {
-  if (!table?.permissions) return undefined
-
-  const { permissions } = table
-
-  // If no inheritance, return current permissions
-  if (!permissions.inherit) {
-    return permissions
-  }
-
-  // Circular inheritance detection
-  if (hasCircularInheritance(table.name, visited)) {
-    // Return undefined to indicate error (caught by callers)
-    return undefined
-  }
-
-  // Find parent table
-  const parentTable = findParentTable(permissions.inherit, allTables)
-  if (!parentTable) {
-    // Return undefined to indicate error (caught by callers)
-    return undefined
-  }
-
-  // Recursively resolve parent permissions
-  const parentPermissions = resolveInheritedPermissions(
-    parentTable,
-    allTables,
-    new Set([...visited, table.name])
-  )
-
-  if (!parentPermissions) return permissions
-
-  // Merge parent permissions with current permissions (current takes precedence)
-  return mergePermissions(permissions, parentPermissions)
+  return forRoles('comment')(table, effectiveRoles, allTables)
 }

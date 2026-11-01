@@ -37,7 +37,7 @@ import {
   verifyDetached,
 } from '@/domain/kernel/identity/ed25519'
 import { findBundlePublicKey } from '@/domain/models/process-env/host-actions'
-import { stringProp } from './shared'
+import { runEnvOf, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 /** Encodings accepted by `props.encoding`; `hex` is the default. */
@@ -135,13 +135,16 @@ export const handleCryptoSign: ActionHandler = (action, _app, _automation) =>
   }).pipe(Effect.withSpan('automations.handle-crypto-sign'))
 
 /** The public key a verify step names, or why it cannot be had. */
-const verifyingKey = (props: Readonly<Record<string, unknown>>) => {
+const verifyingKey = (
+  props: Readonly<Record<string, unknown>>,
+  env: Readonly<Record<string, string | undefined>>
+) => {
   const { publicKey: inline, keyId } = props
   if (typeof inline === 'string' && inline !== '') {
     return importEd25519PublicKey(inline) ?? 'crypto.verify: publicKey is not an Ed25519 public key'
   }
   if (typeof keyId === 'string' && keyId !== '') {
-    const trusted = findBundlePublicKey(keyId, process.env)
+    const trusted = findBundlePublicKey(keyId, env)
     if (trusted === undefined) {
       return `crypto.verify: no key "${keyId}" in SOVRIUM_BUNDLE_PUBLIC_KEYS`
     }
@@ -162,10 +165,10 @@ const verifyingKey = (props: Readonly<Record<string, unknown>>) => {
  * workflow branches on. A public key that cannot be read, or a `keyId` the
  * keyring does not hold, is a configuration fault and fails the step.
  */
-export const handleCryptoVerify: ActionHandler = (action, _app, _automation) =>
+export const handleCryptoVerify: ActionHandler = (action, _app, _automation, runContext) =>
   Effect.sync((): ActionOutcome => {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-    const key = verifyingKey(props)
+    const key = verifyingKey(props, runEnvOf(runContext))
     if (typeof key === 'string') return failure(key)
     const valid = verifyDetached(
       utf8(stringProp(props, 'data')),

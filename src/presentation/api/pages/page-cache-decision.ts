@@ -19,6 +19,8 @@
 import { Effect } from 'effect'
 import { ContentDirReader } from '@/application/ports/services/content-dir-reader'
 import { computeAppRenderChecksum } from '@/domain/models/app/app-render-checksum'
+import { isSessionEndedQuery } from '@/domain/models/app/auth/session-ended-marker'
+import { FORM_ANSWERED_PARAM } from '@/domain/models/app/forms/submission-ledger-service'
 import { getPageCacheKey } from '@/domain/models/app/pages/page-cache-key'
 import { classifyRenderablePath } from '@/domain/models/app/pages/page-cacheability'
 import {
@@ -98,12 +100,24 @@ export interface PageCacheDecision {
 export function decidePageCache(
   app: App,
   path: string,
-  request: { readonly session?: SessionInfo; readonly previewMode?: boolean }
+  request: {
+    readonly session?: SessionInfo
+    readonly previewMode?: boolean
+    readonly requestQuery?: Readonly<Record<string, string>>
+  }
 ): PageCacheDecision {
   const cacheEnabled = parseEcoPageCache(process.env) === 'on' && !isDevCacheDisabled()
-  const anonymousRender = request.session === undefined && request.previewMode !== true
+  // A sign-in page told its reader's session ended says so for that reader only.
+  const anonymousRender =
+    request.session === undefined &&
+    request.previewMode !== true &&
+    !isSessionEndedQuery(request.requestQuery)
   const shareableBypass = cacheEnabled && anonymousRender
   const classification = classifyRenderablePath(app, path)
+  // A page drawn back after a form posted without JavaScript answers one visitor.
+  if (request.requestQuery?.[FORM_ANSWERED_PARAM] !== undefined) {
+    return { usable: false, bypassCacheControl: PER_VISIT_CACHE_CONTROL, classification }
+  }
   return {
     usable: shareableBypass && classification.verdict !== 'dynamic',
     bypassCacheControl: bypassCacheControlFor(shareableBypass, classification),

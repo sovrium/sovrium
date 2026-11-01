@@ -66,16 +66,15 @@ export {
 } from './column-detection'
 
 // Migration statement generation
+export { generateAlterTableStatements, needsTableRecreation } from './migration-statements'
 export {
-  generateAlterTableStatements,
-  needsTableRecreation,
   isTableDefinitionUnchanged,
   needsDefinitionReconciliation,
   findPreviousTableDefinition,
   formulaColumnsNeedRebuild,
   formulaColumnsReshaped,
   hasDriftedFormulaColumns,
-} from './migration-statements'
+} from './table-definition-drift'
 
 // Constraint synchronization
 export {

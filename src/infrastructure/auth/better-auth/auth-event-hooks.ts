@@ -6,16 +6,10 @@
  */
 
 import { createAuthMiddleware, isAPIError } from 'better-auth/api'
-/* eslint-disable boundaries/dependencies -- Better Auth's hooks are the only point that observes a sign-in, a sign-out or a reset; the application use case is the dispatch contract, same shape as the record-event trigger bridge. */
-import {
-  triggerAuthEventAutomations,
-  type AuthTriggerEvent,
-} from '@/application/use-cases/automations/trigger-auth-event'
-/* eslint-enable boundaries/dependencies -- end of the dispatch-contract import */
 import { logError } from '@/infrastructure/logging/logger'
-import { runOnDomain } from '@/infrastructure/server/domain-runtime'
 import { requestKey, type AuthMiddlewareCtx } from './hook-context'
 import type { AuthHookContext } from './auth-database-hooks'
+import type { AuthTriggerEvent } from '@/application/ports/contracts/auth-hook-policies'
 import type { App } from '@/domain/models/app'
 import type { BetterAuthPlugin } from 'better-auth'
 
@@ -38,13 +32,13 @@ import type { BetterAuthPlugin } from 'better-auth'
  */
 
 /**
- * Drive the `triggerAuthEventAutomations` use case from a plain-async Better
- * Auth hook. A crashing automation never fails the auth flow it observes: the
- * use case absorbs its own errors, and a rejection of the run itself is logged
- * with its cause and swallowed here.
+ * Start the app's `auth` automations from a plain-async Better Auth hook,
+ * through the dispatch the server bound into this instance's policies
+ * (`AuthHookPolicies.dispatchAuthEvent`). A crashing automation never fails the
+ * auth flow it observes: the dispatch absorbs and logs its own failures.
  *
- * No app (the OpenAPI-schema instance) or no server context means no
- * automation runtime to reach, so the bridge does nothing.
+ * No app (the OpenAPI-schema instance), no automations, or no server context
+ * means no automation runtime to reach, so the bridge does nothing.
  */
 export const dispatchAuthEvent = (
   event: AuthTriggerEvent,
@@ -53,21 +47,14 @@ export const dispatchAuthEvent = (
   data?: Readonly<Record<string, unknown>>
 ): Promise<void> => {
   const appMeta = hookContext?.appMeta
-  const domainContext = hookContext?.domainContext
   if (!appMeta?.automations || appMeta.automations.length === 0) return Promise.resolve()
-  if (domainContext === undefined) return Promise.resolve()
-  const program = triggerAuthEventAutomations({
+  if (hookContext?.domainContext === undefined) return Promise.resolve()
+  return hookContext.policies.dispatchAuthEvent({
     app: appMeta as App,
     event,
     user,
-    processEnv: process.env,
     userId: typeof user['id'] === 'string' ? (user['id'] as string) : undefined,
     ...(data === undefined ? {} : { data }),
-  })
-  // Swallowed on purpose: an automation must never fail the sign-in, sign-out
-  // or reset it reacts to. The cause is logged for the operator.
-  return runOnDomain(domainContext, program).catch((err) => {
-    logError('[automation:auth-event] auth-event dispatch failed', err)
   })
 }
 

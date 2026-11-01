@@ -26,6 +26,7 @@
  * road that shows a run — the HTTP routes and the MCP tools — masks alike.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { redactEmail } from '@/domain/kernel/sanitize/email-redaction'
 import { hasTriggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import { singleUserFieldNames } from './hydrated-field-reference'
@@ -35,12 +36,9 @@ import type { App } from '@/domain/models/app'
 
 type Json = Readonly<Record<string, unknown>>
 
-const isObject = (value: unknown): value is Json =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 /** An expanded person: exactly `id`, `name` and a string `email`. */
 const isPerson = (value: unknown): value is Json & { readonly email: string } =>
-  isObject(value) &&
+  isRecord(value) &&
   typeof value['email'] === 'string' &&
   Object.keys(value).toSorted().join(',') === 'email,id,name'
 
@@ -57,9 +55,9 @@ const findTableOfStep = (node: unknown, stepName: string): string | undefined =>
       undefined
     )
   }
-  if (!isObject(node)) return undefined
+  if (!isRecord(node)) return undefined
   const { props } = node
-  if (node['name'] === stepName && isObject(props) && typeof props['table'] === 'string') {
+  if (node['name'] === stepName && isRecord(props) && typeof props['table'] === 'string') {
     return props['table']
   }
   return findTableOfStep(Object.values(node), stepName)
@@ -81,7 +79,7 @@ export const personFieldsOfStep = (
 
 /** A record with each named person field masked, at its top level and under `fields`. */
 const maskRecord = (record: unknown, names: readonly string[]): unknown => {
-  if (!isObject(record)) return record
+  if (!isRecord(record)) return record
   const maskIn = (source: Json): Json => ({
     ...source,
     ...Object.fromEntries(
@@ -92,14 +90,14 @@ const maskRecord = (record: unknown, names: readonly string[]): unknown => {
     ),
   })
   const { fields } = record
-  return { ...maskIn(record), ...(isObject(fields) ? { fields: maskIn(fields) } : {}) }
+  return { ...maskIn(record), ...(isRecord(fields) ? { fields: maskIn(fields) } : {}) }
 }
 
 /** Every object of `value`, at any depth, with exactly the expanded person's shape, masked. */
 export const maskByShape = (value: unknown): unknown => {
   if (isPerson(value)) return maskedPerson(value)
   if (Array.isArray(value)) return value.map(maskByShape)
-  if (!isObject(value)) return value
+  if (!isRecord(value)) return value
   return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, maskByShape(child)]))
 }
 
@@ -115,10 +113,10 @@ const maskedAddressList = (value: unknown): unknown =>
  * Nothing else is read — the comment's body is the author's own words.
  */
 export const maskCommentTriggerAddresses = (triggerData: unknown): unknown => {
-  if (!isObject(triggerData)) return triggerData
+  if (!isRecord(triggerData)) return triggerData
   const { comment } = triggerData
-  const author = isObject(comment) ? comment['author'] : undefined
-  const authorEmail = isObject(author) ? author['email'] : undefined
+  const author = isRecord(comment) ? comment['author'] : undefined
+  const authorEmail = isRecord(author) ? author['email'] : undefined
   return {
     ...triggerData,
     ...('threadParticipants' in triggerData
@@ -127,7 +125,7 @@ export const maskCommentTriggerAddresses = (triggerData: unknown): unknown => {
     ...('mentionedEmails' in triggerData
       ? { mentionedEmails: maskedAddressList(triggerData['mentionedEmails']) }
       : {}),
-    ...(isObject(comment) && isObject(author) && typeof authorEmail === 'string'
+    ...(isRecord(comment) && isRecord(author) && typeof authorEmail === 'string'
       ? { comment: { ...comment, author: { ...author, email: redactEmail(authorEmail) } } }
       : {}),
   }
@@ -139,9 +137,9 @@ export const maskCommentTriggerAddresses = (triggerData: unknown): unknown => {
  * name stay; the system's empty address stays empty.
  */
 export const maskRequesterAddress = (triggerData: unknown): unknown => {
-  if (!isObject(triggerData)) return triggerData
+  if (!isRecord(triggerData)) return triggerData
   const { requester } = triggerData
-  if (!isObject(requester) || typeof requester['email'] !== 'string') return triggerData
+  if (!isRecord(requester) || typeof requester['email'] !== 'string') return triggerData
   if (requester['email'] === '') return triggerData
   return { ...triggerData, requester: { ...requester, email: redactEmail(requester['email']) } }
 }
@@ -172,7 +170,7 @@ export const triggerDataWithMaskedAddresses = (
  */
 export const maskPersonAddresses = (output: unknown, names: readonly string[] | undefined) => {
   if (names === undefined) return maskByShape(output)
-  if (!isObject(output) || names.length === 0) return output
+  if (!isRecord(output) || names.length === 0) return output
   const { record, records } = output
   return {
     ...output,

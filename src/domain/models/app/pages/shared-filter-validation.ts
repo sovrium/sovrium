@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Family 12 of the page decode rules: shared-filter channels.
  *
@@ -110,8 +112,4 @@ function publishedKeys(publishes: Readonly<Record<string, unknown>>): readonly s
   if (typeof param === 'string') return [param]
   if (!isRecord(params)) return []
   return Object.values(params).filter((name): name is string => typeof name === 'string')
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

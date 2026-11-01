@@ -180,6 +180,8 @@ import {
   buttonGroupFields,
   ThemeToggleTypeLiteral,
   themeToggleFields,
+  ConsentChoiceTypeLiteral,
+  consentChoiceFields,
 } from './interactive'
 import {
   ContainerTypeLiteral,
@@ -340,6 +342,7 @@ const interactionAndDisplayComponents = [
   [LinkTypeLiteral, linkFields],
   [ButtonGroupTypeLiteral, buttonGroupFields],
   [ThemeToggleTypeLiteral, themeToggleFields],
+  [ConsentChoiceTypeLiteral, consentChoiceFields],
   // Navigation
   [BreadcrumbTypeLiteral, breadcrumbFields],
   [CommandPaletteTypeLiteral, commandPaletteFields],
@@ -503,6 +506,7 @@ export const ComponentTypeSchema = Schema.Union(
     LinkTypeLiteral,
     ButtonGroupTypeLiteral,
     ThemeToggleTypeLiteral,
+    ConsentChoiceTypeLiteral,
     BreadcrumbTypeLiteral,
     CommandPaletteTypeLiteral,
     DropdownMenuTypeLiteral,

@@ -56,6 +56,7 @@
  * Specs: a design system component preview spec (and its closed-set sibling)
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   CATALOG_COMPONENT_CATEGORIES,
   catalogedTypesOf,
@@ -66,9 +67,6 @@ import { schemaOptionTree } from './schema-option-tree'
 
 /** How many published paths a refusal lists before trailing off. */
 const SUGGESTION_LIMIT = 12
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * Is this string a claim the catalogue can answer today?

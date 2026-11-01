@@ -165,7 +165,7 @@ export const dateRangePickerFields = {
     Schema.Literals([1, 2]).annotate({
       title: 'Months Shown',
       description:
-        'How many calendars the panel shows side by side. `2` by default — a period crossing a month boundary is the common case.',
+        'How many calendars the panel shows side by side. `2` by default, since a period crossing a month boundary is the common case.',
     })
   ),
   /**
@@ -179,7 +179,7 @@ export const dateRangePickerFields = {
     Schema.Array(DateRangePresetSchema).annotate({
       title: 'Presets',
       description:
-        'Named periods offered down the left of the panel, in the order given. Omitted and `[]` both draw no preset column — unlike `rich-text-editor.toolbar`, an empty preset list has no second reading to distinguish.',
+        'Named periods offered down the left of the panel, in the order given. Omitted and `[]` both draw no preset column. Unlike `rich-text-editor.toolbar`, an empty preset list has no second reading to distinguish.',
       examples: [['today', 'last-7-days', 'this-month', 'last-month']],
     })
   ),

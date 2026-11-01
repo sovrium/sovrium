@@ -82,7 +82,7 @@
                   "type": "text",
                   "element": "p",
                   "props": {
-                    "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                    "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                   },
                   "content": "$t:admin.ds.viewport.label"
                 },
@@ -193,7 +193,7 @@
               "type": "text",
               "element": "p",
               "props": {
-                "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed",
+                "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed",
                 "data-testid": "design-system-viewport-note"
               },
               "content": "$t:admin.ds.viewport.note"
@@ -316,7 +316,7 @@
                                               "type": "text",
                                               "element": "span",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -331,7 +331,7 @@
                                               "key": "article-1-3",
                                               "element": "div",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -372,7 +372,7 @@
                                               "key": "article-1-4",
                                               "element": "div",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -431,7 +431,7 @@
                                                   "variant": "link",
                                                   "props": {
                                                     "type": "button",
-                                                    "className": "text-foreground-subtle hover:text-foreground font-mono text-[11px] leading-none",
+                                                    "className": "text-foreground-subtle hover:text-foreground font-mono text-xs leading-none",
                                                     "data-copy-code": "true",
                                                     "data-copied-label": "$t:admin.common.copied",
                                                     "aria-label": "$t:admin.ds.components.copyRef",
@@ -473,7 +473,7 @@
                                                   "type": "text",
                                                   "element": "span",
                                                   "props": {
-                                                    "className": "border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-[11px]",
+                                                    "className": "border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-xs",
                                                     "data-design-usage-route": "$record.route"
                                                   },
                                                   "content": "$record.route"
@@ -636,7 +636,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.components.usage"
                                                     },
@@ -652,7 +652,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -690,7 +690,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.when"
                                                     },
@@ -706,7 +706,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -744,7 +744,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.dont"
                                                     },
@@ -760,7 +760,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -801,7 +801,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -816,7 +816,7 @@
                                           "key": "article-7-3",
                                           "element": "div",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -857,7 +857,7 @@
                                           "key": "article-7-4",
                                           "element": "div",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -897,7 +897,7 @@
                                           "type": "link",
                                           "props": {
                                             "href": "/design-system/components/$record.name",
-                                            "className": "text-foreground hover:text-muted-foreground ml-auto text-[11px] font-medium"
+                                            "className": "text-foreground hover:text-muted-foreground ml-auto text-xs font-medium"
                                           },
                                           "content": "$t:admin.ds.components.expand"
                                         }
@@ -1002,7 +1002,7 @@
                                               "type": "text",
                                               "element": "span",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -1017,7 +1017,7 @@
                                               "key": "article-8-1-3",
                                               "element": "div",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -1058,7 +1058,7 @@
                                               "key": "article-8-1-4",
                                               "element": "div",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -1117,7 +1117,7 @@
                                                   "variant": "link",
                                                   "props": {
                                                     "type": "button",
-                                                    "className": "text-foreground-subtle hover:text-foreground font-mono text-[11px] leading-none",
+                                                    "className": "text-foreground-subtle hover:text-foreground font-mono text-xs leading-none",
                                                     "data-copy-code": "true",
                                                     "data-copied-label": "$t:admin.common.copied",
                                                     "aria-label": "$t:admin.ds.components.copyRef",
@@ -1159,7 +1159,7 @@
                                                   "type": "text",
                                                   "element": "span",
                                                   "props": {
-                                                    "className": "border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-[11px]",
+                                                    "className": "border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-xs",
                                                     "data-design-usage-route": "$record.route"
                                                   },
                                                   "content": "$record.route"
@@ -1322,7 +1322,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.components.usage"
                                                     },
@@ -1338,7 +1338,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -1376,7 +1376,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.when"
                                                     },
@@ -1392,7 +1392,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -1430,7 +1430,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.dont"
                                                     },
@@ -1446,7 +1446,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -1487,7 +1487,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -1502,7 +1502,7 @@
                                           "key": "article-9-3",
                                           "element": "div",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -1543,7 +1543,7 @@
                                           "key": "article-9-4",
                                           "element": "div",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -1583,7 +1583,7 @@
                                           "type": "link",
                                           "props": {
                                             "href": "/design-system/components/$record.name",
-                                            "className": "text-foreground hover:text-muted-foreground ml-auto text-[11px] font-medium"
+                                            "className": "text-foreground hover:text-muted-foreground ml-auto text-xs font-medium"
                                           },
                                           "content": "$t:admin.ds.components.expand"
                                         }
@@ -1688,7 +1688,7 @@
                                               "type": "text",
                                               "element": "span",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -1703,7 +1703,7 @@
                                               "key": "article-10-1-3",
                                               "element": "div",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -1744,7 +1744,7 @@
                                               "key": "article-10-1-4",
                                               "element": "div",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -1803,7 +1803,7 @@
                                                   "variant": "link",
                                                   "props": {
                                                     "type": "button",
-                                                    "className": "text-foreground-subtle hover:text-foreground font-mono text-[11px] leading-none",
+                                                    "className": "text-foreground-subtle hover:text-foreground font-mono text-xs leading-none",
                                                     "data-copy-code": "true",
                                                     "data-copied-label": "$t:admin.common.copied",
                                                     "aria-label": "$t:admin.ds.components.copyRef",
@@ -1845,7 +1845,7 @@
                                                   "type": "text",
                                                   "element": "span",
                                                   "props": {
-                                                    "className": "border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-[11px]",
+                                                    "className": "border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-xs",
                                                     "data-design-usage-route": "$record.route"
                                                   },
                                                   "content": "$record.route"
@@ -2008,7 +2008,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.components.usage"
                                                     },
@@ -2024,7 +2024,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -2062,7 +2062,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.when"
                                                     },
@@ -2078,7 +2078,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -2116,7 +2116,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.dont"
                                                     },
@@ -2132,7 +2132,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -2173,7 +2173,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -2188,7 +2188,7 @@
                                           "key": "article-11-3",
                                           "element": "div",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -2229,7 +2229,7 @@
                                           "key": "article-11-4",
                                           "element": "div",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -2269,7 +2269,7 @@
                                           "type": "link",
                                           "props": {
                                             "href": "/design-system/components/$record.name",
-                                            "className": "text-foreground hover:text-muted-foreground ml-auto text-[11px] font-medium"
+                                            "className": "text-foreground hover:text-muted-foreground ml-auto text-xs font-medium"
                                           },
                                           "content": "$t:admin.ds.components.expand"
                                         }
@@ -2374,7 +2374,7 @@
                                               "type": "text",
                                               "element": "span",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -2389,7 +2389,7 @@
                                               "key": "article-12-1-3",
                                               "element": "div",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -2430,7 +2430,7 @@
                                               "key": "article-12-1-4",
                                               "element": "div",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -2489,7 +2489,7 @@
                                                   "variant": "link",
                                                   "props": {
                                                     "type": "button",
-                                                    "className": "text-foreground-subtle hover:text-foreground font-mono text-[11px] leading-none",
+                                                    "className": "text-foreground-subtle hover:text-foreground font-mono text-xs leading-none",
                                                     "data-copy-code": "true",
                                                     "data-copied-label": "$t:admin.common.copied",
                                                     "aria-label": "$t:admin.ds.components.copyRef",
@@ -2531,7 +2531,7 @@
                                                   "type": "text",
                                                   "element": "span",
                                                   "props": {
-                                                    "className": "border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-[11px]",
+                                                    "className": "border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-xs",
                                                     "data-design-usage-route": "$record.route"
                                                   },
                                                   "content": "$record.route"
@@ -2694,7 +2694,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.components.usage"
                                                     },
@@ -2710,7 +2710,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -2748,7 +2748,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.when"
                                                     },
@@ -2764,7 +2764,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -2802,7 +2802,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.dont"
                                                     },
@@ -2818,7 +2818,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -2859,7 +2859,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -2874,7 +2874,7 @@
                                           "key": "article-13-3",
                                           "element": "div",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -2915,7 +2915,7 @@
                                           "key": "article-13-4",
                                           "element": "div",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -2955,7 +2955,7 @@
                                           "type": "link",
                                           "props": {
                                             "href": "/design-system/components/$record.name",
-                                            "className": "text-foreground hover:text-muted-foreground ml-auto text-[11px] font-medium"
+                                            "className": "text-foreground hover:text-muted-foreground ml-auto text-xs font-medium"
                                           },
                                           "content": "$t:admin.ds.components.expand"
                                         }
@@ -3060,7 +3060,7 @@
                                               "type": "text",
                                               "element": "span",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -3075,7 +3075,7 @@
                                               "key": "article-14-1-3",
                                               "element": "div",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -3116,7 +3116,7 @@
                                               "key": "article-14-1-4",
                                               "element": "div",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px]"
+                                                "className": "text-foreground-subtle text-xs"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -3175,7 +3175,7 @@
                                                   "variant": "link",
                                                   "props": {
                                                     "type": "button",
-                                                    "className": "text-foreground-subtle hover:text-foreground font-mono text-[11px] leading-none",
+                                                    "className": "text-foreground-subtle hover:text-foreground font-mono text-xs leading-none",
                                                     "data-copy-code": "true",
                                                     "data-copied-label": "$t:admin.common.copied",
                                                     "aria-label": "$t:admin.ds.components.copyRef",
@@ -3217,7 +3217,7 @@
                                                   "type": "text",
                                                   "element": "span",
                                                   "props": {
-                                                    "className": "border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-[11px]",
+                                                    "className": "border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-xs",
                                                     "data-design-usage-route": "$record.route"
                                                   },
                                                   "content": "$record.route"
@@ -3380,7 +3380,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.components.usage"
                                                     },
@@ -3396,7 +3396,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -3434,7 +3434,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.when"
                                                     },
@@ -3450,7 +3450,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -3488,7 +3488,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                                       },
                                                       "content": "$t:admin.ds.dont"
                                                     },
@@ -3504,7 +3504,7 @@
                                                       "type": "text",
                                                       "element": "p",
                                                       "props": {
-                                                        "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                        "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                                       },
                                                       "content": "$record.reason"
                                                     }
@@ -3545,7 +3545,7 @@
                                           "type": "text",
                                           "element": "span",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -3560,7 +3560,7 @@
                                           "key": "article-15-3",
                                           "element": "div",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -3601,7 +3601,7 @@
                                           "key": "article-15-4",
                                           "element": "div",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px]"
+                                            "className": "text-foreground-subtle text-xs"
                                           },
                                           "visibility": {
                                             "record": {
@@ -3641,7 +3641,7 @@
                                           "type": "link",
                                           "props": {
                                             "href": "/design-system/components/$record.name",
-                                            "className": "text-foreground hover:text-muted-foreground ml-auto text-[11px] font-medium"
+                                            "className": "text-foreground hover:text-muted-foreground ml-auto text-xs font-medium"
                                           },
                                           "content": "$t:admin.ds.components.expand"
                                         }

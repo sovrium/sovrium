@@ -7,10 +7,11 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { db, type DatabaseError } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { wrapDatabaseError } from '../statement/error-handling'
 import { validateColumnName, tableIdentifier } from '../statement/validation'
+import type { DatabaseError } from '@/infrastructure/database'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Reading the human label behind a relationship's stored key.
@@ -68,6 +69,7 @@ const relatedLabelKey = (relatedTable: string, displayField: string): string =>
 
 /** SELECT the id/label pairs for one related table. */
 const readLabelRows = (
+  { client: db, dialect }: DatabaseService,
   request: RelatedLabelRequest
 ): Promise<ReadonlyArray<Record<string, unknown>>> => {
   validateColumnName(request.displayField)
@@ -75,7 +77,8 @@ const readLabelRows = (
     request.ids.map((id) => sql`${coerceId(id)}`),
     sql.raw(', ')
   )
-  return executeRaw(
+  return executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT id AS related_id, ${sql.identifier(request.displayField)} AS label FROM ${tableIdentifier(request.relatedTable)} WHERE id IN (${idList})`
   )
@@ -106,6 +109,7 @@ const foldLabelRows = (
  * rendering a blank cell, so a dangling link stays visible as a link.
  */
 export const readRelatedLabels = (
+  { client: db, dialect }: DatabaseService,
   requests: readonly RelatedLabelRequest[]
 ): Effect.Effect<RelatedLabelMap, DatabaseError> => {
   const wanted = requests.filter((r) => r.ids.length > 0)
@@ -116,7 +120,7 @@ export const readRelatedLabels = (
       Effect.tryPromise({
         try: async () => ({
           request,
-          byId: foldLabelRows(await readLabelRows(request), request),
+          byId: foldLabelRows(await readLabelRows({ client: db, dialect }, request), request),
         }),
         catch: wrapDatabaseError(`Failed to read related labels for ${request.relatedTable}`),
       }),

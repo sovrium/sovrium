@@ -6,7 +6,7 @@
  */
 
 import { and, desc, eq, inArray } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   BootLedgerDatabaseError,
   BootLedgerRepository,
@@ -14,8 +14,11 @@ import {
   type BootLedgerEntryWithSnapshot,
   type BootLedgerStats,
 } from '@/application/ports/repositories/admin/boot-ledger-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { bootLedger as bootLedgerPg } from '@/infrastructure/database/drizzle/schema/boot-ledger'
 import { bootLedger as bootLedgerSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/boot-ledger'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -23,6 +26,7 @@ import type {
   AdminReleaseEngineMigration,
   AdminReleaseSchemaChange,
 } from '@/domain/models/api/admin/releases/ledger'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Drizzle implementation of the boot-ledger port.
@@ -132,6 +136,7 @@ const decodeRowWithSnapshot = (
 
 /** The newest single row matching a condition, with its snapshot. */
 const newestWhere = (
+  db: PortableDb,
   // drizzle's `SQL` is a class carrying its own methods; `Readonly<SQL>` drops them and
   // the query builder then refuses the value outright.
   condition: ReturnType<typeof and>
@@ -144,10 +149,10 @@ const newestWhere = (
     )
   )
 
-export const BootLedgerRepositoryLive = Layer.succeed(BootLedgerRepository, {
-  latest: (appName: string) => newestWhere(eq(bootLedger.appName, appName)),
+const members: MembersOverDatabase<typeof BootLedgerRepository> = {
+  latest: (db) => (appName: string) => newestWhere(db, eq(bootLedger.appName, appName)),
 
-  listNewestFirst: (appName: string) =>
+  listNewestFirst: (db) => (appName: string) =>
     wrap(() =>
       db
         .select({
@@ -173,20 +178,20 @@ export const BootLedgerRepositoryLive = Layer.succeed(BootLedgerRepository, {
         .orderBy(desc(bootLedger.bootedAt))
     ).pipe(Effect.map((rows) => rows.map((row) => decodeRow(row as Record<string, unknown>)))),
 
-  findByAddress: (appName: string, address: string) =>
+  findByAddress: (db) => (appName: string, address: string) =>
     // By HASH first, and by `id` only when that misses. A hash is the address
     // the console links and an operator reads off a diff, so it wins the tie;
     // the two spaces cannot collide in practice (twelve hex characters against
     // a UUID) and the order is what makes a repeated hash resolve to its
     // newest row rather than to whichever twin an id scan reached first.
-    newestWhere(and(eq(bootLedger.appName, appName), eq(bootLedger.configHash, address))).pipe(
+    newestWhere(db, and(eq(bootLedger.appName, appName), eq(bootLedger.configHash, address))).pipe(
       Effect.filterOrElse(
         (byHash) => byHash !== undefined,
-        () => newestWhere(and(eq(bootLedger.appName, appName), eq(bootLedger.id, address)))
+        () => newestWhere(db, and(eq(bootLedger.appName, appName), eq(bootLedger.id, address)))
       )
     ),
 
-  findPredecessor: (appName: string, bootedAt: Readonly<Date>) =>
+  findPredecessor: (db) => (appName: string, bootedAt: Readonly<Date>) =>
     wrap(() =>
       db
         .select()
@@ -209,7 +214,7 @@ export const BootLedgerRepositoryLive = Layer.succeed(BootLedgerRepository, {
       })
     ),
 
-  insert: (entry) =>
+  insert: (db) => (entry) =>
     wrap(async () => {
       await db.insert(bootLedger).values({
         appName: entry.appName,
@@ -230,7 +235,7 @@ export const BootLedgerRepositoryLive = Layer.succeed(BootLedgerRepository, {
       })
     }),
 
-  prune: (appName: string, keep: number) =>
+  prune: (db) => (appName: string, keep: number) =>
     wrap(async () => {
       const rows = await db
         .select({ id: bootLedger.id })
@@ -241,4 +246,6 @@ export const BootLedgerRepositoryLive = Layer.succeed(BootLedgerRepository, {
       if (doomed.length === 0) return
       await db.delete(bootLedger).where(inArray(bootLedger.id, doomed))
     }),
-})
+}
+
+export const BootLedgerRepositoryLive = layerOverDatabase(BootLedgerRepository, members)

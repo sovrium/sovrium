@@ -6,11 +6,18 @@
  */
 
 import { Schema } from 'effect'
-import { describedRef } from '@/domain/models/api/combinators/described-ref'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { describedRef } from '@/domain/kernel/config-parsing/described-ref'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { FILTER_OPERATOR_VOCABULARY } from '@/domain/models/app/tables/closed-vocabulary'
-import { paginationSchema, timestampSchema } from '../combinators/common'
-import { appliedQuerySchema } from '../combinators/search'
+import { paginationSchema, timestampSchema } from '../common'
+import { appliedQuerySchema } from '../search-term'
+import {
+  aiComputeProjectionSchema,
+  disabledControlsSchema,
+  displayLabelsSchema,
+  recordLocksSchema,
+  writeOnlyPresenceSchema,
+} from './record-blocks'
 
 /**
  * One condition of a view filter, as this API SERIALISES it.
@@ -202,90 +209,13 @@ export const tableSummarySchema = Schema.Struct({
 // ============================================================================
 
 /**
- * Per-field AI-compute refinement status.
- *
- * An AI-computed value resolves in two tiers: a deterministic baseline written
- * synchronously, then a provider refinement. When the refinement never lands,
- * the baseline SURVIVES as the stored value — honest, plausible-looking content
- * that is indistinguishable from a refined one. This block is what tells the
- * two apart, so it is part of the record contract rather than an incidental
- * extra: `status` is the lifecycle state, `error` the recorded provider reason.
- */
-const aiComputeFieldStatusSchema = Schema.Struct({
-  status: Schema.String.annotate({ description: 'pending | refined | failed | skipped' }),
-  error: optionalField(Schema.String.annotate({ description: 'Recorded provider failure reason' })),
-})
-
-/**
- * The `_aiCompute` block: one status entry per AI-compute field. Omitted
- * entirely for a table that declares no AI-compute field, and for a record with
- * no status rows yet — never sent as an empty object.
- */
-export const aiComputeProjectionSchema = Schema.Record(
-  Schema.String,
-  aiComputeFieldStatusSchema
-).annotate({ description: 'AI-compute refinement status, keyed by field name' })
-
-/**
- * The `_display` block: the human label behind a relationship column's stored
- * key, for every column whose field declared a `displayField`.
- *
- * A string for a to-one column, a list for a to-many one, so a consumer can
- * tell a single link from many without re-reading the schema. Omitted entirely
- * when a record references nothing labellable, and never sent as an empty
- * object. It sits BESIDE `fields` rather than replacing anything in it: the
- * stored key stays exactly where it was, so filters, editors and the write path
- * are unaffected.
- */
-export const displayLabelsSchema = Schema.Record(
-  Schema.String,
-  Schema.Union([Schema.String, Schema.Array(Schema.String)])
-).annotate({ description: 'Resolved relationship labels, keyed by field name' })
-
-/**
- * The `_writeOnly` block: for every write-only field on the record, whether a
- * value is stored.
- *
- * A write-only field's value never leaves the server through a read, for any
- * role, so `fields` never carries it. This block is the one thing a reader
- * learns about it — set or not set — so an operator can tell a configured
- * secret from a missing one without seeing it. It names only the write-only
- * fields the caller could read under the ordinary field rules, and it is
- * omitted when there are none, never sent as an empty object.
- */
-const writeOnlyPresenceSchema = Schema.Record(Schema.String, Schema.Boolean).annotate({
-  description:
-    'Whether each write-only field holds a value (true) or not (false), keyed by field name. The value itself is never returned.',
-})
-
-/**
- * The `_disabled` block: the controls drawn on this record that its
- * `disabledWhen` holds for — a button field, a row action, a record-bound
- * button.
- *
- * The server decides it on the whole row, including a field the caller may not
- * read, so a page can draw the control disabled without ever receiving the
- * value it was decided on. That is one bit about the record per declared
- * condition, the same bit a press refused with 409 reveals. Each entry is the
- * control's id: `field:<name>` for a button field, and for a row action or a
- * record-bound button the id the page carries on it (`data-control-id`).
- * Omitted when no control is disabled, never sent as an empty array.
- */
-const disabledControlsSchema = Schema.Array(
-  Schema.String.annotate({ description: 'The id of one control disabled on this record' })
-).annotate({
-  description:
-    'The controls drawn on this record that are disabled for it, by id: `field:<name>` for a button field, the id the page gives a row action or a record-bound button otherwise. Decided by the server; the values it was decided on are not included.',
-})
-
-/**
  * Record schema (Airtable-style)
  *
  * Represents a record in a table.
  * User-defined fields are nested under the `fields` property.
  * System fields (id, createdAt, updatedAt) remain at root level.
  *
- * `_aiCompute` and `_display` are declared EXPLICITLY rather than admitted by
+ * The `_*` blocks (`combinators/record-blocks.ts`) are declared EXPLICITLY rather than admitted by
  * `.passthrough()`. A bare `z.object()` strips what it does not name, and
  * `runEffect` parses every list response through this schema — so a block that
  * is not named here is removed at the route boundary, silently and with nothing
@@ -295,7 +225,7 @@ const disabledControlsSchema = Schema.Array(
 export const recordSchema = Schema.Struct({
   ...Schema.Struct({
     id: Schema.String.annotate({
-      description: 'Record identifier — always a string, exact beyond 2^53',
+      description: 'Record identifier: always a string, exact beyond 2^53',
     }),
     fields: Schema.Record(Schema.String, formattedFieldValueSchema).annotate({
       description: 'User-defined field values (may include display formatting)',
@@ -313,6 +243,7 @@ export const recordSchema = Schema.Struct({
     _display: optionalField(displayLabelsSchema),
     _writeOnly: optionalField(writeOnlyPresenceSchema),
     _disabled: optionalField(disabledControlsSchema),
+    _locks: optionalField(recordLocksSchema),
   }).fields,
   ...timestampSchema.fields,
 }).annotate({ identifier: 'Record' })
@@ -459,7 +390,7 @@ export const recordGroupSchema = Schema.Struct({
  * `/api/admin/users`, `/api/admin/buckets/:name/files` and
  * `/api/admin/agents/:name/conversations` — imported rather than restated so
  * one search box cannot mean three things. See
- * `src/domain/models/api/combinators/search.ts` for the state table; the emission
+ * `src/domain/models/api/search-term.ts` for the state table; the emission
  * rules THIS route must satisfy are:
  *
  * | Branch                                        | `appliedQuery`     |
@@ -482,9 +413,34 @@ export const listRecordsResponseSchema = Schema.Struct({
   groups: optionalField(
     Schema.Array(recordGroupSchema).annotate({
       description:
-        'Grouped results when groupBy is provided — one entry per group at EVERY named level',
+        'Grouped results when groupBy is provided: one entry per group at EVERY named level',
     })
   ),
+})
+
+/**
+ * The pagination of a page that read no row: a row rule admits the caller
+ * nothing, so no query ran. It is deliberately not {@link paginationSchema},
+ * which floors `limit` at one row and describes a page of a query that ran.
+ */
+const emptyPagePaginationSchema = Schema.Struct({
+  total: Schema.Literal(0).annotate({ description: 'Always 0: the caller may read no row' }),
+  limit: Schema.Int.annotate({
+    description: 'The requested page size on a view; 0 on a table, where none was applied',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  offset: Schema.Int.annotate({ description: 'Offset from start of results' }).pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(0))
+  ),
+}).annotate({ identifier: 'EmptyPagePagination' })
+
+/**
+ * List records answer when a row rule admits the caller no row. The trash
+ * branch leaves `appliedQuery` out, as it does on every answer.
+ */
+export const emptyListRecordsResponseSchema = Schema.Struct({
+  records: Schema.Tuple([]).annotate({ description: 'Always empty' }),
+  pagination: emptyPagePaginationSchema,
+  appliedQuery: appliedQuerySchema,
 })
 
 /**
@@ -497,7 +453,7 @@ export const getRecordResponseSchema = Schema.StructWithRest(
   Schema.Struct({
     ...Schema.Struct({
       id: Schema.String.annotate({
-        description: 'Record identifier — always a string, exact beyond 2^53',
+        description: 'Record identifier: always a string, exact beyond 2^53',
       }),
       fields: Schema.Record(Schema.String, formattedFieldValueSchema).annotate({
         description: 'User-defined field values (may include display formatting)',
@@ -530,7 +486,7 @@ export const createRecordResponseSchema = Schema.StructWithRest(
   Schema.Struct({
     ...Schema.Struct({
       id: Schema.String.annotate({
-        description: 'Record identifier — always a string, exact beyond 2^53',
+        description: 'Record identifier: always a string, exact beyond 2^53',
       }),
       fields: Schema.Record(Schema.String, fieldValueSchema).annotate({
         description: 'User-defined field values',
@@ -547,11 +503,41 @@ export const createRecordResponseSchema = Schema.StructWithRest(
   [Schema.Record(Schema.String, Schema.Unknown)]
 ).annotate({ title: 'sovrium:open-keys' })
 
+/** The envelope a record write echoes, ahead of what each answer adds. */
+const writtenRecordFields = {
+  id: Schema.String.annotate({
+    description: 'Record identifier: always a string, exact beyond 2^53',
+  }),
+  fields: Schema.Record(Schema.String, Schema.Unknown).annotate({
+    description: 'The fields of the record the writer may read',
+  }),
+  ...timestampSchema.fields,
+  createdBy: optionalField(Schema.String.annotate({ description: 'User who created the record' })),
+  updatedBy: optionalField(
+    Schema.String.annotate({ description: 'User who last updated the record' })
+  ),
+  deletedBy: optionalField(Schema.String.annotate({ description: 'User who deleted the record' })),
+}
+
 /**
  * Update record response schema
+ *
+ * The create echo's envelope: system fields at the root, each user field under
+ * `fields` and flat at the root, as the writer may read it. A field she may not
+ * read is left out of both, so the flat keys are open.
  */
-export const updateRecordResponseSchema = Schema.Struct({
-  record: describedRef(recordSchema, 'Updated record'),
+export const updateRecordResponseSchema = Schema.StructWithRest(
+  Schema.Struct(writtenRecordFields),
+  [Schema.Record(Schema.String, Schema.Unknown)]
+).annotate({ title: 'sovrium:open-keys' })
+
+/**
+ * Answer of a PATCH that wrote nothing: its body reduced to a system-protected
+ * field the writer may not change, so the record is echoed as it stands. It is
+ * the one PATCH answer under a `record` key and without the flat keys.
+ */
+export const unchangedRecordResponseSchema = Schema.Struct({
+  record: Schema.Struct(writtenRecordFields).annotate({ description: 'The unchanged record' }),
 })
 
 /**
@@ -634,31 +620,6 @@ const viewIdResponseSchema = Schema.Union([Schema.String, Schema.Finite]).annota
 })
 
 /**
- * View schema
- */
-export const viewSchema = Schema.Struct({
-  ...Schema.Struct({
-    id: viewIdResponseSchema,
-    name: Schema.String.annotate({ description: 'View name' }),
-    tableId: Schema.String.annotate({ description: 'Parent table ID' }),
-    fields: optionalField(
-      Schema.Array(Schema.String).annotate({ description: 'Visible field IDs' })
-    ),
-    filters: optionalField(Schema.Array(Schema.Unknown).annotate({ description: 'View filters' })),
-    sorts: optionalField(Schema.Array(Schema.Unknown).annotate({ description: 'View sorts' })),
-    groupBy: optionalField(Schema.String.annotate({ description: 'Group by field' })),
-  }).fields,
-  ...timestampSchema.fields,
-}).annotate({ identifier: 'View' })
-
-/**
- * List views response schema
- */
-export const listViewsResponseSchema = Schema.Struct({
-  views: Schema.Array(viewSchema).annotate({ description: 'List of views' }),
-})
-
-/**
  * Get view response schema
  * Returns view properties directly at root level
  */
@@ -686,6 +647,16 @@ export const getViewResponseSchema = Schema.Struct({
   isDefault: optionalField(
     Schema.Boolean.annotate({ description: 'Whether this is the default view' })
   ),
+})
+
+/**
+ * List views response schema
+ *
+ * The views the caller may open, as a bare array, each exactly as the
+ * single-view read answers it.
+ */
+export const listViewsResponseSchema = Schema.Array(getViewResponseSchema).annotate({
+  description: 'The views the caller may open',
 })
 
 /**
@@ -726,6 +697,27 @@ export const getViewRecordsResponseSchema = Schema.Struct({
         'The two counts of a ratio over every row the view returns, when `numerator` and `denominator` were sent',
     })
   ),
+})
+
+/**
+ * View records answer when a row rule admits the caller no row: the page a read
+ * over no row gives, with every key the request asked for.
+ */
+export const emptyViewRecordsResponseSchema = Schema.Struct({
+  records: Schema.Tuple([]).annotate({ description: 'Always empty' }),
+  pagination: emptyPagePaginationSchema,
+  aggregations: getViewRecordsResponseSchema.fields.aggregations,
+  groups: getViewRecordsResponseSchema.fields.groups,
+  ratio: getViewRecordsResponseSchema.fields.ratio,
+})
+
+/**
+ * `POST /api/internal/tables/retention-due`: the rows one sweep deleted, per table.
+ */
+export const tableRetentionResponseSchema = Schema.Struct({
+  deleted: Schema.Record(Schema.String, Schema.Int).annotate({
+    description: 'How many rows the sweep deleted, by table name',
+  }),
 })
 
 // ============================================================================
@@ -775,8 +767,6 @@ export type FieldValue = typeof fieldValueSchema.Type
 export type Table = typeof tableSchema.Type
 export type TableSummary = typeof tableSummarySchema.Type
 export type Record = typeof recordSchema.Type
-/** @public */
-export type View = typeof viewSchema.Type
 export type TablePermission = typeof tablePermissionSchema.Type
 export type ListTablesResponse = typeof listTablesResponseSchema.Type
 export type GetTableResponse = typeof getTableResponseSchema.Type

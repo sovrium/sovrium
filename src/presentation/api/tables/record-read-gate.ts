@@ -5,17 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
+import { authorizeRead } from '@/application/use-cases/tables/permissions/authorize-record-verbs'
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { grantsForReadableRow } from '@/application/use-cases/tables/row-read-admission'
 import { admitsRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
-import {
-  recordPassesPredicate,
-  resolveGuardForTable,
-  type RowLevelGuardContext,
-} from './row-level-guard'
+import { guardForTable, type RowLevelGuardContext } from './row-level-guard'
 import { checkGetReadGate, NOT_FOUND_RESPONSE } from './row-level-read-helpers'
 import type { ReaderRows } from '@/application/use-cases/tables/row-read-admission'
 import type { App, Table } from '@/domain/models/app'
@@ -27,18 +24,15 @@ import type { Context } from 'hono'
  * query outside a table listed in `auth.scopeTables`, and none at all when the
  * caller's rows were already read for this request (`rows`).
  */
-async function listAdmitsRow(
-  c: Context,
-  app: App,
-  table: Table,
-  target: RecordTarget
-): Promise<boolean> {
+const listAdmitsRow = (c: Context, app: App, table: Table, target: RecordTarget) => {
   const { recordId, rows } = target
-  if (rows !== undefined) return admitsRow(rows.admission, recordId)
+  if (rows !== undefined) return Effect.succeed(admitsRow(rows.admission, recordId))
   const { session, userRole, userGroups } = getTableContext(c)
   const reader = { session, role: userRole, groups: userGroups }
-  const admitted = await runOnRequest(c, grantsForReadableRow(app, table.name, reader, recordId))
-  return admitted._tag === 'Success'
+  return Effect.match(grantsForReadableRow(app, table.name, reader, recordId), {
+    onFailure: () => false,
+    onSuccess: () => true,
+  })
 }
 
 /** The record a gate judges, with the caller's rows when this request read them already. */
@@ -76,41 +70,35 @@ export const rowRuleHolds = (
  * `auth.scopeTables`.
  *
  * The record is judged as the records API reads it: a boolean field SQLite
- * stores as `1`/`0` is read as `true`/`false` first (`readStoredValues`).
+ * stores as `1`/`0` is read as `true`/`false` first (`readStoredValues`), by
+ * the read verdict (`authorizeRead`) every refusal of which is the 404.
  *
  * Returns the refusal, or `undefined` when the caller may proceed.
  */
-export async function checkRecordReadGate(
-  c: Context,
-  app: App,
-  table: Table,
-  recordId: string
-): Promise<Response | undefined> {
-  return checkRecordReadGateFor(c, app, table, { recordId })
-}
+export const checkRecordReadGate = (c: Context, app: App, table: Table, recordId: string) =>
+  checkRecordReadGateFor(c, app, table, { recordId })
 
 /**
  * {@link checkRecordReadGate} for a caller whose rows of the table this request
  * already read (`readerRowsOf`): passed as `target.rows`, her grants are not
  * read a second time.
  */
-export async function checkRecordReadGateFor(
-  c: Context,
-  app: App,
-  table: Table,
-  target: RecordTarget
-): Promise<Response | undefined> {
-  const { recordId } = target
-  const { session, userRole, userGroups } = getTableContext(c)
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-  const gateError = checkGetReadGate({ c, app, table, userRole, userGroups, guard })
-  if (gateError) return gateError
-  if (!(await listAdmitsRow(c, app, table, target))) return NOT_FOUND_RESPONSE(c)
-  if (!rowRuleHolds(guard, table)) return undefined
-  const fetched = await runOnRequest(c, rawGetRecordProgram(session, table.name, recordId, app))
-  if (fetched._tag === 'Failure' || !fetched.success) return NOT_FOUND_RESPONSE(c)
-  const record = readStoredValues(table, fetched.success)
-  return recordPassesPredicate(table.rowLevelPermissions, 'read', record, guard.current)
-    ? undefined
-    : NOT_FOUND_RESPONSE(c)
-}
+export const checkRecordReadGateFor = (c: Context, app: App, table: Table, target: RecordTarget) =>
+  Effect.gen(function* () {
+    const { recordId } = target
+    const { session, userRole, userGroups } = getTableContext(c)
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
+    const gateError = checkGetReadGate({ c, app, table, userRole, userGroups, guard })
+    if (gateError) return gateError
+    if (!(yield* listAdmitsRow(c, app, table, target))) return NOT_FOUND_RESPONSE(c)
+    if (!rowRuleHolds(guard, table)) return undefined
+    // effect-swallow: a row that cannot be read is refused as a missing one (S1).
+    const fetched = yield* Effect.result(rawGetRecordProgram(session, table.name, recordId, app))
+    if (fetched._tag === 'Failure' || !fetched.success) return NOT_FOUND_RESPONSE(c)
+    const record = readStoredValues(table, fetched.success)
+    // effect-swallow: a rule that cannot be judged refuses, as a missing record is (S1).
+    const verdict = yield* Effect.result(authorizeRead(table, guard, record))
+    return verdict._tag === 'Success' && verdict.success._tag === 'Allowed'
+      ? undefined
+      : NOT_FOUND_RESPONSE(c)
+  })

@@ -6,7 +6,6 @@
  */
 
 import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   aiActivityLogs as activityPg,
@@ -23,6 +22,7 @@ import {
   aiToolCalls as toolCallsSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import type { AccountAiFootprint } from '@/application/ports/repositories/auth/account-repository'
+import type { PortableDb } from '@/infrastructure/database'
 
 /**
  * The AI half of the GDPR export: the caller's rows in the four AI tables that
@@ -38,7 +38,7 @@ import type { AccountAiFootprint } from '@/application/ports/repositories/auth/a
  * `resolveDialectSchema`, so the reads run on SQLite and PostgreSQL alike.
  */
 
-const conversationsOf = (userId: string) => {
+const conversationsOf = (db: PortableDb, userId: string) => {
   const conversations = resolveDialectSchema(conversationsPg, conversationsSqlite)
   return db
     .select({
@@ -55,7 +55,7 @@ const conversationsOf = (userId: string) => {
 }
 
 /** Every message of the caller's conversations, oldest first, as a transcript reads. */
-const messagesOf = (userId: string) => {
+const messagesOf = (db: PortableDb, userId: string) => {
   const conversations = resolveDialectSchema(conversationsPg, conversationsSqlite)
   const messages = resolveDialectSchema(messagesPg, messagesSqlite)
   return db
@@ -75,7 +75,7 @@ const messagesOf = (userId: string) => {
     .orderBy(asc(messages.createdAt), asc(messages.id))
 }
 
-const factsOf = (userId: string) => {
+const factsOf = (db: PortableDb, userId: string) => {
   const facts = resolveDialectSchema(factsPg, factsSqlite)
   return db
     .select({
@@ -96,7 +96,7 @@ const factsOf = (userId: string) => {
  * address, an agent's action done for them included. The actor is projected
  * only when an agent acted; otherwise it is the caller and is left out.
  */
-const activityOf = (userId: string, email: string) => {
+const activityOf = (db: PortableDb, userId: string, email: string) => {
   const activity = resolveDialectSchema(activityPg, activitySqlite)
   return db
     .select({
@@ -124,7 +124,7 @@ const activityOf = (userId: string, email: string) => {
  * erasure excludes it. Whether the call failed is computed in SQL so the error
  * text, which can quote the record it failed on, is never read.
  */
-const toolCallsOf = (userId: string) => {
+const toolCallsOf = (db: PortableDb, userId: string) => {
   const calls = resolveDialectSchema(toolCallsPg, toolCallsSqlite)
   return db
     .select({
@@ -151,12 +151,13 @@ const toolCallsOf = (userId: string) => {
  * sequence too. Rejects on a database error; the repository wraps it.
  */
 export const readAiFootprint = async (
+  db: PortableDb,
   userId: string,
   email: string
 ): Promise<AccountAiFootprint> => ({
-  conversations: await conversationsOf(userId),
-  messages: await messagesOf(userId),
-  facts: await factsOf(userId),
-  activity: await activityOf(userId, email),
-  toolCalls: await toolCallsOf(userId),
+  conversations: await conversationsOf(db, userId),
+  messages: await messagesOf(db, userId),
+  facts: await factsOf(db, userId),
+  activity: await activityOf(db, userId, email),
+  toolCalls: await toolCallsOf(db, userId),
 })

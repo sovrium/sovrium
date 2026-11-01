@@ -1,6 +1,6 @@
 # Client Mode
 
-> The mirror of server mode — your own agents reaching tools hosted on external MCP servers: how the operator names those servers, how an agent picks them, and what the status routes show.
+> The mirror of server mode: your own agents reaching tools hosted on external MCP servers: how the operator names those servers, how an agent picks them, and what the status routes show.
 
 Instead of an outside assistant calling your data, your agents are offered tools published by someone else: a company registry, a CRM, a document store, whatever an external MCP server lists. Sovrium is the caller here, so this direction needs an AI provider on your side: a model has to decide when a tool is worth using.
 
@@ -63,9 +63,9 @@ agents:
     # no mcp.servers: no external tool at all
 ```
 
-The model is offered each tool as `<server>__<tool>` — `registry__lookup_company` — with the description and argument schema the server listed, so two servers may list a tool of the same name without colliding. An `allowedTools` entry matches a tool's own name or that qualified form. A name that matches no listed tool is simply not offered: check the real names on the tools route.
+The model is offered each tool as `<server>__<tool>` (for example `registry__lookup_company`), with the description and argument schema the server listed, so two servers may list a tool of the same name without colliding. An `allowedTools` entry matches a tool's own name or that qualified form. A name that matches no listed tool is simply not offered: check the real names on the tools route.
 
-Two allowlists are in play and they do not overlap. `tools` scopes what the agent may do **inside** the app — its tables and its actions. `mcp.servers` and `mcp.allowedTools` scope what it may reach **outside**.
+Two allowlists are in play and they do not overlap. `tools` scopes what the agent may do **inside** the app: its tables and its actions. `mcp.servers` and `mcp.allowedTools` scope what it may reach **outside**.
 
 ## Inspecting what is available
 
@@ -109,11 +109,11 @@ Credentials are never echoed: the status carries the auth _type_ and the header 
 
 ## Calling an agent
 
-Wherever an agent runs — its chat endpoint (`POST /api/agents/:name/chat`), `POST /api/ai/chat` naming it, an automation's `ai:agent` step, or a scheduled run — the model is offered the external tools that agent may use, and **a tool the model calls is called**: Sovrium sends `tools/call` to the server that listed it, with the model's arguments, and hands the result back to the model before it answers. A server that is unreachable simply offers no tool, and the agent still answers from the model.
+Wherever an agent runs (its chat endpoint `POST /api/agents/:name/chat`, `POST /api/ai/chat` naming it, an automation's `ai:agent` step, or a scheduled run), the model is offered the external tools that agent may use, and **a tool the model calls is called**: Sovrium sends `tools/call` to the server that listed it, with the model's arguments, and hands the result back to the model before it answers. A server that is unreachable simply offers no tool, and the agent still answers from the model.
 
 A tool's answer comes from a system you do not control, so it reaches the model as quoted data, fenced and labelled as the output of an external tool, never as instructions. A very long answer is cut off, and the cut is marked.
 
-**A tool that may write waits for a person.** Only a tool the server marks read-only (`readOnlyHint: true`) runs at once. Any other — a note added to a CRM, a ticket opened — is held as a pending approval of the agent, named by its qualified name (`crm__add_crm_note`), with the arguments the model chose. The turn stops there and nothing reaches the server. Once someone allowed to decide for that agent approves it, the call runs exactly as the model asked and the agent finishes its turn. A rejected call never runs.
+**A tool that may write waits for a person.** Only a tool the server marks read-only (`readOnlyHint: true`) runs at once. Any other, such as a note added to a CRM or a ticket opened, is held as a pending approval of the agent, named by its qualified name (`crm__add_crm_note`), with the arguments the model chose. The turn stops there and nothing reaches the server. Once someone allowed to decide for that agent approves it, the call runs exactly as the model asked and the agent finishes its turn. A rejected call never runs.
 
 ```bash
 curl --cookie "$SOVRIUM_SESSION" "https://your-app.example.com/api/agents/sales-agent/approvals?status=pending"
@@ -123,7 +123,7 @@ curl --cookie "$SOVRIUM_SESSION" -X POST \
 
 The marking is a hint from the server, so the default is to ask: a tool without it is treated as one that writes.
 
-**Every call has a deadline.** A call that outlasts `MCP_CLIENT_TIMEOUT` is abandoned and its connection closed; the model is told the tool timed out and answers anyway. A call is never retried — a tool may write, and sending it twice could write twice. The same goes for a server that fails mid-call: the model reads the failure, and the turn ends with an answer rather than an error.
+**Every call has a deadline.** A call that outlasts `MCP_CLIENT_TIMEOUT` is abandoned and its connection closed; the model is told the tool timed out and answers anyway. A call is never retried: a tool may write, and sending it twice could write twice. The same goes for a server that fails mid-call: the model reads the failure, and the turn ends with an answer rather than an error.
 
 ## When a server asks a question
 
@@ -132,7 +132,7 @@ A server may need a choice it cannot make alone while it runs a tool: three comp
 - **On a streamed chat, with an agent and a signed-in person**, the turn pauses. The stream sends an `elicit` event carrying the server's sentence, its form and `server`, the declared name of the server asking, then ends with `done` and `stopReason: "awaiting_input"`. The chat window shows the questionnaire and says which server is asking.
 - **She answers** on the same route as for the agent's own question, `POST /api/ai/chat/elicitations/{elicitationId}`, with `accept` (checked against the form), `decline` or `cancel`. The answer goes to the server as its elicitation result, the tool call finishes with the server's result, and the model reads it and goes on. A `cancel` reaches the server too and the call finishes, but the turn does not go on: it is saved as it stood, its question marked cancelled.
 - **Her time is her own.** `MCP_CLIENT_TIMEOUT` bounds each request to the server, not the wait for her answer. A question nobody answers within an hour is answered `cancel` and its connection closed.
-- **A form she cannot be shown never reaches her.** Like the agent's own question, a form must be flat — at most twelve string, number, integer or boolean fields. Anything else is answered with the JSON-RPC error `-32602` (invalid params), and the tool call and the turn go on.
+- **A form she cannot be shown never reaches her.** Like the agent's own question, a form must be flat: at most twelve string, number, integer or boolean fields. Anything else is answered with the JSON-RPC error `-32602` (invalid params), and the tool call and the turn go on.
 - **Where nobody can answer**, the question is answered `cancel` at once and the run goes on: an automation's `ai:agent` step, a scheduled run, and the buffered chat routes, which can draw no form.
 
 The client declares the `elicitation` capability on its handshake, in form mode only, and only when the app has `app.auth`; without it no person could answer, and a server is told not to ask. URL mode is never declared, so no server can send a person to an address through Sovrium.

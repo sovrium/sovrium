@@ -6,7 +6,7 @@
  */
 
 import { escapeRegExp } from '@/domain/kernel/sanitize/escape-regexp'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Numeric-cast primitives shared by every formula SQL path — the
@@ -79,7 +79,8 @@ const NUMERIC_FORMULA_RESULT_TYPES = new Set([
  * is non-truncating. Postgres `NUMERIC` and SQLite `REAL` both yield fractional
  * division results.
  */
-export const numericCastType = (): string => (isSqliteRuntime() ? 'REAL' : 'NUMERIC')
+export const numericCastType = (dialect: DatabaseDialect): string =>
+  dialect === 'sqlite' ? 'REAL' : 'NUMERIC'
 
 /**
  * Whether a field reference should be cast to a numeric type so division over
@@ -112,6 +113,7 @@ export const isNumericFieldRef = (field: NumericCastField): boolean => {
  * because the wrapping `CAST(` is not a `/` operand.
  */
 export const castDivisionOperands = (
+  dialect: DatabaseDialect,
   formula: string,
   allFields: readonly NumericCastField[],
   renderRef: (fieldName: string) => string
@@ -120,7 +122,7 @@ export const castDivisionOperands = (
     if (!isNumericFieldRef(field)) return acc
     const ref = renderRef(field.name)
     const refPattern = escapeRegExp(ref)
-    const cast = `CAST(${ref} AS ${numericCastType()})`
+    const cast = `CAST(${ref} AS ${numericCastType(dialect)})`
     // Left operand: `<ref> /` (the ref ends at a non-identifier boundary, then
     // optional whitespace, then `/`). Right operand: `/ <ref>`. The `(?<![\w.])`
     // / `(?![\w.])` boundaries prevent matching a suffix/prefix of a longer

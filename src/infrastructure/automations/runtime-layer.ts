@@ -15,7 +15,6 @@ import { OAuthClientRegistrarLive } from '@/infrastructure/auth/better-auth/oaut
 import { BrowserDriverLive } from '@/infrastructure/browser/browser-driver-live'
 import { OAuthTokenClientLive } from '@/infrastructure/connections/oauth-token-client-live'
 import { SentinelTokensLive } from '@/infrastructure/connections/sentinel-tokens-live'
-import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
 import { AuditLogRepositoryLive } from '@/infrastructure/database/repositories/admin/audit-log-repository-live'
 import { AiEmbeddingRepositoryActive } from '@/infrastructure/database/repositories/ai/ai-embedding-repository-live'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
@@ -37,6 +36,7 @@ import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/reposit
 import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
 import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
+import { OutboundHttpLive } from '@/infrastructure/egress/outbound-http-live'
 import { EmailCssInlinerLive } from '@/infrastructure/email/email-css-inliner-live'
 import { EmailLinkTokensLive } from '@/infrastructure/email/email-link-tokens-live'
 import { EmailSenderLive } from '@/infrastructure/email/email-sender-live'
@@ -53,6 +53,8 @@ import { ImageTransformServiceLive } from '@/infrastructure/storage/image-transf
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 import { TemplateEngineLive } from '@/infrastructure/templates/template-engine-live'
 import { AutomationFiberBridgeLive } from './automation-fiber-bridge-live'
+import { AutomationSchedulerLive } from './automation-scheduler-live'
+import { FailureAlertHoldBackLive } from './failure-alert-hold-back-live'
 
 /**
  * Combined infrastructure layer required by the automation engine
@@ -113,6 +115,9 @@ import { AutomationFiberBridgeLive } from './automation-fiber-bridge-live'
  * When future migration specs add handlers that depend on additional
  * repositories, extend this merged layer rather than spreading
  * infrastructure imports across each entry point.
+ *
+ * It requires `Database` and provides none: the repositories that read the
+ * service share the one the server's runtime owns.
  */
 /** Storage, built once for the runtime and handed to the AI service below. See its row for `orDie`. */
 const RuntimeStorageLive = Layer.orDie(StorageServiceLive)
@@ -130,6 +135,10 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // alert and automatic pause decide from (`notifyPlatformFailure`,
   // `autoPauseOnFailures`), both on the run loop's own failure path.
   AutomationRunOutcomeRepositoryLive,
+  // `FailureAlertHoldBack` — the alert's in-memory hold-back, for a failure the
+  // run history refused to record.
+  FailureAlertHoldBackLive,
+  AutomationSchedulerLive, // `AutomationScheduler` — the per-automation slots and the cancel registry, one per server.
   // `AuditLogRepository` — the automatic pause reads the last resume and writes
   // its own entry through the audit funnel.
   AuditLogRepositoryLive,
@@ -158,6 +167,7 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // test seeder's placeholder credential upstream, and the connection status
   // reads report it as disconnected.
   SentinelTokensLive,
+  OutboundHttpLive, // `OutboundHttp` — the guarded egress the `http/*`, `webhook/*`, `connection/*`, calendar, file-source and GIF requests go through.
   // `TemplateEngine` — `{{...}}` substitution in step props, trigger
   // conditions, webhook responses and invoked action templates.
   TemplateEngineLive,
@@ -242,8 +252,9 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // `AppSelfSeeder` — the `app/seed` step: the seeder `sovrium start` installs.
   AppSelfSeederLive,
   // `LinkRepository` — the links write use-cases (`createLink`/`updateLink`/
-  // `deleteLink`) an automation step reaches for. Unlike its neighbours this
-  // Layer is built from `Database`, so it is provided here rather than merged
-  // bare; the admin route composes it the same way.
-  Layer.provide(LinkRepositoryLive, DatabaseLive)
+  // `deleteLink`) an automation step reaches for. It reads the `Database`
+  // service, which this layer leaves open: the server's domain runtime, the
+  // only composition this layer is merged into, provides the owning
+  // `DatabaseLive` underneath it (`domain-runtime.ts`).
+  LinkRepositoryLive
 )

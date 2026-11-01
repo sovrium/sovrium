@@ -8,16 +8,20 @@
 import { Effect } from 'effect'
 import { InvalidEnvVarError } from '@/application/errors/invalid-env-var-error'
 import { InvalidOperatorTimezoneError } from '@/application/errors/invalid-operator-timezone-error'
-import { validateRequiredEnvVars } from '@/application/use-cases/env/validate-required-env-vars'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { validateRequiredEnvVars } from '@/application/use-cases/config/validate-required-env-vars'
 import { countDatabaseListeners } from '@/domain/models/app/app-database-listeners-service'
+import { scimTokenRefusal } from '@/domain/models/app/auth/scim-service'
 import { browserHoldRefusals } from '@/domain/models/app/automations/actions/browser/browser-run-validation'
 import { hostActionsBootRefusal } from '@/domain/models/app/automations/actions/instance/host-actions-gate-validation'
+import { buildEnvLookup, resolveSecretInString } from '@/domain/models/app/env-reference-service'
 import { parseApiIpRateLimit } from '@/domain/models/process-env/api-ip-rate-limit'
 import {
   parseSovriumAutomationDefaultTimeoutMs,
   parseSovriumAutomationRunRetentionDays,
 } from '@/domain/models/process-env/automations'
 import { browserBootRefusal, parseBrowserEnv } from '@/domain/models/process-env/browser'
+import { CORS_ORIGINS_VARIABLE, parseCorsOrigins } from '@/domain/models/process-env/cors'
 import {
   describeDatabaseConnectionRefusal,
   planDatabaseConnections,
@@ -55,6 +59,21 @@ import type { MissingRequiredEnvVarError } from '@/application/errors/missing-re
 import type { App } from '@/domain/models/app'
 
 /**
+ * A boot gate from a check that names its refusal: `undefined` lets the boot
+ * through, a sentence refuses it. A parser that throws inside `check` refuses
+ * the boot the same way, with its own message.
+ *
+ * The refusal travels as an `Error` cause, the shape every parser's refusal
+ * already has, so the boot prints the same sentence whichever road it took.
+ */
+const refuseWhen = (check: () => string | undefined): Effect.Effect<void, InvalidEnvVarError> =>
+  Effect.try({ try: check, catch: (error) => new InvalidEnvVarError(error) }).pipe(
+    Effect.flatMap((refusal) =>
+      refusal === undefined ? Effect.void : Effect.fail(new InvalidEnvVarError(new Error(refusal)))
+    )
+  )
+
+/**
  * `DATABASE_POOL_MAX` is the instance's whole PostgreSQL footprint: a value
  * that cannot leave the request pool one connection, after the maintenance slot
  * and the AI listeners this app opens, stops the boot here rather than starving
@@ -67,18 +86,19 @@ import type { App } from '@/domain/models/app'
 export const refuseUndersizedDatabaseBudget = (
   validatedApp: App
 ): Effect.Effect<void, InvalidEnvVarError> =>
-  Effect.try({
-    try: () => {
-      if (parseDatabaseDialectConfig().dialect !== 'postgres') return
-      const planned = planDatabaseConnections({
-        poolMax: resolveDatabasePoolMax(),
-        listeners: countDatabaseListeners(validatedApp),
+  ProcessEnv.pipe(
+    Effect.flatMap((env) =>
+      refuseWhen(() => {
+        if (parseDatabaseDialectConfig(env).dialect !== 'postgres') return undefined
+        const planned = planDatabaseConnections({
+          poolMax: resolveDatabasePoolMax(env),
+          listeners: countDatabaseListeners(validatedApp),
+        })
+        return planned.ok ? undefined : describeDatabaseConnectionRefusal(planned.refusal)
       })
-      // eslint-disable-next-line functional/no-throw-statements -- turned into the boot refusal by the catch below.
-      if (!planned.ok) throw new Error(describeDatabaseConnectionRefusal(planned.refusal))
-    },
-    catch: (error) => new InvalidEnvVarError(error),
-  }).pipe(Effect.withSpan('server.refuse-undersized-database-budget'))
+    ),
+    Effect.withSpan('server.refuse-undersized-database-budget')
+  )
 
 /**
  * Why the `BROWSER_*` configuration refuses the boot ([internal ref] D1, D2), or
@@ -103,36 +123,43 @@ const browserRefusal = (
 
 /** {@link browserRefusal} as the boot refusal. */
 const refuseBrowserMisconfiguration = (
-  validatedApp: App
-): Effect.Effect<void, InvalidEnvVarError> =>
-  Effect.try({
-    try: () => {
-      const refusal = browserRefusal(validatedApp, process.env)
-      // eslint-disable-next-line functional/no-throw-statements -- turned into the boot refusal by the catch below.
-      if (refusal !== undefined) throw new Error(refusal)
-    },
-    catch: (error) => new InvalidEnvVarError(error),
-  })
+  validatedApp: App,
+  env: Readonly<Record<string, string | undefined>>
+): Effect.Effect<void, InvalidEnvVarError> => refuseWhen(() => browserRefusal(validatedApp, env))
 
 /**
- * The framing list and the preview token: a malformed origin, a
- * blank list or a short token refuses the start with the sentence the manual
- * quotes. An empty token is unset, like every other `SOVRIUM_*` variable; the
- * token's refusal never carries the value or its length.
+ * The framing list, the cross-origin list and the preview token: a
+ * malformed origin, a blank list or a short token refuses the start with the
+ * sentence the manual quotes. An empty token is unset, like every other
+ * `SOVRIUM_*` variable; the token's refusal never carries the value or its
+ * length.
  */
-const refusePreviewMisconfiguration = Effect.try({
-  try: () => {
-    const framing = parseFrameAncestors(process.env['SOVRIUM_FRAME_ANCESTORS'])
-    const token = process.env['SOVRIUM_PREVIEW_TOKEN']
-    const refusal =
-      framing._tag === 'Refused'
-        ? framing.message
+const refusePreviewMisconfiguration = (
+  env: Readonly<Record<string, string | undefined>>
+): Effect.Effect<void, InvalidEnvVarError> =>
+  refuseWhen(() => {
+    const framing = parseFrameAncestors(env['SOVRIUM_FRAME_ANCESTORS'])
+    const crossOrigin = parseCorsOrigins(env[CORS_ORIGINS_VARIABLE])
+    const token = env['SOVRIUM_PREVIEW_TOKEN']
+    return framing._tag === 'Refused'
+      ? framing.message
+      : crossOrigin._tag === 'Refused'
+        ? crossOrigin.message
         : previewTokenRefusal(token === '' ? undefined : token)
-    // eslint-disable-next-line functional/no-throw-statements -- turned into the boot refusal by the catch below.
-    if (refusal !== undefined) throw new Error(refusal)
-  },
-  catch: (error) => new InvalidEnvVarError(error),
-})
+  })
+
+/** {@link scimTokenRefusal} for the app's declared `auth.scim`, read from `env`. */
+const scimTokenRefusalOf = (
+  validatedApp: App,
+  env: Readonly<Record<string, string | undefined>>
+): string | undefined => {
+  const token = validatedApp.auth?.scim?.token
+  if (token === undefined) return undefined
+  return scimTokenRefusal(
+    token,
+    resolveSecretInString(token, buildEnvLookup(validatedApp.env, env))
+  )
+}
 
 /** What {@link validateBootEnvironment} refuses a boot with. */
 export type BootEnvironmentError =
@@ -159,54 +186,53 @@ export type BootEnvironmentError =
 export const validateBootEnvironment = (
   validatedApp: App
 ): Effect.Effect<void, BootEnvironmentError> =>
-  validateRequiredEnvVars(validatedApp.env, process.env).pipe(
-    Effect.andThen(
-      Effect.try({
-        try: () => parseSovriumTimezone(process.env),
-        catch: (error) => new InvalidOperatorTimezoneError(error),
-      })
+  ProcessEnv.pipe(
+    Effect.flatMap((env) =>
+      validateRequiredEnvVars(validatedApp.env).pipe(
+        Effect.andThen(
+          Effect.try({
+            try: () => parseSovriumTimezone(env),
+            catch: (error) => new InvalidOperatorTimezoneError(error),
+          })
+        ),
+        Effect.andThen(
+          Effect.try({
+            try: () => [
+              parseSovriumNotifyAutomations(env),
+              parseSovriumNotifyTo(env),
+              parseSovriumAutomationAutopause(env),
+              parseSovriumNotifyDigest(env),
+              parseSovriumNotifyDigestCron(env),
+              parseSovriumAutomationDefaultTimeoutMs(env),
+              parseSovriumAutomationRunRetentionDays(env),
+              parseApiIpRateLimit(env),
+              parseRateLimitWindowSeconds(env),
+              parseRecordsRateLimits(env),
+              parseSovriumDevClock(env),
+              parseEmailTransport(env),
+              parseSovriumBundlePublicKeys(env),
+              parseSovriumStrictPort(env),
+              parseSovriumBindHost(env),
+              parseSovriumListenUnix(env),
+              parseSovriumIdleExitSeconds(env),
+              parseSovriumLogFormat(env),
+            ],
+            catch: (error) => new InvalidEnvVarError(error),
+          })
+        ),
+        // The `instance/*` operator gate, boot half: an instance step without the
+        // switch, or code with it, refuses before the port binds.
+        Effect.andThen(
+          refuseWhen(() => hostActionsBootRefusal(validatedApp, parseSovriumHostActions(env)))
+        ),
+        // The browser automation switch: its conflicts with the renderer, and holds past its limit.
+        Effect.andThen(refuseBrowserMisconfiguration(validatedApp, env)),
+        Effect.andThen(refusePreviewMisconfiguration(env)),
+        // A SCIM token short enough to guess stops the start.
+        Effect.andThen(refuseWhen(() => scimTokenRefusalOf(validatedApp, env))),
+        Effect.andThen(refuseUndersizedDatabaseBudget(validatedApp)),
+        Effect.asVoid
+      )
     ),
-    Effect.andThen(
-      Effect.try({
-        try: () => [
-          parseSovriumNotifyAutomations(process.env),
-          parseSovriumNotifyTo(process.env),
-          parseSovriumAutomationAutopause(process.env),
-          parseSovriumNotifyDigest(process.env),
-          parseSovriumNotifyDigestCron(process.env),
-          parseSovriumAutomationDefaultTimeoutMs(process.env),
-          parseSovriumAutomationRunRetentionDays(process.env),
-          parseApiIpRateLimit(process.env),
-          parseRateLimitWindowSeconds(process.env),
-          parseRecordsRateLimits(process.env),
-          parseSovriumDevClock(process.env),
-          parseEmailTransport(process.env),
-          parseSovriumBundlePublicKeys(process.env),
-          parseSovriumStrictPort(process.env),
-          parseSovriumBindHost(process.env),
-          parseSovriumListenUnix(process.env),
-          parseSovriumIdleExitSeconds(process.env),
-          parseSovriumLogFormat(process.env),
-        ],
-        catch: (error) => new InvalidEnvVarError(error),
-      })
-    ),
-    // The `instance/*` operator gate, boot half: an instance step without the
-    // switch, or code with it, refuses before the port binds.
-    Effect.andThen(
-      Effect.try({
-        try: () => {
-          const refusal = hostActionsBootRefusal(validatedApp, parseSovriumHostActions(process.env))
-          // eslint-disable-next-line functional/no-throw-statements -- turned into the boot refusal by the catch below.
-          if (refusal !== undefined) throw new Error(refusal)
-        },
-        catch: (error) => new InvalidEnvVarError(error),
-      })
-    ),
-    // The browser automation switch: its conflicts with the renderer, and holds past its limit.
-    Effect.andThen(refuseBrowserMisconfiguration(validatedApp)),
-    Effect.andThen(refusePreviewMisconfiguration),
-    Effect.andThen(refuseUndersizedDatabaseBudget(validatedApp)),
-    Effect.asVoid,
     Effect.withSpan('server.validate-boot-environment')
   )

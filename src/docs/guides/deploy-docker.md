@@ -1,6 +1,6 @@
 # Deploy Sovrium with Docker
 
-> Run a Sovrium app as a Docker container — pull the official image, pass the config and secrets as environment, and persist the data directory with a volume.
+> Run a Sovrium app as a Docker container: pull the official image, pass the config and secrets as environment, and persist the data directory with a volume.
 
 You want to run a Sovrium app on any host that has Docker, with nothing to install but the image.
 
@@ -20,19 +20,19 @@ docker run -d --name my-app -p 3000:3000 \
   ghcr.io/sovrium/sovrium:latest start /app/app.yaml
 ```
 
-`SOVRIUM_DATA_DIR` is what makes the volume useful. Sovrium writes to `./.sovrium` by default — inside the container that resolves to `/app/.sovrium`, not to your mount — so a volume without this variable persists nothing.
+`SOVRIUM_DATA_DIR` is what makes the volume useful. Sovrium writes to `./.sovrium` by default. Inside the container that resolves to `/app/.sovrium`, not to your mount, so a volume without this variable persists nothing.
 
 The image runs as a non-root `sovrium` user, and a named volume like `my-app-data` takes that user's ownership when it is first created, so it works as written. A host directory mounted in its place (`-v /srv/my-app:/data`) keeps the ownership it has on the host, and Sovrium cannot write to it. Hand the directory to the image's user first: `docker run --rm --entrypoint id ghcr.io/sovrium/sovrium:latest` prints its uid and gid (`999` and `999` at the time of writing), then `sudo chown 999:999 /srv/my-app`. Alternatively, run the container as the directory's owner with `--user "$(id -u):$(id -g)"`.
 
 One secret is the whole list. The session-signing secret derives from `SOVRIUM_ENCRYPTION_KEY`, so there is no second value to generate, store or rotate in step with it.
 
-The key itself is optional — Sovrium generates one on first start and keeps it in the data directory. Passing it explicitly, as above, is the safer habit for a container: it stays correct even if the volume is later dropped, recreated or swapped for an external database. Generate it once and keep it wherever you keep your other deployment secrets, because a different key on the next `docker run` makes every stored connection token unreadable and, since the session-signing secret derives from it, signs every user out.
+The key itself is optional: Sovrium generates one on first start and keeps it in the data directory. Passing it explicitly, as above, is the safer habit for a container: it stays correct even if the volume is later dropped, recreated or swapped for an external database. Generate it once and keep it wherever you keep your other deployment secrets, because a different key on the next `docker run` makes every stored connection token unreadable and, since the session-signing secret derives from it, signs every user out.
 
 `NODE_ENV=production` switches content-hashed assets to immutable caching, the client scripts included: pages reference them by content-hashed names, and their old unhashed names are served `no-cache` so a browser revalidates them on every use. Leave it out and every asset is re-fetched on each page view.
 
 `TRUSTED_PROXY_HOPS=1` matches the `https://` base URL above: something is terminating TLS in front of the container, and this is what lets Sovrium believe the client address that something forwards. Without it every request resolves to the proxy, so all visitors share one rate-limit budget. Drop it to `0` if you publish the container port straight to the internet, and never set it higher than the number of proxies you actually run.
 
-Keep `BASE_URL` on the public `https://` address even when you are only trying the container out on a server. Sovrium decides its security posture from it, not from `NODE_ENV` or the published port: a `localhost` `BASE_URL` makes it treat the deployment as local, which turns off the cross-site request (CSRF) origin check and drops the `Secure` attribute from session cookies — while `-p 3000:3000` leaves the port reachable from outside. A `localhost` `BASE_URL` belongs only on a machine nobody else can reach.
+Keep `BASE_URL` on the public `https://` address even when you are only trying the container out on a server. Sovrium decides its security posture from it, not from `NODE_ENV` or the published port: a `localhost` `BASE_URL` makes it treat the deployment as local, which turns off the cross-site request (CSRF) origin check and drops the `Secure` attribute from session cookies, while `-p 3000:3000` leaves the port reachable from outside. A `localhost` `BASE_URL` belongs only on a machine nobody else can reach.
 
 ## Verify
 
@@ -44,6 +44,6 @@ The container serves your app on port 3000; the SQLite database and uploaded fil
 
 ## Next
 
-- **Environment Variables** — every secret and toggle you can pass with `-e`.
-- **Database Infrastructure** — stay on SQLite or point `DATABASE_URL` at PostgreSQL.
-- **Security Hardening** — the production checklist before you expose the port.
+- **Environment Variables**: every secret and toggle you can pass with `-e`.
+- **Database Infrastructure**: stay on SQLite or point `DATABASE_URL` at PostgreSQL.
+- **Security Hardening**: the production checklist before you expose the port.

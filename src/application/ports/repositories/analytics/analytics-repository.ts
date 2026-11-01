@@ -92,6 +92,22 @@ export interface AnalyticsEventRow {
   readonly properties: Record<string, unknown>
 }
 
+/** One page of the start-up sweep's candidates: rows of an app after a cursor, in id order. */
+export interface UnminimisedEventsPage {
+  readonly appName: string
+  /** The last id of the previous page; `undefined` for the first page. */
+  readonly afterId: string | undefined
+  readonly limit: number
+}
+
+/** The identifiers and properties one row is rewritten with. */
+export interface MinimisedEventWrite {
+  readonly id: string
+  readonly visitorHash: string
+  readonly sessionHash: string
+  readonly properties: Readonly<Record<string, unknown>>
+}
+
 /**
  * Query parameters for analytics data retrieval
  */
@@ -250,6 +266,17 @@ export class AnalyticsRepository extends Context.Service<
       appName: string,
       cutoff: Date
     ) => Effect.Effect<number, AnalyticsDatabaseError>
+    /**
+     * Rows that may still carry a field the `audience-only` profile excludes,
+     * one page at a time, for the start-up sweep.
+     */
+    readonly listUnminimisedEvents: (
+      page: UnminimisedEventsPage
+    ) => Effect.Effect<readonly AnalyticsEventRow[], AnalyticsDatabaseError>
+    /** Overwrite one row's identifiers and properties; its other columns are kept. */
+    readonly rewriteEvent: (
+      write: MinimisedEventWrite
+    ) => Effect.Effect<void, AnalyticsDatabaseError>
     /**
      * ONE grouped count for many names at once — a page of links reads its
      * clicks in one query, never one query per link.

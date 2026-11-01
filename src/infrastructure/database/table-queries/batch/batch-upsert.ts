@@ -7,12 +7,15 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { BatchValidationError } from '@/application/ports/repositories/tables/batch-repository'
 import {
   reportCommittedRows,
   type CommittedRowChange,
 } from '@/application/ports/services/record-change-feed'
-import { DatabaseError, ValidationError, type DrizzleTransaction } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { BusinessRuleViolationError } from '@/domain/errors'
+import { upsertUpdateChange } from '@/domain/models/app/tables/insert-only-field-service'
+import { DatabaseError, ValidationError } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { confirmBatchAccounts } from '../mutation-helpers/account-confirmation'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
@@ -20,16 +23,24 @@ import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encodi
 import { rowAfterTriggers } from '../mutation-helpers/record-fetch-helpers'
 import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
 import { logCommittedRowChanges } from '../query-helpers/activity-log-helpers'
-import { excludingIds } from '../query-helpers/check-existing-records'
 import { validateColumnName, tableIdentifier } from '../statement/validation'
-import { BatchValidationError, createSingleRecord } from './batch-helpers'
+import { createSingleRecord } from './batch-helpers'
+import {
+  findExistingRecord,
+  judgedCreate,
+  judgedMatch,
+  judgedUpsert,
+} from './batch-upsert-judgement'
 import {
   refuseEmptyUpsert,
   validateAllRecordsHaveRequiredFields,
   validateMergeFieldsPresent,
 } from './batch-upsert-validation'
+import type { InTransactionRuleJudge } from '@/application/ports/repositories/tables/in-transaction-rule-judge'
 import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect, TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Helper to update existing record
@@ -49,7 +60,7 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
  * the same defect, so every path delegates.
  */
 async function updateSingleRecord(
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   tableName: string,
   recordId: string,
   params: {
@@ -62,26 +73,26 @@ async function updateSingleRecord(
   // created-by author) describes the row's creation, which happened once: an
   // update rewrites neither. SQLite has no trigger to restore `created_at`, so
   // dropping it here is what keeps the rule on both engines.
-  const updateEntries = Object.entries(params.fields).filter(
-    ([key]) => !params.fieldsToMergeOn.includes(key) && !params.insertOnlyFields.includes(key)
-  )
+  const updateEntries = Object.entries(upsertUpdateChange(params.fields, params))
   if (updateEntries.length === 0) return undefined
 
   // Same array-encoding resolution the create branch performs, and for the same
   // reason: a `text[]` column needs a native array literal, a `jsonb` one needs
   // JSON, and PostgreSQL rejects the wrong choice outright.
   const setClause = buildUpdateSetClauseCRUD(
+    on.dialect.kind,
     updateEntries,
-    await resolveArrayColumnTypes(tx, tableName, [Object.fromEntries(updateEntries)])
+    await resolveArrayColumnTypes(on, tableName, [Object.fromEntries(updateEntries)])
   )
 
-  const result = await executeRaw(
-    tx,
+  const result = await executeRawOn(
+    on.dialect.kind,
+    on.tx,
     sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
   )
 
   const [updated] = result
-  return updated === undefined ? undefined : { ...(await rowAfterTriggers(tx, tableName, updated)) }
+  return updated === undefined ? undefined : { ...(await rowAfterTriggers(on, tableName, updated)) }
 }
 
 type UpsertResult = {
@@ -105,40 +116,10 @@ const withCommitted = (
 })
 
 /**
- * Check if a LIVE record exists based on merge fields. A row in the trash, or one
- * the caller's row-level read rule hides (`hiddenIds`), is not a match: created.
- */
-function findExistingRecord(
-  tx: Readonly<DrizzleTransaction>,
-  tableName: string,
-  fields: Readonly<Record<string, unknown>>,
-  merge: { readonly fieldsToMergeOn: readonly string[]; readonly hiddenIds: readonly string[] }
-): Effect.Effect<Readonly<Record<string, unknown>> | undefined, DatabaseError> {
-  const { fieldsToMergeOn, hiddenIds } = merge
-  const whereConditions = fieldsToMergeOn.map((field) => {
-    validateColumnName(field)
-    return sql`${sql.identifier(field)} = ${fields[field]}`
-  })
-  const whereClause = sql.join(whereConditions, sql.raw(' AND '))
-
-  return Effect.tryPromise({
-    try: async () => {
-      const result = await executeRaw(
-        tx,
-        sql`SELECT * FROM ${tableIdentifier(tableName)}
-             WHERE deleted_at IS NULL AND ${whereClause}${excludingIds(hiddenIds)} LIMIT 1`
-      )
-      return result[0]
-    },
-    catch: (error) => new DatabaseError(`Failed to check existing record in ${tableName}`, error),
-  })
-}
-
-/**
  * Handle update path in upsert
  */
 function handleUpsertUpdate(
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   params: {
     readonly session: Readonly<Session>
     readonly tableName: string
@@ -153,7 +134,7 @@ function handleUpsertUpdate(
     const recordId = String(params.existing.id)
     const updated = yield* Effect.tryPromise({
       try: async () =>
-        updateSingleRecord(tx, params.tableName, recordId, {
+        updateSingleRecord(on, params.tableName, recordId, {
           fields: params.fields,
           fieldsToMergeOn: params.fieldsToMergeOn,
           insertOnlyFields: params.insertOnlyFields,
@@ -184,7 +165,7 @@ function handleUpsertUpdate(
  * Handle create path in upsert
  */
 function handleUpsertCreate(
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   params: {
     readonly session: Readonly<Session>
     readonly tableName: string
@@ -201,18 +182,18 @@ function handleUpsertCreate(
         const fields = await injectCreateAuthorship(
           params.fields,
           params.session.userId,
-          tx,
+          on,
           params.tableName
         )
         return createSingleRecord(
-          tx,
+          on,
           params.tableName,
           fields,
           // Same array-encoding resolution the batch-create path uses. Scoped
           // to this record because upsert interleaves creates with updates, so
           // there is no batch-wide column union to hoist; the lookup skips its
           // round-trip when nothing here is array-shaped.
-          await resolveArrayColumnTypes(tx, params.tableName, [fields])
+          await resolveArrayColumnTypes(on, params.tableName, [fields])
         )
       },
       catch: (error) => {
@@ -239,89 +220,120 @@ function handleUpsertCreate(
  * Process single upsert operation
  */
 function processSingleUpsert(
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   params: {
     readonly session: Readonly<Session>
     readonly tableName: string
     readonly fields: Record<string, unknown>
+    readonly index: number
     readonly fieldsToMergeOn: readonly string[]
     readonly insertOnlyFields: readonly string[]
     readonly hiddenIds: readonly string[]
+    readonly judge: InTransactionRuleJudge | undefined
     readonly acc: UpsertResult
   }
-): Effect.Effect<UpsertResult, DatabaseError | ValidationError> {
+): Effect.Effect<UpsertResult, DatabaseError | ValidationError | BusinessRuleViolationError> {
   return Effect.gen(function* () {
-    const existing = yield* findExistingRecord(tx, params.tableName, params.fields, params)
+    const existing = yield* findExistingRecord(on, params.tableName, params.fields, params)
 
     if (existing) {
-      return yield* handleUpsertUpdate(tx, { ...params, existing })
+      yield* judgedMatch(on, params.tableName, { index: params.index, existing }, params.judge)
+      return yield* handleUpsertUpdate(on, { ...params, existing })
     }
 
-    return yield* handleUpsertCreate(tx, params)
+    // No record matches — even one this row matched before the transaction
+    // opened, since deleted or moved off the merge key: the row is judged as
+    // the create it has become, on exactly the row it inserts.
+    yield* judgedCreate({ index: params.index, fields: params.fields }, params.judge)
+    return yield* handleUpsertCreate(on, params)
   })
 }
 
 /**
+ * Every row of the upsert written in turn, inside its transaction: the rules
+ * judged first on every row, as the update of the record it matches or the
+ * create of the row it inserts, then each row matched again, judged once more
+ * as what it has become, and written.
+ */
+const judgedUpsertRows = (
+  on: TransactionOn,
+  recordsData: readonly Record<string, unknown>[],
+  write: Omit<Parameters<typeof processSingleUpsert>[1], 'fields' | 'index' | 'acc'>
+) =>
+  Effect.gen(function* () {
+    const { tableName, judge } = write
+    yield* judgedUpsert(on, tableName, recordsData, { merge: write, judge })
+    return yield* Effect.reduce(
+      recordsData,
+      () => ({ records: [], created: 0, updated: 0, committed: [] }) as UpsertResult,
+      (acc, fields, index) => processSingleUpsert(on, { ...write, fields, index, acc })
+    )
+  })
+
+/**
  * Upsert records (create or update based on merge fields)
  */
-export function upsertRecords(
-  session: Readonly<Session>,
-  tableName: string,
-  recordsData: readonly Record<string, unknown>[],
-  options: {
-    readonly fieldsToMergeOn: readonly string[]
-    readonly insertOnlyFields?: readonly string[]
-    readonly hiddenIds?: readonly string[]
-    readonly accounts?: readonly AccountReference[]
-  }
-): Effect.Effect<
-  Omit<UpsertResult, 'committed'>,
-  DatabaseError | BatchValidationError | ValidationError
-> {
-  const { fieldsToMergeOn, insertOnlyFields = [], hiddenIds = [] } = options
-  return Effect.gen(function* () {
-    yield* refuseEmptyUpsert(recordsData, fieldsToMergeOn)
-    fieldsToMergeOn.forEach((field) => validateColumnName(field))
+export const upsertRecords =
+  (db: PortableDb, dialect: Dialect) =>
+  (
+    session: Readonly<Session>,
+    tableName: string,
+    recordsData: readonly Record<string, unknown>[],
+    options: {
+      readonly fieldsToMergeOn: readonly string[]
+      readonly insertOnlyFields?: readonly string[]
+      readonly hiddenIds?: readonly string[]
+      readonly accounts?: readonly AccountReference[]
+      /** The rules, judged on every row inside the transaction (keyed by row position). */
+      readonly judge?: InTransactionRuleJudge | undefined
+    }
+  ): Effect.Effect<
+    Omit<UpsertResult, 'committed'>,
+    DatabaseError | BatchValidationError | ValidationError | BusinessRuleViolationError
+  > => {
+    const { fieldsToMergeOn, insertOnlyFields = [], hiddenIds = [] } = options
+    return Effect.gen(function* () {
+      yield* refuseEmptyUpsert(recordsData, fieldsToMergeOn)
+      fieldsToMergeOn.forEach((field) => validateColumnName(field))
+      yield* validateMergeFieldsPresent(recordsData, fieldsToMergeOn)
 
-    // Validate merge fields are present in all records BEFORE processing
-    yield* validateMergeFieldsPresent(recordsData, fieldsToMergeOn)
-
-    const merge = { fieldsToMergeOn, insertOnlyFields, hiddenIds }
-    const result = yield* withOutboxTransaction((upserted: UpsertResult) => upserted.committed)(
-      (tx) =>
-        Effect.gen(function* () {
-          yield* confirmBatchAccounts(tx, options.accounts)
-          yield* validateAllRecordsHaveRequiredFields(tx, tableName, recordsData)
-
-          return yield* Effect.reduce(
-            recordsData,
-            () => ({ records: [], created: 0, updated: 0, committed: [] }) as UpsertResult,
-            (acc, fields) => processSingleUpsert(tx, { session, tableName, fields, ...merge, acc })
-          )
-        }),
-      (error) => {
-        if (error instanceof DatabaseError) return error
-        // A constraint rejection from the create branch arrives typed, carrying
-        // the client-safe wording from `CONSTRAINT_MESSAGES`. Falling through to
-        // the wrap below would, because `ValidationError` carries no `cause`,
-        // produce a `DatabaseError` with a dead chain — which `sanitizeError`
-        // can only read as an unexplained fault and answer 500. The SAME caller
-        // mistake would then be a 400 through batch create and a 500 through
-        // upsert, blaming the caller on one route and paging the operator on
-        // the other. The return type already admitted this class.
-        if (error instanceof ValidationError) return error
-        if (error instanceof BatchValidationError) {
-          // Re-wrap BatchValidationError as DatabaseError to match return type
-          return new DatabaseError(error.message, error)
+      const merge = { fieldsToMergeOn, insertOnlyFields, hiddenIds }
+      const write = { session, tableName, ...merge, judge: options.judge }
+      const result = yield* withOutboxTransaction(
+        { client: db, dialect },
+        (upserted: UpsertResult) => upserted.committed
+      )(
+        (tx) =>
+          Effect.gen(function* () {
+            yield* confirmBatchAccounts(tx, dialect, options.accounts)
+            yield* validateAllRecordsHaveRequiredFields({ tx, dialect }, tableName, recordsData)
+            return yield* judgedUpsertRows({ tx, dialect }, recordsData, write)
+          }),
+        (error) => {
+          if (error instanceof DatabaseError || error instanceof BusinessRuleViolationError) {
+            return error
+          }
+          // A constraint rejection from the create branch arrives typed, carrying
+          // the client-safe wording from `CONSTRAINT_MESSAGES`. Falling through to
+          // the wrap below would, because `ValidationError` carries no `cause`,
+          // produce a `DatabaseError` with a dead chain — which `sanitizeError`
+          // can only read as an unexplained fault and answer 500. The SAME caller
+          // mistake would then be a 400 through batch create and a 500 through
+          // upsert, blaming the caller on one route and paging the operator on
+          // the other. The return type already admitted this class.
+          if (error instanceof ValidationError) return error
+          if (error instanceof BatchValidationError) {
+            // Re-wrap BatchValidationError as DatabaseError to match return type
+            return new DatabaseError(error.message, error)
+          }
+          return new DatabaseError(`Failed to upsert records in ${tableName}`, error)
         }
-        return new DatabaseError(`Failed to upsert records in ${tableName}`, error)
-      }
-    )
+      )
 
-    const { committed, ...outcome } = result
-    // Logged once the transaction has committed — a rolled-back batch changed nothing.
-    yield* logCommittedRowChanges(session, committed)
-    yield* reportCommittedRows(committed)
-    return outcome
-  })
-}
+      const { committed, ...outcome } = result
+      // Logged once the transaction has committed — a rolled-back batch changed nothing.
+      yield* logCommittedRowChanges(db, session, committed)
+      yield* reportCommittedRows(committed)
+      return outcome
+    })
+  }

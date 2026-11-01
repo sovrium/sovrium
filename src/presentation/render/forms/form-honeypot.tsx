@@ -30,13 +30,11 @@
 // Injecting the constant markup verbatim sidesteps both: React never validates
 // the attribute, and the exact lowercase `autocomplete="off"` reaches the HTML.
 //
-// Both constants live at module level so React allocates nothing fresh per SSR
-// pass (react-perf/jsx-no-new-object-as-prop) — the `__html` payload and the
-// wrapper style are stable across renders.
-const HONEYPOT_INNER_HTML = {
-  __html:
-    '<input type="text" name="_hp" tabindex="-1" aria-hidden="true" autocomplete="off" style="display:none" />',
-} as const
+// The markup is a same-file string literal, which `sovrium/require-sanitized-html`
+// accepts as it stands; the wrapper style lives at module level so React
+// allocates nothing fresh per SSR pass (react-perf/jsx-no-new-object-as-prop).
+const HONEYPOT_MARKUP =
+  '<input type="text" name="_hp" tabindex="-1" aria-hidden="true" autocomplete="off" style="display:none" />'
 
 // Wrapper uses `display: contents` so it adds no box of its own — the honeypot's
 // own `display:none` keeps the field invisible/untabbable for humans while a
@@ -47,8 +45,7 @@ export function HoneypotInput() {
   return (
     <span
       style={HONEYPOT_WRAPPER_STYLE}
-      // eslint-disable-next-line sovrium/require-sanitized-html -- a same-file string literal, hoisted into a constant object for react-perf
-      dangerouslySetInnerHTML={HONEYPOT_INNER_HTML}
+      dangerouslySetInnerHTML={{ __html: HONEYPOT_MARKUP }}
     />
   )
 }

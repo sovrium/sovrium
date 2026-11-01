@@ -21,6 +21,10 @@
  */
 
 import { type ReactElement } from 'react'
+import {
+  CONFIRM_AFFIRM_LABEL_ATTR,
+  CONFIRM_CANCEL_LABEL_ATTR,
+} from '@/domain/models/app/pages/confirm-gate-labels'
 import { omitInternalMarkers } from '../../props/internal-marker-props'
 import {
   DELETE_LABEL_ATTR,
@@ -68,6 +72,40 @@ function deleteUiStrings(refusal: unknown, failure: unknown, words: unknown) {
   }
 }
 
+/**
+ * The button's own `confirm` — a string prompt or the object form, stamped on
+ * the props by the button schema overlay — as the gate the delete view draws
+ * before it deletes. Undefined when the button asks nothing of its own.
+ */
+function buttonConfirmGate(
+  configAttr: unknown,
+  promptAttr: unknown
+): Readonly<Record<string, unknown>> | undefined {
+  if (typeof configAttr === 'string') {
+    const parsed = JSON.parse(configAttr) as unknown
+    if (parsed !== null && typeof parsed === 'object') return parsed as Record<string, unknown>
+  }
+  return typeof promptAttr === 'string' ? { message: promptAttr } : undefined
+}
+
+/** The gate and its page-language Cancel word, as the island reads them. */
+function gateIslandProps(
+  confirmGate: Readonly<Record<string, unknown>> | undefined,
+  cancelLabel: unknown
+): { confirmGate?: Readonly<Record<string, unknown>>; confirmCancelLabel?: string } {
+  if (confirmGate === undefined) return {}
+  return typeof cancelLabel === 'string'
+    ? { confirmGate, confirmCancelLabel: cancelLabel }
+    : { confirmGate }
+}
+
+/** The button's resting word: its `content`, then its `label`, then the page-language default. */
+function restingWord(content: string | undefined, ownLabel: unknown, fallback: unknown): string {
+  if (content !== undefined) return content
+  if (typeof ownLabel === 'string') return ownLabel
+  return typeof fallback === 'string' ? fallback : 'Delete'
+}
+
 export function renderCrudDeleteButton(config: DeleteButtonConfig): ReactElement {
   const { props, content, action, routeParams } = config
   const record = (props._record ?? {}) as Record<string, unknown>
@@ -77,9 +115,17 @@ export function renderCrudDeleteButton(config: DeleteButtonConfig): ReactElement
     [RATE_LIMIT_LABEL_ATTR]: refusalLabel,
     [FAILURE_LABEL_ATTR]: failureLabel,
     [DELETE_WORDS_ATTR]: deleteWords,
+    label: ownLabel,
+    'data-label': _dataLabel,
+    'data-confirm-config': confirmConfig,
+    'data-confirm': confirmPrompt,
+    'data-confirm-label': _confirmLabel,
+    'data-confirm-class': _confirmClass,
+    [CONFIRM_AFFIRM_LABEL_ATTR]: _affirmLabel,
+    [CONFIRM_CANCEL_LABEL_ATTR]: cancelLabel,
     ...restProps
   } = omitInternalMarkers(props) as Record<string, unknown>
-  const label = content ?? (typeof restingLabel === 'string' ? restingLabel : 'Delete')
+  const label = restingWord(content, ownLabel, restingLabel)
   const recordId = String(record['id'] ?? routeParams?.['id'] ?? '')
   const islandProps = buildCrudIslandProps({
     operation: 'delete',
@@ -91,6 +137,7 @@ export function renderCrudDeleteButton(config: DeleteButtonConfig): ReactElement
     buttonLabel: label,
     ...(typeof pendingLabel === 'string' ? { pendingLabel } : {}),
     ...deleteUiStrings(refusalLabel, failureLabel, deleteWords),
+    ...gateIslandProps(buttonConfirmGate(confirmConfig, confirmPrompt), cancelLabel),
   })
   const buttonAttrs = buildDeleteButtonAttrs(action)
 

@@ -35,6 +35,10 @@
 
 import { Effect } from 'effect'
 import {
+  rememberChatTurn,
+  type ChatTurnToPersist,
+} from '@/application/use-cases/agents/chat-turn/durable-memory'
+import {
   type RunAutomationError,
   type RunAutomationResult,
 } from '@/application/use-cases/automations/run-automation'
@@ -51,14 +55,11 @@ import {
 } from '@/presentation/api/agents/chat-activity-log'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { appendConversationTurn } from './chat-conversation-store'
-import { persistTurnDurably } from './chat-durable-memory'
 import { resolveUserEmail } from './chat-mutation-flow'
 import { respondWithActions } from './chat-tool-reply'
 import { admitChatTrigger } from './chat-trigger-gate'
-import type { ChatTurnToPersist } from './chat-durable-memory'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { Context } from 'hono'
 
 /** Table-facing result of evaluating a turn for an automation trigger. */
@@ -79,8 +80,6 @@ export type TriggerTurnResult =
 
 /** Inputs for evaluating a chat turn against the automation-trigger pipeline. */
 export interface TriggerTurnInput {
-  /** The server's resolved services, taken off the request that started the turn. */
-  readonly services: DomainContext
   readonly app: App | undefined
   readonly message: string
   /** The acting user's role — drives the per-automation trigger RBAC gate. */
@@ -204,8 +203,6 @@ const turnToPersist = (
  * {@link admitChatTrigger} has already judged it, and the engine re-checks it.
  */
 interface RunMatchedInput {
-  /** The server's resolved services: the run uses the server's renderer, permits and assets. */
-  readonly services: DomainContext
   readonly app: App
   readonly name: string
   readonly message: string
@@ -214,61 +211,72 @@ interface RunMatchedInput {
   readonly aiReply: string
 }
 
-const runMatchedAutomation = async (input: RunMatchedInput): Promise<TriggerTurnResult> => {
-  const { services, app, name, message, userId, userRole, aiReply } = input
-  const program = runManualAutomation({
-    name,
-    app,
-    processEnv: process.env,
-    userRole,
-    triggerData: { body: { message } },
-    userId,
-    byName: true,
-  })
-  // On the server's own services, never a freshly built automation runtime: a
-  // second build would start a second set of render permits and an EMPTY
-  // asset store, so a document step run from chat could not read `{ asset }`.
-  const outcome = await Effect.runPromise(Effect.result(Effect.provide(program, services)))
-  if (outcome._tag === 'Failure') {
-    logError(`[ai] automation "${name}" run failed (engine error)`, outcome.failure)
-    return errorToResult(outcome.failure, name)
-  }
-
-  const status = toActionStatus(outcome.success.status)
-  if (status === 'failed') {
-    logError(
-      `[ai] automation "${name}" run failed (runId=${outcome.success.runId})`,
-      outcome.success.error ?? '(no error captured)'
+const runMatchedAutomation = (input: RunMatchedInput) =>
+  Effect.gen(function* () {
+    const { app, name, message, userId, userRole, aiReply } = input
+    // On the server's own services, never a freshly built automation runtime: a
+    // second build would start a second set of render permits and an EMPTY
+    // asset store, so a document step run from chat could not read `{ asset }`.
+    const outcome = yield* Effect.result(
+      runManualAutomation({
+        name,
+        app,
+        userRole,
+        triggerData: { body: { message } },
+        userId,
+        byName: true,
+      })
     )
-  }
-  const reply = composeTriggerReply(aiReply, name, status)
-  const action: ChatAction = {
-    type: 'automation',
-    name,
-    status,
-    runId: outcome.success.runId,
-    description: `Automation "${name}" ${status}.`,
-  }
-  return { kind: 'triggered', action, reply, status, runId: outcome.success.runId }
-}
+    if (outcome._tag === 'Failure') {
+      logError(`[ai] automation "${name}" run failed (engine error)`, outcome.failure)
+      return errorToResult(outcome.failure, name)
+    }
 
-export const evaluateTriggerTurn = async (input: TriggerTurnInput): Promise<TriggerTurnResult> => {
+    const status = toActionStatus(outcome.success.status)
+    if (status === 'failed') {
+      logError(
+        `[ai] automation "${name}" run failed (runId=${outcome.success.runId})`,
+        outcome.success.error ?? '(no error captured)'
+      )
+    }
+    const reply = composeTriggerReply(aiReply, name, status)
+    const action: ChatAction = {
+      type: 'automation',
+      name,
+      status,
+      runId: outcome.success.runId,
+      description: `Automation "${name}" ${status}.`,
+    }
+    const triggered: TriggerTurnResult = {
+      kind: 'triggered',
+      action,
+      reply,
+      status,
+      runId: outcome.success.runId,
+    }
+    return triggered
+  })
+
+/** A trigger turn settled before any run. */
+const settled = (result: TriggerTurnResult) => Effect.succeed(result)
+
+export const evaluateTriggerTurn = (input: TriggerTurnInput) => {
   const candidates = toAutomationCandidates(input.app)
-  if (candidates.length === 0 || input.app === undefined) return { kind: 'none' }
+  if (candidates.length === 0 || input.app === undefined) return settled({ kind: 'none' })
 
   const intent = parseAutomationIntent(input.message, candidates)
-  if (intent === undefined) return { kind: 'none' }
+  if (intent === undefined) return settled({ kind: 'none' })
   if (intent.matched === 'unknown') {
-    return {
+    return settled({
       kind: 'not-found',
       reply: 'That automation was not found — it does not exist in this application.',
-    }
+    })
   }
 
   const { name } = intent.automation
   const declared = input.app.automations?.find((a) => a.name === name)
   if (declared === undefined) {
-    return { kind: 'not-found', reply: `The "${name}" automation was not found.` }
+    return settled({ kind: 'not-found', reply: `The "${name}" automation was not found.` })
   }
 
   // Both gates on the CALLER's role, before any run starts: a declared
@@ -276,22 +284,21 @@ export const evaluateTriggerTurn = async (input: TriggerTurnInput): Promise<Trig
   // `requiredRole` (admin when undeclared) still holds.
   const admission = admitChatTrigger(declared, input.app, input.userRole)
   if (admission === 'forbidden') {
-    return {
+    return settled({
       kind: 'forbidden',
       message: `You do not have permission to trigger the "${name}" automation.`,
-    }
+    })
   }
 
   // A non-manual automation cannot be invoked from chat.
   if (admission === 'not-triggerable') {
-    return {
+    return settled({
       kind: 'not-triggerable',
       reply: `The "${name}" automation cannot be triggered from chat — it runs automatically on a ${intent.automation.triggerType} schedule.`,
-    }
+    })
   }
 
   return runMatchedAutomation({
-    services: input.services,
     app: input.app,
     name,
     message: input.message,
@@ -303,8 +310,6 @@ export const evaluateTriggerTurn = async (input: TriggerTurnInput): Promise<Trig
 
 /** Inputs for completing an automation-trigger chat turn into a Response. */
 export interface CompleteTriggerInput {
-  /** The server's resolved services, taken off the request that started the turn. */
-  readonly services: DomainContext
   readonly app: App | undefined
   readonly message: string
   readonly sessionId: string
@@ -329,61 +334,52 @@ export interface CompleteTriggerInput {
  * `not-triggerable` / `not-found` turns return
  * a plain reply with an empty `actions[]` array.
  */
-export const completeTriggerTurn = async (
-  c: Context,
-  input: CompleteTriggerInput
-): Promise<Response | undefined> => {
-  const trigger = await evaluateTriggerTurn({
-    services: input.services,
-    app: input.app,
-    message: input.message,
-    userRole: input.userRole,
-    userId: input.actorName,
-    aiReply: input.aiReply,
-  })
-  if (trigger.kind === 'none') return undefined
-
-  if (trigger.kind === 'forbidden') {
-    await recordChatActivity(input.services, {
-      action: 'ai.chat.error',
-      actorName: input.actorName,
+export const completeTriggerTurn = (c: Context, input: CompleteTriggerInput) =>
+  Effect.gen(function* () {
+    const trigger = yield* evaluateTriggerTurn({
+      app: input.app,
+      message: input.message,
+      userRole: input.userRole,
+      userId: input.actorName,
+      aiReply: input.aiReply,
     })
-    // S1 anti-enumeration: automation-trigger authz denials return 404 so the
-    // user cannot discover which automations exist but are admin-only.
-    // `trigger.message` is intentionally discarded from the response envelope.
-    return notFound(c, 'Resource not found')
-  }
+    if (trigger.kind === 'none') return undefined
 
-  const { reply } = trigger
-  appendConversationTurn(c, input, input.message, reply)
-  await persistTurnDurably(input.services, turnToPersist(input, reply))
+    if (trigger.kind === 'forbidden') {
+      yield* recordChatActivity({ action: 'ai.chat.error', actorName: input.actorName })
+      // S1 anti-enumeration: automation-trigger authz denials return 404 so the
+      // user cannot discover which automations exist but are admin-only.
+      // `trigger.message` is intentionally discarded from the response envelope.
+      return notFound(c, 'Resource not found')
+    }
 
-  if (trigger.kind === 'triggered') {
-    const userEmail = await resolveUserEmail(input.services, input.actorName)
-    await recordActivityLogRow(input.services, {
-      actorType: 'user',
-      actorName: input.actorName,
-      action: 'ai.chat.automation',
-      userEmail,
-    })
+    const { reply } = trigger
+    appendConversationTurn(c, input, input.message, reply)
+    yield* rememberChatTurn(turnToPersist(input, reply))
+
+    if (trigger.kind === 'triggered') {
+      const userEmail = yield* resolveUserEmail(input.actorName)
+      yield* recordActivityLogRow({
+        actorType: 'user',
+        actorName: input.actorName,
+        action: 'ai.chat.automation',
+        userEmail,
+      })
+      return respondWithActions(c, {
+        reply,
+        actions: [trigger.action],
+        sessionId: input.sessionId,
+        rateLimitRemaining: input.rateLimitRemaining,
+      })
+    }
+
+    // `not-triggerable` / `not-found` — record a plain message activity row and
+    // return an empty `actions[]` array.
+    yield* recordChatActivity({ action: 'ai.chat.message', actorName: input.actorName })
     return respondWithActions(c, {
       reply,
-      actions: [trigger.action],
+      actions: [],
       sessionId: input.sessionId,
       rateLimitRemaining: input.rateLimitRemaining,
     })
-  }
-
-  // `not-triggerable` / `not-found` — record a plain message activity row and
-  // return an empty `actions[]` array.
-  await recordChatActivity(input.services, {
-    action: 'ai.chat.message',
-    actorName: input.actorName,
   })
-  return respondWithActions(c, {
-    reply,
-    actions: [],
-    sessionId: input.sessionId,
-    rateLimitRemaining: input.rateLimitRemaining,
-  })
-}

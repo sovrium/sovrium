@@ -17,6 +17,11 @@ import { isListIslandMode } from '@/presentation/render/registry/list-island-mod
 import { isSearchPalette } from '@/presentation/render/registry/search-palette-mode'
 import { isSourcedSidebar } from '@/presentation/render/registry/sourced-sidebar-mode'
 import { isRecordFieldSystemMode } from '@/presentation/render/registry/system-detail-mode'
+import {
+  componentField,
+  componentFields,
+  keyOf,
+} from '@/presentation/render/resolve/component-rewrite'
 import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
 import { openImportTable } from '@/presentation/render/resolve/open-import-gate'
 import type { Components } from '@/domain/models/app/components'
@@ -58,8 +63,7 @@ function isSingleRecordBoundForm(item: Component): boolean {
  * must make `hasIslandComponents()` true.
  */
 function hasDataIslandProp(item: Component): boolean {
-  const props = (item as Record<string, unknown>).props as Record<string, unknown> | undefined
-  return typeof props?.['data-island'] === 'string'
+  return typeof item.props?.['data-island'] === 'string'
 }
 
 /**
@@ -91,16 +95,21 @@ export function bindsToIsland(item: Component): boolean {
   )
 }
 
+/** A component bound in `search` mode, which mounts the search-list island. */
+function isSearchBound(item: Component): boolean {
+  return keyOf(componentField(item, 'dataSource'), 'mode') === 'search'
+}
+
 function itemSelfNeedsIslands(item: Component): boolean {
   // Checked BEFORE the type set: `dialog` is a member of it, but a
   // `hydrate: false` dialog renders enhancer-driven markup and mounts nothing.
   if (zeroJsDialogNeedsNoRuntime(item)) return false
   if (ISLAND_COMPONENT_TYPES.has(item.type)) return true
   if (hasDataIslandProp(item)) return true
-  if (item.dataSource?.mode === 'search') return true
+  if (isSearchBound(item)) return true
   if (bindsToIsland(item)) return true
   if (isSingleRecordBoundForm(item)) return true
-  const action = (item as Record<string, unknown>).action as { type?: string } | undefined
+  const action = componentFields(item)['action'] as { readonly type?: string } | undefined
   return action?.type !== undefined && ISLAND_ACTION_TYPES.has(action.type)
 }
 
@@ -123,9 +132,7 @@ function itemSelfNeedsIslands(item: Component): boolean {
 export function hasIslandComponents(page: Page, components?: Components): boolean {
   if (page.presence === true) return true
   if (pageFoldsDocsNav(page)) return true
-  return someComponentInTree(page.components, components, (item) =>
-    itemSelfNeedsIslands(item as Component)
-  )
+  return someComponentInTree(page.components, components, itemSelfNeedsIslands)
 }
 
 /**

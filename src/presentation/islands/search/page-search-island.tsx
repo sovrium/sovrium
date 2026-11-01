@@ -20,8 +20,8 @@ import {
   computeSearchInputResultsClasses,
   computeSearchInputRootClasses,
 } from '@/presentation/design/search-input-default-classes'
-import { usePageSearch } from '../page-search/use-page-search'
-import type { SearchResult } from '../page-search/matcher'
+import { usePageSearch } from './use-page-search'
+import type { SearchResult } from './page-search-matcher'
 import type { MouseEvent, ReactElement } from 'react'
 
 /**
@@ -29,8 +29,8 @@ import type { MouseEvent, ReactElement } from 'react'
  * by `renderPageSearch` into a live results panel sourced from the build-time
  * `/sovrium-search/index.json` — or, under `index: 'session'`, from
  * `GET /api/search/pages` per query. Matching logic lives in
- * {@link ./page-search/matcher}; the state machine lives in
- * {@link ./page-search/use-page-search}. This file is the render layer only.
+ * {@link ./page-search-matcher}; the state machine lives in
+ * {@link ./use-page-search}. This file is the render layer only.
  *
  * Behaviour (drives `[internal ref]-*`): debounced (150ms) search
  * on every keystroke; `Escape` clears + collapses; `Enter` navigates to the

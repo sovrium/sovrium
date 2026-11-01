@@ -8,7 +8,7 @@
 /**
  * CLI Schema Loader - Presentation Layer
  *
- * CLI-specific schema loading with user-facing error messages and process.exit.
+ * CLI-specific schema loading with user-facing error messages and command stops.
  * Orchestrates domain and infrastructure layers.
  */
 
@@ -38,11 +38,12 @@ import {
   discoverDefaultConfigFile,
 } from '@/infrastructure/config'
 import { printStderr, renderStderr } from '@/infrastructure/logging/cli-output'
+import { stopCommand } from './run-command'
 import type { AppEncoded } from '@/domain/models/app'
 import type { ConfigGraphLoadOptions, LoadedConfigGraph } from '@/infrastructure/config'
 
 /**
- * Load schema from file with CLI error handling (calls process.exit on error)
+ * Load schema from file with CLI error handling (stops the command on error)
  */
 export const loadSchemaFromFile = async (
   filePath: string,
@@ -59,7 +60,7 @@ export const loadSchemaFromFile = async (
         yield* renderStderr(`  sovrium ${command} <config.json>`)
       })
     )
-    process.exit(1)
+    return stopCommand(1)
   }
 
   const format = detectFormat(filePath)
@@ -72,7 +73,7 @@ export const loadSchemaFromFile = async (
         yield* renderStderr('Supported formats: .json, .yaml, .yml, .ts')
       })
     )
-    process.exit(1)
+    return stopCommand(1)
   }
 
   try {
@@ -92,12 +93,12 @@ export const loadSchemaFromFile = async (
         yield* renderStderr(`Details: ${error instanceof Error ? error.message : String(error)}`)
       })
     )
-    process.exit(1)
+    return stopCommand(1)
   }
 }
 
 /**
- * Load schema from file for watch mode reloads (throws instead of process.exit).
+ * Load schema from file for watch mode reloads (throws a plain error, never a stop).
  *
  * Returns the whole config GRAPH — the config plus every file it was read
  * from — because a reload must both evaluate a `.ts` root fresh (a plain
@@ -145,7 +146,7 @@ export const parseSchemaFromEnv = async (envValue: string): Promise<AppEncoded> 
 
   // Otherwise, treat as YAML
   try {
-    return parseYamlContent(trimmedValue)
+    return parseYamlContent(trimmedValue, Bun.YAML)
   } catch (error) {
     throw new Error(
       `Invalid YAML in APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`,
@@ -165,7 +166,7 @@ const showNoConfigError = (command: string): never => {
       // Name what was probed AND where. "No configuration provided" alone tells
       // the user a config is missing but not what to call one — the exact gap
       // that made the `sovrium init` → `sovrium start` flow unrecoverable.
-      yield* renderStderr(formatConfigCandidatesLine(parseProjectDir()))
+      yield* renderStderr(formatConfigCandidatesLine(parseProjectDir(process.env)))
       yield* renderStderr('')
       yield* renderStderr('Usage:')
       yield* renderStderr(`  sovrium ${command} <config.yaml>`)
@@ -176,7 +177,7 @@ const showNoConfigError = (command: string): never => {
       yield* renderStderr("Run 'sovrium init' to scaffold a new project.")
     })
   )
-  process.exit(1)
+  return stopCommand(1)
 }
 
 /**
@@ -201,7 +202,7 @@ const showConfigFileEscapedError = (value: string, projectDir: string): never =>
       yield* renderStderr('To run a config elsewhere, point SOVRIUM_PROJECT_DIR at its folder.')
     })
   )
-  process.exit(1)
+  return stopCommand(1)
 }
 
 /**
@@ -299,8 +300,7 @@ export const resolveAppSchema = async (
     try {
       return { app: await parseSchemaFromEnv(appSchemaEnv) }
     } catch (error) {
-      printStderr(`Error: ${error instanceof Error ? error.message : String(error)}`)
-      process.exit(1)
+      return stopCommand(1, `Error: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -339,14 +339,14 @@ export const resolveAppSchema = async (
  * it can report.
  */
 const resolveConfigInProjectDir = async (): Promise<string | undefined> => {
-  const projectDir = parseProjectDir()
+  const projectDir = parseProjectDir(process.env)
 
   // A named config file REPLACES the candidate probe rather than joining it: a
   // supervisor that says `staging.yaml` means that file, and falling back to
   // `app.yaml` would boot something it never asked for.
-  const namedConfigFile = parseConfigFileName()
+  const namedConfigFile = parseConfigFileName(process.env)
   if (namedConfigFile) {
-    const inProject = resolveInProjectDir(namedConfigFile)
+    const inProject = resolveInProjectDir(namedConfigFile, process.env)
     if (!inProject) return showConfigFileEscapedError(namedConfigFile, projectDir)
     printStderr(formatDiscoveredConfigNotice(namedConfigFile))
     return inProject

@@ -121,6 +121,8 @@ export default {
     'One row per start whose version or configuration differed from the one before it.',
   'admin.changelog.ledger.search': 'Search versions',
   'admin.changelog.ledger.empty': 'No start recorded yet.',
+  'admin.changelog.ledger.empty.guidance':
+    'Each start that changes the version or the config adds a row here.',
   'admin.changelog.ledger.noMatch': 'No start matches this search.',
   'admin.changelog.current': 'current',
   'admin.changelog.current.heading': 'Configuration as booted',
@@ -135,6 +137,8 @@ export default {
   'admin.changelog.boot.region': 'Boot record',
   'admin.changelog.boot.heading': 'Boot',
   'admin.changelog.field.version': 'Version',
+  'admin.changelog.notVersioned': 'Not versioned',
+  'admin.changelog.copyConfigHash': 'Copy config hash',
   'admin.changelog.field.bootedAt': 'Booted',
   'admin.changelog.field.bootedBy': 'Started by',
   'admin.changelog.field.engine': 'Engine',

@@ -120,9 +120,9 @@
  */
 
 import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { instanceFactsResponseSchema } from '@/domain/models/api/admin/instance/instance'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * A non-negative count, described at its call site.
@@ -179,6 +179,27 @@ const attentionDegradedField = optionalField(
 )
 
 /**
+ * The verdict on one part of the instance: `healthy` when its probe answered,
+ * `degraded` when it did not.
+ *
+ * TWO WORDS, NO THIRD. A probe that could not be run is a probe that failed,
+ * so "unknown" collapses into `degraded` rather than reading as calm; and a
+ * part the instance does not have (no AI provider configured) carries NO
+ * verdict at all — its key is absent — because "not configured" is a fact the
+ * Instance card states in words, not a health state.
+ *
+ * @public
+ */
+export const instanceComponentHealthSchema = Schema.Literals(['healthy', 'degraded']).annotate({
+  identifier: 'InstanceComponentHealth',
+  description:
+    'The verdict of one bounded probe: `healthy` when it answered in time, `degraded` when it failed, timed out, or could not be run.',
+})
+
+/** @public */
+export type InstanceComponentHealth = typeof instanceComponentHealthSchema.Type
+
+/**
  * Response shape of `GET /api/admin/attention`.
  *
  * One flat envelope: the `since` anchor, six pulse cells as a
@@ -205,6 +226,10 @@ const attentionDegradedField = optionalField(
  *  - `bucketsSystem` is `0` or `1`, and `bucketsSystem + bucketsS3 + bucketsLocal`
  *    equals the buckets `/api/admin/buckets` lists
  *  - a `degraded` naming a source means that source's figures are fallbacks
+ *  - `uptimeMs` equals `generatedAt − bootedAt` to within a second
+ *  - `aiProviderHealth` is present ⟺ `aiProvider` is non-null
+ *  - `health` is `degraded` ⟺ one of the three component verdicts is
+ *    `degraded` (an absent `aiProviderHealth` counts as no verdict)
  *
  * Exposed under the OpenAPI name `AdminAttentionResponse`.
  */
@@ -212,7 +237,7 @@ export const adminAttentionResponseSchema = Schema.Struct({
   // ---- The anchor ------------------------------------------------------
   since: looseIsoDateTime({
     description:
-      'ISO 8601 UTC timestamp this report is anchored on — the process boot, byte-identical to `GET /api/admin/config/version`.`startedAt` and identical across every call within one process lifetime. The two event cells (`failedRuns`, `recentSubmissions`) count only what happened after it; the four state cells report what is true now.',
+      'ISO 8601 UTC timestamp this report is anchored on: the process boot, byte-identical to `GET /api/admin/config/version`.`startedAt` and identical across every call within one process lifetime. The two event cells (`failedRuns`, `recentSubmissions`) count only what happened after it; the four state cells report what is true now.',
   }),
 
   // ---- Pulse cell 1: failed runs (EVENT, windowed by `since`) -----------
@@ -317,6 +342,41 @@ export const adminAttentionResponseSchema = Schema.Struct({
   database: instanceFactsResponseSchema.fields.database,
   storage: instanceFactsResponseSchema.fields.storage,
   aiProvider: instanceFactsResponseSchema.fields.aiProvider,
+
+  // ---- Instance health: how long it has been up, and one bounded probe per
+  //      part the Instance card names. Each probe is cheap, never waits past
+  //      its timeout, and the AI one is CACHED, so reading the overview never
+  //      stalls on, or hammers, a provider. All optional so the read stays
+  //      decodable by every client written before them.
+  uptimeMs: optionalField(
+    attentionCount(
+      'Milliseconds this instance has been up when the report was computed: `generatedAt` minus `bootedAt`. Resets to near 0 on a restart. Rendered by the console as a duration ("Up for 3 h 12 min").'
+    )
+  ),
+  health: optionalField(
+    instanceComponentHealthSchema.annotate({
+      description:
+        'The instance as a whole: `degraded` when ANY of `databaseHealth`, `storageHealth` or `aiProviderHealth` is `degraded`, else `healthy`. A part the instance does not have (no AI provider) does not count against it.',
+    })
+  ),
+  databaseHealth: optionalField(
+    instanceComponentHealthSchema.annotate({
+      description:
+        'Whether the database answered a trivial query (`SELECT 1`) within a short timeout (2 s) on this read. Probed on every read: it is the cheapest call the instance makes.',
+    })
+  ),
+  storageHealth: optionalField(
+    instanceComponentHealthSchema.annotate({
+      description:
+        'Whether the file storage provider resolved and answered its cheapest read within a short timeout (2 s): the data directory is readable for `local`, the storage table is queryable for `bytea`, the bucket answers a metadata request for `s3`. The `s3` verdict is cached for 60 s, like the AI one.',
+    })
+  ),
+  aiProviderHealth: optionalField(
+    instanceComponentHealthSchema.annotate({
+      description:
+        'Whether the AI provider `aiProvider` names answered a reachability request within a short timeout (2 s): any HTTP answer below 500 from its endpoint is `healthy`, a refused connection, a timeout or a 5xx is `degraded`. The provider is the one the provider precedence resolves; the request lists models and never asks for a completion, so it spends no tokens. CACHED for 60 s per provider and endpoint, so an overview read waits on it at most once a minute. ABSENT exactly when `aiProvider` is null: an instance with no AI provider has nothing to judge.',
+    })
+  ),
 
   // ---- Freshness + honesty --------------------------------------------
   generatedAt: looseIsoDateTime({

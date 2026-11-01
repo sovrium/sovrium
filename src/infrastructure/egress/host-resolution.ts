@@ -33,15 +33,47 @@
 
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
-import { isSsrfRelaxed } from '@/infrastructure/process/security-posture'
+import {
+  hintedAddresses,
+  parseTestResolveHints,
+  SOVRIUM_TEST_RESOLVE_HOST_VAR,
+  type TestResolveHints,
+} from '@/domain/models/process-env/test-resolve-host'
+import {
+  isLoopbackHost,
+  isSsrfRelaxed,
+  resolveBindHostname,
+} from '@/infrastructure/process/security-posture'
 import { isPrivateOutboundHost } from './validate-outbound-url'
 
 /** The addresses a host name resolves to. @public */
 export type ResolveHost = (hostname: string) => Promise<readonly string[]>
 
-/** The machine's own resolver, every address of the name. @public */
-export const systemResolveHost: ResolveHost = async (hostname) =>
-  (await lookup(hostname, { all: true, verbatim: true })).map((entry) => entry.address)
+/**
+ * The test hints (`SOVRIUM_TEST_RESOLVE_HOST`) in force, or `undefined` when
+ * they are not honoured. They are honoured only while the deployment's address
+ * — `BASE_URL`, else the bind host — is loopback, so a public deployment never
+ * reads them whatever its environment holds. A hint cannot send a request
+ * anywhere it was not checked: the request is pinned to the address judged.
+ */
+const activeTestHints = (): TestResolveHints | undefined =>
+  isLoopbackHost(resolveBindHostname())
+    ? parseTestResolveHints(process.env[SOVRIUM_TEST_RESOLVE_HOST_VAR])
+    : undefined
+
+/**
+ * The machine's own resolver, every address of the name — except a name the
+ * test hints list, answered with the listed addresses without asking the
+ * machine (see {@link activeTestHints}).
+ *
+ * @public
+ */
+export const systemResolveHost: ResolveHost = async (hostname) => {
+  const hints = activeTestHints()
+  const hinted = hints === undefined ? undefined : hintedAddresses(hints, hostname)
+  if (hinted !== undefined) return hinted
+  return (await lookup(hostname, { all: true, verbatim: true })).map((entry) => entry.address)
+}
 
 /** The environment the proxy variables are read from. @public */
 export type ProxyEnv = Readonly<Record<string, string | undefined>>
@@ -143,4 +175,19 @@ export const pinnedRequest = <Init extends RequestInit>(
   headers.set('host', url.host)
   const tls = url.protocol === 'https:' ? { tls: { serverName: bareHost(url.hostname) } } : {}
   return { target, init: { ...init, headers, ...tls } }
+}
+
+/**
+ * {@link judgeHost} for one request about to be sent, through the machine's
+ * resolver. A name nothing resolves REJECTS, with the failure `fetch` itself
+ * raises on the same lookup, so the caller reports it as a transport failure
+ * rather than a refusal: the only `refused` verdict left is a name that
+ * resolves to a private address.
+ */
+export const judgeRequestHost = async (url: URL): Promise<HostVerdict> => {
+  const verdict = await judgeHost(url, systemResolveHost)
+  if (verdict.kind === 'refused' && verdict.detail === 'unresolvable') {
+    throw new Error(`${url.hostname} could not be resolved`)
+  }
+  return verdict
 }

@@ -6,7 +6,6 @@
  */
 
 import { and, asc, count, desc, eq, gte, isNull, lt, lte, or, type SQL } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AdminAgentConversationsDatabaseError,
   AdminAgentConversationsRepository,
@@ -16,11 +15,14 @@ import {
 } from '@/application/ports/repositories/agents/admin-agent-conversations-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { isSystemAgentName } from '@/domain/models/app/agents/agent-identity'
-import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
   resolveDialectSchema,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   aiConversations as aiConversationsPg,
   aiMessages as aiMessagesPg,
@@ -31,6 +33,7 @@ import {
 } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /** Wrap a DB promise, adapting failures to AdminAgentConversationsDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminAgentConversationsDatabaseError({ cause }))
@@ -189,6 +192,7 @@ const toConversationRow = (row: {
  * (newest first) so the use case can derive `hasMore` / `nextCursor`.
  */
 const listConversationsImpl = async (
+  db: PortableDb,
   filters: AdminAgentConversationsListFilters
 ): Promise<ReadonlyArray<AdminAgentConversationRow>> => {
   // Every knob ANDs. The search sits INSIDE the same WHERE as the agent scope,
@@ -232,6 +236,7 @@ const listConversationsImpl = async (
  * agent's ordinary case.
  */
 const getConversationImpl = async (
+  db: PortableDb,
   agentName: string,
   conversationId: string
 ): Promise<AdminAgentConversationRow | undefined> => {
@@ -261,6 +266,7 @@ const getConversationImpl = async (
  * letting the column default collapse them onto one instant.
  */
 const listMessagesImpl = async (
+  db: PortableDb,
   conversationId: string
 ): Promise<ReadonlyArray<AdminAgentMessageRow>> => {
   const rows = await db
@@ -281,6 +287,21 @@ const listMessagesImpl = async (
   return rows as ReadonlyArray<AdminAgentMessageRow>
 }
 
+const members: MembersOverDatabase<typeof AdminAgentConversationsRepository> = {
+  listConversations: (db) => (filters) => wrap(async () => listConversationsImpl(db, filters)),
+  getConversation: (db) => (agentName, conversationId) =>
+    wrap(async () => getConversationImpl(db, agentName, conversationId)),
+  listMessages: (db) => (conversationId) => wrap(async () => listMessagesImpl(db, conversationId)),
+  countConversations: (db) => (agentName) =>
+    wrap(async () => {
+      const [row] = await db
+        .select({ total: count() })
+        .from(aiConversations)
+        .where(agentScopeCondition(agentName))
+      return toFiniteCount(row?.total ?? 0)
+    }),
+}
+
 /**
  * Admin Agent Conversations Repository Implementation (Drizzle).
  *
@@ -294,20 +315,7 @@ const listMessagesImpl = async (
  * `agent_name`). `user_id`, `agent_id`, and `metadata` are deliberately NOT
  * projected so the use case cannot leak them (S4).
  */
-export const AdminAgentConversationsRepositoryLive = Layer.succeed(
+export const AdminAgentConversationsRepositoryLive = layerOverDatabase(
   AdminAgentConversationsRepository,
-  {
-    listConversations: (filters) => wrap(async () => listConversationsImpl(filters)),
-    getConversation: (agentName, conversationId) =>
-      wrap(async () => getConversationImpl(agentName, conversationId)),
-    listMessages: (conversationId) => wrap(async () => listMessagesImpl(conversationId)),
-    countConversations: (agentName) =>
-      wrap(async () => {
-        const [row] = await db
-          .select({ total: count() })
-          .from(aiConversations)
-          .where(agentScopeCondition(agentName))
-        return toFiniteCount(row?.total ?? 0)
-      }),
-  }
+  members
 )

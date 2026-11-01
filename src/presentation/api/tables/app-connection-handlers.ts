@@ -37,13 +37,15 @@ import { REALTIME_TRANSPORT_CONFIG } from '@/domain/models/api/realtime/realtime
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { seesPresence } from '@/domain/models/app/auth/presence-audience-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { findTableByIdOrName } from '@/domain/models/app/tables/table-lookup-service'
 import { logError } from '@/infrastructure/logging/logger'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
   appPresenceChannel,
   connectPerson,
   recordActivityChannel,
-  disconnectPerson,
   userNotificationsChannel,
+  type PersonConnection,
 } from '@/infrastructure/realtime/app-connections'
 import { addChannelListener, publishToChannel } from '@/infrastructure/realtime/channel-manager'
 import { registerConnection } from '@/infrastructure/realtime/connection-counter'
@@ -106,9 +108,9 @@ const resolveWatchedRecord = async (c: Context, app: App): Promise<WatchedRecord
   const tableKey = c.req.query('table')
   const recordId = c.req.query('record')
   if (tableKey === undefined || recordId === undefined || recordId === '') return undefined
-  const table = app.tables?.find((t) => t.name === tableKey || String(t.id) === tableKey)
+  const table = findTableByIdOrName(app.tables, tableKey)
   if (table === undefined) return undefined
-  const refused = await checkRecordReadGate(c, app, table, recordId)
+  const refused = await runDomainPromise(c, checkRecordReadGate(c, app, table, recordId))
   return refused === undefined
     ? { table: table.name, recordId, pagePath: c.req.query('page') ?? '' }
     : undefined
@@ -211,7 +213,7 @@ const announcePresence = (owner: Owner, online: boolean, lastSeen: Date | undefi
  * reader who finds her offline finds that time with it — then count her out,
  * announcing her offline when it was her last.
  */
-const closeConnection = async (owner: Owner): Promise<void> => {
+const closeConnection = async (owner: Owner, person: PersonConnection): Promise<void> => {
   const seen = new Date()
   if (owner.app.auth?.presence?.lastSeen === true) {
     const written = await runOnRequest(owner.c, recordLastSeenProgram(owner.userId))
@@ -219,7 +221,7 @@ const closeConnection = async (owner: Owner): Promise<void> => {
       logError('[presence] last-seen write failed; she reads as never seen', written.failure)
     }
   }
-  if (disconnectPerson(owner.app.name, owner.userId)) announcePresence(owner, false, seen)
+  if (person.disconnect()) announcePresence(owner, false, seen)
 }
 
 /**
@@ -269,6 +271,7 @@ const connectionEvents = (
   const teardown: {
     unsubscribes: readonly (() => void)[]
     heartbeat?: ReturnType<typeof setInterval>
+    person?: PersonConnection
   } = { unsubscribes: [] }
   const typing = typingRelay(owner)
   return {
@@ -276,7 +279,8 @@ const connectionEvents = (
       teardown.unsubscribes = listenFor(owner, ws)
       // Said once its listeners are in place: from here on, nothing it follows is missed.
       sendFrame(ws, { type: 'connection-status', status: 'connected', transport: 'websocket' })
-      if (connectPerson(owner.app.name, owner.userId)) announcePresence(owner, true, undefined)
+      teardown.person = connectPerson(owner.app.name, owner.userId)
+      if (teardown.person.first) announcePresence(owner, true, undefined)
       teardown.heartbeat = setInterval(() => {
         sendFrame(ws, { type: 'heartbeat', timestamp: new Date().toISOString() })
       }, REALTIME_TRANSPORT_CONFIG.heartbeatIntervalMs)
@@ -302,7 +306,8 @@ const connectionEvents = (
       teardown.unsubscribes.forEach((unsubscribe) => unsubscribe())
       if (teardown.heartbeat) clearInterval(teardown.heartbeat)
       registration.release()
-      void closeConnection(owner)
+      // A socket that closes before it opened was never counted in.
+      if (teardown.person !== undefined) void closeConnection(owner, teardown.person)
     },
   }
 }

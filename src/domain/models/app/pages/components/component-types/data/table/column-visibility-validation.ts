@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * A grid must start with at least one field column drawn. `visible: 'hidden'`
  * starts a column unchecked under View › Hide fields, and a grid whose every
@@ -14,9 +16,6 @@
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every object at any depth, with its location. */
 function collectNodes(node: unknown, path: string): readonly (readonly [RawRecord, string])[] {

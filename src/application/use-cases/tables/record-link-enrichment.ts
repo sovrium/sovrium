@@ -41,6 +41,7 @@ import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { DatabaseError } from '@/domain/errors'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { filterReadableLinks, readableKeys, type LinkReader } from './linked-row-visibility'
 import { linkReadOf, linkTablesOf, type ManyToManyFieldSpec } from './many-to-many-fields'
 import {
@@ -56,11 +57,11 @@ import {
   withLabelLanguage,
 } from './relationship-display-fields'
 import { readManyToManyLinks, type ManyToManyLinkMap } from './to-many-link-reads'
-import type { TransformedRecord } from './record-transformer'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { RecordLinkWrite } from '@/application/ports/repositories/tables/record-links'
 import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
+import type { TransformedRecord } from '@/domain/models/app/tables/record-transformer-service'
 
 type ManyToManyWriteLink = RecordLinkWrite
 
@@ -279,7 +280,7 @@ const readableLabelRequests = (
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.forEach(requests, (request) => {
-    const related = app?.tables?.find((t) => t.name === request.relatedTable)
+    const related = findTableByName(app?.tables, request.relatedTable)
     if (app === undefined || related === undefined || linkReader === undefined) {
       return Effect.succeed(request)
     }

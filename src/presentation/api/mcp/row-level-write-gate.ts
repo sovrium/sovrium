@@ -29,36 +29,48 @@
  */
 
 import { Effect } from 'effect'
-import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
+import {
+  authorizeCreate,
+  authorizeDelete,
+  authorizeUpdate,
+} from '@/application/use-cases/tables/permissions/authorize-record-verbs'
 import { rowsReaderMayNotList } from '@/application/use-cases/tables/row-read-admission'
 import {
   createAllowed,
   existingRowIsGoverned,
-  existingRowWriteAllowed,
 } from '@/domain/models/app/tables/row-level-write-decision-service'
-import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
-import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runOnDomain, type DomainContext } from '@/infrastructure/logging/request-effect'
+import { authorizationCallerOf } from './caller-row-context'
+import type { CallerAuthority } from './caller-authority'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App, Table } from '@/domain/models/app'
 import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
 
 /**
- * Whether the proposed row satisfies the table's `create.when` rule. A row the
- * caller would file outside its own scope (another user's `owner_id`, say) is
- * refused before anything is written, and so is any row a rule governs when
- * the caller has no identity.
+ * Whether the proposed row satisfies the table's `create.when` rule: the
+ * create verdict for that row. A row the caller would file outside its own
+ * scope (another user's `owner_id`, say) is refused before anything is
+ * written, and so is any row a rule governs when the caller has no identity.
  */
-export const createIsInScope = (
-  table: Table,
-  fields: Readonly<Record<string, unknown>>,
-  ctx: CurrentUserContext | undefined
-): boolean => createAllowed(table, fields, ctx)
+export const createIsInScope = (input: {
+  readonly app: App
+  readonly table: Table
+  readonly authority: CallerAuthority
+  readonly fields: Readonly<Record<string, unknown>>
+  readonly ctx: CurrentUserContext | undefined
+}): boolean => {
+  const { app, table, authority, fields, ctx } = input
+  // No identity: no caller to judge, so a rule governing the row refuses it.
+  if (ctx === undefined) return createAllowed(table, fields, ctx)
+  const caller = authorizationCallerOf(app, table, authority, ctx)
+  return Effect.runSync(authorizeCreate(table, caller, [fields]))._tag === 'Allowed'
+}
 
 export interface ExistingRowScopeInput {
   readonly app: App
   readonly table: Table
+  readonly authority: CallerAuthority
   readonly session: UserSession
   readonly recordId: string
   readonly ctx: CurrentUserContext | undefined
@@ -66,33 +78,28 @@ export interface ExistingRowScopeInput {
   readonly op: 'write' | 'delete'
   /** The change an update proposes — checked against the row as written too. */
   readonly change?: Readonly<Record<string, unknown>>
+  /** The server runtime's services, built once at boot. */
+  readonly domainContext: DomainContext
 }
 
 /**
- * Whether an existing row may be written or deleted by the caller: it must be
- * readable under `read.when` AND satisfy the operation's own rule — for an
- * update, on the row as it stands and as it would be written. A row that does
- * not exist, or cannot be fetched, is out of scope — the same `Resource not
- * found` the records API answers.
+ * Whether an existing row may be written or deleted by the caller: the update
+ * or delete verdict for the record — readable under `read.when` AND inside the
+ * operation's own rule, for an update on the row as it stands and as it would
+ * be written. A row that does not exist, or cannot be fetched, is out of scope
+ * — the same `Resource not found` the records API answers.
  */
 export const existingRowIsInScope = async (input: ExistingRowScopeInput): Promise<boolean> => {
-  const { app, table, session, recordId, ctx, op, change } = input
+  const { app, table, authority, session, recordId, ctx, op, change, domainContext } = input
   if (!existingRowIsGoverned(table.rowLevelPermissions, op)) return true
   if (ctx === undefined) return false
   if (ctx.isUnrestricted) return true
 
-  const fetched = await Effect.runPromise(
-    Effect.result(provideTableLive(rawGetRecordProgram(session, table.name, recordId, app)))
-  )
-  if (fetched._tag === 'Failure' || !fetched.success) return false
-  return existingRowWriteAllowed({
-    rlp: table.rowLevelPermissions,
-    op,
-    // Judged as the records API reads the row (SQLite `1`/`0` read as booleans).
-    existing: readStoredValues(table, fetched.success),
-    change,
-    ctx,
-  })
+  const caller = authorizationCallerOf(app, table, authority, ctx)
+  const target = { kind: 'record', session, tableName: table.name, recordId, change, app } as const
+  const verdict =
+    op === 'write' ? authorizeUpdate(table, caller, target) : authorizeDelete(table, caller, target)
+  return (await runOnDomain(domainContext, verdict))._tag === 'Allowed'
 }
 
 /**

@@ -18,18 +18,10 @@ import { defineArticle, defineSection } from './define'
 /**
  * Get started — the section manifest.
  *
- * Eight articles that span every feature at once, so by the placement rule they
- * belong to none of them: an installation walkthrough is not about `tables`,
- * and a troubleshooting page is about whatever failed. They sit in the thin
- * cross-cutting tree under `src/docs/`, as plain `.md` rather than
- * `*.docs.md` — the filename is what every documentation gate uses to tell a
- * cross-cutting article from a co-located fragment.
- *
- * NO ARTICLE HERE CARRIES A DIRECTIVE, and that is a rule rather than an
- * accident. An option table inside a walkthrough is the same option documented
- * twice, which is the duplication the placement rule exists to prevent; where
- * one of these articles needs an option's values it names the feature article
- * instead. `docs-structure.test.ts` asserts the absence.
+ * Why these are plain `.md` and carry no directive:
+ * `[internal ref]`, § `get-started`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const section = defineSection({
   slug: 'get-started',
@@ -83,7 +75,7 @@ export const section = defineSection({
       slug: 'desktop-app',
       title: 'The Sovrium App',
       description:
-        'A window around the engine — installing it, what the first run asks, where the project folder and its data live, what the settings page does and does not hold, and the one request the app makes.',
+        'The desktop app: installing it, what the first run asks, where the project folder and its data live, what settings hold, and the one request it makes.',
       keywords: [
         'sovrium',
         'desktop app',

@@ -16,13 +16,14 @@
  */
 
 import { Effect } from 'effect'
+import { ServerCreationError } from '@/domain/errors/server-creation-error'
 import { loadAgentSkills } from '@/infrastructure/ai/skills/agent-skills-live'
 import {
   assetProjectDir,
   assetTemplateIssues,
   loadPrivateAssets,
 } from '@/infrastructure/assets/private-assets'
-import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import { readPublicFileText } from '@/infrastructure/assets/public-file'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import { createHonoApp } from '@/infrastructure/server/compose-hono-app'
 import { createDomainRuntime } from '@/infrastructure/server/domain-runtime'
@@ -45,7 +46,11 @@ export const buildHonoAppFromConfig = (
     configHash: config.configHash ?? '',
     domainContext,
     ...(config.staticRender === true ? { staticRender: true } : {}),
-    renderPage: config.renderPage,
+    renderPage: (app, path, requestContext) =>
+      config.renderPage(app, path, {
+        ...requestContext,
+        readPublicFile: (file) => readPublicFileText(config.publicDir, file),
+      }),
     renderNotFoundPage: config.renderNotFoundPage,
     renderErrorPage: config.renderErrorPage,
     ...(config.renderRssFeed !== undefined ? { renderRssFeed: config.renderRssFeed } : {}),

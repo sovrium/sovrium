@@ -5,12 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type ReactElement } from 'react'
+import { type ReactElement, useContext } from 'react'
+import { analyticsConsentHold } from '@/domain/models/app/consent/consent-version-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import {
   mergeContentDirOpenGraph,
   type ContentDirSeoMeta,
 } from '@/domain/models/app/pages/content-dir-seo-meta'
+import { withArticleLanguage } from '@/domain/models/app/pages/content-dir-structured-data'
 import { normalizeFavicons } from '@/domain/models/app/pages/meta/favicon-transformer'
 import { robotsDirectiveOf } from '@/domain/models/app/pages/sitemap-builder'
 import {
@@ -28,10 +30,13 @@ import {
   renderInlineScriptTag,
   renderScriptTag,
 } from '@/presentation/render/scripts/script-renderers'
+import { HeadReferencesContext, type HeadReferences } from './head-references'
+import { twitterFallbacks, withPageValue } from './page-head-cards'
 import { GoogleFonts, SansFontPreload, ThemeFonts } from './page-head-fonts'
 import { HeadAlternateLinks } from './page-head-seo'
 import { checkedAddress, withCheckedUrl } from './page-head-sharing-address'
 import { ThemeColorSchemeScript } from './theme-color-scheme-script'
+import type { FeedAnnouncement } from './page-alternates'
 import type { GroupedScripts } from './page-scripts'
 import type { Design } from '@/domain/models/app/design'
 import type { Languages } from '@/domain/models/app/languages'
@@ -65,8 +70,8 @@ type PageHeadProps = {
    * per-file slug.
    */
   readonly contentDirSeo?: ContentDirSeoMeta
-  /** Title of the RSS feed this page publishes, or `undefined` — see `HeadAlternateLinks`. */
-  readonly feedTitle?: string
+  /** The RSS feed this page publishes, or `undefined` — see `HeadAlternateLinks`. */
+  readonly feed?: FeedAnnouncement | undefined
 }
 
 /**
@@ -236,6 +241,7 @@ function HeadScripts({ scripts }: { readonly scripts: GroupedScripts }): ReactEl
           integrity: script.integrity,
           crossOrigin: script.crossorigin,
           reactKey: `head-${index}`,
+          consent: script.consent,
         })
       )}
       {scripts.inline.head.map((script, index) =>
@@ -243,6 +249,7 @@ function HeadScripts({ scripts }: { readonly scripts: GroupedScripts }): ReactEl
           code: script.code,
           async: script.async,
           reactKey: `inline-head-${index}`,
+          consent: script.consent,
         })
       )}
     </>
@@ -271,56 +278,58 @@ function HeadScripts({ scripts }: { readonly scripts: GroupedScripts }): ReactEl
  * @param props - Component props
  * @returns Head section elements
  */
-/**
- * A DECLARED sharing card without a description takes the page's resolved
- * description; a page that declares no `openGraph` gains no tag.
- */
-const withDescription = (
-  page: Page,
-  openGraph: OpenGraph | undefined,
-  description: string
-): OpenGraph | undefined =>
-  openGraph === undefined ||
-  page.meta?.openGraph === undefined ||
-  openGraph.description !== undefined ||
-  description === ''
-    ? openGraph
-    : { ...openGraph, description }
+/** The providers of a page, held back when the app declares an `analytics` purpose. */
+const analyticsHeadProps = (page: Page, scripts: GroupedScripts) => ({
+  analytics: page.meta?.analytics,
+  heldForConsent: analyticsConsentHold(scripts.consent?.declaration) !== undefined,
+})
 
 /**
  * Pre-compute the head meta values that combine page-meta with a contentDir
  * page's synthesised SEO (canonical / merged Open Graph). Extracted so
  * `PageHead` stays under its complexity + line caps.
  */
-function computeHeadMeta(props: PageHeadProps): {
+function computeHeadMeta(
+  props: PageHeadProps,
+  references: HeadReferences
+): {
   readonly openGraphData: OpenGraph | undefined
   readonly effectiveCanonical: string | undefined
-  readonly twitterDescription: string | undefined
+  readonly twitterFallback: ReturnType<typeof twitterFallbacks>
   readonly synthesizedJsonLd: readonly Record<string, unknown>[]
 } {
-  const { page, lang, languages, canonical, contentDirSeo, description } = props
+  const { page, lang, languages, canonical, contentDirSeo, description, title } = props
+  // A declared card without a description or a title takes the page's own; the
+  // title only after a contentDir page's synthesised card has supplied its own.
   const openGraphData = withCheckedUrl(
-    mergeContentDirOpenGraph(
-      withDescription(page, extractOpenGraphData(page, lang, languages), description),
-      contentDirSeo
+    withPageValue(
+      page,
+      mergeContentDirOpenGraph(
+        withPageValue(
+          page,
+          extractOpenGraphData(page, lang, languages),
+          'description',
+          description
+        ),
+        contentDirSeo
+      ),
+      'title',
+      title
     ),
     lang,
-    languages
+    languages,
+    references
   )
-  const sharedDescription =
-    openGraphData?.description === undefined
-      ? undefined
-      : resolveTranslationPattern(openGraphData.description, lang, languages)
   return {
     openGraphData,
     // A contentDir page has no statically-authored `page.meta.canonical`, so
     // the synthesised canonical (resolved slug URL) takes precedence.
     effectiveCanonical: checkedAddress(contentDirSeo?.canonical ?? canonical),
-    // What X reads in the absence of `twitter:description`, then the page's own.
-    twitterDescription: sharedDescription || description || undefined,
+    // What X reads in the absence of `twitter:title` / `twitter:description`.
+    twitterFallback: twitterFallbacks(openGraphData, { title, description }, lang, languages),
     // Auto-synthesised JSON-LD documents (TechArticle + BreadcrumbList) for
     // contentDir pages; empty when synthesis is off or author-overridden.
-    synthesizedJsonLd: contentDirSeo?.structuredData ?? [],
+    synthesizedJsonLd: withArticleLanguage(contentDirSeo?.structuredData ?? [], lang),
   }
 }
 
@@ -329,8 +338,11 @@ export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
     props
   const hasCustomViewport = hasCustomViewportMeta(page.meta?.customElements)
   const normalizedFavicons = normalizeFavicons(page.meta?.favicons)
-  const { openGraphData, effectiveCanonical, twitterDescription, synthesizedJsonLd } =
-    computeHeadMeta(props)
+  const references = useContext(HeadReferencesContext)
+  const { openGraphData, effectiveCanonical, twitterFallback, synthesizedJsonLd } = computeHeadMeta(
+    props,
+    references
+  )
 
   return (
     <>
@@ -354,16 +366,18 @@ export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
         page={page}
         lang={lang}
         languages={languages}
-        fallbackDescription={twitterDescription}
+        fallbackTitle={twitterFallback.title}
+        fallbackDescription={twitterFallback.description}
       />
       <StructuredDataScript
         page={page}
         synthesized={synthesizedJsonLd}
+        resolveText={(text) => references(resolveTranslationPattern(text, lang, languages))}
       />
       <PreloadLinks preload={page.meta?.preload} />
       <DnsPrefetchLinks dnsPrefetch={page.meta?.dnsPrefetch} />
       <HeadAlternateLinks {...props} />
-      <AnalyticsHead analytics={page.meta?.analytics} />
+      <AnalyticsHead {...analyticsHeadProps(page, props.scripts)} />
       <CustomElementsHead customElements={page.meta?.customElements} />
       <FaviconLink favicon={page.meta?.favicon} />
       <FaviconSetLinks favicons={normalizedFavicons} />

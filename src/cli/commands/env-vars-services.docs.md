@@ -28,32 +28,35 @@ The AI provider, the chat's limits, conversation retention, document retrieval a
 
 ## Email
 
-Email leaves over SMTP by default; `EMAIL_PROVIDER` moves it to the HTTP API of Brevo, Resend or Amazon SES instead. With the default transport and no SMTP host set, email is disabled and sends are logged rather than delivered — there is never a silent fallback to a local mail catcher. In development the whole message reaches the journal, links included; in production only a one-line notice does. The startup banner warns only when the config makes email load-bearing — a magic link, email codes, required verification, an `email` automation action, or an agent granted `email.send` — so a bare email-and-password app boots quietly.
+Email leaves over SMTP by default; `EMAIL_PROVIDER` moves it to the HTTP API of Brevo, Resend or Amazon SES instead. With the default transport and no SMTP host set, email is disabled and sends are logged rather than delivered. There is never a silent fallback to a local mail catcher. The whole message, links included, reaches the terminal only on a server that is strictly local: a loopback origin (`BASE_URL` unset or loopback, on a loopback bind), no reverse proxy declared with `TRUSTED_PROXY_HOPS`, and `NODE_ENV` other than `production`. Anywhere else a sign-in or reset link is a credential written into a log other people read, so one line is logged instead, naming the recipient, the subject and the variable that would deliver it. `SOVRIUM_ALLOW_INSECURE` does not change this. The startup banner warns only when the config makes email load-bearing (a magic link, email codes, required verification, an `email` automation action, or an agent granted `email.send`), so a bare email-and-password app boots quietly on a developer machine. On a public origin it warns as well, since that app's password resets would be dropped.
 
-| Variable                      | Default                    | Description                                                                                |
-| ----------------------------- | -------------------------- | ------------------------------------------------------------------------------------------ |
-| `SMTP_HOST`                   | unset (disabled)           | SMTP server hostname                                                                       |
-| `SMTP_PORT`                   | `587`                      | SMTP server port                                                                           |
-| `SMTP_SECURE`                 | `false`                    | Implicit TLS; port 465 enables it regardless                                               |
-| `SMTP_USER`                   | —                          | Authentication username                                                                    |
-| `SMTP_PASS`                   | —                          | Authentication password                                                                    |
-| `SMTP_FROM`                   | `noreply@sovrium.com`      | Sender address                                                                             |
-| `SMTP_FROM_NAME`              | the app's `name`           | Sender display name                                                                        |
-| `EMAIL_PROVIDER`              | `smtp`                     | `smtp`, `brevo`, `resend` or `ses`; any other value refuses to start                       |
-| `BREVO_API_KEY`               | —                          | Brevo API key; required for `brevo`                                                        |
-| `RESEND_API_KEY`              | —                          | Resend API key; required for `resend`                                                      |
-| `EMAIL_SES_REGION`            | —                          | AWS region of the SES account; required for `ses`                                          |
-| `EMAIL_SES_ACCESS_KEY_ID`     | —                          | Access key id that signs SES requests; required for `ses`                                  |
-| `EMAIL_SES_SECRET_ACCESS_KEY` | —                          | Secret access key that signs SES requests; required for `ses`                              |
-| `EMAIL_API_URL`               | the provider's own address | Base address of the HTTP transport, for a regional endpoint or a relay; ignored for `smtp` |
+| Variable                      | Default                    | Description                                                                                                                                         |
+| ----------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SMTP_HOST`                   | unset (disabled)           | SMTP server hostname                                                                                                                                |
+| `SMTP_PORT`                   | `587`                      | SMTP server port                                                                                                                                    |
+| `SMTP_SECURE`                 | `false`                    | TLS from the first byte; port 465 enables it regardless. Without it the connection must upgrade with STARTTLS unless the SMTP host is local         |
+| `SMTP_ALLOW_PLAINTEXT`        | unset                      | `1` or `true` lets a remote SMTP server that offers no STARTTLS receive the account and the message in clear text; any other value refuses to start |
+| `SMTP_USER`                   | —                          | Authentication username                                                                                                                             |
+| `SMTP_PASS`                   | —                          | Authentication password                                                                                                                             |
+| `SMTP_FROM`                   | `noreply@sovrium.com`      | Sender address                                                                                                                                      |
+| `SMTP_FROM_NAME`              | the app's `name`           | Sender display name                                                                                                                                 |
+| `EMAIL_PROVIDER`              | `smtp`                     | `smtp`, `brevo`, `resend` or `ses`; any other value refuses to start                                                                                |
+| `BREVO_API_KEY`               | —                          | Brevo API key; required for `brevo`                                                                                                                 |
+| `RESEND_API_KEY`              | —                          | Resend API key; required for `resend`                                                                                                               |
+| `EMAIL_SES_REGION`            | —                          | AWS region of the SES account; required for `ses`                                                                                                   |
+| `EMAIL_SES_ACCESS_KEY_ID`     | —                          | Access key id that signs SES requests; required for `ses`                                                                                           |
+| `EMAIL_SES_SECRET_ACCESS_KEY` | —                          | Secret access key that signs SES requests; required for `ses`                                                                                       |
+| `EMAIL_API_URL`               | the provider's own address | Base address of the HTTP transport, for a regional endpoint or a relay; ignored for `smtp`                                                          |
 
 `SMTP_FROM` and `SMTP_FROM_NAME` name the sender on every transport. A provider key alone never switches the transport: only `EMAIL_PROVIDER` does, and a selected transport whose credentials are missing refuses to start, naming the variable. When the provider refuses a message, the email step fails with the provider's name and the HTTP status it answered.
 
-Every email the instance sends is headed with the app's `name` and carries no vendor branding or copyright line. The sender's display name follows the same rule: `SMTP_FROM_NAME` when it is set, otherwise the app's `name`, and `Sovrium` only when neither is available. Set `SMTP_FROM_NAME` only when the sender should read differently from the app — a team name, say. The same settings carry the operator emails — the automation-failure alert. Who receives them, and the two variables that shape that audience (`SOVRIUM_NOTIFY_TO`, `SOVRIUM_NOTIFY_AUTOMATIONS`), are described under **Operator emails** in the application and server reference.
+A connection that is not TLS from the first byte must upgrade with STARTTLS before the account or the message is sent, unless the SMTP server is on the same machine (`localhost` or a loopback address). A server that does not offer the upgrade (or a network that strips it from the greeting) fails the send instead of receiving the password in clear text. `SMTP_ALLOW_PLAINTEXT=1` lifts the requirement for a relay on a network you control; like the posture flags it is read by value, so remove it to switch it off.
+
+Every email the instance sends is headed with the app's `name` and carries no vendor branding or copyright line. The sender's display name follows the same rule: `SMTP_FROM_NAME` when it is set, otherwise the app's `name`, and `Sovrium` only when neither is available. Set `SMTP_FROM_NAME` only when the sender should read differently from the app (a team name, say). The same settings carry the operator emails, such as the automation-failure alert. Who receives them, and the two variables that shape that audience (`SOVRIUM_NOTIFY_TO`, `SOVRIUM_NOTIFY_AUTOMATIONS`), are described under **Operator emails** in the application and server reference.
 
 ## MCP server
 
-Off by default. The operator mounts the route; the config decides what the tools may touch. There is no credential variable — the endpoint authenticates on the header a request carries, so enabling it requires an auth block and refuses the boot without one. The retired strategy and static-token variables also refuse the boot. The first eight reach the HTTP route only. `sovrium mcp`, the local stdio path, serves a client on your own machine with no route and no credential, and reads exactly one variable of its own — the last row.
+Off by default. The operator mounts the route; the config decides what the tools may touch. There is no credential variable: the endpoint authenticates on the header a request carries, so enabling it requires an auth block and refuses the boot without one. The retired strategy and static-token variables also refuse the boot. The first eight reach the HTTP route only. `sovrium mcp`, the local stdio path, serves a client on your own machine with no route and no credential, and reads exactly one variable of its own, in the last row.
 
 | Variable                    | Default           | Description                                                                                                                          |
 | --------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -67,7 +70,7 @@ Off by default. The operator mounts the route; the config decides what the tools
 | `MCP_CONFIRM_DESTRUCTIVE`   | `true`            | Mark delete tools destructive so clients confirm first                                                                               |
 | `MCP_CONFIG_WRITE`          | `false`           | `sovrium mcp` only: offer the config write tools, when the project is named explicitly. Inert on the HTTP route, which warns at boot |
 
-The reverse direction — your own agents calling tools on someone else's server — is declared with a different family (`MCP_CLIENT_SERVERS`, `MCP_CLIENT_TIMEOUT`, and the per-server `MCP_AUTH_TYPE_{NAME}` / `MCP_AUTH_TOKEN_{NAME}` / `MCP_AUTH_HEADER_{NAME}`, keyed by the server's name), none of which is read here. **Client Mode** covers them.
+The reverse direction (your own agents calling tools on someone else's server) is declared with a different family (`MCP_CLIENT_SERVERS`, `MCP_CLIENT_TIMEOUT`, and the per-server `MCP_AUTH_TYPE_{NAME}` / `MCP_AUTH_TOKEN_{NAME}` / `MCP_AUTH_HEADER_{NAME}`, keyed by the server's name), none of which is read here. **Client Mode** covers them.
 
 ## Ecoconception
 
@@ -84,19 +87,19 @@ Experience-first defaults you override to opt _in_ to frugality. Eco posture is 
 | `ECO_DESIGN_LAYER`           | `on`          | Emit the design-token override layer                          |
 | `ECO_FORM_ANALYTICS`         | `on`          | `off` stops recording form analytics events                   |
 
-Every row above **except the AI precedence one** refuses the boot on a value it does not recognise, naming the variable and listing what it accepts. Leaving a variable unset is untouched by this — it keeps its default. The precedence lever is the one that still resolves an unrecognised value to its default, and `local-only` against an unreachable local model refuses the boot, but only for an app that uses AI.
+Every row above **except the AI precedence one** refuses the boot on a value it does not recognise, naming the variable and listing what it accepts. Leaving a variable unset is untouched by this: it keeps its default. The precedence lever is the one that still resolves an unrecognised value to its default, and `local-only` against an unreachable local model refuses the boot, but only for an app that uses AI.
 
 ## Observability export
 
 Every signal is off unless its own gate is set, and a set-but-malformed value aborts the boot rather than starting a broken exporter. That check is on the **value**, not on the destination: the grammar of what you set is validated, then emitted. What your backend does with what arrives is the backend's business. Two wire protocols carry everything: `SENTRY_DSN` sends errors, and sampled performance transactions, as Sentry envelopes to the DSN's envelope endpoint (`/api/<project_id>/envelope/`); the `OTEL_EXPORTER_OTLP_*` variables send logs, and optionally traces and metrics, as OTLP over HTTP with JSON bodies. Any Sentry-compatible error backend and any OTLP/HTTP JSON log backend can receive them: a receiver needs the envelope endpoint for errors and `POST /v1/logs` for logs, and nothing specific to Sovrium.
 
-**A backend that does not implement an OTLP signal answers its route with a `404`, and the exporter drops the batch silently** — no banner line, no warning, nothing at the default log level. The Sentry protocol and OTLP are families of routes rather than a single switch, so a backend can accept errors and logs while mounting no traces or metrics route at all. Probe the route before trusting the signal:
+**A backend that does not implement an OTLP signal answers its route with a `404`, and the exporter drops the batch silently**: no banner line, no warning, nothing at the default log level. The Sentry protocol and OTLP are families of routes rather than a single switch, so a backend can accept errors and logs while mounting no traces or metrics route at all. Probe the route before trusting the signal:
 
 ```bash
 curl -i -X POST <endpoint>/v1/traces -H 'Content-Type: application/json' -d '{}'
 ```
 
-A `404` means the route is not mounted and every span you export is discarded. Any other `4xx` means the route exists and is rejecting an empty or unauthenticated body — which is what you want to see.
+A `404` means the route is not mounted and every span you export is discarded. Any other `4xx` means the route exists and is rejecting an empty or unauthenticated body, which is what you want to see.
 
 This is why traces and metrics each have their own gate. The base endpoint arms log export and nothing else; spans and metric datapoints need their own variables. One variable per signal is what lets you run logs against a backend that mounts a logs route without pushing metrics at one that answers `404`, and lets you turn either off without losing the other. **The per-signal variables are used verbatim**: include the path yourself, since nothing is appended for you. A Sovrium app can itself be the receiver: a webhook trigger that declares a telemetry `protocol` serves the envelope and `/v1/logs` routes and turns each report into an automation run, which can store it as an ordinary record (see [Telemetry Ingest](/en/docs/trigger-webhook-telemetry)). Such a receiver mounts no traces or metrics route, so leave those two gates unset when you point an instance at one.
 
@@ -141,7 +144,7 @@ Read when generating a static site.
 
 Shows a small panel at the bottom-left of every page: the instance is in development mode, its data is disposable, and here is the account to sign in with, with a button that fills the sign-in form. Off unless explicitly turned on, so a production deployment can never present itself as disposable by accident.
 
-`sovrium dev` sets them for you on every run — the email and the password only when the app declares `auth` (**The Dev Session**); a hosted demo sets them per app. A value already set wins.
+`sovrium dev` sets them for you on every run (the email and the password only when the app declares `auth`, see **The Dev Session**); a hosted demo sets them per app. A value already set wins.
 
 | Variable               | Description                                                                        |
 | ---------------------- | ---------------------------------------------------------------------------------- |
@@ -166,7 +169,7 @@ A `MAP_TILES_URL` that is not an `https://` address, or that lacks any of the th
 
 ## Seeding
 
-Read by `sovrium seed` only — a running server never looks at them.
+Read by `sovrium seed` only. A running server never looks at them.
 
 | Variable                | Description                                                                             |
 | ----------------------- | --------------------------------------------------------------------------------------- |

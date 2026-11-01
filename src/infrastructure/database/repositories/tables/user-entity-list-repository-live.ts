@@ -6,13 +6,15 @@
  */
 
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   UserEntityListRepository,
   UserEntityListDatabaseError,
 } from '@/application/ports/repositories/tables/user-entity-list-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   userFavorites as userFavoritesPg,
   userRecentItems as userRecentItemsPg,
@@ -22,8 +24,7 @@ import {
   userRecentItems as userRecentItemsSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/favorites'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 
 const userFavorites = resolveDialectSchema(userFavoritesPg, userFavoritesSqlite)
 const userRecentItems = resolveDialectSchema(userRecentItemsPg, userRecentItemsSqlite)
@@ -47,8 +48,8 @@ const wrap = makeDbWrap((error) => new UserEntityListDatabaseError({ cause: erro
  * against `system.user_favorites` / `system.user_recent_items`. The recent-item
  * prune is the one raw-SQL path (dialect-specific `OFFSET` semantics).
  */
-export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListRepository, {
-  listFavorites: (userId) =>
+const members: MembersOverDatabase<typeof UserEntityListRepository> = {
+  listFavorites: (db) => (userId) =>
     wrap(() =>
       db
         .select({
@@ -63,7 +64,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
         .orderBy(desc(userFavorites.createdAt))
     ),
 
-  findFavoriteId: (userId, entityType, entityId, tableName) =>
+  findFavoriteId: (db) => (userId, entityType, entityId, tableName) =>
     wrap(async () => {
       const existing = await db
         .select({ id: userFavorites.id })
@@ -80,7 +81,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
       return existing[0]?.id
     }),
 
-  reviveFavorite: (id, tableName) =>
+  reviveFavorite: (db) => (id, tableName) =>
     wrap(() =>
       db
         .update(userFavorites)
@@ -92,7 +93,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
         .where(eq(userFavorites.id, id))
     ),
 
-  insertFavorite: (userId, input) =>
+  insertFavorite: (db) => (userId, input) =>
     wrap(() =>
       db.insert(userFavorites).values({
         userId,
@@ -102,7 +103,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
       })
     ),
 
-  softDeleteFavorite: (userId, entityType, entityId, tableName) =>
+  softDeleteFavorite: (db) => (userId, entityType, entityId, tableName) =>
     wrap(() =>
       db
         .update(userFavorites)
@@ -118,7 +119,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
         )
     ),
 
-  listRecent: (userId) =>
+  listRecent: (db) => (userId) =>
     wrap(() =>
       db
         .select({
@@ -134,7 +135,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
         .limit(20)
     ),
 
-  findRecentId: (userId, entityType, entityId, tableName) =>
+  findRecentId: (db) => (userId, entityType, entityId, tableName) =>
     wrap(async () => {
       const existing = await db
         .select({ id: userRecentItems.id })
@@ -151,7 +152,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
       return existing[0]?.id
     }),
 
-  refreshRecent: (id, tableName) =>
+  refreshRecent: (db) => (id, tableName) =>
     wrap(() =>
       db
         .update(userRecentItems)
@@ -159,7 +160,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
         .where(eq(userRecentItems.id, id))
     ),
 
-  insertRecent: (userId, input) =>
+  insertRecent: (db) => (userId, input) =>
     wrap(() =>
       db.insert(userRecentItems).values({
         userId,
@@ -169,24 +170,26 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
       })
     ),
 
-  pruneRecent: (userId, maxItems) =>
+  pruneRecent: (db, dialect) => (userId, maxItems) =>
     wrap(async () => {
       // Prune rows beyond the per-user cap so the table never grows unbounded.
       // Routed through `executeRaw` so the raw DELETE runs on either dialect
       // (the SQLite client has no `.execute()`). `OFFSET` without a `LIMIT` is a
       // PostgreSQL extension — SQLite requires an explicit `LIMIT` before `OFFSET`,
       // where `LIMIT -1` means "no upper bound".
-      const offsetClause = isSqliteRuntime()
-        ? sql`LIMIT -1 OFFSET ${maxItems}`
-        : sql`OFFSET ${maxItems}`
-      await executeRaw(
+      const offsetClause =
+        dialect.kind === 'sqlite' ? sql`LIMIT -1 OFFSET ${maxItems}` : sql`OFFSET ${maxItems}`
+      await executeRawOn(
+        dialect.kind,
         db,
         sql`DELETE FROM ${userRecentItems} WHERE id IN (
-      SELECT id FROM ${userRecentItems}
-      WHERE user_id = ${userId}
-      ORDER BY viewed_at DESC
-      ${offsetClause}
-    )`
+  SELECT id FROM ${userRecentItems}
+  WHERE user_id = ${userId}
+  ORDER BY viewed_at DESC
+  ${offsetClause}
+)`
       )
     }),
-})
+}
+
+export const UserEntityListRepositoryLive = layerOverDatabase(UserEntityListRepository, members)

@@ -1,22 +1,22 @@
 # App Metadata
 
-> The `name`, `displayName`, `version`, `description` and `badge` root properties — naming rules, the name people read, Semantic Versioning, and the "Built with Sovrium" badge with its one-line removal.
+> The `name`, `displayName`, `version`, `description` and `badge` root properties: naming rules, the name people read, Semantic Versioning, and a pointer to the badge's own article.
 
 Five scalar root properties shape your application's identity. Only `name` is required. `name`, `version` and `description` anchor the append-only version history; `displayName` is the name people read; `badge` controls the attribution pill.
 
 ```yaml
 name: '@acme/crm'
-displayName: Acme CRM # optional — the name people read
+displayName: Acme CRM # optional: the name people read
 version: 2.1.0
 description: 'A CRM workspace for managing contacts, deals, and tasks.'
-badge: false # optional — removes the "Built with Sovrium" badge
+badge: false # optional: removes the "Built with Sovrium" badge
 ```
 
 ## `name`
 
 The app name follows npm package naming conventions: lowercase, URL-safe, and the only required property in the entire schema.
 
-Scoped names are allowed — `@acme/dashboard` — and the whole string, scope included, is bounded at 214 characters. It may not begin with a dot or an underscore.
+Scoped names are allowed (`@acme/dashboard`), and the whole string, scope included, is bounded at 214 characters. It may not begin with a dot or an underscore.
 
 ```yaml
 name: '@acme/dashboard'
@@ -24,7 +24,7 @@ name: '@acme/dashboard'
 
 ## `displayName`
 
-The name people read, where `name` stays the identifier: `Acme CRM` for an app named `acme-crm`, `Café Dupont` for `cafe-dupont`. Capitals, spaces, accents and apostrophes are all accepted — everything `name` refuses because it also has to work in an address.
+The name people read, where `name` stays the identifier: `Acme CRM` for an app named `acme-crm`, `Café Dupont` for `cafe-dupont`. Capitals, spaces, accents and apostrophes are all accepted: everything `name` refuses because it also has to work in an address.
 
 ```yaml
 name: acme-crm
@@ -33,7 +33,7 @@ displayName: Acme CRM
 
 It is what the app's chrome prints: the operator console's sidebar and breadcrumb, the sign-in card, the default home page's heading and title, and `$app.label` in a page's text. `$app.name` still prints `name`.
 
-One line, at most 100 characters, neither blank nor starting or ending with a space. Optional: without it, each of those surfaces prints what it printed before the key existed — `name` exactly as declared, or for `$app.label` the name in title case (`acme-crm` → `Acme Crm`).
+One line, at most 100 characters, neither blank nor starting or ending with a space. Optional: without it, each of those surfaces prints what it printed before the key existed: `name` exactly as declared, or for `$app.label` the name in title case (`acme-crm` → `Acme Crm`).
 
 ## `version`
 
@@ -45,7 +45,7 @@ version: 2.0.0-beta.1 # pre-release
 version: 1.0.0+build.42 # build metadata
 ```
 
-A component with a leading zero — `01.0.0` — is rejected rather than normalised, because two spellings of one version would both appear in the history.
+A component with a leading zero, such as `01.0.0`, is rejected rather than normalised, because two spellings of one version would both appear in the history.
 
 When `version` is omitted the startup banner displays `v1.0.0` in its place. That is **display only**: the property stays absent from the config API and from the published JSON Schema, so nothing downstream mistakes the placeholder for a declared version.
 
@@ -61,31 +61,8 @@ description: 'Full-featured e-commerce platform with cart, checkout and payment 
 
 ## `badge`
 
-A boolean, or an object, controlling the **"Built with Sovrium"** badge — a small link pill rendered on every page of your app. Shown by default.
-
-| Value                   | Behaviour                                                 |
-| ----------------------- | --------------------------------------------------------- |
-| (omitted)               | Badge shown — the default.                                |
-| `true`                  | Badge shown, explicitly.                                  |
-| `false`                 | Badge removed from every page.                            |
-| `{ placement: footer }` | Badge shown as a line in a footer after the page content. |
-
-```yaml
-name: my-app
-badge: false # removes the badge — one line, free, forever
-```
-
-**Placement.** By default the badge floats: it is pinned to the bottom-right corner of the window, over the page. On pages whose last row holds content — a submit button, a table's pager — use `badge: { placement: footer }` instead: the badge then renders as a static line inside a `<footer>` after the page's main content, so it never covers anything. On a page laid out as a window-high shell — a row exactly one window high, its overflow hidden (`h-screen overflow-hidden`), holding a sidebar beside an inset that scrolls on its own (`overflow-y-auto`) — the footer closes that inset instead: it is the inset's last line, reached by scrolling it to its end, and the page itself never grows a second scroll below the shell. `placement: floating` is the default and matches `badge: true`.
-
-```yaml
-badge:
-  placement: footer # a footer line instead of a floating pill
-```
-
-The badge is server-rendered chrome with **zero telemetry**: a single static `<a>` linking to the project site — no beacon, no pixel, no client-side JavaScript. Its label follows the page's active locale, and the text itself is not customisable. It appears on app pages, the default homepage, error pages and standalone form pages, and is always absent from the operator console and from embedded form variants.
-
-**Removing it is one line, it applies everywhere, and it will stay free.** It is never licence-gated. Keeping the badge is simply a way to support the project.
+`badge` controls the "Built with Sovrium" link pill every page carries: shown by default, moved into a footer line with `badge: { placement: footer }`, removed with `badge: false`. It has its own article, **Built with Sovrium Badge**, with the placement rules and where the badge does and does not appear.
 
 ## Version history
 
-Changes to these three identity properties are recorded append-only, so the history of what an app called itself — and at which version it said it — survives a redeploy rather than being overwritten by the current state.
+Changes to these three identity properties are recorded append-only, so the history of what an app called itself, and at which version it said it, survives a redeploy rather than being overwritten by the current state.

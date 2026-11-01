@@ -5,13 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
 import { resolveAppVarValues, type AppVarName } from '@/domain/models/app/pages/app-vars'
 import { resolvePageAppMark } from './app-mark-resolver'
-import { withPlainTextPin } from './record-substitution'
+import { judgeConditionsDeep, type AuthoredCondition } from './condition-judging'
+import { substituteTemplatesDeep, type ValueEncoder } from './html-template-values'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
-import type { Component } from '@/domain/models/app/pages/components'
 
 /**
  * Every `$app.<name>` reference reachable in a page. A single STATIC literal —
@@ -92,13 +91,19 @@ export function resolvePageAppVars(
 ): Page {
   const values = resolveAppVarValues(app, origin, serving)
 
-  // An author HTML template (`<p>Nothing at $app.path</p>`) reaches the raw
-  // HTML sink, so each value it takes is escaped: `$app.path` is whatever
-  // address a visitor typed, decoded, and `$app.origin` can come from a
-  // request header. A text template is escaped by React on output instead,
-  // and escaping it here would print the entities.
-  const substitute = (str: string): string =>
-    substituteAppVars(str, values, str.trim().startsWith('<') ? escapeHtml : undefined)
+  // `$app.path` is whatever address a visitor typed, decoded, and `$app.origin`
+  // can come from a request header: an author HTML template
+  // (`<p>Nothing at $app.path</p>`) takes them escaped, and a text template is
+  // pinned to text when they would flip it — see `substituteTemplatesDeep`.
+  const fill = (str: string, encode: ValueEncoder | undefined): string =>
+    substituteAppVars(str, values, encode)
+  // A `visibility.condition` on `$app.*` is judged BEFORE the substitution
+  // below, while its field still names what it reads.
+  const judged = (tree: unknown): unknown =>
+    substituteTemplatesDeep(
+      judgeConditionsDeep(tree, (condition) => appConditionHolds(condition, values)),
+      fill
+    )
 
   // The app's mark is the other fact about the serving app a page can ask for
   // (`data-app-mark`), filled from the same `app` — see `app-mark-resolver.ts`.
@@ -106,14 +111,32 @@ export function resolvePageAppVars(
     {
       ...page,
       ...(page.components !== undefined
-        ? { components: substituteDeep(page.components, substitute) as Page['components'] }
+        ? { components: judged(page.components) as Page['components'] }
         : {}),
-      ...(page.layout !== undefined
-        ? { layout: substituteDeep(page.layout, substitute) as Page['layout'] }
-        : {}),
+      ...(page.layout !== undefined ? { layout: judged(page.layout) as Page['layout'] } : {}),
     },
     app
   )
+}
+
+/**
+ * Whether a `visibility.condition` on `$app.<name>` holds for `values`;
+ * `undefined` when the condition reads anything else. A name the app cannot
+ * answer reads as empty — the same reading `$app.version` gets when no version
+ * is declared — so `{ field: $app.version, operator: neq, value: '' }` keeps a
+ * node only on an app that declares a version. An operator other than `eq` /
+ * `neq`, or a boolean value, never holds: every `$app.*` value is text.
+ */
+export const appConditionHolds = (
+  condition: AuthoredCondition,
+  values: Readonly<Partial<Record<AppVarName, string>>>
+): boolean | undefined => {
+  if (!condition.field.startsWith('$app.')) return undefined
+  if (typeof condition.value !== 'string') return false
+  const actual = values[condition.field.slice('$app.'.length) as AppVarName] ?? ''
+  if (condition.operator === 'eq') return actual === condition.value
+  if (condition.operator === 'neq') return actual !== condition.value
+  return false
 }
 
 /**
@@ -137,34 +160,3 @@ export const substituteAppVars = (
         return value === undefined ? match : encode(value)
       })
     : str
-
-/** Does a `content` string start with markup — the renderer's raw-HTML test? */
-const startsAsMarkup = (value: unknown): boolean =>
-  typeof value === 'string' && value.trim().startsWith('<')
-
-/**
- * {@link mapStringsDeep}, plus the one decision a string-level walk cannot
- * take: whether a substituted value turned an author TEXT template into markup.
- *
- * `renderHTMLElement` renders `content` as raw HTML when it starts with `<`, and
- * `$app.origin` and `$app.path` are built from the request — a header, an
- * address a visitor typed. A bare `$app.origin` template does not start with
- * `<`, so it is left unescaped for React to escape; a value that starts with `<`
- * would then flip the element onto the raw-HTML branch and build whatever it
- * spelled. The branch is decided by what the AUTHOR wrote: when the author's
- * template is text and the substituted result would read as markup, the
- * content is pinned to text — the same pin `$record.*` substitution sets.
- */
-const substituteDeep = (value: unknown, substitute: (str: string) => string): unknown => {
-  if (typeof value === 'string') return substitute(value)
-  if (Array.isArray(value)) return value.map((item) => substituteDeep(item, substitute))
-  if (value === null || typeof value !== 'object') return value
-  const node = value as Readonly<Record<string, unknown>>
-  const mapped = Object.fromEntries(
-    Object.entries(node).map(([key, entry]) => [key, substituteDeep(entry, substitute)])
-  )
-  const flipped = !startsAsMarkup(node['content']) && startsAsMarkup(mapped['content'])
-  return flipped
-    ? { ...mapped, props: withPlainTextPin(mapped['props'] as Component['props'], true) }
-    : mapped
-}

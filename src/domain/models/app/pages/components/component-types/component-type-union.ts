@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { stringLiteral } from '@/domain/kernel/config-parsing/schema-ast'
 import { allComponents } from './component-type-union-definitions'
 import { nodeKeyFields } from './modules/node-key'
 import { refusesUndrawableType } from './specialty/specimen-refusal'
@@ -90,9 +91,9 @@ const UNSTYLEABLE: ReadonlySet<string> = new Set(UNSTYLEABLE_COMPONENT_TYPES)
 export const ENGINE_COMPONENT_TYPES: readonly EngineComponentType[] = [
   ...new Set(
     allComponents.flatMap(([typeLiteral]) => {
-      const { ast } = typeLiteral
-      if (ast._tag !== 'Literal' || typeof ast.literal !== 'string') return []
-      return UNSTYLEABLE.has(ast.literal) ? [] : [ast.literal as EngineComponentType]
+      const literal = stringLiteral(typeLiteral.ast)
+      if (literal === undefined) return []
+      return UNSTYLEABLE.has(literal) ? [] : [literal as EngineComponentType]
     })
   ),
 ]
@@ -109,9 +110,9 @@ export const ENGINE_COMPONENT_TYPES: readonly EngineComponentType[] = [
  */
 export const FORM_REF_HOST_TYPES: ReadonlySet<string> = new Set(
   allComponents.flatMap(([typeLiteral, fields]) => {
-    const { ast } = typeLiteral
-    if (ast._tag !== 'Literal' || typeof ast.literal !== 'string') return []
-    return 'formRef' in fields ? [ast.literal] : []
+    const literal = stringLiteral(typeLiteral.ast)
+    if (literal === undefined) return []
+    return 'formRef' in fields ? [literal] : []
   })
 )
 
@@ -128,7 +129,7 @@ export const FORM_REF_HOST_TYPES: ReadonlySet<string> = new Set(
  * New components default to NO children — add here only if they genuinely
  * wrap arbitrary child components.
  */
-const CONTAINER_TYPES: ReadonlySet<string> = new Set([
+const CONTAINER_TYPE_NAMES = [
   // Layout containers
   'container',
   'resizable',
@@ -192,7 +193,12 @@ const CONTAINER_TYPES: ReadonlySet<string> = new Set([
   'context-menu',
   // Custom components (may need arbitrary children)
   'customHTML',
-])
+] as const
+
+const CONTAINER_TYPES: ReadonlySet<string> = new Set(CONTAINER_TYPE_NAMES)
+
+/** A component type that takes `children`, as a type (the list above). */
+export type ContainerComponentType = (typeof CONTAINER_TYPE_NAMES)[number]
 
 /**
  * Component SLOTS: component arrays a type holds BESIDE `children`, each drawn in
@@ -205,21 +211,33 @@ const CONTAINER_TYPES: ReadonlySet<string> = new Set([
  * page child) and no more. The renderer receives a slot through the same
  * pipeline a child takes (`presentation/render/elements/slot-children.ts`).
  */
-const SLOT_TYPES: Readonly<Record<string, readonly string[]>> = {
+const SLOT_TYPE_NAMES = {
   message: ['header', 'footer'],
   dialog: ['footer'],
   sheet: ['footer'],
   item: ['media', 'header', 'actions', 'footer'],
   card: ['action', 'footer'],
   sidebar: ['header', 'footer'],
-}
+} as const
+
+const SLOT_TYPES: Readonly<Record<string, readonly string[]>> = SLOT_TYPE_NAMES
+
+/** The slot keys component type `T` declares, as a type (the map above). */
+export type ComponentSlotKey<T> = T extends keyof typeof SLOT_TYPE_NAMES
+  ? (typeof SLOT_TYPE_NAMES)[T][number]
+  : never
 
 /**
  * The slots that hold ONE component rather than a list — an item's `media`.
  * Such a slot takes any component a design-system specimen may draw (the
  * union `SpecimenComponentSchema` builds), written as a single object.
  */
-const SINGLE_SLOTS: ReadonlySet<string> = new Set(['item.media', 'card.action'])
+const SINGLE_SLOT_NAMES = ['item.media', 'card.action'] as const
+
+const SINGLE_SLOTS: ReadonlySet<string> = new Set(SINGLE_SLOT_NAMES)
+
+/** A `type.slot` pair whose slot holds one component, as a type (the list above). */
+export type SingleComponentSlot = (typeof SINGLE_SLOT_NAMES)[number]
 
 /** The slot keys a type declares. */
 export const componentSlotsOf = (type: string): readonly string[] => SLOT_TYPES[type] ?? []
@@ -259,6 +277,29 @@ export type ComponentUnion = {
   readonly [I in keyof typeof allComponents]: ComponentBranchType<(typeof allComponents)[I]>
 }[number]
 
+/** The ENCODED shape of one component branch: what a config writes, before decoding. */
+type ComponentBranchEncoded<D> = D extends readonly [infer TypeLiteral, infer Fields]
+  ? Fields extends Schema.Struct.Fields
+    ? { readonly type: Schema.Codec.Encoded<TypeLiteral> } & Schema.Struct.Encoded<
+        Fields & typeof nodeKeyFields
+      >
+    : never
+  : never
+
+/**
+ * Discriminated union of every component's ENCODED shape — the side a config
+ * file writes — derived from the same `allComponents` tuple as
+ * {@link ComponentUnion}, plus the `key` every branch carries.
+ *
+ * Like {@link ComponentUnion} it does not carry `children`, slots or a
+ * specimen's `component`: a consumer adds its own nesting shape, keyed on
+ * {@link ContainerComponentType}, {@link ComponentSlotKey} and
+ * {@link SingleComponentSlot}.
+ */
+export type ComponentUnionEncoded = {
+  readonly [I in keyof typeof allComponents]: ComponentBranchEncoded<(typeof allComponents)[I]>
+}[number]
+
 // ─── Union Builder ──────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Generic fields injected per consumer (children, name, etc.)
@@ -289,9 +330,8 @@ export function buildComponentUnion(
 ): Schema.Codec<any, any, never> {
   const branches = allComponents.map(([typeLiteral, fields]) => {
     // Extract the type string from the Schema.Literal AST to check container membership
-    const { ast } = typeLiteral
-    const isContainer =
-      ast._tag === 'Literal' && typeof ast.literal === 'string' && CONTAINER_TYPES.has(ast.literal)
+    const literal = stringLiteral(typeLiteral.ast)
+    const isContainer = literal !== undefined && CONTAINER_TYPES.has(literal)
 
     // `specimen` gets its `component` field injected here, for the SAME
     // reason `children` is: the field holds a component, the only place a
@@ -300,16 +340,14 @@ export function buildComponentUnion(
     // on `allComponents` — measured twice before it was believed. Unlike
     // `children` the schema is fixed rather than per-consumer, because the
     // refusal it carries is a safety rule that must not vary by call site.
-    const isSpecimen = ast._tag === 'Literal' && ast.literal === 'specimen'
+    const isSpecimen = literal === 'specimen'
 
     const slots =
-      ast._tag === 'Literal' && typeof ast.literal === 'string'
+      literal !== undefined
         ? Object.fromEntries(
-            componentSlotsOf(ast.literal).map((slot) => [
+            componentSlotsOf(literal).map((slot) => [
               slot,
-              isSingleComponentSlot(String(ast.literal), slot)
-                ? singleSlotField
-                : childrenField['children'],
+              isSingleComponentSlot(literal, slot) ? singleSlotField : childrenField['children'],
             ])
           )
         : {}

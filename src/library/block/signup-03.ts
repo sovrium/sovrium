@@ -5,9 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, param } from '@/library/manifest/block-kit'
-import { defineLibraryEntry } from '@/library/manifest/define'
-import { SIGNUP_NOTES, mutedCardScreen, signupParams } from '@/library/manifest/login-block-kit'
+import { asComponent, param } from '@/library/kit/block-kit'
+import { SIGNUP_NOTES, mutedCardScreen, signupParams } from '@/library/kit/login-block-kit'
 import {
   cardContent,
   cardHeader,
@@ -16,7 +15,8 @@ import {
   openOnly,
   signInLine,
   signUpForm,
-} from '@/library/manifest/login-block-parts'
+} from '@/library/kit/login-block-parts'
+import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** shadcn/ui's `signup-03`, composed in config. */
 export const entry = defineLibraryEntry({

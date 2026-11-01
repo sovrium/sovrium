@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { SELECTABLE_SYSTEM_FIELDS } from './list-helpers'
 import type { App } from '@/domain/models/app'
 
@@ -106,7 +107,7 @@ export const buildProjectionColumns = (config: {
   const { app, tableName, fields, groupBy } = config
   if (!fields) return undefined
 
-  const table = app.tables?.find((t) => t.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   if (!table) return undefined
 
   const projectable = new Set(

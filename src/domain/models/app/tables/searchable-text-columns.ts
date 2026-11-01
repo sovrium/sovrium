@@ -11,7 +11,7 @@
  *
  * It has to be one definition because the two sides must agree EXACTLY: the
  * application layer builds the `LIKE` predicate over these columns
- * (`use-cases/command-search.ts`), while the infrastructure layer builds the
+ * (`use-cases/search/command-search.ts`), while the infrastructure layer builds the
  * full-text index over them at schema-reconciliation time
  * (`database/schema/command-search-fts.ts`). A column present in one list and
  * absent from the other is invisible to the hybrid `FTS ∩ LIKE` search: the

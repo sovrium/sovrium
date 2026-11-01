@@ -45,7 +45,7 @@ import {
   type ConfigReadPayload,
   type ConfigToolsProvider,
   type ConfigValidatePayload,
-} from '@/application/use-cases/config/config-mcp-tools'
+} from '@/application/use-cases/config/config-mcp-tool-call'
 import { isAdminTierCaller } from '@/presentation/api/mcp/auth'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { App } from '@/domain/models/app'

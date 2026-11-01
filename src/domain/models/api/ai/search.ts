@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // RAG similarity search request schema
@@ -15,9 +15,7 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
 /**
  * Request schema for the RAG similarity search endpoint (`POST /api/ai/rag/search`).
  *
- * Used for:
- * - OpenAPI documentation generation
- * - Runtime API request validation via @hono/zod-validator
+ * Publishes the request in the OpenAPI document; the handler reads the body itself.
  */
 export const ragSearchRequestSchema = Schema.Struct({
   query: Schema.String.annotate({
@@ -36,18 +34,24 @@ export type RagSearchRequest = typeof ragSearchRequestSchema.Type
 // RAG similarity search result schemas
 // ---------------------------------------------------------------------------
 
-/** A single pgvector cosine-similarity match returned by the search endpoint. */
+/**
+ * A single cosine-similarity match returned by the search endpoint.
+ *
+ * `similarity` carries no bound: the raw cosine lies between -1 and 1, floating
+ * point can step just past either end, and a lexical hit is kept whatever its
+ * dense score. Bounding it would turn a good answer into a 500.
+ */
 export const ragSearchResultSchema = Schema.Struct({
-  agentName: Schema.String.annotate({
-    description: 'Name of the agent the matched knowledge belongs to',
+  agentName: Schema.NullOr(Schema.String).annotate({
+    description: 'Name of the agent the matched knowledge belongs to, null for global knowledge',
   }),
-  sourceRef: Schema.String.annotate({
-    description: 'Reference to the source document or table record',
+  sourceRef: Schema.NullOr(Schema.String).annotate({
+    description: 'Reference to the source document or table record, when one was stored',
   }),
   content: Schema.String.annotate({ description: 'The matched knowledge chunk content' }),
   similarity: Schema.Finite.annotate({
-    description: 'Cosine similarity score in the range 0..1 (higher is more relevant)',
-  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))),
+    description: 'Cosine similarity score (higher is more relevant)',
+  }),
 })
 
 export type RagSearchResult = typeof ragSearchResultSchema.Type

@@ -18,7 +18,7 @@
 import { Effect } from 'effect'
 import { sendNotificationsProgram } from '@/application/use-cases/automations/notification-programs'
 import { logError } from '@/infrastructure/logging/logger'
-import { typedOwnProp } from './document-run'
+import { typedOwnProp } from './document/run'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler } from './shared'
 

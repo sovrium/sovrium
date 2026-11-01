@@ -5,21 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/**
- * Error class for static site generation failures.
- *
- * Follows the standard domain error pattern: plain Error subclass with
- * readonly `_tag` property for Effect discriminated union matching.
- */
-export class StaticGenerationError extends Error {
-  readonly _tag = 'StaticGenerationError'
-  override readonly cause?: unknown
+import { Data } from 'effect'
 
-  constructor(options: { readonly message: string; readonly cause?: unknown }) {
-    super(options.message)
-    // eslint-disable-next-line functional/no-expression-statements -- Required for Error subclass
-    this.name = 'StaticGenerationError'
-    // eslint-disable-next-line functional/no-expression-statements -- Required for Error subclass
-    this.cause = options.cause
-  }
-}
+/**
+ * Error for static site generation failures: a file the generator could not
+ * read, write or format. `cause` carries the underlying failure.
+ */
+export class StaticGenerationError extends Data.TaggedError('StaticGenerationError')<{
+  readonly message: string
+  readonly cause?: unknown
+}> {}

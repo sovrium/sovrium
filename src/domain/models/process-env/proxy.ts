@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
+import { Option, Schema } from 'effect'
 
 /**
  * Trusted-proxy environment configuration.
@@ -69,9 +69,36 @@ export const TRUSTED_PROXY_HOPS_DEFAULT = 0
  * a silent `0` on a genuinely proxied deployment would collapse every client
  * into a single rate-limit bucket, which reads as an outage with no cause.
  */
-export const parseTrustedProxyHops = (env: NodeJS.ProcessEnv = process.env): number => {
+export const parseTrustedProxyHops = (
+  env: Readonly<Record<string, string | undefined>>
+): number => {
   const decoded = Schema.decodeSync(TrustedProxyEnvSchema)({
     hops: env.TRUSTED_PROXY_HOPS,
   })
   return decoded.hops ?? TRUSTED_PROXY_HOPS_DEFAULT
 }
+
+/**
+ * Typed decoder for {@link TrustedProxyEnvSchema}, built once at module load.
+ */
+const decodeTrustedProxyEnvOption = Schema.decodeOption(TrustedProxyEnvSchema)
+
+/**
+ * The hop count every trust decision uses at request time: the declared value,
+ * or {@link TRUSTED_PROXY_HOPS_DEFAULT} when the variable is unset OR invalid
+ * (non-integer, negative, above 10).
+ *
+ * Degrading to `0` rather than throwing is the request-time half of the
+ * contract: refusing to serve is a worse outcome than trusting no forwarding
+ * header, and `0` is the failure mode that believes nothing. The client-IP
+ * resolver, the page tier's session binding and the printed-origin resolver all
+ * decide through this one function, so they cannot disagree about whether a
+ * proxy was declared.
+ */
+export const resolveTrustedProxyHops = (
+  env: Readonly<Record<string, string | undefined>>
+): number =>
+  Option.match(decodeTrustedProxyEnvOption({ hops: env.TRUSTED_PROXY_HOPS }), {
+    onNone: () => TRUSTED_PROXY_HOPS_DEFAULT,
+    onSome: (decoded) => decoded.hops ?? TRUSTED_PROXY_HOPS_DEFAULT,
+  })

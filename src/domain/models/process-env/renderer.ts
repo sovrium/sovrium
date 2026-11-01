@@ -6,6 +6,7 @@
  */
 
 import { Result, Schema } from 'effect'
+import { blankToUndefined } from '@/domain/kernel/config-parsing/blank-text'
 
 /**
  * Document renderer environment configuration ([internal ref] D2).
@@ -118,11 +119,6 @@ export interface RendererConfig {
 export type RendererEnvParse =
   | { readonly ok: true; readonly config: RendererConfig }
   | { readonly ok: false; readonly error: string }
-
-const blankToUndefined = (value: string | undefined): string | undefined => {
-  const trimmed = value?.trim()
-  return trimmed === undefined || trimmed === '' ? undefined : trimmed
-}
 
 const describeInvalidEnv = (env: Readonly<Record<string, string | undefined>>): string => {
   const provider = blankToUndefined(env['RENDERER_PROVIDER'])

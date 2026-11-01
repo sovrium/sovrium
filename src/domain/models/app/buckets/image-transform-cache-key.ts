@@ -72,8 +72,9 @@ export const buildTransformCacheKey = (
  * The ETag is a content hash of the canonical request string — it changes
  * whenever the source key or any transform parameter changes, so a stale
  * `If-None-Match` never produces a false 304.
+ *
+ * @param hash - a content hash of a string, as hex; the route passes Bun's
+ *   non-cryptographic `Bun.hash`, so the domain never names the runtime
  */
-export const buildTransformETag = (cacheKey: string): string => {
-  const hash = Bun.hash(cacheKey).toString(16)
-  return `"${hash}"`
-}
+export const buildTransformETag = (cacheKey: string, hash: (input: string) => string): string =>
+  `"${hash(cacheKey)}"`

@@ -6,6 +6,7 @@
  */
 
 import { foldLineBreaks, escapeMarkdownTableCell } from '@/domain/kernel/markdown/markdown-escaping'
+import { escapeHtmlDoubleQuotedAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { SOVRIUM_EXTENSION_KEY } from '@/domain/models/api/admin/design-system/design-system'
 import { PLATFORM_TYPE_LADDER } from '@/domain/models/app/design/inherited-tokens'
 import { jsonFileContent, type AdapterFile, type DesignTokenModes } from './adapter-export-values'
@@ -128,9 +129,6 @@ const groupLabel = (category: string): string => {
   return `${words.charAt(0).toUpperCase()}${words.slice(1)}`
 }
 
-const escapeHtml = (text: string): string =>
-  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
 /** A markdown table cell: one line, pipes escaped. */
 const cell = escapeMarkdownTableCell
 
@@ -213,7 +211,10 @@ const listedLines = (label: string, items: readonly string[] | undefined): reado
   items === undefined ? [] : ['', `${label}:`, '', ...bulletList(items)]
 
 /** The voice section's lines, from the design system's voice. */
-const voiceLines = (voice: SovriumDesignExtension['voice']): readonly string[] =>
+const voiceLines = (
+  voice: SovriumDesignExtension['voice'],
+  language: SovriumDesignExtension['voiceLanguage']
+): readonly string[] =>
   voice === undefined
     ? []
     : [
@@ -222,7 +223,11 @@ const voiceLines = (voice: SovriumDesignExtension['voice']): readonly string[] =
           : [`Personality: ${foldLineBreaks(voice.personality.join(', '))}.`]),
         ...(voice.pronoun === undefined
           ? []
-          : [`Address the reader as "${foldLineBreaks(voice.pronoun)}".`]),
+          : [
+              `Address the reader as "${foldLineBreaks(voice.pronoun)}"${
+                language === undefined ? '' : ` (${foldLineBreaks(language)})`
+              }.`,
+            ]),
         ...listedLines('Prefer', voice.prefer),
         ...listedLines('Avoid', voice.avoid),
         ...Object.entries(voice.tone ?? {}).flatMap(([state, line]) =>
@@ -244,7 +249,7 @@ const brandBook = (input: ClaudeDesignExportInput, drawn: readonly DrawnEntry[])
     'Colours have two themes, Light and Dark; every token in `tokens.json` says what it is for.',
     '',
     ...section('Principles', bulletList(extension.principles ?? [])),
-    ...section('Voice', voiceLines(extension.voice)),
+    ...section('Voice', voiceLines(extension.voice, extension.voiceLanguage)),
     ...section(
       'Colour roles',
       roles.length === 0
@@ -292,11 +297,13 @@ const componentReadme = (entry: DrawnEntry): string => {
 /** The generated card: the type's name and purpose, and one chip per variant. */
 const generatedCard = (entry: DrawnEntry): string => {
   const chips = (entry.variants.length === 0 ? ['default'] : entry.variants)
-    .map((variant) => `    <span class="ds-chip">${escapeHtml(variant)}</span>`)
+    .map(
+      (variant) => `    <span class="ds-chip">${escapeHtmlDoubleQuotedAttribute(variant)}</span>`
+    )
     .join('\n')
   return [
-    `  <p class="ds-title">${escapeHtml(componentFolderName(entry.type))}</p>`,
-    `  <p class="ds-purpose">${escapeHtml(entry.purpose)}</p>`,
+    `  <p class="ds-title">${escapeHtmlDoubleQuotedAttribute(componentFolderName(entry.type))}</p>`,
+    `  <p class="ds-purpose">${escapeHtmlDoubleQuotedAttribute(entry.purpose)}</p>`,
     '  <div class="ds-chips">',
     chips,
     '  </div>',
@@ -318,7 +325,7 @@ const CARD_STYLE = [
 const componentPreview = (entry: DrawnEntry, fragment: string | undefined): string => {
   const supplied = fragment !== undefined && isOfflineFragment(fragment)
   return [
-    `<!-- @dsCard group="${escapeHtml(groupLabel(entry.category))}" height=${CARD_HEIGHT} -->`,
+    `<!-- @dsCard group="${escapeHtmlDoubleQuotedAttribute(groupLabel(entry.category))}" height=${CARD_HEIGHT} -->`,
     '<div id="root">',
     ...(supplied ? [fragment.trim()] : [CARD_STYLE, generatedCard(entry)]),
     '</div>',

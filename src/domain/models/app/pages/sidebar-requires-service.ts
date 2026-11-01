@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { pageRoutePatterns, type DeclaredPagePath } from '@/domain/kernel/matching/localized-path'
 
 /**
@@ -37,11 +38,6 @@ import { pageRoutePatterns, type DeclaredPagePath } from '@/domain/kernel/matchi
  * Every walk returns the SAME object when nothing under it changed, so an app
  * whose pages all survive pays a walk and no copy.
  */
-
-type Rec = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is Rec =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The path part of a root-relative href, or `undefined` for anything else. */
 const hrefPath = (href: unknown): string | undefined => {

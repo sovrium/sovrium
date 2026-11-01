@@ -18,6 +18,7 @@ interface AuthoredGroup {
     Readonly<Record<string, unknown>> & {
       readonly label: string
       readonly emptyLabel?: string
+      readonly description?: string
       readonly icon?: string
     }
   >
@@ -36,10 +37,11 @@ const authoredGroupsPayload = (
   const translate = (text: string) => resolveTranslationPattern(text, lang, config.languages)
   return groups.map((group) => ({
     label: translate(group.label),
-    items: group.items.map(({ icon, visibility: _judged, emptyLabel, ...item }) => ({
+    items: group.items.map(({ icon, visibility: _judged, emptyLabel, description, ...item }) => ({
       ...item,
       label: translate(item.label),
       ...(emptyLabel === undefined ? {} : { emptyLabel: translate(emptyLabel) }),
+      ...(description === undefined ? {} : { description: translate(description) }),
       ...(icon === undefined ? {} : { iconNode: resolveLucideIconNode(icon) }),
     })),
   }))

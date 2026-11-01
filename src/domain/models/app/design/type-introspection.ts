@@ -35,6 +35,14 @@
  */
 
 import { Schema } from 'effect'
+import {
+  AST_TAG,
+  astOf,
+  isTag,
+  unionMembers,
+  unwrap,
+  type SchemaNode,
+} from '@/domain/kernel/config-parsing/schema-ast'
 import * as aiTypes from '@/domain/models/app/pages/components/component-types/ai'
 import {
   CATALOG_COMPONENT_CATEGORIES,
@@ -63,35 +71,11 @@ import * as structuralTypes from '@/domain/models/app/pages/components/component
 export type FieldBag = Readonly<Record<string, unknown>>
 
 /**
- * The minimum of Effect's AST this module reads.
- *
- * Written as a structural type rather than imported: the shape read here is
- * three properties deep and stable, while importing Effect's internal AST types
- * would couple this reading to a module the library marks as its own business.
+ * The minimum of Effect's AST this module reads — the kernel's one structural
+ * reading, re-exported here for the readers that already import it from this
+ * module.
  */
-export interface SchemaNode {
-  readonly _tag?: string
-  readonly annotations?: Readonly<Record<string, unknown>>
-  readonly types?: readonly SchemaNode[]
-  readonly literal?: unknown
-  readonly defaultValue?: unknown
-  readonly encoding?: unknown
-  /** An `Objects` node's fields. Effect 4 spells it `Objects`, not `TypeLiteral`. */
-  readonly propertySignatures?: readonly {
-    readonly name: string | symbol
-    readonly type: SchemaNode
-  }[]
-  /** An `Arrays` node's element. `rest[0]` IS the node — there is no `.type`. */
-  readonly rest?: readonly SchemaNode[]
-  readonly elements?: readonly SchemaNode[]
-  /**
-   * The refinements attached to this node, each carrying annotations of its own.
-   *
-   * Read by {@link proseAnnotationOf} and by nothing else. See that function for
-   * why a check's prose counts as the node's.
-   */
-  readonly checks?: readonly SchemaNode[]
-}
+export type { SchemaNode }
 
 /**
  * A node's prose annotation, reading its OWN annotations first and then the
@@ -182,19 +166,8 @@ const CATEGORY_BARRELS: Readonly<Record<string, Readonly<Record<string, unknown>
   ai: aiTypes,
 }
 
-/**
- * The `ast` of a schema value, or `undefined` for anything that is not one.
- *
- * The `'function'` arm is load-bearing, not defensive. An Effect 4 schema is
- * CALLABLE, so `typeof schema` is `'function'` and an object-only guard rejects
- * every schema in the catalogue — silently, returning an empty props table for
- * all eighty-five types rather than throwing anywhere a test would see it.
- */
-export const astOf = (value: unknown): SchemaNode | undefined => {
-  if ((typeof value !== 'object' && typeof value !== 'function') || value === null) return undefined
-  const node = (value as { readonly ast?: unknown }).ast
-  return typeof node === 'object' && node !== null ? (node as SchemaNode) : undefined
-}
+/** The `ast` of a schema value (`schema-ast.ts`), for this module's existing readers. */
+export { astOf }
 
 /**
  * The real schema inside a `Schema.optional(...)` wrapper.
@@ -203,19 +176,13 @@ export const astOf = (value: unknown): SchemaNode | undefined => {
  * on this page returns `{}` — which renders as a table of empty cells that
  * looks exactly like a schema carrying no documentation at all.
  */
-export const unwrapOptional = (node: SchemaNode): SchemaNode => {
-  if (node._tag !== 'Union' || node.types === undefined) return node
-  const defined = node.types.filter((member) => member._tag !== 'Undefined')
-  const [only] = defined
-  return defined.length === 1 && only !== undefined && defined.length < node.types.length
-    ? only
-    : node
-}
+export const unwrapOptional = unwrap
 
 /** The literal members of a closed union, or `undefined` when it is not one. */
 const literalsOf = (node: SchemaNode): readonly string[] | undefined => {
-  if (node._tag !== 'Union' || node.types === undefined || node.types.length === 0) return undefined
-  const members = node.types.filter((member) => member._tag !== 'Undefined')
+  const all = unionMembers(node)
+  if (all === undefined || all.length === 0) return undefined
+  const members = all.filter((member) => !isTag(member, AST_TAG.undefined))
   if (members.length === 0) return undefined
   const literals = members.map((member) => member.literal)
   return literals.every((literal) => typeof literal === 'string')

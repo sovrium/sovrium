@@ -31,7 +31,6 @@ import { IslandImportMap } from '@/presentation/render/page/island-entry-script'
 import { SovriumBadge } from '@/presentation/render/page/sovrium-badge'
 import { FormBody } from './form-body'
 import { resolveDocumentLang } from './form-document-lang'
-import { type PrefillValue } from './form-field-elements'
 import {
   resolveAllFields,
   resolveFormDensityStep,
@@ -48,6 +47,7 @@ import {
   type FormPrefillContext,
 } from './form-prefill-resolver'
 import { FormBodyStep } from './form-renderer-multi-step'
+import { type PrefillValue } from './form-resolved-field'
 import { resolveStepNavLabels } from './form-step-nav-labels'
 import { prefillColumnsOf } from './record-prefill-resolver'
 import type { EmbeddedFormPrefillContext } from './form-body'
@@ -358,13 +358,13 @@ export function renderFormStepFragment(
  * and the form gets a `data-inline-prefill="locked"` marker so the
  * submission handler can revalidate the parent on POST.
  */
-// eslint-disable-next-line max-params -- P9/P8 thread the host page's activeLang + titleAs render hint alongside the existing (app, form, prefillContext) embed API
 export function renderEmbeddedFormBody(
   app: Readonly<App>,
   form: Readonly<Form>,
   prefillContext?: EmbeddedFormPrefillContext,
-  activeLang?: string,
   opts?: {
+    /** The host page's language, which localizes the form's `$t:` strings. */
+    readonly activeLang?: string
     readonly titleAs?: 'h1' | 'h2' | 'h3'
     readonly optionSets?: FormOptionSets
     /** Draw no form title — the host (a dialog) heads the form itself. */
@@ -390,7 +390,7 @@ export function renderEmbeddedFormBody(
       embedded={true}
       mountRuntime={true}
       prefillContext={prefillContext}
-      activeLang={activeLang}
+      activeLang={opts?.activeLang}
       titleAs={opts?.titleAs}
       omitTitle={opts?.omitTitle}
       cancelLabel={opts?.cancelLabel}

@@ -56,7 +56,7 @@ export const FormAvailabilitySchema = Schema.Struct({
       type: Schema.optional(
         Schema.Literal('page').annotate({
           description:
-            'How a closed form answers. `page` — the only shape — draws the notice below in place of the form.',
+            'How a closed form answers. `page`, the only shape, draws the notice below in place of the form.',
         })
       ),
       title: Schema.optional(
@@ -78,7 +78,7 @@ export const FormAvailabilitySchema = Schema.Struct({
           }).pipe(Schema.check(Schema.isMinLength(1))),
           href: Schema.String.annotate({
             description:
-              'Where that link goes. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
+              'Where that link goes. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address (`javascript:`, `data:`, `mailto:`, or one starting with `//`) is refused when the config is read.',
           }).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(formAddressCheck)),
         }).annotate({
           description:

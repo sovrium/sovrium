@@ -40,6 +40,7 @@ export const IMPORT_SOURCE_TOOLS = [
   'xlsx',
   'baserow',
   'retool-database',
+  'supabase',
   'webflow',
   'zapier-tables',
   'zite',
@@ -70,14 +71,27 @@ export type ImportSourceTool = Schema.Schema.Type<typeof ImportSourceToolSchema>
  *
  * `pages` is produced by the pages programme's converter from a site or app
  * export; this vocabulary only lets the operator select or skip it.
+ *
+ * `auth` (the source's own user accounts) and `buckets` (its file buckets and
+ * the files they hold) are read from a Supabase project. Row-level security
+ * has no part of its own: a table is never written without its access rules
+ * translated, so selecting `tables` always brings them.
  */
-export const IMPORT_DOMAINS = ['tables', 'data', 'automations', 'forms', 'pages'] as const
+export const IMPORT_DOMAINS = [
+  'tables',
+  'data',
+  'automations',
+  'forms',
+  'pages',
+  'auth',
+  'buckets',
+] as const
 
 export const ImportDomainSchema = Schema.Literals(IMPORT_DOMAINS).annotate({
   identifier: 'ImportDomain',
   title: 'Import Domain',
   description:
-    'One part of a migrated app: table definitions, the records they hold, automations, forms with their responses, or pages.',
+    'One part of a migrated app: table definitions with their access rules, the records they hold, automations, forms with their responses, pages, user accounts, or file buckets with their files.',
 })
 
 export type ImportDomain = Schema.Schema.Type<typeof ImportDomainSchema>
@@ -127,6 +141,13 @@ export interface ImportFetchSource {
   readonly uri: string
   /** The parts of an app this source can provide. */
   readonly domains: readonly ImportDomain[]
+  /**
+   * Further environment variables the source reads, by NAME, for a second
+   * surface it is reached through: Supabase's project URL and service-role
+   * key, which the object bytes are downloaded with. Like `tokenEnv`, their
+   * values are never written anywhere.
+   */
+  readonly companionEnv?: readonly string[]
 }
 
 /**
@@ -172,6 +193,14 @@ export const IMPORT_FETCH_SOURCES: readonly ImportFetchSource[] = [
     tokenEnv: 'RETOOL_DB_URL',
     uri: 'retool-db:$env.RETOOL_DB_URL',
     domains: ['tables', 'data'],
+  },
+  {
+    scheme: 'supabase',
+    tool: 'supabase',
+    tokenEnv: 'SUPABASE_DB_URL',
+    uri: 'supabase:$env.SUPABASE_DB_URL',
+    domains: ['tables', 'data', 'auth', 'buckets'],
+    companionEnv: ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'],
   },
   {
     scheme: 'webflow',

@@ -71,6 +71,7 @@ import {
   WHERE_VALUE_REFUSAL,
 } from './internal-list-arguments'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
+import type { AnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { McpCaller } from '@/presentation/api/mcp/auth'
 import type { CompiledTool } from '@/presentation/api/mcp/tool-compiler'
@@ -102,10 +103,18 @@ import type { CompiledTool } from '@/presentation/api/mcp/tool-compiler'
 export const compileInternalTools = (input: {
   readonly appName: string
   readonly exposeInternals: boolean
+  readonly analyticsProfile: AnalyticsProfile
 }): ReadonlyArray<CompiledTool> => {
   if (!input.exposeInternals) return []
-  return InternalTableRegistry.flatMap((entry) => buildToolsForEntry(input.appName, entry))
+  return InternalTableRegistry.filter((entry) =>
+    isOfferedUnder(entry, input.analyticsProfile)
+  ).flatMap((entry) => buildToolsForEntry(input.appName, entry))
 }
+
+// Under `audience-only` (the default, no `analytics` block included) raw analytics
+// events are not offered: that profile answers aggregates only.
+const isOfferedUnder = (entry: InternalTableEntry, profile: AnalyticsProfile): boolean =>
+  profile === 'full' || !(entry.schema === 'system' && entry.name === 'analytics_events')
 
 /**
  * The admin read tool that answers the same data better — shaped, redacted,
@@ -260,12 +269,14 @@ export const handleInternalToolCall = async (input: {
   /** `MCP_EXPOSE_INTERNALS` — off refuses every internal tool, admins included. */
   readonly exposeInternals: boolean
   readonly domainContext: DomainContext
+  readonly analyticsProfile: AnalyticsProfile
 }): Promise<McpToolResult> => {
+  const { entry } = input.resolved
   if (!input.exposeInternals || !isAdminTierCaller(input.caller)) {
-    return toolFailure(
-      -32_603,
-      `Internal tool ${input.resolved.entry.schema}.${input.resolved.entry.name} is admin-only`
-    )
+    return toolFailure(-32_603, `Internal tool ${entry.schema}.${entry.name} is admin-only`)
+  }
+  if (!isOfferedUnder(entry, input.analyticsProfile)) {
+    return toolFailure(-32_603, `Internal tool ${entry.schema}.${entry.name} is not offered`)
   }
 
   if (input.resolved.operation === 'list') {

@@ -6,7 +6,6 @@
  */
 
 import { and, desc, eq, isNull } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   userFavorites as favoritesPg,
@@ -17,6 +16,7 @@ import {
   userRecentItems as recentSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/favorites'
 import type { AccountEntityLists } from '@/application/ports/repositories/auth/account-repository'
+import type { PortableDb } from '@/infrastructure/database'
 
 /**
  * The favorites-and-recent half of the GDPR export: the caller's rows of
@@ -26,7 +26,7 @@ import type { AccountEntityLists } from '@/application/ports/repositories/auth/a
  * bound by Drizzle on SQLite and PostgreSQL alike.
  */
 
-const favoritesOf = (userId: string) => {
+const favoritesOf = (db: PortableDb, userId: string) => {
   const favorites = resolveDialectSchema(favoritesPg, favoritesSqlite)
   return db
     .select({
@@ -40,7 +40,7 @@ const favoritesOf = (userId: string) => {
     .orderBy(desc(favorites.createdAt), desc(favorites.id))
 }
 
-const recentItemsOf = (userId: string) => {
+const recentItemsOf = (db: PortableDb, userId: string) => {
   const recent = resolveDialectSchema(recentPg, recentSqlite)
   return db
     .select({
@@ -59,7 +59,10 @@ const recentItemsOf = (userId: string) => {
  * the export's other reads run. Rejects on a database error; the repository
  * wraps it.
  */
-export const readEntityLists = async (userId: string): Promise<AccountEntityLists> => ({
-  favorites: await favoritesOf(userId),
-  recentItems: await recentItemsOf(userId),
+export const readEntityLists = async (
+  db: PortableDb,
+  userId: string
+): Promise<AccountEntityLists> => ({
+  favorites: await favoritesOf(db, userId),
+  recentItems: await recentItemsOf(db, userId),
 })

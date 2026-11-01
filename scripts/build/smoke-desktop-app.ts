@@ -17,9 +17,11 @@
  *
  * - the sidecar is not where `current_exe()`-relative resolution looks for it,
  *   so the app opens and does nothing;
- * - the sidecar is there but cannot execute — on macOS an unsigned or
- *   wrongly-entitled nested Mach-O is killed by the kernel at launch, with no
- *   message, so again the app opens and does nothing;
+ * - the sidecar is there but cannot execute — on macOS an unsigned nested
+ *   Mach-O, or one whose signature does not match it, is killed by the kernel
+ *   at launch, with no message, so again the app opens and does nothing (a
+ *   missing `allow-jit` is not this case: the engine starts with its JIT off,
+ * [internal ref] A3, which this test cannot see);
  * - the bundle is fine but the engine inside it cannot serve, which is the
  *   class `.github/workflows/release.yml` already smoke-tests for the bare
  *   binaries and had no equivalent for the installers.

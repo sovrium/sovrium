@@ -80,7 +80,7 @@ const MarkdownFrameSchema = Schema.Struct({
   contentMaxWidth: Schema.optional(
     CssLengthSchema.annotate({
       description:
-        "The article column's reading measure, in px or rem — the widest its header (breadcrumb, title, page actions), its text and its closing lines run, so the title never overhangs the paragraph under it",
+        "The article column's reading measure, in px or rem: the widest its header (breadcrumb, title, page actions), its text and its closing lines run, so the title never overhangs the paragraph under it",
       examples: ['653px', '42rem'],
     })
   ),
@@ -94,7 +94,7 @@ const MarkdownFrameSchema = Schema.Struct({
   menuButton: Schema.optional(
     Schema.Literals(['frame', 'header']).annotate({
       description:
-        "Where the button that opens the sections on a phone sits: 'frame' (default) above the article, or 'header' — lifted into the page's first component, left of its content, so a sticky header carries it",
+        "Where the button that opens the sections on a phone sits: 'frame' (default) above the article, or 'header', lifted into the page's first component, left of its content, so a sticky header carries it",
     })
   ),
   articleActions: Schema.optional(
@@ -168,7 +168,8 @@ export const MarkdownSchema = Schema.Struct({
   /**
    * Classes for the parts the markdown layout draws: the frame's regions
    * (`frame`, the row holding the three columns; `sidebar`, `navGroup`,
-   * `navGroupLabel`, `navLink`, `menuButton`, `toc`, `article`,
+   * `navGroupLabel`, `navLink`, `menuButton`, `toc`, `tocLinkActive` (the
+   * outline's link to the section being read), `article`,
    * `articleHeader`, `articleActions`, `articleLinks`, `lastUpdated`, `callout`
    * and its per-kind parts) and the article's prose (`heading1`, `paragraph`,
    * `list`, `table`, `link`, `codeBlock`, …), with `states.current` for the

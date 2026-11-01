@@ -22,7 +22,7 @@ import type { SSGGenerationError } from '@/application/ports/services/static-sit
  *     executable, so there is no source to compile from.
  *   - **npm bundle**: the prebuilt `dist/page-search-runtime.js`.
  *   - **source checkout**: compiled on the fly from
- *     `src/presentation/islands/page-search/runtime-entry.ts`, so an edit to
+ *     `src/presentation/islands/search/page-search-runtime-entry.ts`, so an edit to
  *     the matcher shows up without rebuilding `dist/`.
  *
  * The prebuilt copy comes from `[internal ref]`.
@@ -39,7 +39,13 @@ const readPageSearchRuntimeText = memoizeUnlessNoCache(async (): Promise<string>
 
   const result = await Bun.build({
     entrypoints: [
-      resolvePackagePath('src', 'presentation', 'islands', 'page-search', 'runtime-entry.ts'),
+      resolvePackagePath(
+        'src',
+        'presentation',
+        'islands',
+        'search',
+        'page-search-runtime-entry.ts'
+      ),
     ],
     target: 'browser',
     format: 'iife',

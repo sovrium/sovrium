@@ -168,6 +168,72 @@ export const scrubReportText = (text: string, scrub: ReportScrub): string => {
   return normalizeSourcePaths(homeless)
 }
 
+// --- What a failure report chooses --------------------------------------------
+
+/** The kind of bug every report built from a failure is filed under. */
+export const CRASH_BUG_KIND = 'crash-or-data-loss'
+
+/**
+ * The bug form's Domain for the surface a failure is titled with. A surface
+ * with no domain of its own (`start`, `build`, `validate`, any other command)
+ * reports under `cli`.
+ */
+const SURFACE_DOMAINS: Readonly<Record<string, string>> = {
+  automation: 'automations',
+  migrate: 'migrations',
+  table: 'tables',
+  record: 'tables',
+  page: 'pages',
+  request: 'api',
+}
+
+/** The Domain a failure of `surface` is reported under. */
+export const reportDomainOf = (surface: string): string =>
+  Object.hasOwn(SURFACE_DOMAINS, surface) ? (SURFACE_DOMAINS[surface] ?? 'cli') : 'cli'
+
+/** How to check the fix of a server answer that met an internal error. */
+export const requestVerification = (signature: string): string =>
+  `Repeat the request; the server no longer answers an internal error with \`[sig:${signature}]\`.`
+
+/** How to check the fix of a run that stopped on an internal error. */
+export const automationVerification = (signature: string): string =>
+  `Run the automation again; the run no longer stops with \`[sig:${signature}]\`.`
+
+/** How to check the fix of a failed command. */
+const commandVerification = (command: string, signature: string): string =>
+  `Re-run \`sovrium ${command}\`; the \`[sig:${signature}]\` failure no longer appears.`
+
+/**
+ * The bug form's two required choices a failure already knows — its Domain,
+ * from where it failed, and its Kind of bug — plus how to verify the fix.
+ */
+export const failureChoices = (
+  surface: string,
+  verification: string
+): IssueFormFields<'bug.yml'> => ({
+  domain: reportDomainOf(surface),
+  'bug-kind': CRASH_BUG_KIND,
+  verification,
+})
+
+/** Every issue, open or closed, that names a failure signature. */
+const ISSUES_URL = 'https://github.com/sovrium/sovrium/issues'
+
+/**
+ * The address that searches every issue, open AND closed, for `signature`: an
+ * open match is where to add what you know, a closed one means the bug is back.
+ */
+export const signatureSearchUrl = (signature: string): string =>
+  `${ISSUES_URL}?q=${encodeURIComponent(`is:issue "sig:${signature}"`)}`
+
+/** A failure report's title, read back: where it failed and its signature. */
+export const parseFailureTitle = (
+  title: string
+): { readonly surface: string; readonly signature: string } | undefined => {
+  const match = /^([^:\s]+): .* \[sig:([0-9a-f]{8})\]$/.exec(title)
+  return match === null ? undefined : { surface: match[1] ?? '', signature: match[2] ?? '' }
+}
+
 // --- Failure reports ----------------------------------------------------------
 
 /** A failure, as a report needs it. An `Error` passes as-is. */
@@ -186,7 +252,8 @@ export interface FailureReport {
 /**
  * The bug report for a failure of `command`: titled with the command, the
  * error class and its signature, `logs` holding `text` (scrubbed by the
- * caller), the installation facts filled in.
+ * caller), the installation facts filled in, and the Domain, the Kind of bug
+ * and the verification it already knows ({@link failureChoices}).
  */
 export const buildFailureReport = (input: {
   readonly command: string
@@ -202,7 +269,10 @@ export const buildFailureReport = (input: {
     url: buildIssueReportUrl({
       form: 'bug.yml',
       title,
-      fields: bugReportFields(input.facts, { logs: input.logs }),
+      fields: bugReportFields(input.facts, {
+        logs: input.logs,
+        ...failureChoices(input.command, commandVerification(input.command, signature)),
+      }),
     }),
   }
 }

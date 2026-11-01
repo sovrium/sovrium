@@ -27,29 +27,38 @@
  *  - `AI_CHAT_TIMEOUT`            ms budget for one provider call. Unset → no
  *                                 timeout. A call exceeding the budget yields
  *                                 a 504.
- *  - `AI_CHAT_MAX_MESSAGE_LENGTH` max user-message character count. Unset → no
- *                                 limit. An over-length message yields a 400.
+ *  - `AI_CHAT_MAX_MESSAGE_LENGTH` max user-message character count. Unset →
+ *                                 10000 when `AI_PROVIDER` names a hosted
+ *                                 provider, no limit on a local model; `0` →
+ *                                 no limit. An over-length message yields a 400.
  *  - `AI_CHAT_MAX_RETRIES`        max retry attempts for transient (503/429)
  *                                 provider failures. Unset/0 → no retry.
  */
 
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
+import { resolveChatMaxMessageLength } from '@/domain/models/process-env/ai/ai-chat-caps'
 import type { AiError } from '@/application/ports/services/ai-service'
+import type { ChatStreamOpenError } from '@/application/use-cases/agents/chat-turn/stream-chat-turn'
 
-/** The error union the chat route maps onto HTTP statuses. */
-export type ChatTurnError = AiError
+/**
+ * The error union the chat route maps onto HTTP statuses: a provider's
+ * `AiError`, or why a stream could not be opened.
+ */
+export type ChatProviderError = ChatStreamOpenError
 
 /**
  * Resolve the HTTP status the chat route returns for a given chat-turn error.
  *
- *  - `AiTimeoutError`                       → 504 Gateway Timeout
+ *  - `AiTimeoutError`, `StreamTimeout`     → 504 Gateway Timeout
  *  - `AiConfigError`                        → 503 Service Unavailable
  *  - `AiProviderError` with statusCode 503  → 503 Service Unavailable
  *  - `AiProviderError` (any other)          → 502 Bad Gateway
+ *  - `EmptyProviderStream`                  → 502 Bad Gateway
  */
-export const chatErrorStatus = (err: ChatTurnError): 502 | 503 | 504 => {
-  if (err._tag === 'AiTimeoutError') return 504
+export const chatErrorStatus = (err: ChatProviderError): 502 | 503 | 504 => {
+  if (err._tag === 'AiTimeoutError' || err._tag === 'StreamTimeout') return 504
   if (err._tag === 'AiConfigError') return 503
+  if (err._tag === 'EmptyProviderStream') return 502
   // AiProviderError — pass 503 through verbatim so an upstream "service
   // unavailable" is reflected to the caller; everything else is a bad gateway.
   return err.statusCode === 503 ? 503 : 502
@@ -121,13 +130,14 @@ export interface ChatErrorConfig {
 
 /**
  * Read the chat error-handling env vars from `process.env`. All three are
- * optional and default to "disabled" (no timeout / no limit / no retry).
+ * optional. The timeout and the retries default to "disabled"; the message
+ * length defaults to a cap on a hosted provider and to no limit on a local one.
  */
 export const resolveChatErrorConfig = (
   env: Readonly<Record<string, string | undefined>> = process.env
 ): ChatErrorConfig => ({
   timeoutMs: parsePositiveIntEnv(env.AI_CHAT_TIMEOUT),
-  maxMessageLength: parsePositiveIntEnv(env.AI_CHAT_MAX_MESSAGE_LENGTH),
+  maxMessageLength: resolveChatMaxMessageLength(env),
   maxRetries: parsePositiveIntEnv(env.AI_CHAT_MAX_RETRIES),
 })
 
@@ -139,7 +149,7 @@ export const resolveChatErrorConfig = (
  * 429 (e.g. 400 bad request, 401 unauthorized) — retrying is futile and only
  * amplifies load, so those are surfaced immediately.
  */
-export const isTransientChatError = (err: ChatTurnError): boolean => {
+export const isTransientChatError = (err: AiError): boolean => {
   if (err._tag !== 'AiProviderError') return false
   return err.statusCode === 503 || err.statusCode === 429
 }

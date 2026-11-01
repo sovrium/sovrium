@@ -1,6 +1,6 @@
 # AI Actions
 
-> Five operators running AI work as automation steps — free-form generation, classification, structured extraction, an autonomous agent, and audio transcription.
+> Five operators running AI work as automation steps: free-form generation, classification, structured extraction, an autonomous agent, and audio transcription.
 
 Provider and model are explicit per action, and credentials come from a stored connection. A self-hosted or custom endpoint is pointed at once through the `AI_BASE_URL` environment variable rather than per action, so moving a deployment between endpoints does not touch the configuration.
 
@@ -76,7 +76,7 @@ Classifying into a **closed** list is what makes the result usable in a branch: 
     connection: openai-key
 ```
 
-`schema` is a JSON Schema object — `type: object`, its `properties`, and the `required` ones. A list is `type: array` with `items`, and `items` can be an object schema of its own, as `lines` is above. It is sent to the provider unchanged, as a named JSON Schema constraint, which providers with strict structured output (Mistral, OpenAI strict mode) require. A bare property map such as `total: { type: number }` at the top level is not a JSON Schema: write the full form. Pair the action with a file action that turns a PDF into text first — extraction reads text, not documents.
+`schema` is a JSON Schema object: `type: object`, its `properties`, and the `required` ones. A list is `type: array` with `items`, and `items` can be an object schema of its own, as `lines` is above. It is sent to the provider unchanged, as a named JSON Schema constraint, which providers with strict structured output (Mistral, OpenAI strict mode) require. A bare property map such as `total: { type: number }` at the top level is not a JSON Schema: write the full form. Pair the action with a file action that turns a PDF into text first, because extraction reads text, not documents.
 
 The step's output is the extracted object itself: `{{steps.parseInvoice.total}}` reads the total, and `{{steps.parseInvoice.lines}}` the list, which a `loop/each` walks with `items: '{{steps.parseInvoice.lines}}'`. The `.result` alias every step carries reads the same object (`{{steps.parseInvoice.result.total}}`); there is no `data` wrapper.
 
@@ -96,9 +96,9 @@ Turns a stored recording into text on the speech endpoint the operator configure
     prompt: 'Dupont, SIRET, devis'
 ```
 
-To keep the transcript on the record, follow it with a `record/update` writing `{{steps.transcrire.text}}` into a long-text field — there is no transcript field type. `quality` picks the tier (`accurate` by default here, because a kept recording rewards fidelity); `model` names one exact model instead. `prompt` is a vocabulary hint for names and jargon, not an instruction. A file that is neither audio nor a video with an audio track, including a video whose container cannot be read, fails the step before anything is sent.
+To keep the transcript on the record, follow it with a `record/update` writing `{{steps.transcrire.text}}` into a long-text field, since there is no transcript field type. `quality` picks the tier (`accurate` by default here, because a kept recording rewards fidelity); `model` names one exact model instead. `prompt` is a vocabulary hint for names and jargon, not an instruction. A file that is neither audio nor a video with an audio track, including a video whose container cannot be read, fails the step before anything is sent.
 
-A video is transcribed from its audio track. For `video/mp4`, `video/quicktime`, `video/webm` and `video/x-matroska` files that hold a video track, `ai/transcribe` copies the audio track out first — AAC is sent as `.m4a`, Opus or Vorbis as `.webm` — the same remux `file/extractAudio` performs, so nothing is re-encoded. `STT_MAX_FILE_BYTES` is then checked against that audio, not the video, and the video itself is read up to 100 MiB, refused from its catalogued size when it is larger. A video with no audio track, or whose audio codec cannot be copied into an audio container, fails the step at once and nothing is sent. An audio-only file, a video container holding no picture, and a `video/ogg` file are sent as they are.
+A video is transcribed from its audio track. For `video/mp4`, `video/quicktime`, `video/webm` and `video/x-matroska` files that hold a video track, `ai/transcribe` copies the audio track out first (AAC is sent as `.m4a`, Opus or Vorbis as `.webm`), the same remux `file/extractAudio` performs, so nothing is re-encoded. `STT_MAX_FILE_BYTES` is then checked against that audio, not the video, and the video itself is read up to 100 MiB, refused from its catalogued size when it is larger. A video with no audio track, or whose audio codec cannot be copied into an audio container, fails the step at once and nothing is sent. An audio-only file, a video container holding no picture, and a `video/ogg` file are sent as they are.
 
 `ai/transcribe` checks an audio recording's size in the storage catalog against `STT_MAX_FILE_BYTES` before downloading it, so an oversized recording fails the step without being read.
 
@@ -134,9 +134,9 @@ A run someone starts by hand (a manual trigger, a record button) has a human cal
 
 ## When an AI step fails
 
-Every error an AI action meets fails its step: a provider refusing the call (a rate limit, a rejected key, a timeout, an unavailable service), an AI service that is not configured, a reply `extract` cannot parse, an agent tool call outside its allowlist. The step is recorded as `failed`, its error reads `<code>: <message>` — `rate_limit_exceeded`, `authentication_error`, `gateway_timeout`, `provider_unavailable`, `ai_not_configured`, `parse_error`, `invalid_tool`, `table_not_found` and the like — and it exposes no generated or extracted fields.
+Every error an AI action meets fails its step: a provider refusing the call (a rate limit, a rejected key, a timeout, an unavailable service), an AI service that is not configured, a reply `extract` cannot parse, an agent tool call outside its allowlist. The step is recorded as `failed`, its error reads `<code>: <message>` (`rate_limit_exceeded`, `authentication_error`, `gateway_timeout`, `provider_unavailable`, `ai_not_configured`, `parse_error`, `invalid_tool`, `table_not_found` and the like), and it exposes no generated or extracted fields.
 
-The run then behaves as after any failed step. Without `continueOnError`, it fails and the steps after it do not run, so a `loop/each` over an extraction that failed never runs at all; a synchronous webhook answers `500` with the run's id and status, and the error is in the step's record in run history. Under a `retry` policy, an error worth another attempt — a rate limit, a timeout, an unavailable provider, a malformed reply — is attempted again up to `maxAttempts`, and a run that used them all ends `exhausted`; a rejected key or another refusal fails at once. With `continueOnError: true` the run goes on, and the next step can branch on `{{steps.<name>.status}}` (`failed`) and read `{{steps.<name>.error.message}}`.
+The run then behaves as after any failed step. Without `continueOnError`, it fails and the steps after it do not run, so a `loop/each` over an extraction that failed never runs at all; a synchronous webhook answers `500` with the run's id and status, and the error is in the step's record in run history. Under a `retry` policy, an error worth another attempt (a rate limit, a timeout, an unavailable provider, a malformed reply) is attempted again up to `maxAttempts`, and a run that used them all ends `exhausted`; a rejected key or another refusal fails at once. With `continueOnError: true` the run goes on, and the next step can branch on `{{steps.<name>.status}}` (`failed`) and read `{{steps.<name>.error.message}}`.
 
 The AI service already repeats a provider call that fails transiently a few times within one attempt, unless the step sets its own `timeout`; a `retry` policy counts whole attempts on top of that.
 
@@ -144,4 +144,4 @@ The AI service already repeats a provider call that fails transiently a few time
 
 Every AI call goes through the provider-precedence resolver, which the operator governs through an environment variable and which is local-first by default. Naming a provider in the action says which credentials and model to use; it does not override an operator who has chosen to serve the request from a local model. Do not hard-code a single cloud provider as though it were the only path.
 
-Where a decision has consequences somebody should own — a refund, a message to a customer — put an approval step between the model's answer and the action that acts on it.
+Where a decision has consequences somebody should own (a refund, a message to a customer), put an approval step between the model's answer and the action that acts on it.

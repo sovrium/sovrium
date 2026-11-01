@@ -1,8 +1,8 @@
 # Table Webhooks
 
-> Outgoing HTTP on record events — which events fire, how the request is authenticated, how a failure is retried, and what the payload carries.
+> Outgoing HTTP on record events: which events fire, how the request is authenticated, how a failure is retried, and what the payload carries.
 
-Add `webhooks` to a table to fire an outgoing `POST` when records are created, updated, deleted or restored from the trash. A webhook fires whichever way the record was written — the records API, a batch call, an upsert, a form, the assistant, a CSV import or an automation step — once per record. `sovrium seed` fires nothing, so loading demo data never reaches a production receiver. A webhook is sugar over an automation: it expands internally to a record trigger plus a send action, which is why its retry and authentication options read like an automation's. Webhook names are unique within the table.
+Add `webhooks` to a table to fire an outgoing `POST` when records are created, updated, deleted or restored from the trash. A webhook fires whichever way the record was written (the records API, a batch call, an upsert, a form, the assistant, a CSV import or an automation step), once per record. `sovrium seed` fires nothing, so loading demo data never reaches a production receiver. A webhook is sugar over an automation: it expands internally to a record trigger plus a send action, which is why its retry and authentication options read like an automation's. Webhook names are unique within the table.
 
 ## Webhook properties
 
@@ -47,11 +47,11 @@ webhooks:
 
 `hmac` is the one to prefer where the receiver can verify it: the signature covers the body, so the receiver learns both who sent the request and that nothing altered it in transit. A bearer token or an API key proves only the first.
 
-The delivery log records which headers a delivery sent, never a credential: every header `auth` adds — `Authorization`, the API-key header under whatever name you gave it, the signature — is stored with its value replaced by `***`. The receiver gets the real value; nobody reads it back out of the log.
+The delivery log records which headers a delivery sent, never a credential: every header `auth` adds (`Authorization`, the API-key header under whatever name you gave it, the signature) is stored with its value replaced by `***`. The receiver gets the real value; nobody reads it back out of the log.
 
 ## Events
 
-`events` lists what the webhook is told about: `create`, `update`, `delete` and `restore`. Each is sent as `record.<event>` with the record in `data.record`; a `restore` carries the record as restored, like a `create`, and is not a `create` — a receiver mirroring deletes learns that the record is back. A webhook that does not list `restore` is never sent one.
+`events` lists what the webhook is told about: `create`, `update`, `delete` and `restore`. Each is sent as `record.<event>` with the record in `data.record`; a `restore` carries the record as restored, like a `create`, and is not a `create`: a receiver mirroring deletes learns that the record is back. A webhook that does not list `restore` is never sent one.
 
 ## Imports
 
@@ -65,19 +65,23 @@ tables:
     import: { fireEvents: false }
 ```
 
-An import into that table then sends no webhook and starts no record automation. Every other way of writing to the table — a form, the records API, a batch call, an automation — still fires as usual. The setting covers webhooks and record automations together.
+An import into that table then sends no webhook and starts no record automation. Every other way of writing to the table (a form, the records API, a batch call, an automation) still fires as usual. The setting covers webhooks and record automations together.
 
 ## Delivery
 
-Every delivery is recorded together with the record it is about, so a write that is saved always has its delivery owed, and a write that fails sends nothing. It is attempted right after the write. When the receiver fails, `retry` decides what happens next: a retry due within a few seconds is made straight away; a later one is kept and made by a sweep that runs every minute, so a delivery survives a receiver outage and a restart of the server. A kept retry runs within about a minute of its time.
+Every delivery is recorded together with the record it is about, so a write that is saved always has its delivery owed, and a write that fails sends nothing. It is attempted in the background right after the write: the write answers as soon as the record is saved, whether the receiver is quick, slow or down.
 
-Every request carries an `X-Sovrium-Delivery-Id` header. It is the same on every attempt of one delivery, and on a retry you send from the delivery log, and it differs between deliveries. A receiver can therefore see the same delivery twice — if the server stopped just after the receiver answered — and should skip an id it has already processed.
+The answer to a create, an update, a delete or a restore through the records API names the deliveries it recorded in an `X-Sovrium-Delivery-Ids` header, a comma-separated list of the ids each receiver will read in `X-Sovrium-Delivery-Id`; a write that owes no delivery has no such header. A client that needs a delivery attempted before it goes on sends `X-Sovrium-Await-Deliveries: true` with the write. The answer then waits for the deliveries, at most three seconds (the time one attempt is given), and comes anyway once that time is up, the delivery carrying on in the background. Read the outcome of a delivery in the delivery log, by its id.
+
+When the receiver fails, `retry` decides what happens next: a retry due within a few seconds is made straight away; a later one is kept and made by a sweep that runs every minute, so a delivery survives a receiver outage and a restart of the server. A kept retry runs within about a minute of its time. One sweep attempts at most 100 deliveries, and at most 25 of any one webhook, taking each webhook's oldest in turn, so a receiver with a long backlog never delays another webhook's deliveries.
+
+Every request carries an `X-Sovrium-Delivery-Id` header. It is the same on every attempt of one delivery, and on a retry you send from the delivery log, and it differs between deliveries. A receiver can therefore see the same delivery twice (if the server stopped just after the receiver answered) and should skip an id it has already processed.
 
 After `1 + maxAttempts` failed attempts the delivery is given up and logged once, as `failed`, with the number of attempts made. A delivery that succeeds is logged once as `success`. A delivery waiting for a later retry is not in the log yet.
 
 A delivery is kept for seven days after it succeeds or is given up, then deleted together with its entry in the delivery log, so the log shows about the last week of deliveries.
 
-Erasing a user's account also removes every delivery about her records — still owed, which are then never sent, or already sent — with its entry in the delivery log.
+Erasing a user's account also removes every delivery about her records (still owed, which are then never sent, or already sent), with its entry in the delivery log.
 
 ## Retry policy
 
@@ -93,9 +97,11 @@ Omit `retry` entirely and a webhook still retries: three attempts, exponential, 
 
 **`maxAttempts` is the one key without a default of its own.** The moment a `retry` block is present it is required, so `retry: { backoff: fixed }` is refused at validation rather than falling back to three. Write the attempt count whenever you write the block.
 
+**Each key is bounded.** A policy may ask for at most 10 retries, a first retry no sooner than 100 ms after the failed attempt, and at most one hour (`3600000`) between two retries. A policy past a bound is refused when the configuration is validated, and the message names the key and the bound, so one webhook pointed at a receiver that is gone for good cannot keep retrying it for days.
+
 ## Payload selection
 
-`payload` shapes what is sent. The payload starts from the whole record, whoever wrote it — the writer's own field permissions do not narrow it — less one thing, removed first: a field whose `read` rule in `permissions.fields` admits no role is never sent. It is left out of `data.record`, `previousValues` and `changedFields`, and naming it in `includeFields` does not bring it back. A field at least one role may read, an admin-only one included, is sent as usual, so `payload` is the only thing that narrows it. `includeFields` and `excludeFields` are mutually exclusive, and every field named must exist on the table — the implicit `id` always counts as one.
+`payload` shapes what is sent. The payload starts from the whole record, whoever wrote it (the writer's own field permissions do not narrow it), less one thing, removed first: a field whose `read` rule in `permissions.fields` admits no role is never sent. It is left out of `data.record`, `previousValues` and `changedFields`, and naming it in `includeFields` does not bring it back. A field at least one role may read, an admin-only one included, is sent as usual, so `payload` is the only thing that narrows it. `includeFields` and `excludeFields` are mutually exclusive, and every field named must exist on the table; the implicit `id` always counts as one.
 
 <!-- sovrium:options WebhookPayloadSchema -->
 
@@ -105,7 +111,7 @@ payload: { includeFields: [customer, status, total], includePreviousValues: true
 
 Prefer `includeFields` where the receiver is a third party. A whitelist keeps a column added later out of the payload by default; a blacklist sends it the day it appears.
 
-`data.record.id` is the record's id exactly as the records API returned it when the record was created — a string — on every event. A relationship value in `data.record` or `previousValues` is the related record's id as a string too.
+`data.record.id` is the record's id as a string, exactly as the records API returned it when the record was created, on every event. A relationship value in `data.record` or `previousValues` is the related record's id as a string too.
 
 ## Managing webhooks over the API
 

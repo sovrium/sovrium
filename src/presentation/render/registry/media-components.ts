@@ -5,16 +5,69 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { createElement, Fragment, type ReactElement } from 'react'
 import {
   computeAudioPlayerClasses,
   computeIframeClasses,
   computeImageClasses,
   computeVideoPlayerClasses,
 } from '../../design/interactive-content-default-classes'
+import { resolveClasses } from '../../design/resolve-classes'
 import * as Renderers from '../elements'
+import { inlineDrawingOf } from '../resolve/inline-svg-resolver'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import { qrCodeComponent } from './qr-code-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
+import type { ElementProps } from '../elements/html-element-renderer'
+
+/** One image in its variant's renderer: `avatar`, `thumbnail`, `hero`, or the bare default. */
+const renderImageVariant = (variant: string | undefined, props: ElementProps): ReactElement => {
+  if (variant === 'avatar') return Renderers.renderAvatar(props)
+  if (variant === 'thumbnail') return Renderers.renderThumbnail(props)
+  if (variant === 'hero') return Renderers.renderHeroImage(props)
+  const authorClassName = props['className'] as string | undefined
+  return Renderers.renderImage({
+    ...props,
+    className: mergePrestyle(computeImageClasses(), authorClassName),
+  })
+}
+
+/**
+ * An image with `props.srcDark` renders twice under one `alt`, as the app's
+ * logo does: the `src` file hidden once the page carries `.dark`, the `srcDark`
+ * file shown only then. The scheme classes are merged LAST, so an author's own
+ * display class can never reveal both. `srcDark` is spent here: it never
+ * reaches the markup, neither as written nor as the `data-src-dark` the generic
+ * prop conversion derives from it. The dark copy drops the `id`, which must
+ * stay unique on the page.
+ */
+const renderImage = (variant: string | undefined, elementProps: ElementProps): ReactElement => {
+  const { srcDark, 'data-src-dark': _dataSrcDark, ...props } = elementProps
+  if (typeof srcDark !== 'string' || srcDark === '') return renderImageVariant(variant, props)
+  const author = props['className'] as string | undefined
+  const { id: _id, ...darkProps } = props
+  return createElement(
+    Fragment,
+    undefined,
+    createElement(
+      Fragment,
+      { key: 'light' },
+      renderImageVariant(variant, {
+        ...props,
+        className: resolveClasses('', undefined, author, 'dark:hidden'),
+      })
+    ),
+    createElement(
+      Fragment,
+      { key: 'dark' },
+      renderImageVariant(variant, {
+        ...darkProps,
+        src: srcDark,
+        className: resolveClasses('', undefined, author, 'hidden dark:block'),
+      })
+    )
+  )
+}
 
 /**
  * Media components (image, video, audio, iframe, etc.)
@@ -34,14 +87,14 @@ import type { ComponentRenderer, DispatchableComponentType } from './component-d
  */
 export const mediaComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   image: ({ elementProps, component }) => {
-    const variant = (component as Record<string, unknown> | undefined)?.variant as
-      string | undefined
-    if (variant === 'avatar') return Renderers.renderAvatar(elementProps)
-    if (variant === 'thumbnail') return Renderers.renderThumbnail(elementProps)
-    if (variant === 'hero') return Renderers.renderHeroImage(elementProps)
-    const authorClassName = elementProps['className'] as string | undefined
-    const mergedClassName = mergePrestyle(computeImageClasses(), authorClassName)
-    return Renderers.renderImage({ ...elementProps, className: mergedClassName })
+    const node = component as Record<string, unknown> | undefined
+    const variant = node?.variant as string | undefined
+    if (typeof node?.inlineSvg !== 'string') return renderImage(variant, elementProps)
+    // A drawing the resolver could not read is the plain image it would have been.
+    const drawing = inlineDrawingOf(node)
+    return drawing === undefined
+      ? renderImage(variant, { ...elementProps, src: node.inlineSvg })
+      : Renderers.renderInlineDrawing(elementProps, drawing)
   },
 
   video: ({ elementProps, renderedChildren }) => {

@@ -47,6 +47,7 @@ import {
 import { projectWhenToFilter } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { countsNarrowedFor } from '@/domain/models/app/tables/row-read-admission-service'
 import { deriveFieldLinkTableName } from '@/domain/models/app/tables/table-derived-name-validation'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { withDefaultLanguageConditions } from '@/domain/models/app/tables/translatable-query-service'
 import { relatedReaderOf, type LinkReader } from './linked-row-visibility'
 import { loadCurrentUserContext, rowRuleScopeOf } from './permissions/row-level-enforcement'
@@ -95,7 +96,7 @@ const namedFields = (query: NamedByQuery): ReadonlySet<string> =>
 /** The link table `link`, a many-to-many field of `sourceTable`, stores its links in. */
 const linkTableOf = (app: App, sourceTable: string, link: LookupLink): string =>
   deriveFieldLinkTableName(
-    { name: sourceTable, fields: app.tables?.find((t) => t.name === sourceTable)?.fields ?? [] },
+    { name: sourceTable, fields: findTableByName(app.tables, sourceTable)?.fields ?? [] },
     { name: link.relationship, relatedTable: link.relatedTable.name }
   )
 

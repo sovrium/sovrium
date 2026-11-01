@@ -42,11 +42,12 @@ import {
 } from '@/application/use-cases/admin/operator-language'
 import { buildAdminOrganisationGraph } from '@/application/use-cases/admin/organisation-graph'
 import { ROLES_READ_OPERATIONS } from '@/application/use-cases/admin/roles-read-operations'
+import { selfLabelOf } from '@/application/use-cases/admin/self-labels'
 import {
-  BuildUsersDirectory,
+  buildUsersDirectory,
   type UsersDirectoryInput,
 } from '@/application/use-cases/admin/users-directory'
-import { BuildUsersOverview } from '@/application/use-cases/admin/users-overview'
+import { buildUsersOverview } from '@/application/use-cases/admin/users-overview'
 import { projectInvitations } from '@/application/use-cases/auth/admin-invitation-lifecycle'
 import { parseSortSpec } from '@/domain/kernel/format/sort-spec'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
@@ -62,6 +63,7 @@ import {
   usersOverviewQuerySchema,
   usersOverviewResponseSchema,
 } from '@/domain/models/api/admin/users'
+import { isAdminTier } from '@/domain/models/app/auth/roles'
 import type { PeriodPreset } from '@/domain/models/api/admin/envelope/period-preset'
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -105,7 +107,7 @@ const usersOverview = defineAdminRead<PeriodPreset>({
       onNone: () => ({ _tag: 'InvalidInput', reason: 'malformed' }) as const,
       onSome: (query) => ({ _tag: 'Ok', input: query.period }) as const,
     }),
-  read: (app, period) => BuildUsersOverview(app, period),
+  read: (app, period) => buildUsersOverview(app, period),
   // Against the caller: the trail then answers "every overview this operator read".
   audit: {
     action: AUDIT_ACTIONS.USER_OVERVIEW_QUERIED,
@@ -139,6 +141,7 @@ export const decodeUsersDirectoryQuery = (
       // An empty facet (`?role=`) is no facet, not a role nobody holds.
       role: raw['role'] === '' ? undefined : raw['role'],
       status: raw['status'] === '' ? undefined : raw['status'],
+      consoleAccess: raw['consoleAccess'] === '' ? undefined : raw['consoleAccess'],
       id: raw['id'],
     }),
     {
@@ -147,13 +150,14 @@ export const decodeUsersDirectoryQuery = (
         reason: 'malformed',
         message: 'Invalid query parameters',
       }),
-      onSome: ({ q, page, limit, sort, order, role, status, id }) => ({
+      onSome: ({ q, page, limit, sort, order, role, status, consoleAccess, id }) => ({
         _tag: 'Ok',
         input: {
           ...(q !== undefined ? { q } : {}),
           ...(sort !== undefined ? { sort, order } : {}),
           ...(role !== undefined ? { role } : {}),
           ...(status !== undefined ? { status } : {}),
+          ...(consoleAccess !== undefined ? { consoleAccess } : {}),
           ...(id !== undefined ? { id } : {}),
           page,
           limit,
@@ -168,11 +172,11 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
   method: 'get',
   path: '/api/admin/users',
   pathParams: [],
-  queryParams: ['q', 'page', 'limit', 'sort', 'order', 'role', 'status', 'id'],
+  queryParams: ['q', 'page', 'limit', 'sort', 'order', 'role', 'status', 'consoleAccess', 'id'],
   tool: {
     suffix: 'users_list',
     description:
-      'Search and page the account directory — id, email, name, role, whether banned, the groups each account belongs to, when it was created and last signed in, how many sessions it holds, whether it has two-factor on and how it signs in — as GET /api/admin/users answers it in JSON (admin-only, read-only).',
+      'Search and page the account directory — id, email, name, role, whether banned, whether it is the caller’s own account, the groups each account belongs to, when it was created and last signed in, how many sessions it holds, whether it has two-factor on and how it signs in — as GET /api/admin/users answers it in JSON (admin-only, read-only).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -189,6 +193,12 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
           enum: ['banned', 'active'],
           description: 'Only the banned accounts, or only the others.',
         },
+        consoleAccess: {
+          type: 'string',
+          enum: ['yes', 'no'],
+          description:
+            'Only the accounts whose role opens the operator console (yes), or only the others (no).',
+        },
         id: { type: 'string', description: 'Only the account with exactly this id.' },
         page: { type: 'integer', minimum: 1, description: '1-based page (default 1).' },
         limit: { type: 'integer', minimum: 1, maximum: 200, description: 'Accounts per page.' },
@@ -199,7 +209,8 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
     summary: 'List the accounts',
     description:
       'The secret-free account directory, searched over email and name, narrowed by `role`, ' +
-      '`status` and an exact account `id`, ordered and paged; ' +
+      '`status`, `consoleAccess` and an exact account `id`, ordered and paged; ' +
+      'each row says whether it is the caller’s own account (`self`); ' +
       '`q` is echoed back as `appliedQuery`. `?format=csv` downloads every matching account ' +
       'instead of the page. Admin only.',
     operationIdBase: 'listAdminUsers',
@@ -214,7 +225,11 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
   read: (app, query, request) =>
     Effect.gen(function* () {
       const language = yield* resolveOperatorLanguage(request)
-      return yield* BuildUsersDirectory(query, consoleLabels(app, language))
+      return yield* buildUsersDirectory(query, consoleLabels(app, language), {
+        actorUserId: request.actorUserId,
+        selfLabel: selfLabelOf(language),
+        opensConsole: (role) => isAdminTier(role, app),
+      })
     }),
 })
 

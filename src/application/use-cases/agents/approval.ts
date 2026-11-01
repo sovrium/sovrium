@@ -31,7 +31,7 @@ import {
 } from '@/application/ports/repositories/ai/approval-repository'
 
 /** Mirror a freshly created agent-approval record into the DB table. */
-export const MirrorApprovalCreate = (
+export const mirrorApprovalCreate = (
   record: ApprovalMirrorRecord
 ): Effect.Effect<void, ApprovalDatabaseError, ApprovalRepository> =>
   Effect.gen(function* () {
@@ -40,7 +40,7 @@ export const MirrorApprovalCreate = (
   }).pipe(Effect.withSpan('agents.mirror-approval-create'))
 
 /** Mirror an updated agent-approval record into the DB table. */
-export const MirrorApprovalUpdate = (
+export const mirrorApprovalUpdate = (
   record: ApprovalMirrorRecord
 ): Effect.Effect<void, ApprovalDatabaseError, ApprovalRepository> =>
   Effect.gen(function* () {
@@ -49,7 +49,7 @@ export const MirrorApprovalUpdate = (
   }).pipe(Effect.withSpan('agents.mirror-approval-update'))
 
 /** Resolve an approving user's email address and name by id (the read-side lookup). */
-export const LookupApproverIdentity = (
+export const lookupApproverIdentity = (
   userId: string
 ): Effect.Effect<ApprovalUserIdentity, ApprovalDatabaseError, ApprovalRepository> =>
   Effect.gen(function* () {

@@ -33,6 +33,7 @@
  */
 
 import { isValidEmail } from '@/domain/kernel/sanitize/email-validation'
+import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 
 /**
  * Column types that carry a format constraint. A type absent from this list is
@@ -56,25 +57,37 @@ type FieldDeclaration = {
   readonly type: string
 }
 
+/** The scheme a URL is written with, `HTTP:` as much as `http:`. */
+const URL_SCHEME = /^[a-z][a-z0-9+.-]*:/i
+
 /**
- * True when `value` parses as an absolute URL carrying a protocol.
+ * True when `value` is an absolute web address: an `http:` or `https:` URL
+ * written with its `//` authority and carrying no user name or password.
  *
- * Scheme-less input (`example.com`) is REJECTED — `new URL()` throws without a
- * scheme. That strictness is deliberate and preserved verbatim from the records
- * path, where it is the established behaviour that
- * an API tables records create spec assert against (`'not-a-valid-url'`).
- * A `url` column's value ends up in an `href`; a scheme-less one renders as a
- * RELATIVE link and silently resolves against the current origin, so accepting
- * it would store a value that looks fine and navigates wrong. Loosening here
- * would also make the forms path accept values the records path rejects —
- * re-creating the very asymmetry this module exists to remove.
+ * Every other value is REFUSED:
+ *
+ *  - a scheme-less value (`example.com`) — it renders as a RELATIVE link and
+ *    silently resolves against the current origin, and guessing between
+ *    `http` and `https` is a guess about security;
+ *  - any other scheme — `javascript:`, `vbscript:`, `data:`, `mailto:`,
+ *    `ftp:` — because a `url` column's value ends up in an `href`, and a
+ *    stored script address is a stored attack;
+ *  - an address carrying credentials (`https://user:secret@host/`);
+ *  - a same-site path (`/pricing`): the documented contract of a `url` field
+ *    is an absolute address, so the path branch {@link toSafeAssetUrl} admits
+ *    for attributes is not admitted here.
+ *
+ * The decision is {@link toSafeAssetUrl}'s, the one canonical check for
+ * URL-valued attributes, asked about the value with only its SCHEME
+ * lower-cased: that check reads the scheme case-sensitively, and a scheme is
+ * case-insensitive (`HTTP://Moulin.example/Tarifs` is a web address). The
+ * value is stored as written; only the question is normalised.
  */
 export const isWellFormedUrl = (value: string): boolean => {
-  try {
-    return new URL(value).protocol.length > 0
-  } catch {
-    return false
-  }
+  if (value.startsWith('/')) return false
+  const scheme = URL_SCHEME.exec(value)?.[0]
+  if (scheme === undefined) return false
+  return toSafeAssetUrl(scheme.toLowerCase() + value.slice(scheme.length)) !== undefined
 }
 
 const FORMAT_PREDICATES: Readonly<Record<FormatConstrainedFieldType, (value: string) => boolean>> =

@@ -35,7 +35,7 @@ import { consoleHref } from '@/presentation/islands/runtime/mount-base-path'
 import { requestSpaNavigation } from '../navigation/spa-nav-request'
 import { Command, CommandDialog, CommandInput, CommandList } from '../parts/command-primitives'
 import {
-  localMatches,
+  pageMatches,
   readPaletteConfig,
   type PaletteConfig,
   type PalettePage,
@@ -46,7 +46,7 @@ import { groupsMatchQuery } from './command-group-match'
 import { GroupsPalette, SearchedGroups, type AuthoredCommandGroup } from './command-groups'
 import { CommandHints, type CommandHintWords } from './command-hints'
 import { LocalGroups } from './command-search-local'
-import { SearchResults } from './command-search-results'
+import { PromptLine, SearchResults } from './command-search-results'
 import { searchPhaseOf, useAdminSearch, useOpenIntent } from './use-command-search'
 
 /** The palette's declared binding, as it arrives from `data-island-props`. */
@@ -93,16 +93,12 @@ function useOpenResult(close: () => void): (href: string) => void {
   )
 }
 
-/**
- * Whether the typed words found something the endpoint was not asked for — an
- * authored item, a page, the dark-mode toggle — so "No results" stays silent.
- */
+/** Whether an authored item or a page matched the typed words: "No results" then stays silent. */
 const matchedWithoutSearch = (
   groups: readonly AuthoredCommandGroup[],
-  local: ReturnType<typeof localMatches>,
+  pages: readonly PalettePage[],
   query: string
-): boolean =>
-  local.pages.length > 0 || local.toggle !== undefined || groupsMatchQuery(groups, query)
+): boolean => pageMatches(pages, query).length > 0 || groupsMatchQuery(groups, query)
 
 /** The SEARCH mode: an endpoint-backed search with its three calm states. */
 function SearchPalette({
@@ -120,7 +116,6 @@ function SearchPalette({
   const search = useAdminSearch(query, host.endpoint ?? '')
   const onSelect = useOpenResult(close)
   const groups = host.groups ?? NO_GROUPS
-  const matchedLocally = matchedWithoutSearch(groups, localMatches(pages, strings, query), query)
   const phase = searchPhaseOf(query, search)
   return (
     <Command shouldFilter={false}>
@@ -143,12 +138,12 @@ function SearchPalette({
         <LocalGroups
           pages={pages}
           strings={strings}
+          hints={hints}
           query={query}
           onSelect={onSelect}
-          close={close}
         />
         <SearchResults
-          matchedLocally={matchedLocally}
+          matchedLocally={matchedWithoutSearch(groups, pages, query)}
           query={query}
           search={search}
           kindLabels={kindLabels}
@@ -158,6 +153,10 @@ function SearchPalette({
           onSelect={onSelect}
         />
       </CommandList>
+      <PromptLine
+        query={query}
+        text={hints?.['startTyping']}
+      />
       <CommandHints words={hints} />
     </Command>
   )
@@ -224,9 +223,9 @@ export default function CommandIsland(host: CommandIslandProps): ReactElement {
         open={isOpen}
         onOpenChange={setIsOpen}
         title={
-          config === undefined
-            ? (host.hints?.['search'] ?? 'Search')
-            : (host.hints?.['title'] ?? 'Command palette')
+          endpoint === undefined
+            ? (host.hints?.['title'] ?? 'Command palette')
+            : (host.hints?.['search'] ?? 'Search')
         }
       >
         <PaletteBody

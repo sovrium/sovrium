@@ -7,11 +7,12 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { db, type DatabaseError } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { listMemberFragment } from '../server-operator-fragment'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import { listMemberFragmentOn } from '../server-operator-fragment'
 import { wrapDatabaseError } from '../statement/error-handling'
 import { tableIdentifier, validateColumnName } from '../statement/validation'
+import type { DatabaseError, PortableDb } from '@/infrastructure/database'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 /** What a list-membership read names: the table, its list column, the people it looks for. */
 export interface UserListHoldersInput {
@@ -27,6 +28,8 @@ export interface UserListHoldersInput {
  * empty list without a query.
  */
 export const readUserListHolders = (
+  db: PortableDb,
+  dialect: Dialect,
   input: UserListHoldersInput
 ): Effect.Effect<readonly (string | number)[], DatabaseError> => {
   if (input.userIds.length === 0) return Effect.succeed([])
@@ -35,10 +38,11 @@ export const readUserListHolders = (
       validateColumnName(input.column)
       const column = sql.identifier(input.column)
       const holds = sql.join(
-        input.userIds.map((id) => listMemberFragment(column, id)),
+        input.userIds.map((id) => listMemberFragmentOn(dialect.kind, column, id)),
         sql.raw(' OR ')
       )
-      const rows = await executeRaw(
+      const rows = await executeRawOn(
+        dialect.kind,
         db,
         sql`SELECT id FROM ${tableIdentifier(input.table)} WHERE ${holds}`
       )

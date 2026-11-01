@@ -7,7 +7,7 @@
 
 import { getTableColumns, getTableName, is, sql, type SQL } from 'drizzle-orm'
 import { SQLiteTable, SQLiteTimestamp } from 'drizzle-orm/sqlite-core'
-import { DateTime, Layer, Option } from 'effect'
+import { DateTime, Option } from 'effect'
 import {
   McpInternalsDatabaseError,
   McpInternalsRepository,
@@ -16,16 +16,15 @@ import {
   type McpInternalEquality,
   type McpInternalListQuery,
 } from '@/application/ports/repositories/mcp/mcp-internals-repository'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { db } from '@/infrastructure/database'
+import {
+  layerOverDatabase,
+  type Dialect,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import * as sqliteSchema from '@/infrastructure/database/drizzle/schema-sqlite'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import {
-  authTableRef,
-  sqliteSystemTableName,
-  systemTableRef,
-} from '@/infrastructure/database/sql/dialect-sql'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import { sqliteSystemTableName } from '@/infrastructure/database/sql/dialect-sql'
 import type { InternalTableEntry } from '@/domain/models/app/tables/internal-tables'
 
 /** Wrap a DB promise, adapting failures to `McpInternalsDatabaseError`. */
@@ -40,10 +39,10 @@ const wrap = makeDbWrap((cause) => new McpInternalsDatabaseError({ cause }))
  * `system_links` on SQLite. A hand-spliced `${entry.schema}.${entry.name}` form
  * is Postgres-only and raises "no such table" on the zero-config SQLite default.
  */
-const internalTableRef = (entry: Readonly<InternalTableEntry>) =>
-  entry.schema === 'auth' ? authTableRef(entry.name) : systemTableRef(entry.name)
-
-const isSqlite = (): boolean => parseDatabaseDialectConfig().dialect === 'sqlite'
+const internalTableRef = (dialect: Dialect, entry: Readonly<InternalTableEntry>) =>
+  entry.schema === 'auth'
+    ? dialect.sql.authTableRef(entry.name)
+    : dialect.sql.systemTableRef(entry.name)
 
 /**
  * The columns of an internal table and their declared types, from the engine's
@@ -53,8 +52,8 @@ const isSqlite = (): boolean => parseDatabaseDialectConfig().dialect === 'sqlite
 const sqliteTableName = (entry: Readonly<InternalTableEntry>): string =>
   entry.schema === 'auth' ? `auth_${entry.name}` : sqliteSystemTableName(entry.name)
 
-const columnsQuery = (entry: Readonly<InternalTableEntry>): SQL =>
-  isSqlite()
+const columnsQuery = (dialect: Dialect, entry: Readonly<InternalTableEntry>): SQL =>
+  dialect.kind === 'sqlite'
     ? sql`SELECT name AS column_name, type AS data_type FROM pragma_table_info(${sqliteTableName(entry)})`
     : sql`SELECT column_name, data_type FROM information_schema.columns
           WHERE table_schema = ${entry.schema} AND table_name = ${entry.name}`
@@ -165,11 +164,11 @@ export const isSqliteTimeColumn = (
  * takes an ISO instant exactly as on PostgreSQL.
  */
 const toColumn =
-  (entry: Readonly<InternalTableEntry>) =>
+  (dialect: Dialect, entry: Readonly<InternalTableEntry>) =>
   (row: Readonly<Record<string, unknown>>): McpInternalColumn => {
     const name = String(row['column_name'])
     const dataType = String(row['data_type'] ?? '')
-    if (!isSqlite()) return { name, kind: postgresColumnKind(dataType) }
+    if (dialect.kind !== 'sqlite') return { name, kind: postgresColumnKind(dataType) }
     const kind = sqliteColumnKind(dataType)
     const isTime = kind === 'number-or-boolean' && isSqliteTimeColumn(sqliteTableName(entry), name)
     return { name, kind: isTime ? 'time' : kind }
@@ -179,8 +178,10 @@ const toColumn =
  * An instant as the time column stores it: `timestamptz` on PostgreSQL, epoch
  * milliseconds (`timestamp_ms`) on SQLite.
  */
-const instantValue = (instant: Date): SQL =>
-  isSqlite() ? sql`${instant.getTime()}` : sql`CAST(${instant.toISOString()} AS timestamptz)`
+const instantValue = (dialect: Dialect, instant: Date): SQL =>
+  dialect.kind === 'sqlite'
+    ? sql`${instant.getTime()}`
+    : sql`CAST(${instant.toISOString()} AS timestamptz)`
 
 /**
  * An ISO instant (validated upstream) as the epoch milliseconds a SQLite time
@@ -207,12 +208,14 @@ const POSTGRES_CASTS: Partial<Record<McpInternalColumnKind, string>> = {
  * uuid column as `text` and fail to compare; SQLite applies the column's
  * affinity to the operand by itself.
  */
-const typedValue = (equality: McpInternalEquality): SQL => {
-  if (isSqlite() && equality.kind === 'time') return sql`${epochMillis(equality.value)}`
+const typedValue = (dialect: Dialect, equality: McpInternalEquality): SQL => {
+  if (dialect.kind === 'sqlite' && equality.kind === 'time')
+    return sql`${epochMillis(equality.value)}`
   const value = sql`${equality.value}`
   const cast = POSTGRES_CASTS[equality.kind]
+  if (dialect.kind === 'sqlite' || cast === undefined) return value
   // sql-literal: keyword -- `cast` is a value of the fixed POSTGRES_CASTS table
-  return isSqlite() || cast === undefined ? value : sql`CAST(${value} AS ${sql.raw(cast)})`
+  return sql`CAST(${value} AS ${sql.raw(cast)})`
 }
 
 /**
@@ -222,17 +225,17 @@ const typedValue = (equality: McpInternalEquality): SQL => {
  * back unchanged, then finds its row on both engines. SQLite already stores
  * whole milliseconds.
  */
-const comparedColumn = (equality: McpInternalEquality): SQL => {
+const comparedColumn = (dialect: Dialect, equality: McpInternalEquality): SQL => {
   const column = sql.identifier(equality.column)
-  return equality.kind === 'time' && !isSqlite()
+  return equality.kind === 'time' && dialect.kind !== 'sqlite'
     ? sql`date_trunc('milliseconds', ${column})`
     : sql`${column}`
 }
 
-const equalityCondition = (equality: McpInternalEquality): SQL =>
+const equalityCondition = (dialect: Dialect, equality: McpInternalEquality): SQL =>
   equality.value === null
     ? sql`${sql.identifier(equality.column)} IS NULL`
-    : sql`${comparedColumn(equality)} = ${typedValue(equality)}`
+    : sql`${comparedColumn(dialect, equality)} = ${typedValue(dialect, equality)}`
 
 /**
  * Strictly after the cursor row, in the list's own order. The cursor row is
@@ -253,13 +256,18 @@ const afterCondition = (ref: SQL, timeColumn: string | undefined, after: string)
  * included. Column names reach SQL only through `sql.identifier`, and only
  * after the caller checked them against the catalogue; every value is bound (S3).
  */
-export const rawListStatement = (ref: SQL, projection: SQL, query: McpInternalListQuery): SQL => {
+export const rawListStatement = (
+  dialect: Dialect,
+  ref: SQL,
+  projection: SQL,
+  query: McpInternalListQuery
+): SQL => {
   const { timeColumn } = query
   const conditions: ReadonlyArray<SQL> = [
     ...(query.since !== undefined && timeColumn !== undefined
-      ? [sql`${sql.identifier(timeColumn)} >= ${instantValue(query.since)}`]
+      ? [sql`${sql.identifier(timeColumn)} >= ${instantValue(dialect, query.since)}`]
       : []),
-    ...query.where.map(equalityCondition),
+    ...query.where.map((equality) => equalityCondition(dialect, equality)),
     ...(query.after !== undefined ? [afterCondition(ref, timeColumn, query.after)] : []),
   ]
   const whereClause =
@@ -300,42 +308,51 @@ export const withSqliteInstants = (
 
 /** Rows answered by the engine, time columns as ISO instants on SQLite (PostgreSQL already is). */
 export const answeredRows = <Row extends object>(
+  dialect: Dialect,
   tableName: string,
   rows: ReadonlyArray<Row>
 ): ReadonlyArray<Row> =>
-  isSqlite()
+  dialect.kind === 'sqlite'
     ? rows.map(
         (row) => withSqliteInstants(tableName, row as Readonly<Record<string, unknown>>) as Row
       )
     : rows
 
-export const McpInternalsRepositoryLive = Layer.succeed(McpInternalsRepository, {
-  listColumns: (entry: Readonly<InternalTableEntry>) =>
+const members: MembersOverDatabase<typeof McpInternalsRepository> = {
+  listColumns: (db, dialect) => (entry: Readonly<InternalTableEntry>) =>
     wrap(async () => {
-      const rows = await executeRaw(db, columnsQuery(entry))
-      return rows.map(toColumn(entry))
+      const rows = await executeRawOn(dialect.kind, db, columnsQuery(dialect, entry))
+      return rows.map(toColumn(dialect, entry))
     }),
 
   // Column names reach SQL only through `sql.identifier`, and only after the
   // caller checked them against `listColumns`; every value is bound (S3).
-  listRows: (entry: Readonly<InternalTableEntry>, query: McpInternalListQuery) =>
+  listRows: (db, dialect) => (entry: Readonly<InternalTableEntry>, query: McpInternalListQuery) =>
     wrap(async () =>
       answeredRows(
+        dialect,
         sqliteTableName(entry),
-        await executeRaw(db, rawListStatement(internalTableRef(entry), sql.raw('*'), query))
+        await executeRawOn(
+          dialect.kind,
+          db,
+          rawListStatement(dialect, internalTableRef(dialect, entry), sql.raw('*'), query)
+        )
       )
     ),
 
-  readRow: (entry: Readonly<InternalTableEntry>, id: string) =>
+  readRow: (db, dialect) => (entry: Readonly<InternalTableEntry>, id: string) =>
     wrap(async () => {
       // `id` is first-order user input (`args.id` off the JSON-RPC envelope),
       // so it is bound as a VALUE through the `sql` template tag — never
       // spliced as text. Quote doubling is not an escaping strategy; it is a
       // coincidence that holds until the first backslash or dollar-quote (S3).
-      const rows = await executeRaw(
+      const rows = await executeRawOn(
+        dialect.kind,
         db,
-        sql`SELECT * FROM ${internalTableRef(entry)} WHERE id = ${id} LIMIT 1`
+        sql`SELECT * FROM ${internalTableRef(dialect, entry)} WHERE id = ${id} LIMIT 1`
       )
-      return answeredRows(sqliteTableName(entry), rows)[0]
+      return answeredRows(dialect, sqliteTableName(entry), rows)[0]
     }),
-})
+}
+
+export const McpInternalsRepositoryLive = layerOverDatabase(McpInternalsRepository, members)

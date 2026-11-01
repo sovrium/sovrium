@@ -42,14 +42,9 @@ const readMarkdownFile = async (path: string): Promise<string | undefined> => {
 }
 
 /**
- * `true` when the contentDir's backing directory exists on disk.
- *
- * Used to distinguish two missing-file cases that must NOT behave the same:
- *   - directory exists but the requested slug file is missing → the
- *     collection is real but this entry does not exist → a genuine 404.
- *   - directory itself is missing → the collection has not been provisioned
- *     yet (authoring a route before adding any content) → graceful-degrade
- *     to an empty article so the page does not 404/500.
+ * `true` when the contentDir's backing directory exists on disk. A page whose
+ * directory is missing has no article at any of its addresses, its index
+ * included, so each answers the app's 404 rather than an empty article.
  *
  * Resolved against the same content base-dir as `readMarkdownFile` so both
  * observe the `SOVRIUM_CONTENT_DIR` anchor. Returns `false` on any I/O error.
@@ -120,14 +115,14 @@ const hasContentDirFilter = (contentDir: ContentDir): boolean =>
  *  - `'no-source'` — the page is not a contentDir page; the resolver falls
  *    through to the `markdown` / `source.file` paths.
  *  - `'not-found'` — the page IS a contentDir page but the requested slug
- *    genuinely does not exist within an EXISTING collection directory (or it
- *    was filtered out). The route must respond with a real HTTP 404 + a
+ *    does not exist (its file is missing, its directory is missing, or it was
+ *    filtered out). The route must respond with a real HTTP 404 + a
  *    not-found page, not a stale empty 200 shell.
  *  - `'excluded'` — the slug could not be derived but the page should still
  *    render an (empty) shell rather than 404 (defensive; legacy leniency).
  *  - `'source'` — carries the loaded markdown body to feed into
- *    `renderMarkdownToHtml`. An empty `body` here is the graceful-degrade case
- *    for a route declared before its backing directory exists.
+ *    `renderMarkdownToHtml`. An empty `body` is the index address of an
+ *    existing directory whose slug could not be derived.
  */
 export type ContentDirOutcome =
   | { readonly kind: 'no-source' }
@@ -149,28 +144,20 @@ export const loadContentDirSource = async (
   const slug = deriveContentDirSlugFromRouteParams(contentDir, routeParams)
   const filterActive = hasContentDirFilter(contentDir)
 
-  if (slug === undefined) {
-    return filterActive ? { kind: 'excluded' } : { kind: 'source', body: '' }
-  }
-
   const directory = contentDir.directory.replace(/\/+$/, '')
-  const filePath = `${directory}/${slug}.md`
-  const fileContent = await readMarkdownFile(filePath)
 
-  if (fileContent === undefined) {
-    // File missing. Three distinct cases:
-    //  - A `filter` is in play → the page is intentionally restrictive, so a
-    //    missing file is a genuine not-found (real 404).
-    //  - No filter, but the backing directory EXISTS → the collection is real
-    //    and this slug genuinely does not exist → a real 404.
-    //  - No filter and the directory is ALSO missing → the collection has not
-    //    been provisioned yet (route declared before content added) →
-    //    graceful-degrade to an empty article.
-    if (filterActive) return { kind: 'not-found' }
+  if (slug === undefined) {
+    if (filterActive) return { kind: 'excluded' }
     return (await contentDirExists(directory))
-      ? { kind: 'not-found' }
-      : { kind: 'source', body: '' }
+      ? { kind: 'source', body: '' }
+      : { kind: 'not-found' }
   }
+
+  const fileContent = await readMarkdownFile(`${directory}/${slug}.md`)
+
+  // A missing file is a genuine not-found, whether the directory holds other
+  // articles or does not exist at all.
+  if (fileContent === undefined) return { kind: 'not-found' }
 
   if (filterActive) {
     // Inspect frontmatter only: a full markdown-it render here would

@@ -88,18 +88,23 @@ export const FORM_RUNTIME_FIELD_ERRORS_SCRIPT = `
     })
     input.setAttribute('aria-describedby', described.concat([errId]).join(' '))
   }
-  // A missing field's reason, in the page language when the server sent one.
+  // A reason naming the field, in the page language when the server sent one.
+  function namedMessage(key, label, english) {
+    var t = S[key]
+    return t ? t.split('{label}').join(label) : label + english
+  }
   function requiredMessage(label) {
-    var t = S['form.requiredNamed']
-    return t ? t.split('{label}').join(label) : label + ' is required'
+    return namedMessage('form.requiredNamed', label, ' is required')
   }
   function fieldErrorMessage(input) {
     var v = input.validity
     var label = labelOf(input)
     if (v.valueMissing) return requiredMessage(label)
     if (v.typeMismatch) {
-      if (input.type === 'email') return 'Please enter a valid email'
-      if (input.type === 'url') return 'Please enter a valid URL'
+      if (input.type === 'email') {
+        return namedMessage('form.invalidEmailNamed', label, ' must be a valid email address')
+      }
+      if (input.type === 'url') return namedMessage('form.invalidUrlNamed', label, ' must be a valid URL')
       return label + ' is invalid'
     }
     if (v.patternMismatch) return label + ' does not match the required pattern'

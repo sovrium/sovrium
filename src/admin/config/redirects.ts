@@ -36,7 +36,6 @@ export const consoleRedirects: Redirects = [
   { from: '/agents', to: '/conversations' },
   { from: '/automations', to: '/runs' },
   { from: '/pages', to: '/analytics' },
-  { from: '/footprint', to: '/analytics?tab=footprint' },
   { from: '/users/invitations', to: '/users?tab=invitations' },
   // Then each object, which moves with its segment.
   { from: '/tables/:table', to: '/records/:table' },

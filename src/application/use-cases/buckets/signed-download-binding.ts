@@ -15,7 +15,7 @@ import {
   UNATTRIBUTED_BUCKET,
   type BucketBinding,
 } from '@/application/ports/services/storage-service'
-import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
+import { resolveStorageSigningSecret } from '@/application/use-cases/buckets/signing-secret'
 import { verifySignedUrl } from '@/domain/models/app/buckets/signed-url-service'
 import type {
   SignedUrlClaims,

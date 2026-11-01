@@ -184,9 +184,15 @@ export const PageComponentItemSchema = Schema.Union([
  * }
  * ```
  *
+ * Typed `Schema.Codec<TypedComponent, any, never>`. The ENCODED side stays
+ * `any` for good: `buildComponentUnion` returns `Schema.Schema<any, any, never>`
+ * because spelling the encoded half of the 89-branch union exceeds the .d.ts
+ * serialization limit (TS7056). The DECODED side is the closed union, so a page
+ * tree read off a decoded `App` is {@link TypedComponent}. The annotation is
+ * compile-time only: the runtime decode is the same union either way.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Recursive schema with suspended types requires any for circular reference resolution; see the `Component` docblock for the measured cost of narrowing this
-export const ComponentSchema: Schema.Codec<any, any, never> = buildComponentUnion({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- encoded side only: TS7056 (see above)
+export const ComponentSchema: Schema.Codec<TypedComponent, any, never> = buildComponentUnion({
   children: Schema.optional(
     pageChildItems().pipe(
       Schema.annotate({
@@ -250,7 +256,6 @@ export const ComponentSchema: Schema.Codec<any, any, never> = buildComponentUnio
  *   }
  * ]
  * ```
- *
  */
 export const PageComponentsSchema = Schema.Array(PageComponentItemSchema).annotate({
   title: 'Page Components',
@@ -260,48 +265,22 @@ export const PageComponentsSchema = Schema.Array(PageComponentItemSchema).annota
 /** @public */
 export type ComponentType = Schema.Schema.Type<typeof ComponentTypeSchema>
 /**
- * Decoded shape of a direct page component — **`any` today**, because
- * `ComponentSchema` is annotated `Schema.Schema<any, any, never>`.
+ * Decoded shape of a direct page component: the closed component union, with
+ * page `children` attached to every branch.
  *
- * That is a real hole: `component.thisKeyDoesNotExistAnywhere` compiles, which
- * is why three separate data-table drifts (`views` never reaching the island,
- * `autoSave` absent from the type, `defaultSort` typed but never decoded) each
- * cost a full RED cycle instead of a compile error.
- *
- * {@link TypedComponent} is the closed replacement, derived mechanically from
- * the same `allComponents` tuple the decoder iterates, and proven to reject
- * unknown keys by `index.test.ts`. Re-pointing THIS alias at it is measured at
- * **179 TypeScript errors across 32 files** (re-measured Wave I; 245 before the
- * per-type props dispatch below was typed). The bulk are not typos: they are
- * the recursive page walkers — `data-source-resolver.ts`, `component-renderer`,
- * `render-page` — which spread and rewrite a component without caring what type
- * it is, and which TypeScript cannot re-assign to a discriminated union without
- * a cast per rewrite seam (microsoft/TypeScript#30581).
- *
- * WHAT ALREADY HAS THE GUARD, without this alias moving: any signature naming
- * {@link ComponentOfType} gets that ONE branch, checked. `TYPE_BUILDERS` in
- * `type-specific-props-builder.ts` is keyed that way, which is where all three
- * bugs above actually lived — a data-table prop that the schema does not
- * declare no longer compiles there, and the four dead reads that conversion
- * surfaced are gone.
- *
- * WHEN FINISHING IT: annotate `ComponentSchema` as
- * `Schema.Schema<TypedComponent, any, never>` and re-point this alias. The
- * Encoded side must stay `any` — `buildComponentUnion` returns
- * `Schema.Schema<any, any, never>` because the 89-branch union exceeds the
- * .d.ts serialization limit (TS7056).
+ * A key the schema does not declare does not compile
+ * (`component.thisKeyDoesNotExistAnywhere` is an error), and narrowing on
+ * `type` yields that branch's props. To name ONE branch in a signature, use
+ * {@link ComponentOfType}.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- see above; TypedComponent is the closed replacement
-export type Component = any
+export type Component = TypedComponent
 
 /**
- * The shape {@link Component} will have once the rendering layer narrows.
+ * The closed component union that {@link Component} names.
  *
- * Exported so new code can opt into it today — via {@link ComponentOfType},
- * which every per-type dispatch table should key on — and so the guard test can
- * prove it rejects unknown keys. Deriving it costs nothing at runtime: it is
- * read off the same `allComponents` tuple `buildComponentUnion` iterates, so it
- * cannot drift from what actually decodes.
+ * Read off the same `allComponents` tuple `buildComponentUnion` iterates, so it
+ * cannot drift from what actually decodes; the guard test proves it rejects
+ * unknown keys. Deriving it costs nothing at runtime.
  */
 export type TypedComponent = WithPageChildren<ComponentUnion>
 

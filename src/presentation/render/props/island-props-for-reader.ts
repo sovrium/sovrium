@@ -21,7 +21,9 @@
  *    `searchFields[]`, `kpiAggregate.field`) is dropped — the key, or the
  *    array element;
  *  - a string value whose `$record.` template names a hidden field (a card
- *    line, an event's path, a list item's subtitle) is dropped the same way;
+ *    line, an event's path, a list item's subtitle) is dropped the same way —
+ *    except a `url` button's `url`, which loses only the hidden tokens, so the
+ *    button stays drawn and opens its address with that part empty;
  *  - when the dropped value sat under a key that says what its object is ABOUT
  *    (`field`, `name`, `path`, `content`, …), the whole object goes with it:
  *    a column, a form input, a card line, a navigation action — the part,
@@ -43,6 +45,7 @@
  */
 
 import { recordFieldRefsIn } from '@/domain/models/app/pages/substitute-record-vars'
+import { buttonUrlForReader } from '@/domain/models/app/tables/fields/field-types/advanced/button-url-redaction-service'
 
 /** What one reader may not read of one table, or of every table at once. */
 export interface ReaderFieldScope {
@@ -208,9 +211,24 @@ function walkEntry(key: string, value: unknown, ctx: WalkContext): KeyOutcome {
   return REFERENCE_KEYS.has(key) && !ctx.inData ? { kind: 'dropObject' } : { kind: 'drop', key }
 }
 
+/**
+ * A `url` button's config with the tokens naming a hidden field taken out of
+ * its `url`: the button stays drawn, and the browser resolves what is left
+ * against the record she holds, where the hidden field is absent anyway.
+ */
+function withButtonUrlForReader(bag: Bag, ctx: WalkContext): Bag {
+  const { url } = bag
+  if (ctx.inData || bag['action'] !== 'url' || typeof url !== 'string') return bag
+  const kept = buttonUrlForReader(url, (field) => ctx.scope.hiddenNames.has(field))
+  // Nothing left to open: the url still names the hidden field, so the walk
+  // drops the button whole, as it drops any part naming one.
+  return kept === undefined || kept === url ? bag : { ...bag, url: kept }
+}
+
 /** The object less its dropped keys and every sibling derived from one. */
-function walkObject(bag: Bag, ctx: WalkContext, root: boolean): Walked {
-  const scoped = { ...ctx, scope: scopeOf(bag, ctx) }
+function walkObject(object: Bag, ctx: WalkContext, root: boolean): Walked {
+  const scoped = { ...ctx, scope: scopeOf(object, ctx) }
+  const bag = withButtonUrlForReader(object, scoped)
   const outcomes = Object.entries(bag).map(([key, value]) => walkEntry(key, value, scoped))
   if (!root && outcomes.some((outcome) => outcome.kind === 'dropObject')) return DROP
   const dropped = outcomes.flatMap((outcome) => (outcome.kind === 'drop' ? [outcome.key] : []))

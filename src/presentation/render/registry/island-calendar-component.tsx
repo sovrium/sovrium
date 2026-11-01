@@ -12,6 +12,7 @@ import { calendarDayFloorAttributes } from './calendar-day-floor'
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import { islandFallback, specimenEmpty } from './specimen-island-states'
 import type { ComponentRenderer } from './component-dispatch-config'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 import type { ReactElement } from 'react'
 
 /**
@@ -22,7 +23,7 @@ import type { ReactElement } from 'react'
  */
 function extractCalendarProps(
   elementProps: Record<string, unknown>,
-  parts: Readonly<Record<string, string>> | undefined
+  parts: PartClassMap | undefined
 ): Record<string, unknown> {
   return {
     ...declaredCalendarPartClasses(parts),

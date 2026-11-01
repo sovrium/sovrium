@@ -5,13 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { NotFoundError } from '@/domain/errors'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   isRecordKeyShaped,
   type RecordKeyShape,
 } from '@/domain/models/app/tables/record-id-service'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import { handleBatchRestoreError } from './error-helpers'
@@ -59,30 +59,33 @@ export const firstNonKeyBatchId = (
  * no key could hold, or that the caller's list of the table does not admit,
  * is skipped, as a missing id is.
  */
-export const addressableBatchItems = async (
+export const addressableBatchItems = (
   c: Context,
   app: App,
   table: RecordKeyShape | undefined,
   records: readonly { readonly id: string }[]
-) => {
-  const ids = records.map((record) => record.id)
-  const unlisted = new Set(await runDomainPromise(c, callerUnlistedRows(c, app, ids)))
-  return <R extends { readonly id: string }>(items: readonly R[]): readonly R[] =>
-    keyShapedBatchItems(app, table, items).filter((item) => !unlisted.has(String(item.id)))
-}
+) =>
+  Effect.map(
+    callerUnlistedRows(
+      c,
+      app,
+      records.map((record) => record.id)
+    ),
+    (rows) => {
+      const unlisted = new Set(rows)
+      return <R extends { readonly id: string }>(items: readonly R[]): readonly R[] =>
+        keyShapedBatchItems(app, table, items).filter((item) => !unlisted.has(String(item.id)))
+    }
+  )
 
 /**
  * A batch delete naming an id the caller's list of the table does not admit:
  * refused whole, as a missing id is, and nothing is deleted.
  */
-export const refuseUnlistedBatchIds = async (
-  c: Context,
-  app: App,
-  ids: readonly (string | number)[]
-): Promise<Response | undefined> =>
-  (await runDomainPromise(c, callerUnlistedRows(c, app, ids))).length === 0
-    ? undefined
-    : toErrorResponse(c, new NotFoundError('Record not found'))
+export const refuseUnlistedBatchIds = (c: Context, app: App, ids: readonly (string | number)[]) =>
+  Effect.map(callerUnlistedRows(c, app, ids), (unlisted) =>
+    unlisted.length === 0 ? undefined : toErrorResponse(c, new NotFoundError('Record not found'))
+  )
 
 /**
  * The refusal of a batch delete's targets, in the order a missing id meets
@@ -90,7 +93,7 @@ export const refuseUnlistedBatchIds = async (
  * `404` and nothing is destroyed), then an id the caller's list of the table
  * does not admit is refused as a missing id is.
  */
-export const refuseBatchDeleteTargets = async (
+export const refuseBatchDeleteTargets = (
   c: Context,
   app: App,
   input: {
@@ -98,9 +101,9 @@ export const refuseBatchDeleteTargets = async (
     readonly permanent: boolean
     readonly role: string
   }
-): Promise<Response | undefined> =>
+) =>
   input.permanent && !isAdminEquivalent(input.role, app)
-    ? notFound(c)
+    ? Effect.succeed(notFound(c))
     : refuseUnlistedBatchIds(c, app, input.ids)
 
 /** A batch delete naming an id no key could hold: refused as a missing id is. */
@@ -134,30 +137,30 @@ const refuseNonKeyBatchRestore = (
  * admits, so a missing id and one she may not list answer alike, and nothing
  * is restored. A caller whose list admits every row costs no further read.
  */
-const refuseUnlistedBatchRestore = async (
-  c: Context,
-  app: App,
-  ids: readonly string[]
-): Promise<Response | undefined> => {
-  const unlisted = new Set(await runDomainPromise(c, callerUnlistedRows(c, app, ids)))
-  const named = ids.find((id) => unlisted.has(id))
-  return named === undefined
-    ? undefined
-    : handleBatchRestoreError(c, new NotFoundError('Record not found', named))
-}
+const refuseUnlistedBatchRestore = (c: Context, app: App, ids: readonly string[]) =>
+  Effect.map(callerUnlistedRows(c, app, ids), (rows) => {
+    const unlisted = new Set(rows)
+    const named = ids.find((id) => unlisted.has(id))
+    return named === undefined
+      ? undefined
+      : handleBatchRestoreError(c, new NotFoundError('Record not found', named))
+  })
 
 /**
  * The refusal of a batch restore's ids, as a missing id is refused: one no
  * key could hold, then one the caller's list of the table does not admit.
  */
-export const refuseBatchRestoreIds = async (
+export const refuseBatchRestoreIds = (
   c: Context,
   app: App,
   table: RecordKeyShape | undefined,
   ids: readonly (string | number)[]
-): Promise<Response | undefined> =>
-  refuseNonKeyBatchRestore(c, app, table, ids) ??
-  (await refuseUnlistedBatchRestore(c, app, ids.map(String)))
+) => {
+  const nonKey = refuseNonKeyBatchRestore(c, app, table, ids)
+  return nonKey === undefined
+    ? refuseUnlistedBatchRestore(c, app, ids.map(String))
+    : Effect.succeed(nonKey)
+}
 
 /**
  * The ids a batch update names, and the change it will make to each.

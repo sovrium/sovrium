@@ -45,7 +45,7 @@ export const DataMergeActionSchema = Schema.Struct({
     joinKey: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotate({
-          description: 'Shared field to join on — when omitted, the arrays are concatenated',
+          description: 'Shared field to join on. When omitted, the arrays are concatenated',
         })
       )
     ),

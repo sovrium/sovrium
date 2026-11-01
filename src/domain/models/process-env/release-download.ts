@@ -41,11 +41,11 @@ export const SOVRIUM_UPDATE_SIGNING_KEYS_VAR = 'SOVRIUM_UPDATE_SIGNING_KEYS'
 const OVERRIDE_VALID_FROM = '1970-01-01T00:00:00.000Z'
 
 /** The download host releases come from: `SOVRIUM_UPDATE_DOWNLOAD_HOST`, else `github.com`. */
-export const resolveReleaseDownloadHost = (env: Env = process.env): string =>
+export const resolveReleaseDownloadHost = (env: Env): string =>
   env[SOVRIUM_UPDATE_DOWNLOAD_HOST_VAR] || 'github.com'
 
 /** The download URL of one release asset, on the host the environment names. */
-export const releaseAssetUrl = (version: string, file: string, env: Env = process.env): string =>
+export const releaseAssetUrl = (version: string, file: string, env: Env): string =>
   releaseAssetUrlOn(resolveReleaseDownloadHost(env), version, file)
 
 /**
@@ -60,10 +60,10 @@ export const releaseAssetUrl = (version: string, file: string, env: Env = proces
 export const resolveReleaseSigningKeys = (options: {
   readonly loopbackDownload: boolean
   readonly now: number
-  readonly env?: Env
+  readonly env: Env
   readonly embedded?: readonly ReleaseSigningKey[]
 }): readonly ReleaseSigningKey[] => {
-  const env = options.env ?? process.env
+  const { env } = options
   const embedded = options.embedded ?? EMBEDDED_RELEASE_SIGNING_KEYS
   const override = env[SOVRIUM_UPDATE_SIGNING_KEYS_VAR]?.trim() ?? ''
   const keys =
@@ -85,12 +85,12 @@ export const resolveReleaseSigningKeys = (options: {
 export const releaseKeysFor = (options: {
   readonly host: string
   readonly now: number
-  readonly env?: Env
+  readonly env: Env
   readonly embedded?: readonly ReleaseSigningKey[]
 }): readonly ReleaseSigningKey[] =>
   resolveReleaseSigningKeys({
     loopbackDownload: isLoopbackHost(options.host),
     now: options.now,
-    ...(options.env === undefined ? {} : { env: options.env }),
+    env: options.env,
     ...(options.embedded === undefined ? {} : { embedded: options.embedded }),
   })

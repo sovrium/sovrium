@@ -22,8 +22,9 @@ const tsvector = (name: string) =>
 /**
  * Search Indexes Table
  *
- * Tracks FTS/trigram index state per table per field.
- * Used by the search service to manage PostgreSQL full-text search indexes.
+ * Tracks FTS/trigram index state per table per field. Nothing in the engine
+ * reads or writes it: the record-search service it served was never wired up
+ * and has been deleted. Kept only until a migration drops it.
  */
 export const searchIndexes = systemSchema.table(
   'search_indexes',
@@ -49,9 +50,10 @@ export const searchIndexes = systemSchema.table(
  * `search_indexes`, which stores index *metadata* (which table/field, last
  * reindex time) — this table holds the indexed content itself.
  *
- * Maintained by `fts-manager.ts`. The GIN index on `content_tsv` powers the
- * `@@` full-text match; the `(table_name, record_id)` unique constraint keeps
- * one row per record so reindexing is an upsert.
+ * Nothing in the engine reads it any more (the seed reset still clears it);
+ * it stays defined only until a migration drops it. The GIN index on
+ * `content_tsv` served the `@@` full-text match; the `(table_name, record_id)`
+ * unique constraint kept one row per record.
  */
 export const searchIndex = systemSchema.table(
   'search_index',

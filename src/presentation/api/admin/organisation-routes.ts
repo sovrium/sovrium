@@ -9,18 +9,16 @@
  * `GET /api/admin/organisation/graph` — the one read behind the console's
  * Organisation page.
  *
- * A thin handler over {@link buildAdminOrganisationGraph}: resolve the live
- * app, run the program on the request's domain services, validate the body, and
+ * A thin handler over {@link buildAdminOrganisationGraph}: run the program on
+ * the request's domain services, validate the body, and
  * serialise. Everything that could fail has already been rescued inside the use
  * case, so there is no error path here beyond the response gate.
  *
- * ─── WHY `resolveLiveApp` AND NOT THE BOOT `app` ────────────────────────────
+ * ─── WHICH `app` ───────────────────────────────────────────────────────────
  *
- * `tables`, `pages` and `buckets` sit OUTSIDE the restart set
- * (`classify-config-change.ts`), so they hot-swap under `--watch` and after a
- * draft publish. This page's entire job is to explain the configuration the
- * server is actually running; a graph drawn from the boot config would describe
- * the previous deploy's permissions, which is worse than no graph.
+ * This page's entire job is to explain the configuration the server is
+ * actually running. A config reload under `--watch` rebuilds the whole Hono app
+ * around the new `app`, so the graph is always drawn from the running config.
  *
  * ─── AUTH ───────────────────────────────────────────────────────────────────
  *
@@ -52,9 +50,6 @@ import type { Hono } from 'hono'
  * route, so a MALFORMED `?node=` answers 404 — never a 400 that would confirm
  * the route — to a caller without the tier; the admin still gets the 400.
  */
-export function chainAdminOrganisationRoutes<T extends Hono>(
-  honoApp: T,
-  resolveLiveApp: () => App
-): T {
-  return chainAdminReadRoutes(honoApp, resolveLiveApp, ORGANISATION_READ_OPERATIONS)
+export function chainAdminOrganisationRoutes<T extends Hono>(honoApp: T, app: App): T {
+  return chainAdminReadRoutes(honoApp, app, ORGANISATION_READ_OPERATIONS)
 }

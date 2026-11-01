@@ -35,7 +35,7 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
 import { periodPresetSchema, seriesIntervalSchema } from '../envelope/period-preset'
 
 /**
@@ -128,7 +128,7 @@ export const bucketsOverviewByProviderSchema = Schema.Struct({
 export const bucketsOverviewTotalsSchema = Schema.Struct({
   buckets: Schema.Int.annotate({
     description:
-      'Number of live buckets: the built-in `system` bucket plus every bucket the app declares in `app.buckets`. Zero when no storage provider resolves — a declaration that cannot store a byte is not a bucket.',
+      'Number of live buckets: the built-in `system` bucket plus every bucket the app declares in `app.buckets`. Zero when no storage provider resolves: a declaration that cannot store a byte is not a bucket.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   files: Schema.Int.annotate({
     description:

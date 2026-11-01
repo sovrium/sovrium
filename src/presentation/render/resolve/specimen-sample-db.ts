@@ -99,10 +99,9 @@ export const specimenSeedDb = (app: App, seed: SpecimenSeed): DataSourceDb => {
         ? sample.countRecords(table)
         : queriedSeededRows(rows, { filter }).length
     },
-    // eslint-disable-next-line max-params -- implements the port's positional signature
-    fetchSingleRecord: async (table, field, value, fields, options) => {
+    fetchSingleRecord: async (table, field, value, options) => {
       const rows = seed.tables[table]
-      if (rows === undefined) return sample.fetchSingleRecord(table, field, value, fields, options)
+      if (rows === undefined) return sample.fetchSingleRecord(table, field, value, options)
       const row = rows.find((candidate) => String(candidate[field]) === value)
       return row === undefined ? undefined : { ...row }
     },

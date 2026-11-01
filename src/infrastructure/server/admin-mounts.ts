@@ -66,7 +66,7 @@
 import {
   buildEmbeddedAppMounts,
   resolveScopedMountApp,
-} from '@/application/use-cases/mount/embedded-app-mount'
+} from '@/application/use-cases/admin/embedded-app-mount'
 import { parseSovriumAdmin } from '@/domain/models/process-env'
 import { resolveAdminPresetApp } from '@/infrastructure/assets/admin-preset'
 import type { EmbeddedAppMount } from '@/application/ports/contracts/embedded-app-mount'
@@ -88,7 +88,11 @@ const mountsByApp = new WeakMap<App, readonly EmbeddedAppMount[]>()
 export const adminMountsFor = (operatorApp: App): readonly EmbeddedAppMount[] => {
   const cached = mountsByApp.get(operatorApp)
   if (cached !== undefined) return cached
-  const mounts = buildEmbeddedAppMounts(operatorApp, resolveAdminPresetApp, parseSovriumAdmin())
+  const mounts = buildEmbeddedAppMounts(
+    operatorApp,
+    resolveAdminPresetApp,
+    parseSovriumAdmin(process.env)
+  )
   mountsByApp.set(operatorApp, mounts)
   return mounts
 }

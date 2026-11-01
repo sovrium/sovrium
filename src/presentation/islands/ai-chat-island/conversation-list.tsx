@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
 import { branchOf, conversationUrl, type BranchContext } from './branch-requests'
@@ -40,39 +41,64 @@ interface ConversationEntry {
 type ListState = 'loading' | 'failed' | readonly ConversationEntry[]
 
 /**
- * The list's state, and reading it. A read that lands after the list was
- * closed leaves it closed. Escape anywhere in the switcher closes it and hands
- * the focus back to the button.
+ * The list's state, and reading it. Every opening reads the list afresh, and
+ * says so while it does; a read that lands after the list was closed leaves it
+ * closed. Escape anywhere in the switcher closes it and hands the focus back to
+ * the button. The read is a query on the page client, asked only while the
+ * list is open, never retried nor refetched on focus: Retry asks again.
  */
 function useConversationList(agent: string | undefined) {
-  const [list, setList] = useState<ListState | undefined>(undefined)
+  const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const open = list !== undefined
-  const settle = (next: ListState) => setList((now) => (now === 'loading' ? next : now))
+  const conversations = useQuery({
+    queryKey: ['ai-chat', 'conversations', agent],
+    queryFn: async ({ signal }) => {
+      const query = agent === undefined ? '' : `?agent=${encodeURIComponent(agent)}`
+      const res = await fetch(`/api/ai/conversations${query}`, { signal })
+      if (!res.ok) throw new Error(String(res.status))
+      const body = (await res.json()) as { readonly conversations?: readonly ConversationEntry[] }
+      return body.conversations ?? EMPTY
+    },
+    enabled: open,
+    staleTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  })
+  const { refetch } = conversations
+  const list = listState(open, conversations)
   const read = (): void => {
-    setList('loading')
-    const query = agent === undefined ? '' : `?agent=${encodeURIComponent(agent)}`
-    void fetch(`/api/ai/conversations${query}`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(String(res.status))
-        return (await res.json()) as { readonly conversations?: readonly ConversationEntry[] }
-      })
-      .then((body) => settle(body.conversations ?? []))
-      .catch(() => settle('failed'))
+    setOpen(true)
+    if (open) void refetch()
   }
+  const close = (): void => setOpen(false)
   useEffect(() => {
     const root = rootRef.current
     if (!open || root === null) return
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
-      setList(undefined)
+      setOpen(false)
       triggerRef.current?.focus()
     }
     root.addEventListener('keydown', onKey)
     return () => root.removeEventListener('keydown', onKey)
   }, [open])
-  return { list, setList, read, rootRef, triggerRef }
+  return { list, close, read, rootRef, triggerRef }
+}
+
+/** Where an open list stands: being read, failed, or read; closed is `undefined`. */
+const listState = (
+  open: boolean,
+  query: {
+    readonly isFetching: boolean
+    readonly isError: boolean
+    readonly data: readonly ConversationEntry[] | undefined
+  }
+): ListState | undefined => {
+  if (!open) return undefined
+  if (query.isFetching) return 'loading'
+  if (query.isError) return 'failed'
+  return query.data ?? 'loading'
 }
 
 /**
@@ -89,9 +115,9 @@ export function ConversationSwitcher({
   readonly agent?: string | undefined
   readonly onNew: () => void
 }): ReactElement {
-  const { list, setList, read, rootRef, triggerRef } = useConversationList(agent)
+  const { list, close, read, rootRef, triggerRef } = useConversationList(agent)
   const choose = (sessionId: string): void => {
-    setList(undefined)
+    close()
     context.showBranch(branchOf(fetch(conversationUrl(sessionId))), sessionId)
   }
   return (
@@ -105,7 +131,7 @@ export function ConversationSwitcher({
         data-testid="chat-conversations-trigger"
         aria-expanded={list !== undefined}
         aria-busy={list === 'loading' ? true : undefined}
-        onClick={() => (list === undefined ? read() : setList(undefined))}
+        onClick={() => (list === undefined ? read() : close())}
         className={QUIET}
       >
         {context.labels.conversations}
@@ -118,7 +144,7 @@ export function ConversationSwitcher({
           onChoose={choose}
           onRetry={read}
           onNew={() => {
-            setList(undefined)
+            close()
             onNew()
           }}
         />

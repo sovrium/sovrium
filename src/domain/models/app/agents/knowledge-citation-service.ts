@@ -205,3 +205,21 @@ export const isRetrievableChunk = (
   const ref = parseSourceRef(chunk.sourceRef)
   return ref?.kind === 'document' && isRetrievableDocument(agent, ref.path)
 }
+
+/**
+ * The knowledge-directory path a chunk's `sourceRef` names when it is a
+ * document chunk; `undefined` for a table chunk or a reference naming nothing.
+ */
+export const documentPathOf = (sourceRef: string | null): string | undefined => {
+  const ref = parseSourceRef(sourceRef)
+  return ref?.kind === 'document' ? ref.path : undefined
+}
+
+/**
+ * Whether any of `agents` may retrieve the document at `path` (relative to the
+ * knowledge directory), by the rule a chat turn follows. A document is served
+ * outside a chat only to someone who may use one of these agents, so one that
+ * no agent may retrieve is served to no one.
+ */
+export const someAgentRetrievesDocument = (agents: ReadonlyArray<Agent>, path: string): boolean =>
+  agents.some((agent) => isRetrievableDocument(agent, path))

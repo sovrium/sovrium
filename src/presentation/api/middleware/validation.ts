@@ -5,94 +5,28 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Context, Layer } from 'effect'
+import { Context, Effect as EffectRuntime } from 'effect'
+import { NOT_FOUND_ERROR, NOT_FOUND_MESSAGE } from '@/domain/models/api/error'
+import type {
+  FieldErrorDetail,
+  FieldFormatError,
+  FieldPermissionError,
+  FieldStorageError,
+  FieldValidationError,
+} from '@/domain/errors/field-rule-error'
 import type { App } from '@/domain/models/app'
 import type { Effect } from 'effect'
 import type { Context as HonoContext } from 'hono'
 
-/**
- * One entry of the accumulated `errors` array a validation rejection carries.
- *
- * Deliberately the shape of `fieldErrorSchema` (`domain/models/api/combinators/error.ts`)
- * — the `errors` member of `validationErrorResponseSchema`, itself a member of
- * the sanctioned `apiErrorSchema` union that `api/utils/validate-request.ts`
- * already serves in production for Zod body rejections. A client that decodes
- * one decodes the other.
- *
- * NOT `ValidationError.details` (`domain/errors/index.ts`): that array's
- * `record` key is a batch-row ordinal, indexing ACROSS records rather than
- * across the fields of one record. Wrong axis.
- */
-export type FieldErrorDetail = {
-  readonly field: string
-  readonly message: string
-}
-
-/**
- * Validation error types
- *
- * `message`/`field` always describe the FIRST offender; `errors` (when present)
- * carries EVERY field the rule refused, in table field-declaration order. The
- * split is what keeps the change additive: the crud-form island reads only
- * `code` + `field` (`handleMutationError` in crud-form-island/submit-pipeline.ts)
- * and keeps rendering exactly one inline message.
- */
-export class FieldValidationError {
-  readonly _tag = 'FieldValidationError'
-  constructor(
-    readonly message: string,
-    readonly field?: string,
-    readonly errors?: readonly FieldErrorDetail[]
-  ) {}
-}
-
-/**
- * A field-permission denial. Deliberately carries NO accumulated `errors` list:
- * its envelope is a bare 404 that drops even the single field name (S1
- * anti-enumeration), so there is nothing for a list to be rendered into and no
- * constructor to tempt a future caller into supplying one.
- */
-export class FieldPermissionError {
-  readonly _tag = 'FieldPermissionError'
-  constructor(
-    readonly message: string,
-    readonly field?: string
-  ) {}
-}
-
-export class FieldFormatError {
-  readonly _tag = 'FieldFormatError'
-  constructor(
-    readonly message: string,
-    readonly field?: string,
-    readonly errors?: readonly FieldErrorDetail[]
-  ) {}
-}
-
-/**
- * A storage operation the write path needed in order to honour a field's
- * contract, and could not complete.
- *
- * This is NOT a verdict about the caller's payload, which is why it carries no
- * accumulated `errors` list and renders as 503 rather than 400/422: the server
- * never managed to look, so it has nothing to say about the value. Fail closed
- * — the alternative, substituting a fabricated value for the one it could not
- * obtain (a zero-byte download, an ignored upload) and answering 201, reports
- * an outage as a successful write and persists the fabrication.
- *
- * `cause` is the originating `StorageError` and stays SERVER-SIDE: the envelope
- * emits only `message` + `code`, because a lost object, rotated credentials, a
- * revoked policy and an object store that is simply down are indistinguishable
- * at this seam and none of them is the client's business (S4).
- */
-export class FieldStorageError {
-  readonly _tag = 'FieldStorageError'
-  constructor(
-    readonly message: string,
-    readonly field: string | undefined,
-    readonly cause: unknown
-  ) {}
-}
+// The field-rule refusals are domain errors; re-exported here for the
+// middleware's existing importers.
+export {
+  FieldFormatError,
+  FieldPermissionError,
+  FieldStorageError,
+  FieldValidationError,
+  type FieldErrorDetail,
+} from '@/domain/errors/field-rule-error'
 
 /**
  * Validation context - provides app configuration and request context
@@ -132,27 +66,33 @@ export type ValidationError =
 export type ValidationResult<T> = Effect.Effect<T, ValidationError, never>
 
 /**
- * Create a validation layer from app, tableName, and the writing caller
+ * Discharge a validation program's {@link ValidationContext} from the app,
+ * the table and the writing caller.
+ *
+ * `Effect.provideService` for the one tag rather than a `Layer`: the context
+ * is a request VALUE, so there is nothing to build, and a layer per call would
+ * be a per-request service graph for a record of five fields.
  */
-export function createValidationLayer(
-  app: App,
-  tableName: string,
-  writer: {
-    readonly role: string
-    readonly groups: readonly string[]
-    readonly signedOut: boolean
-    readonly id?: string
-  }
-) {
-  return Layer.succeed(ValidationContext, {
-    app,
-    tableName,
-    userRole: writer.role,
-    userGroups: writer.groups,
-    signedOut: writer.signedOut,
-    ...(writer.id === undefined || writer.signedOut ? {} : { writerId: writer.id }),
-  })
-}
+export const provideValidationContext =
+  (
+    app: App,
+    tableName: string,
+    writer: {
+      readonly role: string
+      readonly groups: readonly string[]
+      readonly signedOut: boolean
+      readonly id?: string
+    }
+  ) =>
+  <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, ValidationContext>> =>
+    EffectRuntime.provideService(program, ValidationContext, {
+      app,
+      tableName,
+      userRole: writer.role,
+      userGroups: writer.groups,
+      signedOut: writer.signedOut,
+      ...(writer.id === undefined || writer.signedOut ? {} : { writerId: writer.id }),
+    })
 
 /** The part of a validation error that shapes its wire envelope. */
 type ValidationErrorShape = {
@@ -245,8 +185,8 @@ const VALIDATION_ERROR_ENVELOPES = {
     status: 404,
     body: {
       success: false,
-      error: 'Not Found',
-      message: 'Resource not found',
+      error: NOT_FOUND_ERROR,
+      message: NOT_FOUND_MESSAGE,
       code: 'NOT_FOUND',
     },
   }),

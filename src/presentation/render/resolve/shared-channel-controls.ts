@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { mapObjectNodes, objectNodes } from '@/domain/kernel/config-parsing/config-node-walk'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import type { Page } from '@/domain/models/app/pages'
 
 /**
@@ -21,9 +23,6 @@ import type { Page } from '@/domain/models/app/pages'
 
 type Node = Readonly<Record<string, unknown>>
 
-const isRecord = (value: unknown): value is Node =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 /** The channel a data source listens on, when it subscribes to one. */
 const listenedChannel = (source: unknown): string | undefined => {
   if (!isRecord(source)) return undefined
@@ -33,26 +32,20 @@ const listenedChannel = (source: unknown): string | undefined => {
 }
 
 /** Every `[channel, id]` a subscriber under `value` declares. */
-const subscribersUnder = (value: unknown): readonly (readonly [string, string])[] => {
-  if (Array.isArray(value)) return value.flatMap(subscribersUnder)
-  if (!isRecord(value)) return []
-  const channel = listenedChannel(value['dataSource'])
-  const { props } = value
-  const id = isRecord(props) ? props['id'] : undefined
-  const own = channel !== undefined && typeof id === 'string' ? [[channel, id] as const] : []
-  return [...own, ...Object.values(value).flatMap(subscribersUnder)]
-}
+const subscribersUnder = (value: unknown): readonly (readonly [string, string])[] =>
+  objectNodes(value).flatMap((node) => {
+    const channel = listenedChannel(node['dataSource'])
+    const { props } = node
+    const id = isRecord(props) ? props['id'] : undefined
+    return channel !== undefined && typeof id === 'string' ? [[channel, id] as const] : []
+  })
 
-/** `value` with every publisher on a known channel naming its subscribers. */
-const stamp = (value: unknown, controls: ReadonlyMap<string, string>): unknown => {
-  if (Array.isArray(value)) return value.map((item) => stamp(item, controls))
-  if (!isRecord(value)) return value
-  const entries = Object.entries(value).map(([key, child]) => [key, stamp(child, controls)])
-  const stamped = Object.fromEntries(entries) as Node
-  const { publishes } = value
-  if (!isRecord(publishes)) return stamped
+/** `node` naming its channel's subscribers when it publishes on a known channel. */
+const withControls = (node: Node, controls: ReadonlyMap<string, string>): Node => {
+  const { publishes } = node
+  if (!isRecord(publishes)) return node
   const ids = controls.get(String(publishes['bindTo']))
-  return ids === undefined ? stamped : { ...stamped, publishes: { ...publishes, controls: ids } }
+  return ids === undefined ? node : { ...node, publishes: { ...publishes, controls: ids } }
 }
 
 /** The page, its publishers stamped with the ids of the data components they narrow. */
@@ -68,5 +61,10 @@ export function stampChannelControls(page: Page): Page {
         .join(' '),
     ])
   )
-  return { ...page, components: stamp(page.components, controls) as Page['components'] }
+  return {
+    ...page,
+    components: mapObjectNodes(page.components, (node) =>
+      withControls(node, controls)
+    ) as Page['components'],
+  }
 }

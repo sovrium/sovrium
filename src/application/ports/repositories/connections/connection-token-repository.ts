@@ -16,13 +16,16 @@ export class ConnectionTokenDatabaseError extends Data.TaggedError('ConnectionTo
 }> {}
 
 /**
- * Defense-in-depth: raised by `upsertForUser` when running in
- * production and asked to persist a sentinel-shaped access token (one that
+ * Defense-in-depth: raised by `upsertForUser` / `upsertForApp`
+ * on any deployment that is not strictly local (a non-loopback origin, a
+ * declared proxy, or `NODE_ENV=production`) when asked to persist a
+ * sentinel-shaped access token (one that
  * matches `isSentinelAccessToken` — see `infrastructure/connections/
  * sentinel-tokens.ts`). Sentinels exist only to satisfy the encryption-
- * at-rest test specs; the seeder no-ops on `NODE_ENV === 'production'`,
- * but that gate is fail-open if `NODE_ENV` is unset. This
- * repository-side rejection is the second line of defense.
+ * at-rest test specs, which write them from the E2E harness; the server never
+ * writes one itself. This repository-side rejection keeps one from being
+ * persisted through the server on a public deployment regardless. The tag
+ * keeps its historical name.
  *
  * Callers should let this propagate — there is no recoverable state.
  */

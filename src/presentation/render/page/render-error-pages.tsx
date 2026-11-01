@@ -6,7 +6,9 @@
  */
 
 import { renderToString } from 'react-dom/server'
-import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
+import { buildAnalyticsBeaconScript } from '@/presentation/render/page/analytics-beacon-script'
+import { extractBeaconSettings } from '@/presentation/render/page/analytics-helpers'
 import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { ErrorPage } from '@/presentation/render/page/error-page'
 import { NotFoundPage } from '@/presentation/render/page/not-found-page'
@@ -19,44 +21,27 @@ import type { App } from '@/domain/models/app'
  * engine version `$app.engineVersion` prints, the readers a data component
  * lists through, and the island builder that ships the client runtime — which
  * is what fills a `$session.*` token in the browser. Without them the page
- * answering a missing address printed those tokens raw.
+ * answering a missing address printed those tokens raw. The reader's session
+ * rides along too, so a block shown only when signed in, or only to a role,
+ * resolves on an unknown address exactly as on `/404` itself.
  */
 type NotFoundRenderFacts = Pick<
   NonNullable<Parameters<typeof renderPageByPath>[2]>,
-  'engineVersion' | 'db' | 'islandBuilder'
+  'engineVersion' | 'db' | 'islandBuilder' | 'session'
 >
 
 /**
  * Builds the built-in analytics tracking script HTML tag for injection into error pages.
- * Mirrors dynamic-page.tsx analytics script injection — ensures 404 pages
- * are also tracked when analytics is enabled.
+ * The SAME tracker a page inlines, so the fallback not-found page reads the
+ * operator's privacy-signal settings and escapes the app name exactly as a page
+ * does — a second copy of the script here once drifted on both counts.
  */
 function buildAnalyticsScriptTag(app: App): string | undefined {
-  const { analytics } = app
-  if (!analytics) return undefined
-
-  const appName = app.name || 'app'
-  const sessionTimeout = typeof analytics === 'object' ? (analytics.sessionTimeout ?? 30) : 30
-  const script = `(function(){
-"use strict";
-var E="/api/analytics/collect",A="${appName}",D=true,sessionTimeout=${sessionTimeout};
-if(D&&navigator.doNotTrack==="1")return;
-var u=function(){
-try{var s=new URLSearchParams(location.search);
-var d={p:location.pathname,t:document.title,r:document.referrer||void 0,
-sw:screen.width,sh:screen.height,
-us:s.get("utm_source")||void 0,um:s.get("utm_medium")||void 0,
-uc:s.get("utm_campaign")||void 0,ux:s.get("utm_content")||void 0,
-ut:s.get("utm_term")||void 0};
-var b=JSON.stringify(d);
-if(navigator.sendBeacon){navigator.sendBeacon(E,new Blob([b],{type:"application/json"}))}
-else{var x=new XMLHttpRequest();x.open("POST",E,true);x.setRequestHeader("Content-Type","application/json");x.send(b)}
-}catch(e){}};
-u();
-var op=history.pushState;
-history.pushState=function(){op.apply(this,arguments);u()};
-window.addEventListener("popstate",u);
-})()`
+  if (app.analytics === undefined || app.analytics === false) return undefined
+  const script = buildAnalyticsBeaconScript(
+    app.name || 'app',
+    extractBeaconSettings(app.analytics, app.consent, app.languages)
+  )
   return `<script>${script}</script>`
 }
 
@@ -144,7 +129,7 @@ export const stampRequestId = (docHtml: string, requestId: string | undefined): 
     ? docHtml
     : docHtml.replace(
         '</head>',
-        () => `<meta name="sovrium-request-id" content="${escapeHtml(requestId)}"></head>`
+        () => `<meta name="sovrium-request-id" content="${escapeHtmlAttribute(requestId)}"></head>`
       )
 
 /**

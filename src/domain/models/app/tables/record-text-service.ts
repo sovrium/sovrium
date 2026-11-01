@@ -149,14 +149,14 @@ const formatCell = (
   value: unknown,
   field: CellTextField,
   tag: string,
-  now: Readonly<Date> | undefined
+  now: Readonly<Date>
 ): string =>
   field.format === 'datetime' && field.glue !== undefined
     ? formatDateTimeJoined(value, tag, field.glue, field.timeZone)
     : formatCellValue(field.format === 'yes-no' ? isChecked(value) : value, field.format, tag, {
         ...(field.currency === undefined ? {} : { currency: field.currency }),
         ...(field.timeZone === undefined ? {} : { timeZone: field.timeZone }),
-        ...(now === undefined ? {} : { now }),
+        now,
         ...(field.durationUnit === undefined ? {} : { durationUnit: field.durationUnit }),
       })
 
@@ -168,7 +168,7 @@ export const formatRecordText = (
   value: unknown,
   field: RecordTextField,
   locale: string,
-  now?: Readonly<Date>
+  now: Readonly<Date>
 ): string => {
   if (value === undefined || value === null) return ''
   const tag = usableLocale(locale)
@@ -184,7 +184,7 @@ export const recordTextOf = (
   record: Readonly<Record<string, unknown>>,
   fields: RecordTextFields,
   locale: string,
-  now?: Readonly<Date>
+  now: Readonly<Date>
 ): Readonly<Record<string, string>> =>
   Object.fromEntries(
     Object.entries(fields).flatMap(([name, field]) => {
@@ -205,7 +205,7 @@ export const withRecordTextFields = (
   record: Readonly<Record<string, unknown>>,
   fields: RecordTextFields | undefined,
   locale: string,
-  now?: Readonly<Date>
+  now: Readonly<Date>
 ): Readonly<Record<string, unknown>> => {
   const text = fields === undefined ? {} : recordTextOf(record, fields, locale, now)
   if (Object.keys(text).length === 0) return record

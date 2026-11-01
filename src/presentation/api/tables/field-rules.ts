@@ -12,7 +12,7 @@
  * readonly columns, required fields, write permissions, declared formats —
  * delegate to a `domain/validators/` predicate and render its verdict into this
  * seam's error vocabulary. The attachment ones need storage, so they are
- * PROGRAMS in `application/use-cases/attachments/`; this file reads the request
+ * PROGRAMS in `application/use-cases/buckets/`; this file reads the request
  * scope off `ValidationContext`, calls one, and translates its refusal.
  *
  * Nothing here decides a status code. `VALIDATION_ERROR_ENVELOPES`
@@ -22,16 +22,16 @@
  */
 
 import { Effect } from 'effect'
-import { enrichAttachmentMetadata as writeAttachmentMetadata } from '@/application/use-cases/attachments/enrich-attachment-metadata'
-import { uploadInlineAttachmentContent as persistInlineAttachments } from '@/application/use-cases/attachments/upload-inline-attachments'
-import { validateAttachmentConstraints as checkAttachmentConstraints } from '@/application/use-cases/attachments/validate-attachment-constraints'
-import { validateAttachmentReferences as checkAttachmentReferences } from '@/application/use-cases/attachments/validate-attachment-references'
-import { findColumnFormatViolations } from '@/domain/models/app/tables/column-formats-validation'
+import { enrichAttachmentMetadata as writeAttachmentMetadata } from '@/application/use-cases/buckets/enrich-attachment-metadata'
+import { uploadInlineAttachmentContent as persistInlineAttachments } from '@/application/use-cases/buckets/upload-inline-attachments'
+import { validateAttachmentConstraints as checkAttachmentConstraints } from '@/application/use-cases/buckets/validate-attachment-constraints'
+import { validateAttachmentReferences as checkAttachmentReferences } from '@/application/use-cases/buckets/validate-attachment-references'
 import {
   findWritableComputedFieldWrites,
   readonlyFieldWriteMessage,
 } from '@/domain/models/app/tables/computed-field-write-validation'
 import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
+import { findFieldFormatViolations } from '@/domain/models/app/tables/record-write-values-validation'
 import { findMissingRequiredFieldNames } from '@/domain/models/app/tables/required-fields-validation'
 import { resolveStoragePublicAccess } from '@/domain/models/process-env/storage/storage-public-access'
 import {
@@ -46,8 +46,7 @@ import type { StorageService } from '@/application/ports/services/storage-servic
 import type {
   AttachmentRuleViolation,
   AttachmentStorageUnavailable,
-} from '@/application/use-cases/attachments/errors'
-import type { FormatConstrainedFieldType } from '@/domain/models/app/tables/column-formats-validation'
+} from '@/application/use-cases/buckets/errors'
 
 /**
  * Validate that 'id' field is not in the request (readonly)
@@ -56,7 +55,7 @@ export function validateReadonlyIdField(
   fields: Record<string, unknown>
 ): Effect.Effect<void, FieldValidationError, never> {
   if ('id' in fields) {
-    return Effect.fail(new FieldValidationError("Cannot write to readonly field 'id'", 'id'))
+    return new FieldValidationError({ message: "Cannot write to readonly field 'id'", field: 'id' })
   }
   return Effect.void
 }
@@ -90,9 +89,7 @@ export function validateReadonlyComputedFields(
 
     const firstAttempted = attempted[0]
     if (firstAttempted) {
-      return yield* Effect.fail(
-        new FieldValidationError(firstAttempted.message, firstAttempted.field, attempted)
-      )
+      return yield* new FieldValidationError(offenders(firstAttempted, attempted))
     }
   })
 }
@@ -158,22 +155,18 @@ export function validateRequiredFields(
     // (an API tables records create spec pins it), while `errors` names each one
     const firstMissing = missingRequiredFields[0]
     if (firstMissing) {
-      return yield* Effect.fail(
-        new FieldValidationError(
-          'Missing required fields',
-          firstMissing.field,
-          missingRequiredFields
-        )
-      )
+      return yield* new FieldValidationError({
+        message: 'Missing required fields',
+        field: firstMissing.field,
+        errors: missingRequiredFields,
+      })
     }
 
     const blankRequiredFields = findBlankRequiredFields(table.fields, fields)
 
     const firstBlank = blankRequiredFields[0]
     if (firstBlank) {
-      return yield* Effect.fail(
-        new FieldValidationError(firstBlank.message, firstBlank.field, blankRequiredFields)
-      )
+      return yield* new FieldValidationError(offenders(firstBlank, blankRequiredFields))
     }
   })
 }
@@ -224,22 +217,12 @@ export function filterAllowedFields(
 }
 
 /**
- * Developer-facing copy for each format violation, keyed by column type. The
- * `url` wording is spec-pinned byte-for-byte by an API tables records create spec /
- * -024 / -025; `email` mirrors its shape. Copy lives HERE rather than in the
- * shared domain rule because the public-form path phrases the same violation for
- * a stranger filling in a contact form, not for an API client.
- */
-const FORMAT_MESSAGES: Readonly<Record<FormatConstrainedFieldType, (field: string) => string>> = {
-  url: (field) => `Invalid URL format for field '${field}'`,
-  email: (field) => `Invalid email format for field '${field}'`,
-}
-
-/**
  * Validate format-carrying column types (`email`, `url`) on the records path.
  *
- * The rule itself is {@link findColumnFormatViolations} in
- * `domain/validators/column-formats.ts`, shared with the form-submission path.
+ * The rule and its sentences are {@link findFieldFormatViolations}
+ * (`record-write-values-validation.ts`), the one the write orchestrations run
+ * on every road; this door runs it early only to order its own refusals (see
+ * `validateRecordCreation` step 8).
  * This function previously validated `url` and NOT `email`, while the forms path
  * validated `email` and NOT `url` — so `POST /api/tables/:id/records` with
  * `{ email: 'not-an-email' }` returned 201 and persisted the value (verified by
@@ -258,16 +241,11 @@ export function validateFieldFormats(
     const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
     if (!table) return
 
-    const malformed = findColumnFormatViolations(table.fields, fields).map((violation) => ({
-      field: violation.field,
-      message: FORMAT_MESSAGES[violation.type](violation.field),
-    }))
+    const malformed = findFieldFormatViolations(table.fields, fields)
 
     const firstMalformed = malformed[0]
     if (firstMalformed) {
-      return yield* Effect.fail(
-        new FieldFormatError(firstMalformed.message, firstMalformed.field, malformed)
-      )
+      return yield* new FieldFormatError(offenders(firstMalformed, malformed))
     }
   })
 }
@@ -275,6 +253,17 @@ export function validateFieldFormats(
 // ---------------------------------------------------------------------------
 // Attachment columns — thin wiring over the application programs
 // ---------------------------------------------------------------------------
+
+/** A refusal naming its first offender and listing every one. */
+const offenders = (first: FieldErrorDetail, errors: readonly FieldErrorDetail[]) => ({
+  message: first.message,
+  field: first.field,
+  errors,
+})
+
+/** A storage operation the write needed and could not complete (503). */
+const toFieldStorageError = (e: AttachmentStorageUnavailable): FieldStorageError =>
+  new FieldStorageError({ message: e.message, field: e.field, cause: e.cause })
 
 /**
  * Translate an attachment program's refusal into this seam's wire vocabulary.
@@ -288,12 +277,8 @@ const toFieldError = (
   error: AttachmentRuleViolation | AttachmentStorageUnavailable
 ): FieldValidationError | FieldStorageError =>
   error._tag === 'AttachmentRuleViolation'
-    ? new FieldValidationError(error.message, error.field)
-    : new FieldStorageError(error.message, error.field, error.cause)
-
-/** {@link toFieldError} for the program that can only fail on storage. */
-const toFieldStorageError = (error: AttachmentStorageUnavailable): FieldStorageError =>
-  new FieldStorageError(error.message, error.field, error.cause)
+    ? new FieldValidationError({ message: error.message, field: error.field })
+    : toFieldStorageError(error)
 
 /**
  * Validate attachment field type constraints (`allowedFileTypes`, `maxFiles`,
@@ -343,12 +328,12 @@ export function validateAttachmentReferences(
       writer: ctx.signedOut
         ? { authenticated: false }
         : { authenticated: true, role: ctx.userRole },
-      publicAccess: resolveStoragePublicAccess(),
+      publicAccess: resolveStoragePublicAccess(process.env),
     }).pipe(
       Effect.mapError((error) =>
         error._tag === 'AttachmentReferenceRefused'
-          ? new FieldValidationError(error.message, error.field)
-          : new FieldStorageError(error.message, error.field, error.cause)
+          ? new FieldValidationError({ message: error.message, field: error.field })
+          : toFieldStorageError(error)
       )
     )
   })
@@ -396,10 +381,10 @@ export function validateFieldWritePermissions(
   if (forbiddenFields.length > 0) {
     const firstForbiddenField = forbiddenFields[0]
     return Effect.fail(
-      new FieldPermissionError(
-        `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-        firstForbiddenField
-      )
+      new FieldPermissionError({
+        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
+        field: firstForbiddenField,
+      })
     )
   }
   return Effect.void

@@ -44,7 +44,7 @@ export const HttpPutActionSchema = Schema.Struct({
     ),
     body: Schema.optional(
       Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.Unknown)]).pipe(
-        Schema.annotate({ description: 'Request body — string or JSON object' })
+        Schema.annotate({ description: 'Request body: string or JSON object' })
       )
     ),
     contentType: Schema.optional(
@@ -84,7 +84,7 @@ export const HttpPutActionSchema = Schema.Struct({
     identifier: 'HttpPutAction',
     title: 'HTTP PUT Action',
     description:
-      'Send PUT requests to external services — full resource replacement with JSON default',
+      'Send PUT requests to external services: full resource replacement with JSON default',
   })
 )
 

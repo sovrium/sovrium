@@ -59,10 +59,10 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
 import { adminSearchContentTableRef } from './repositories/admin-search-query'
-import { executeRaw } from './sql/dialect-execute'
+import type { DatabaseService } from './drizzle/layer'
 
 /**
  * Drop every row of the admin global-search index so the next lazy rebuild
@@ -70,9 +70,16 @@ import { executeRaw } from './sql/dialect-execute'
  *
  * Never throws: a failure is logged and the boot proceeds.
  */
-export const runAdminSearchIndexPurge = async (): Promise<void> => {
+export const runAdminSearchIndexPurge = async ({
+  client,
+  dialect,
+}: DatabaseService): Promise<void> => {
   try {
-    await executeRaw(db, sql`DELETE FROM ${adminSearchContentTableRef()}`)
+    await executeRawOn(
+      dialect.kind,
+      client,
+      sql`DELETE FROM ${adminSearchContentTableRef(dialect.kind)}`
+    )
     logDebug('[admin-search] index purged at boot — the next search rebuilds it from live sources')
   } catch (error) {
     logError('[admin-search] boot purge of the search index failed (non-fatal)', error)

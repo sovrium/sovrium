@@ -35,7 +35,9 @@ export const openResumeDraftProgram = (input: {
     })
     if (draft === undefined || draft.status !== 'draft') return undefined
     const expiresIn = form.saveAndResume.expiresIn ?? DEFAULT_DRAFT_EXPIRES_IN
-    if (!isWithinFormLinkWindow(draft.submittedAt.getTime(), expiresIn)) {
+    // A link's expiry stays on the real clock, never on SOVRIUM_DEV_CLOCK
+    // (`SOVRIUM_DEV_CLOCK` in `env-vars.docs.md`), as a session's does.
+    if (!isWithinFormLinkWindow(draft.submittedAt.getTime(), expiresIn, Date.now())) {
       yield* repo.deleteById({ id: draft.id })
       return undefined
     }
@@ -60,7 +62,9 @@ export const openEditableSubmissionProgram = (input: {
       accessTokenHash: tokenHash,
     })
     if (row === undefined || row.status === 'draft') return undefined
-    if (!isWithinFormLinkWindow(row.submittedAt.getTime(), form.editAfterSubmit.window)) {
+    if (
+      !isWithinFormLinkWindow(row.submittedAt.getTime(), form.editAfterSubmit.window, Date.now())
+    ) {
       return undefined
     }
     return row satisfies AccessibleFormSubmissionRow

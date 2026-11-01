@@ -6,11 +6,12 @@
  */
 
 import { dirname } from 'node:path'
-import { Effect, Console } from 'effect'
 import { getCurrentVersion, checkForUpdatesInBackground } from '@/cli/commands/update'
 import { START_HELP_TEXT } from '@/cli/runtime/command-help'
 import { warnDeprecatedKeys } from '@/cli/runtime/config-deprecation-warnings'
 import { offerFailureReport, withoutSecretValues } from '@/cli/runtime/failure-report'
+import { lazyImportIndex, lazyImportLogger, lazyImportCli } from '@/cli/runtime/lazy-modules'
+import { stopCommand } from '@/cli/runtime/run-command'
 import { formatConfigRejection, isConfigRejectedError } from '@/domain/errors/config-rejected'
 import { isEngineFailureError } from '@/domain/errors/engine-failure-error'
 import { OPERATOR_FIX_GUIDANCE, operatorFixOf } from '@/domain/errors/operator-fixable-error'
@@ -21,7 +22,7 @@ import {
   resolveListenUnix,
   resolveSovriumLogFormat,
 } from '@/domain/models/process-env/server-lifecycle'
-import { formatLine, printStderr, renderStderr } from '@/infrastructure/logging/cli-output'
+import { formatLine, printLine, printStderr } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import { activateLogFormat } from '@/infrastructure/logging/log-format'
 import { installAppSelfSeedRunner } from '@/infrastructure/process/app-self-seeder-live'
@@ -43,8 +44,8 @@ import {
   readPublicDirEnv,
   resolveDefaultPublicDir,
 } from './option-parsing'
+import { resolveConfigAnchor } from './reload-server'
 import { holdReloadPath } from './start-watch'
-import { lazyImportIndex, lazyImportLogger, lazyImportCli, resolveConfigAnchor } from './utils'
 import { collectConfigAttribution } from './validate'
 import type { StartOptions } from '@/application/use-cases/server/start-server-options'
 import type { SimpleServer } from '@/index'
@@ -73,7 +74,7 @@ const startFailureText = (error: unknown): string => {
 }
 
 const showStartHelp = (): void => {
-  Effect.runSync(Console.log(START_HELP_TEXT))
+  printLine(START_HELP_TEXT)
 }
 
 /**
@@ -95,11 +96,10 @@ const parseStartOptions = (): StartOptions => {
 
   const parsedPort = port ? parseInt(port, 10) : undefined
   if (parsedPort !== undefined && (isNaN(parsedPort) || parsedPort < 0 || parsedPort > 65_535)) {
-    printStderr(
+    return stopCommand(
+      1,
       `Error: Invalid port number "${port}". Must be between 0 and 65535 (0 = auto-select).`
     )
-    // Terminate process - imperative statement required for CLI
-    process.exit(1)
   }
 
   return {
@@ -120,12 +120,12 @@ const DEFAULT_PORT = 3000
 const refuseBusyStrictPort = async (options: StartOptions): Promise<void> => {
   const port = options.port ?? DEFAULT_PORT
   // A socket-bound boot (`SOVRIUM_LISTEN_UNIX`) opens no port to collide on.
-  if (port === 0 || !isStrictPortBoot() || resolveListenUnix() !== undefined) return
+  if (port === 0 || !isStrictPortBoot(process.env) || resolveListenUnix(process.env) !== undefined)
+    return
   const hostname = options.hostname ?? resolveBindHost(process.env).host
   if (isPortFree(hostname, port, await resolveHostAddresses(hostname))) return
   const holderPid = findPortHolderPid(port)
-  printStderr(portInUseMessage({ hostname, port, holderPid, changedNothing: true }))
-  process.exit(1)
+  return stopCommand(1, portInUseMessage({ hostname, port, holderPid, changedNothing: true }))
 }
 
 /**
@@ -226,10 +226,10 @@ export const handleStartCommand = async (
   const existingLock = await readLockFile()
   if (existingLock && isProcessRunning(existingLock.pid)) {
     // Active server — refuse to start
-    printStderr(
+    return stopCommand(
+      1,
       `Error: Server already running (PID: ${existingLock.pid}, ${listenLabel(existingLock)})`
     )
-    process.exit(1)
   }
   // Before the stale-lock cleanup, so a refusal really leaves the disk untouched.
   await refuseBusyStrictPort(options)
@@ -262,7 +262,7 @@ export const handleStartCommand = async (
   // and everything else keeps its stack — that contrast is the rule, and it is
   // recorded on `ConfigRejectedError` itself.
   //
-  // BOTH BRANCHES GO THROUGH `renderStderr`. The fault branch does not pass the
+  // BOTH BRANCHES GO THROUGH `printStderr`. The fault branch does not pass the
   // Error OBJECT to `Console.error` for Bun's pretty printer: that printer
   // colours its output on a TTY, which the terminal-output rules ban outright.
   // `formatRuntimeError` keeps the diagnosis: it returns `.stack` for a plain
@@ -278,17 +278,17 @@ export const handleStartCommand = async (
   // The seeder an `app/seed` step runs: `sovrium seed`'s, on the seed folder
   // beside this config, loaded on the first run rather than at every start.
   installAppSelfSeedRunner(async (request) =>
-    (await import('./seed-self')).createAppSelfSeedRunner(configPath)(request)
+    (await import('@/cli/commands/seed/self')).createAppSelfSeedRunner(configPath)(request)
   )
   const server = await start(app, { ...options, configHash, configPath }, attribution).catch(
     (error) => {
-      Effect.runSync(
+      printStderr(
         isConfigRejectedError(error)
-          ? renderStderr(formatConfigRejection(error, 'started'))
-          : renderStderr(startFailureText(error))
+          ? formatConfigRejection(error, 'started')
+          : startFailureText(error)
       )
       // Terminate process - imperative statement required for CLI
-      process.exit(1)
+      return stopCommand(1)
     }
   )
 

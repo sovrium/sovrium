@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
+import { substituteTemplatesDeep, type ValueEncoder } from './html-template-values'
 import type { Page } from '@/domain/models/app/pages'
 
 /**
@@ -24,13 +24,21 @@ const PARAM_REFERENCE = /\$param\.([A-Za-z_][A-Za-z0-9_]*)/g
  * Replace every `$param.<name>` in one string with its matched segment, leaving
  * a name the route did not capture VERBATIM. Shared by the page-tree pass below
  * and the document head (`head-references.ts`).
+ *
+ * `encode` is applied to each substituted segment — `escapeHtml` for a raw HTML
+ * template, nothing for text that React escapes on output. The head passes
+ * none: its title is text, and an escape there would print `&lt;` in the tab.
  */
 export const substituteRouteParams = (
   str: string,
-  routeParams: Readonly<Record<string, string>>
+  routeParams: Readonly<Record<string, string>>,
+  encode: ValueEncoder = (value) => value
 ): string =>
   str.includes('$param.')
-    ? str.replaceAll(PARAM_REFERENCE, (match, name: string) => routeParams[name] ?? match)
+    ? str.replaceAll(PARAM_REFERENCE, (match, name: string) => {
+        const value = routeParams[name]
+        return value === undefined ? match : encode(value)
+      })
     : str
 
 /**
@@ -80,21 +88,29 @@ export const substituteRouteParams = (
  * always captures a non-empty one, so this is unreachable from a booted app —
  * but a blank would be indistinguishable from a formatting bug.
  *
+ * ─── A SEGMENT IS ALWAYS TEXT ─────────────────────────────────────────────
+ *
+ * A segment is whatever the visitor typed, decoded. Inside an author HTML
+ * template it is HTML-escaped, and a text template it would flip onto the
+ * raw-HTML branch is pinned to text — `substituteTemplatesDeep`, the rule the
+ * `$app` and `$query` passes share.
+ *
  * Pure, and a page carrying no reference is returned by reference.
  */
 export function resolvePageRouteParams(
   page: Page,
   routeParams: Readonly<Record<string, string>>
 ): Page {
-  const substitute = (str: string): string => substituteRouteParams(str, routeParams)
+  const fill = (str: string, encode: ValueEncoder | undefined): string =>
+    substituteRouteParams(str, routeParams, encode)
 
   return {
     ...page,
     ...(page.components !== undefined
-      ? { components: mapStringsDeep(page.components, substitute) as Page['components'] }
+      ? { components: substituteTemplatesDeep(page.components, fill) as Page['components'] }
       : {}),
     ...(page.layout !== undefined
-      ? { layout: mapStringsDeep(page.layout, substitute) as Page['layout'] }
+      ? { layout: substituteTemplatesDeep(page.layout, fill) as Page['layout'] }
       : {}),
   }
 }

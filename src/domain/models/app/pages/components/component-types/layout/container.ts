@@ -64,8 +64,10 @@ export const ContainerElementSchema = Schema.Literals([
  * -> `RECORD_REFERENCE`). Inside a repeat, `$record.<key>` resolves against THE
  * ELEMENT -- one grammar, re-scoped, exactly as `expandDataSourceChildren`
  * already does per row. Supported in TWO positions: a record-bound
- * `drawer`'s `children`, expanded in the browser once the record arrives, and a
- * page bound to one record, expanded on the server in the binding pass. Every
+ * `drawer`'s `children`, expanded in the browser once the record arrives, and
+ * under one record the server reads before the first byte (a page bound by
+ * `{ system }` or `{ table, mode: 'single' }`, a `collection` page, or a
+ * component bound with `{ table, mode: 'single' }`), expanded there. Every
  * other position is refused at decode (`component-rule-validation.ts`), because
  * the array only exists where a record has already been read.
  *
@@ -107,7 +109,7 @@ export const ContainerRepeatSchema = Schema.Struct({
 }).annotate({
   title: 'Container Repeat',
   description:
-    "Render this container's children once per element of an array a record already carries. Supported inside a record-bound drawer's `children`, and on a page bound to one record (a page-level `dataSource` of `{ system }` or `{ table, mode: 'single' }`), where the copies are drawn on the server. Without `as`, `$record.<field>` inside the repeat resolves against the element; with `as`, `$<as>.<field>` does and `$record.<field>` keeps reading the bound record. An empty or missing list draws no copies.",
+    "Render this container's children once per element of an array a record already carries. Supported inside a record-bound drawer's `children`, and under one record read on the server: on a page bound to one record (a page-level `dataSource` of `{ system }` or `{ table, mode: 'single' }`, or a `collection` page), and on or inside a component bound with `{ table, mode: 'single' }`, which iterates its own record. There the copies are drawn on the server. Inside a `dataSource` row template it is refused. Without `as`, `$record.<field>` inside the repeat resolves against the element; with `as`, `$<as>.<field>` does and `$record.<field>` keeps reading the bound record. An empty or missing list draws no copies.",
 })
 
 export const containerFields = {

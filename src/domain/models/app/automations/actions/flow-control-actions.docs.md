@@ -1,6 +1,6 @@
 # Flow Control Actions
 
-> Changing the shape of a workflow rather than its data — condition groups, branching, iteration, and halting a run early.
+> Changing the shape of a workflow rather than its data: condition groups, branching, iteration, and halting a run early.
 
 ## Condition groups
 
@@ -24,7 +24,7 @@ The comparison operators are `equals`, `notEquals`, `contains`, `notContains`, `
 - { field: '{{trigger.data.status}}', operator: in, value: [active, past-due] }
 ```
 
-`isEmpty` and `isNotEmpty` test for presence: a value is empty when it is missing, null, an empty text, an empty list or an empty object (`{}`); nothing else is — `0`, `false`, a blank space, `{"a": null}` and `[null]` are values. So a `record/list` step is tested on its list, `{{<step>.records}}`, which is empty exactly when nothing matched:
+`isEmpty` and `isNotEmpty` test for presence: a value is empty when it is missing, null, an empty text, an empty list or an empty object (`{}`); nothing else is: `0`, `false`, a blank space, `{"a": null}` and `[null]` are values. So a `record/list` step is tested on its list, `{{<step>.records}}`, which is empty exactly when nothing matched:
 
 ```yaml
 - { field: '{{dueTasks.records}}', operator: isNotEmpty }
@@ -35,9 +35,9 @@ Do not test the whole step output (`{{<step>.result}}`): it is an object with ke
 Two limits shape how a predicate has to be written:
 
 - **Groups do not nest.** `conditions` holds comparisons only, never another group, so `(A and B) or C` is not expressible in one group. Express it with two branches instead.
-- **`value` is a scalar** — a string, number, boolean or null — except for `in` and `notIn`, which take a list of scalars. Objects are refused.
+- **`value` is a scalar** (a string, number, boolean or null), except for `in` and `notIn`, which take a list of scalars. Objects are refused.
 
-## Path — branching
+## Path: branching
 
 Routes execution into named branches, each with its own condition and nested actions.
 
@@ -49,11 +49,11 @@ Routes execution into named branches, each with its own condition and nested act
 
 A branch's `actions` may be empty: `actions: []` means "do nothing in this case". Under `first-match`, a matching empty branch is still the branch taken, so no branch after it runs; it appears in the step's `matched`, and its entry in `results` is empty.
 
-Inside a branch — its `condition` and its actions — templates resolve as they do at the top level: an earlier step reads as `{{<step>.<key>}}` or `{{<step>.result.<key>}}`, and helpers such as `{{now}}` work.
+Inside a branch (its `condition` and its actions), templates resolve as they do at the top level: an earlier step reads as `{{<step>.<key>}}` or `{{<step>.result.<key>}}`, and helpers such as `{{now}}` work.
 
 An action inside a branch is a step of the run. Step names are unique within an automation, so a nested action's output reads as `{{<step>.<key>}}` from a later action of the same path, from an action of a later path, and from any step after the branch. A path's `condition` is evaluated when the branch selects its paths, before any of them runs, so it reads only what ran before the branch; a later path reads an earlier path's outputs in its actions. A `flow/stop`, or a filter that stops, inside a path ends the run there: no later action of the path and no step after the branch runs.
 
-A failing action inside a path ends the branch and fails the branch step — unless it is marked `continueOnError: true`. Then it is recorded failed with its error, the next action of the path runs, the branch step completes, and the run ends `completed-with-errors`.
+A failing action inside a path ends the branch and fails the branch step, unless it is marked `continueOnError: true`. Then it is recorded failed with its error, the next action of the path runs, the branch step completes, and the run ends `completed-with-errors`.
 
 Each value is filled in once, when the branch runs its action. What a value carries is used as it is: trigger data holding `{{…}}` or `$env.` text is stored or sent as those characters, never read as a template a second time.
 
@@ -80,7 +80,7 @@ Each value is filled in once, when the branch runs its action. What a value carr
             props: { to: '{{trigger.data.record.email}}', subject: 'Welcome', body: 'Hi!' }
 ```
 
-## Loop — iteration
+## Loop: iteration
 
 Iterates over an array, running its nested actions once per item.
 
@@ -88,17 +88,17 @@ Iterates over an array, running its nested actions once per item.
 
 Inside the loop the current item is at **`{{loop.item}}`**, its fields at `{{loop.item.<field>}}`, and the zero-based position at `{{loop.index}}`. A bare `{{item.*}}` does not resolve.
 
-Within one item, a nested action reads the earlier nested actions of that item by name, `{{<step>.<key>}}` — that item's outputs, never another item's. A `flow/stop`, or a filter that stops, reached for one item ends the run: the remaining items and the steps after the loop do not run.
+Within one item, a nested action reads the earlier nested actions of that item by name, `{{<step>.<key>}}`: that item's outputs, never another item's. A `flow/stop`, or a filter that stops, reached for one item ends the run: the remaining items and the steps after the loop do not run.
 
 An item is filled in once, as it is: an item holding `{{…}}` or `$env.` text reaches the nested action as those characters, never read as a template a second time. A nested action that takes a list, such as a data transform on `'{{loop.item.orders}}'`, receives the list itself.
 
 ### `maxIterations` truncates silently
 
-It defaults to **1000**, so a loop over 1,800 rows processes the first thousand and reports success. Nothing marks the run as incomplete, because from the loop's point of view it did what it was told. Raise it explicitly — up to 10000 — whenever the collection can exceed the cap, or page the source and loop per page.
+It defaults to **1000**, so a loop over 1,800 rows processes the first thousand and reports success. Nothing marks the run as incomplete, because from the loop's point of view it did what it was told. Raise it explicitly (up to 10000) whenever the collection can exceed the cap, or page the source and loop per page.
 
 A nested action marked `continueOnError: true` does not fail its item: when it fails, it is recorded failed with its error, the next action of the same item runs, the item is not counted in `failed`, and the run ends `completed-with-errors`.
 
-`continueOnItemError` keeps the loop going past a failing item; it defaults to `false`, which aborts the whole loop on the first failure. A skipped item is still reported: the loop's output counts it in `failed`, its place in `results` holds an `error` naming what refused it — for example a template that rendered nothing into a date column — and the run ends `completed-with-errors` rather than `completed`. A loop runs the same way inside a path as at the top level.
+`continueOnItemError` keeps the loop going past a failing item; it defaults to `false`, which aborts the whole loop on the first failure. A skipped item is still reported: the loop's output counts it in `failed`, its place in `results` holds an `error` naming what refused it (for example a template that rendered nothing into a date column), and the run ends `completed-with-errors` rather than `completed`. A loop runs the same way inside a path as at the top level.
 
 ```yaml
 - name: notifyEach
@@ -145,11 +145,11 @@ A loop or a path can sit inside a loop or a path, at any depth. Each fills in it
                   position: '{{loops.eachCompany.index}}.{{loop.index}}'
 ```
 
-## Flow — stopping early
+## Flow: stopping early
 
 Halts the run immediately, with an optional status and output.
 
-A stop ends the run wherever it sits — at the top level, inside a path, inside a loop, at any depth: nothing after it runs, at its own level or above, and the caller of a synchronous trigger receives the stop's status, message and output. When a `webhook/response` already set the answer, the caller receives that response instead — its status, headers and body: the stop ends the run, it does not replace an answer you chose. Answering `404` and then stopping is how a webhook refuses an unknown record without running the rest.
+A stop ends the run wherever it sits (at the top level, inside a path, inside a loop, at any depth). Nothing after it runs, at its own level or above, and the caller of a synchronous trigger receives the stop's status, message and output. When a `webhook/response` already set the answer, the caller receives that response instead, with its status, headers and body: the stop ends the run, it does not replace an answer you chose. Answering `404` and then stopping is how a webhook refuses an unknown record without running the rest.
 
 <!-- sovrium:options FlowStopActionSchema -->
 

@@ -24,7 +24,7 @@ import {
   mintSignedUrl,
   resolveSignBucket,
 } from '@/application/use-cases/buckets/signed-url-minting'
-import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
+import { resolveStorageSigningSecret } from '@/application/use-cases/buckets/signing-secret'
 import { canSignBucketUrl } from '@/domain/models/app/buckets/bucket-sign-validation'
 import type { SignFileUrl } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'

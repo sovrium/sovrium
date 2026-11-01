@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { collectPlacements, type Placement } from './component-reference-validation'
 import { COMPONENT_LENGTH_RULES } from './components/component-types/component-xor-rules'
 
@@ -62,9 +63,6 @@ const NAMED_SLOT_PREFIX = '$slots.'
 
 /** Keys on a template node that change what `$record` means below it. */
 const SCOPE_KEYS: readonly string[] = ['dataSource', 'contentFrom', 'repeat']
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * One slot found in a template: which slot (`$children`, or a named slot's

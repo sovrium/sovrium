@@ -19,28 +19,28 @@ import {
 } from '@/domain/models/api/tables/tables'
 import { isGuestSession, SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { buildCreateAuthorshipOverrides } from '@/domain/models/app/tables/authorship-fields'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { inWriteLanguage } from '@/domain/models/app/tables/translatable-write-service'
 import { validateRequest } from '@/presentation/api/runtime'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { flashDeclaredToast } from '@/presentation/api/runtime/form-flash'
+import { pageWriteLanguage } from '@/presentation/api/runtime/page-write-language'
 import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import {
   validateRecordCreation,
-  createValidationLayer,
+  provideValidationContext,
   formatValidationError,
 } from '@/presentation/api/tables/validation'
 import { limitAnonymousCreate } from './anonymous-create-rate-limit'
-import { normalizeFormUpdateFields } from './form-update-fields'
+import { collapseRepeatedKeys, normalizeFormUpdateFields } from './form-update-fields'
 import {
-  fieldConditionLock,
-  sanitizedRichTextFields,
-  updateValueViolation,
+  checkedUpdateValues,
   validateUpdateComputedFields,
   validateUpdateForbiddenFields,
   validateUpdateReadonlyFields,
 } from './record-update-guards'
 import { updateResponse } from './record-update-handler'
 import { filterAllowedFieldsWithRole, noAllowedFieldsResponse } from './record-update-permissions'
+import { withWebhookReceipt } from './record-webhook-receipt'
 import {
   checkCreateGate,
   checkCreatePredicate,
@@ -106,9 +106,10 @@ const createResponse = (request: CreateRequest) =>
     if (gateError) return gateError
 
     const writer = { role: userRole, groups: userGroups, signedOut: isGuestSession(session.userId) }
-    const validationLayer = createValidationLayer(app, tableName, { ...writer, id: session.userId })
     const validated = yield* Effect.result(
-      validateRecordCreation(authored.fields).pipe(Effect.provide(validationLayer))
+      validateRecordCreation(authored.fields).pipe(
+        provideValidationContext(app, tableName, { ...writer, id: session.userId })
+      )
     )
     if (validated._tag === 'Failure') return formatValidationError(validated.failure, c)
     const predicateError = checkCreatePredicate(c, table, guard, validated.success)
@@ -119,9 +120,7 @@ const createResponse = (request: CreateRequest) =>
       fields: validated.success,
       linkReader: getLinkReader(c),
       origin: new URL(c.req.url).origin,
-      isSqlite: isSqliteRuntime(),
-      processEnv: process.env,
-    })
+    }).pipe(withWebhookReceipt(c))
     // A caller who may not read the table files the record and is handed back
     // none of it — no value, and no id to address a record she cannot read.
     return yield* checkGetReadGate({ c, app, table, userRole, userGroups, guard }) === undefined
@@ -138,11 +137,13 @@ export async function handleCreateRecord(c: Context, app: App) {
   if (!result.success) return result.response
   const table = app.tables?.find((t) => t.name === tableName)
   const authored = authorOfCreate(app, tableName, session, result.data.fields)
-  const response = await runHandlerEffect(
+  return runHandlerEffect(
     c,
-    createResponse({ ...{ c, app, tableName, table, session, userRole, userGroups }, authored })
+    Effect.flatMap(
+      createResponse({ ...{ c, app, tableName, table, session, userRole, userGroups }, authored }),
+      (response) => maskUnreadableUniqueConflict(c, app, { written: [authored.fields] }, response)
+    )
   )
-  return maskUnreadableUniqueConflict(c, app, { written: [authored.fields] }, response)
 }
 
 /** A native form's update, gated and validated, then written through the JSON verb's path. */
@@ -169,7 +170,6 @@ const formUpdateResponse = (request: {
     const gateInput = { c, app, tableName, userRole, userGroups, session, recordId }
     const authError =
       (yield* formUpdateAuth({ ...gateInput, change: allowedData })) ??
-      (yield* fieldConditionLock({ c, table, session, tableName, recordId })) ??
       // A computed field she may write — a posted value or a `_clear:` mark — is
       // refused, never dropped; one she may not is dropped like any such field.
       validateUpdateComputedFields(table, allowedData, c)
@@ -182,20 +182,20 @@ const formUpdateResponse = (request: {
     // The form verb writes the same columns the JSON verb does, so it answers to
     // the same per-value rules — formats, `multi-select` options, a relationship's
     // `maxLinked`, attachment confinement — or it is the one door left open.
-    const valueError = yield* updateValueViolation({
+    const checked = yield* checkedUpdateValues({
       c,
       app,
       tableName,
       userRole,
       fields: allowedData,
     })
-    if (valueError) return formatValidationError(valueError, c)
+    if (checked._tag === 'Failure') return formatValidationError(checked.failure, c)
 
-    const sanitized = yield* sanitizedRichTextFields(app, tableName, writer, allowedData)
     // The form posts the whole list each link picker holds: a link it left out is removed.
+    // A `rich-text` value is cleaned by the update itself (`record-write-values.ts`).
     const response = yield* updateResponse({
       ...{ session, tableName, recordId, app, userRole, c },
-      allowedData: sanitized,
+      allowedData: checked.success,
       linkLists: 'replace',
     })
     return redirectAfterFormUpdate({ c, app, tableName }, response, redirectPath)
@@ -227,23 +227,25 @@ function redirectAfterFormUpdate(
 
 export async function handleFormUpdateRecord(c: Context, app: App) {
   const { tableName } = getTableContext(c)
-  const body = await c.req.parseBody()
+  const table = app.tables?.find((t) => t.name === tableName)
+  // Every value a list field was posted with, one per repeated key; any other key, its last.
+  const body = collapseRepeatedKeys(table, await c.req.parseBody({ all: true }))
   // Field values from the form body, less `_redirect`, as the write should see them
   const { _redirect: redirect, ...posted } = body
-  const table = app.tables?.find((t) => t.name === tableName)
-  const fields = normalizeFormUpdateFields(table, posted)
+  // A plain string fills the language of the page the form was served on.
+  const normalized = normalizeFormUpdateFields(table, posted)
+  const fields = inWriteLanguage(app, tableName, normalized, pageWriteLanguage(c, app))
 
   const readonlyValidation = validateUpdateReadonlyFields(fields, c)
   if (readonlyValidation) return readonlyValidation
 
   const redirectPath = typeof redirect === 'string' ? redirect : undefined
-  const response = await runHandlerEffect(c, formUpdateResponse({ c, app, fields, redirectPath }))
-  const recordId = c.req.param('recordId')!
-  return maskUnreadableUniqueConflict(
+  const write = { written: [fields], excludeIds: [c.req.param('recordId')!] }
+  return runHandlerEffect(
     c,
-    app,
-    { written: [fields], excludeIds: [recordId] },
-    response
+    Effect.flatMap(formUpdateResponse({ c, app, fields, redirectPath }), (response) =>
+      maskUnreadableUniqueConflict(c, app, write, response)
+    )
   )
 }
 
@@ -290,16 +292,16 @@ const jsonUpdateResponse = (request: {
     // Per-value rules — column formats (`email`, `url`), `multi-select` option
     // membership and `maxSelections`, and attachment-reference confinement — run
     // with the same shared rules the create path runs, so both verbs on this
-    // resource enforce one contract. Inspects only the columns the payload supplies.
-    const valueError = yield* updateValueViolation({ c, app, tableName, userRole, fields })
-    if (valueError) return formatValidationError(valueError, c)
+    // resource enforce one contract. Inspects only the columns the payload supplies,
+    // and stores an inline attachment value, so its answer is what is written.
+    const checked = yield* checkedUpdateValues({ c, app, tableName, userRole, fields })
+    if (checked._tag === 'Failure') return formatValidationError(checked.failure, c)
 
-    // `rich-text` columns are HTML-sanitized with the same shared rule the create
-    // path runs, so both verbs leave the column in one state. Unlike the guards
-    // above this TRANSFORMS the write, so the sanitized map is what reaches the row.
-    const allowedData = yield* sanitizedRichTextFields(app, tableName, writer, fields)
+    // A `rich-text` value is cleaned by the update itself, on every road a
+    // record is written through (`record-write-values.ts`).
     return yield* updateResponse({
-      ...{ session, tableName, recordId, allowedData, app, userRole, c },
+      ...{ session, tableName, recordId, app, userRole, c },
+      allowedData: checked.success,
       ...(clientUpdatedAt === undefined ? {} : { clientUpdatedAt }),
       ...(linkLists === undefined ? {} : { linkLists }),
     })
@@ -313,16 +315,18 @@ export async function handleUpdateRecord(c: Context, app: App) {
   const readonlyValidation = validateUpdateReadonlyFields(result.data.fields, c)
   if (readonlyValidation) return readonlyValidation
 
-  const response = await runHandlerEffect(
-    c,
-    jsonUpdateResponse({
-      c,
-      app,
-      requested: result.data.fields,
-      clientUpdatedAt: result.data.updatedAt,
-      linkLists: result.data.linkLists,
-    })
-  )
   const write = { written: [result.data.fields], excludeIds: [c.req.param('recordId')!] }
-  return maskUnreadableUniqueConflict(c, app, write, response)
+  return runHandlerEffect(
+    c,
+    Effect.flatMap(
+      jsonUpdateResponse({
+        c,
+        app,
+        requested: result.data.fields,
+        clientUpdatedAt: result.data.updatedAt,
+        linkLists: result.data.linkLists,
+      }),
+      (response) => maskUnreadableUniqueConflict(c, app, write, response)
+    )
+  )
 }

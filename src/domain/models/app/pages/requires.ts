@@ -76,6 +76,11 @@ export const PAGE_CAPABILITIES = [
   'buckets',
   'connections',
   'analytics',
+  // The app keeps every analytics event whole and lists it: analytics is
+  // declared with `profile: full`. On the default `audience-only` profile a
+  // page cannot list individual clicks, scans or page views, so a surface that
+  // does names this capability and the honest alternative names its negation
+  'analytics.full',
   // The app records why its config is the way it is (`decisions`)
   'decisions',
   // The app serves at least one page of its own. A host with none has no
@@ -110,7 +115,7 @@ export const PageCapabilitySchema = Schema.Literals([...PAGE_CAPABILITIES]).anno
   // key too and told that reader the opposite of what the key does. The
   // direction belongs to the key name; this says only what the VALUE is.
   description:
-    'A capability of the host app — a feature its own config declares — named by a page requirement or by a component visibility gate',
+    'A capability of the host app (a feature its own config declares), named by a page requirement or by a component visibility gate',
 })
 
 /** @public */

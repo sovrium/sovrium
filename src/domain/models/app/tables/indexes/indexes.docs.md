@@ -35,7 +35,7 @@ indexes:
 
 The order of `fields` is load-bearing: an index over several fields also speeds up a lookup on the first of them alone, but not on the second.
 
-`where` makes the index **partial** — it covers only the rows satisfying the condition. Paired with `unique`, that is how a value is made unique among live rows while the soft-deleted ones keep their old values, which a plain unique index would refuse.
+`where` makes the index **partial**: it covers only the rows satisfying the condition. Paired with `unique`, that is how a value is made unique among live rows while the soft-deleted ones keep their old values, which a plain unique index would refuse.
 
 ## The top-level `unique` array
 
@@ -62,4 +62,4 @@ constraints:
 
 ## Which of the two to reach for
 
-`indexes` is for query performance and for uniqueness, over one field or several. `constraints` is for a conditional or cross-field rule that uniqueness cannot express — the expression relates two columns, or applies only when a third has a particular value. Both are checked against the table's real field names when the configuration is decoded.
+`indexes` is for query performance and for uniqueness, over one field or several. `constraints` is for a conditional or cross-field rule that uniqueness cannot express: the expression relates two columns, or applies only when a third has a particular value. Both are checked against the table's real field names when the configuration is decoded.

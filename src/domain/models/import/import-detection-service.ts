@@ -17,13 +17,13 @@
  */
 
 import { isWebflowCollectionHeader, isZapierTablesHeader } from './csv-export-adapter-service'
-import { isFilloutForm } from './fillout-adapter-service'
-import { isMakeBlueprint } from './make-adapter-service'
-import { isN8nExport } from './n8n-adapter-service'
-import { isRetoolWorkflowExport } from './retool-workflow-adapter-service'
-import { isTallyForm } from './tally-adapter-service'
-import { isTypeformForm } from './typeform-adapter-service'
-import { isZapierExport } from './zapier-adapter-service'
+import { isFilloutForm } from './vendors/fillout-adapter-service'
+import { isMakeBlueprint } from './vendors/make-adapter-service'
+import { isN8nExport } from './vendors/n8n-adapter-service'
+import { isRetoolWorkflowExport } from './vendors/retool-workflow-adapter-service'
+import { isTallyForm } from './vendors/tally-adapter-service'
+import { isTypeformForm } from './vendors/typeform-adapter-service'
+import { isZapierExport } from './vendors/zapier-adapter-service'
 import type { ImportSourceTool } from './import-source'
 
 /** What detection may look at. */

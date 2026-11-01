@@ -10,11 +10,11 @@ import { Effect } from 'effect'
 import { DatabaseError } from '@/domain/errors'
 import { LIKE_ESCAPE_CHARACTER, escapeLikeMetacharacters } from '@/domain/kernel/sql/sql-formatting'
 import { parseBucketFileUrl } from '@/domain/kernel/url/bucket-file-url'
-import { db } from '@/infrastructure/database'
-import { executeRaw } from '../../sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { collectAttachmentColumns, type AttachmentColumn } from '../../storage-bucket-backfill'
 import type { FileReferenceExclusion } from '@/application/ports/repositories/tables/table-file-references'
 import type { App } from '@/domain/models/app'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Whether a stored file is still named by a record: any attachment column of
@@ -89,6 +89,7 @@ const exclusionOf = (group: TableColumns, except: FileReferenceExclusion | undef
 
 /** The rows of `group` whose attachment cells contain the key's text, any column. */
 const candidatesOf = (
+  { client: db, dialect }: DatabaseService,
   group: TableColumns,
   pattern: string,
   except: FileReferenceExclusion | undefined
@@ -96,7 +97,8 @@ const candidatesOf = (
   const matches = group.columns.map(
     (column) => sql`CAST(${sql.identifier(column)} AS TEXT) LIKE ${pattern} ESCAPE ${LIKE_ESCAPE}`
   )
-  return executeRaw(
+  return executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT ${sql.join(
       group.columns.map((column) => sql.identifier(column)),
@@ -109,6 +111,7 @@ const candidatesOf = (
 }
 
 export function isFileNamedByAnyRecord(
+  { client: db, dialect }: DatabaseService,
   app: App,
   key: string,
   except?: FileReferenceExclusion
@@ -121,7 +124,7 @@ export function isFileNamedByAnyRecord(
     // query per table holding attachments at most, whatever their width.
     try: async () => {
       for (const group of byTable(collectAttachmentColumns(app))) {
-        const rows = await candidatesOf(group, pattern, except)
+        const rows = await candidatesOf({ client: db, dialect }, group, pattern, except)
         const named =
           rows.length >= CANDIDATE_LIMIT ||
           rows.some((row) => group.columns.some((column) => keysInCell(row[column]).includes(key)))

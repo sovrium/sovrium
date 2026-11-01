@@ -38,7 +38,7 @@ import type { StepContext } from './types'
 import type { App } from '@/domain/models/app'
 
 /** A comment a step wrote, as the comment triggers read it. */
-export type StepCommentEvent = Omit<TriggerCommentEventInput, 'app' | 'processEnv' | 'depth'>
+export type StepCommentEvent = Omit<TriggerCommentEventInput, 'app' | 'depth'>
 
 /** How the comments a step writes reach the comment triggers. */
 export interface CommentEventChannel {
@@ -55,7 +55,7 @@ const hasCommentAutomations = (app: App, tableName: string): boolean =>
   )
 
 /** What the channel reads from the run it belongs to. */
-type ChannelContext = Pick<StepContext, 'app' | 'processEnv' | 'recordEventDepth' | 'runProgram'>
+type ChannelContext = Pick<StepContext, 'app' | 'recordEventDepth' | 'runProgram'>
 
 /** Build the comment channel for one run. */
 export const buildCommentEventChannel = (ctx: ChannelContext): CommentEventChannel => ({
@@ -68,7 +68,6 @@ export const buildCommentEventChannel = (ctx: ChannelContext): CommentEventChann
     const program = triggerCommentEventAutomations({
       ...comment,
       app: ctx.app,
-      processEnv: ctx.processEnv,
       depth: ctx.recordEventDepth + 1,
     })
     // eslint-disable-next-line functional/no-expression-statements -- background dispatch; see the module doc for why the step does not wait

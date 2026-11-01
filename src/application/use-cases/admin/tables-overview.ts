@@ -35,6 +35,7 @@ import {
   type TableAggregateRow,
   type TablesOverviewError,
 } from '@/application/ports/repositories/tables/tables-overview-repository'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import type { PeriodPreset, SeriesInterval } from '@/domain/models/api/admin/envelope/period-preset'
 import type {
   TablesOverviewResponse,
@@ -67,9 +68,15 @@ const parseMaxConcurrent = (raw: string | undefined): number => {
   const parsed = raw === undefined ? Number.NaN : Number(raw)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_CONCURRENT_TABLES_OVERVIEWS
 }
-const tablesOverviewSemaphore = Semaphore.makeUnsafe(
-  parseMaxConcurrent(process.env.ADMIN_TABLES_OVERVIEW_MAX_CONCURRENT)
-)
+const tablesOverviewSemaphores = new Map<'semaphore', Semaphore.Semaphore>()
+
+/** The one process-wide semaphore, sized from the environment the first build reads. */
+const tablesOverviewSemaphoreOf = (
+  env: Readonly<Record<string, string | undefined>>
+): Semaphore.Semaphore =>
+  tablesOverviewSemaphores.getOrInsertComputed('semaphore', () =>
+    Semaphore.makeUnsafe(parseMaxConcurrent(env['ADMIN_TABLES_OVERVIEW_MAX_CONCURRENT']))
+  )
 
 /** Input for `buildTablesOverview`. */
 export interface BuildTablesOverviewInput {
@@ -163,6 +170,16 @@ function buildBucketWindows(
 export const buildTablesOverview = (
   input: BuildTablesOverviewInput
 ): Effect.Effect<TablesOverviewResponse, TablesOverviewError, TablesOverviewRepository> =>
+  ProcessEnv.pipe(
+    Effect.flatMap((env) =>
+      tablesOverviewOf(input).pipe(tablesOverviewSemaphoreOf(env).withPermits(1))
+    ),
+    Effect.withSpan('admin.build-tables-overview')
+  )
+
+const tablesOverviewOf = (
+  input: BuildTablesOverviewInput
+): Effect.Effect<TablesOverviewResponse, TablesOverviewError, TablesOverviewRepository> =>
   Effect.gen(function* () {
     const repo = yield* TablesOverviewRepository
 
@@ -208,6 +225,6 @@ export const buildTablesOverview = (
       by_table: [...byTable],
       series: { interval: spec.interval, points: [...points] },
     }
-    // Gated process-wide: the repository's bounded per-table fan-out is a
-    // PER-REQUEST budget, and only the semaphore makes it a process-wide bound.
-  }).pipe(tablesOverviewSemaphore.withPermits(1), Effect.withSpan('admin.build-tables-overview'))
+    // Gated process-wide by the caller: the repository's bounded per-table fan-out
+    // is a PER-REQUEST budget, and only the semaphore makes it a process-wide bound.
+  })

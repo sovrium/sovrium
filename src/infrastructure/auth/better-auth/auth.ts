@@ -7,19 +7,30 @@
 
 import { betterAuth } from 'better-auth'
 import { openAPI } from 'better-auth/plugins'
-import { getStrategy, hasStrategy } from '@/domain/models/app/auth'
+import { hasStrategy } from '@/domain/models/app/auth'
 import { resolvePasswordPolicy } from '@/domain/models/app/auth/password-policy'
 import { AUTH_COOKIE_PREFIX } from '@/domain/models/app/auth/session-cookie'
+import {
+  isSignUpOpen,
+  resolveRequireEmailVerification,
+} from '@/domain/models/app/auth/sign-up-service'
 import { parsePlatformSso } from '@/domain/models/process-env/platform-sso'
+import { parseServerEnv } from '@/domain/models/process-env/server'
 import { resolveAuthSecret } from '@/infrastructure/auth/auth-secret'
 import { isEmailConfigured } from '@/infrastructure/process/env'
-import { isTransportRelaxed } from '@/infrastructure/process/security-posture'
+import {
+  isCrossSiteSessionPosture,
+  isTransportRelaxed,
+} from '@/infrastructure/process/security-posture'
 import { buildDeleteUserConfig } from './account-deletion-hooks'
 import { ACCOUNT_PREFERENCE_FIELDS } from './account-preferences'
+import { runAuthTaskInBackground } from './auth-background-tasks'
 import { buildDatabaseHooks } from './auth-database-hooks'
 import { buildAuthDatabaseAdapter } from './auth-drizzle-adapter'
 import { buildAuthEventPlugin, passwordResetDispatcher } from './auth-event-hooks'
 import { buildAuthHooks } from './auth-request-hooks'
+import { changeEmailMailers } from './change-email-email-handler'
+import { lateApiKeyRevoker, revokingApiKeysOnReset } from './credential-lifecycle-hooks'
 import { createEmailHandlers } from './email-handlers'
 import { buildAdminPlugin } from './plugins/admin'
 import { buildApiKeyPlugin } from './plugins/api-key'
@@ -37,8 +48,12 @@ import * as ssoPlugin from './plugins/sso'
 import { buildTwoFactorPlugin } from './plugins/two-factor'
 import { SESSION_ADDITIONAL_FIELDS } from './session-database-hooks'
 import { buildSocialProviders } from './social-providers'
-import type { AppMetaForOrg, AuthHookContext, ConnectionForSeed } from './auth-database-hooks'
+import { buildSsoContext, type SsoPluginContext } from './sso-origins'
+import { trustedOriginsOf } from './trusted-origins'
+import type { AppMetaForOrg, AuthHookContext } from './auth-database-hooks'
+import type { AuthHookPolicies } from '@/application/ports/contracts/auth-hook-policies'
 import type { Auth } from '@/domain/models/app/auth'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 import type { DomainContext } from '@/infrastructure/server/domain-runtime'
 
 /** A key minter for a caller that never mints one (unit tests building the plugin list). */
@@ -48,13 +63,18 @@ const NO_KEY_MINTER: DeviceKeyMinter = () =>
 export const buildAuthPlugins = (
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig?: Auth,
-  ssoContext: ssoPlugin.SsoPluginContext = { envLookup: {}, baseURL: '' },
+  ssoContext: SsoPluginContext = { envLookup: {}, baseURL: '' },
   extras: {
     readonly appName?: string
     /** The declared `displayName`, which the two-factor issuer prints before the name. */
     readonly appDisplayName?: string
     readonly mintDeviceKey?: DeviceKeyMinter
     readonly hookContext?: AuthHookContext
+    /**
+     * The declared base URL (`declaredBaseUrl`) the instance was built with:
+     * the passkey relying party derives from the same value as `baseURL`.
+     */
+    readonly declaredBaseUrl?: string | undefined
   } = {}
 ) => [
   openAPI({ disableDefaultReference: true }),
@@ -65,12 +85,17 @@ export const buildAuthPlugins = (
   ...buildEmailOtpPlugin(handlers.emailOtp, authConfig),
   ...buildOauthServerPlugin(authConfig),
   ...buildOrganizationPlugin(authConfig),
-  ...buildTwoFactorPlugin(authConfig, extras.appName, extras.appDisplayName),
-  ...ssoPlugin.buildSsoPlugin(authConfig, ssoContext),
+  ...buildTwoFactorPlugin(
+    authConfig,
+    extras.appName,
+    extras.appDisplayName,
+    handlers.twoFactorLockout
+  ),
+  ...ssoPlugin.buildSsoPlugin(authConfig, ssoContext, extras.hookContext?.policies.writeUserRole),
   // "Sign in with Sovrium Cloud", from the environment only — never `auth.sso`.
   // A partial set is refused at boot (`validateOperatorEnv`): here it is whole or absent.
-  ...buildPlatformSsoPlugin(parsePlatformSso(), authConfig),
-  ...buildPasskeyPlugin(authConfig, extras.appName),
+  ...buildPlatformSsoPlugin(parsePlatformSso(process.env), authConfig),
+  ...buildPasskeyPlugin(authConfig, extras.appName, extras.declaredBaseUrl),
   // Last, so `signIn` reads the session the other plugins let the request keep.
   ...(extras.hookContext === undefined ? [] : [buildAuthEventPlugin(extras.hookContext)]),
 ]
@@ -100,21 +125,26 @@ export function buildRateLimitConfig() {
 export function buildEmailAndPasswordConfig(
   authConfig: Auth | undefined,
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
-  hookContext?: AuthHookContext
+  hookContext?: AuthHookContext,
+  apiKeys: { readonly revoke?: (userId: string) => Promise<unknown> } = {}
 ) {
-  const strategy = getStrategy(authConfig, 'emailAndPassword')
-  const requireEmailVerification = strategy?.requireEmailVerification ?? false
+  // On by default beside a federated provider, which links accounts by address.
+  const requireEmailVerification = resolveRequireEmailVerification(authConfig)
   const policy = resolvePasswordPolicy(authConfig)
 
   return {
     enabled: hasStrategy(authConfig, 'emailAndPassword'),
     requireEmailVerification,
     sendResetPassword: handlers.passwordReset,
+    // A reset ends every session the account held, so one opened with a
+    // leaked password does not outlive the reset meant to shut it out.
+    revokeSessionsOnPasswordReset: true,
     minPasswordLength: policy.minLength,
     maxPasswordLength: policy.maxLength,
-    disableSignUp: authConfig?.allowSignUp === false,
-    // Fires the `passwordReset` automations once a reset has stood.
-    onPasswordReset: passwordResetDispatcher(hookContext),
+    disableSignUp: !isSignUpOpen(authConfig),
+    // Revokes the account's API keys, then fires the `passwordReset`
+    // automations, once a reset has stood.
+    onPasswordReset: revokingApiKeysOnReset(apiKeys.revoke, passwordResetDispatcher(hookContext)),
   }
 }
 
@@ -137,6 +167,17 @@ export function buildAdvancedConfig() {
     cookiePrefix: AUTH_COOKIE_PREFIX,
     useSecureCookies: !relaxed,
     disableCSRFCheck: relaxed,
+    // Every mail Better Auth sends for a request (a sign-in code, a reset
+    // link, a verification) goes out after the answer, so the answer takes
+    // the same time whether or not the address has an account.
+    backgroundTasks: { handler: runAuthTaskInBackground },
+    // A front-end on another site (`SOVRIUM_CORS_ORIGINS`) needs the cookie on
+    // its credentialed fetches; the data API's cross-site guard takes over the
+    // protection `SameSite=Lax` gave. A relaxed posture keeps `Lax`: browsers
+    // drop a `SameSite=None` cookie that is not `Secure`.
+    ...(isCrossSiteSessionPosture()
+      ? { defaultCookieAttributes: { sameSite: 'none' as const, secure: true } }
+      : {}),
   }
 }
 
@@ -146,18 +187,67 @@ const appIdentityExtras = (appMeta: AppMetaForOrg | undefined) => ({
   ...(appMeta?.displayName === undefined ? {} : { appDisplayName: appMeta.displayName }),
 })
 
-export function createAuthInstance(
-  authConfig?: Auth,
-  connections?: readonly ConnectionForSeed[],
-  appMeta?: AppMetaForOrg,
-  domainContext?: DomainContext
-) {
-  const hookContext: AuthHookContext = { appMeta, domainContext }
-  const handlers = createEmailHandlers(authConfig, appMeta?.name, undefined, appMeta?.languages)
-  const emailAndPasswordConfig = buildEmailAndPasswordConfig(authConfig, handlers, hookContext)
+/** What an auth instance is built with besides its config. */
+export interface AuthInstanceWiring {
+  /**
+   * The application's side of every hook — the last-admin rail, the role and
+   * ban reads, the audit records, the auth-event dispatch. Built by the server
+   * (`makeAuthHookPolicies`), the one infrastructure area that may name the
+   * use-cases behind them; required, because a hook with no rail to consult
+   * would be a guard that never refuses.
+   */
+  readonly policies: AuthHookPolicies
+  readonly appMeta?: AppMetaForOrg
+  /** The server's resolved services, for the instance that serves HTTP. */
+  readonly domainContext?: DomainContext
+  /**
+   * The database the instance writes through. The engine takes its client at
+   * construction, before it serves anything, so the composition hands it in.
+   */
+  readonly database: DatabaseService
+}
 
-  const baseURL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`
-  const ssoContext = ssoPlugin.buildSsoContext(appMeta?.env, baseURL)
+/** What the instance's hooks consult, over the client its adapter writes through. */
+const authHookContextOf = ({
+  policies,
+  appMeta,
+  domainContext,
+  database,
+}: AuthInstanceWiring): AuthHookContext => ({
+  appMeta,
+  domainContext,
+  policies,
+  database,
+})
+
+/** Better Auth's `emailVerification` block: when a link is mailed, and through what. */
+const emailVerificationConfig = (
+  { requireEmailVerification }: ReturnType<typeof buildEmailAndPasswordConfig>,
+  { verification }: ReturnType<typeof changeEmailMailers>
+) => ({
+  sendOnSignUp: requireEmailVerification,
+  autoSignInAfterVerification: true,
+  sendVerificationEmail: verification,
+})
+
+/**
+ * Create Better Auth instance with dynamic configuration.
+ *
+ * When `authConfig` is set, the organization plugin is enabled and the
+ * user/session database hooks auto-enroll users into the single per-app
+ * organization so the native team endpoints (`/api/auth/organization/*`)
+ * resolve against an active organization.
+ */
+export function createAuthInstance(authConfig: Auth | undefined, wiring: AuthInstanceWiring) {
+  const { policies, appMeta } = wiring
+  const hookContext = authHookContextOf(wiring)
+  const handlers = createEmailHandlers(authConfig, appMeta?.name, undefined, appMeta?.languages)
+  const addressChange = changeEmailMailers(handlers.verification, authConfig, appMeta)
+  const keys = lateApiKeyRevoker()
+  const emailAndPassword = buildEmailAndPasswordConfig(authConfig, handlers, hookContext, keys)
+
+  const { preBindOrigin: baseURL, baseUrl: declaredBaseUrl } = parseServerEnv(process.env)
+  const ssoContext = buildSsoContext(appMeta?.env, baseURL)
   // The device flow mints its API key through this instance's own server API,
   // which exists only once `betterAuth` returns: bound late, read per call.
   const bound: { createApiKey?: DeviceKeyMinter } = {}
@@ -171,18 +261,14 @@ export function createAuthInstance(
     // `resolveAuthSecret` closes.
     secret: resolveAuthSecret(),
     baseURL,
-    database: buildAuthDatabaseAdapter(),
+    database: buildAuthDatabaseAdapter(wiring.database),
     // No modelName options: the Drizzle tables name the actual table names.
-    trustedOrigins: [baseURL, ...ssoPlugin.ssoTrustedOrigins(authConfig, ssoContext.envLookup)],
+    trustedOrigins: trustedOriginsOf(baseURL, authConfig, ssoContext.envLookup),
     advanced: buildAdvancedConfig(),
-    emailAndPassword: emailAndPasswordConfig,
-    emailVerification: {
-      sendOnSignUp: emailAndPasswordConfig.requireEmailVerification,
-      autoSignInAfterVerification: true,
-      sendVerificationEmail: handlers.verification,
-    },
+    emailAndPassword,
+    emailVerification: emailVerificationConfig(emailAndPassword, addressChange),
     user: {
-      changeEmail: { enabled: true, sendChangeEmailVerification: handlers.verification },
+      changeEmail: { enabled: true, sendChangeEmailConfirmation: addressChange.confirmation },
       // The account's own interface language — engine-owned, so no app opts in.
       // `input: true` lets a person set their own through `/update-user`; the
       // VALUE is then checked against the app's declared languages by
@@ -198,6 +284,7 @@ export function createAuthInstance(
         emailConfigured: isEmailConfigured(),
         sendConfirmation: handlers.accountDeletion,
         tables: appMeta?.tables,
+        database: wiring.database,
       }),
     },
     socialProviders: buildSocialProviders(authConfig),
@@ -206,16 +293,18 @@ export function createAuthInstance(
       ...appIdentityExtras(appMeta),
       mintDeviceKey,
       hookContext,
+      declaredBaseUrl,
     }),
     rateLimit: buildRateLimitConfig(),
-    // No `deps`: the role guards resolve their own database access. The app
-    // supplies a preference's languages and the sign-out automations.
-    hooks: buildAuthHooks(handlers, authConfig, undefined, { hookContext }),
-    databaseHooks: buildDatabaseHooks(handlers, authConfig, connections, hookContext),
+    // The server-built policies are the guards' reads, rail and records; the
+    // app supplies a preference's languages and the sign-out automations.
+    hooks: buildAuthHooks(handlers, authConfig, policies, { hookContext }),
+    databaseHooks: buildDatabaseHooks(handlers, authConfig, hookContext),
   })
   // Only `userId` and `name`, and no headers: the API-key plugin's server path,
   // which takes the owner from the body and its grant from that owner's role.
   bound.createApiKey = ({ userId, name }) => instance.api.createApiKey({ body: { userId, name } })
+  if (authConfig?.apiKeys) keys.bind(instance.$context)
   return instance
 }
 

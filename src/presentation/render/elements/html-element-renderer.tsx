@@ -53,15 +53,17 @@ export type HTMLElementConfig = {
  * subsequent visitor, needing no authentication to plant. Do not label this
  * branch low-risk.
  *
- * The verdict is settled where provenance is still known.
- * `substituteRecordInContent` (presentation/rendering/data-source-resolver.ts)
- * decides HTML-vs-text from the AUTHOR's template alone: it HTML-escapes record
- * values interpolated into an author HTML template, and sets
- * `data-content-plain-text` whenever record data would otherwise have flipped
- * this branch. Do not "simplify" that pin away, and do not add a new
- * interpolation path into `content` without routing it through the same
- * function — by the time a string arrives here, author markup and record data
- * are one string and indistinguishable.
+ * The verdict is settled where provenance is still known, from the AUTHOR's
+ * template alone: a value interpolated into an author HTML template is
+ * HTML-escaped, and `data-content-plain-text` is set whenever a value would
+ * otherwise have flipped this branch. Two functions take that decision —
+ * `substituteScopesInContent` (resolve/record-substitution.ts) for `$record.*`
+ * and a `repeat` element's own name, and `substituteTemplatesDeep`
+ * (resolve/html-template-values.ts) for the `$app.*`, `$param.*` and
+ * `$query.*` page passes. Do not "simplify" that pin away, and do not add a new
+ * interpolation path into `content` without routing it through one of them —
+ * by the time a string arrives here, author markup and substituted data are one
+ * string and indistinguishable.
  *
  * For user-generated RICH TEXT that is meant to render as markup, use
  * renderCustomHTML, which applies the canonical `sanitizeRichTextHTML`.
@@ -102,7 +104,7 @@ export function renderHTMLElement(config: HTMLElementConfig): ReactElement {
     type,
     children.length > 0,
     !!content,
-    authorProps.role
+    authorProps
   )
   const scrollAttributes = buildScrollAttributes(interactions)
   const elementProps = { ...authorProps, ...accessibilityRole, ...scrollAttributes }
@@ -113,7 +115,7 @@ export function renderHTMLElement(config: HTMLElementConfig): ReactElement {
     return (
       <Element
         {...elementProps}
-        // eslint-disable-next-line sovrium/require-sanitized-html -- author HTML from page config; record values interpolated into it are HTML-escaped upstream by substituteRecordInContent
+        // eslint-disable-next-line sovrium/require-sanitized-html -- author HTML from page config; the $record values interpolated into it are HTML-escaped upstream by substituteScopesInContent, and the $app, $param and $query values by substituteTemplatesDeep
         dangerouslySetInnerHTML={{ __html: content }}
       />
     )
@@ -185,6 +187,60 @@ export function renderHeading(
  * Otherwise renders as span to ensure proper ARIA generic role.
  */
 const TEXT_ELEMENT_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'label'] as const
+
+/** The `element` values the `text` renderer draws as themselves; any other is drawn by `renderTextElement`. */
+const SELF_DRAWN_TEXT_ELEMENTS: ReadonlySet<string> = new Set([
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'p',
+  'pre',
+  'code',
+  'blockquote',
+  'label',
+  'kbd',
+])
+
+/**
+ * The element a `text` node is actually drawn as, for `design.components.text.elements`:
+ * its `element` when the renderer draws that element itself, else what
+ * {@link renderTextElement} falls back to (a `level` it honours, or a `span`).
+ * A markdown `text` draws an article, keyed by no element.
+ *
+ * @param element - The node's `element`, if any.
+ * @param props - The node's resolved `props`.
+ */
+export const drawnTextElement = (
+  element: string | undefined,
+  props: Readonly<Record<string, unknown>> | undefined
+): string | undefined => {
+  if (props?.['format'] === 'markdown') return undefined
+  if (element !== undefined && SELF_DRAWN_TEXT_ELEMENTS.has(element)) return element
+  const level = props?.['level']
+  return TEXT_ELEMENT_TAGS.includes(level as (typeof TEXT_ELEMENT_TAGS)[number])
+    ? (level as string)
+    : 'span'
+}
+
+/**
+ * The element a node of `type` is drawn as, for `design.components.<type>.elements`:
+ * only a `text` has one.
+ *
+ * @param type - The node's component type.
+ * @param component - The node.
+ * @param props - The node's resolved `props`.
+ */
+export const drawnElementOf = (
+  type: string,
+  component: unknown,
+  props: Readonly<Record<string, unknown>> | undefined
+): string | undefined =>
+  type === 'text'
+    ? drawnTextElement((component as { readonly element?: string }).element, props)
+    : undefined
 
 export function renderTextElement(
   props: ElementProps,

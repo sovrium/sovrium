@@ -1,10 +1,10 @@
 # Quick Start
 
-> From an empty file to a running app — in YAML driven by the CLI, or in TypeScript with full type safety.
+> From an empty file to a running app, in YAML driven by the CLI, or in TypeScript with full type safety.
 
 This guide takes you from an empty file to a running Sovrium app. Pick the approach that fits your workflow: a YAML file driven by the CLI, or a TypeScript project for full type safety.
 
-## Option A — YAML and the CLI
+## Option A: YAML and the CLI
 
 The simplest path. Install the binary, write a YAML config, and start the server.
 
@@ -47,7 +47,7 @@ sovrium start app.yaml
 
 Start small with just tables. Then progressively add design, auth, pages and analytics as your needs grow.
 
-## Option B — TypeScript
+## Option B: TypeScript
 
 Prefer type safety? Author the config in TypeScript with full autocompletion, then run it with the same CLI.
 
@@ -104,8 +104,8 @@ You get autocompletion for every property and type errors on field types as you 
 
 Now that your app is running, explore the reference to add more capabilities:
 
-- **Core Concepts** — the anatomy of a Sovrium app.
-- **Schema Overview** — every root property explained.
-- **Tables Overview** — field types, permissions and indexes.
-- **Theme** — colours, fonts, spacing and design tokens.
-- **Pages Overview** — the component types server-rendered pages are built from.
+- **Core Concepts**: the anatomy of a Sovrium app.
+- **Schema Overview**: every root property explained.
+- **Tables Overview**: field types, permissions and indexes.
+- **Theme**: colours, fonts, spacing and design tokens.
+- **Pages Overview**: the component types server-rendered pages are built from.

@@ -2,7 +2,7 @@
 
 > A developer machine and a supervised host want opposite things from the same situation. These variables tell Sovrium which one it is running on.
 
-Everything here is optional, and a server started by hand needs none of it. They matter once an app runs under something that restarts it — a systemd unit, a container orchestrator, a socket-activation proxy — with a reverse proxy or a load balancer in front that expects to find it in one exact place.
+Everything here is optional, and a server started by hand needs none of it. They matter once an app runs under something that restarts it (a systemd unit, a container orchestrator, a socket-activation proxy), with a reverse proxy or a load balancer in front that expects to find it in one exact place.
 
 | Variable                    | Default       | Description                                                                                                                                |
 | --------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -13,11 +13,11 @@ Everything here is optional, and a server started by hand needs none of it. They
 
 ## A busy port
 
-Started by hand with no `PORT`, Sovrium binds `3000`, and if that is taken it binds a free port and prints the real URL — two apps side by side just work. Under a supervisor that fallback is an outage: the unit reports itself running while the proxy in front of it still targets the port it was configured with. So a busy port **refuses to start**, with exit code `1` and a message naming the port — and the process holding it, when the system can tell — whenever the port was chosen on purpose:
+Started by hand with no `PORT`, Sovrium binds `3000`, and if that is taken it binds a free port and prints the real URL, so two apps side by side just work. Under a supervisor that fallback is an outage: the unit reports itself running while the proxy in front of it still targets the port it was configured with. So a busy port **refuses to start**, with exit code `1` and a message naming the port (and the process holding it, when the system can tell), whenever the port was chosen on purpose:
 
 - `PORT` is set to a non-empty value;
 - `SOVRIUM_STRICT_PORT` is `1` or `true`;
-- `INVOCATION_ID` is set — systemd sets it for every unit, so a unit file is strict without saying so.
+- `INVOCATION_ID` is set: systemd sets it for every unit, so a unit file is strict without saying so.
 
 Nothing is written before the refusal: no migration has run, and there is no lock file and no status file. `PORT=0` still means any free port. `SOVRIUM_STRICT_PORT=0` or `false` leaves the decision to the other two signals; any other value refuses to start.
 
@@ -25,7 +25,13 @@ A port counts as busy when another process holds it on any address the bind host
 
 ## The interface
 
-The interface comes from `SOVRIUM_BIND_HOST`. `HOSTNAME` used to carry it, and still does while `SOVRIUM_BIND_HOST` is unset, with one warning per boot. It is being retired because shells and containers export the machine name under that name, which moves the server onto an address nobody chose — or onto one that does not resolve, so the boot fails. The bind also decides the transport posture described in **Env Vars: Core**, so `SOVRIUM_BIND_HOST=0.0.0.0` keeps exactly the posture `HOSTNAME=0.0.0.0` had. A value that is neither `localhost` nor an IP literal refuses to start.
+The interface comes from `SOVRIUM_BIND_HOST`. `HOSTNAME` used to carry it, and still does while `SOVRIUM_BIND_HOST` is unset, with one warning per boot. It is being retired because shells and containers export the machine name under that name, which moves the server onto an address nobody chose, or onto one that does not resolve, so the boot fails. The bind also decides the transport posture described in **Env Vars: Core**, so `SOVRIUM_BIND_HOST=0.0.0.0` keeps exactly the posture `HOSTNAME=0.0.0.0` had. A value that is neither `localhost` nor an IP literal refuses to start.
+
+## What the startup banner warns about
+
+Three `⚠` lines describe a deployment whose posture does not match where it can be reached, and none of them stops the server. A loopback server with `TRUSTED_PROXY_HOPS` set and no public `BASE_URL` is published by a proxy while it still behaves as if it were local (no CSRF checks, no `Secure` cookies, links minted for the socket address), so the banner names `BASE_URL`. An `https` `BASE_URL` with `TRUSTED_PROXY_HOPS` unset reads every visitor's address off the proxy in front of it, so every visitor shares one rate-limit address; the banner names `TRUSTED_PROXY_HOPS`. And on a public origin an app with password sign-in and no mail transport cannot deliver a password reset, so the `Email sending disabled` line appears even when nothing else in the config needs email. Dev mode behind a public origin has its own line, described with the dev-mode variables.
+
+A server bound to loopback with neither `BASE_URL` nor `TRUSTED_PROXY_HOPS` set answers only the names that point at the machine itself (`localhost`, `127.0.0.1`, `[::1]`, the address it binds and any `*.localhost` name) and `404` to any other, so a web page cannot reach it under a name of its own. The first request it receives under another name, or forwarded over `https`, writes one warning naming both variables: set `BASE_URL` to the public address, or `TRUSTED_PROXY_HOPS` to the number of proxies in front of the server.
 
 ## A Unix socket instead of a port
 
@@ -33,9 +39,9 @@ For socket-activated hosting, `SOVRIUM_LISTEN_UNIX` serves HTTP on a Unix socket
 
 ## A database that is not there yet
 
-When the database is unreachable at boot — PostgreSQL stopped, restarting or in crash recovery — the server does not exit. It binds its port and answers `503` on every route while it retries the connection, after one second and then at doubling intervals up to every 30 seconds: `/api/health` and `/api/health?probe=db` report `{ "status": "degraded", "checks": { "db": "error" } }`, API routes return the `SERVICE_UNAVAILABLE` error envelope, pages a short unavailable page, all with a `Retry-After` header. Nothing is migrated and no automation runs until the database answers; then the boot completes in place and the same process turns healthy, with no restart and on the same port.
+When the database is unreachable at boot (PostgreSQL stopped, restarting or in crash recovery), the server does not exit. It binds its port and answers `503` on every route while it retries the connection, after one second and then at doubling intervals up to every 30 seconds: `/api/health` and `/api/health?probe=db` report `{ "status": "degraded", "checks": { "db": "error" } }`, API routes return the `SERVICE_UNAVAILABLE` error envelope, pages a short unavailable page, all with a `Retry-After` header. Nothing is migrated and no automation runs until the database answers; then the boot completes in place and the same process turns healthy, with no restart and on the same port.
 
-The `listening on` line prints as soon as the port is held, suffixed `(degraded: database unreachable)`. A unit's readiness probe should therefore accept `503` as "started" — an `ExecStartPost` loop that only passes on `200` would fail the unit and restart it into the same state. A refused configuration or an unsupported `DATABASE_URL` still exits `1`: only an unreachable database degrades.
+The `listening on` line prints as soon as the port is held, suffixed `(degraded: database unreachable)`. A unit's readiness probe should therefore accept `503` as "started": an `ExecStartPost` loop that only passes on `200` would fail the unit and restart it into the same state. A refused configuration or an unsupported `DATABASE_URL` still exits `1`: only an unreachable database degrades.
 
 ## Exiting when idle
 
@@ -47,7 +53,7 @@ On Linux the runtime sizes its heap against the limit of the container or the sy
 
 ## JSON logs
 
-`SOVRIUM_LOG_FORMAT=json` is for a log collector — journald with a JSON reader, Loki, Vector, a platform's log drain. Every line the server writes becomes one object, the startup banner included, with `time` (ISO 8601), `level`, `message` and the record's structured attributes as further keys — the access log's `request.id`, for one — after the same secret redaction the telemetry export applies. A multi-line block, such as the banner or an error's cause chain, stays one object, its line breaks escaped inside `message`. Debug and info go to stdout, warnings and errors to stderr, exactly as in text mode. It changes how a record is written, never which records are written: `LOG_LEVEL` still decides that.
+`SOVRIUM_LOG_FORMAT=json` is for a log collector: journald with a JSON reader, Loki, Vector, a platform's log drain. Every line the server writes becomes one object, the startup banner included, with `time` (ISO 8601), `level`, `message` and the record's structured attributes as further keys (the access log's `request.id`, for one), after the same secret redaction the telemetry export applies. A multi-line block, such as the banner or an error's cause chain, stays one object, its line breaks escaped inside `message`. Debug and info go to stdout, warnings and errors to stderr, exactly as in text mode. It changes how a record is written, never which records are written: `LOG_LEVEL` still decides that.
 
 ```json
 {
@@ -57,7 +63,7 @@ On Linux the runtime sizes its heap against the limit of the container or the sy
 }
 ```
 
-What dependencies print through the console is captured too — the stylesheet optimiser's warnings when the CSS is compiled at start, for one — with its terminal colours removed. Two things stay outside it: native code writing to the process streams directly, and the runtime's own report of a crash. The format applies to `sovrium start` alone; other commands keep printing text.
+What dependencies print through the console is captured too (the stylesheet optimiser's warnings when the CSS is compiled at start, for one), with its terminal colours removed. Two things stay outside it: native code writing to the process streams directly, and the runtime's own report of a crash. The format applies to `sovrium start` alone; other commands keep printing text.
 
 ## Signing in with Sovrium Cloud
 
@@ -77,30 +83,44 @@ A framing value with a path, a wildcard host, `*`, a keyword such as `'self'`, a
 
 With `SOVRIUM_PREVIEW_TOKEN` set, a visitor meets the app like this:
 
-1. Without the token, every address answers `404` with the platform's plain not-found answer — never your app's own `/404` page, which would show its name and navigation — and no cookie. A wrong token gets the same answer, and nothing says a token exists.
+1. Without the token, every address answers `404` with the platform's plain not-found answer (never your app's own `/404` page, which would show its name and navigation) and no cookie. A wrong token gets the same answer, and nothing says a token exists.
 2. Opening `https://<host>/<path>?preview=<token>` redirects to the same address without `preview`, other query parameters kept, and sets the cookie `__Host-sovrium-preview` (`Secure; HttpOnly; SameSite=None; Path=/`). The address bar and the history no longer carry the token.
 3. From then on the browser is admitted for the life of that cookie, and the app behaves as without the gate, its own sign-in and permissions included. `/_admin` still asks for the console's own sign-in.
 4. Restarting with a different token turns every cookie issued for the old one away.
 
-Without the token, every page, static and public file, everything under `/api` (`/api/auth/*` included), WebSocket and realtime channels, event streams, `/mcp`, inbound webhook addresses (a preview receives no third-party events), `robots.txt` and the sitemap answer `404`. The one exemption is `GET /api/health` asked from the machine itself — from `127.0.0.1` or `::1`, with no `Forwarded`, `X-Forwarded-For` or `X-Real-IP` header — so the supervisor can probe it; it then answers liveness without the app's name. Behind a reverse proxy on the same host, have the proxy set `X-Forwarded-For` (or `Forwarded`) on every request it relays: otherwise a stranger's request reaches the app from `127.0.0.1` and the exemption answers the health probe publicly. Every response carries `X-Robots-Tag: noindex`, every page `<meta name="robots" content="noindex">`, and `robots.txt` disallows everything.
+Without the token, every page, static and public file, everything under `/api` (`/api/auth/*` included), WebSocket and realtime channels, event streams, `/mcp`, inbound webhook addresses (a preview receives no third-party events), `robots.txt` and the sitemap answer `404`. The one exemption is `GET /api/health` asked from the machine itself (from `127.0.0.1` or `::1`, with no `Forwarded`, `X-Forwarded-For` or `X-Real-IP` header), so the supervisor can probe it; it then answers liveness without the app's name. Behind a reverse proxy on the same host, have the proxy set `X-Forwarded-For` (or `Forwarded`) on every request it relays: otherwise a stranger's request reaches the app from `127.0.0.1` and the exemption answers the health probe publicly. Every response carries `X-Robots-Tag: noindex`, every page `<meta name="robots" content="noindex">`, and `robots.txt` disallows everything.
 
 The cookie needs HTTPS: browsers accept `Secure` cookies on `http://localhost`, so the flow works in development, but not over plain HTTP to any other host. A token shorter than 32 characters stops the start with `SOVRIUM_PREVIEW_TOKEN must be at least 32 characters`. The start-up banner says `Preview: only requests carrying the preview token are answered`; the token never appears in a log line or an error, and the access log writes `?preview=***`. With both variables set, your page frames the preview at `?preview=<token>`, and the cookie works inside that frame.
 
+## A front-end on another origin
+
+A front-end you host yourself on another origin (a static site, a framework app on its own domain, a dev server on `http://localhost:5173`) calls the records API, the files API and the sign-in routes from the visitor's browser. The browser only lets it read the answers when the instance names its origin.
+
+| Variable               | Default                                               | Description                                                                                                                                                                                                                                                        |
+| ---------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SOVRIUM_CORS_ORIGINS` | unset (no other site may call the API from a browser) | Origins whose browser code may call `/api/tables/*`, `/api/buckets/*` and `/api/auth/*` with the visitor's session, separated by commas or spaces. Each is `https://host` or `https://host:port`, or `http://localhost` / `http://127.0.0.1` with an optional port |
+
+```bash
+SOVRIUM_CORS_ORIGINS=https://app.example.com,http://localhost:5173
+```
+
+Each listed origin is answered with its own origin in `Access-Control-Allow-Origin` and `Access-Control-Allow-Credentials: true`, its preflights are granted, and the sign-in routes accept its cookie-bearing requests, so `fetch(url, { credentials: 'include' })` signs a person in and reads and writes records as them. On a public deployment the session cookie becomes `SameSite=None; Secure`, which a front-end on another site needs, and, on every public deployment whether or not this variable is set, a request carrying the session cookie that changes something or opens a live subscription is refused with `403` when its `Origin` is neither the app's own, an SSO provider's nor one listed here. A request with no `Origin`, from a server or a script, is not affected. The operator API under `/api/admin` never answers another origin. Case, one trailing `/` and a default port are ignored, so a value pasted from the address bar works. A wildcard, `*`, a path, `http://` to a host other than localhost, or a value that names nothing stops the start with one line naming the variable and the entry, for instance `SOVRIUM_CORS_ORIGINS: "https://*.example.com" is not allowed (no wildcard host)`. The variable is read once at start. **Security Hardening** describes the cross-origin checks it changes.
+
 ## Supervising other Sovrium apps
 
-A machine can run many Sovrium apps, each as its own systemd unit, with one more app — the fleet agent — supervising them through the `instance` automation actions. These variables set the agent up; every other app leaves them unset.
+A machine can run many Sovrium apps, each as its own systemd unit, with one more app (the fleet agent) supervising them through the `instance` automation actions. These variables set the agent up; every other app leaves them unset.
 
 | Variable                       | Default                    | Description                                                                                                         |
 | ------------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `SOVRIUM_HOST_ACTIONS`         | unset (off)                | `1` or `true` enables the `instance` actions. With it set, an app that can run `code/runTypescript` refuses to boot |
 | `SOVRIUM_INSTANCES_DIR`        | unset                      | Directory holding one folder per supervised app: its releases, `current`, `env` and `status.json`                   |
-| `SOVRIUM_BUNDLE_PUBLIC_KEYS`   | unset                      | `<id>:<base64>[,…]` — the Ed25519 public keys a release must be signed with, also read by `crypto/verify` `keyId`   |
+| `SOVRIUM_BUNDLE_PUBLIC_KEYS`   | unset                      | `<id>:<base64>[,…]`: the Ed25519 public keys a release must be signed with, also read by `crypto/verify` `keyId`    |
 | `SOVRIUM_SYSTEMCTL_PATH`       | `systemctl`                | The `systemctl` binary the actions run                                                                              |
 | `SOVRIUM_JOURNALCTL_PATH`      | `journalctl`               | The `journalctl` binary `instance/logs` runs                                                                        |
 | `SOVRIUM_ENGINES_DIR`          | `/var/lib/sovrium/engines` | The engine store: one `<version>/sovrium` per Sovrium release a supervised app runs on                              |
 | `SOVRIUM_UPDATE_DOWNLOAD_HOST` | `github.com`               | Host Sovrium releases are downloaded from, by `instance/engineInstall` and `sovrium update`, reached over HTTPS     |
 
-The switch is deliberately an environment variable and never a config key: a config cannot grant itself reach over the machine it runs on. Set it only on a host dedicated to supervising other Sovrium apps — the **Instance Actions** article lists what it allows and what it forbids.
+The switch is deliberately an environment variable and never a config key: a config cannot grant itself reach over the machine it runs on. Set it only on a host dedicated to supervising other Sovrium apps. The **Instance Actions** article lists what it allows and what it forbids.
 
 ## An app that resets itself
 
@@ -110,4 +130,4 @@ A demo, sandbox or training app can bring itself back to its seed from one of it
 | ------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `SOVRIUM_SELF_SEED` | unset (off) | Switches on the `app/seed` automation action: `reset` allows every mode, any other value allows `if-empty` and `upsert` only; unset, an automation holding the step is not scheduled |
 
-Like the switch above, it is an environment variable and never a config key: a template that ships a nightly reset must not wipe the data of an app built from it. An automation whose step the variable does not allow is not scheduled at all, and the server names it once at boot — the **App Actions** article has the details.
+Like the switch above, it is an environment variable and never a config key: a template that ships a nightly reset must not wipe the data of an app built from it. An automation whose step the variable does not allow is not scheduled at all, and the server names it once at boot. The **App Actions** article has the details.

@@ -8,11 +8,14 @@
 import backupBody from '@/cli/commands/backup.docs.md' with { type: 'file' }
 import bundleBody from '@/cli/commands/bundle.docs.md' with { type: 'file' }
 import cliAdminBody from '@/cli/commands/cli-admin.docs.md' with { type: 'file' }
+import clientBody from '@/cli/commands/client.docs.md' with { type: 'file' }
 import deployBody from '@/cli/commands/deploy.docs.md' with { type: 'file' }
 import envBody from '@/cli/commands/env.docs.md' with { type: 'file' }
-import initFromBundleBody from '@/cli/commands/init-from-bundle.docs.md' with { type: 'file' }
+import initFromBundleBody from '@/cli/commands/init/from-bundle.docs.md' with { type: 'file' }
+import initFromUrlBody from '@/cli/commands/init/from-url.docs.md' with { type: 'file' }
 import loginBody from '@/cli/commands/login.docs.md' with { type: 'file' }
 import previewBody from '@/cli/commands/preview.docs.md' with { type: 'file' }
+import reindexBody from '@/cli/commands/reindex.docs.md' with { type: 'file' }
 import usageBody from '@/cli/commands/usage.docs.md' with { type: 'file' }
 import { defineArticle } from './define'
 import type { DocArticle } from './define'
@@ -21,17 +24,58 @@ import type { DocArticle } from './define'
  * The operating commands, as articles of the CLI section.
  *
  * Administering a deployment, backing it up, bundling it (and opening a bundle
- * back as a project) and shipping it to a cloud live in their own module
+ * or a published config back as a project), shipping it to a cloud and writing a typed client for it live in their own module
  * rather than in `cli-api.ts` because that file reached its line ceiling. They stay part of the CLI section, in their
  * published order, and the section assembles them by spread — the same split
  * `fields-derived.ts` makes for the Fields section.
  */
 export const operateCliArticles: readonly DocArticle[] = [
   defineArticle({
+    slug: 'cli-client',
+    title: 'Call the API from Your Own Front-End',
+    description:
+      'Write one typed, dependency-free TypeScript client for the records API with sovrium client, and call your app from a React site, a mobile app or a script.',
+    keywords: [
+      'sovrium client',
+      'typed client',
+      'front-end',
+      'fetch',
+      'SDK',
+      'records API',
+      'SOVRIUM_CORS_ORIGINS',
+      'x-api-key',
+      '--check',
+    ],
+    order: 1423,
+    sidebarLabel: 'Typed API Client',
+    body: clientBody,
+    documents: [],
+    stories: ['US-CLI-COMMANDS-CLIENT'],
+  }),
+  defineArticle({
+    slug: 'cli-reindex',
+    title: 'Rebuilding the AI Knowledge Index',
+    description:
+      'Re-embed the knowledge documents and agent knowledge tables from the command line with sovrium reindex, on an app with or without auth.',
+    keywords: [
+      'sovrium reindex',
+      'knowledge index',
+      'RAG',
+      'embeddings',
+      'AI_KNOWLEDGE_DIR',
+      'rebuild',
+    ],
+    order: 1426,
+    sidebarLabel: 'Rebuilding the AI Index',
+    body: reindexBody,
+    documents: [],
+    stories: ['US-CLI-COMMANDS-REINDEX'],
+  }),
+  defineArticle({
     slug: 'cli-admin',
     title: 'Admin & Maintenance',
     description:
-      'Operate a deployment from the CLI — provision the first admin account and reset its password, generate cryptographic secrets, adopt an existing encryption key, and keep the binary current.',
+      'Operate a deployment from the CLI: create the first admin and reset its password, generate secrets, adopt an existing encryption key, keep the binary current.',
     keywords: [
       'sovrium admin create',
       'sovrium admin reset-password',
@@ -73,7 +117,7 @@ export const operateCliArticles: readonly DocArticle[] = [
     slug: 'usage',
     title: 'Measure an Install',
     description:
-      'Print how many bytes an install holds with sovrium usage: the database with its write-ahead log or its PostgreSQL size, and the stored files, without changing anything.',
+      'Print how many bytes an install holds with sovrium usage: the database with its write-ahead log or its PostgreSQL size, and the stored files. Changes nothing.',
     keywords: [
       'sovrium usage',
       'usage',
@@ -93,7 +137,7 @@ export const operateCliArticles: readonly DocArticle[] = [
     slug: 'bundle',
     title: 'Bundle an App',
     description:
-      'Package an app for deployment with sovrium bundle: the config resolved and validated into JSON, the static files and the seed data, every entry checksummed in one archive.',
+      'Package an app for deployment with sovrium bundle: the config resolved and validated into JSON, static files and seed data, each checksummed in one archive.',
     keywords: [
       'sovrium bundle',
       'bundle',
@@ -114,7 +158,7 @@ export const operateCliArticles: readonly DocArticle[] = [
     slug: 'cli-init-from-bundle',
     title: 'Opening a Bundle',
     description:
-      'Turn an archive written by sovrium bundle back into a project you edit, from a link, a file: URL or a path on disk, checked from end to end before a single file is written.',
+      'Turn a sovrium bundle archive back into an editable project, from a link, a file: URL or a path, checked end to end before a single file is written.',
     keywords: [
       'sovrium init --from-bundle',
       'bundle',
@@ -132,10 +176,31 @@ export const operateCliArticles: readonly DocArticle[] = [
     stories: [],
   }),
   defineArticle({
+    slug: 'cli-init-from-url',
+    title: 'Forking a Published Config',
+    description:
+      'Create a project from one YAML or JSON config published over HTTPS: fetched once, checked before a single file is written, and recorded with where it came from.',
+    keywords: [
+      'sovrium init --from-url',
+      'fork',
+      'published config',
+      '.sovrium-template.json',
+      'provenance',
+      'redirects',
+      '--inspect',
+      '--expect-sha256',
+    ],
+    order: 1420.5,
+    sidebarLabel: 'Forking a Config',
+    body: initFromUrlBody,
+    documents: [],
+    stories: [],
+  }),
+  defineArticle({
     slug: 'login',
     title: 'Sign In to a Sovrium Cloud',
     description:
-      'Sign the CLI in with sovrium login: approve a short code in the browser and keep an API key on this machine for sovrium deploy, or paste a key, check it and sign out.',
+      'Sign the CLI in with sovrium login: approve a short code in the browser and keep an API key here for sovrium deploy, or paste a key, check it and sign out.',
     keywords: [
       'sovrium login',
       'sign in',
@@ -156,7 +221,7 @@ export const operateCliArticles: readonly DocArticle[] = [
     slug: 'deploy',
     title: 'Deploy to a Sovrium Cloud',
     description:
-      'Ship an app with sovrium deploy: the app found or created from the config name, its required variables checked, the bundle uploaded with an idempotency key, and every state printed until its address answers.',
+      'Ship an app with sovrium deploy: the app found or created by name, its required variables checked, the bundle uploaded once, each state printed until it is up.',
     keywords: [
       'sovrium deploy',
       'deploy',
@@ -184,7 +249,7 @@ export const operateCliArticles: readonly DocArticle[] = [
     slug: 'cloud-env',
     title: "A Hosted App's Variables",
     description:
-      'Set, list and remove the environment variables of an app on a Sovrium Cloud with sovrium env: from a file you name, names only, secret by default, never a value printed.',
+      "Set, list and remove an app's environment variables on Sovrium Cloud with sovrium env: from a file, names only, secret by default, never a value printed.",
     keywords: [
       'sovrium env',
       'sovrium env push',
@@ -206,7 +271,7 @@ export const operateCliArticles: readonly DocArticle[] = [
     slug: 'preview',
     title: 'Share a Preview',
     description:
-      'Put a change online with sovrium preview: the same bundle sovrium deploy ships, running at a share address of its own until it expires, while the live app stays as it is — then promote it with sovrium deploy --from-preview.',
+      'Put a change online with sovrium preview, at its own share address until it expires, while the live app stays as it is; promote it with deploy --from-preview.',
     keywords: [
       'sovrium preview',
       'preview',

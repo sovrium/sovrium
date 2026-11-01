@@ -252,7 +252,7 @@ export const MatrixAxisSchema = Schema.Struct({
     )
       .annotate({
         description:
-          'Node kinds admitted onto this axis, as the BOUND GRAPH spells them — open strings, never a platform vocabulary. Omitted: every node the graph returns is admitted.',
+          'Node kinds admitted onto this axis, as the BOUND GRAPH spells them: open strings, never a platform vocabulary. Omitted: every node the graph returns is admitted.',
         examples: [
           ['table', 'page', 'form', 'bucket', 'agent-resource'],
           ['role', 'team', 'open'],
@@ -413,7 +413,7 @@ export const MatrixCellSchema = Schema.Struct({
   kind: Schema.optional(
     Schema.String.annotate({
       description:
-        'Edge kind admitted as a cell — every other edge is ignored. Names the bound graph’s own edge vocabulary, so it is an open string. Omitted: every edge between an axis pair fills its cell.',
+        'Edge kind admitted as a cell; every other edge is ignored. Names the bound graph’s own edge vocabulary, so it is an open string. Omitted: every edge between an axis pair fills its cell.',
       examples: ['grant'],
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),

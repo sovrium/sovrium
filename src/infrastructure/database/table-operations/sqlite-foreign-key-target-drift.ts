@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getPhysicalTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, type SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import type { Table } from '@/domain/models/app/tables'
@@ -30,7 +29,7 @@ export const sqliteForeignKeyTargetsStale = (
   table: Table
 ): Effect.Effect<boolean, SQLExecutionError> =>
   Effect.gen(function* () {
-    if (!isSqliteRuntime()) return false
+    if (tx.dialect !== 'sqlite') return false
     const relation = getPhysicalTableName(table).replaceAll("'", "''")
     const rows = yield* executeSQL(
       tx,

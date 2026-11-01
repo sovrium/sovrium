@@ -37,12 +37,20 @@ import {
   computeCommentEmptyClasses,
   computeCommentFormClasses,
   computeCommentThreadClasses,
+  computeCommentTitleClasses,
 } from '@/presentation/design/comments-default-classes'
+import { InlineScript } from '@/presentation/design/inline-script'
 import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
+import {
+  guestFormLabelsOf,
+  guestFormRefusalAttributes,
+  type GuestFormLabels,
+} from './guest-comment-labels'
 import { GUEST_COMMENT_FORM_RUNTIME } from './guest-comment-runtime'
 import {
   buildCommentCountIslandProps,
   buildCommentThreadIslandProps,
+  commentsTitleIdOf,
   pickString,
   resolveCommentCountFields,
   resolveCommentsFields,
@@ -107,27 +115,6 @@ const COMMENT_FIELD_ROW = 'grid gap-1'
 
 const COMMENT_FIELD_LABEL = 'text-sm font-medium'
 
-/** The guest form's labels and submit, and the thread's accessible name, in the page language. */
-interface GuestFormLabels {
-  readonly name: string
-  readonly email: string
-  readonly comment: string
-  readonly submit: string
-  readonly section: string
-}
-
-/** The `comments.*` words the SSR thread draws itself, resolved for the page language. */
-const guestFormLabelsOf = (
-  currentLang: string | undefined,
-  languages: Parameters<typeof resolveInterpreterString>[2]
-): GuestFormLabels => ({
-  name: resolveInterpreterString('comments.guestName', currentLang, languages),
-  email: resolveInterpreterString('comments.guestEmail', currentLang, languages),
-  comment: resolveInterpreterString('comments.guestComment', currentLang, languages),
-  submit: resolveInterpreterString('comments.submit', currentLang, languages),
-  section: resolveInterpreterString('comments.sectionLabel', currentLang, languages),
-})
-
 /**
  * Render the guest comment form skeleton (PG-02 guest-comments). Shown in SSR
  * when the table's `comments.guestComments === true`. The form posts to the
@@ -161,6 +148,7 @@ function GuestCommentFormSkeleton({
     <form
       data-comments-form="guest"
       data-comments-guest-email-required={String(guestEmailRequired)}
+      {...guestFormRefusalAttributes(labels)}
       className={`comments-form ${computeCommentFormClasses()}`}
       method="post"
       noValidate
@@ -207,6 +195,41 @@ function GuestCommentFormSkeleton({
 }
 
 /**
+ * The top of the server-drawn thread: its title, when it has one (the mounted
+ * thread redraws it under the same id, so it keeps naming the section), and the
+ * empty-state sentence, which `hideWhenEmpty` leaves out.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- server-side component-registry module, not a hot-reload candidate; helper components co-locate with the registry by convention
+function CommentsSectionHead({
+  f,
+  titleId,
+}: {
+  readonly f: ReturnType<typeof resolveCommentsFields>
+  readonly titleId: string | undefined
+}): ReactElement {
+  return (
+    <>
+      {titleId !== undefined && (
+        <h2
+          id={titleId}
+          className={computeCommentTitleClasses()}
+        >
+          {f.title}
+        </h2>
+      )}
+      {f.hideWhenEmpty !== true && (
+        <p
+          data-comments-empty-state=""
+          className={computeCommentEmptyClasses()}
+        >
+          {f.emptyText}
+        </p>
+      )}
+    </>
+  )
+}
+
+/**
  * SSR comments-section renderer.
  *
  * Emits an accessible section keyed by `data-component="comments"` with the
@@ -234,6 +257,7 @@ function renderCommentsSection(input: {
   const showGuestForm = cfg.guestComments && cfg.commentPermissionAllowsAll
   const testId =
     typeof elementProps['data-testid'] === 'string' ? elementProps['data-testid'] : undefined
+  const titleId = f.title === undefined ? undefined : commentsTitleIdOf(f)
   return (
     <section
       id={f.id}
@@ -251,7 +275,8 @@ function renderCommentsSection(input: {
       data-island={islandProps ? 'comments' : undefined}
       data-island-props={islandProps}
       data-testid={testId}
-      aria-label={input.labels.section}
+      aria-label={titleId === undefined ? input.labels.section : undefined}
+      aria-labelledby={titleId}
       // Settled, and truthfully so: nothing is in flight before the island
       // hydrates. The island keeps it in step afterwards, because a thread
       // that fetches its next page on scroll has no button left to announce
@@ -261,12 +286,10 @@ function renderCommentsSection(input: {
       aria-busy="false"
       className={`comments ${computeCommentThreadClasses()}`}
     >
-      <p
-        data-comments-empty-state=""
-        className={computeCommentEmptyClasses()}
-      >
-        {f.emptyText}
-      </p>
+      <CommentsSectionHead
+        f={f}
+        titleId={titleId}
+      />
       {showGuestForm && (
         <>
           <GuestCommentFormSkeleton
@@ -275,8 +298,7 @@ function renderCommentsSection(input: {
             guestEmailRequired={cfg.guestEmailRequired}
             honeypotEnabled={showGuestForm}
           />
-          {/* eslint-disable-next-line sovrium/require-sanitized-html -- engine-authored runtime script constant; no config or record value is interpolated into it */}
-          <script dangerouslySetInnerHTML={{ __html: GUEST_COMMENT_FORM_RUNTIME }} />
+          <InlineScript source={GUEST_COMMENT_FORM_RUNTIME} />
         </>
       )}
     </section>

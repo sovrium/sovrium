@@ -6,19 +6,21 @@
  */
 
 /**
- * The `og:image` tag whose address is a site path — one leading `/`, never the
- * protocol-relative `//`. React writes the `property` attribute before
- * `content` (the order `renderMetaTags` spreads them in), so the tag is matched
- * in that one shape.
+ * The `og:image` and `twitter:image` tags whose address is a site path — one
+ * leading `/`, never the protocol-relative `//`. React writes the `property`
+ * (or `name`) attribute before `content` (the order `renderMetaTags` spreads
+ * them in), so each tag is matched in that one shape.
  */
-const PATH_SHARING_IMAGE = /(<meta property="og:image" content=")(\/(?!\/))/
+const PATH_SHARING_IMAGE =
+  /(<meta (?:property="og:image"|name="twitter:image") content=")(\/(?!\/))/g
 
 /**
- * Make a page's sharing image a full address on the host the request arrived
+ * Make a page's sharing images a full address on the host the request arrived
  * on.
  *
  * A social network fetches `og:image` with no page around it, so a path such as
- * `/og-en.png` — declared directly, or the value of a `$t:` key — resolves
+ * `/og-en.png` — declared directly, the value of a `$t:` key, or the files
+ * address of a record's attachment — resolves
  * against nothing. The host is known only per request, which is why this runs
  * on the rendered document rather than in the head component, which never sees
  * the request. Without an origin (a static render) the path is left as written.

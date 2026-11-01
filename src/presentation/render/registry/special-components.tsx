@@ -11,6 +11,7 @@ import {
 } from '@/domain/models/app/languages/translation-resolver'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { computeListLoadMoreClasses } from '@/presentation/design/list-default-classes'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   hostClassName,
   hostComponentType,
@@ -25,6 +26,7 @@ import {
   type ListDisplayProps,
 } from './list-island-host'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
+import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
 import type { ReactElement } from 'react'
 
 /** Stable identity for the search-list SSR placeholder input. */
@@ -214,6 +216,22 @@ function extractListProps(elementProps: Record<string, unknown>): {
 }
 
 /**
+ * The `<ul>` props of a list drawn from its children, with its declared `list`
+ * part classes applied as a list drawn from an item template applies them. A
+ * list with no declared part keeps its props untouched, so it renders exactly
+ * as before.
+ */
+function withListPartClasses(
+  domProps: Record<string, unknown>,
+  styles: Pick<ComponentDesignResolution, 'parts' | 'partFloors'> | undefined
+): Record<string, unknown> {
+  const declared = styles?.parts['list']
+  if (declared === undefined) return domProps
+  const own = domProps['className'] as string | undefined
+  return { ...domProps, className: resolveClasses('', declared, own, styles?.partFloors['list']) }
+}
+
+/**
  * Renders the list with optional pagination UI
  */
 function renderListWithPagination(
@@ -284,7 +302,12 @@ export const specialComponents: Partial<Record<DispatchableComponentType, Compon
     // Render list with children (data-bound or static) when no HTML content string
     if (!content && renderedChildren.length > 0) {
       const loadMoreLabel = resolveInterpreterString('list.loadMore', currentLang, languages)
-      return renderListWithPagination(domProps, renderedChildren, pagination, loadMoreLabel)
+      return renderListWithPagination(
+        withListPartClasses(domProps, designStyles),
+        renderedChildren,
+        pagination,
+        loadMoreLabel
+      )
     }
     // Ensure data-bound lists are visible even when empty (no records in table)
     if (dataSourceBound && !content) {

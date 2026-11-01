@@ -18,12 +18,13 @@
  * an exchange naming no table is replayed as it is.
  */
 
+import { Effect } from 'effect'
 import { logError } from '@/infrastructure/logging/logger'
 import { passesChatTableGate, type ChatReader } from './chat-read-scope'
 import { keepListedTables } from './chat-reader-rows'
 import { projectAppTables } from './chat-table-projection'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { App } from '@/domain/models/app'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /** The parts of a stored message the replay judgement reads. */
 interface JudgedMessage {
@@ -53,22 +54,23 @@ const tablesNamedBy = (exchange: ReadonlyArray<JudgedMessage>): ReadonlyArray<st
  * list admits her a row — the test every chat read applies. A table the app no
  * longer declares is listed by nobody.
  */
-const listedOf = async (
+const listedOf = (
   scope: ReplayScope,
   named: ReadonlySet<string>
-): Promise<ReadonlySet<string>> => {
-  const { services, app, reader } = scope
+): Effect.Effect<ReadonlySet<string>, never, DataSourceRepository> => {
+  const { app, reader } = scope
   const tables = projectAppTables(app)
   const candidates = tables.filter(
     (table) => named.has(table.name) && passesChatTableGate(app, tables, table, reader)
   )
-  const listed = await keepListedTables(services, app, candidates, reader)
-  return new Set(listed.map((table) => table.name))
+  return Effect.map(
+    keepListedTables(app, candidates, reader),
+    (listed) => new Set(listed.map((table) => table.name))
+  )
 }
 
 /** What a replay is judged against: the app as it runs, and who is chatting. */
 export interface ReplayScope {
-  readonly services: DomainContext
   readonly app: App | undefined
   readonly reader: ChatReader
 }
@@ -80,20 +82,26 @@ export interface ReplayScope {
  * item naming a table is left out — an item that cannot be judged is never
  * handed back. `judged` names what is judged, for that log line.
  */
-export const keepListedBy = async <T>(
+export const keepListedBy = <T>(
   scope: ReplayScope,
   items: ReadonlyArray<T>,
   tablesOf: (item: T) => ReadonlyArray<string>,
   judged: string
-): Promise<ReadonlyArray<T>> => {
+): Effect.Effect<ReadonlyArray<T>, never, DataSourceRepository> => {
   const named = new Set(items.flatMap(tablesOf))
-  if (named.size === 0) return items
-  const listed = await listedOf(scope, named).catch((cause: unknown) => {
-    // Swallowed on purpose: the answer goes on without the items it could not judge.
-    logError(`[ai-chat] judging ${judged} failed; items naming a table are left out`, cause)
-    return new Set<string>()
-  })
-  return items.filter((item) => tablesOf(item).every((table) => listed.has(table)))
+  if (named.size === 0) return Effect.succeed(items)
+  return listedOf(scope, named).pipe(
+    Effect.catchCause((cause) =>
+      Effect.sync(() => {
+        // Swallowed on purpose: the answer goes on without the items it could not judge.
+        logError(`[ai-chat] judging ${judged} failed; items naming a table are left out`, cause)
+        return new Set<string>()
+      })
+    ),
+    Effect.map((listed) =>
+      items.filter((item) => tablesOf(item).every((table) => listed.has(table)))
+    )
+  )
 }
 
 /**
@@ -101,8 +109,11 @@ export const keepListedBy = async <T>(
  * not list now, in their order ({@link keepListedBy}, failing closed the same
  * way).
  */
-export const keepListedExchanges = async <M extends JudgedMessage>(
+export const keepListedExchanges = <M extends JudgedMessage>(
   scope: ReplayScope,
   messages: ReadonlyArray<M>
-): Promise<ReadonlyArray<M>> =>
-  (await keepListedBy(scope, exchangesOf(messages), tablesNamedBy, 'the replayed history')).flat()
+): Effect.Effect<ReadonlyArray<M>, never, DataSourceRepository> =>
+  Effect.map(
+    keepListedBy(scope, exchangesOf(messages), tablesNamedBy, 'the replayed history'),
+    (kept) => kept.flat()
+  )

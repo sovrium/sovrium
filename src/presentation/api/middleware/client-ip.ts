@@ -50,7 +50,7 @@ const trustedProxyHops = (): number => {
   if (cachedHops !== undefined) return cachedHops
   const resolved = ((): number => {
     try {
-      return parseTrustedProxyHops()
+      return parseTrustedProxyHops(process.env)
     } catch (error) {
       logError(
         '[client-ip] TRUSTED_PROXY_HOPS is not a valid hop count — falling back to 0 (no forwarding header trusted)',

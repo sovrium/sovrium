@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { withoutFieldsReadByNoOne } from '@/domain/models/app/tables/field-read-filter-service'
 import type { App } from '@/domain/models/app'
 
@@ -16,20 +17,17 @@ export interface RetryEnvelope {
   readonly data: { readonly record: Readonly<Record<string, unknown>> }
 }
 
-const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 /**
  * The stored payload as an object. The delivery log holds it as JSON text, and
  * both engines hand that text back, so it is parsed here; anything that does
  * not parse to an object reads as no payload at all.
  */
 const storedEnvelopeOf = (stored: unknown): Readonly<Record<string, unknown>> => {
-  if (isObject(stored)) return stored
+  if (isRecord(stored)) return stored
   if (typeof stored !== 'string') return {}
   try {
     const parsed: unknown = JSON.parse(stored)
-    return isObject(parsed) ? parsed : {}
+    return isRecord(parsed) ? parsed : {}
   } catch {
     return {}
   }
@@ -50,7 +48,7 @@ export const rebuildRetryPayload = (input: {
   readonly timestamp: string
 }): RetryEnvelope => {
   const { data, event, table } = storedEnvelopeOf(input.stored)
-  const record = isObject(data) && isObject(data['record']) ? data['record'] : {}
+  const record = isRecord(data) && isRecord(data['record']) ? data['record'] : {}
   return {
     event: typeof event === 'string' ? event : input.event,
     table: typeof table === 'string' ? table : input.tableName,

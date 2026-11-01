@@ -26,6 +26,7 @@ import {
   ListEmptyState,
   ListNoMatchState,
 } from './admin-agent-conversations-states'
+import { useAgentConversationString as useWord } from './admin-agent-conversations-strings'
 
 /** The row's trailing chevron, on a phone, where a tap opens the thread in its place. */
 function RowChevron(): ReactElement {
@@ -153,7 +154,7 @@ export function ConversationList(props: ConversationListProps): ReactElement {
   const shown = props.selectedId === undefined ? 'flex' : 'hidden @2xl:flex'
   return (
     <section
-      aria-label="Conversations"
+      aria-label={useWord('list', 'Conversations')}
       className={`${shown} w-full flex-col gap-3 ${props.alone === true ? '' : '@2xl:w-80 @2xl:shrink-0'}`}
     >
       <AgentFilter

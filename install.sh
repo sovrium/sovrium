@@ -9,12 +9,27 @@
 # Options:
 #   --no-modify-path          Don't add Sovrium to your shell PATH
 #   --version X.Y.Z           Install a specific version (default: latest)
+#   --allow-unsigned          Install on the checksum alone when the release
+#                             signature CANNOT be checked here (no Ed25519
+#                             verifier, or a version older than signing).
+#                             A signature that is checked and fails still
+#                             stops the install. Prints a warning.
 #   --insecure-skip-checksum  Install WITHOUT verifying the published sha256
-#                             (not recommended; prints a warning)
+#                             nor the release signature (not recommended;
+#                             prints a warning)
 #
 # Every download is HTTPS-only (TLS 1.2+), and the archive is installed only
 # when its published sha256 can be fetched AND matches. A missing, unreadable
-# or mismatching checksum stops the install with nothing written.
+# or mismatching checksum stops the install with nothing written. The archive's
+# detached Ed25519 signature (`<archive>.sig`) is then checked against the
+# release keys below: a missing or invalid signature stops the install too.
+#
+# The verifier is an OpenSSL that can verify Ed25519, or else the system Perl
+# (core modules only: Math::BigInt, Digest::SHA, MIME::Base64), which is what
+# stock macOS offers, since its `openssl` is LibreSSL and cannot. Each is
+# proved against an RFC 8032 test vector before it is trusted. With neither,
+# the install STOPS and prints the command to verify by hand, unless
+# --allow-unsigned is passed.
 #
 # Environment variables:
 #   SOVRIUM_INSTALL_DIR   Custom install PREFIX (default: ~/.sovrium). The
@@ -46,11 +61,25 @@ die()  {
 # happen, so a warning cannot scroll away above 500 lines of tar output. The
 # closing banner renders them.
 CHECKSUM_WARNING=""
+SIGNATURE_WARNING=""
 PATH_UPDATED=""
 
 # ─── Configuration ────────────────────────────────────────────
 
 GITHUB_REPO="sovrium/sovrium"
+
+# The public halves of the Ed25519 keys that sign release archives, as the
+# base64 body of a PEM `PUBLIC KEY` (SPKI DER). One per line; a rotation adds
+# the next key beside the current one. These MUST be the keys of
+# EMBEDDED_RELEASE_SIGNING_KEYS in src/domain/kernel/identity/release-signature.ts,
+# which `sovrium update` trusts; a unit test there holds the two lists equal.
+RELEASE_SIGNING_KEYS="MCowBQYDK2VwAyEAuzZiNLZgfcvphKt/migBwIh4zENL2YNZE0FWTeJaLFY="
+
+# The first release whose archives carry a `.sig`. An older version asked for
+# with --version has none to check, so it is refused unless --allow-unsigned
+# is passed; it then installs on its checksum alone and the closing banner
+# says so.
+FIRST_SIGNED_VERSION="0.33.0"
 INSTALL_DIR="${SOVRIUM_INSTALL_DIR:-$HOME/.sovrium}"
 BIN_DIR="$INSTALL_DIR/bin"
 
@@ -59,6 +88,7 @@ BIN_DIR="$INSTALL_DIR/bin"
 MODIFY_PATH=1
 VERSION=""
 SKIP_CHECKSUM=0
+ALLOW_UNSIGNED=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -69,13 +99,15 @@ while [ $# -gt 0 ]; do
       ;;
     --version=*) VERSION="${1#--version=}" ;;
     --insecure-skip-checksum) SKIP_CHECKSUM=1 ;;
+    --allow-unsigned) ALLOW_UNSIGNED=1 ;;
     --help|-h)
       printf '%s\n' "Usage: curl -fsSL https://sovrium.com/install | sh"
       printf '\n%s\n' "Install the Sovrium binary and add it to your PATH."
       printf '\n%s\n' "Options:"
       printf '%s\n' "  --no-modify-path              Leave your shell rc files alone"
       printf '%s\n' "  --version X.Y.Z               Install a specific version (default: latest)"
-      printf '%s\n' "  --insecure-skip-checksum      Install without verifying the sha256 (not recommended)"
+      printf '%s\n' "  --allow-unsigned              Install on the checksum alone when the signature cannot be checked here"
+      printf '%s\n' "  --insecure-skip-checksum      Install without verifying the sha256 or signature (not recommended)"
       printf '%s\n' "  --help, -h                    Show this help message"
       printf '\n%s\n' "Environment variables:"
       printf '%s\n' "  SOVRIUM_INSTALL_DIR           Install prefix (default: ~/.sovrium)"
@@ -184,12 +216,12 @@ fetch_latest_version() {
 # the closing banner.
 CHECKSUM_REPORT="If this keeps happening, do not install by hand: report it to
 security@sovrium.com (or https://github.com/$GITHUB_REPO/issues), quoting the
-version and platform above. The checksum protects you from a corrupted or
-tampered download."
+version and platform above. The checksum and the release signature protect
+you from a corrupted or tampered download."
 
 verify_checksum() {
   if [ "$SKIP_CHECKSUM" -eq 1 ]; then
-    CHECKSUM_WARNING="Checksum NOT verified — installed with --insecure-skip-checksum"
+    CHECKSUM_WARNING="Checksum and signature NOT verified — installed with --insecure-skip-checksum"
     return
   fi
 
@@ -233,6 +265,255 @@ ${CHECKSUM_REPORT}"
   fi
 }
 
+# ─── Release signature ───────────────────────────────────────
+
+# version_before <a> <b> : true when version a sorts before version b.
+version_before() {
+  awk -v a="$1" -v b="$2" 'BEGIN {
+    split(a, x, /[.-]/); split(b, y, /[.-]/)
+    for (i = 1; i <= 3; i++) {
+      if (x[i] + 0 < y[i] + 0) exit 0
+      if (x[i] + 0 > y[i] + 0) exit 1
+    }
+    exit 1
+  }'
+}
+
+# write_public_key <spki-base64> <dest> : a PEM public key from its body.
+write_public_key() {
+  printf '%s\n' '-----BEGIN PUBLIC KEY-----' "$1" '-----END PUBLIC KEY-----' > "$2"
+}
+
+# The RFC 8032 test 2 vector every verifier must pass before it is trusted:
+# the signature of the one-byte message `r`, which must verify, and must NOT
+# verify over `s`.
+PROBE_KEY="MCowBQYDK2VwAyEAPUAXw+hDiVqStwqnTRt+vJyYLM8uxJaMwM1V8Sr0Zgw="
+PROBE_SIGNATURE="kqAJqfDUyrhyDoILX2QlQKKye1QWUD+Ps3YiI+vbadoIWsHkPhWZbkWPNhPQ8R2MOHsurrQwKu6wDSkWErsMAA=="
+
+# write_perl_verifier <dest> : an Ed25519 verifier (RFC 8032, section 5.1.7)
+# for the system Perl, using core modules only. Arguments: the key as an SPKI
+# base64 body, a file holding the base64 signature, the message file. Exit 0
+# when the signature verifies, 1 when it does not, 2 on an unusable key.
+# Rejects a non-canonical S (S >= L) and a point that does not decode.
+write_perl_verifier() {
+  cat > "$1" <<'PERL'
+use strict;
+use warnings;
+use Math::BigInt try => 'GMP,LTM';
+use Digest::SHA;
+use MIME::Base64 qw(decode_base64);
+my ($spki, $sigfile, $msgfile) = @ARGV;
+exit 2 unless defined $msgfile && -f $sigfile && -f $msgfile;
+my $der = decode_base64($spki);
+exit 2 unless length($der) == 44
+  && unpack('H*', substr($der, 0, 12)) eq '302a300506032b6570032100';
+my $pk = substr($der, 12);
+open(my $sfh, '<', $sigfile) or exit 2;
+local $/;
+my $sigtext = <$sfh>;
+close($sfh);
+$sigtext =~ s/\s+//g;
+exit 1 unless $sigtext =~ m{\A[A-Za-z0-9+/]+={0,2}\z};
+my $sig = decode_base64($sigtext);
+exit 1 unless length($sig) == 64;
+my $P = Math::BigInt->new(2)->bpow(255)->bsub(19);
+my $L = Math::BigInt->new(2)->bpow(252)->badd(Math::BigInt->new('27742317777372353535851937790883648493'));
+sub md { my $v = $_[0] % $P; return $v; }
+sub inv { return $_[0]->copy->bmodpow($P - 2, $P); }
+my $D = md(Math::BigInt->new(-121665) * inv(Math::BigInt->new(121666)));
+my $D2 = md($D * 2);
+my $I = Math::BigInt->new(2)->bmodpow(($P - 1) / 4, $P);
+sub le2int { return Math::BigInt->new('0x' . unpack('H*', scalar reverse $_[0])); }
+sub add {
+  my ($p, $q) = @_;
+  my $a = md(($p->[1] - $p->[0]) * ($q->[1] - $q->[0]));
+  my $b = md(($p->[1] + $p->[0]) * ($q->[1] + $q->[0]));
+  my $c = md($p->[3] * $D2 * $q->[3]);
+  my $d = md($p->[2] * 2 * $q->[2]);
+  my ($e, $f, $g, $h) = ($b - $a, $d - $c, $d + $c, $b + $a);
+  return [md($e * $f), md($g * $h), md($f * $g), md($e * $h)];
+}
+sub mul {
+  my ($s, $p) = @_;
+  my $q = [Math::BigInt->new(0), Math::BigInt->new(1), Math::BigInt->new(1), Math::BigInt->new(0)];
+  my $bits = $s->as_bin;
+  $bits =~ s/^0b//;
+  for my $bit (split //, $bits) {
+    $q = add($q, $q);
+    $q = add($q, $p) if $bit eq '1';
+  }
+  return $q;
+}
+sub recover_x {
+  my ($y, $sign) = @_;
+  return undef if $y >= $P;
+  my $y2 = md($y * $y);
+  my $x2 = md(($y2 - 1) * inv(md($D * $y2 + 1)));
+  if ($x2->is_zero) { return $sign ? undef : Math::BigInt->new(0); }
+  my $x = $x2->copy->bmodpow(($P + 3) / 8, $P);
+  $x = md($x * $I) unless md($x * $x - $x2)->is_zero;
+  return undef unless md($x * $x - $x2)->is_zero;
+  $x = $P - $x if ($x->is_odd ? 1 : 0) != $sign;
+  return $x;
+}
+sub decompress {
+  my $n = le2int($_[0]);
+  my $sign = $n->copy->brsft(255)->is_zero ? 0 : 1;
+  my $y = $n->copy->band(Math::BigInt->new(2)->bpow(255)->bsub(1));
+  my $x = recover_x($y, $sign);
+  return undef unless defined $x;
+  return [$x, $y, Math::BigInt->new(1), md($x * $y)];
+}
+sub equal {
+  my ($p, $q) = @_;
+  return md($p->[0] * $q->[2] - $q->[0] * $p->[2])->is_zero
+    && md($p->[1] * $q->[2] - $q->[1] * $p->[2])->is_zero;
+}
+my $by = md(Math::BigInt->new(4) * inv(Math::BigInt->new(5)));
+my $bx = recover_x($by, 0);
+my $B = [$bx, $by, Math::BigInt->new(1), md($bx * $by)];
+my $A = decompress($pk);
+exit 1 unless defined $A;
+my $rs = substr($sig, 0, 32);
+my $R = decompress($rs);
+exit 1 unless defined $R;
+my $s = le2int(substr($sig, 32));
+exit 1 unless $s < $L;
+my $sha = Digest::SHA->new(512);
+$sha->add($rs, $pk);
+$sha->addfile($msgfile, 'b');
+my $h = le2int($sha->digest) % $L;
+exit(equal(mul($s, $B), add($R, mul($h, $A))) ? 0 : 1);
+PERL
+}
+
+# verify_with <verifier> <spki-base64> <signature-base64-file> <message-file>
+# : true when <verifier> ("openssl:<path>" or "perl:<path>") accepts the
+# signature. Each call writes its own key and decoded signature files.
+verify_with() {
+  case "$1" in
+    openssl:*)
+      VERIFY_OPENSSL="${1#openssl:}"
+      write_public_key "$2" "$3.pem"
+      tr -d ' \t\r\n' < "$3" > "$3.b64"
+      "$VERIFY_OPENSSL" base64 -d -A -in "$3.b64" -out "$3.bin" >/dev/null 2>&1 || return 1
+      [ "$(wc -c < "$3.bin" | tr -d ' ')" = "64" ] || return 1
+      "$VERIFY_OPENSSL" pkeyutl -verify -pubin -inkey "$3.pem" -rawin \
+        -in "$4" -sigfile "$3.bin" >/dev/null 2>&1
+      ;;
+    perl:*)
+      "${1#perl:}" "$TEMP_DIR/ed25519.pl" "$2" "$3" "$4" >/dev/null 2>&1
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+# find_ed25519_verifier : sets VERIFIER to a verifier this machine can run, or
+# "". Capability is PROVEN, not guessed from a version string: each candidate
+# must accept RFC 8032's test 2 vector and reject the same signature over other
+# bytes. LibreSSL (stock macOS) and OpenSSL 1.1 fail the first half; a broken
+# build that accepts anything fails the second. An OpenSSL is preferred; the
+# system Perl is the verifier stock macOS always has.
+find_ed25519_verifier() {
+  VERIFIER=""
+  PROBE_DIR="$TEMP_DIR/ed25519-probe"
+  mkdir -p "$PROBE_DIR"
+  printf '%s' "$PROBE_SIGNATURE" > "$PROBE_DIR/sig.b64"
+  printf 'r' > "$PROBE_DIR/good"
+  printf 's' > "$PROBE_DIR/bad"
+  write_perl_verifier "$TEMP_DIR/ed25519.pl"
+  for CANDIDATE in \
+    openssl:openssl \
+    openssl:/opt/homebrew/opt/openssl@3/bin/openssl \
+    openssl:/usr/local/opt/openssl@3/bin/openssl \
+    perl:/usr/bin/perl \
+    perl:perl; do
+    command -v "${CANDIDATE#*:}" >/dev/null 2>&1 || continue
+    verify_with "$CANDIDATE" "$PROBE_KEY" "$PROBE_DIR/sig.b64" "$PROBE_DIR/good" || continue
+    if verify_with "$CANDIDATE" "$PROBE_KEY" "$PROBE_DIR/sig.b64" "$PROBE_DIR/bad"; then
+      continue
+    fi
+    VERIFIER="$CANDIDATE"
+    return
+  done
+}
+
+# The command a person can run to check the signature by hand, with any
+# OpenSSL 3, printed when this machine has no verifier.
+manual_verification() {
+  MANUAL_KEY=""
+  for KEY in $RELEASE_SIGNING_KEYS; do MANUAL_KEY="$KEY"; break; done
+  printf '%s\n' \
+"Install OpenSSL 3 (macOS: brew install openssl@3; Debian or Ubuntu:
+sudo apt install openssl), then re-run this script. Or check the signature by
+hand with any OpenSSL 3, and install only if it prints \"Signature Verified
+Successfully\":
+
+  curl -fsSLO ${URL}
+  curl -fsSLO ${URL}.sig
+  printf '%s\\n' '-----BEGIN PUBLIC KEY-----' '${MANUAL_KEY}' '-----END PUBLIC KEY-----' > sovrium-release.pem
+  openssl base64 -d -A -in ${ARCHIVE}.sig -out ${ARCHIVE}.sig.bin
+  openssl pkeyutl -verify -pubin -inkey sovrium-release.pem -rawin -in ${ARCHIVE} -sigfile ${ARCHIVE}.sig.bin
+
+To install on the checksum alone, without the signature check (not
+recommended), re-run with --allow-unsigned"
+}
+
+# Runs AFTER the checksum, which has already proved the bytes are the ones the
+# release page lists. The signature proves who built them: the release page
+# can be edited, the keys above cannot be from there.
+verify_signature() {
+  if [ "$SKIP_CHECKSUM" -eq 1 ]; then
+    return
+  fi
+
+  if version_before "$VERSION" "$FIRST_SIGNED_VERSION"; then
+    if [ "$ALLOW_UNSIGNED" -eq 1 ]; then
+      SIGNATURE_WARNING="Signature not checked: v${VERSION} predates release signing (v${FIRST_SIGNED_VERSION}); installed on its checksum with --allow-unsigned"
+      return
+    fi
+    die "v${VERSION} predates release signatures (v${FIRST_SIGNED_VERSION}), so who built it cannot be checked. Nothing was installed." \
+"Install v${FIRST_SIGNED_VERSION} or later, or the latest version (omit --version).
+To install v${VERSION} on its checksum alone (not recommended), re-run with
+  --allow-unsigned"
+  fi
+
+  SIGNATURE_FILE="${ARCHIVE}.sig"
+  SIGNATURE_URL="${URL}.sig"
+  SIGNATURE_FETCHED=0
+  download "$SIGNATURE_URL" "$TEMP_DIR/$SIGNATURE_FILE" && [ -s "$TEMP_DIR/$SIGNATURE_FILE" ] && SIGNATURE_FETCHED=1
+  if [ "$SIGNATURE_FETCHED" -eq 0 ]; then
+    die "Signature check failed: could not fetch the published signature for ${ARCHIVE}. Nothing was installed." \
+"  ${SIGNATURE_URL}
+
+Re-run this script. ${CHECKSUM_REPORT}
+
+To install without verification anyway (not recommended), re-run with
+  --insecure-skip-checksum"
+  fi
+
+  find_ed25519_verifier
+  if [ -z "$VERIFIER" ]; then
+    if [ "$ALLOW_UNSIGNED" -eq 1 ]; then
+      SIGNATURE_WARNING="Signature not checked: no Ed25519 verifier found (OpenSSL 3 or Perl); installed on its checksum with --allow-unsigned"
+      return
+    fi
+    die "Cannot check the release signature: this machine has no Ed25519 verifier (OpenSSL 3, or Perl with its core modules). Nothing was installed." \
+"$(manual_verification)"
+  fi
+
+  step "Verifying the release signature"
+  for KEY in $RELEASE_SIGNING_KEYS; do
+    if verify_with "$VERIFIER" "$KEY" "$TEMP_DIR/$SIGNATURE_FILE" "$TEMP_DIR/$ARCHIVE"; then
+      return
+    fi
+  done
+
+  die "Signature check failed: ${ARCHIVE} is not signed by a trusted Sovrium release key. Nothing was installed." \
+"The download may be tampered with. Re-run this script.
+${CHECKSUM_REPORT}"
+}
+
 download_and_install() {
   ARCHIVE="sovrium-${VERSION}-${TARGET}.tar.gz"
   CHECKSUM_FILE="sovrium-${VERSION}-${TARGET}.sha256"
@@ -254,6 +535,7 @@ download_and_install() {
   https://github.com/$GITHUB_REPO/releases"
   fi
   verify_checksum
+  verify_signature
 
   # Extract
   step "Extracting"
@@ -353,7 +635,7 @@ main() {
   # The opt-out is announced BEFORE any download, on stderr, so it cannot be
   # missed in a log or mistaken for a normal install.
   if [ "$SKIP_CHECKSUM" -eq 1 ]; then
-    printf '%s\n' "Warning: --insecure-skip-checksum is set. The download will NOT be verified against its published sha256." >&2
+    printf '%s\n' "Warning: --insecure-skip-checksum is set. The download will NOT be verified against its published sha256 nor its release signature." >&2
   fi
 
   # Nothing opens the script. A user who just typed the curl one-liner has it on
@@ -370,9 +652,10 @@ main() {
   printf '\n'
   say "Sovrium v${VERSION}"
 
-  if [ -n "$CHECKSUM_WARNING" ]; then
+  if [ -n "$CHECKSUM_WARNING" ] || [ -n "$SIGNATURE_WARNING" ]; then
     printf '\n'
-    warn "$CHECKSUM_WARNING"
+    if [ -n "$CHECKSUM_WARNING" ]; then warn "$CHECKSUM_WARNING"; fi
+    if [ -n "$SIGNATURE_WARNING" ]; then warn "$SIGNATURE_WARNING"; fi
   fi
 
   printf '\n'

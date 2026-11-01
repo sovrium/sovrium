@@ -301,7 +301,7 @@ export const automationActions = defineSection({
       slug: 'automation-instance-actions',
       title: 'Instance Actions',
       description:
-        'Supervise other Sovrium apps on the same machine from an automation: state, start, suspend, signed releases, rollback, health, logs, backup, restore and seeding, behind an operator switch.',
+        'Supervise other apps on the same machine: state, start, suspend, signed releases, rollback, health, logs, backup, restore and seeding, behind an operator flag.',
       keywords: [
         'sovrium',
         'instance action',
@@ -377,7 +377,7 @@ export const automationActions = defineSection({
       slug: 'automation-browser-agent',
       title: 'Browser Agent',
       description:
-        'Let an AI agent drive a browser towards a goal on a site with no API, within listed hosts, typing secrets it never sees, its submissions held for a person to approve.',
+        'Let an AI agent drive a browser toward a goal on a site with no API, within listed hosts, typing secrets it never sees, its submissions held for approval.',
       keywords: [
         'sovrium',
         'browser agent',

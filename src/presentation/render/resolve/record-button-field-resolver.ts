@@ -20,24 +20,30 @@
  * - otherwise the `record-field-button` island, which mounts the grid's
  *   `RecordButton` and runs the automation on the page's record — drawn
  *   disabled, with its reason, on a record its `disabledWhen` holds for (the
- *   server's verdict, judged on the whole row).
+ *   server's verdict, judged on the whole row). A `url` naming `$record.*`
+ *   ships as the finished address, resolved on the record as she may read it.
  *
  * Every other component passes through untouched.
  */
 
-import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  recordFieldRefsIn,
+  substituteRecordVars,
+} from '@/domain/models/app/pages/substitute-record-vars'
 import {
   callerReaderFromSession,
   callerTableGate,
 } from '@/domain/models/app/tables/caller-record-gate-service'
 import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-operators'
+import { buttonUrlForReader } from '@/domain/models/app/tables/fields/field-types/advanced/button-url-redaction-service'
+import { resolveButtonUrl } from '@/domain/models/app/tables/fields/field-types/advanced/button-url-service'
 import { resolveButtonFieldMeta } from '@/presentation/render/props/data-table-field-inputs'
+import { entryAsComponent, rewriteComponent, type ComponentEntry } from './component-rewrite'
 import { readRecordForCaller } from './record-read-gate'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
-import type { Component } from '@/domain/models/app/pages/components'
 
 interface ButtonFieldContext {
   readonly app: App
@@ -62,6 +68,21 @@ function fieldReadable(ctx: ButtonFieldContext, tableName: string, fieldName: st
   return gate.plan === undefined || !gate.plan.restrictedColumns.has(fieldName)
 }
 
+/**
+ * Whether drawing the button needs the record: a `visibleWhen` or a
+ * `disabledWhen` to judge on it, or a `url` naming one of its fields.
+ */
+function readsTheRecord(
+  field: { readonly disabledWhen?: unknown },
+  config: { readonly visibleWhen?: unknown; readonly url?: string }
+): boolean {
+  return (
+    config.visibleWhen !== undefined ||
+    field.disabledWhen !== undefined ||
+    (config.url !== undefined && recordFieldRefsIn(config.url).length > 0)
+  )
+}
+
 async function mountOf(
   props: Readonly<Record<string, unknown>>,
   ctx: ButtonFieldContext
@@ -75,10 +96,10 @@ async function mountOf(
   const config = resolveButtonFieldMeta(field)['button'] as {
     readonly visibleWhen?: Parameters<typeof satisfiesFieldCondition>[0]
     readonly disabledReason?: string
+    readonly url?: string
   }
   const mount = { config, field: field.name, table: table.name, recordId: String(recordId) }
-  const judged = (field as { readonly disabledWhen?: unknown }).disabledWhen !== undefined
-  if (config.visibleWhen === undefined && !judged) return mount
+  if (!readsTheRecord(field as { readonly disabledWhen?: unknown }, config)) return mount
   const record = await readRecordForCaller({
     ...ctx,
     tableName: table.name,
@@ -88,7 +109,32 @@ async function mountOf(
   if (config.visibleWhen !== undefined && !satisfiesFieldCondition(config.visibleWhen, record)) {
     return null
   }
-  return { ...mount, ...disabledOnRecordOf(record, field.name, config.disabledReason) }
+  const finished = withFinishedUrl(config, record)
+  if (finished === undefined) return null
+  return {
+    ...mount,
+    config: finished,
+    ...disabledOnRecordOf(record, field.name, config.disabledReason),
+  }
+}
+
+/**
+ * The config with its `url` resolved on the record as the reader may read it,
+ * so the page receives the finished address: neither a hidden value nor a
+ * hidden field's name reaches it. Unchanged when the `url` names no field;
+ * `undefined` — no button — when it names only fields she may not read, which
+ * are absent from the record she reads.
+ */
+function withFinishedUrl<C extends { readonly url?: string }>(
+  config: C,
+  record: Readonly<Record<string, unknown>>
+): C | undefined {
+  const { url } = config
+  if (url === undefined) return config
+  const unread = (name: string): boolean => name !== 'id' && !Object.hasOwn(record, name)
+  return buttonUrlForReader(url, unread) === undefined
+    ? undefined
+    : { ...config, url: resolveButtonUrl(url, record) }
 }
 
 /**
@@ -110,23 +156,29 @@ function disabledOnRecordOf(
   }
 }
 
-async function resolveNode(node: Component | string, ctx: ButtonFieldContext) {
-  if (typeof node === 'string') return node
-  const children = node.children as readonly (Component | string)[] | undefined
+async function resolveNode(
+  entry: ComponentEntry,
+  ctx: ButtonFieldContext
+): Promise<ComponentEntry> {
+  if (typeof entry === 'string') return entry
+  const node = entryAsComponent(entry)
+  const { children } = node
   const resolved =
-    children === undefined ? node : { ...node, children: await resolveNodes(children, ctx) }
-  if (node.type !== 'record-field') return resolved as Component
+    children === undefined
+      ? node
+      : rewriteComponent(node, { children: await resolveNodes(children, ctx) })
+  if (node.type !== 'record-field') return resolved
   const mount = await mountOf(node.props ?? {}, ctx)
-  if (mount === undefined) return resolved as Component
+  if (mount === undefined) return resolved
   // `data-island` is what tells the page it ships the island runtime.
   const marker = mount === null ? {} : { 'data-island': 'record-field-button' }
-  return { ...resolved, props: { ...node.props, ...marker, _recordButton: mount } } as Component
+  return rewriteComponent(resolved, { props: { ...node.props, ...marker, _recordButton: mount } })
 }
 
 const resolveNodes = (
-  nodes: readonly (Component | string)[],
+  nodes: readonly ComponentEntry[],
   ctx: ButtonFieldContext
-): Promise<readonly (Component | string)[]> => Promise.all(nodes.map((n) => resolveNode(n, ctx)))
+): Promise<readonly ComponentEntry[]> => Promise.all(nodes.map((n) => resolveNode(n, ctx)))
 
 /** Decide the button of every record-field on the page naming a `button` field. */
 export async function resolveRecordButtonFields(

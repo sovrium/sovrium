@@ -7,17 +7,24 @@
 
 import { Effect } from 'effect'
 import { InvitationTokenRepository } from '@/application/ports/repositories/auth/invitation-token-repository'
-import {
-  acceptInvitation as acceptInvitationUseCase,
-  inviteUser as inviteUserUseCase,
-} from '@/application/use-cases/auth/admin-invitation'
+import { Invitations as InvitationsService } from '@/application/ports/services/invitations'
+import { acceptInvitation as acceptInvitationUseCase } from '@/application/use-cases/auth/accept-invitation'
+import { issueAdminInvitation } from '@/application/use-cases/auth/admin-invitation'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
+import { adminInviteUserResponseSchema } from '@/domain/models/api/auth/auth'
 import { resolvePasswordPolicy } from '@/domain/models/app/auth/password-policy'
 import { logError } from '@/infrastructure/logging/logger'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { buildPostAcceptResponse } from '@/presentation/api/auth/admin-invitation-accept-response'
 import { requireInviteCaller, resolveBaseURL } from '@/presentation/api/auth/admin-invitation-guard'
-import { chainAdminInvitationLifecycleRoutes } from '@/presentation/api/auth/admin-invitation-lifecycle-routes'
-import { respondToInviteFailure } from '@/presentation/api/auth/admin-invitation-refusal'
+import {
+  answerCrash,
+  chainAdminInvitationLifecycleRoutes,
+} from '@/presentation/api/auth/admin-invitation-lifecycle-routes'
+import {
+  respondToAcceptFailure,
+  respondToInviteFailure,
+} from '@/presentation/api/auth/admin-invitation-refusal'
+import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/domain/models/app/auth'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
@@ -50,7 +57,7 @@ type Invitations = InvitationRouteServices['invitations']
  * callers are already 401ed by the upstream auth middleware, and an unparseable
  * body yields `{}`, whose absent role denies every non-admin-equivalent caller.
  *
- * NOT a Better Auth plugin endpoint. `allowSignUp:false` does NOT block it:
+ * NOT a Better Auth plugin endpoint. Closed sign-up (the default) does NOT block it:
  * admin-driven invitation stays the onboarding path when self-signup is off.
  */
 const createInviteUserHandler =
@@ -61,80 +68,54 @@ const createInviteUserHandler =
     app: Readonly<App> | undefined
   ) =>
   async (c: Context) => {
-    try {
-      const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
-      const requestedRole = typeof body['role'] === 'string' ? body['role'].trim() : undefined
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
+    const requestedRole = typeof body['role'] === 'string' ? body['role'].trim() : undefined
 
-      const authorized = await requireInviteCaller(authInstance, c, app, requestedRole)
+    const issue = Effect.gen(function* () {
+      const authorized = yield* requireInviteCaller(authInstance, c, app, requestedRole)
       if (authorized instanceof Response) return authorized
 
       const inviterName = authorized.session.user.name ?? 'An administrator'
 
-      const result = await inviteUserUseCase({
-        services: invitations,
-        authConfig,
-        emailHandlers,
-        baseURL: resolveBaseURL(c),
-        inviterName,
-        // The inviter's own role, so the flow can tell a SCOPED inviter (whose
-        // tenant the invitee must inherit) from an admin-equivalent one (who has
-        // no tenant to pass on).
-        inviterRole: authorized.role,
-        // Recorded on the invitation so the pending list can answer "who sent
-        // this?" — previously persisted nowhere, which is why an operator
-        // could not tell their own outstanding invitations from a colleague's.
-        inviterId: authorized.session.user.id,
-        app: app ?? {},
-        body,
-      })
+      const result = yield* Effect.provideService(
+        issueAdminInvitation({
+          authConfig,
+          emailHandlers,
+          baseURL: resolveBaseURL(c),
+          inviterName,
+          // The inviter's own role, so the flow can tell a SCOPED inviter (whose
+          // tenant the invitee must inherit) from an admin-equivalent one (who has
+          // no tenant to pass on).
+          inviterRole: authorized.role,
+          // Recorded on the invitation so the pending list can answer "who sent
+          // this?" — previously persisted nowhere, which is why an operator
+          // could not tell their own outstanding invitations from a colleague's.
+          inviterId: authorized.session.user.id,
+          app: app ?? {},
+          body,
+        }),
+        InvitationsService,
+        invitations
+      )
 
       if (result.status !== 'invited') {
-        return respondToInviteFailure(c, result, authorized.session.user.id)
+        return yield* respondToInviteFailure(c, result, authorized.session.user.id)
       }
 
-      return c.json(
-        {
-          user: {
-            id: result.user.id,
-            email: result.user.email,
-            name: result.user.name,
-          },
+      return yield* respondWith(
+        c,
+        Effect.succeed({
+          user: { id: result.user.id, email: result.user.email, name: result.user.name },
           invitationSent: true,
-        },
-        200
+        }),
+        adminInviteUserResponseSchema
       )
-    } catch (error) {
-      logError('[admin-invitation] invite-user handler crashed', error)
-      return c.json(
-        { success: false, message: 'Failed to issue invitation', code: 'INTERNAL_ERROR' },
-        500
-      )
-    }
+    })
+    return runHandlerEffect(
+      c,
+      answerCrash(c, issue, { name: 'invite-user', message: 'Failed to issue invitation' })
+    )
   }
-
-/**
- * Map a non-success accept-invitation result onto an HTTP response.
- *
- * Pre-condition: caller has confirmed `result.status !== 'accepted'`. The
- * result is narrowed to the failure union so each branch knows it has a
- * `message`. 410 is reserved for token expiry; everything else is 4xx
- * (client error) or 5xx (internal error).
- */
-const respondToAcceptFailure = (
-  c: Context,
-  result: { readonly status: string; readonly message: string }
-): Response => {
-  if (result.status === 'invalid-input') {
-    return c.json({ success: false, message: result.message, code: 'BAD_REQUEST' }, 400)
-  }
-  if (result.status === 'invalid-token') {
-    return c.json({ success: false, message: result.message, code: 'INVALID_TOKEN' }, 400)
-  }
-  if (result.status === 'expired-token') {
-    return c.json({ success: false, message: result.message, code: 'TOKEN_EXPIRED' }, 410)
-  }
-  return c.json({ success: false, message: result.message, code: 'INTERNAL_ERROR' }, 500)
-}
 
 /**
  * POST /api/auth/admin/accept-invitation
@@ -151,40 +132,27 @@ const respondToAcceptFailure = (
 const createAcceptInvitationHandler =
   (authInstance: AuthInstance, authConfig: Auth | undefined, invitations: Invitations) =>
   async (c: Context) => {
-    try {
-      const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
-      const result = await acceptInvitationUseCase({ services: invitations, authConfig, body })
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
+    const accept = Effect.gen(function* () {
+      const result = yield* Effect.provideService(
+        acceptInvitationUseCase({ authConfig, body }),
+        InvitationsService,
+        invitations
+      )
 
-      if (result.status !== 'accepted') {
-        return respondToAcceptFailure(c, result)
-      }
+      if (result.status !== 'accepted') return respondToAcceptFailure(c, result)
 
       const password = (body as { readonly password?: string }).password as string
-      return await buildPostAcceptResponse(authInstance, result, password, authConfig)
-    } catch (error) {
-      logError('[admin-invitation] accept-invitation handler crashed', error)
-      return c.json(
-        { success: false, message: 'Failed to accept invitation', code: 'INTERNAL_ERROR' },
-        500
+      // effect-promise: total -- buildPostAcceptResponse catches a failed sign-in and answers 200 with `sessionEstablished: false`
+      return yield* Effect.promise(() =>
+        buildPostAcceptResponse(authInstance, result, password, authConfig)
       )
-    }
+    })
+    return runHandlerEffect(
+      c,
+      answerCrash(c, accept, { name: 'accept-invitation', message: 'Failed to accept invitation' })
+    )
   }
-
-/**
- * Escape an arbitrary string for safe interpolation into HTML attributes.
- *
- * The token alphabet is `[A-Za-z0-9_-]+` so this should be a no-op in
- * practice, but defensive escaping keeps us safe if the alphabet ever
- * widens or a malformed query string sneaks through.
- */
-const escapeHtmlAttribute = (value: string): string =>
-  value.replace(/[<>"'&]/g, (ch) => {
-    if (ch === '<') return '&lt;'
-    if (ch === '>') return '&gt;'
-    if (ch === '"') return '&quot;'
-    if (ch === "'") return '&#39;'
-    return '&amp;'
-  })
 
 const ACCEPT_INVITATION_STYLE = `
   body { font-family: system-ui, -apple-system, sans-serif; max-width: 420px; margin: 4rem auto; padding: 0 1rem; }
@@ -336,9 +304,9 @@ const renderAcceptInvitationPage = (token: string, minPasswordLength: number): s
  * transient outage shows the form (and the POST refuses properly) rather than
  * telling a legitimate invitee their link is dead.
  */
-const isInvitationOpenable = async (c: Context, token: string): Promise<boolean> => {
-  if (token.length === 0) return false
-  const lookup = Effect.gen(function* () {
+const isInvitationOpenable = (token: string) =>
+  Effect.gen(function* () {
+    if (token.length === 0) return false
     const repository = yield* InvitationTokenRepository
     const invitation = yield* repository.findByToken(token)
     return invitation !== undefined && invitation.expiresAt.getTime() > Date.now()
@@ -354,8 +322,6 @@ const isInvitationOpenable = async (c: Context, token: string): Promise<boolean>
     // link. The cause is logged above, so the outage is visible to an operator.
     Effect.orElseSucceed(() => true)
   )
-  return runDomainPromise(c, lookup)
-}
 
 /**
  * GET /accept-invitation
@@ -369,14 +335,16 @@ const isInvitationOpenable = async (c: Context, token: string): Promise<boolean>
  * place — the thing that is gone is their invitation, and a 404 would send them
  * looking for a broken link instead of for the person who invited them.
  */
-const createAcceptInvitationPageHandler = (authConfig: Auth | undefined) => async (c: Context) => {
+const createAcceptInvitationPageHandler = (authConfig: Auth | undefined) => (c: Context) => {
   const token = c.req.query('token') ?? ''
-  if (!(await isInvitationOpenable(c, token))) {
-    return c.html(renderInvitationUnavailablePage(), 200)
-  }
-  const { minLength } = resolvePasswordPolicy(authConfig)
-  const html = renderAcceptInvitationPage(token, minLength)
-  return c.html(html, 200)
+  return runHandlerEffect(
+    c,
+    Effect.map(isInvitationOpenable(token), (openable) => {
+      if (!openable) return c.html(renderInvitationUnavailablePage(), 200)
+      const { minLength } = resolvePasswordPolicy(authConfig)
+      return c.html(renderAcceptInvitationPage(token, minLength), 200)
+    })
+  )
 }
 
 /**

@@ -12,8 +12,8 @@ import {
   type LinkField,
   type LinkSourceTable,
 } from '@/domain/models/app/tables/table-derived-name-validation'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * The link table a many-to-many `field` of `source` stores its links in:
@@ -101,10 +101,13 @@ export const postgresStoredName = (name: string): string =>
 /**
  * Whether a relation called `name` is among the `live` table names the
  * catalog lists: under its own name, or, on PostgreSQL, under the 63
- * characters it keeps of a longer one.
+ * characters it keeps of a longer one. `dialect` is the engine of that catalog.
  */
-export const isLiveRelation = (live: ReadonlySet<string>, name: string): boolean =>
-  live.has(name) || (!isSqliteRuntime() && live.has(postgresStoredName(name)))
+export const isLiveRelation = (
+  live: ReadonlySet<string>,
+  name: string,
+  dialect: DatabaseDialect
+): boolean => live.has(name) || (dialect !== 'sqlite' && live.has(postgresStoredName(name)))
 
 /**
  * `base` then `suffix`, `base` cut so the whole fits in 63 characters — the
@@ -176,6 +179,16 @@ const junctionKeys = (
   return [keyOf(source.name, sourceColumn), keyOf(field.relatedTable, relatedColumn)]
 }
 
+/** What {@link generateJunctionTableDDL} needs beyond the two ends of the link. */
+export interface JunctionDdlOptions {
+  /** The engine the DDL is written for. */
+  readonly dialect: DatabaseDialect
+  /** Map of CONFIG table name → whether the table is view-backed. */
+  readonly tableUsesView?: ReadonlyMap<string, boolean>
+  /** Map of CONFIG table name → `primaryKey.type`. */
+  readonly tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
+}
+
 /**
  * Generate CREATE TABLE statement for junction table (many-to-many relationship)
  *
@@ -194,13 +207,13 @@ const junctionKeys = (
 export const generateJunctionTableDDL = (
   sourceTable: LinkSourceTable,
   field: LinkField,
-  tableUsesView?: ReadonlyMap<string, boolean>,
-  tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
+  options: JunctionDdlOptions
 ): string => {
+  const { dialect, tableUsesView, tablePrimaryKeyTypes } = options
   const junctionTableName = generateJunctionTableName(sourceTable, field)
   const [source, related] = junctionKeys(sourceTable, field, tableUsesView)
   const columnType = (key: JunctionKey): string =>
-    resolvePrimaryKeyColumnType(tablePrimaryKeyTypes?.get(key.configName))
+    resolvePrimaryKeyColumnType(tablePrimaryKeyTypes?.get(key.configName), dialect)
 
   const columns = [
     `${source.column} ${columnType(source)} NOT NULL`,

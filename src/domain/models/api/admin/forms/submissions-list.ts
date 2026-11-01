@@ -6,16 +6,16 @@
  */
 
 import { Schema } from 'effect'
+import { booleanFlag, coercedBoolean } from '@/domain/kernel/config-parsing/coerce'
+import { looseIsoDateTime, uuid } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { adminEnvelopeSchema } from '@/domain/models/api/admin/envelope/admin-envelope'
-import { booleanFlag, coercedBoolean } from '@/domain/models/api/combinators/coerce'
 import {
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
-} from '@/domain/models/api/combinators/cursor-pagination'
-import { looseIsoDateTime, uuid } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { appliedQuerySchema, searchTermSchema } from '@/domain/models/api/combinators/search'
-import { withDefault } from '../../combinators/schema-defaults'
+} from '@/domain/models/api/cursor-pagination'
+import { appliedQuerySchema, searchTermSchema } from '@/domain/models/api/search-term'
+import { withDefault } from '../../schema-defaults'
 
 /**
  * Form submission list endpoint shapes.
@@ -89,10 +89,48 @@ export const formSubmissionSchema = Schema.Struct({
   body: optionalField(
     Schema.Record(Schema.String, Schema.Unknown).annotate({
       description:
-        'Field values submitted by the form, keyed by field name. Present ONLY when the request passes `?reveal=true` AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND the caller has an admin role — on the detail endpoint and on the list alike. Absent without reveal, for any non-admin caller, and when the env var is unset/false.',
+        'Field values submitted by the form, keyed by field name. Present ONLY when the request passes `?reveal=true` AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND the caller has an admin role, on the detail endpoint and on the list alike. Absent without reveal, for any non-admin caller, and when the env var is unset/false.',
     })
   ),
 }).annotate({ identifier: 'FormSubmission' })
+
+/**
+ * The record a submission wrote into its form's `submitTo` table.
+ *
+ * Two flat strings rather than a link: the console composes the address
+ * (`/records/<table>?record=<id>`) itself, under its own mount.
+ *
+ * @public
+ */
+export const submissionLinkedRecordSchema = Schema.Struct({
+  table: Schema.String.annotate({
+    description: 'The `submitTo` table the submission wrote into, by its declared `name`.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  id: Schema.String.annotate({
+    description: 'The id of the record it created there.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+}).annotate({ identifier: 'SubmissionLinkedRecord' })
+
+/**
+ * One automation run a submission started: the runs of a `form` trigger
+ * naming this form and carrying this submission, and the runs a record
+ * trigger on the `submitTo` table started for the record this submission
+ * created. Never another submission's runs.
+ *
+ * @public
+ */
+export const submissionRunSchema = Schema.Struct({
+  id: Schema.String.annotate({
+    description: 'The run id, as `GET /api/admin/automations/runs/:id` reads it.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  automation: Schema.String.annotate({
+    description: 'The automation that ran, by its declared `name`.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  status: Schema.String.annotate({
+    description:
+      'The run status as the runs list reports it (`success`, `failed`, `running`, `waiting`, and so on).',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+}).annotate({ identifier: 'SubmissionRun' })
 
 /**
  * Admin-envelope-extended submission item.
@@ -111,6 +149,41 @@ export const formSubmissionAdminItemSchema = Schema.Struct({
   ...formSubmissionSchema.fields,
   _admin: Schema.Struct({
     ...adminEnvelopeSchema.fields,
+    submitter: optionalField(
+      Schema.String.annotate({
+        description:
+          "Who sent the submission, as a person reads it: the signed-in account's name, else its email; the guest email for a guest submission that left one. ABSENT for an anonymous submission. Never an address, a hash or a user agent (S4).",
+        examples: ['Alice Mercier', 'guest@example.com'],
+      }).pipe(Schema.check(Schema.isMinLength(1)))
+    ),
+    linkedRecord: optionalField(
+      Schema.NullOr(submissionLinkedRecordSchema).annotate({
+        description:
+          'The record this submission created in its `submitTo` table, or null when it created none (no `submitTo`, a failed write, a spam submission). Read from the submission ledger, not searched for.',
+      })
+    ),
+    runCount: optionalField(
+      Schema.Int.annotate({
+        description:
+          'How many automation runs this submission started, the runs `_admin.runs` lists on the detail. Counted for a whole page in ONE grouped lookup, never one query per row.',
+      }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
+    ),
+    answersPreview: optionalField(
+      Schema.String.annotate({
+        description:
+          'The first three answer-carrying fields of the form, in declaration order, as "Label: value · Label: value · Label: value", each label the field label the form declares, each value cut to 40 characters with "…". Under the SAME gate as `body`: the values are present only on a page whose `bodiesRevealed` is true, and every value reads "•••" otherwise, so a masked preview carries the form labels and none of what was submitted. Absent when the form has no answer-carrying field.',
+        examples: [
+          'Your name: Inès Garnier · Work email: ines.garnier@example.com · Message: Do you offer a non-profit disc…',
+          'Your name: ••• · Work email: ••• · Message: •••',
+        ],
+      }).pipe(Schema.check(Schema.isMinLength(1)))
+    ),
+    runs: optionalField(
+      Schema.Array(submissionRunSchema).annotate({
+        description:
+          'The automation runs this submission started, newest first: the runs of a `form` trigger on this form for this submission, and the runs a record trigger on the `submitTo` table started for `linkedRecord`. Present on the DETAIL endpoint only; the list carries `runCount`. Empty when it started none.',
+      })
+    ),
     recentAuditTrail: optionalField(
       Schema.Array(Schema.Unknown)
         .annotate({
@@ -120,7 +193,8 @@ export const formSubmissionAdminItemSchema = Schema.Struct({
         .pipe(Schema.check(Schema.isMaxLength(50)))
     ),
   }).annotate({
-    title: 'sovrium:extends=AdminEnvelope|own=recentAuditTrail',
+    title:
+      'sovrium:extends=AdminEnvelope|own=submitter,linkedRecord,runCount,answersPreview,runs,recentAuditTrail',
     description: 'Operator-grade admin envelope for this submission',
   }),
 }).annotate({
@@ -200,12 +274,12 @@ export const formsSubmissionsListQuerySchema = Schema.Struct({
   reveal: booleanFlag
     .annotate({
       description:
-        "When true, each item carries its submitted `body` — only for an admin caller on an instance that sets `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true`, the detail endpoint's own gate. A revealed page writes one critical `form.submission.bodies.revealed` audit event. A caller who fails the gate is not refused: the page answers without bodies and `bodiesRevealed: false`. Never widens `q`, which does not search bodies whatever this says.",
+        "When true, each item carries its submitted `body`, only for an admin caller on an instance that sets `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true`, the detail endpoint's own gate. A revealed page writes one critical `form.submission.bodies.revealed` audit event. A caller who fails the gate is not refused: the page answers without bodies and `bodiesRevealed: false`. Never widens `q`, which does not search bodies whatever this says.",
     })
     .pipe(withDefault(false)),
   q: searchTermSchema.annotate({
     description:
-      'Optional free-text search over the SUBMITTER identity (the account `email` and `name` behind `submitter_user_id`) and the submission `id`, as a case-insensitive literal substring. Composes with `status` / `from` / `to` / the cursor (AND), so a page is a page of MATCHES. The submitted `body` is NEVER searched — the D7 redaction lock; searching it would make this list an oracle over content the caller may not be permitted to reveal. Empty / whitespace-only means "no search".',
+      'Optional free-text search over the SUBMITTER identity (the account `email` and `name` behind `submitter_user_id`) and the submission `id`, as a case-insensitive literal substring. Composes with `status` / `from` / `to` / the cursor (AND), so a page is a page of MATCHES. The submitted `body` is NEVER searched (the D7 redaction lock): searching it would make this list an oracle over content the caller may not be permitted to reveal. Empty / whitespace-only means "no search".',
   }),
 })
 
@@ -228,7 +302,7 @@ export const formsSubmissionsListResponseSchema = Schema.Struct({
   ...cursorPaginationResponseSchema(formSubmissionAdminItemSchema).fields,
   total: Schema.Finite.annotate({
     description:
-      'How many submissions match the filters (status, from, to, include_deleted, q), whatever the cursor and page size — the same figure on every page of one query.',
+      'How many submissions match the filters (status, from, to, include_deleted, q), whatever the cursor and page size: the same figure on every page of one query.',
   }).pipe(Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))),
   bodiesRevealed: Schema.Boolean.annotate({
     description:

@@ -27,6 +27,12 @@
  * out only to keep both files within the module-size budget.
  */
 
+import { Effect } from 'effect'
+import {
+  invitationCall,
+  Invitations,
+  type InvitationServiceError,
+} from '@/application/ports/services/invitations'
 import { buildAcceptInvitationUrl } from '@/application/use-cases/auth/admin-invitation'
 import { resolveInvitationExpiryMs } from '@/application/use-cases/auth/invitation-issuance'
 import { logError } from '@/infrastructure/logging/logger'
@@ -92,11 +98,13 @@ const projectInvitation = (
  * `now` is injected so the pending/expired boundary is testable without waiting
  * out a 72-hour TTL.
  */
-export const listInvitations = async (
-  store: InvitationStore,
-  now: Date = new Date()
-): Promise<readonly InvitationListItem[]> =>
-  projectInvitations(await store.listPendingInvitations(), now)
+export const listInvitations = Effect.fn('auth.list-invitations')(function* () {
+  const { store } = yield* Invitations
+  const rows = yield* invitationCall('list the pending invitations', () =>
+    store.listPendingInvitations()
+  )
+  return projectInvitations(rows, new Date())
+})
 
 /** Project pending rows onto operator-facing items — pure, shared with the attention strip. */
 export const projectInvitations = (
@@ -131,8 +139,7 @@ export type InvitationActionResult<T> =
  * The expiry IS re-armed, because a resend of an about-to-expire invitation that
  * kept the old deadline would deliver a link that dies moments later.
  */
-export const resendInvitation = async (params: {
-  readonly store: InvitationStore
+export const resendInvitation = Effect.fn('auth.resend-invitation')(function* (params: {
   readonly authConfig: Auth | undefined
   readonly emailHandlers: InvitationMailer
   readonly baseURL: string
@@ -140,13 +147,22 @@ export const resendInvitation = async (params: {
   readonly id: string
   /** The app's pages: the resent link opens its invitation page, like the first one. */
   readonly pages?: readonly InvitationLinkPage[] | undefined
-}): Promise<InvitationActionResult<InvitationListItem>> => {
-  const invitation = await params.store.findInvitationById(params.id)
+}): Effect.fn.Return<
+  InvitationActionResult<InvitationListItem>,
+  InvitationServiceError,
+  Invitations
+> {
+  const { store } = yield* Invitations
+  const invitation = yield* invitationCall('find the invitation', () =>
+    store.findInvitationById(params.id)
+  )
   if (!invitation) {
     return { status: 'not-found', message: 'Not Found' }
   }
 
-  const rows = await params.store.listPendingInvitations()
+  const rows = yield* invitationCall('list the pending invitations', () =>
+    store.listPendingInvitations()
+  )
   const listed = rows.find((row) => row.id === invitation.id)
   if (!listed) {
     // The row exists but its invitee account does not — nobody to resend to.
@@ -154,25 +170,20 @@ export const resendInvitation = async (params: {
   }
 
   const expiresAt = new Date(Date.now() + resolveInvitationExpiryMs(params.authConfig))
-  const refreshed = await params.store.refreshInvitationExpiry(invitation.id, expiresAt).then(
-    () => true,
-    (error: unknown) => {
-      logError('[admin-invitation] Failed to refresh invitation expiry', error)
-      return false
-    }
-  )
-  if (!refreshed) {
+  if (!(yield* refreshExpiry(store, invitation.id, expiresAt))) {
     return { status: 'internal-error', message: 'Failed to resend invitation' }
   }
 
   const acceptUrl = buildAcceptInvitationUrl(params.baseURL, invitation.token, params.pages)
   // Awaited so a fixture observing the mailbox cannot race the response.
-  await params.emailHandlers.invitation({
-    email: listed.email,
-    name: listed.email,
-    url: acceptUrl,
-    inviterName: params.inviterName,
-  })
+  yield* invitationCall('send the invitation', () =>
+    params.emailHandlers.invitation({
+      email: listed.email,
+      name: listed.email,
+      url: acceptUrl,
+      inviterName: params.inviterName,
+    })
+  )
 
   // Projected from the row we just refreshed rather than re-read: the `id` is
   // unchanged by construction (resend REFRESHES the row, it does not replace
@@ -181,7 +192,7 @@ export const resendInvitation = async (params: {
     status: 'ok',
     value: projectInvitation({ ...listed, expiresAt }, new Date()),
   }
-}
+})
 
 /**
  * Revoke an outstanding invitation.
@@ -191,26 +202,52 @@ export const resendInvitation = async (params: {
  * link fails closed. A revoke that only cleared an operator list would leave a
  * standing grant the operator believes they cancelled.
  */
-export const revokeInvitation = async (
-  store: InvitationStore,
+export const revokeInvitation = Effect.fn('auth.revoke-invitation')(function* (
   id: string
-): Promise<InvitationActionResult<string>> => {
-  const invitation = await store.findInvitationById(id)
+): Effect.fn.Return<InvitationActionResult<string>, InvitationServiceError, Invitations> {
+  const { store } = yield* Invitations
+  const invitation = yield* invitationCall('find the invitation', () =>
+    store.findInvitationById(id)
+  )
   if (!invitation) {
     return { status: 'not-found', message: 'Not Found' }
   }
+  return yield* deleteInvitation(store, invitation.id)
+})
 
-  const deleted = await store.deleteInvitationToken(invitation.id).then(
-    () => true,
-    (error: unknown) => {
-      logError('[admin-invitation] Failed to revoke invitation', error)
-      return false
-    }
+/** Push an invitation's expiry out; whether it was stored (a failure is logged). */
+const refreshExpiry = (
+  store: InvitationStore,
+  id: string,
+  expiresAt: Readonly<Date>
+): Effect.Effect<boolean> =>
+  invitationCall('refresh the invitation expiry', () =>
+    store.refreshInvitationExpiry(id, expiresAt)
+  ).pipe(
+    Effect.as(true),
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError('[admin-invitation] Failed to refresh invitation expiry', cause))
+    ),
+    // effect-swallow: logged above; an unrefreshed row answers the resend's `internal-error` and no email goes out.
+    Effect.orElseSucceed(() => false)
   )
-  return deleted
-    ? { status: 'ok', value: invitation.id }
-    : { status: 'internal-error', message: 'Failed to revoke invitation' }
-}
+
+/** Delete an invitation row that was found, answering the action's result. */
+const deleteInvitation = (
+  store: InvitationStore,
+  id: string
+): Effect.Effect<InvitationActionResult<string>> =>
+  invitationCall('revoke the invitation', () => store.deleteInvitationToken(id)).pipe(
+    Effect.as<InvitationActionResult<string>>({ status: 'ok', value: id }),
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError('[admin-invitation] Failed to revoke invitation', cause))
+    ),
+    // effect-swallow: logged above; a delete that failed answers the action's `internal-error`.
+    Effect.orElseSucceed((): InvitationActionResult<string> => ({
+      status: 'internal-error',
+      message: 'Failed to revoke invitation',
+    }))
+  )
 
 /**
  * Decline an invitation from its link — the invitee's answer, by TOKEN.
@@ -220,13 +257,16 @@ export const revokeInvitation = async (
  * that names no outstanding invitation is answered as not found, exactly like
  * one that never existed, so a probe learns nothing.
  */
-export const declineInvitation = async (
-  store: InvitationStore,
+export const declineInvitation = Effect.fn('auth.decline-invitation')(function* (
   token: string
-): Promise<InvitationActionResult<string>> => {
-  const invitation = token === '' ? undefined : await store.findInvitationToken(token)
+): Effect.fn.Return<InvitationActionResult<string>, InvitationServiceError, Invitations> {
+  const { store } = yield* Invitations
+  const invitation =
+    token === ''
+      ? undefined
+      : yield* invitationCall('find the invitation token', () => store.findInvitationToken(token))
   if (!invitation) {
     return { status: 'not-found', message: 'Not Found' }
   }
-  return revokeInvitation(store, invitation.id)
-}
+  return yield* deleteInvitation(store, invitation.id)
+})

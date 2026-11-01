@@ -1,6 +1,6 @@
 # AI Memory
 
-> Context that persists beyond a single message — two independent tiers, both off by default, and the one thing that is not configured here.
+> Context that persists beyond a single message: two independent tiers, both off by default, and the one thing that is not configured here.
 
 Before the runtime invokes a model it assembles context from whichever tiers an agent has enabled.
 
@@ -36,7 +36,7 @@ Semantic retrieval from the configured sources. With it enabled, a similarity se
 
 This is the **runtime retrieval** side of RAG, distinct from the agent's `knowledge` block, which defines the **input sources** that get embedded. The two names are close, and the distinction is the one to hold: one says what goes into the index, the other says how much comes back out of it.
 
-`enabled` is off by default. `retrievalLimit` defaults to 5 documents per query and `similarityThreshold` to 0.7 — raise the threshold when retrieval is returning loosely-related material, and lower it when an obviously relevant document is being left out.
+`enabled` is off by default. `retrievalLimit` defaults to 5 documents per query and `similarityThreshold` to 0.7. Raise the threshold when retrieval is returning loosely-related material, and lower it when an obviously relevant document is being left out.
 
 Retrieval runs against the same vector store RAG uses, so the dialect makes no difference here either.
 
@@ -48,21 +48,21 @@ Persistent facts the agent learns across sessions. Unlike an automation's state 
 
 ### Isolation
 
-Facts are partitioned by namespace, defaulting to the agent's own name, so two agents never read each other's learned facts. Combined with the agent-as-user model — each agent being a distinct user — that gives per-agent isolation, and per-user isolation wherever chat scopes by session.
+Facts are partitioned by namespace, defaulting to the agent's own name, so two agents never read each other's learned facts. Combined with the agent-as-user model, in which each agent is a distinct user, that gives per-agent isolation, and per-user isolation wherever chat scopes by session.
 
 The property that matters in practice: an agent cannot leak one customer's learned facts into another customer's conversation, and it cannot do so by accident, because the partition is not something the prompt can reach across.
 
 ### Recall follows what the user lists today
 
-A fact is kept with the tables the answer it came from read. `POST /api/ai/agents/{name}/recall` returns only the facts whose tables the user still lists: a fact learned from a table she no longer lists — her role changed, a grant was withdrawn, or the table's records list no longer admits her a row — is left out, the same judgement a chat turn applies to the exchanges it replays. The fact itself stays stored, and is recalled again if she is given the table back. A fact stored before Sovrium began keeping these tables names none, so it is recalled as it was stored.
+A fact is kept with the tables the answer it came from read. `POST /api/ai/agents/{name}/recall` returns only the facts whose tables the user still lists: a fact learned from a table she no longer lists (her role changed, a grant was withdrawn, or the table's records list no longer admits her a row) is left out, the same judgement a chat turn applies to the exchanges it replays. The fact itself stays stored, and is recalled again if she is given the table back. A fact stored before Sovrium began keeping these tables names none, so it is recalled as it was stored.
 
 ## Composing the tiers
 
-Both are optional and combine freely. A read-only analyst might enable only knowledge; a long-running support agent enables both. With both on, context is assembled from each before the model is invoked — the retrieved documents and the relevant facts, together.
+Both are optional and combine freely. A read-only analyst might enable only knowledge; a long-running support agent enables both. With both on, context is assembled from each before the model is invoked: the retrieved documents and the relevant facts, together.
 
 ## Conversation history
 
-Every chat turn of a signed-in user is stored with the session it belongs to, so a conversation can be found again, corrected, or asked again. All of it is the user's own: another user's conversation answers `404`, as one that does not exist. An answer whose turn called tools keeps one line per call: which action ran, how it ended, the table it named and how many rows it answered — never what the call was given or what it read. The console's Conversations page reads those lines, and the user's account export lists each call.
+Every chat turn of a signed-in user is stored with the session it belongs to, so a conversation can be found again, corrected, or asked again. All of it is the user's own: another user's conversation answers `404`, as one that does not exist. An answer whose turn called tools keeps one line per call: which action ran, how it ended, the table it named and how many rows it answered, never what the call was given or what it read. The console's Conversations page reads those lines, and the user's account export lists each call.
 
 | Route                                                                    | Does                                                                                          |
 | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
@@ -80,7 +80,7 @@ A conversation is kept until its user deletes it or their account is erased, unl
 
 ### What a turn replays follows what the user lists today
 
-Each turn sends the model the conversation's earlier questions and answers. An exchange whose answer read a table the user no longer lists — her role changed, a grant was withdrawn, or the table's records list no longer admits her a row — is left out of what is sent, on a chat turn, a System Agent turn, an edit and a regeneration alike; an exchange about a table she still lists is sent as before. The judgement is made on every turn, by table, from the line each answer keeps per call, and an answer the assistant composed itself from a table — a record query, a write, a write awaiting confirmation — keeps such a line too. The stored conversation is unchanged: the exchange stays in it, is still shown when she reads the conversation, and is sent again on a later turn if she is given the table back. An answer stored before Sovrium began keeping these lines carries no record of the tables it read, so it is sent as it was stored, like any message of a conversation she can read herself.
+Each turn sends the model the conversation's earlier questions and answers. An exchange whose answer read a table the user no longer lists (her role changed, a grant was withdrawn, or the table's records list no longer admits her a row) is left out of what is sent, on a chat turn, a System Agent turn, an edit and a regeneration alike; an exchange about a table she still lists is sent as before. The judgement is made on every turn, by table, from the line each answer keeps per call, and an answer the assistant composed itself from a table (a record query, a write, a write awaiting confirmation) keeps such a line too. The stored conversation is unchanged: the exchange stays in it, is still shown when she reads the conversation, and is sent again on a later turn if she is given the table back. An answer stored before Sovrium began keeping these lines carries no record of the tables it read, so it is sent as it was stored, like any message of a conversation she can read herself.
 
 ### Edits and regenerations keep what came before
 

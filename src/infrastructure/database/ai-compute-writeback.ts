@@ -23,19 +23,21 @@
 
 import { sql } from 'drizzle-orm'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
-import { db } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect, DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** Read the current raw stored value of one column for one record. */
 export const readCurrentFieldValue = async (
+  { client: db, dialect }: DatabaseService,
   tableName: string,
   recordId: string,
   fieldName: string
 ): Promise<unknown> => {
   const sanitized = sanitizeTableName(tableName)
-  const rows = await executeRaw(
+  const rows = await executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT ${sql.identifier(fieldName)} AS value FROM ${sql.identifier(sanitized)} WHERE id = ${recordId} LIMIT 1`
   )
@@ -47,24 +49,29 @@ export const readCurrentFieldValue = async (
  * realtime `update` event with `origin: 'ai-refine'`; does NOT fire automations
  * or webhooks (structural — no taps here).
  *
- * Object / array values are inlined as a JSONB literal (mirroring the CRUD
+ * Object / array values bind as JSONB through the dialect's `bindJsonb` (mirroring the CRUD
  * update path); scalars bind directly.
  */
-export const writeBackRefinedValue = async (params: {
-  readonly appId: string
-  readonly tableName: string
-  readonly recordId: string
-  readonly fieldName: string
-  readonly value: unknown
-}): Promise<void> => {
+export const writeBackRefinedValue = async (
+  db: PortableDb,
+  dialect: Dialect,
+  params: {
+    readonly appId: string
+    readonly tableName: string
+    readonly recordId: string
+    readonly fieldName: string
+    readonly value: unknown
+  }
+): Promise<void> => {
   const { appId, tableName, recordId, fieldName, value } = params
   const sanitized = sanitizeTableName(tableName)
   const isJsonShape = Array.isArray(value) || (value !== null && typeof value === 'object')
   const setExpr = isJsonShape
-    ? sql`${sql.identifier(fieldName)} = ${jsonbLiteral(value)}`
+    ? sql`${sql.identifier(fieldName)} = ${dialect.sql.bindJsonb(value)}`
     : sql`${sql.identifier(fieldName)} = ${value}`
 
-  const rows = await executeRaw(
+  const rows = await executeRawOn(
+    dialect.kind,
     db,
     sql`UPDATE ${sql.identifier(sanitized)} SET ${setExpr} WHERE id = ${recordId} RETURNING *`
   )

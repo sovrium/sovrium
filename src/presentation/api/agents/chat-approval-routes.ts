@@ -17,7 +17,9 @@
  * agent's gates) and the agent goes on; rejected, nothing runs, the model is
  * told so, and it answers.
  *
- * Only she decides. For anyone else — another member, an admin, a visitor —
+ * Only she decides, and an email, a web request or a file change she asked
+ * for she may only reject: someone else approves it (`refusesOwnApproval`),
+ * unless she is admin-equivalent. For anyone else — another member, an admin, a visitor —
  * the approval does not exist: 404, as for an unknown id (S1). An approval
  * decided elsewhere (the agent approvals API), or past its timeout, answers
  * 409 and runs nothing. The paused turn lives in this process: a decision
@@ -28,29 +30,37 @@
  * itself, its database mirror and the activity feed.
  */
 
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import {
   resumeDecidedTurn,
   type HeldCallDecision,
 } from '@/application/use-cases/agents/agent-approval-decision-stream'
-import { MirrorApprovalUpdate } from '@/application/use-cases/agents/approval'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
-import { requireDomainContext, type DomainContext } from '@/infrastructure/logging/request-effect'
+import { forwardChatTurnStream } from '@/application/use-cases/agents/chat-turn/stream-chat-turn'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import {
-  runApprovalMirror,
-  runApproverIdentityLookup,
-  toMirrorRecord,
-} from '@/presentation/api/agents/approval-mirror'
+  ownApprovalRefused,
+  recordApprovalOutcome,
+  refusesOwnApproval,
+} from '@/presentation/api/agents/approval-decision'
+import { approverIdentityOrBlank } from '@/presentation/api/agents/approval-mirror'
+import { readApproval } from '@/presentation/api/agents/approval-store-access'
+import { withChatTurnReads } from '@/presentation/api/agents/chat-reader-rows'
+import { respondWithTurnStream } from '@/presentation/api/agents/chat-stream'
 import {
-  decideApproval,
-  readApproval,
-  recordApprovalDecision,
-} from '@/presentation/api/agents/approval-store-access'
-import { buildStreamResponse } from '@/presentation/api/agents/chat-stream'
-import { takeHeldChatTurn, type HeldChatTurn } from '@/presentation/api/agents/chat-stream-events'
+  holdsChatTurn,
+  takeHeldChatTurn,
+  type HeldChatTurn,
+} from '@/presentation/api/agents/chat-stream-events'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import {
+  answerFailures,
+  runHandlerStream,
+  type HandlerAnswer,
+} from '@/presentation/api/runtime/run-effect'
 import { validateRequest } from '@/presentation/api/runtime/validate-request'
+import type { App } from '@/domain/models/app'
 import type { ApprovalRecord } from '@/domain/models/app/agents/approval-record-service'
 import type { Context, Hono, TypedResponse } from 'hono'
 
@@ -61,80 +71,93 @@ const decisionBodySchema = Schema.Struct({
 const NOT_FOUND = 'Approval not found.'
 
 /** Record the person's decision on the approval, its mirror and the activity feed. */
-const recordDecision = async (
-  services: DomainContext,
-  input: {
-    readonly record: ApprovalRecord
-    readonly decision: HeldCallDecision
-    readonly userId: string
-  }
-): Promise<void> => {
-  const { record, decision, userId } = input
-  const approver = await runApproverIdentityLookup(services, userId)
-  const next =
-    (await decideApproval(services, record.id, {
-      status: decision === 'approve' ? 'approved' : 'rejected',
-      approvedByEmail: approver.email,
-      ...(decision === 'approve' && { actionExecuted: true, executedAs: record.agentName }),
-    })) ?? record
-  await runApprovalMirror(services, MirrorApprovalUpdate(toMirrorRecord(next)))
-  await recordApprovalDecision(services, {
-    action: decision === 'approve' ? 'approval.approved' : 'approval.rejected',
-    approvalId: next.id,
-    agentName: next.agentName,
-    actor: { id: userId, name: approver.name, email: approver.email },
-    runStartedById: next.requestedById,
+const recordDecision = (input: {
+  readonly record: ApprovalRecord
+  readonly decision: HeldCallDecision
+  readonly userId: string
+}) =>
+  Effect.gen(function* () {
+    const { record, decision, userId } = input
+    const { name, email } = yield* approverIdentityOrBlank(userId)
+    yield* recordApprovalOutcome({ record, decision, approver: { id: userId, name, email } })
   })
-}
 
 /** Stream the rest of the held turn, after its decision. */
 const streamDecidedTurn = (
   c: Context,
+  handle: HandlerAnswer,
   input: {
     readonly approvalId: string
     readonly decision: HeldCallDecision
     readonly held: HeldChatTurn
   }
-): Promise<Response> => {
+) => {
   const { held } = input
-  return buildStreamResponse(c, {
-    services: requireDomainContext(c),
-    message: held.message,
-    sessionId: held.sessionId,
-    userId: held.userId,
-    spec: held.spec,
-    agentName: held.agentName,
-    passages: held.passages,
-    parentId: held.parentId,
-    userParts: held.userParts,
-    events: resumeDecidedTurn({
-      approvalId: input.approvalId,
-      decision: input.decision,
-      spec: held.spec,
-    }),
-  })
+  return respondWithTurnStream(c, handle, held, (wire) =>
+    forwardChatTurnStream(
+      {
+        ...held,
+        resumed: resumeDecidedTurn({
+          approvalId: input.approvalId,
+          decision: input.decision,
+          spec: held.spec,
+        }),
+      },
+      wire
+    )
+  )
 }
 
-const handleChatApproval = async (c: Context): Promise<Response | TypedResponse<unknown>> => {
+/**
+ * Decide on the held call. Her own approval of a held side effect is refused
+ * (403) before the turn is taken, so the turn stays held for whoever may
+ * approve it, or for her to reject.
+ */
+const handleChatApproval = async (
+  c: Context,
+  app: App | undefined
+): Promise<Response | TypedResponse<unknown>> => {
   const userId = getSessionContext(c)?.userId
   if (process.env.AI_PROVIDER === undefined || userId === undefined) return notFound(c, NOT_FOUND)
   const body = await validateRequest(c, decisionBodySchema)
   if (!body.success) return body.response
   const approvalId = c.req.param('approvalId') ?? ''
-  const held = takeHeldChatTurn(approvalId, userId)
-  if (held === undefined) return notFound(c, NOT_FOUND)
-  const services = requireDomainContext(c)
-  const record = await readApproval(services, approvalId)
-  if (record === undefined) return notFound(c, NOT_FOUND)
-  if (record.status !== 'pending') {
-    const error = `This approval is ${record.status} and can no longer be decided.`
-    return c.json(errorBody({ error, code: ApiErrorCode.CONFLICT }), 409)
-  }
-  const { decision } = body.data
-  await recordDecision(services, { record, decision, userId })
-  return streamDecidedTurn(c, { approvalId, decision, held })
+  if (!holdsChatTurn(approvalId, userId)) return notFound(c, NOT_FOUND)
+  const decided = { approvalId, userId, decision: body.data.decision }
+  return runHandlerStream(c, (handle) =>
+    answerFailures(c, withChatTurnReads(decideHeldCall(c, handle, { app, ...decided })))
+  )
 }
 
+/** The decision on a call held for this person, once her turn is known to be held. */
+const decideHeldCall = (
+  c: Context,
+  handle: HandlerAnswer,
+  input: {
+    readonly app: App | undefined
+    readonly approvalId: string
+    readonly userId: string
+    readonly decision: HeldCallDecision
+  }
+) =>
+  Effect.gen(function* () {
+    const { app, approvalId, userId, decision } = input
+    const record = yield* readApproval(approvalId)
+    if (record === undefined) return notFound(c, NOT_FOUND)
+    if (record.status !== 'pending') {
+      const error = `This approval is ${record.status} and can no longer be decided.`
+      return c.json(errorBody({ error, code: ApiErrorCode.CONFLICT }), 409)
+    }
+    const role = yield* getUserRole(userId)
+    if (refusesOwnApproval({ app, record, decision, approver: { id: userId, role } })) {
+      return ownApprovalRefused(c)
+    }
+    const held = takeHeldChatTurn(approvalId, userId)
+    if (held === undefined) return notFound(c, NOT_FOUND)
+    yield* recordDecision({ record, decision, userId })
+    return yield* streamDecidedTurn(c, handle, { approvalId, decision, held })
+  })
+
 /** Chain `POST /api/ai/chat/approvals/:approvalId` onto the chat routes. */
-export const chainAiChatApprovalRoutes = (honoApp: Hono): Hono =>
-  honoApp.post('/api/ai/chat/approvals/:approvalId', (c) => handleChatApproval(c))
+export const chainAiChatApprovalRoutes = (honoApp: Hono, app?: App): Hono =>
+  honoApp.post('/api/ai/chat/approvals/:approvalId', (c) => handleChatApproval(c, app))

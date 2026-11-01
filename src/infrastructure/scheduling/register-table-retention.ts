@@ -7,12 +7,14 @@
 
 import { Cause, Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { purgeReadNotifications } from '@/infrastructure/database/notification-retention'
 import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
 import { purgeExpiredTableRows } from '@/infrastructure/database/table-retention'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { App } from '@/domain/models/app'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Table retention scheduler registration: arms the daily sweep that deletes the
@@ -73,10 +75,12 @@ const sweepPart = (label: string, purge: () => Promise<unknown>) =>
  * The daily sweep: the tables' rows, then the notifications. Each half stands
  * alone, so a table purge that throws still lets the notifications expire.
  */
-const dailySweep = (app: App) =>
+const dailySweep = (database: DatabaseService, app: App) =>
   Effect.andThen(
-    sweepPart('scheduled table retention sweep', () => purgeExpiredTableRows(app)),
-    sweepPart('scheduled notification retention sweep', () => purgeReadNotifications(app))
+    sweepPart('scheduled table retention sweep', () => purgeExpiredTableRows(database, app)),
+    sweepPart('scheduled notification retention sweep', () =>
+      purgeReadNotifications(database.client, app)
+    )
   )
 
 /**
@@ -86,14 +90,15 @@ const dailySweep = (app: App) =>
  */
 export const registerTableRetentionScheduler = (
   app: App
-): Effect.Effect<string | undefined, never, CronScheduler> =>
+): Effect.Effect<string | undefined, never, CronScheduler | Database> =>
   Effect.gen(function* () {
     if (!declaresRetention(app)) return undefined
+    const database = yield* Database
     const scheduler = yield* CronScheduler
     return yield* scheduler
-      .schedule(TABLE_RETENTION_CRON_EXPRESSION, () => dailySweep(app), {
+      .schedule(TABLE_RETENTION_CRON_EXPRESSION, () => dailySweep(database, app), {
         jobId: TABLE_RETENTION_JOB_ID,
-        timezone: resolveOperatorTimezone(),
+        timezone: resolveOperatorTimezone(process.env),
       })
       .pipe(
         Effect.catch((err) =>

@@ -6,9 +6,9 @@
  */
 
 /**
- * Many records into many components: the per-row expansion, the collection-page
- * variant of `$record` substitution, and the island-prop stamps that have to
- * run once per expanded row.
+ * Many records into many components: the per-row expansion, and the island-prop
+ * stamps that have to run once per expanded row. The collection-page variant of
+ * `$record` substitution is `collection-template-substitution.ts`.
  *
  * The three `stamp*` passes live here rather than beside the mode resolvers
  * because they walk the SAME expanded tree this module produces — a data-bound
@@ -27,100 +27,23 @@ import {
   isRecordFieldSystemMode,
 } from '@/presentation/render/registry/system-detail-mode'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
-import { readsAnotherRecord } from './bound-node-record'
-import { walkComponentSlots, type ComponentListEntry } from './component-slot-walk'
+import {
+  componentField,
+  componentFields,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+  synthesizedComponent,
+  type ComponentEntry,
+} from './component-rewrite'
 import { desugarSystemSourceRef } from './data-source-contracts'
 import { emptyListMarkers } from './empty-list-markers'
 import { resolveListIslandInputs } from './list-island-inputs'
-import {
-  expandRepeat,
-  isRepeating,
-  pageScopeReads,
-  type RecordScope,
-} from './record-repeat-expansion'
-import {
-  RECORD_VALUE_TYPES,
-  injectRecordFieldValue,
-  substituteRecordInComponent,
-  substituteRecordInContent,
-  substituteRecordInDataSource,
-  withPlainTextPin,
-} from './record-substitution'
-import { buildRecordTemplatePatch, substituteRecordInProps } from './record-template-substitution'
+import { substituteRecordInComponent } from './record-substitution'
 import { filterChildrenForRecord } from './record-visibility'
 import { bindRouteParams } from './route-param-binding'
 import type { App } from '@/domain/models/app'
-import type { ComponentReference } from '@/domain/models/app/components/reference'
 import type { Component } from '@/domain/models/app/pages/components'
-
-/**
- * Variant of `substituteRecordInComponent` used by the collection-page
- * resolver to substitute the parent collection record's fields into the
- * page's components (the pages access publishing requirement — Category & Tag
- * Patterns).
- *
- * The key difference from `substituteRecordInComponent`: when a component
- * declares a `dataSource`, its `children` are LEFT UNSUBSTITUTED: they are
- * per-row templates `expandDataSourceChildren` fills against each fetched row.
- * Pre-substituting them with the parent category/tag record would
- * clobber the inner `$record.*` tokens (eg. `$record.title` of a post)
- * with the parent's fields (eg. `$record.title` of a category), making
- * row-level data binding impossible.
- *
- * `dataSource.filter[].value` IS substituted — the parent record drives
- * cross-table filtering (`value: '$record.name'`) — and so are props and content,
- * unless the node reads one record of its own ({@link readsAnotherRecord}).
- */
-export function substituteRecordInCollectionTemplate(
-  component: Component,
-  record: Record<string, unknown>,
-  tableName?: string,
-  scope?: RecordScope
-): Component {
-  // A `record-field` (or a field-bound control) needs the bound record's raw
-  // value injected, as under a single-mode dataSource. Without this it renders
-  // empty on every collection page while `$record.*` resolves normally.
-  if (RECORD_VALUE_TYPES.has(component.type)) {
-    return injectRecordFieldValue(component, record, tableName)
-  }
-
-  // `scope` is the PAGE binding's: what `$record.` may print there, plus the two
-  // things only a page bound to one record does — expand a `repeat`, and print a
-  // lone object token in a `code` node as JSON.
-  const { printable, json } = pageScopeReads(component, record, scope)
-  const resolvedContent = substituteRecordInContent(component.content, printable)
-  const baseProps = withPlainTextPin(
-    component.props ? substituteRecordInProps(component.props, printable) : component.props,
-    resolvedContent.forcePlainText
-  )
-  const baseContent = json ?? resolvedContent.content
-  const templatePatch = buildRecordTemplatePatch(component, record, tableName)
-  if (component.dataSource) {
-    return {
-      ...component,
-      ...(readsAnotherRecord(component, tableName)
-        ? {}
-        : { props: baseProps, content: baseContent, ...templatePatch }),
-      dataSource: substituteRecordInDataSource(component.dataSource, record),
-    } // Children left UNSUBSTITUTED — per-row templates expanded later.
-  }
-
-  const own = { ...component, props: baseProps, content: baseContent, ...templatePatch }
-  if (scope !== undefined && isRepeating(component)) return expandRepeat(own, scope)
-  // Slots (a card's `footer`) are walked as `children` are. A string entry is
-  // an escaped React child (see `substituteRecordInComponent`): never escape it here.
-  const walk = (entries: readonly ComponentListEntry[]): readonly ComponentListEntry[] =>
-    filterChildrenForRecord(entries, record).map((child) =>
-      typeof child === 'string'
-        ? substituteRecordVars(child, withRecordText(printable))
-        : substituteRecordInCollectionTemplate(child, record, tableName, scope)
-    )
-  return {
-    ...own,
-    ...walkComponentSlots(component, walk),
-    children: walk(component.children ?? []),
-  }
-}
 
 /** Expands a data-bound component's children once per record. */
 export interface PaginationMeta {
@@ -191,8 +114,7 @@ function withNoRows(
   component: Component,
   paginationProps: Readonly<Record<string, unknown>>
 ): Component {
-  return {
-    ...component,
+  return rewriteComponent(component, {
     children: [],
     props: {
       ...(component.props ?? {}),
@@ -200,7 +122,7 @@ function withNoRows(
       ...paginationProps,
       ...emptyListMarkers(component),
     },
-  } as Component
+  })
 }
 
 export function expandDataSourceChildren(
@@ -211,19 +133,19 @@ export function expandDataSourceChildren(
 ): Component {
   const { substitution = 'deep', rowWrapper = component.type === 'list' ? 'li' : 'div' } = expansion
   const paginationProps = paginationMarkers(component, paginationMeta)
+  const template = component.children
 
-  if (!component.children || component.children.length === 0) {
-    return {
-      ...component,
+  if (!template || template.length === 0) {
+    return rewriteComponent(component, {
       props: { ...(component.props ?? {}), _dataSourceBound: true, ...paginationProps },
-    }
+    })
   }
   // No row: the per-row template is drawn zero times — never once with its raw
   // `$record.` text — and a list says its `listDisplay.emptyMessage` instead.
   if (records.length === 0) return withNoRows(component, paginationProps)
 
-  const expandedChildren: readonly (Component | string)[] = records.flatMap((record) => {
-    const kept = filterChildrenForRecord(component.children!, record)
+  const expandedChildren: readonly ComponentEntry[] = records.flatMap((record) => {
+    const kept = filterChildrenForRecord(template, record)
 
     // A record that gated away EVERY child of its template gets no row element
     // at all. The per-row filter reaches the children; stopping one element
@@ -236,25 +158,29 @@ export function expandDataSourceChildren(
     if (kept.length === 0) return []
 
     return [
-      {
-        type: rowWrapper as Component['type'],
+      synthesizedComponent({
+        type: rowWrapper,
         // String children render as React children (escaped) — see the note in
         // `substituteRecordInComponent`. Component children route through it,
         // which is where the content pin is applied.
-        children: kept.map((child: Component | string) =>
+        children: kept.map((child) =>
           typeof child === 'string'
             ? substituteRecordVars(child, withRecordText(record))
-            : substituteRecordInComponent(child, record, expansion.tableName, substitution)
+            : substituteRecordInComponent(
+                entryAsComponent(child),
+                record,
+                expansion.tableName,
+                substitution
+              )
         ),
-      },
+      }),
     ]
   })
 
-  return {
-    ...component,
+  return rewriteComponent(component, {
     children: expandedChildren,
     props: { ...(component.props ?? {}), _dataSourceBound: true, ...paginationProps },
-  }
+  })
 }
 
 /**
@@ -264,12 +190,12 @@ export function expandDataSourceChildren(
  * renderer emits a `data-island="list"` host and the island owns the fetch. No
  * server-side records query runs for this binding.
  */
-function buildListIslandProps(component: Component, app: App | undefined): Record<string, unknown> {
-  const { listDisplay } = component as { listDisplay?: unknown }
+function buildListIslandProps(component: Component, app?: App): Record<string, unknown> {
+  const listDisplay = componentField(component, 'listDisplay')
   return {
     ...(component.props ?? {}),
     _listIslandMode: true,
-    _listDataSource: JSON.stringify(component.dataSource),
+    _listDataSource: JSON.stringify(componentField(component, 'dataSource')),
     _listInputs: JSON.stringify(resolveListIslandInputs(component, app)),
     // Kept an OBJECT, not a JSON string: the props pass that resolves `$t:`
     // walks nested objects but reads a string whole, so a serialised
@@ -293,12 +219,13 @@ function buildRecordFieldSystemProps(
   component: Component,
   routeParams: Readonly<Record<string, string>>
 ): Record<string, unknown> {
-  const { system } = component.dataSource as { system?: { param?: string } }
-  const paramName = system?.param ?? 'id'
+  const dataSource = componentField(component, 'dataSource')
+  const param = keyOf(keyOf(dataSource, 'system'), 'param')
+  const paramName = typeof param === 'string' ? param : 'id'
   return {
     ...(component.props ?? {}),
     _recordFieldSystemMode: true,
-    _recordFieldDataSource: JSON.stringify(component.dataSource),
+    _recordFieldDataSource: JSON.stringify(dataSource),
     _recordFieldSystemId: routeParams[paramName] ?? '',
   }
 }
@@ -319,10 +246,12 @@ export function resolveIslandShortCircuit(
   app?: App
 ): Component | undefined {
   if (isListIslandMode(component)) {
-    return { ...component, props: buildListIslandProps(component, app) }
+    return rewriteComponent(component, { props: buildListIslandProps(component, app) })
   }
   if (isRecordFieldSystemMode(component)) {
-    return { ...component, props: buildRecordFieldSystemProps(component, routeParams) }
+    return rewriteComponent(component, {
+      props: buildRecordFieldSystemProps(component, routeParams),
+    })
   }
   // A system-detail record-drawer fetches its record on row-click (the id arrives
   // on the dispatched event, not a route param) — no server-side prop to stamp, so
@@ -370,15 +299,11 @@ export function stampNestedIslands(
   ctx: { readonly app: App; readonly routeParams: Readonly<Record<string, string>> }
 ): Component {
   const host = stampSpecimenSubject(component, ctx)
-  // `children` is declared on each member of a distributed union, so the union
-  // of array types has no callable `.map` — widen to the one element type they
-  // all share, as `expandDataSourceChildren` does.
-  const children = host.children as
-    ReadonlyArray<Component | ComponentReference | string> | undefined
+  const { children } = host
   if (!Array.isArray(children) || children.length === 0) return host
   const stamped = children.map((child) => stampNestedChild(child, ctx))
   return stamped.some((child, index) => child !== children[index])
-    ? ({ ...host, children: stamped } as Component)
+    ? rewriteComponent(host, { children: stamped })
     : host
 }
 
@@ -403,19 +328,19 @@ function stampSpecimenSubject(
   node: Component,
   ctx: { readonly app: App; readonly routeParams: Readonly<Record<string, string>> }
 ): Component {
-  const drawn = (node as { readonly component?: unknown }).component
+  const drawn = componentFields(node)['component']
   // A STRING here is the reference form (`{ component: 'name' }`), which names
   // a template and is not ours to descend into. Only an object is a drawn node.
   if (typeof drawn !== 'object' || drawn === null) return node
-  const stamped = stampNestedChild(drawn as Component, ctx)
-  return stamped === drawn ? node : ({ ...node, component: stamped } as Component)
+  const stamped = stampNestedChild(synthesizedComponent(drawn), ctx)
+  return stamped === drawn ? node : rewriteComponent(node, { component: stamped })
 }
 
 /** One child of a layout container: stamp it for its island, or descend past it. */
 function stampNestedChild(
-  child: Component | ComponentReference | string,
+  child: ComponentEntry,
   ctx: { readonly app: App; readonly routeParams: Readonly<Record<string, string>> }
-): Component | ComponentReference | string {
+): ComponentEntry {
   if (typeof child === 'string') return child
   // The VALUE-keyed guard, not `'component' in child`. A `specimen` declares a
   // field called `component` holding a whole node, so the key test reads every
@@ -427,8 +352,11 @@ function stampNestedChild(
   // Same preamble as `resolveComponent`: a nested `{ systemSource }` reference
   // and a nested `$param` filter must be concrete BEFORE the short-circuit
   // serialises `dataSource` for the client, exactly as at the top level.
-  const bound = bindRouteParams(desugarSystemSourceRef(child, ctx.app), ctx.routeParams)
-  if (!bound.dataSource) return stampNestedIslands(bound, ctx)
+  const bound = bindRouteParams(
+    desugarSystemSourceRef(entryAsComponent(child), ctx.app),
+    ctx.routeParams
+  )
+  if (!componentField(bound, 'dataSource')) return stampNestedIslands(bound, ctx)
   // Not an island binding — hand back the ORIGINAL child, with neither the
   // desugaring nor the route binding above applied, so a nested server-resolved
   // binding passes through this walk exactly as it did before it existed.
@@ -460,7 +388,7 @@ export function stampTemplateIslands(
   ctx: { readonly app: App; readonly routeParams: Readonly<Record<string, string>> }
 ): App['components'] {
   if (components === undefined || components.length === 0) return components
-  const stamped = components.map((template) => stampNestedChild(template as Component, ctx))
+  const stamped = components.map((template) => stampNestedChild(template, ctx))
   return stamped.some((template, index) => template !== components[index])
     ? (stamped as App['components'])
     : components

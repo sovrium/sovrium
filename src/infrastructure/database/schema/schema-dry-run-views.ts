@@ -79,7 +79,7 @@ export const planViewRebuilds = (
         kind: 'view',
         statements: [
           `DROP VIEW IF EXISTS ${quoteSqlIdentifier(sanitizeTableName(table.name))}`,
-          lookupViewGenerators.generateLookupViewSQL(table, tables),
+          lookupViewGenerators.generateLookupViewSQL(table, tables, dialect),
         ],
         unsimulated: false,
         refusals: [],

@@ -1,45 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  macOS hardened-runtime entitlements for the Sovrium shell AND the Bun sidecar
-  it spawns.
+  macOS hardened-runtime entitlements for the Bun-compiled engine SIDECAR
+  (Contents/MacOS/sovrium in the bundle), and for nothing else. The app shell
+  is signed with shell.entitlements.plist, which holds none of these keys.
 
-  These five keys are Bun's own recommendation for a standalone executable under
-  the hardened runtime (https://bun.com/docs/bundler/executables, "Code signing
-  on macOS"), and they are here because JavaScriptCore is a JIT: without
-  allow-jit and allow-unsigned-executable-memory the sidecar is killed on launch
-  by the kernel rather than failing with a message, which reads as "the app does
-  nothing when I open it".
+  Why allow-jit is here: MEASURED, not recommended. On 2026-10-29, on macOS
+  27.0.1 (Apple Silicon) with the Bun 1.4.4 engine signed with the hardened
+  runtime, the engine with NO entitlement at all launched, served, and passed
+  the desktop smoke test; JavaScriptCore simply ran without its JIT, and a
+  CPU-bound script took about seven times as long (roughly 7 to 8 seconds
+  against 1). allow-jit ALONE restored the full speed, and also passed the
+  smoke test. So allow-jit is kept because the engine is unusably slow
+  without it, not because macOS kills it at launch: it does not. The record
+  and the protocol are ADR-036 A3, which a change to this file updates.
 
-  The sidecar must be signed with these entitlements EXPLICITLY, before the
-  bundle is signed. A recursive (deep) signature of the .app does not apply the
-  entitlements to a nested Mach-O, so an unsigned or wrongly-signed sidecar is
-  the failure mode notarization finds last and users find first.
+  The four other keys Bun lists for a standalone executable
+  (https://bun.com/docs/bundler/executables, "Code signing on macOS") were
+  DROPPED on 2026-10-30, on the founder's decision (ADR-036 A3): that
+  measurement found no use for any of them, and two of them,
+  disable-library-validation and allow-dyld-environment-variables, let code
+  not signed by our team into this process. They were
+  allow-unsigned-executable-memory, disable-executable-page-protection,
+  allow-dyld-environment-variables and disable-library-validation. Do not
+  restore one without a measurement that needs it, recorded in ADR-036.
+  desktop/tauri-cli.ts refuses a signed build whose staged engine carries
+  anything but allow-jit, and both macOS build workflows assert the same set.
+
+  Who applies this file. The release and desktop build workflows sign the staged
+  sidecar with it, before the bundle is built. Tauri would then sign that same
+  file AGAIN with the bundle-wide entitlements (it forces a new signature on
+  every external binary), which is why desktop/tauri-cli.ts hands the sidecar
+  to the bundler as a plain file rather than as an external binary on macOS:
+  the signature made with this file is the one that ships. The same script
+  refuses a signed build whose staged sidecar does not carry allow-jit.
 
   NOTHING IN THIS COMMENT MAY CONTAIN TWO CONSECUTIVE HYPHENS. An XML comment is
   not allowed to, and the parser that enforces it is AMFI, inside codesign. The
   line above said "a `-`+`-`deep signature" until 2026-09-22, and the result was
   that EVERY signed build failed with `Failed to parse entitlements:
-  AMFIUnserializeXML: syntax error near line 15` — a message that names this
+  AMFIUnserializeXML: syntax error near line 15`, a message that names this
   file's line number and says nothing about hyphens. Spell such a flag out in
   words instead.
-
-  disable-library-validation is the one worth naming: it is required because the
-  sidecar is a distinct binary loaded by a process signed with a different Team
-  ID during local development. It weakens the runtime, and it is a cost this
-  file records rather than hides.
 -->
 <plist version="1.0">
 <dict>
     <key>com.apple.security.cs.allow-jit</key>
-    <true/>
-    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-    <true/>
-    <key>com.apple.security.cs.disable-executable-page-protection</key>
-    <true/>
-    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
-    <true/>
-    <key>com.apple.security.cs.disable-library-validation</key>
     <true/>
 </dict>
 </plist>

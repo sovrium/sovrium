@@ -158,7 +158,7 @@ export const codeEditorFields = {
     Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0))).annotate({
       title: 'Maximum Height',
       description:
-        'Rows the box grows to before the content scrolls inside it instead. Must not be below `minLines` — the two bound the same box from opposite sides, so an inverted pair is refused at boot in `component-xor-rules.ts`; the schema cannot relate two sibling keys.',
+        'Rows the box grows to before the content scrolls inside it instead. Must not be below `minLines`. The two bound the same box from opposite sides, so an inverted pair is refused at boot in `component-xor-rules.ts`; the schema cannot relate two sibling keys.',
       examples: [12, 20],
     })
   ),

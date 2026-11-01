@@ -22,6 +22,13 @@
 
 import { Data, Effect } from 'effect'
 import {
+  OutboundHttp,
+  outboundText,
+  type OutboundImage,
+} from '@/application/ports/services/outbound-http'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { DAY_MS, HOUR_MS } from '@/domain/kernel/time/durations'
+import {
   GIF_ID_PATTERN,
   GIF_SEARCH_MAX_RESULTS,
   composerGifConnectionsOf,
@@ -34,11 +41,8 @@ import {
   rememberGifMedia,
   rememberMissingGif,
 } from '@/infrastructure/egress/gif-media-registry'
-import { guardedFetch, guardedText } from '@/infrastructure/egress/guarded-fetch'
-import { systemResolveHost } from '@/infrastructure/egress/host-resolution'
-import { fetchRemoteImage, type RemoteImage } from '@/infrastructure/egress/remote-media'
 import { withAuthQuery } from '../automations/action-handlers/auth-headers'
-import { buildOperationRequest } from '../automations/action-handlers/connection-request'
+import { buildOperationRequest } from '../automations/action-handlers/connection/request'
 import { buildStaticAuthHeader } from '../automations/action-handlers/static-auth-header'
 import { buildEnvLookup, resolveEnvInString } from '../automations/resolve-env-vars'
 import type { GifSearchResponse } from '@/domain/models/api/connections/connections'
@@ -65,9 +69,6 @@ const ANSWER_MAX_BYTES = 2 * 1024 * 1024
 const GIF_MAX_BYTES = 8 * 1024 * 1024
 const PREVIEW_MAX_BYTES = 2 * 1024 * 1024
 
-const DAY_MS = 24 * 60 * 60 * 1000
-const HOUR_MS = 60 * 60 * 1000
-
 interface GifConnection {
   readonly name: string
   readonly type: string
@@ -92,12 +93,13 @@ const gifConnectionOf = (
 /** Where the connection's key goes on a request: a query parameter, or a header. */
 const placedKey = (
   app: App,
-  connection: GifConnection
+  connection: GifConnection,
+  env: Readonly<Record<string, string | undefined>>
 ): Effect.Effect<
   { readonly query: Readonly<Record<string, string>>; readonly headers: Record<string, string> },
   GifProviderError
 > => {
-  const auth = buildStaticAuthHeader(connection, buildEnvLookup(app.env, process.env))
+  const auth = buildStaticAuthHeader(connection, buildEnvLookup(app.env, env))
   if ('error' in auth || 'unconfigured' in auth) {
     return Effect.fail(new GifProviderError({ reason: 'the connection has no usable key' }))
   }
@@ -113,25 +115,26 @@ const sendForJson = (request: {
   readonly url: string
   readonly method: string
   readonly headers: Record<string, string>
-}): Effect.Effect<unknown, GifProviderError> =>
+}): Effect.Effect<unknown, GifProviderError, OutboundHttp> =>
   Effect.gen(function* () {
-    const sent = yield* Effect.tryPromise({
-      try: () =>
-        guardedFetch(
-          request.url,
-          { method: request.method, headers: request.headers },
-          { timeoutMs: PROVIDER_TIMEOUT_MS, maxBodyBytes: ANSWER_MAX_BYTES }
-        ),
-      catch: (error) =>
-        new GifProviderError({ reason: error instanceof Error ? error.message : String(error) }),
-    })
+    const { guardedFetch } = yield* OutboundHttp
+    const sent = yield* guardedFetch(
+      request.url,
+      { method: request.method, headers: request.headers },
+      { timeoutMs: PROVIDER_TIMEOUT_MS, maxBodyBytes: ANSWER_MAX_BYTES }
+    ).pipe(
+      Effect.mapError(
+        ({ cause }) =>
+          new GifProviderError({ reason: cause instanceof Error ? cause.message : String(cause) })
+      )
+    )
     if (!sent.ok) return yield* new GifProviderError({ reason: sent.message })
     if (!sent.response.ok || sent.response.truncated) {
       return yield* new GifProviderError({ reason: `HTTP ${String(sent.response.status)}` })
     }
     const { response } = sent
     return yield* Effect.try({
-      try: () => JSON.parse(guardedText(response)) as unknown,
+      try: () => JSON.parse(outboundText(response)) as unknown,
       catch: () => new GifProviderError({ reason: 'the answer is not JSON' }),
     })
   })
@@ -141,7 +144,7 @@ const callOperation = (
   app: App,
   connection: GifConnection,
   input: { readonly operation: string; readonly params: Readonly<Record<string, unknown>> }
-): Effect.Effect<unknown, GifProviderError> =>
+): Effect.Effect<unknown, GifProviderError, OutboundHttp> =>
   Effect.gen(function* () {
     const operation = connection.operations?.find((candidate) => candidate.name === input.operation)
     if (operation === undefined) {
@@ -149,11 +152,9 @@ const callOperation = (
         reason: `operation '${input.operation}' is not declared`,
       })
     }
-    const key = yield* placedKey(app, connection)
-    const baseUrl = resolveEnvInString(
-      connection.baseUrl ?? '',
-      buildEnvLookup(app.env, process.env)
-    )
+    const env = yield* ProcessEnv
+    const key = yield* placedKey(app, connection, env)
+    const baseUrl = resolveEnvInString(connection.baseUrl ?? '', buildEnvLookup(app.env, env))
     const built = buildOperationRequest({ baseUrl, operation, params: input.params })
     if (!built.ok) return yield* new GifProviderError({ reason: built.error })
     return yield* sendForJson({
@@ -187,7 +188,7 @@ export const searchGifsProgram = (
   app: App,
   name: string,
   q: string
-): Effect.Effect<GifSearchResponse, GifNotFoundError | GifProviderError> =>
+): Effect.Effect<GifSearchResponse, GifNotFoundError | GifProviderError, OutboundHttp> =>
   Effect.gen(function* () {
     const connection = yield* gifConnectionOf(app, name)
     const answer = yield* callOperation(app, connection, {
@@ -242,24 +243,21 @@ const addressesOf = (app: App, connection: GifConnection, id: string) => {
 export const gifMediaProgram = (
   app: App,
   input: { readonly name: string; readonly id: string; readonly preview: boolean }
-): Effect.Effect<RemoteImage, GifNotFoundError | GifProviderError> =>
+): Effect.Effect<OutboundImage, GifNotFoundError | GifProviderError, OutboundHttp> =>
   Effect.gen(function* () {
     if (!GIF_ID_PATTERN.test(input.id)) {
       return yield* new GifNotFoundError({ reason: 'not a GIF id' })
     }
     const connection = yield* gifConnectionOf(app, input.name)
     const media = yield* addressesOf(app, connection, input.id)
-    const read = yield* Effect.tryPromise({
-      try: () =>
-        fetchRemoteImage(input.preview ? media.preview : media.original, {
-          maxBytes: input.preview ? PREVIEW_MAX_BYTES : GIF_MAX_BYTES,
-          timeoutMs: PROVIDER_TIMEOUT_MS,
-          ttlMs: DAY_MS,
-          failureTtlMs: HOUR_MS,
-          resolveHost: systemResolveHost,
-        }),
-      catch: (error) =>
-        new GifProviderError({ reason: error instanceof Error ? error.message : String(error) }),
+    const { fetchRemoteImage } = yield* OutboundHttp
+    // Every hop's host name is resolved by the machine's resolver and judged
+    // before the picture is read: the port's only mode.
+    const read = yield* fetchRemoteImage(input.preview ? media.preview : media.original, {
+      maxBytes: input.preview ? PREVIEW_MAX_BYTES : GIF_MAX_BYTES,
+      timeoutMs: PROVIDER_TIMEOUT_MS,
+      ttlMs: DAY_MS,
+      failureTtlMs: HOUR_MS,
     })
     if (!read.ok) return yield* new GifProviderError({ reason: read.reason })
     return read.image

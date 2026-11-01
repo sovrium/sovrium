@@ -16,9 +16,11 @@
 //!   `current_exe()`. Whether the bundler actually put `sovrium` there is a
 //!   property of the bundle, and a wrong answer presents as an app that opens
 //!   and then does nothing.
-//! * **The sidecar cannot execute.** On macOS an unsigned or wrongly-entitled
-//!   nested Mach-O is killed by the kernel at launch rather than failing with a
-//!   message — again, an app that opens and does nothing.
+//! * **The sidecar cannot execute.** On macOS an unsigned nested Mach-O, or one
+//!   whose signature does not match it, is killed by the kernel at launch
+//!   rather than failing with a message — again, an app that opens and does
+//!   nothing. (A missing `allow-jit` is NOT this case: measured, the engine
+//!   still starts and serves, with its JIT off; ADR-036 A3.)
 //!
 //! So the check has to be: take the bundle, point it at an empty folder, and see
 //! whether a real Sovrium instance ends up answering HTTP.

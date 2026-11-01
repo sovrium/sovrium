@@ -10,6 +10,7 @@ import { DatabaseError } from '@/domain/errors'
 import { passingFilterRefusal } from '@/infrastructure/database/sql/db-effect'
 import { buildWhereClause, type FilterNode } from './aggregation-helpers'
 import type { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 import type { SQL } from 'drizzle-orm'
 
 /**
@@ -19,13 +20,16 @@ import type { SQL } from 'drizzle-orm'
  * the API — never a defect, and never folded into a database error.
  */
 export const whereClauseOf = (
+  dialect: DatabaseDialect,
   tableName: string,
-  hasDeletedAt: boolean,
-  includeDeleted: boolean | undefined,
-  filter: { readonly and?: readonly FilterNode[] } | undefined
+  scope: {
+    readonly hasDeletedAt: boolean
+    readonly includeDeleted: boolean | undefined
+    readonly filter: { readonly and?: readonly FilterNode[] } | undefined
+  }
 ): Effect.Effect<Readonly<SQL>, DatabaseError | UncompilableFilterOperatorError> =>
   Effect.try({
-    try: () => buildWhereClause(hasDeletedAt, includeDeleted, filter),
+    try: () => buildWhereClause(dialect, scope.hasDeletedAt, scope.includeDeleted, scope.filter),
     catch: passingFilterRefusal(
       (cause) => new DatabaseError(`Failed to build the filter of ${tableName}`, cause)
     ),

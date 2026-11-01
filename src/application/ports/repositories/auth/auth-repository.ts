@@ -76,6 +76,16 @@ export class AuthRepository extends Context.Service<
       AuthDatabaseError
     >
     /**
+     * The name and avatar an account carries, by id, as stored — `undefined`
+     * when no account holds `userId`. What a presence entry shows of her.
+     */
+    readonly findUserProfileById: (
+      userId: string
+    ) => Effect.Effect<
+      { readonly name: string | null; readonly image: string | null } | undefined,
+      AuthDatabaseError
+    >
+    /**
      * The display name and email of each of `userIds`, in ONE query, keyed by
      * user id — the bulk form of {@link findUserContactById}, so a list of
      * records names its people in one lookup rather than one per row. An id no

@@ -29,6 +29,24 @@ concurrency:
 #
 # `Workflow Pins` (scripts/drift/check-workflow-pins.ts) fails on any `write`
 # here, so this block cannot quietly widen again.
+#
+# ── The `release` environment ────────────────────────────────
+# Every job that reads a release secret — the archive signing key, the Tauri
+# updater key, the Apple/Azure code-signing credentials, the tap token — runs in
+# `environment: release`, and nothing else does. The environment holds those
+# secrets (as ENVIRONMENT secrets, never repository ones) and carries the
+# founder's required reviewer, so a `v*` tag pushed on any commit by any write
+# credential no longer yields a signed release on its own: someone approves the
+# run first. Those jobs are `build-desktop`, `sign-release`, `publish-release`,
+# `update-homebrew` and `update-scoop`. `Workflow Pins` rule (c) fails on a job
+# that reads one of those secrets outside the environment. The GitHub settings
+# this assumes are listed in docs/infrastructure/release/release-script.md
+# ("GitHub settings this workflow assumes").
+#
+# The CLI and desktop BUILDS hold no key: `tauri build` signs with a throwaway
+# key and the archives come out unsigned, then `sign-release` signs them from a
+# bare checkout with no `bun install`, so no cargo build script, npm plugin or
+# action in a build lane ever shares a process with a release key.
 permissions: {}
 
 # The runtime-manifest guard refuses to generate the embedded asset manifest
@@ -46,8 +64,26 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     steps:
+      # Full history: `merge-base --is-ancestor` needs the graph between the tag
+      # and main, which a depth-1 clone does not carry.
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # Every other job depends on this one, so this is the whole run's gate. A
+      # release is cut from main by the Forgejo pipeline, which pushes main and
+      # the tag to the same commit; a `v*` tag on any other commit — a branch, a
+      # fork's history, a hand-made tag — is not a release and gets no build,
+      # no signature and no publish.
+      - name: Refuse a tag whose commit is not on main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "::error::${GITHUB_REF_NAME} points at ${GITHUB_SHA}, which is not on main. Releases are cut from main only; nothing is built or signed for this tag."
+            exit 1
+          fi
+          echo "OK: ${GITHUB_REF_NAME} (${GITHUB_SHA}) is on main"
 
       - name: Create GitHub Release (draft)
         env:
@@ -115,6 +151,9 @@ jobs:
     name: Submit dependency snapshot
     permissions:
       contents: write # POST /repos/{owner}/{repo}/dependency-graph/snapshots
+    # Behind the main-ancestry gate like every other job: a tag off main must not
+    # file its lockfiles as main's dependency graph.
+    needs: [release]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -253,21 +292,9 @@ jobs:
             rm -f sovrium
           done
 
-      # Detached Ed25519 signatures (`<archive>.sig`, base64). Unlike the `.sha256`
-      # beside it, a signature proves WHO built the archive, once `sovrium update`
-      # embeds the public key (ADR-041 D6). FAIL CLOSED: no key, no release — the
-      # key's custody is ADR-036 D8 (a repository secret plus the founder's offline
-      # copy); generation recipe in docs/infrastructure/release/verifying-downloads.md.
-      - name: Sign the archives
-        env:
-          SOVRIUM_RELEASE_SIGNING_KEY: ${{ secrets.SOVRIUM_RELEASE_SIGNING_KEY }}
-        run: |
-          if [ -z "${SOVRIUM_RELEASE_SIGNING_KEY}" ]; then
-            echo "::error::SOVRIUM_RELEASE_SIGNING_KEY secret is not set — refusing to publish unsigned archives. The key is held per ADR-036 D8 (repository secret + the founder's offline copy); generate it before cutting a release."
-            exit 1
-          fi
-          VERSION="${{ steps.version.outputs.version }}"
-          bun run scripts/build/sign-asset.ts "sovrium-${VERSION}-darwin-arm64.tar.gz" "sovrium-${VERSION}-darwin-x64.tar.gz"
+      # NOT signed here: this job ran `bun install` and a whole build, and the
+      # release signing key never enters a process that did. The archives go to
+      # `sign-release` as an artifact, and their `.sig` is made there.
 
       # The `.sha256` beside an archive comes from the same release a tamperer
       # would edit, so it proves integrity and never authenticity. The
@@ -291,9 +318,18 @@ jobs:
             gh release upload "${TAG}" \
               "sovrium-${VERSION}-${TARGET}.tar.gz" \
               "sovrium-${VERSION}-${TARGET}.sha256" \
-              "sovrium-${VERSION}-${TARGET}.tar.gz.sig" \
               --clobber
           done
+
+      - name: Hand the archives to the signer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cli-archive-darwin
+          if-no-files-found: error
+          retention-days: 1
+          path: |
+            sovrium-${{ steps.version.outputs.version }}-darwin-arm64.tar.gz
+            sovrium-${{ steps.version.outputs.version }}-darwin-x64.tar.gz
 
       # The desktop bundle embeds this same binary as its sidecar. Handed over
       # as a WORKFLOW ARTIFACT rather than re-downloaded from the release: the
@@ -410,21 +446,9 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           sha256sum "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" > "sovrium-${VERSION}-${{ matrix.target }}.sha256"
 
-      # Detached Ed25519 signatures (`<archive>.sig`, base64). Unlike the `.sha256`
-      # beside it, a signature proves WHO built the archive, once `sovrium update`
-      # embeds the public key (ADR-041 D6). FAIL CLOSED: no key, no release — the
-      # key's custody is ADR-036 D8 (a repository secret plus the founder's offline
-      # copy); generation recipe in docs/infrastructure/release/verifying-downloads.md.
-      - name: Sign the archives
-        env:
-          SOVRIUM_RELEASE_SIGNING_KEY: ${{ secrets.SOVRIUM_RELEASE_SIGNING_KEY }}
-        run: |
-          if [ -z "${SOVRIUM_RELEASE_SIGNING_KEY}" ]; then
-            echo "::error::SOVRIUM_RELEASE_SIGNING_KEY secret is not set — refusing to publish unsigned archives. The key is held per ADR-036 D8 (repository secret + the founder's offline copy); generate it before cutting a release."
-            exit 1
-          fi
-          VERSION="${{ steps.version.outputs.version }}"
-          bun run scripts/build/sign-asset.ts "sovrium-${VERSION}-${{ matrix.target }}.tar.gz"
+      # NOT signed here: this job ran `bun install` and a whole build, and the
+      # release signing key never enters a process that did. The archives go to
+      # `sign-release` as an artifact, and their `.sig` is made there.
 
       # See the macOS job: the attestation is the authenticity proof the
       # same-channel `.sha256` cannot be.
@@ -442,8 +466,15 @@ jobs:
           gh release upload "${TAG}" \
             "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" \
             "sovrium-${VERSION}-${{ matrix.target }}.sha256" \
-            "sovrium-${VERSION}-${{ matrix.target }}.tar.gz.sig" \
             --clobber
+
+      - name: Hand the archive to the signer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cli-archive-${{ matrix.target }}
+          if-no-files-found: error
+          retention-days: 1
+          path: sovrium-${{ steps.version.outputs.version }}-${{ matrix.target }}.tar.gz
 
   # ── Build Windows binary (NATIVE on windows-latest) ─────────
   #
@@ -567,21 +598,9 @@ jobs:
           sha256sum "sovrium-${VERSION}-windows-x64.zip" > "sovrium-${VERSION}-windows-x64.sha256"
           cat "sovrium-${VERSION}-windows-x64.sha256"
 
-      # Detached Ed25519 signatures (`<archive>.sig`, base64). Unlike the `.sha256`
-      # beside it, a signature proves WHO built the archive, once `sovrium update`
-      # embeds the public key (ADR-041 D6). FAIL CLOSED: no key, no release — the
-      # key's custody is ADR-036 D8 (a repository secret plus the founder's offline
-      # copy); generation recipe in docs/infrastructure/release/verifying-downloads.md.
-      - name: Sign the archives
-        env:
-          SOVRIUM_RELEASE_SIGNING_KEY: ${{ secrets.SOVRIUM_RELEASE_SIGNING_KEY }}
-        run: |
-          if [ -z "${SOVRIUM_RELEASE_SIGNING_KEY}" ]; then
-            echo "::error::SOVRIUM_RELEASE_SIGNING_KEY secret is not set — refusing to publish unsigned archives. The key is held per ADR-036 D8 (repository secret + the founder's offline copy); generate it before cutting a release."
-            exit 1
-          fi
-          VERSION="${{ steps.version.outputs.version }}"
-          bun run scripts/build/sign-asset.ts "sovrium-${VERSION}-windows-x64.zip"
+      # NOT signed here: this job ran `bun install` and a whole build, and the
+      # release signing key never enters a process that did. The archives go to
+      # `sign-release` as an artifact, and their `.sig` is made there.
 
       # See the macOS job: the attestation is the authenticity proof the
       # same-channel `.sha256` cannot be.
@@ -599,8 +618,15 @@ jobs:
           gh release upload "${TAG}" \
             "sovrium-${VERSION}-windows-x64.zip" \
             "sovrium-${VERSION}-windows-x64.sha256" \
-            "sovrium-${VERSION}-windows-x64.zip.sig" \
             --clobber
+
+      - name: Hand the archive to the signer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cli-archive-windows-x64
+          if-no-files-found: error
+          retention-days: 1
+          path: sovrium-${{ steps.version.outputs.version }}-windows-x64.zip
 
   # ── Build the desktop installers ────────────────────────────
   #
@@ -627,6 +653,11 @@ jobs:
       id-token: write
       attestations: write
     needs: [build-binary-macos, build-binary-linux, build-binary-windows]
+    # The Apple and Azure code-signing credentials sign INSIDE the bundler, so
+    # they cannot leave this job the way the updater key did; the environment is
+    # what keeps them out of reach of a tag nobody approved. The Tauri updater
+    # key is NOT here any more — see "Build the bundle".
+    environment: release
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 75
     defaults:
@@ -763,15 +794,13 @@ jobs:
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
           have() { [ -n "$1" ] && echo true || echo false; }
           {
             echo "apple=$(have "$APPLE_CERTIFICATE")"
             echo "azure=$(have "$AZURE_CLIENT_ID")"
-            echo "updater=$(have "$TAURI_SIGNING_PRIVATE_KEY")"
           } >> "$GITHUB_OUTPUT"
-          echo "apple=$(have "$APPLE_CERTIFICATE") azure=$(have "$AZURE_CLIENT_ID") updater=$(have "$TAURI_SIGNING_PRIVATE_KEY")"
+          echo "apple=$(have "$APPLE_CERTIFICATE") azure=$(have "$AZURE_CLIENT_ID")"
 
       # A dedicated, throwaway keychain rather than the login one: the login
       # keychain on a GitHub runner is shared with whatever else the job does,
@@ -809,12 +838,18 @@ jobs:
           security find-identity -v -p codesigning "${KEYCHAIN}"
 
       # The entitlements are the load-bearing part, and they are why the sidecar
-      # is signed separately rather than by a `--deep` pass over the bundle: a
-      # deep signature does NOT apply entitlements to a nested Mach-O, and
-      # JavaScriptCore is a JIT. Without `allow-jit` and
-      # `allow-unsigned-executable-memory` the hardened runtime has the kernel
-      # kill the engine at launch, with no message — which reaches the user as
-      # "the app does nothing when I open it".
+      # is signed here, on its own: JavaScriptCore is a JIT, and without
+      # `allow-jit` the hardened runtime turns the JIT off, so the engine starts
+      # but runs about seven times slower (measured, ADR-036 A3).
+      #
+      # THIS signature is the one that ships. On macOS `desktop/tauri-cli.ts`
+      # hands the engine to the bundler as a plain file (`bundle.macOS.files`),
+      # not as an external binary, so Tauri does not sign it again with the
+      # shell's entitlements (`shell.entitlements.plist`, which holds none). So
+      # this step must keep `--options runtime --timestamp`: notarization needs
+      # the hardened runtime and a secure timestamp on every Mach-O, and nothing
+      # later adds them to the engine. `tauri-cli.ts` refuses a signed build
+      # whose staged engine carries anything but `allow-jit` (ADR-036 A3).
       - name: Sign the sidecar (macOS)
         if: runner.os == 'macOS'
         env:
@@ -854,8 +889,10 @@ jobs:
       # `createUpdaterArtifacts` is deliberately NOT in the committed
       # tauri.conf.json: with it on and no signing key, `tauri build` fails
       # outright, which would break every unsigned build including the PR
-      # workflow and a developer's local one. It belongs to the lane that has
-      # the key, and nowhere else.
+      # workflow and a developer's local one. Here it is ALWAYS on, because this
+      # lane always has a key — a throwaway one (see "Build the bundle") — so the
+      # updater payloads come out in Tauri's own layout, and `sign-release`
+      # signs them with the real key afterwards.
       - name: Compose the build config overlay
         id: overlay
         env:
@@ -867,11 +904,7 @@ jobs:
           PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
         run: |
           OVERLAY="${RUNNER_TEMP}/tauri.overlay.json"
-          echo '{}' > "${OVERLAY}"
-          if [ "${{ steps.secrets.outputs.updater }}" = "true" ]; then
-            jq '.bundle.createUpdaterArtifacts = true' "${OVERLAY}" > "${OVERLAY}.tmp"
-            mv "${OVERLAY}.tmp" "${OVERLAY}"
-          fi
+          echo '{"bundle":{"createUpdaterArtifacts":true}}' > "${OVERLAY}"
           if [ "${{ runner.os }}" = "Windows" ] && [ "${{ steps.secrets.outputs.azure }}" = "true" ]; then
             # `%1` is Tauri's placeholder for the file being signed.
             jq --arg cmd "artifact-signing-cli -e ${ENDPOINT} -a ${ACCOUNT} -c ${PROFILE} -d Sovrium %1" \
@@ -886,6 +919,17 @@ jobs:
       # the ticket. `APPLE_API_KEY_PATH` points at a file written from a secret
       # rather than being a secret itself — a path is not a credential, and the
       # .p8 has to exist on disk for `notarytool`.
+      #
+      # The UPDATER key is a throwaway, generated here and trusted by nothing.
+      # `tauri build` refuses `createUpdaterArtifacts` without a key, and with
+      # the real one in this environment every cargo build script, proc macro
+      # and npm plugin of the desktop build could read the key every installed
+      # app trusts for its next update. So the bundler signs with a key
+      # nobody will ever verify against, its `.sig` files are dropped in "Name
+      # the assets", and `sign-release` signs the same payloads with the real
+      # key from a bare checkout (scripts/build/sign-tauri-updater.ts). The
+      # bundler warns that this key "does not match the public key from
+      # `plugins > updater > pubkey`": expected, and only a warning.
       - name: Build the bundle
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -895,9 +939,17 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
+          # A random passphrase made at run time, so no literal sits in this file.
+          # Bun rather than `openssl`: Git Bash on the Windows lane does not
+          # promise `openssl` (see build-binary-windows), and Bun is on every lane.
+          THROWAWAY_KEY="${RUNNER_TEMP}/throwaway-updater.key"
+          THROWAWAY_PASSPHRASE="$(bun -e 'process.stdout.write(require("node:crypto").randomBytes(24).toString("base64"))')"
+          bun run --cwd desktop tauri signer generate \
+            --ci --force --password "${THROWAWAY_PASSPHRASE}" --write-keys "${THROWAWAY_KEY}" > /dev/null
+          TAURI_SIGNING_PRIVATE_KEY="$(cat "${THROWAWAY_KEY}")"
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${THROWAWAY_PASSPHRASE}"
+          export TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
           if [ "${{ runner.os }}" = "macOS" ] && [ -n "${APPLE_API_KEY_P8}" ]; then
             printf '%s' "${APPLE_API_KEY_P8}" | base64 --decode > "${RUNNER_TEMP}/AuthKey.p8"
             export APPLE_API_KEY_PATH="${RUNNER_TEMP}/AuthKey.p8"
@@ -911,7 +963,7 @@ jobs:
             --target ${{ matrix.rust-target }} \
             --bundles ${{ matrix.bundles }} \
             --config "${{ steps.overlay.outputs.path }}"
-          rm -f "${RUNNER_TEMP}/AuthKey.p8"
+          rm -f "${RUNNER_TEMP}/AuthKey.p8" "${THROWAWAY_KEY}" "${THROWAWAY_KEY}.pub"
 
       # Signature, notarization ticket, Gatekeeper verdict — asserted rather
       # than assumed. Each answers a different question, and a release that
@@ -921,6 +973,26 @@ jobs:
         run: |
           APP="desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/macos/Sovrium.app"
           codesign --verify --deep --strict --verbose=2 "${APP}"
+          # Each Mach-O carries its own entitlements: the shell the minimal set,
+          # the engine the JIT key alone. Asserted, because a bundler change that
+          # re-signed the engine with the shell's file, or the shell with the
+          # engine's, would still verify above and fail only at launch.
+          EXE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${APP}/Contents/Info.plist")
+          SHELL_ENTITLEMENTS=$(codesign -d --entitlements :- "${APP}/Contents/MacOS/${EXE_NAME}" 2>/dev/null)
+          ENGINE_ENTITLEMENTS=$(codesign -d --entitlements :- "${APP}/Contents/MacOS/sovrium" 2>/dev/null)
+          for KEY in disable-library-validation allow-dyld-environment-variables; do
+            if printf '%s' "${SHELL_ENTITLEMENTS}" | grep -q "com.apple.security.cs.${KEY}"; then
+              echo "FAIL: the app shell carries ${KEY}; it belongs to the engine alone"
+              exit 1
+            fi
+          done
+          # Exactly allow-jit: missing, the engine runs with its JIT off; any
+          # other key is one the founder dropped on 2026-10-30 (ADR-036 A3).
+          ENGINE_KEYS=$(printf '%s' "${ENGINE_ENTITLEMENTS}" | grep -o 'com\.apple\.security\.[A-Za-z0-9.-]*' | LC_ALL=C sort -u | tr '\n' ' ')
+          if [ "${ENGINE_KEYS}" != "com.apple.security.cs.allow-jit " ]; then
+            echo "FAIL: the engine must carry exactly com.apple.security.cs.allow-jit (ADR-036 A3); it carries: ${ENGINE_KEYS:-nothing}"
+            exit 1
+          fi
           spctl -a -vv "${APP}"
           xcrun stapler validate "${APP}"
           DMG=$(find "desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/dmg" -maxdepth 1 -name '*.dmg' | head -n 1)
@@ -1039,7 +1111,16 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           BUNDLE="desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle"
           OUT="${RUNNER_TEMP}/release"
-          mkdir -p "${OUT}"
+          # The updater payloads, staged apart for `sign-release`. The `.sig`
+          # files `tauri build` wrote beside them were made with the throwaway
+          # key and are deliberately NOT taken: they verify against nothing.
+          UPDATER="${RUNNER_TEMP}/updater"
+          # Every installer under its VERSIONED name, staged apart for
+          # `sign-release`, which signs each with the release key (`<asset>.sig`).
+          # The version-less copies are the same bytes, so their signature is a
+          # copy of the versioned one's, made there.
+          INSTALLERS="${RUNNER_TEMP}/installers"
+          mkdir -p "${OUT}" "${UPDATER}" "${INSTALLERS}"
           # The checksum patterns go to a FILE rather than to a step output.
           # An output interpolated into a shell command is glob-expanded by the
           # shell before the script ever sees it, and `Sovrium-1.2.3-mac-arm64.*`
@@ -1050,6 +1131,7 @@ jobs:
           take() { # take <source> <versioned> [version-less]
             [ -f "$1" ] || { echo "FAIL: expected artefact missing: $1"; exit 1; }
             cp "$1" "${OUT}/$2"
+            cp "$1" "${INSTALLERS}/$2"
             # An `if` rather than `[ -n ... ] && cp`: under `bash -e` a trailing
             # AND-list that evaluates false is a failed statement, and the two
             # `take` calls with no third argument are the common case.
@@ -1061,32 +1143,26 @@ jobs:
               ARCH="${{ matrix.slug }}"
               take "$(find "${BUNDLE}/dmg" -maxdepth 1 -name '*.dmg' | head -n 1)" \
                 "Sovrium-${VERSION}-${ARCH}.dmg" "Sovrium-${ARCH}.dmg"
-              if [ -f "${BUNDLE}/macos/Sovrium.app.tar.gz" ]; then
-                take "${BUNDLE}/macos/Sovrium.app.tar.gz" "Sovrium-${VERSION}-${ARCH}.app.tar.gz"
-                take "${BUNDLE}/macos/Sovrium.app.tar.gz.sig" "Sovrium-${VERSION}-${ARCH}.app.tar.gz.sig"
-              fi
+              take "${BUNDLE}/macos/Sovrium.app.tar.gz" "Sovrium-${VERSION}-${ARCH}.app.tar.gz"
+              cp "${OUT}/Sovrium-${VERSION}-${ARCH}.app.tar.gz" "${UPDATER}/"
               printf '%s\n' "Sovrium-${VERSION}-${ARCH}.*" >> "${PATTERNS}"
               ;;
             windows-x64)
               SETUP=$(find "${BUNDLE}/nsis" -maxdepth 1 -name '*-setup.exe' | head -n 1)
               take "${SETUP}" "Sovrium-${VERSION}-windows-x64-setup.exe" "Sovrium-windows-x64-setup.exe"
-              if [ -f "${SETUP}.sig" ]; then
-                take "${SETUP}.sig" "Sovrium-${VERSION}-windows-x64-setup.exe.sig"
-              fi
+              cp "${OUT}/Sovrium-${VERSION}-windows-x64-setup.exe" "${UPDATER}/"
               printf '%s\n' "Sovrium-${VERSION}-windows-x64-setup.*" >> "${PATTERNS}"
               ;;
             linux-x64)
               APPIMAGE=$(find "${BUNDLE}/appimage" -maxdepth 1 -name '*.AppImage' | head -n 1)
               take "${APPIMAGE}" "Sovrium-${VERSION}-linux-x64.AppImage" "Sovrium-linux-x64.AppImage"
-              if [ -f "${APPIMAGE}.sig" ]; then
-                take "${APPIMAGE}.sig" "Sovrium-${VERSION}-linux-x64.AppImage.sig"
-              fi
+              cp "${OUT}/Sovrium-${VERSION}-linux-x64.AppImage" "${UPDATER}/"
               take "$(find "${BUNDLE}/deb" -maxdepth 1 -name '*.deb' | head -n 1)" \
                 "sovrium-${VERSION}-linux-amd64.deb" "sovrium-linux-amd64.deb"
               printf '%s\n' "Sovrium-${VERSION}-linux-x64.*" "sovrium-${VERSION}-linux-amd64.deb" >> "${PATTERNS}"
               ;;
           esac
-          ls -la "${OUT}"
+          ls -la "${OUT}" "${UPDATER}" "${INSTALLERS}"
 
       # `generate-checksums.ts` rather than an inline `shasum` loop: it fails
       # LOUDLY and by name on a pattern that matches nothing, where a glob that
@@ -1113,8 +1189,9 @@ jobs:
       # One glob over the whole staging directory rather than four per-extension
       # ones: this lane produces two of the four, and a `subject-path` entry
       # matching nothing is how the step fails on the lane it was written for.
-      # It therefore attests the checksum file and any updater signature too,
-      # which is correct — they are published assets as well.
+      # It therefore attests the checksum file too, which is correct — it is a
+      # published asset as well. The updater signatures are not here yet: they
+      # are made by `sign-release`, after this job.
       - name: Attest the installers
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
@@ -1131,17 +1208,28 @@ jobs:
           cd "${RUNNER_TEMP}/release"
           gh release upload "${TAG}" ./* --repo "${{ github.repository }}" --clobber
 
-      # The updater signatures, handed to `assemble-updater-manifest` as an
-      # artifact. `ignore` rather than `error`: an unsigned lane legitimately
-      # produces none, and the manifest job refuses on its own terms when a
-      # platform is missing.
-      - name: Upload the updater signatures
+      # The updater payloads, handed to `sign-release` as an artifact: the
+      # exact bytes just uploaded to the release, so the signature made there
+      # covers the file the updater will download.
+      - name: Hand the updater payload to the signer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: updater-sigs-${{ matrix.slug }}
-          if-no-files-found: ignore
+          name: updater-payload-${{ matrix.slug }}
+          if-no-files-found: error
           retention-days: 1
-          path: ${{ runner.temp }}/release/*.sig
+          path: ${{ runner.temp }}/updater/*
+
+      # Every installer, handed to `sign-release` for its release-key
+      # signature. Without one, a person downloading an installer that no OS
+      # code signature vouches for (no publisher certificate yet) would have
+      # nothing to check it against but a checksum from the same release page.
+      - name: Hand the installers to the signer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-installers-${{ matrix.slug }}
+          if-no-files-found: error
+          retention-days: 1
+          path: ${{ runner.temp }}/installers/*
 
   # ── Assemble the updater manifest ───────────────────────────
   #
@@ -1154,42 +1242,29 @@ jobs:
   # It runs while the release is still a draft, because a published GitHub
   # release rejects new assets — and an updater manifest that cannot be uploaded
   # after the fact is an updater that never starts.
+  #
+  # It holds no key: the signatures come from `sign-release`, which only writes
+  # them when the desktop lanes all succeeded AND the updater key is configured.
+  # Without the key the installers are complete and installable; they simply
+  # will not self-update (key custody: docs/infrastructure/release/release-script.md).
   assemble-updater-manifest:
     name: Assemble Updater Manifest
     permissions:
       contents: write
-    needs: [build-desktop]
-    if: ${{ !cancelled() && needs.build-desktop.result == 'success' }}
+    needs: [sign-release]
+    if: ${{ !cancelled() && needs.sign-release.result == 'success' && needs.sign-release.outputs.updater == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Detect the updater signing key
-        id: secrets
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        run: |
-          if [ -n "${TAURI_SIGNING_PRIVATE_KEY}" ]; then
-            echo "updater=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "updater=false" >> "$GITHUB_OUTPUT"
-            echo "No TAURI_SIGNING_PRIVATE_KEY secret — no updater artifacts were built,"
-            echo "so there is no manifest to assemble. The installers in this release are"
-            echo "complete and installable; they simply will not self-update."
-            echo "See docs/infrastructure/release/release-script.md for the key custody rule."
-          fi
-
       - name: Download the updater signatures
-        if: steps.secrets.outputs.updater == 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: updater-sigs-*
-          merge-multiple: true
+          name: updater-sigs
           path: sigs
 
       # Every platform or none. A manifest missing one key is not a smaller
       # manifest — it is an updater that reports "you are up to date" forever to
       # everyone on that platform, which is indistinguishable from working.
       - name: Write latest.json
-        if: steps.secrets.outputs.updater == 'true'
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
@@ -1242,7 +1317,6 @@ jobs:
           cat latest.json
 
       - name: Upload latest.json to the draft release
-        if: steps.secrets.outputs.updater == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -1293,17 +1367,29 @@ jobs:
               --clobber || true
           done
 
+      # `sort -u`: the per-lane files overlap (a desktop lane's file lists the
+      # versioned AND the version-less name of one installer, and a re-run lane
+      # re-uploads its file), so a plain `cat` repeated entries. Then one name,
+      # one hash, asserted: two DIFFERENT hashes for one file name is not a
+      # duplicate to fold, it is two builds of one asset, and `sha256sum -c`
+      # would pass the user whichever line it read first.
       - name: Create combined checksums file
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          cat sovrium-${VERSION}-*.sha256 > "sovrium-${VERSION}-checksums.txt" 2>/dev/null || true
-          if [ -s "sovrium-${VERSION}-checksums.txt" ]; then
-            echo "Combined checksums:"
-            cat "sovrium-${VERSION}-checksums.txt"
-          else
+          COMBINED="sovrium-${VERSION}-checksums.txt"
+          cat sovrium-${VERSION}-*.sha256 2>/dev/null | sed '/^[[:space:]]*$/d' | LC_ALL=C sort -u > "${COMBINED}" || true
+          if [ ! -s "${COMBINED}" ]; then
             echo "No checksums found to aggregate"
             exit 0
           fi
+          CONFLICTS=$(awk '{ sub(/^\*/, "", $2); print $2 }' "${COMBINED}" | LC_ALL=C sort | uniq -d)
+          if [ -n "${CONFLICTS}" ]; then
+            echo "::error::one file name carries more than one hash in the combined checksums:"
+            printf '%s\n' "${CONFLICTS}"
+            exit 1
+          fi
+          echo "Combined checksums ($(wc -l < "${COMBINED}") entries):"
+          cat "${COMBINED}"
 
       # The combined file is what a user runs `sha256sum -c` against, so it gets
       # its own attestation beside the per-archive ones the build lanes made.
@@ -1327,6 +1413,221 @@ jobs:
               --repo "${{ github.repository }}" \
               --clobber
           fi
+
+      # Signed by `sign-release`, like the archives, so the file a user runs
+      # `sha256sum -c` against carries a `.sig` from the release key too.
+      - name: Hand the combined checksums to the signer
+        if: hashFiles(format('sovrium-{0}-checksums.txt', steps.version.outputs.version)) != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: combined-checksums
+          if-no-files-found: error
+          retention-days: 1
+          path: sovrium-${{ steps.version.outputs.version }}-checksums.txt
+
+  # ── Sign every release asset, with nothing else in the process ──
+  #
+  # The ONLY job that reads the archive signing key and the Tauri updater key.
+  # It installs nothing — no `bun install`, no cargo, no npm plugin —
+  # and runs two scripts that import `node:` built-ins only
+  # (scripts/build/sign-asset.ts, scripts/build/sign-tauri-updater.ts; the unit
+  # test fails on any other import). The artefacts arrive from the build lanes
+  # as workflow artifacts, are signed, and the `.sig` files go to the draft
+  # release. Each key is in the `env:` of the one step that uses it.
+  #
+  # Runs once the CLI lanes succeeded, whatever the desktop lanes did: a broken
+  # installer must not hold the engine's signatures hostage (same contract as
+  # `publish-release`). The updater payloads are signed only when every desktop
+  # lane succeeded, because a partial `latest.json` is never written anyway.
+  sign-release:
+    name: Sign Release Assets
+    permissions:
+      contents: write # gh release upload of the .sig files
+    needs:
+      - build-binary-macos
+      - build-binary-linux
+      - build-binary-windows
+      - build-desktop
+      - aggregate-checksums
+    if: >-
+      ${{ !cancelled()
+      && needs.build-binary-macos.result == 'success'
+      && needs.build-binary-linux.result == 'success'
+      && needs.build-binary-windows.result == 'success' }}
+    environment: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      updater: ${{ steps.updater.outputs.updater }}
+    steps:
+      # Sparse: the two signers and the updater public key are all this job
+      # reads from the tree.
+      - name: Checkout the signers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            /package.json
+            /scripts/build/sign-asset.ts
+            /scripts/build/sign-tauri-updater.ts
+            /desktop/src-tauri/tauri.conf.json
+            /install.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+
+      - name: Read version
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download the CLI archives
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: cli-archive-*
+          merge-multiple: true
+          path: assets
+
+      - name: Download the combined checksums
+        if: needs.aggregate-checksums.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: combined-checksums
+          path: assets
+
+      # Detached Ed25519 signatures (`<asset>.sig`, base64). Unlike the `.sha256`
+      # beside it, a signature proves WHO built the archive, once `sovrium update`
+      # embeds the public key (ADR-041 D6). FAIL CLOSED: no key, no release — the
+      # key's custody is ADR-036 D8 (a `release` environment secret plus the
+      # founder's offline copy); recipe in docs/infrastructure/release/verifying-downloads.md.
+      - name: Sign the CLI archives, the combined checksums and install.sh
+        env:
+          SOVRIUM_RELEASE_SIGNING_KEY: ${{ secrets.SOVRIUM_RELEASE_SIGNING_KEY }}
+        run: |
+          if [ -z "${SOVRIUM_RELEASE_SIGNING_KEY}" ]; then
+            echo "::error::SOVRIUM_RELEASE_SIGNING_KEY is not set in the release environment — refusing to publish unsigned archives (ADR-036 D8)."
+            exit 1
+          fi
+          VERSION="${{ steps.version.outputs.version }}"
+          ASSETS=(
+            "assets/sovrium-${VERSION}-darwin-arm64.tar.gz"
+            "assets/sovrium-${VERSION}-darwin-x64.tar.gz"
+            "assets/sovrium-${VERSION}-linux-x64.tar.gz"
+            "assets/sovrium-${VERSION}-linux-arm64.tar.gz"
+            "assets/sovrium-${VERSION}-windows-x64.zip"
+          )
+          if [ -f "assets/sovrium-${VERSION}-checksums.txt" ]; then
+            ASSETS+=("assets/sovrium-${VERSION}-checksums.txt")
+          fi
+          # The installer script, from this tag's tree, published as a release
+          # asset beside its signature: what `sovrium.com/install` serves is
+          # taken from the release the website pins (its fetch-install-script.ts
+          # prefers this asset), and `verify-mirrors` compares the two.
+          cp install.sh assets/install.sh
+          ASSETS+=("assets/install.sh")
+          bun run scripts/build/sign-asset.ts "${ASSETS[@]}"
+
+      - name: Download the desktop installers
+        if: needs.build-desktop.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: desktop-installers-*
+          merge-multiple: true
+          path: installers
+
+      # The same release key and the same `<asset>.sig` format as the CLI
+      # archives, so one recipe (verifying-downloads.md) checks any download.
+      # The installers carry no OS code signature until a publisher
+      # certificate exists, which makes this signature the way to tell a
+      # genuine installer from a substituted one. sign-asset.ts exits 1 on a
+      # missing file, so a lane that dropped an installer fails here.
+      - name: Sign the desktop installers
+        if: needs.build-desktop.result == 'success'
+        env:
+          SOVRIUM_RELEASE_SIGNING_KEY: ${{ secrets.SOVRIUM_RELEASE_SIGNING_KEY }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VERSIONED=(
+            "Sovrium-${VERSION}-mac-arm64.dmg"
+            "Sovrium-${VERSION}-mac-x64.dmg"
+            "Sovrium-${VERSION}-windows-x64-setup.exe"
+            "Sovrium-${VERSION}-linux-x64.AppImage"
+            "sovrium-${VERSION}-linux-amd64.deb"
+          )
+          bun run scripts/build/sign-asset.ts \
+            "${VERSIONED[@]/#/installers/}" \
+            "installers/Sovrium-${VERSION}-mac-arm64.app.tar.gz" \
+            "installers/Sovrium-${VERSION}-mac-x64.app.tar.gz"
+          # The version-less copies are byte-identical (`take` in build-desktop
+          # copies one file twice), and an Ed25519 signature is deterministic,
+          # so each one's signature is the versioned one's.
+          for FILE in "${VERSIONED[@]}"; do
+            cp "installers/${FILE}.sig" "installers/${FILE/-${VERSION}-/-}.sig"
+          done
+
+      - name: Download the updater payloads
+        if: needs.build-desktop.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: updater-payload-*
+          merge-multiple: true
+          path: updater
+
+      # The real updater key, verified against the public key every installed
+      # app trusts (desktop/src-tauri/tauri.conf.json) before a signature is
+      # written. Version-bound trusted comment, as `tauri build` writes it.
+      - name: Sign the updater payloads
+        id: updater
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          DESKTOP_RESULT: ${{ needs.build-desktop.result }}
+        run: |
+          if [ "${DESKTOP_RESULT}" != "success" ]; then
+            echo "Desktop lanes: ${DESKTOP_RESULT} — no updater payload to sign."
+            echo "updater=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY}" ]; then
+            echo "No TAURI_SIGNING_PRIVATE_KEY in the release environment — the installers"
+            echo "ship complete and installable, but will not self-update."
+            echo "updater=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          VERSION="${{ steps.version.outputs.version }}"
+          bun run scripts/build/sign-tauri-updater.ts --version "${VERSION}" \
+            "updater/Sovrium-${VERSION}-mac-arm64.app.tar.gz" \
+            "updater/Sovrium-${VERSION}-mac-x64.app.tar.gz" \
+            "updater/Sovrium-${VERSION}-windows-x64-setup.exe" \
+            "updater/Sovrium-${VERSION}-linux-x64.AppImage"
+          echo "updater=true" >> "$GITHUB_OUTPUT"
+
+      # Every `<asset>.sig` on the release is a release-key Ed25519 signature,
+      # one format and one recipe. The updater's minisign signatures are NOT
+      # uploaded as assets: their only reader is the updater, which gets them
+      # inside `latest.json` (assemble-updater-manifest), and under the same
+      # `<payload>.sig` names they would collide with the installers' release
+      # signatures above.
+      - name: Upload the signatures and install.sh to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          FILES=(assets/*.sig installers/*.sig assets/install.sh)
+          gh release upload "${{ github.ref_name }}" "${FILES[@]}" \
+            --repo "${{ github.repository }}" --clobber
+
+      - name: Hand the updater signatures to the manifest
+        if: steps.updater.outputs.updater == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: updater-sigs
+          if-no-files-found: error
+          retention-days: 1
+          path: updater/*.sig
 
   # ── Update Homebrew tap formula ─────────────────────────────
   # Depends on publish-release: update-homebrew-formula.ts fetches each
@@ -1382,6 +1683,9 @@ jobs:
       contents: read
     needs: [publish-release]
     if: ${{ !cancelled() && needs.publish-release.result == 'success' }}
+    # HOMEBREW_TAP_TOKEN writes every `brew install sovrium`; it lives in the
+    # release environment, not the repository.
+    environment: release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
@@ -1414,7 +1718,7 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
-            echo "::error::HOMEBREW_TAP_TOKEN secret is not set — cannot push to sovrium/homebrew-tap. Configure it under repo Settings → Secrets and variables → Actions."
+            echo "::error::HOMEBREW_TAP_TOKEN secret is not set — cannot push to sovrium/homebrew-tap. Configure it as a secret of the release environment (Settings → Environments → release)."
             exit 1
           fi
 
@@ -1448,6 +1752,8 @@ jobs:
     needs: [publish-release]
     # See update-homebrew for why this is not the implicit `success()`.
     if: ${{ !cancelled() && needs.publish-release.result == 'success' }}
+    # Same tap token as update-homebrew, same environment.
+    environment: release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
@@ -1480,7 +1786,7 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
-            echo "::error::HOMEBREW_TAP_TOKEN secret is not set — cannot push to sovrium/scoop-bucket. Configure it under repo Settings → Secrets and variables → Actions."
+            echo "::error::HOMEBREW_TAP_TOKEN secret is not set — cannot push to sovrium/scoop-bucket. Configure it as a secret of the release environment (Settings → Environments → release)."
             exit 1
           fi
 
@@ -1560,7 +1866,9 @@ jobs:
   # ── Verify every template mirror landed at this release ─────
   # The last job of the chain: asserts each sovrium/<slug>-template repo carries the
   # v<version> tag AND a .sovrium-version matching this release. Fails red on any
-  # lagging mirror (no continue-on-error).
+  # lagging mirror (no continue-on-error). It also compares the installer script
+  # sovrium.com serves with this release's (warning while the site still serves
+  # the previous release's, red for anything else).
   verify-mirrors:
     name: Verify template mirrors
     permissions:
@@ -1579,6 +1887,49 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      # `sovrium.com/install` is built by the website repository from the
+      # release it pins (its fetch-install-script.ts copies this release's
+      # `install.sh` asset byte for byte), so nothing here publishes it. This
+      # step is the tie between the two: the script that site serves must be
+      # this release's or, until the website bumps its pin, the previous
+      # one's. Anything else is a script no release of this repository
+      # shipped, and the run goes red. Runs before the mirror assertion so a
+      # lagging mirror does not hide it.
+      - name: Compare sovrium.com/install with the released install.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          REPO="${{ github.repository }}"
+          gh release download "${TAG}" --repo "${REPO}" --pattern install.sh --output released-install.sh
+          if ! curl --proto '=https' --tlsv1.2 -fsSL https://sovrium.com/install -o served-install.sh; then
+            echo "::warning::https://sovrium.com/install could not be fetched, so it was not compared with ${TAG}'s install.sh."
+            exit 0
+          fi
+          if cmp -s released-install.sh served-install.sh; then
+            echo "OK: sovrium.com/install serves ${TAG}'s install.sh"
+            exit 0
+          fi
+          PREVIOUS=$(gh release list --repo "${REPO}" --exclude-drafts --limit 30 \
+            --json tagName --jq '.[].tagName' | grep -vxF "${TAG}" | head -n 1 || true)
+          if [ -n "${PREVIOUS}" ]; then
+            # Releases before this check carry no install.sh asset; the website
+            # then reads the tagged file, and so does this comparison.
+            gh release download "${PREVIOUS}" --repo "${REPO}" --pattern install.sh \
+              --output previous-install.sh 2>/dev/null \
+              || curl --proto '=https' --tlsv1.2 -fsSL \
+                "https://raw.githubusercontent.com/${REPO}/${PREVIOUS}/install.sh" -o previous-install.sh \
+              || true
+            if [ -s previous-install.sh ] && cmp -s previous-install.sh served-install.sh; then
+              echo "::warning::sovrium.com/install still serves ${PREVIOUS}'s install.sh. Expected until the website repository bumps its pinned version to ${VERSION}."
+              exit 0
+            fi
+          fi
+          echo "::error::sovrium.com/install serves a script that is neither ${TAG}'s install.sh nor ${PREVIOUS:-the previous release}'s. Compare it with the release asset before anyone else runs it:"
+          diff -u released-install.sh served-install.sh | head -n 60 || true
+          exit 1
 
       - name: Assert each mirror is at this release
         env:
@@ -1606,11 +1957,16 @@ jobs:
           echo "OK: all template mirrors at ${VERSION}"
 
   # ── Build and push multi-arch Docker image ──────────────────
+  # Pushes the VERSIONED tag only. `:latest` is what `docker pull` with no tag
+  # serves, so it moves in `tag-docker-latest`, after `publish-release` accepted
+  # the release — never for a release that stayed a draft.
   build-docker:
     name: Build Docker Image
     permissions:
       contents: read
       packages: write
+      id-token: write # the provenance attestation's OIDC token
+      attestations: write
     needs: [release]
     runs-on: ubuntu-latest
     steps:
@@ -1651,6 +2007,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -1658,13 +2015,55 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository }}:latest
           # SLSA provenance and an SPDX SBOM, attached to the image index in
           # the registry (BuildKit attestations: no extra permission beyond the
           # GHCR push). Read them with `docker buildx imagetools inspect
           # ghcr.io/sovrium/sovrium:<version> --format '{{ json .Provenance }}'`.
           provenance: mode=max
           sbom: true
+
+      # BuildKit's provenance above is unsigned metadata anyone with push access
+      # could rewrite. This one is a Sigstore-signed GitHub attestation bound to
+      # the image DIGEST and to this workflow run, pushed to GHCR beside the
+      # image: `gh attestation verify oci://ghcr.io/sovrium/sovrium:<version>
+      # -R sovrium/sovrium` (docs/infrastructure/release/verifying-downloads.md).
+      - name: Attest the image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  # ── Move `:latest` once the release is published ────────────
+  # A re-tag, not a rebuild: `imagetools create` points `:latest` at the very
+  # index (and digest) `build-docker` pushed and attested. Gated on
+  # `publish-release` like the taps, so a release left as a draft never becomes
+  # the image `docker pull ghcr.io/sovrium/sovrium` serves.
+  tag-docker-latest:
+    name: Tag Docker Image latest
+    permissions:
+      contents: read
+      packages: write
+    needs: [build-docker, publish-release]
+    if: ${{ !cancelled() && needs.build-docker.result == 'success' && needs.publish-release.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Point latest at the published version
+        run: |
+          TAG="${{ github.ref_name }}"
+          IMAGE="ghcr.io/${{ github.repository }}"
+          docker buildx imagetools create --tag "${IMAGE}:latest" "${IMAGE}:${TAG#v}"
+          docker buildx imagetools inspect "${IMAGE}:latest"
 
   # ── Publish the draft release once all assets are present ───
   # The release job creates a DRAFT so binary jobs can append assets
@@ -1681,6 +2080,9 @@ jobs:
     name: Publish GitHub Release
     permissions:
       contents: write
+    # The publication gate: the reviewer's approval here is the last human look
+    # before the release becomes what `sovrium update`, Homebrew and Scoop serve.
+    environment: release
     # Runs as soon as all binary archives + the aggregate checksums file
     # are uploaded so the release is non-draft *before* update-homebrew /
     # update-scoop fire — those jobs fetch .sha256 assets over plain HTTPS
@@ -1691,12 +2093,14 @@ jobs:
       - build-binary-windows
       - aggregate-checksums
       - build-desktop
+      - sign-release
       - assemble-updater-manifest
     if: >-
       ${{ !cancelled()
       && needs.build-binary-macos.result == 'success'
       && needs.build-binary-linux.result == 'success'
-      && needs.build-binary-windows.result == 'success' }}
+      && needs.build-binary-windows.result == 'success'
+      && needs.sign-release.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Verify all binary assets present
@@ -1723,15 +2127,22 @@ jobs:
             "sovrium-${VERSION}-linux-x64.tar.gz"
             "sovrium-${VERSION}-linux-arm64.tar.gz"
             "sovrium-${VERSION}-windows-x64.zip"
-            # Each archive's detached signature (sign-asset.ts in its build lane).
+            # Each archive's detached signature (sign-asset.ts in sign-release).
             "sovrium-${VERSION}-darwin-x64.tar.gz.sig"
             "sovrium-${VERSION}-darwin-arm64.tar.gz.sig"
             "sovrium-${VERSION}-linux-x64.tar.gz.sig"
             "sovrium-${VERSION}-linux-arm64.tar.gz.sig"
             "sovrium-${VERSION}-windows-x64.zip.sig"
+            # The combined checksums and its signature: the file a user runs
+            # `sha256sum -c` against is as authenticated as the archives.
+            "sovrium-${VERSION}-checksums.txt"
+            "sovrium-${VERSION}-checksums.txt.sig"
+            # The installer script `sovrium.com/install` serves, and its signature.
+            "install.sh"
+            "install.sh.sig"
           )
           if [ "${DESKTOP_RESULT}" = "success" ]; then
-            REQUIRED+=(
+            INSTALLERS=(
               "Sovrium-${VERSION}-mac-arm64.dmg"
               "Sovrium-mac-arm64.dmg"
               "Sovrium-${VERSION}-mac-x64.dmg"
@@ -1743,7 +2154,11 @@ jobs:
               "sovrium-${VERSION}-linux-amd64.deb"
               "sovrium-linux-amd64.deb"
             )
-            echo "Desktop lane succeeded — its 10 installer assets are required."
+            # Each installer and its release-key signature (sign-release).
+            for INSTALLER in "${INSTALLERS[@]}"; do
+              REQUIRED+=("${INSTALLER}" "${INSTALLER}.sig")
+            done
+            echo "Desktop lane succeeded — its 10 installer assets and their signatures are required."
           else
             echo "Desktop lane result is '${DESKTOP_RESULT}' — installers are not required."
             echo "The release will publish the engine binaries only, and this run is red."

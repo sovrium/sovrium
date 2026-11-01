@@ -33,7 +33,7 @@ import {
   type FigmaPageDocument,
 } from '@/domain/models/api/admin/design-system/adapter-figma-pages'
 import { pageExportStampSchema } from '@/domain/models/api/admin/design-system/page-design-tree'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import type { PortBaseNode } from './figma-port'
 
 export const TAG_KEY = 'sovrium'

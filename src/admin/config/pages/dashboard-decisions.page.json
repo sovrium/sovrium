@@ -192,7 +192,11 @@
                 "emptyMessage": "$t:admin.decisions.emptyRegister",
                 "noMatchMessage": "$t:admin.decisions.noMatch",
                 "layout": "fill",
-                "viewOptions": "toolbar"
+                "viewOptions": "toolbar",
+                "countLabel": {
+                  "one": "$t:admin.count.decisions.one",
+                  "other": "$t:admin.count.decisions.other"
+                }
               }
             }
           ]

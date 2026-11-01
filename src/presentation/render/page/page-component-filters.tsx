@@ -31,6 +31,7 @@ import {
 import { resolvePageLanguage } from '@/presentation/render/page/page-lang-resolver'
 import { markDrawerFieldAccess } from '@/presentation/render/props/resolve-record-drawer-access'
 import { markRelatedGuestCaller } from '@/presentation/render/props/resolve-record-drawer-related'
+import { applyCallerCapabilityGate } from '@/presentation/render/resolve/caller-capability-gate'
 import { expandFieldSpecimens } from '@/presentation/render/resolve/field-specimen-resolver'
 import { groupMessageAuthors } from '@/presentation/render/resolve/message-author-resolver'
 import { resolveOpenDrawerDispatches } from '@/presentation/render/resolve/open-drawer-dispatch-resolver'
@@ -39,7 +40,6 @@ import { resolveRuntimeCapabilities } from '@/presentation/render/resolve/runtim
 import { resolvePageToc } from '@/presentation/render/resolve/toc-resolver'
 import { applyViewerIdentityConditions } from '@/presentation/render/resolve/viewer-identity-gate'
 import {
-  applyCallerCapabilityGate,
   applyOverlayTriggerGate,
   applyVisibilityToComponents,
 } from '@/presentation/render/resolve/visibility-filter'

@@ -12,6 +12,7 @@ import {
   type InvitationKit,
 } from '@/application/ports/services/invitation-issuer'
 import { mountedInvitationPages } from '@/domain/models/app/pages/invitation-link-service'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Live `ConfigInvitationIssuer`: the invitation store, an engine built from the
@@ -24,31 +25,41 @@ import { mountedInvitationPages } from '@/domain/models/app/pages/invitation-lin
  * not pay for the Better Auth graph. Annotated for the reason
  * `InvitationIssuerLive` is: inferring it would make the engine name itself.
  */
-export const ConfigInvitationIssuerLive: Layer.Layer<ConfigInvitationIssuer> = Layer.succeed(
-  ConfigInvitationIssuer,
-  ConfigInvitationIssuer.of({
-    kitFor: (app) =>
-      Effect.tryPromise({
-        try: async (): Promise<InvitationKit> => {
-          const [
-            { createAuthInstance },
-            { createInvitationServices },
-            { createEmailHandlers },
-            { adminMountsFor },
-          ] = await Promise.all([
-            import('./auth'),
-            import('./invitation-services'),
-            import('./email-handlers'),
-            import('@/infrastructure/server/admin-mounts'),
-          ])
-          return {
-            services: createInvitationServices(createAuthInstance(app.auth), () =>
-              mountedInvitationPages(adminMountsFor(app))
-            ),
-            mailer: createEmailHandlers(app.auth, app.name, undefined, app.languages),
-          }
-        },
-        catch: (cause) => new InvitationKitError({ cause }),
-      }).pipe(Effect.withSpan('auth.invitation-kit-from-config')),
-  })
-)
+export const ConfigInvitationIssuerLive: Layer.Layer<ConfigInvitationIssuer, never, Database> =
+  Layer.effect(
+    ConfigInvitationIssuer,
+    Effect.map(Database, (database) =>
+      ConfigInvitationIssuer.of({
+        kitFor: (app) =>
+          Effect.tryPromise({
+            try: async (): Promise<InvitationKit> => {
+              const [
+                { createAuthInstance },
+                { createInvitationServices },
+                { createEmailHandlers },
+                { adminMountsFor },
+                { makeAuthHookPolicies },
+              ] = await Promise.all([
+                import('./auth'),
+                import('./invitation-services'),
+                import('./email-handlers'),
+                import('@/infrastructure/server/admin-mounts'),
+                import('@/infrastructure/server/auth-hook-policies'),
+              ])
+              const instance = createAuthInstance(app.auth, {
+                policies: makeAuthHookPolicies(database),
+                database,
+              })
+              return {
+                services: createInvitationServices(instance, {
+                  database,
+                  linkPages: () => mountedInvitationPages(adminMountsFor(app)),
+                }),
+                mailer: createEmailHandlers(app.auth, app.name, undefined, app.languages),
+              }
+            },
+            catch: (cause) => new InvitationKitError({ cause }),
+          }).pipe(Effect.withSpan('auth.invitation-kit-from-config')),
+      })
+    )
+  )

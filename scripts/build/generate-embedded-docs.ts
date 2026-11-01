@@ -29,7 +29,7 @@
  * corpus into a `.ts` file, and `scripts/build/generate-css-assets.ts` harvests
  * Tailwind candidates out of `src/**` *.ts* including comment prose. Inlined
  * documentation would add several thousand false candidates to the CSS corpus
- * and move `generated-css-assets.ts` on every docs edit. The same reasoning is
+ * and move `generated-css-assets.generated.ts` on every docs edit. The same reasoning is
  * why this file emits NO prose into its own comments.
  *
  * ## What "✅" means, and what it does not

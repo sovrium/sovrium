@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -18,7 +19,7 @@ export const singleRelationshipFields = (
   app: App,
   tableName: string
 ): readonly { readonly field: string; readonly relatedTable: string }[] => {
-  const table = app.tables?.find((t) => t.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   if (!table) return []
   return table.fields
     .filter(
@@ -71,7 +72,7 @@ export const reverseCollectionFields = (
   readonly relatedTable: string
   readonly reverseFk: string
 }[] => {
-  const table = app.tables?.find((t) => t.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   if (!table) return []
   return table.fields
     .filter(

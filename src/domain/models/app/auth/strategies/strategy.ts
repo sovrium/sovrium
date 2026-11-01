@@ -52,8 +52,10 @@ export const EmailAndPasswordStrategySchema = Schema.Struct({
   requireEmailVerification: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotate({
-        defaultNote: 'false',
-        description: 'Require email verification before sign-in (default: false)',
+        defaultNote:
+          'true when the app also declares an oauth strategy or an auth.sso provider, false otherwise',
+        description:
+          'Require a confirmed email address before a password account signs in. On by default beside a federated way in (an oauth strategy or an SSO provider), which links accounts by their address; off otherwise.',
       })
     )
   ),
@@ -88,6 +90,7 @@ export type EmailAndPasswordStrategy = Schema.Schema.Type<typeof EmailAndPasswor
  * ```typescript
  * { type: 'magicLink' }
  * { type: 'magicLink', expirationMinutes: 30 }
+ * { type: 'magicLink', allowSignUp: false }
  * ```
  */
 export const MagicLinkStrategySchema = Schema.Struct({
@@ -98,9 +101,19 @@ export const MagicLinkStrategySchema = Schema.Struct({
     Schema.Finite.pipe(
       Schema.annotate({
         defaultNote: '15',
-        description: 'Link expiration time in minutes (default: 15)',
+        description:
+          'Link expiration time in minutes (default: 15). At most 60: a link is a credential sitting in a mailbox, so it may not outlive an hour.',
       }),
-      Schema.check(Schema.isGreaterThan(0))
+      Schema.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(60))
+    )
+  ),
+  allowSignUp: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotate({
+        description:
+          'Whether a link asked for an address with no account creates that account. false sends links to existing accounts only, while the other sign-in ways keep auth.allowSignUp; true opens account creation by link alone.',
+        defaultNote: 'auth.allowSignUp, itself false by default',
+      })
     )
   ),
 }).pipe(
@@ -110,6 +123,7 @@ export const MagicLinkStrategySchema = Schema.Struct({
     examples: [
       { type: 'magicLink' as const },
       { type: 'magicLink' as const, expirationMinutes: 30 },
+      { type: 'magicLink' as const, allowSignUp: false },
     ],
   })
 )
@@ -197,7 +211,7 @@ export type AuthStrategy = Schema.Schema.Type<typeof AuthStrategySchema>
 export const AuthStrategiesSchema = Schema.Array(AuthStrategySchema)
   .annotate({
     description:
-      'Ways a person can sign in — email and password, a magic link, a one-time code, or an external provider. Each way may appear only once. May be empty or omitted when auth.sso declares at least one identity provider (an SSO-only app); otherwise at least one is required.',
+      'Ways a person can sign in: email and password, a magic link, a one-time code, or an external provider. Each way may appear only once. May be empty or omitted when auth.sso declares at least one identity provider (an SSO-only app); otherwise at least one is required.',
   })
   .pipe(
     Schema.check(

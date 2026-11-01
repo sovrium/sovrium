@@ -28,6 +28,7 @@
 import { hostname } from 'node:os'
 import { Data, Deferred, Effect, Option, Schema } from 'effect'
 import { openInBrowser } from '@/cli/runtime/browser-launch'
+import { CliRefusal } from '@/cli/runtime/run-command'
 import {
   DEVICE_NAME_MAX_LENGTH,
   DEVICE_RETURN_HEADER,
@@ -38,7 +39,7 @@ import {
   deviceCodeResponseSchema,
 } from '@/domain/models/api/auth/auth'
 import { withFetchStallTimeout } from '@/infrastructure/egress/with-fetch-timeout'
-import { CliRefusal, callCloud, describeUnreachable, say } from './cloud-session'
+import { callCloud, describeUnreachable, say } from './cloud-session'
 import { approvedPage, deniedPage, emptyReturnPage, pageHeaders } from './login-loopback-pages'
 import type { DeviceCodeRequest, DeviceCodeResponse } from '@/domain/models/api/auth/auth'
 

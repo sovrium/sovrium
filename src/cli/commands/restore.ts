@@ -16,15 +16,17 @@
  */
 
 import { join, resolve } from 'node:path'
-import { Cause, Console, Effect, Exit, Fiber, Option } from 'effect'
+import { Cause, Effect, Exit, Fiber, Option } from 'effect'
 import {
   restoreBackup,
   type RestoreRequest,
   type RestoreSummary,
 } from '@/application/use-cases/server/restore-programs'
+import { defineFlags, flag } from '@/cli/runtime/flag-schema'
+import { refuseCommand, withFlagsAsync } from '@/cli/runtime/run-command'
 import { parseDataDir } from '@/domain/models/process-env/data-dir'
 import { BackupWorkspaceLive } from '@/infrastructure/filesystem/backup-workspace-live'
-import { CLI_INDENT, inflect, printFailure, printStderr } from '@/infrastructure/logging/cli-output'
+import { CLI_INDENT, inflect, printLine, printStderr } from '@/infrastructure/logging/cli-output'
 import { readDatabaseSource, readStorageConfig } from '../runtime/install-sources'
 import { getCurrentVersion } from './update'
 import type { BackupIoError } from '@/application/ports/services/backup-workspace'
@@ -37,11 +39,8 @@ export interface RestoreCommandOptions {
   readonly force: boolean
 }
 
-const fail = (headline: string, guidance: string, detail?: readonly string[]): never => {
-  printFailure({ headline, guidance, ...(detail === undefined ? {} : { detail }) })
-  process.exit(1)
-  return undefined as never
-}
+const fail = (headline: string, guidance: string, detail?: readonly string[]): never =>
+  refuseCommand({ headline, guidance, ...(detail === undefined ? {} : { detail }) })
 
 /** `DATABASE_URL` when it names PostgreSQL; an unreadable value is refused by the caller. */
 const readPostgresUrl = (): string | undefined | { readonly error: string } => {
@@ -118,7 +117,8 @@ const buildRequest = async (
       [storageDestination.error]
     )
   }
-  const dataDirectory = options.dataDir === undefined ? parseDataDir() : resolve(options.dataDir)
+  const dataDirectory =
+    options.dataDir === undefined ? parseDataDir(process.env) : resolve(options.dataDir)
   return {
     archivePath,
     projectDirectory: process.cwd(),
@@ -156,6 +156,7 @@ const runInterruptibly = async (
     }
   | { readonly _tag: 'Interrupted'; readonly signal: StopSignal }
 > => {
+  // Forked rather than awaited: the signal handlers need the fiber to interrupt it.
   const fiber = Effect.runFork(restoreBackup(request).pipe(Effect.provide(BackupWorkspaceLive)))
   let received: StopSignal | undefined
   const onSignal = (signal: StopSignal) => () => {
@@ -191,11 +192,11 @@ export const handleRestoreCommand = async (options: RestoreCommandOptions): Prom
   const run = await runInterruptibly(request)
 
   if (run._tag === 'Interrupted') {
-    printFailure({
+    return refuseCommand({
       headline: `The restore was interrupted by ${run.signal} — nothing was restored.`,
       guidance: "Run 'sovrium restore' again when you are ready.",
+      exitCode: SIGNAL_EXIT_CODES[run.signal],
     })
-    process.exit(SIGNAL_EXIT_CODES[run.signal])
   }
 
   const outcome = Exit.isSuccess(run.exit)
@@ -228,6 +229,18 @@ export const handleRestoreCommand = async (options: RestoreCommandOptions): Prom
         )
   }
 
-  Effect.runSync(Console.log(formatReport(outcome.success, request.projectDirectory)))
+  printLine(formatReport(outcome.success, request.projectDirectory))
   outcome.success.warnings.forEach((warning) => printStderr(`Warning: ${warning}`))
 }
+
+/** The flags `sovrium restore` reads beyond the shared ones. */
+export const restoreFlags = defineFlags({ dataDir: flag.path('--data-dir') })
+
+/** `sovrium restore`, as the dispatcher runs it. */
+export const restoreCommand = withFlagsAsync(restoreFlags, ({ flags, ...args }) =>
+  handleRestoreCommand({
+    archivePath: args.configFile,
+    dataDir: flags.dataDir,
+    force: args.forceFlag,
+  })
+)

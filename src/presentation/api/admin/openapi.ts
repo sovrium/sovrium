@@ -12,7 +12,7 @@ import {
   adminUserGroupsUpdateRequestSchema,
   adminUserGroupsUpdateResponseSchema,
 } from '@/domain/models/api/admin/users/groups'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import { toAdminReadRouteSpec } from '@/presentation/api/admin/read-operation-routes'
 import {
   effectJsonBody,

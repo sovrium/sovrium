@@ -7,6 +7,10 @@
       "default": "none",
       "enum": ["none", "set"],
       "onUnknown": "set"
+    },
+    "signed-out": {
+      "default": "none",
+      "enum": ["none", "1"]
     }
   },
   "meta": {
@@ -18,6 +22,22 @@
       "component": "console-login",
       "key": "section",
       "children": [
+        {
+          "type": "text",
+          "element": "p",
+          "visibility": {
+            "query": {
+              "name": "signed-out",
+              "eq": "1"
+            }
+          },
+          "props": {
+            "role": "status",
+            "className": "text-center text-sm font-medium text-foreground",
+            "data-testid": "login-signed-out"
+          },
+          "content": "$t:admin.login.signedOut"
+        },
         {
           "type": "flex",
           "props": {
@@ -92,6 +112,15 @@
                 "label": "$t:admin.field.password"
               }
             ],
+            "credentialError": {
+              "title": "$t:admin.login.credentialError.title",
+              "description": "$t:admin.login.credentialError.description",
+              "descriptionWithoutMail": "$t:admin.login.credentialError.descriptionWithoutMail",
+              "recovery": {
+                "label": "$t:admin.login.credentialError.recovery",
+                "href": "/forgot-password"
+              }
+            },
             "onSuccess": {
               "navigate": "/"
             }

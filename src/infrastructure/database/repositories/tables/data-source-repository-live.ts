@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   DataSourceRepository,
   DataSourceDatabaseError,
@@ -14,13 +14,20 @@ import {
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { INTRINSIC_DELETED_AT_COLUMN } from '@/domain/models/app/tables/system-fields'
-import { db } from '@/infrastructure/database/drizzle/db-bun'
-import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { languageValueSql } from '@/infrastructure/database/sql/translatable-value-sql'
 import {
+  layerOverDatabase,
+  type Dialect,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
+import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import { languageValueSqlOn } from '@/infrastructure/database/sql/translatable-value-sql'
+import {
+  groupByUser,
   isMissingUserAccessTable,
+  readUserAccessRowsOf,
   toRecordIdList,
+  type UserAccessRow,
   userAccessTableSql,
 } from '@/infrastructure/database/sql/user-access-rows'
 import {
@@ -34,15 +41,16 @@ import { readUserListHolders } from '@/infrastructure/database/table-queries/que
 import type { DataSourceQueryOptions } from '@/application/ports/repositories/tables/data-source-repository'
 import type { LookupReadMask } from '@/application/ports/repositories/tables/table-repository'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 import type { SQL } from 'drizzle-orm'
+import type { Context } from 'effect'
 
 /** Wrap a DB promise, adapting failures to DataSourceDatabaseError. */
 const wrap = makeDbWrap((error) => new DataSourceDatabaseError({ cause: error }))
 
-// ============================================================================
 // SQL query builders (pure functions — no DB access); one filter's condition
 // is built in `table-queries/data-source-filter-condition.ts`
-// ============================================================================
 
 function buildOrderByClause(sort: readonly DataSort[]): Readonly<SQL> | undefined {
   if (sort.length === 0) return undefined
@@ -59,8 +67,7 @@ function buildOrderByClause(sort: readonly DataSort[]): Readonly<SQL> | undefine
  * These stay literals rather than bound parameters for the same reason the MCP
  * internal-list tool inlines its limit: `LIMIT $1` round-trips poorly through
  * bun:sql's binding path. Both operands are numbers by the time they arrive and
- * are floored here, so neither can carry SQL text. The offset arithmetic is
- * preserved verbatim from the string form it replaces.
+ * are floored here, so neither can carry SQL text.
  */
 function buildLimitClause(pageSize?: number, page?: number): Readonly<SQL> | undefined {
   if (!pageSize || pageSize <= 0) return undefined
@@ -78,6 +85,7 @@ const joinClauses = (clauses: ReadonlyArray<Readonly<SQL> | undefined>): Readonl
   )
 
 export function buildSelectQuery(
+  dialect: DatabaseDialect,
   sanitized: string,
   options: DataSourceQueryOptions,
   relation: Readonly<SQL> = sql`${sql.identifier(sanitized)}`
@@ -92,18 +100,19 @@ export function buildSelectQuery(
       : sql.raw('*')
   return joinClauses([
     sql`SELECT ${columns} FROM ${relation}`,
-    buildWhereClause(filter ?? [], liveOnly === true),
+    buildWhereClause(dialect, filter ?? [], liveOnly === true),
     sort && sort.length > 0 ? buildOrderByClause(sort) : undefined,
     buildLimitClause(pageSize, page),
   ])
 }
 
 export function buildWhereClause(
+  dialect: DatabaseDialect,
   filter: readonly DataFilter[],
   liveOnly = false
 ): Readonly<SQL> | undefined {
   const conditions = [
-    ...filter.map(buildFilterCondition),
+    ...filter.map((condition) => buildFilterCondition(dialect, condition)),
     ...(liveOnly ? [sql`${sql.identifier(INTRINSIC_DELETED_AT_COLUMN)} IS NULL`] : []),
   ]
   if (conditions.length === 0) return undefined
@@ -125,10 +134,10 @@ export function buildWhereClause(
  * would throw and nothing would log, so a collection page would simply 404 as
  * though the row did not exist.
  *
- * `db` resolves the dialect-appropriate client (Postgres over `bun:sql`, SQLite
- * over `bun:sqlite`) and memoizes it, so there is no environment variable to
- * consult here and no per-query connection to open and close — no fresh `SQL`
- * pool is built and torn down per read.
+ * The client comes from the `Database` service the layer is built over (Postgres
+ * over `bun:sql`, SQLite over `bun:sqlite`), so there is no environment variable
+ * to consult here and no per-query connection to open and close — no fresh
+ * `SQL` pool is built and torn down per read.
  * `executeRaw` picks `.execute()` or `.all()` for the active dialect and
  * normalizes both to a rows array.
  */
@@ -141,8 +150,8 @@ export function buildWhereClause(
  * sibling: it would have to launder its argument back through `sql.raw`,
  * discarding any distinction between identifier, literal and operator.
  */
-async function executeSqlQuery<T>(query: Readonly<SQL>): Promise<T> {
-  return (await executeRaw(db, query)) as T
+async function queryRows<T>(db: PortableDb, dialect: Dialect, query: Readonly<SQL>): Promise<T> {
+  return (await executeRawOn(dialect.kind, db, query)) as T
 }
 
 /**
@@ -152,12 +161,13 @@ async function executeSqlQuery<T>(query: Readonly<SQL>): Promise<T> {
  * the reader may read, exactly as her records list does.
  */
 const relationOf = (
+  database: { readonly db: PortableDb; readonly dialect: Dialect },
   tableName: string,
   masks: readonly LookupReadMask[] | undefined
 ): Effect.Effect<Readonly<SQL>, DataSourceDatabaseError> =>
   masks === undefined || masks.length === 0
     ? Effect.succeed(sql`${sql.identifier(sanitizeTableName(tableName))}`)
-    : maskedRelation(db, tableName, masks).pipe(
+    : maskedRelation({ runner: database.db, dialect: database.dialect }, tableName, masks).pipe(
         Effect.mapError((cause) => new DataSourceDatabaseError({ cause }))
       )
 
@@ -165,11 +175,45 @@ const relationOf = (
 // Live implementation
 // ============================================================================
 
+/** The repository's service shape. */
+type DataSourceService = Context.Service.Shape<typeof DataSourceRepository>
+
+/**
+ * The many-to-many links of one record. This member and the two below it read
+ * through the link readers, which issue their own queries.
+ */
+const fetchManyToManyLinks =
+  (db: PortableDb, dialect: Dialect): DataSourceService['fetchManyToManyLinks'] =>
+  (tableName, recordId, fields) =>
+    readManyToMany(
+      { client: db, dialect },
+      { sourceTable: tableName, sourceIds: [recordId], fields }
+    ).pipe(
+      Effect.map((byRecord) => byRecord[recordId] ?? {}),
+      Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
+    )
+
+/** The records holding a many-to-many link, read by the link reader. */
+const fetchManyToManyHolders =
+  (db: PortableDb, dialect: Dialect): DataSourceService['fetchManyToManyHolders'] =>
+  (input) =>
+    readManyToManyHolders({ client: db, dialect }, input).pipe(
+      Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
+    )
+
+/** The one-to-many links of records, read by the link reader. */
+const fetchOneToManyLinks =
+  (db: PortableDb, dialect: Dialect): DataSourceService['fetchOneToManyLinks'] =>
+  (input) =>
+    readOneToMany({ client: db, dialect }, input).pipe(
+      Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
+    )
+
 /**
  * Live implementation of `DataSourceRepository`.
  *
- * Runs through the shared, memoized `db` client (see `executeQuery` above) — it
- * no longer opens its own connection per query.
+ * Runs through the client of the `Database` service it is built over (see
+ * `queryRows` above) — it never opens its own connection per query.
  *
  * **Every method now binds its values (standing rule S3).** The list/count
  * builders — `buildSelectQuery` / `buildWhereClause` / `buildFilterCondition` /
@@ -203,30 +247,37 @@ const relationOf = (
  * `repositories/automations/automation-digest-repository-live.ts` (a JSONB sort
  * key). No uniqueness claim is made here.
  */
-export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
-  fetchRecords: (tableName, options = {}) =>
-    Effect.flatMap(relationOf(tableName, options.lookupMasks), (relation) =>
-      wrap(async () => {
-        const query = buildSelectQuery(sanitizeTableName(tableName), options, relation)
-        return await executeSqlQuery<Record<string, unknown>[]>(query)
-      })
-    ),
+const members: MembersOverDatabase<typeof DataSourceRepository> = {
+  fetchRecords:
+    (db, dialect) =>
+    (tableName, options = {}) =>
+      Effect.flatMap(relationOf({ db, dialect }, tableName, options.lookupMasks), (relation) =>
+        wrap(async () => {
+          const query = buildSelectQuery(
+            dialect.kind,
+            sanitizeTableName(tableName),
+            options,
+            relation
+          )
+          return await queryRows<Record<string, unknown>[]>(db, dialect, query)
+        })
+      ),
 
-  countRecords: (tableName, filter, options) =>
-    Effect.flatMap(relationOf(tableName, options?.lookupMasks), (relation) =>
+  countRecords: (db, dialect) => (tableName, filter, options) =>
+    Effect.flatMap(relationOf({ db, dialect }, tableName, options?.lookupMasks), (relation) =>
       wrap(async () => {
         const query = joinClauses([
           sql`SELECT COUNT(*) AS count FROM ${relation}`,
-          buildWhereClause(filter ?? [], options?.liveOnly === true),
+          buildWhereClause(dialect.kind, filter ?? [], options?.liveOnly === true),
         ])
-        const rows = await executeSqlQuery<Array<{ count: number | string }>>(query)
+        const rows = await queryRows<Array<{ count: number | string }>>(db, dialect, query)
         return toFiniteCount(rows[0]?.count)
       })
     ),
 
-  // eslint-disable-next-line max-params -- implements the port's positional signature; `options` is its optional fifth argument
-  fetchSingleRecord: (tableName, paramField, paramValue, fields, options) =>
+  fetchSingleRecord: (db, dialect) => (tableName, paramField, paramValue, options) =>
     wrap(async () => {
+      const fields = options?.fields
       const columns =
         fields && fields.length > 0
           ? sql.join(
@@ -249,18 +300,16 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
       const target =
         options?.paramLanguage === undefined
           ? sql.identifier(field)
-          : languageValueSql(field, options.paramLanguage)
-      const rows = await executeSqlQuery<Record<string, unknown>[]>(
+          : languageValueSqlOn(dialect.kind, field, options.paramLanguage)
+      const rows = await queryRows<Record<string, unknown>[]>(
+        db,
+        dialect,
         sql`SELECT ${columns} FROM ${sql.identifier(sanitizeTableName(tableName))} WHERE ${target} = ${paramValue}${live} LIMIT 1`
       )
       return rows[0]
     }),
 
-  fetchManyToManyLinks: (tableName, recordId, fields) =>
-    readManyToMany({ sourceTable: tableName, sourceIds: [recordId], fields }).pipe(
-      Effect.map((byRecord) => byRecord[recordId] ?? {}),
-      Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
-    ),
+  fetchManyToManyLinks,
 
   /**
    * Z-1 ($currentUser.assignments.<table>[.<role>]) — flattens record_ids
@@ -271,8 +320,8 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
    * Treats a missing `user_access` table as "no assignments" so apps that
    * don't declare `auth.scopeTables` don't crash.
    */
-  fetchUserAssignments: (userId, tableSlug, role) =>
-    readUserAccessRows([userId], tableSlug, role).pipe(
+  fetchUserAssignments: (db, dialect) => (userId, tableSlug, role) =>
+    readUserAccessRows({ db, dialect }, [userId], tableSlug, role).pipe(
       Effect.map((rows) => rows.flatMap((row) => toRecordIdList(row.record_ids)))
     ),
 
@@ -288,13 +337,13 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
    * Treats a missing `user_access` table as "no roles" (graceful
    * degradation for apps without scopeTables).
    */
-  fetchUserAccessRoles: (userId) =>
+  fetchUserAccessRoles: (db, dialect) => (userId) =>
     wrap(async () => {
       // `userId` bound — this query feeds the Z-3 role overlay, so a value that
       // could break out of its literal would be choosing its own permissions.
-      const query = sql`SELECT DISTINCT ${sql.identifier('role')} FROM ${userAccessTableSql()} WHERE ${sql.identifier('user_id')} = ${userId}`
+      const query = sql`SELECT DISTINCT ${sql.identifier('role')} FROM ${userAccessTableSql(dialect)} WHERE ${sql.identifier('user_id')} = ${userId}`
       try {
-        const rows = await executeSqlQuery<Array<{ role: string | null }>>(query)
+        const rows = await queryRows<Array<{ role: string | null }>>(db, dialect, query)
         return rows
           .map((row) => row.role)
           .filter((role): role is string => typeof role === 'string' && role.length > 0)
@@ -306,30 +355,24 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
       }
     }),
 
-  fetchUsersAssignments: (userIds, tableSlug, role) =>
-    readUserAccessRows(userIds, tableSlug, role).pipe(
+  fetchUsersAssignments: (db, dialect) => (userIds, tableSlug, role) =>
+    readUserAccessRows({ db, dialect }, userIds, tableSlug, role).pipe(
       Effect.map((rows) =>
         groupByUser(rows.map((row) => [row.user_id, toRecordIdList(row.record_ids)] as const))
       )
     ),
 
-  fetchManyToManyHolders: (input) =>
-    readManyToManyHolders(input).pipe(
+  fetchManyToManyHolders,
+
+  fetchOneToManyLinks,
+
+  fetchUserListHolders: (db, dialect) => (input) =>
+    readUserListHolders(db, dialect, input).pipe(
       Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
     ),
 
-  fetchOneToManyLinks: (input) =>
-    readOneToMany(input).pipe(
-      Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
-    ),
-
-  fetchUserListHolders: (input) =>
-    readUserListHolders(input).pipe(
-      Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
-    ),
-
-  fetchUsersAccessRoles: (userIds) =>
-    readUserAccessRows(userIds, undefined).pipe(
+  fetchUsersAccessRoles: (db, dialect) => (userIds) =>
+    readUserAccessRows({ db, dialect }, userIds, undefined).pipe(
       Effect.map((rows) =>
         groupByUser(
           rows.map((row) => {
@@ -340,55 +383,18 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
         )
       )
     ),
-})
-
-/** One `user_access` row, as the batched reads select it. */
-interface UserAccessRow {
-  readonly user_id: string
-  readonly role: string | null
-  readonly record_ids: unknown
 }
+
+export const DataSourceRepositoryLive = layerOverDatabase(DataSourceRepository, members)
 
 /**
  * The `user_access` rows of every one of `userIds` — for one scope table, or
- * across all of them — in ONE query. Every value is bound. An empty `userIds`
- * reads nothing; a missing `user_access` table reads as no rows.
+ * across all of them — in ONE query (`readUserAccessRowsOf`).
  */
 const readUserAccessRows = (
+  { db, dialect }: { readonly db: PortableDb; readonly dialect: Dialect },
   userIds: readonly string[],
   tableSlug: string | undefined,
   role?: string
 ): Effect.Effect<readonly UserAccessRow[], DataSourceDatabaseError> =>
-  wrap(async () => {
-    const ids = [...new Set(userIds)]
-    if (ids.length === 0) return [] as readonly UserAccessRow[]
-    const inUsers = sql`${sql.identifier('user_id')} IN (${sql.join(
-      ids.map((id) => sql`${id}`),
-      sql`, `
-    )})`
-    const inTable =
-      tableSlug === undefined
-        ? inUsers
-        : sql`${inUsers} AND ${sql.identifier('table_slug')} = ${tableSlug}`
-    const where =
-      role === undefined ? inTable : sql`${inTable} AND ${sql.identifier('role')} = ${role}`
-    const query = sql`SELECT ${sql.identifier('user_id')}, ${sql.identifier('role')}, ${sql.identifier('record_ids')} FROM ${userAccessTableSql()} WHERE ${where}`
-    try {
-      return await executeSqlQuery<UserAccessRow[]>(query)
-    } catch (error) {
-      if (isMissingUserAccessTable(error)) return [] as readonly UserAccessRow[]
-      throw error
-    }
-  })
-
-/** Merge per-row values into one list per user, optionally without repeats. */
-const groupByUser = (
-  entries: readonly (readonly [string, readonly string[]])[],
-  options: { readonly distinct?: boolean } = {}
-): ReadonlyMap<string, readonly string[]> =>
-  new Map(
-    [...Map.groupBy(entries, ([userId]) => userId)].map(([userId, rows]) => {
-      const merged = rows.flatMap(([, values]) => values)
-      return [userId, options.distinct === true ? [...new Set(merged)] : merged] as const
-    })
-  )
+  wrap(() => readUserAccessRowsOf({ runner: db, dialect }, userIds, tableSlug, role))

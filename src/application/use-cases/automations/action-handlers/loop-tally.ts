@@ -7,7 +7,7 @@
 
 import { executedFromStored, toleratedInStored } from '../run/nested-step-record'
 import { haltedOutcome } from './nested-sequence'
-import { CALLER_REFUSAL } from './record-caller-gate'
+import { CALLER_REFUSAL } from './record/caller-gate'
 import { itemLoopOutcome } from './shared'
 import type { SequenceResume } from './nested-sequence'
 import type { ContainerResume } from './run-park'

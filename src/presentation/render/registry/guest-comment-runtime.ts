@@ -17,13 +17,16 @@ import { COMMENTS_FORM_READY_MARK } from '@/presentation/design/runtime-ready-ma
  *
  * Behaviour (drives `guest-comments.spec.ts`):
  *  - client-side `name` required check;
- *    renders inline "Name is required" message inside the form.
+ *    renders inline the form's `data-comments-refusal-name` message.
  *  - client-side `email` required check
  *    when `data-comments-guest-email-required="true"`; renders inline
- *    "Email is required" message.
+ *    the form's `data-comments-refusal-email` message.
  *  - client-side `email` format check;
- *    renders inline "Enter a valid email" message when the value does
- *    not match the canonical `/.+@.+\..+/` shape.
+ *    renders inline the form's `data-comments-refusal-invalid-email`
+ *    message when the value does not match the canonical `/.+@.+\..+/` shape.
+ *  - `data-comments-refusal-comment` for an empty comment. Each message is
+ *    resolved by the server in the page language; the English sentence is
+ *    the fallback when the form carries none.
  *  - on a successful submit, append the
  *    posted comment's author name + content to the SSR comments section
  *    so the assertion `page.getByText('Jane Doe')` resolves without a
@@ -64,11 +67,15 @@ export const GUEST_COMMENT_FORM_RUNTIME = `(function () {
     var email = (form.elements['guestEmail'] && form.elements['guestEmail'].value || '').trim();
     var content = (form.elements['content'] && form.elements['content'].value || '').trim();
     var emailRequired = form.getAttribute('data-comments-guest-email-required') === 'true';
+    // Each refusal is drawn in the page language by the server, on the form.
+    function refusal(kind, fallback) {
+      return form.getAttribute('data-comments-refusal-' + kind) || fallback;
+    }
     var errors = [];
-    if (name.length === 0) errors.push('Name is required');
-    if (emailRequired && email.length === 0) errors.push('Email is required');
-    if (email.length > 0 && !/.+@.+\\..+/.test(email)) errors.push('Enter a valid email');
-    if (content.length === 0) errors.push('Comment is required');
+    if (name.length === 0) errors.push(refusal('name', 'Name is required'));
+    if (emailRequired && email.length === 0) errors.push(refusal('email', 'Email is required'));
+    if (email.length > 0 && !/.+@.+\\..+/.test(email)) errors.push(refusal('invalid-email', 'Enter a valid email'));
+    if (content.length === 0) errors.push(refusal('comment', 'Comment is required'));
     for (var i = 0; i < errors.length; i++) showError(form, errors[i]);
     return errors.length === 0;
   }

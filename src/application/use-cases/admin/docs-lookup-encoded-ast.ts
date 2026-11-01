@@ -25,3 +25,27 @@ export const asWritten =
     // `astOfValue` reads `.ast` off what it is given, which is how the encoded
     // AST re-enters the structural `SchemaNode` view without a cast.
     SchemaAST.isAST(node) ? (astOfValue({ ast: SchemaAST.toEncoded(node) }) ?? node) : node
+
+/**
+ * The keyword nodes Effect shares between every schema that uses them.
+ *
+ * `Schema.Unknown`, `Schema.String` and the other keywords are one AST object
+ * each, reused by every schema built from them, so two unrelated schemas can
+ * share a node. A request schema whose written side is a bare `Unknown` — a
+ * `preprocessed` codec reads `unknown` — would otherwise claim every
+ * pass-through option in the config by identity.
+ */
+const SHARED_KEYWORDS: ReadonlySet<unknown> = new Set<unknown>([
+  SchemaAST.unknown,
+  SchemaAST.any,
+  SchemaAST.never,
+  SchemaAST.string,
+  SchemaAST.number,
+  SchemaAST.boolean,
+  SchemaAST.symbol,
+  SchemaAST.bigInt,
+  SchemaAST.objectKeyword,
+])
+
+/** Whether `node` is one of Effect's shared keyword nodes, owned by no article. */
+export const isSharedKeyword = (node: SchemaNode): boolean => SHARED_KEYWORDS.has(node)

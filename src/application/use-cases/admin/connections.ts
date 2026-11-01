@@ -45,13 +45,14 @@ import {
   ConnectionTokenRepository,
   type ConnectionUserSummary,
 } from '@/application/ports/repositories/connections/connection-token-repository'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import {
   connectionsListResponseSchema,
   connectionDetailResponseSchema,
   type ConnectionListItem,
   type ConnectionUserToken,
 } from '@/domain/models/api/admin/connections/connections'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import {
   deriveConnectionListStatus,
   deriveConnectionRowAction,
@@ -204,7 +205,7 @@ function buildUserToken(summary: Readonly<ConnectionUserSummary>): ConnectionUse
   return {
     userId: summary.userId,
     expiresAt: expiryToIso(summary.expiresAt),
-    status: deriveTokenStatus(summary),
+    status: deriveTokenStatus(summary, Date.now()),
   }
 }
 
@@ -228,7 +229,7 @@ type UsageReader<E, R> = (
 const noUsage: UsageReader<never, never> = () => Effect.succeed(new Map())
 
 /** The list build, naming each connection with `declaredLabels` where it has one. */
-const buildConnectionsList = <E = never, R = never>(
+const assembleConnectionsList = <E = never, R = never>(
   declaredLabels: DeclaredConnectionLabels,
   readUsage: UsageReader<E, R>,
   unconfigured: ReadonlySet<string> = new Set()
@@ -268,14 +269,14 @@ const buildConnectionsList = <E = never, R = never>(
  * against the `.strict()` list schema. `declared` is the app's declared
  * `app.connections[]`, read only for the `label` each entry declares.
  */
-export const BuildConnectionsListFor = (
+export const buildConnectionsListFor = (
   declared: ReadonlyArray<{ readonly name: string; readonly label?: string }> | undefined
 ): Effect.Effect<
   ConnectionsListOutcome,
   ConnectionDatabaseError | ConnectionTokenDatabaseError,
   ConnectionRepository | ConnectionTokenRepository
 > =>
-  buildConnectionsList(declaredLabelsOf(declared), noUsage).pipe(
+  assembleConnectionsList(declaredLabelsOf(declared), noUsage).pipe(
     Effect.withSpan('admin.build-connections-list-for')
   )
 
@@ -284,28 +285,33 @@ export const BuildConnectionsListFor = (
  * declared, with the automations that call it (`usedBy`) and when a call to it
  * last ran and how (`lastUsedAt`, `lastError`), read from the run history.
  */
-export const BuildConnectionsListWithUsage = (
+export const buildConnectionsListWithUsage = (
   config: DeclaredConfig
 ): Effect.Effect<
   ConnectionsListOutcome,
   ConnectionDatabaseError | ConnectionTokenDatabaseError | AdminAutomationsDatabaseError,
   ConnectionRepository | ConnectionTokenRepository | AdminAutomationsRepository
 > =>
-  buildConnectionsList(
-    declaredLabelsOf(config.connections),
-    (names) => usagesOf(config, names),
-    unconfiguredNamesOf(config)
-  ).pipe(Effect.withSpan('admin.build-connections-list-with-usage'))
+  ProcessEnv.pipe(
+    Effect.flatMap((env) =>
+      assembleConnectionsList(
+        declaredLabelsOf(config.connections),
+        (names) => usagesOf(config, names),
+        unconfiguredNamesOf(config, env)
+      )
+    ),
+    Effect.withSpan('admin.build-connections-list-with-usage')
+  )
 
 /**
  * The connection-list body without the app's declared labels in hand, for the
  * roll-ups that read it outside a request: each row is named `name · provider`.
  */
-export const BuildConnectionsList: Effect.Effect<
+export const buildConnectionsList: Effect.Effect<
   ConnectionsListOutcome,
   ConnectionDatabaseError | ConnectionTokenDatabaseError,
   ConnectionRepository | ConnectionTokenRepository
-> = buildConnectionsList(NO_DECLARED_LABELS, noUsage).pipe(
+> = assembleConnectionsList(NO_DECLARED_LABELS, noUsage).pipe(
   Effect.withSpan('admin.build-connections-list')
 )
 
@@ -334,7 +340,7 @@ export type ConnectionDetailOutcome =
  * the per-user token roster is loaded (secret-free) and shaped into the
  * connection header + token rows.
  */
-export const BuildConnectionDetail = (
+export const buildConnectionDetail = (
   id: string,
   config: DeclaredConfig = {}
 ): Effect.Effect<
@@ -363,7 +369,7 @@ export const BuildConnectionDetail = (
       connection: buildConnectionItem(row, summaries, appToken, {
         declaredLabels: declaredLabelsOf(config.connections),
         usage,
-        unconfigured: unconfiguredNamesOf(config),
+        unconfigured: unconfiguredNamesOf(config, yield* ProcessEnv),
       }),
       tokens: summaries.map((summary) => buildUserToken(summary)),
     }

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { componentField, keyOf } from './component-rewrite'
 import type { Component } from '@/domain/models/app/pages/components'
 
 /**
@@ -30,8 +31,7 @@ export const readsAnotherRecord = (
   component: Component,
   pageTable: string | undefined
 ): boolean => {
-  const binding = component.dataSource as
-    { readonly mode?: string; readonly table?: string } | undefined
+  const binding = componentField(component, 'dataSource')
   if (binding !== undefined && component.type === 'sheet') return true
-  return binding?.mode === 'single' && binding.table !== pageTable
+  return keyOf(binding, 'mode') === 'single' && keyOf(binding, 'table') !== pageTable
 }

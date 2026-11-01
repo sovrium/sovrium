@@ -13,10 +13,8 @@
  * did not resolve must render blank, not crash the automation run.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { toStr } from './helper-coercion'
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
 
 /**
  * `{{flatten v}}` — ONE level deep, not recursive.
@@ -46,7 +44,7 @@ export const reverseArray = (value: unknown): readonly unknown[] =>
  */
 export const sizeOf = (value: unknown): number => {
   if (Array.isArray(value)) return value.length
-  if (isPlainObject(value)) return Object.keys(value).length
+  if (isRecord(value)) return Object.keys(value).length
   return toStr(value).length
 }
 
@@ -67,7 +65,7 @@ export const pickKeys = (
   value: unknown,
   keys: readonly string[]
 ): Readonly<Record<string, unknown>> => {
-  if (!isPlainObject(value)) return {}
+  if (!isRecord(value)) return {}
   const wanted = new Set(keys)
   return Object.fromEntries(Object.entries(value).filter(([key]) => wanted.has(key)))
 }
@@ -76,7 +74,7 @@ export const omitKeys = (
   value: unknown,
   keys: readonly string[]
 ): Readonly<Record<string, unknown>> => {
-  if (!isPlainObject(value)) return {}
+  if (!isRecord(value)) return {}
   const unwanted = new Set(keys)
   return Object.fromEntries(Object.entries(value).filter(([key]) => !unwanted.has(key)))
 }
@@ -99,7 +97,7 @@ export const getPath = (source: unknown, path: string): unknown => {
       const index = Number(segment)
       return Number.isInteger(index) ? (current[index] ?? '') : ''
     }
-    if (isPlainObject(current)) return current[segment] ?? ''
+    if (isRecord(current)) return current[segment] ?? ''
     return ''
   }, source)
 }

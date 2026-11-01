@@ -30,14 +30,15 @@
  * `overflow-hidden` clips the label away under the glyph: the label stays in
  * the document and keeps naming the link.
  *
- * Its ink is spelled out (`text-sidebar-foreground`) where base-nova lets it
- * inherit from the box: the row is an `<a>`, and the base layer paints every
- * bare link in the app's primary colour, so an inherited ink turned every
- * resting row into a coloured link. The ink matches the nested row's, and
- * only the current row is marked, by the accent fill.
+ * The base carries NO ink of its own: the resting look adds
+ * {@link SIDEBAR_ENTRY_REST_INK} and the current look the accent ink, so each
+ * look owns the ink it paints. That is what lets the browser move the mark in
+ * place by swapping only the classes one look has and the other lacks: an ink
+ * both looks shared would never be put back on an entry the browser un-marks,
+ * whose server-merged class list had already dropped it for the accent's.
  */
 const SIDEBAR_ENTRY_CLASS =
-  'peer/menu-button group/menu-button flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]/sidebar:size-8! group-data-[collapsible=icon]/sidebar:p-2! [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate'
+  'peer/menu-button group/menu-button flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]/sidebar:size-8! group-data-[collapsible=icon]/sidebar:p-2! [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate'
 
 /**
  * A resting row's glyph, a step quieter than its label, so the label carries
@@ -47,8 +48,17 @@ const SIDEBAR_ENTRY_CLASS =
 const SIDEBAR_ENTRY_REST_GLYPH =
   '[&_svg]:text-sidebar-foreground/70 hover:[&_svg]:text-sidebar-accent-foreground'
 
-/** A resting row: the row and its quieter glyph. */
-const SIDEBAR_ENTRY_REST_CLASS = `${SIDEBAR_ENTRY_CLASS} ${SIDEBAR_ENTRY_REST_GLYPH}`
+/**
+ * A resting row's ink, spelled out where base-nova lets it inherit from the
+ * box: the row is an `<a>`, and the base layer paints every bare link in the
+ * app's primary colour, so an inherited ink turned every resting row into a
+ * coloured link. Top-level and nested rows rest in the same ink, and only the
+ * current row is marked, by the accent fill.
+ */
+const SIDEBAR_ENTRY_REST_INK = 'text-sidebar-foreground'
+
+/** A resting row: the row, its ink and its quieter glyph. */
+const SIDEBAR_ENTRY_REST_CLASS = `${SIDEBAR_ENTRY_CLASS} ${SIDEBAR_ENTRY_REST_INK} ${SIDEBAR_ENTRY_REST_GLYPH}`
 
 /** The row for the page being viewed: base-nova's active fill, weight and ink. */
 const SIDEBAR_ENTRY_CURRENT_CLASS = [
@@ -56,9 +66,14 @@ const SIDEBAR_ENTRY_CURRENT_CLASS = [
   'bg-sidebar-accent font-medium text-sidebar-accent-foreground',
 ].join(' ')
 
-/** A nested row (`sidebar-menu-sub-button`, size `md`). */
+/**
+ * A nested row (`sidebar-menu-sub-button`, size `md`), with no ink of its own
+ * for the reason the top-level base has none.
+ */
 const SIDEBAR_SUB_ENTRY_CLASS =
-  'flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sm text-sidebar-foreground ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground'
+  'flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sm ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground'
+
+const SIDEBAR_SUB_ENTRY_REST_CLASS = `${SIDEBAR_SUB_ENTRY_CLASS} ${SIDEBAR_ENTRY_REST_INK}`
 
 const SIDEBAR_SUB_ENTRY_CURRENT_CLASS = [
   SIDEBAR_SUB_ENTRY_CLASS,
@@ -77,7 +92,7 @@ export const computeSidebarEntryClasses = (isCurrent = false): string =>
  * disclosure reveals, at either depth.
  */
 export const computeSidebarSubEntryClasses = (isCurrent = false): string =>
-  isCurrent ? SIDEBAR_SUB_ENTRY_CURRENT_CLASS : SIDEBAR_SUB_ENTRY_CLASS
+  isCurrent ? SIDEBAR_SUB_ENTRY_CURRENT_CLASS : SIDEBAR_SUB_ENTRY_REST_CLASS
 
 // ──────────────────────────────────────────────────────────────────────────────
 // SIDEBAR DISCLOSURE — expandable entry: row / toggle / child list / states

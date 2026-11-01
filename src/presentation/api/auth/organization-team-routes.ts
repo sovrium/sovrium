@@ -30,12 +30,18 @@
  * any team endpoint returns 401 (consistent with the rest of the org plugin).
  */
 
-import { Effect } from 'effect'
-import { type Hono } from 'hono'
+import { Data, Effect } from 'effect'
+import { type Context, type Hono } from 'hono'
 import { OrganizationTeamRepository } from '@/application/ports/repositories/auth/organization-team-repository'
+import { teamMembersResponseSchema, teamResponseSchema } from '@/domain/models/api/auth/auth'
 import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFoundBody } from '@/presentation/api/runtime/auth-helpers'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+  shapedJson,
+} from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 
@@ -43,6 +49,11 @@ type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
 
 /** Standard 401 body for unauthenticated team-API requests. */
 const unauthorized = { message: 'Authentication required' }
+
+/** Better Auth did not answer the add a team route forwarded to it. */
+class TeamForwardError extends Data.TaggedError('TeamForwardError')<{
+  readonly cause: unknown
+}> {}
 
 /**
  * Forward a request to the Better Auth handler under a (possibly rewritten)
@@ -68,32 +79,6 @@ const forwardToBetterAuth = async (
 }
 
 /**
- * The slice of Hono's `Context` these handlers use.
- *
- * Structural rather than the real `Context` so the handlers stay testable
- * without a Hono app. It gained `get` in W5b: the team reads now go through
- * `OrganizationTeamRepository`, which a handler resolves off the request's
- * published domain services, and `get` is how that lookup reaches them.
- */
-type TeamRouteContext = {
-  readonly req: { readonly raw: Request; readonly query: (name: string) => string | undefined }
-  readonly json: (body: unknown, status?: number) => Response
-  readonly get: (key: string) => unknown
-}
-
-/**
- * Run a team-read program on this request's domain services.
- *
- * `runDomainPromise` reads exactly one variable off the context — the box
- * `domainContextMiddleware` published — and {@link TeamRouteContext} declares
- * the `get` that reads it.
- */
-const runTeamRead = <A, E>(
-  c: TeamRouteContext,
-  program: Effect.Effect<A, E, OrganizationTeamRepository>
-): Promise<A> => runDomainPromise(c, program)
-
-/**
  * Re-issue a Better Auth list response with a single-key envelope.
  *
  * Better Auth's `list-teams` / `list-team-members` return a bare JSON array;
@@ -102,7 +87,7 @@ const runTeamRead = <A, E>(
  */
 const envelopeListResponse = async (
   authInstance: AuthInstance,
-  c: TeamRouteContext,
+  c: Context,
   key: 'teams' | 'members'
 ): Promise<Response> => {
   const response = await authInstance.handler(c.req.raw)
@@ -120,10 +105,7 @@ const envelopeListResponse = async (
  * equivalent. Returns 401 without a session, 400 without `teamId`, 404 when
  * the team is absent or belongs to another organization.
  */
-const handleGetTeam = async (
-  authInstance: AuthInstance,
-  c: TeamRouteContext
-): Promise<Response> => {
+const handleGetTeam = async (authInstance: AuthInstance, c: Context): Promise<Response> => {
   const session = await authInstance.api
     .getSession({ headers: c.req.raw.headers })
     .catch(() => undefined)
@@ -138,17 +120,27 @@ const handleGetTeam = async (
   // `undefined` for a team belonging to another organization exactly as it does
   // for one that does not exist, so the 404 below covers both without this
   // handler naming a tenant id.
-  const team = await runTeamRead(
+  return runHandlerEffect(
     c,
-    Effect.gen(function* () {
-      const repository = yield* OrganizationTeamRepository
-      return yield* repository.findTeamById(teamId)
-    })
+    answerFailures(
+      c,
+      Effect.map(
+        OrganizationTeamRepository.use((repository) => repository.findTeamById(teamId)),
+        (team) =>
+          team
+            ? shapedJson(
+                c,
+                {
+                  ...team,
+                  createdAt: team.createdAt.toISOString(),
+                  updatedAt: team.updatedAt.toISOString(),
+                },
+                teamResponseSchema
+              )
+            : c.json(notFoundBody('Team not found'), 404)
+      )
+    )
   )
-  if (!team) {
-    return c.json(notFoundBody('Team not found'), 404)
-  }
-  return c.json(team, 200)
 }
 
 /**
@@ -159,18 +151,12 @@ const handleGetTeam = async (
  * to list any team's members (e.g. to confirm an `add-team-member` succeeded),
  * so the owner is allowed a direct-query fallback.
  */
-const isOrganizationManager = async (c: TeamRouteContext, userId: string): Promise<boolean> => {
-  const role = await runTeamRead(
-    c,
-    Effect.gen(function* () {
-      const repository = yield* OrganizationTeamRepository
-      return yield* repository.findOrganizationRole(userId)
-    })
+const isOrganizationManager = (userId: string) =>
+  OrganizationTeamRepository.use((repository) => repository.findOrganizationRole(userId)).pipe(
+    // NOTE: this is the Better Auth ORGANIZATION role namespace, not Sovrium's
+    // RBAC role — `isAdminRole` is used for the literal, not for the semantics.
+    Effect.map((role) => role === 'owner' || isAdminRole(role))
   )
-  // NOTE: this is the Better Auth ORGANIZATION role namespace, not Sovrium's
-  // RBAC role — `isAdminRole` is used for the literal, not for the semantics.
-  return role === 'owner' || isAdminRole(role)
-}
 
 /**
  * Handle `GET /list-team-members` with an org-manager fallback.
@@ -185,10 +171,7 @@ const isOrganizationManager = async (c: TeamRouteContext, userId: string): Promi
  * All other responses (200 success, 401 unauthenticated, other errors) are
  * forwarded through `envelopeListResponse` untouched.
  */
-const handleListTeamMembers = async (
-  authInstance: AuthInstance,
-  c: TeamRouteContext
-): Promise<Response> => {
+const handleListTeamMembers = async (authInstance: AuthInstance, c: Context): Promise<Response> => {
   const enveloped = await envelopeListResponse(authInstance, c, 'members')
   if (enveloped.status !== 400) return enveloped
 
@@ -203,20 +186,33 @@ const handleListTeamMembers = async (
     .getSession({ headers: c.req.raw.headers })
     .catch(() => undefined)
   const userId = session?.user?.id
-  if (!userId || !(await isOrganizationManager(c, userId))) return enveloped
+  if (!userId) return enveloped
 
-  const teamId = c.req.query('teamId')
-  if (!teamId) return enveloped
-
-  const rows = await runTeamRead(
+  return runHandlerEffect(
     c,
-    Effect.gen(function* () {
-      const repository = yield* OrganizationTeamRepository
-      return yield* repository.listTeamMembers(teamId)
-    })
-  )
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        if (!(yield* isOrganizationManager(userId))) return enveloped
 
-  return c.json({ members: rows }, 200)
+        const teamId = c.req.query('teamId')
+        if (!teamId) return enveloped
+
+        const repository = yield* OrganizationTeamRepository
+        const rows = yield* repository.listTeamMembers(teamId)
+        return yield* respondWith(
+          c,
+          Effect.succeed({
+            members: rows.map((row) => ({
+              ...row,
+              createdAt: row.createdAt?.toISOString() ?? null,
+            })),
+          }),
+          teamMembersResponseSchema
+        )
+      })
+    )
+  )
 }
 
 /**
@@ -228,26 +224,18 @@ const handleListTeamMembers = async (
  * `undefined` when the team is unknown or its group declares no limit (the
  * group then allows unlimited members).
  */
-const resolveMaxMembers = async (
-  c: TeamRouteContext,
-  teamId: string,
-  app: App
-): Promise<number | undefined> => {
-  const groups = app.auth?.groups ?? []
-  if (groups.length === 0) return undefined
+const resolveMaxMembers = (teamId: string, app: App) =>
+  Effect.gen(function* () {
+    const groups = app.auth?.groups ?? []
+    if (groups.length === 0) return undefined
 
-  const team = await runTeamRead(
-    c,
-    Effect.gen(function* () {
-      const repository = yield* OrganizationTeamRepository
-      return yield* repository.findTeamById(teamId)
-    })
-  )
-  const teamName = team?.name
-  if (!teamName) return undefined
+    const repository = yield* OrganizationTeamRepository
+    const team = yield* repository.findTeamById(teamId)
+    const teamName = team?.name
+    if (!teamName) return undefined
 
-  return groups.find((group) => group.name === teamName)?.maxMembers
-}
+    return groups.find((group) => group.name === teamName)?.maxMembers
+  })
 
 /**
  * Resolve the configured `maxMembers` cap when the team is already at (or
@@ -257,24 +245,16 @@ const resolveMaxMembers = async (
  * presence of a number to decide whether to reject the request. A team with
  * no declared `maxMembers` (or with spare capacity) yields `undefined`.
  */
-const capacityExceededLimit = async (
-  c: TeamRouteContext,
-  teamId: string,
-  app: App
-): Promise<number | undefined> => {
-  const maxMembers = await resolveMaxMembers(c, teamId, app)
-  if (maxMembers === undefined) return undefined
+const capacityExceededLimit = (teamId: string, app: App) =>
+  Effect.gen(function* () {
+    const maxMembers = yield* resolveMaxMembers(teamId, app)
+    if (maxMembers === undefined) return undefined
 
-  const currentCount = await runTeamRead(
-    c,
-    Effect.gen(function* () {
-      const repository = yield* OrganizationTeamRepository
-      return yield* repository.countTeamMembers(teamId)
-    })
-  )
+    const repository = yield* OrganizationTeamRepository
+    const currentCount = yield* repository.countTeamMembers(teamId)
 
-  return currentCount >= maxMembers ? maxMembers : undefined
-}
+    return currentCount >= maxMembers ? maxMembers : undefined
+  })
 
 /**
  * Handle `POST /add-team-member` — enforce duplicate + capacity rules.
@@ -302,24 +282,14 @@ const capacityExceededLimit = async (
  * membership cannot be confirmed, so `false` is returned and the request is
  * left for Better Auth to reject.
  */
-const isExistingTeamMember = async (
-  c: TeamRouteContext,
-  teamId: string | undefined,
-  userId: string | undefined
-): Promise<boolean> => {
-  if (teamId === undefined || userId === undefined) return false
-  return runTeamRead(
-    c,
-    Effect.gen(function* () {
-      const repository = yield* OrganizationTeamRepository
-      return yield* repository.isTeamMember(teamId, userId)
-    })
-  )
-}
+const isExistingTeamMember = (teamId: string | undefined, userId: string | undefined) =>
+  teamId === undefined || userId === undefined
+    ? Effect.succeed(false)
+    : OrganizationTeamRepository.use((repository) => repository.isTeamMember(teamId, userId))
 
 const handleAddTeamMember = async (
   authInstance: AuthInstance,
-  c: TeamRouteContext,
+  c: Context,
   app: App
 ): Promise<Response> => {
   const body = (await c.req.raw
@@ -329,23 +299,38 @@ const handleAddTeamMember = async (
   const teamId = typeof body?.teamId === 'string' ? body.teamId : undefined
   const userId = typeof body?.userId === 'string' ? body.userId : undefined
 
-  const alreadyMember = await isExistingTeamMember(c, teamId, userId)
+  return runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const alreadyMember = yield* isExistingTeamMember(teamId, userId)
 
-  // Capacity gate — runs before Better Auth so a rejected add never mutates
-  // state. Skipped for duplicate adds (they do not increase the head count).
-  const breachedLimit =
-    teamId !== undefined && !alreadyMember ? await capacityExceededLimit(c, teamId, app) : undefined
-  if (breachedLimit !== undefined) {
-    return c.json({ message: `Team has reached its maximum of ${breachedLimit} members` }, 422)
-  }
+        // Capacity gate — runs before Better Auth so a rejected add never mutates
+        // state. Skipped for duplicate adds (they do not increase the head count).
+        const breachedLimit =
+          teamId !== undefined && !alreadyMember
+            ? yield* capacityExceededLimit(teamId, app)
+            : undefined
+        if (breachedLimit !== undefined) {
+          return c.json(
+            { message: `Team has reached its maximum of ${breachedLimit} members` },
+            422
+          )
+        }
 
-  const response = await authInstance.handler(c.req.raw)
-  if (response.status !== 200) return response
+        const response = yield* Effect.tryPromise({
+          try: () => Promise.resolve(authInstance.handler(c.req.raw)),
+          catch: (cause) => new TeamForwardError({ cause }),
+        })
+        if (response.status !== 200) return response
 
-  if (alreadyMember) {
-    return c.json({ message: 'User is already a member of this team' }, 400)
-  }
-  return response
+        return alreadyMember
+          ? c.json({ message: 'User is already a member of this team' }, 400)
+          : response
+      })
+    )
+  )
 }
 
 /**

@@ -19,6 +19,7 @@
  */
 
 import { DateTime, Option } from 'effect'
+import { MINUTE_MS } from '@/domain/kernel/time/durations'
 import { escapeIcsText, foldIcsLine, formatIcsUtc } from './icalendar'
 
 /** A whole day, `YYYY-MM-DD`. */
@@ -46,7 +47,6 @@ export interface IcsInvite {
 }
 
 const CRLF = '\r\n'
-const MINUTE_MS = 60_000
 
 /** Whether the runtime's time-zone database knows `zone`. */
 export const isKnownTimeZone = (zone: string): boolean =>

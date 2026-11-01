@@ -10,15 +10,15 @@ import {
   gifMediaProgram,
   searchGifsProgram,
 } from '@/application/use-cases/connections/gif-programs'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import {
   gifSearchQuerySchema,
   gifSearchResponseSchema,
 } from '@/domain/models/api/connections/connections'
 import { isAuthenticatedSession } from '@/domain/models/app/auth/guest-session'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { notFound, requireSession } from '@/presentation/api/runtime/auth-helpers'
+import { answerFailures, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import { connectionError } from './error-envelopes'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -54,54 +54,61 @@ const providerFailed = (c: Context, reason: string): Response => {
 }
 
 /** `GET /api/connections/:name/gif-search?q=` */
-export async function handleGifSearch(c: Context, app: App): Promise<Response> {
-  const refused = signedInMember(c)
-  if (refused !== undefined) return refused
-  const query = decodeSafe(gifSearchQuerySchema)({ q: c.req.query('q') ?? '' })
-  if (!query.success) return connectionError(c, 400, 'gif_search_words_required')
-  const result = await runRequestEffect(
+export function handleGifSearch(c: Context, app: App): Promise<Response> {
+  return runHandlerEffect(
     c,
-    provideDomain(c, searchGifsProgram(app, c.req.param('name') ?? '', query.data.q)).pipe(
-      Effect.result
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const refused = signedInMember(c)
+        if (refused !== undefined) return refused
+        const query = decodeSafe(gifSearchQuerySchema)({ q: c.req.query('q') ?? '' })
+        if (!query.success) return connectionError(c, 400, 'gif_search_words_required')
+        const result = yield* searchGifsProgram(app, c.req.param('name') ?? '', query.data.q).pipe(
+          Effect.result
+        )
+        if (result._tag === 'Failure') {
+          return result.failure._tag === 'GifNotFoundError'
+            ? notFound(c)
+            : providerFailed(c, result.failure.reason)
+        }
+        const answer = decodeSafe(gifSearchResponseSchema)(result.success)
+        return answer.success
+          ? c.json(answer.data, 200)
+          : providerFailed(c, 'the results broke their contract')
+      })
     )
   )
-  if (result._tag === 'Failure') {
-    return result.failure._tag === 'GifNotFoundError'
-      ? notFound(c)
-      : providerFailed(c, result.failure.reason)
-  }
-  const answer = decodeSafe(gifSearchResponseSchema)(result.success)
-  return answer.success
-    ? c.json(answer.data, 200)
-    : providerFailed(c, 'the results broke their contract')
 }
 
 /** `GET /api/connections/:name/gifs/:id` and `GET /api/connections/:name/gifs/:id/preview` */
-export async function handleGifMedia(c: Context, app: App, preview: boolean): Promise<Response> {
-  const refused = signedInMember(c)
-  if (refused !== undefined) return refused
-  const result = await runRequestEffect(
+export function handleGifMedia(c: Context, app: App, preview: boolean): Promise<Response> {
+  return runHandlerEffect(
     c,
-    provideDomain(
+    answerFailures(
       c,
-      gifMediaProgram(app, {
-        name: c.req.param('name') ?? '',
-        id: c.req.param('id') ?? '',
-        preview,
+      Effect.gen(function* () {
+        const refused = signedInMember(c)
+        if (refused !== undefined) return refused
+        const result = yield* gifMediaProgram(app, {
+          name: c.req.param('name') ?? '',
+          id: c.req.param('id') ?? '',
+          preview,
+        }).pipe(Effect.result)
+        if (result._tag === 'Failure') {
+          return result.failure._tag === 'GifNotFoundError'
+            ? notFound(c)
+            : providerFailed(c, result.failure.reason)
+        }
+        return new Response(new Blob([result.success.bytes as Uint8Array<ArrayBuffer>]), {
+          headers: {
+            'Content-Type': result.success.contentType,
+            'Cache-Control': 'private, max-age=86400',
+            'X-Content-Type-Options': 'nosniff',
+            'Content-Security-Policy': "default-src 'none'; sandbox",
+          },
+        })
       })
-    ).pipe(Effect.result)
+    )
   )
-  if (result._tag === 'Failure') {
-    return result.failure._tag === 'GifNotFoundError'
-      ? notFound(c)
-      : providerFailed(c, result.failure.reason)
-  }
-  return new Response(new Blob([result.success.bytes as Uint8Array<ArrayBuffer>]), {
-    headers: {
-      'Content-Type': result.success.contentType,
-      'Cache-Control': 'private, max-age=86400',
-      'X-Content-Type-Options': 'nosniff',
-      'Content-Security-Policy': "default-src 'none'; sandbox",
-    },
-  })
 }

@@ -14,6 +14,12 @@
 
 import { getPhysicalTableName } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
+import {
+  relationNamesOf,
+  SQLITE_TRIGGER_NAMES_SQL,
+  strandedTriggerNames,
+  triggerNamesOf,
+} from '../schema-migration/renamed-relation-triggers'
 import { isManyToManyRelationship } from '../sql/sql-field-predicates'
 import { generateJunctionTableName, postgresStoredName } from '../sql/sql-junction-tables'
 import { storedConstraintsCurrent } from '../table-operations/live-unique-shape'
@@ -48,6 +54,7 @@ export const storedDataCurrent = async (
     (await viewDefinitionsCurrent(quick, tables)) &&
     (await columnTypesCurrent(quick.liveColumnTypes, tables)) &&
     (await sqliteDateValuesStored(quick, tables)) &&
+    (await sqliteTriggersCurrent(quick, tables)) &&
     (await storedConstraintsCurrent(quick.tx, quick.isSqlite, tables))
   if (current) {
     logDebug('[schema] checksum matches and tables verified — skipping migration (fast path)')
@@ -113,6 +120,32 @@ const sqliteDateValuesStored = async (
   logDebug(
     '[schema] checksum matches but a table holds a datetime or time in its pre-upgrade form — full migration',
     { table: legacy }
+  )
+  return false
+}
+
+/**
+ * Whether no SQLite table still carries an engine trigger an earlier release's
+ * topology rename left written for the table's other name
+ * (`strandedTriggerNames`): its body names a relation that is gone or is now
+ * the lookup view, so the first update fails. The full migration drops it.
+ */
+const sqliteTriggersCurrent = async (
+  quick: Readonly<StoredDataProbe>,
+  tables: readonly Table[]
+): Promise<boolean> => {
+  if (!quick.isSqlite) return true
+  const stranded = await tables.reduce<Promise<string | undefined>>(async (found, table) => {
+    const earlier = await found
+    if (earlier !== undefined) return earlier
+    const relations = relationNamesOf(table)
+    const rows = await quick.tx.unsafe(SQLITE_TRIGGER_NAMES_SQL, [relations.physical])
+    return strandedTriggerNames(triggerNamesOf(rows), relations)[0]
+  }, Promise.resolve(undefined))
+  if (stranded === undefined) return true
+  logDebug(
+    "[schema] checksum matches but a trigger is still written for the table's previous name — full migration",
+    { trigger: stranded }
   )
   return false
 }

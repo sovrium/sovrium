@@ -1,12 +1,12 @@
 # Reporting a Problem
 
-> `sovrium report` prints the address of a new issue on the Sovrium repository with the facts maintainers need already filled in — or, for a vulnerability, the address of the private advisory form. It never submits anything and never makes a network request.
+> `sovrium report` prints the address of a new issue on the Sovrium repository with the facts maintainers need already filled in or, for a vulnerability, the address of the private advisory form. It never submits anything and never makes a network request.
 
 ```text
 Usage: sovrium report [--config <path>] [--feature <config-option|engine-primitive|recipe>] [--security] [--last-error] [--request-id <id>] [--open]
 ```
 
-You found something wrong. Before writing it up, `sovrium report` gathers what every report needs — the version you run, your operating system, how Sovrium was installed, which database it uses, and whether your configuration validates — and puts it in the issue form for you. You read the form in your browser, describe what happened, and submit it yourself, or close the tab.
+You found something wrong. Before writing it up, `sovrium report` gathers what every report needs (the version you run, your operating system, how Sovrium was installed, which database it uses, and whether your configuration validates) and puts it in the issue form for you. You read the form in your browser, describe what happened, and submit it yourself, or close the tab.
 
 Nothing leaves your machine until you press submit on the page. The command prints a web address and stops; Sovrium does not phone home, and reporting a problem is no exception.
 
@@ -35,11 +35,11 @@ Only the address goes to standard output, so it composes with other commands:
 sovrium report > issue-link.txt
 ```
 
-Add `--open` to have your browser open the form directly. With no browser available — over SSH, or with `BROWSER=none` — the address is printed all the same.
+Add `--open` to have your browser open the form directly. With no browser available (over SSH, or with `BROWSER=none`), the address is printed all the same.
 
 ## A configuration error is not a bug
 
-`sovrium report` first checks your configuration exactly as `sovrium validate` does. If it does not validate, no address is printed: the command shows what is wrong and exits with status 1. Fix the configuration — `sovrium docs` explains every option — and the problem may be gone.
+`sovrium report` first checks your configuration exactly as `sovrium validate` does. If it does not validate, no address is printed: the command shows what is wrong and exits with status 1. Fix the configuration (`sovrium docs` explains every option), and the problem may be gone.
 
 The same rule holds everywhere: when Sovrium refuses a configuration, or a port is already in use, the message tells you how to fix it and offers no report.
 
@@ -51,15 +51,15 @@ So does a failure that is yours to fix rather than Sovrium's. A start without a 
 sovrium report --config app.yaml
 ```
 
-Without `--config`, no part of your configuration is included — the report only says whether it validates. With it, the file is attached to the form's configuration field after these are removed:
+Without `--config`, no part of your configuration is included: the report only says whether it validates. With it, the file is attached to the form's configuration field after these are removed:
 
 - a value written directly at a key that names a secret, a password, a token or an API key;
 - the `default` of an `env` entry, unless that entry says `secret: false`;
 - any value equal to one held by an environment variable whose name marks it as secret.
 
-Each removed value reads `[redacted]`. An `$env.NAME` reference stays as you wrote it: it names a variable, not its value. Your data never comes along — the command reads neither the database nor the `seed/` directory.
+Each removed value reads `[redacted]`. An `$env.NAME` reference stays as you wrote it: it names a variable, not its value. Your data never comes along: the command reads neither the database nor the `seed/` directory.
 
-Attach the smallest configuration that still shows the problem. The whole address is kept within 6,000 characters: when it would be longer, the logs field is cut first, then the longest field left — usually the configuration — and each cut field ends with `…[truncated]`. Paste the rest into the form.
+Attach the smallest configuration that still shows the problem. The whole address is kept within 6,000 characters: when it would be longer, the logs field is cut first, then the longest field left (usually the configuration), and each cut field ends with `…[truncated]`. Paste the rest into the form.
 
 ## Suggest a feature
 
@@ -89,7 +89,7 @@ Prints the address of the private security advisory form:
 https://github.com/sovrium/sovrium/security/advisories/new
 ```
 
-A vulnerability is reported privately, to the maintainers only — never as an issue, which anyone can read. Nothing is filled in: you write the report yourself, and decide what it contains. `--security` overrides every other flag; given beside `--config` or `--last-error`, it still attaches nothing and says so.
+A vulnerability is reported privately, to the maintainers only, never as an issue, which anyone can read. Nothing is filled in: you write the report yourself, and decide what it contains. `--security` overrides every other flag; given beside `--config` or `--last-error`, it still attaches nothing and says so.
 
 ## When Sovrium itself fails
 
@@ -101,7 +101,11 @@ Its title reads like this:
 build: DatabaseConnectionError [sig:3f9a1c07]
 ```
 
-Where it failed, the kind of error, and a signature. Where it failed is the command for a failure the terminal printed, `request` for an internal error a server answered, and `automation` for a run the engine closed. The signature is computed from where in Sovrium's code the error happened, so the same bug carries the same signature on every machine. Searching the repository's issues for it shows whether someone already reported it — add what you know there rather than opening a second issue.
+Where it failed, the kind of error, and a signature. Where it failed is the command for a failure the terminal printed, `request` for an internal error a server answered, and `automation` for a run the engine closed. The signature is computed from where in Sovrium's code the error happened, so the same bug carries the same signature on every machine. Searching the repository's issues for it shows whether someone already reported it. Add what you know there rather than opening a second issue.
+
+A report built from a failure also makes the form's two required choices for you: the kind of bug is `crash-or-data-loss`, and the domain follows from where it failed: `automations` for a run, `migrations` for `sovrium migrate`, `api` for a server error, and `cli` for any other command. Its verification field says how to check a fix: run the same command again (or repeat the request, or run the automation again) and the failure with that signature no longer appears. The form may show these choices unselected, since GitHub fills only text fields from an address, so the terminal also names the Domain and the Kind of bug to check on the page. Change either when it does not fit.
+
+Before you submit, search for the signature among every issue, open and closed. The failure output, `--last-error` and `--request-id` print that search address: `https://github.com/sovrium/sovrium/issues?q=is%3Aissue%20%22sig%3A3f9a1c07%22`. An open match is the place to add what you know; a closed one fixed in an earlier release means the bug is back, so file it as a `regression`.
 
 Sovrium keeps that last failure, already redacted, in the project's `.sovrium/` directory. Once the terminal has scrolled away:
 
@@ -113,7 +117,7 @@ prints the same address again. With no failure kept, it says so and exits with s
 
 ## A server error, by its request id
 
-A server error answers with a request id: the `requestId` of a `500` response, the id an error page shows, or the one the operator console shows when a view fails to load. The server's log line for the same request names it too, with the error's signature and the command to report it — or, for an error that is yours to fix, `operator-fixable:` and the fix, and no command.
+A server error answers with a request id: the `requestId` of a `500` response, the id an error page shows, or the one the operator console shows when a view fails to load. The server's log line for the same request names it too, with the error's signature and the command to report it or, for an error that is yours to fix, `operator-fixable:` and the fix, and no command.
 
 Run, where that server runs:
 
@@ -121,7 +125,7 @@ Run, where that server runs:
 sovrium report --request-id 0e12a140-b07a-423d-a5ea-13d2ca76a734
 ```
 
-It prints the filled-in bug report for that error, from the copy the server kept: its logs name the request id, the kind of error and where in Sovrium's code it happened. For an error that is yours to fix it prints the fix instead, and exits with status 1. An id the server did not record exits with status 1.
+It prints the filled-in bug report for that error, from the copy the server kept: its logs name the request id, the kind of error and where in Sovrium's code it happened. It is filed under the `api` domain, and stderr names the signature search and the two choices to check. For an error that is yours to fix it prints the fix instead, and exits with status 1. An id the server did not record exits with status 1.
 
 The people using your app never see an issue address: an error page and an API error give them the request id only, which they can pass on to you. The console offers **Report on GitHub** beside a records grid or the run history that failed to load with an internal error, and on the page of an automation run the engine stopped; for an error that is yours to fix it shows what to do instead. With nothing failed on screen, its **Report a problem** page, in the command palette's Help group, opens a blank report with your installation's facts, or the report of the last internal error the server kept. An AI connected through `sovrium mcp` is pointed at the `sovrium-report-issue` skill when a tool meets one.
 
@@ -136,7 +140,7 @@ The operator console asks the server for the same address, so the console and th
 
 `fix` is one of `missing-env`, `invalid-env`, `database-schema-drift`, `database-unreachable` and `database-resources`, and the console words what to do for each.
 
-Both are admin only. Anything else answers `404`: a caller who is not an admin, an id the server kept nothing under, a malformed id, and a run that finished or failed on its own step, which is the app's to fix rather than a bug in Sovrium. The address names the request or the run, the kind of error, its signature and where in Sovrium's code it happened — never the error's message, what a trigger sent, record data, or a name you chose: not the automation, its actions, a table or the app. A run that stopped because of something yours to fix, such as a dropped table, is not a defect and offers no report. Nothing is sent: the address files nothing until you submit the form. An AI connected through `sovrium mcp` with an admin key reads the same two addresses as admin tools.
+Both are admin only. Anything else answers `404`: a caller who is not an admin, an id the server kept nothing under, a malformed id, and a run that finished or failed on its own step, which is the app's to fix rather than a bug in Sovrium. The address names the request or the run, the kind of error, its signature and where in Sovrium's code it happened, but never the error's message, what a trigger sent, record data, or a name you chose: not the automation, its actions, a table or the app. A run that stopped because of something yours to fix, such as a dropped table, is not a defect and offers no report. Nothing is sent: the address files nothing until you submit the form. An AI connected through `sovrium mcp` with an admin key reads the same two addresses as admin tools.
 
 Two more reads take no id, for a problem with nothing failed on screen:
 

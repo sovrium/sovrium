@@ -7,6 +7,7 @@
 - Records endpoints and expected answers
 - Authenticating
 - curl templates
+- The same calls from TypeScript
 - Reading a surprising answer
 
 ## What to check after a change
@@ -76,6 +77,21 @@ curl -s -H "x-api-key: $SOVRIUM_ADMIN_API_KEY" "$BASE/api/openapi.json" -o app.o
 
 # Done: delete the session cookie
 rm -f "$JAR"
+```
+
+## The same calls from TypeScript
+
+`sovrium client` writes `sovrium-client.ts`, a dependency-free client typed from the config's tables, fields and views (`sovrium docs cli-api/cli-client`). Regenerate it after changing a table, and run `sovrium client --check` to see whether it fell behind.
+
+```ts
+import { createClient } from './sovrium-client'
+
+// Server side only: a key acts with its creator's role, and the client refuses one in a browser
+const sovrium = createClient({ url: process.env.BASE, apiKey: process.env.SOVRIUM_API_KEY })
+
+const { data, error } = await sovrium.from('contacts').list({ limit: 5 })
+// error is the API's own answer: { status, code, message, errors? }, never a thrown exception
+console.log(error ?? data.records.map((record) => record.fields))
 ```
 
 ## Reading a surprising answer

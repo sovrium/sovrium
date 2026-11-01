@@ -33,6 +33,10 @@
 export const computeCommentThreadClasses = (): string =>
   'my-6 flex flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground'
 
+/** The thread's own heading (`title`), base-nova's `CardTitle` on the frame's top rule. */
+export const computeCommentTitleClasses = (): string =>
+  'border-b border-border px-3 py-2.5 text-base leading-snug font-medium'
+
 /** The sort control's row, right-aligned above the first comment. */
 export const computeCommentSortBarClasses = (): string =>
   'flex items-center justify-end gap-1.5 border-b border-border px-3 py-2 text-xs text-muted-foreground'

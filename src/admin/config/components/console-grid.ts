@@ -14,12 +14,9 @@
 // ── From rowActionsTableCopy ───────────────────────────────────────────────────
 /** The block's `table` node, as the console installs it. */
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consoleGrid = {
+export const consoleGrid: TemplateEncoded = {
   name: 'console-grid',
   type: 'table',
   render: 'transparent',
@@ -39,6 +36,12 @@ export const consoleGrid = {
     },
     emptyMessage: {
       kind: 'text',
+    },
+    emptyDescription: {
+      kind: 'text',
+    },
+    countLabel: {
+      kind: 'json',
     },
     noMatchMessage: {
       kind: 'text',
@@ -78,6 +81,8 @@ export const consoleGrid = {
   dataSource: '$dataSource',
   columns: '$columns',
   emptyMessage: '$emptyMessage',
+  emptyDescription: '$emptyDescription',
+  countLabel: '$countLabel',
   noMatchMessage: '$noMatchMessage',
   layout: '$layout',
   pagination: '$pagination',
@@ -87,4 +92,4 @@ export const consoleGrid = {
   selection: '$selection',
   viewOptions: '$viewOptions',
   caption: '$caption',
-} as unknown as Template
+}

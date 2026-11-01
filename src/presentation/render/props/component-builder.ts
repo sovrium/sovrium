@@ -28,9 +28,9 @@ import type { ReactElement } from 'react'
  * Configuration for building component props
  */
 export type ComponentPropsConfig = {
-  readonly type: string
+  readonly type: Component['type']
   readonly props: Record<string, unknown> | undefined
-  readonly children: ReadonlyArray<Component | string> | undefined
+  readonly children: ReadonlyArray<unknown> | undefined
   readonly content: string | undefined
   readonly componentName: string | undefined
   readonly componentInstanceIndex: number | undefined

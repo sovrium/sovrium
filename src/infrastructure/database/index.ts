@@ -13,18 +13,19 @@
  *
  * @example
  * ```typescript
- * import { Database, DatabaseLive } from '@/infrastructure/database'
+ * import { Database } from '@/infrastructure/database'
  * import { users } from '@/infrastructure/database/schema'
  *
+ * // `Database` is provided by the server's runtime (`DatabaseLive`, once).
  * const program = Effect.gen(function* () {
- *   const db = yield* Database
- *   const allUsers = yield* Effect.tryPromise(() => db.select().from(users))
+ *   const { client } = yield* Database
+ *   const allUsers = yield* Effect.tryPromise(() => client.select().from(users))
  *   return allUsers
- * }).pipe(Effect.provide(DatabaseLive))
+ * })
  * ```
  */
 
-export { db, type DrizzleDB, type DrizzleTransaction } from './drizzle/db'
+export { type PgDb, type PortableDb, type PortableTx } from './drizzle/db'
 export { Database, DatabaseLive } from './drizzle/layer'
 export * from './drizzle/schema'
 export {

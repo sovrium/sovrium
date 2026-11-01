@@ -44,8 +44,9 @@ import {
   type StorageError,
 } from '@/application/ports/services/storage-service'
 import { isModelImageType } from '@/domain/kernel/identity/attachment-content-type'
+import { escapeHtmlDoubleQuotedAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { logError } from '@/infrastructure/logging/logger'
-import { extractAttachmentText } from './document-parser'
+import { attachmentTextCache } from './attachment-text-cache'
 import type { AiEcoRouting } from '@/domain/models/process-env/ai/ai-eco-routing'
 
 /** A `file` part: a reference into a bucket. */
@@ -126,13 +127,9 @@ const isControlCharacter = (char: string): boolean => {
  * file passed on by someone else carries a name nobody here chose.
  */
 const promptFileName = (name: string): string =>
-  Array.from(name, (char) => (isControlCharacter(char) ? ' ' : char))
-    .join('')
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .trim()
+  escapeHtmlDoubleQuotedAttribute(
+    Array.from(name, (char) => (isControlCharacter(char) ? ' ' : char)).join('')
+  ).trim()
 
 /**
  * A file's text, quoted as a document under its name. `omitted` is how many
@@ -162,7 +159,7 @@ class AttachmentParseFailure extends Data.TaggedError('AttachmentParseFailure')<
 /** The text of a file, or `undefined` when it has none or cannot be read. */
 const extractText = (ref: FileReference, bytes: Uint8Array): Effect.Effect<string | undefined> =>
   Effect.tryPromise({
-    try: () => extractAttachmentText({ mediaType: ref.mediaType, bytes }),
+    try: () => attachmentTextCache.extract({ mediaType: ref.mediaType, bytes }),
     catch: (cause) => new AttachmentParseFailure({ cause }),
   }).pipe(
     Effect.tapCause((cause) =>

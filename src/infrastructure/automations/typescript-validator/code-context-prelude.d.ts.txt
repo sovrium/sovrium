@@ -1,0 +1,129 @@
+export {};
+interface CodeContext {
+  readonly inputData: Record<string, any>;
+  readonly actions: {
+    readonly ref: (templateName: string, vars?: Record<string, unknown>) => Promise<any>;
+  } & Record<string, Record<string, (props?: Record<string, unknown>) => Promise<any>>>;
+  readonly env: Record<string, string>;
+  readonly log: {
+    readonly info: (...args: ReadonlyArray<unknown>) => void;
+    readonly warn: (...args: ReadonlyArray<unknown>) => void;
+    readonly error: (...args: ReadonlyArray<unknown>) => void;
+  };
+  /**
+   * Run-scoped metadata. `attempt` is the 1-indexed retry attempt number —
+   * 1 on the initial dispatch, 2 on the first retry, etc. Used by code
+   * actions that want to short-circuit retry on a recoverable transient
+   * (APP-AUTOMATION-RETRY-015): `if (context.run.attempt === 1) throw …`.
+   */
+  readonly run: {
+    readonly attempt: number;
+  };
+}
+type BufferEncoding =
+  | 'ascii'
+  | 'utf8'
+  | 'utf-8'
+  | 'utf16le'
+  | 'utf-16le'
+  | 'ucs2'
+  | 'ucs-2'
+  | 'base64'
+  | 'base64url'
+  | 'latin1'
+  | 'binary'
+  | 'hex';
+interface Buffer extends Uint8Array {
+  toString(encoding?: BufferEncoding, start?: number, end?: number): string;
+  toJSON(): { type: 'Buffer'; data: number[] };
+  equals(otherBuffer: Uint8Array): boolean;
+  write(value: string, encoding?: BufferEncoding): number;
+  subarray(start?: number, end?: number): Buffer;
+}
+interface BufferConstructor {
+  from(value: string, encoding?: BufferEncoding): Buffer;
+  from(value: ArrayBuffer | ArrayBufferView | ReadonlyArray<number>): Buffer;
+  alloc(size: number, fill?: string | number, encoding?: BufferEncoding): Buffer;
+  concat(list: ReadonlyArray<Uint8Array>, totalLength?: number): Buffer;
+  byteLength(value: string, encoding?: BufferEncoding): number;
+  isBuffer(value: unknown): boolean;
+}
+declare const Buffer: BufferConstructor;
+interface Console {
+  log(...data: any[]): void;
+  info(...data: any[]): void;
+  warn(...data: any[]): void;
+  error(...data: any[]): void;
+  debug(...data: any[]): void;
+  trace(...data: any[]): void;
+  dir(item?: any): void;
+  table(data: any): void;
+  group(...data: any[]): void;
+  groupEnd(): void;
+  time(label?: string): void;
+  timeEnd(label?: string): void;
+  count(label?: string): void;
+  assert(condition?: boolean, ...data: any[]): void;
+}
+declare const console: Console;
+interface URLSearchParams {
+  readonly size: number;
+  append(name: string, value: string): void;
+  delete(name: string, value?: string): void;
+  get(name: string): string | null;
+  getAll(name: string): string[];
+  has(name: string, value?: string): boolean;
+  set(name: string, value: string): void;
+  sort(): void;
+  toString(): string;
+  forEach(callback: (value: string, key: string, parent: URLSearchParams) => void): void;
+  keys(): IterableIterator<string>;
+  values(): IterableIterator<string>;
+  entries(): IterableIterator<[string, string]>;
+  [Symbol.iterator](): IterableIterator<[string, string]>;
+}
+interface URLSearchParamsConstructor {
+  new (init?: string | string[][] | Record<string, string> | URLSearchParams): URLSearchParams;
+}
+declare const URLSearchParams: URLSearchParamsConstructor;
+interface URL {
+  hash: string;
+  host: string;
+  hostname: string;
+  href: string;
+  readonly origin: string;
+  password: string;
+  pathname: string;
+  port: string;
+  protocol: string;
+  search: string;
+  readonly searchParams: URLSearchParams;
+  username: string;
+  toString(): string;
+  toJSON(): string;
+}
+interface URLConstructor {
+  new (url: string | URL, base?: string | URL): URL;
+  canParse(url: string | URL, base?: string): boolean;
+}
+declare const URL: URLConstructor;
+declare function setTimeout(handler: (...args: any[]) => void, timeout?: number, ...args: any[]): any;
+declare function clearTimeout(handle?: any): void;
+interface Crypto {
+  randomUUID(): string;
+  getRandomValues<T extends ArrayBufferView>(array: T): T;
+  readonly subtle: SubtleCrypto;
+}
+interface SubtleCrypto {
+  digest(algorithm: any, data: ArrayBuffer | ArrayBufferView): Promise<ArrayBuffer>;
+  encrypt(algorithm: any, key: any, data: ArrayBuffer | ArrayBufferView): Promise<ArrayBuffer>;
+  decrypt(algorithm: any, key: any, data: ArrayBuffer | ArrayBufferView): Promise<ArrayBuffer>;
+  sign(algorithm: any, key: any, data: ArrayBuffer | ArrayBufferView): Promise<ArrayBuffer>;
+  verify(algorithm: any, key: any, signature: ArrayBuffer | ArrayBufferView, data: ArrayBuffer | ArrayBufferView): Promise<boolean>;
+  importKey(format: string, keyData: any, algorithm: any, extractable: boolean, keyUsages: string[]): Promise<any>;
+  exportKey(format: string, key: any): Promise<any>;
+  generateKey(algorithm: any, extractable: boolean, keyUsages: string[]): Promise<any>;
+  deriveBits(algorithm: any, baseKey: any, length: number): Promise<ArrayBuffer>;
+  deriveKey(algorithm: any, baseKey: any, derivedKeyType: any, extractable: boolean, keyUsages: string[]): Promise<any>;
+}
+declare const crypto: Crypto;

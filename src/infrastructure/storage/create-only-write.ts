@@ -14,7 +14,6 @@
 
 import { Clock, Effect } from 'effect'
 import {
-  StorageError,
   storageKeyTaken,
   storageObjectNotFound,
 } from '@/application/ports/services/storage-service'
@@ -22,12 +21,9 @@ import { bucketBindingPermitsWrite, readFileMetadata, type CatalogWrite } from '
 import { releaseStaleClaim, settleClaim } from './catalog-claim'
 import { assertNoOtherSpelling, type SpellingStore } from './catalog-guards'
 import { claimThenCheck, releaseClaimQuietly } from './claim-then-check'
-import type { BucketBinding } from '@/application/ports/services/storage-service'
-
-const makeError = (cause: unknown): StorageError => new StorageError({ cause })
-
-const attempt = <A>(run: () => Promise<A>): Effect.Effect<A, StorageError> =>
-  Effect.tryPromise({ try: run, catch: (e: unknown) => makeError(e) })
+import { attemptStorage, toStorageError, type DriverCall } from './storage-attempt'
+import type { BucketBinding, StorageError } from '@/application/ports/services/storage-service'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * The refusal of a create-only write at a key that holds something, in the
@@ -36,11 +32,15 @@ const attempt = <A>(run: () => Promise<A>): Effect.Effect<A, StorageError> =>
  * bucket's object is never told apart from an absent one), else the taken
  * marker — an object of this write's own binding, or one no row records.
  */
-const refuseTaken = (key: string, bucket: BucketBinding): Effect.Effect<never, StorageError> =>
-  attempt(() => readFileMetadata(key)).pipe(
+const refuseTaken = (
+  client: PortableDb,
+  key: string,
+  bucket: BucketBinding
+): Effect.Effect<never, StorageError> =>
+  attemptStorage(() => readFileMetadata(client, key)).pipe(
     Effect.flatMap((row) =>
       Effect.fail(
-        makeError(
+        toStorageError(
           row === undefined || bucketBindingPermitsWrite(bucket, row.bucket)
             ? storageKeyTaken(key)
             : storageObjectNotFound(key)
@@ -60,39 +60,44 @@ const refuseTaken = (key: string, bucket: BucketBinding): Effect.Effect<never, S
  * bytes stay: by then the key may be another writer's.
  */
 export const createOnlyOutsideCatalog = (input: {
+  /** The catalog's database. */
+  readonly client: PortableDb
   readonly catalog: CatalogWrite
   readonly store: Readonly<SpellingStore>
-  readonly writeBytes: () => Promise<'written' | 'taken'>
+  readonly writeBytes: DriverCall<'written' | 'taken'>
 }): Effect.Effect<void, StorageError> =>
   Effect.gen(function* () {
+    const { client } = input
     const { key, bucket } = input.catalog
     // A claim whose writer died is released, so a crash never blocks the key.
     const now = yield* Clock.currentTimeMillis
-    yield* attempt(() => releaseStaleClaim(key, now))
-    const claim = yield* claimThenCheck(input.catalog, input.store)
-    if (claim === undefined) return yield* refuseTaken(key, bucket)
-    const bytes = yield* attempt(input.writeBytes).pipe(
-      Effect.tapError(() => releaseClaimQuietly(claim))
+    yield* attemptStorage(() => releaseStaleClaim(client, key, now))
+    const claim = yield* claimThenCheck(client, input.catalog, input.store)
+    if (claim === undefined) return yield* refuseTaken(client, key, bucket)
+    const bytes = yield* attemptStorage(input.writeBytes).pipe(
+      Effect.tapError(() => releaseClaimQuietly(client, claim))
     )
     if (bytes === 'taken') {
-      yield* releaseClaimQuietly(claim)
-      return yield* refuseTaken(key, bucket)
+      yield* releaseClaimQuietly(client, claim)
+      return yield* refuseTaken(client, key, bucket)
     }
-    if (yield* attempt(() => settleClaim(claim))) return
-    return yield* refuseTaken(key, bucket)
+    if (yield* attemptStorage(() => settleClaim(client, claim))) return
+    return yield* refuseTaken(client, key, bucket)
   }).pipe(Effect.withSpan('storage.create-only-outside-catalog'))
 
 /** Create-only for the database provider: the row and its payload in one insert-only road. */
 export const createOnlyInCatalog = (input: {
+  /** The catalog's database. */
+  readonly client: PortableDb
   readonly key: string
   readonly bucket: BucketBinding
   readonly store: Readonly<SpellingStore>
-  readonly insert: () => Promise<'written' | 'taken'>
+  readonly insert: DriverCall<'written' | 'taken'>
 }): Effect.Effect<void, StorageError> =>
-  assertNoOtherSpelling(input.key, input.bucket, input.store).pipe(
-    Effect.andThen(attempt(input.insert)),
+  assertNoOtherSpelling(input.client, input.key, input.bucket, input.store).pipe(
+    Effect.andThen(attemptStorage(input.insert)),
     Effect.flatMap((written) =>
-      written === 'written' ? Effect.void : refuseTaken(input.key, input.bucket)
+      written === 'written' ? Effect.void : refuseTaken(input.client, input.key, input.bucket)
     ),
     Effect.withSpan('storage.create-only-in-catalog')
   )

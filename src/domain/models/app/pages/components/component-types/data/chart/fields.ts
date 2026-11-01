@@ -188,6 +188,15 @@ export const chartFields = {
           examples: ['Aucune visite sur la période'],
         })
       ),
+      // The next step under the title: what the reader can do, or when data
+      // will appear. Same role as a table's `emptyDescription`.
+      description: Schema.optional(
+        Schema.String.annotate({
+          description:
+            'Guidance line drawn under the title inside the empty-state region: what the reader can do next, or when data will appear. Supports $t:key.',
+          examples: ['Visits appear here once analytics is turned on.'],
+        })
+      ),
     }).annotate({
       title: 'Chart Empty State',
       description:

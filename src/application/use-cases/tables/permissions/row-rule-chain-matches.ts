@@ -42,7 +42,11 @@ import { isUserListField } from '@/domain/models/app/tables/user-list-field-serv
 import { logError } from '@/infrastructure/logging'
 import { fieldLinkTable } from '../many-to-many-fields'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
-import type { RowLevelPermissions, RowLevelPredicate } from '@/domain/models/app/tables/permissions'
+import type {
+  RowLevelPermissions,
+  RowLevelPredicate,
+  RowLevelWhen,
+} from '@/domain/models/app/tables/permissions'
 
 /** The fields of a table, as far as a chain reads them. */
 type ScopeTable = Parameters<typeof resolveRowRuleChain>[0]
@@ -166,16 +170,17 @@ const ruleWhens = (rlp: RowLevelPermissions | undefined) =>
   rlp === undefined ? [] : [rlp.read?.when, rlp.write?.when, rlp.create?.when, rlp.delete?.when]
 
 /**
- * `ctx` with the related rows each chain leaf of `rlp` admits. Unchanged when
- * the rules hold no chain, or when no `scope` was given.
+ * `ctx` with the related rows each lookup leaf of `whens` admits — a table's
+ * row rules, or its business rules (`ruleWhensOf`). Unchanged when the
+ * predicates hold no lookup leaf, or when no `scope` was given.
  */
-export const withChainMatches = (
+export const withWhenMatches = (
   ctx: CurrentUserContext,
-  rlp: RowLevelPermissions | undefined,
+  whens: ReadonlyArray<RowLevelWhen | undefined>,
   scope: RowRuleScope | undefined
 ): Effect.Effect<CurrentUserContext, never, DataSourceRepository> =>
   Effect.gen(function* () {
-    const leaves = ruleWhens(rlp).flatMap((when) => lookupLeavesOf(when))
+    const leaves = whens.flatMap((when) => lookupLeavesOf(when))
     if (leaves.length === 0 || scope === undefined) return ctx
     const unique = [...new Map(leaves.map((leaf) => [chainLeafKey(leaf), leaf])).values()]
     const entries = yield* Effect.forEach(unique, (leaf) =>
@@ -184,5 +189,18 @@ export const withChainMatches = (
     const known = entries.filter(
       (entry): entry is readonly [string, readonly unknown[]] => entry[1] !== undefined
     )
-    return { ...ctx, chainMatches: new Map(known) }
-  }).pipe(Effect.withSpan('tables.load-row-rule-chain-matches'))
+    return { ...ctx, chainMatches: new Map([...(ctx.chainMatches ?? []), ...known]) }
+  }).pipe(Effect.withSpan('tables.load-lookup-leaf-matches'))
+
+/**
+ * `ctx` with the related rows each chain leaf of `rlp` admits. Unchanged when
+ * the rules hold no chain, or when no `scope` was given.
+ */
+export const withChainMatches = (
+  ctx: CurrentUserContext,
+  rlp: RowLevelPermissions | undefined,
+  scope: RowRuleScope | undefined
+): Effect.Effect<CurrentUserContext, never, DataSourceRepository> =>
+  withWhenMatches(ctx, ruleWhens(rlp), scope).pipe(
+    Effect.withSpan('tables.load-row-rule-chain-matches')
+  )

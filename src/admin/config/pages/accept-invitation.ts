@@ -23,4 +23,6 @@
 import dashboardAcceptInvitation from './dashboard-accept-invitation.page.json'
 import type { Page as PageConfig } from '@/domain/models/app'
 
-export default dashboardAcceptInvitation as PageConfig
+const page: unknown = dashboardAcceptInvitation
+
+export default page as PageConfig

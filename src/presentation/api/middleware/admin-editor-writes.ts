@@ -78,8 +78,8 @@ export const isEditorOnlyWrite = (method: string, path: string): boolean => {
  * an editor-only write goes through {@link requireAdminEditor}; anything else
  * passes untouched.
  */
-export const requireAdminEditorOnWrites = (resolveApp?: () => AdminRoleResolvable | undefined) => {
-  const editorGuard = requireAdminEditor(resolveApp)
+export const requireAdminEditorOnWrites = (app?: AdminRoleResolvable | undefined) => {
+  const editorGuard = requireAdminEditor(app)
   return async (c: ContextWithSession, next: Next) =>
     isEditorOnlyWrite(c.req.method, c.req.path) ? editorGuard(c, next) : next()
 }

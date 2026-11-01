@@ -113,7 +113,7 @@ export const FileParseXlsxActionSchema = Schema.Struct({
       Schema.Boolean.pipe(
         Schema.annotate({
           description:
-            'Treat the first row as a header row — it becomes `columns` and is excluded from `data` (default: false)',
+            'Treat the first row as a header row: it becomes `columns` and is excluded from `data` (default: false)',
         })
       )
     ),

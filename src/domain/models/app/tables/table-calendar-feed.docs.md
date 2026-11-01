@@ -1,8 +1,8 @@
 # Calendar Feed
 
-> Publish a table as a calendar each reader subscribes to from Proton, Google or Apple Calendar — with their own private address, and only the rows and fields they may read.
+> Publish a table as a calendar each reader subscribes to from Proton, Google or Apple Calendar, with their own private address and only the rows and fields they may read.
 
-Add `calendarFeed` to a table whose rows are events — meetings, bookings, leave, deadlines — and every person who may read the table can subscribe to it from their own calendar app. Without it, the table has no feed.
+Add `calendarFeed` to a table whose rows are events (meetings, bookings, leave, deadlines), and every person who may read the table can subscribe to it from their own calendar app. Without it, the table has no feed.
 
 <!-- sovrium:options TableCalendarFeedSchema -->
 
@@ -17,6 +17,8 @@ tables:
       - { id: 3, name: ends_at, type: datetime }
       - { id: 4, name: notes, type: long-text }
       - { id: 5, name: host, type: user }
+      - { id: 6, name: room, type: single-line-text }
+      - { id: 7, name: join_link, type: url }
     permissions:
       read: [admin, member]
     rowLevelPermissions:
@@ -27,6 +29,8 @@ tables:
       end: ends_at
       title: title
       description: notes
+      location: room
+      url: join_link
 ```
 
 ## Getting an address
@@ -45,6 +49,7 @@ The address answers as the person who made it, every time the calendar app fetch
 
 - **One event per row with a start.** A row whose `start` is empty is not shown. Trashed rows are not shown.
 - **Dates and times.** A `datetime` field gives a timed event, written in UTC so every calendar app places it in its reader's own zone. A `date` field gives an all-day event; a `date` end is the last day the event covers.
+- **Place and link.** `location` fills the event's place, from a field of one of the kinds `title` accepts; `url` its link (a join link or the event's page) from a `url` field. A field the reader may not read is left out, as for the title and the notes.
 - **Stable events.** Each event is identified by its table and record id, so editing a row moves the event in the calendar instead of duplicating it.
 - **Probing the address.** A `HEAD` request answers with the status and headers a `GET` would, without the calendar, so a calendar app that checks an address before subscribing is not turned away.
 - **The calendar's name** is the table's `labelPlural`, else its `label`, else its name.
@@ -56,4 +61,4 @@ Calendar apps decide when to refresh a subscription, not the server. The feed as
 
 ## Privacy
 
-The address is the only credential, so treat it like a password. It is never written to the server log, to exported traces or to exported logs: those name the route, not the address. It stops working when it is replaced or revoked, when its owner is banned, when their account is deleted — erasure removes it — and when `calendarFeed` is removed from the table or the table from the config — the instance then deletes every address of that table when it starts or applies the edited config, so declaring the feed again revives none of them and each person mints a new one. Every one of these answers the same `404` as an address that never existed. The feed is served with `Cache-Control: private, no-store`, `X-Robots-Tag: noindex` and `Referrer-Policy: no-referrer`, and stays under the instance's per-address rate limit.
+The address is the only credential, so treat it like a password. It is never written to the server log, to exported traces or to exported logs: those name the route, not the address. It stops working when it is replaced or revoked, when its owner is banned, when their account is deleted (erasure removes it), and when `calendarFeed` is removed from the table or the table from the config. The instance then deletes every address of that table when it starts or applies the edited config, so declaring the feed again revives none of them and each person mints a new one. Every one of these answers the same `404` as an address that never existed. The feed is served with `Cache-Control: private, no-store`, `X-Robots-Tag: noindex` and `Referrer-Policy: no-referrer`, and stays under the instance's per-address rate limit.

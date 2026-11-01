@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { hostOf, isAllowedHost, writtenOutUrl } from './browser-host-service'
 import { validateBrowserRuns } from './browser-run-validation'
 
@@ -27,9 +28,6 @@ import { validateBrowserRuns } from './browser-run-validation'
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** One browser action, with the automation it belongs to. */
 interface BrowserActionAt {

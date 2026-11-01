@@ -14,6 +14,7 @@ import {
 } from '@/application/ports/services/account-provisioner'
 import { logError } from '@/infrastructure/logging/logger'
 import { Auth } from './auth-service'
+import type { Database } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * A user with no credential and the one account binding it to an external
@@ -141,5 +142,6 @@ export const AccountProvisionerLive: Layer.Layer<AccountProvisioner, never, Auth
  * (Effect memoises a layer by identity). Annotated for the reason above.
  */
 export const accountProvisionerFor = (
-  authLayer: Layer.Layer<Auth>
-): Layer.Layer<AccountProvisioner> => Layer.provide(AccountProvisionerLive, authLayer)
+  authLayer: Layer.Layer<Auth, never, Database>
+): Layer.Layer<AccountProvisioner, never, Database> =>
+  Layer.provide(AccountProvisionerLive, authLayer)

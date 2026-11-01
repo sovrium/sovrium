@@ -8,6 +8,7 @@
 import { type ReactElement } from 'react'
 import { cn } from '@/presentation/design/class-merge'
 import { resolveLucideIcon } from '@/presentation/render/elements/lucide-resolver'
+import { renderPageSearch } from '@/presentation/render/elements/search-input-renderers'
 import {
   SIDEBAR_DRAWER_ROOT_ATTRIBUTE,
   SidebarDrawerFrame,
@@ -16,10 +17,13 @@ import { DOCS_NAV_FRAME_CLASSES } from './docs-frame'
 import {
   bucketByGroup,
   type DocsNavTab,
+  getTabLabel,
   groupsForTab,
   hasDocsTabs,
   type NavGroup,
+  tabLandingHref,
 } from './docs-sidebar-tabs'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 import type {
   CollectionNavData,
   CollectionNavEntry,
@@ -55,12 +59,15 @@ const renderSectionIcon = (iconName: string | undefined): Readonly<ReactElement>
  * unique frontmatter value becomes a `[data-nav-group]` section); otherwise
  * it renders a single flat list. When the collection DECLARES its docs tabs
  * (`contentDir.nav.tabs`, [internal ref]), the sidebar renders ONLY the current
- * article's tab — the tab STRIP itself belongs to the app, not the platform —
- * and the wrapper announces the active tab id via `data-docs-active-zone` so the
- * app's tab-strip markup can mark the matching link `aria-current="page"`. A
- * collection declaring no tabs falls back to the flat expanded stack. The
- * wrapper is always `<nav data-component="docs-sidebar-nav"
- * aria-label="Documentation">` so spec selectors stay stable.
+ * article's tab, and the wrapper announces the active tab id via
+ * `data-docs-active-zone`. With `tabsPlacement: header` (the default) the tab
+ * strip belongs to the app's header, which matches on that id; with
+ * `tabsPlacement: sidebar` the sidebar draws the tabs itself as a zone list at
+ * its top, the active zone expanded with its groups. `search: sidebar` puts the
+ * page search at the very top, in the sidebar header. A collection declaring no
+ * tabs falls back to the flat expanded stack. The wrapper is always
+ * `<nav data-component="docs-sidebar-nav" aria-label="Documentation">` so spec
+ * selectors stay stable.
  */
 interface DocsSidebarNavProps {
   readonly nav: CollectionNavData
@@ -68,8 +75,10 @@ interface DocsSidebarNavProps {
   readonly menuLabel: string
   /** Accessible name of the drawer's close button, in the page language. */
   readonly closeLabel: string
+  /** Placeholder of the docs search field (`nav.search: sidebar`), in the page language. */
+  readonly searchLabel: string
   /** `markdown.classes` by part: `sidebar`, `navGroupLabel`, `navLink` (current state folded in). */
-  readonly parts?: Readonly<Record<string, string>> | undefined
+  readonly parts?: PartClassMap | undefined
 }
 
 type Parts = DocsSidebarNavProps['parts']
@@ -233,6 +242,7 @@ export function DocsSidebarNav({
   nav,
   menuLabel,
   closeLabel,
+  searchLabel,
   parts,
 }: DocsSidebarNavProps): Readonly<ReactElement> {
   return (
@@ -247,22 +257,101 @@ export function DocsSidebarNav({
         closeLabel={closeLabel}
         triggerClassName={parts?.['menuButton']}
       >
-        {renderDocsNav(nav, parts)}
+        {renderDocsNav(nav, parts, searchLabel)}
       </SidebarDrawerFrame>
     </div>
   )
 }
 
-function renderDocsNav(nav: CollectionNavData, parts: Parts): Readonly<ReactElement> {
+/**
+ * The docs search field heading the sidebar (`nav.search: sidebar`): the page
+ * search island, answering per request like `index: session` because the
+ * prebuilt public index holds no collection article, and the per-request
+ * answer honours each article's front-matter access. Undefined when not asked.
+ */
+const renderSidebarSearch = (
+  nav: CollectionNavData,
+  searchLabel: string
+): Readonly<ReactElement> | undefined => {
+  if (nav.search !== 'sidebar') return undefined
+  return (
+    <div
+      data-slot="sidebar-header"
+      className="mb-6"
+    >
+      {renderPageSearch({ props: {}, placeholder: searchLabel, sessionIndex: true })}
+    </div>
+  )
+}
+
+const ZONE_BUTTON_BASE_CLASS =
+  'flex w-full items-center rounded-md px-3 py-1.5 text-md font-medium transition-colors duration-150'
+const ZONE_BUTTON_ACTIVE_CLASS = `${ZONE_BUTTON_BASE_CLASS} bg-popover text-foreground`
+const ZONE_BUTTON_INACTIVE_CLASS = `${ZONE_BUTTON_BASE_CLASS} text-muted-foreground hover:bg-popover/60 hover:text-foreground`
+
+/**
+ * The zone list `tabsPlacement: sidebar` draws: every declared tab, in order,
+ * as a sidebar menu item linking to its landing. The active zone's link is
+ * `aria-current="true"` (not `"page"`: the article being read already carries
+ * that mark in the same navigation) and `data-active`, and only the active
+ * zone holds its groups, so they fold into the phone drawer with the rest.
+ */
+const renderZoneList = (
+  nav: CollectionNavData,
+  tabs: CollectionNavTabs,
+  active: { readonly zone: string; readonly groups: readonly NavGroup[] },
+  parts: Parts
+): Readonly<ReactElement> => (
+  <ul
+    data-docs-zones=""
+    data-slot="sidebar-menu"
+    className="space-y-1"
+  >
+    {tabs.map((tab) => {
+      const isActive = tab.id === active.zone
+      return (
+        <li
+          key={tab.id}
+          data-docs-zone={tab.id}
+          data-slot="sidebar-menu-item"
+        >
+          <a
+            href={tabLandingHref(tab, nav.sidebar, tabs)}
+            data-slot="sidebar-menu-button"
+            data-active={isActive ? '' : undefined}
+            aria-current={isActive ? 'true' : undefined}
+            className={isActive ? ZONE_BUTTON_ACTIVE_CLASS : ZONE_BUTTON_INACTIVE_CLASS}
+          >
+            {getTabLabel(tab)}
+          </a>
+          {isActive && (
+            <div className="mt-3 mb-4 pl-2">
+              {active.groups.map((group, index) =>
+                renderGroup(group, index, nav.collapsed === true, parts)
+              )}
+            </div>
+          )}
+        </li>
+      )
+    })}
+  </ul>
+)
+
+function renderDocsNav(
+  nav: CollectionNavData,
+  parts: Parts,
+  searchLabel: string
+): Readonly<ReactElement> {
   const navClass = cn(NAV_WRAPPER_CLASS, parts?.['sidebar'])
   const groups = bucketByGroup(nav.sidebar)
   const collapsed = nav.collapsed === true
+  const search = renderSidebarSearch(nav, searchLabel)
   // Zone filtering applies only to a collection that DECLARES its tabs
   // (`contentDir.nav.tabs`). A collection with no declared IA falls back to the
-  // flat stack (all groups, no zone attribute) — tabs are opt-in.
+  // flat stack (all groups, no zone attribute) — tabs are opt-in. `collapsed`
+  // composes with either branch: it only folds the groups that are rendered.
   const { tabs } = nav
-  const zoned = !collapsed && hasDocsTabs(tabs)
-  if (!zoned) {
+  if (!hasDocsTabs(tabs)) {
     return (
       <nav
         data-component="docs-sidebar-nav"
@@ -270,23 +359,27 @@ function renderDocsNav(nav: CollectionNavData, parts: Parts): Readonly<ReactElem
         aria-label="Documentation"
         className={navClass}
       >
+        {search}
         {groups.map((group, index) => renderGroup(group, index, collapsed, parts))}
       </nav>
     )
   }
-  // Render ONLY the active tab's groups (the app owns its own tab strip);
-  // announce the active tab id so the app's tab-strip markup can mark the
-  // matching link `aria-current="page"`.
-  const { zone, groups: zoneGroups } = resolveActiveZone(groups, tabs)
+  // Render ONLY the active tab's groups and announce the active tab id, which
+  // the app's own tab strip reads under `tabsPlacement: header`; under
+  // `sidebar` the zone list draws the tabs here, the active one expanded.
+  const active = resolveActiveZone(groups, tabs)
   return (
     <nav
       data-component="docs-sidebar-nav"
       data-component-type="sidebar"
-      data-docs-active-zone={zone}
+      data-docs-active-zone={active.zone}
       aria-label="Documentation"
       className={navClass}
     >
-      {zoneGroups.map((group, index) => renderGroup(group, index, false, parts))}
+      {search}
+      {nav.tabsPlacement === 'sidebar'
+        ? renderZoneList(nav, tabs, active, parts)
+        : active.groups.map((group, index) => renderGroup(group, index, collapsed, parts))}
     </nav>
   )
 }

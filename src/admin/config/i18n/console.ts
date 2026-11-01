@@ -135,14 +135,19 @@ export default {
   // complete sentence at every instant and never corrects itself; it grows
   // sideways on one line, where a bare `$session.name` heading would have
   // arrived empty and filled in.
-  'admin.welcome.intro': 'Welcome[, $session.name]. What needs you, and what this app declares.',
+  'admin.welcome.intro':
+    'Welcome[, $session.name]. What needs attention, and what this app declares.',
   'admin.welcome.instance.heading': 'Instance',
   'admin.welcome.instance.description': 'What this instance runs on',
-  'admin.welcome.instance.booted': 'Started',
   'admin.welcome.instance.version': 'Version',
   'admin.welcome.instance.database': 'Database',
   'admin.welcome.instance.storage': 'File storage',
   'admin.welcome.instance.ai': 'AI provider',
+  'admin.welcome.instance.uptime': 'Up for',
+  'admin.welcome.instance.aiNone': 'Not used',
+  'admin.welcome.instance.healthy': 'Healthy',
+  'admin.welcome.instance.degraded': 'Degraded',
+  'admin.welcome.instance.versionLink': 'Read the changelog for this version',
   'admin.welcome.ask.title': 'Ask about this app',
   'admin.welcome.ask.description':
     'Answers from this app’s data and configuration. Read-only. Also in ⌘K.',
@@ -192,9 +197,7 @@ export default {
   'admin.welcome.pulse.recentSubmissions.action': 'Open submissions',
   'admin.welcome.pulse.findingsCount': 'Findings',
   'admin.welcome.pulse.findingsCount.action': 'Review findings',
-  'admin.welcome.pulse.allClear': 'All clear',
-  'admin.welcome.pulse.allClear.body':
-    'No failed run, no unset variable, no connection to reconnect, nothing waiting.',
+  'admin.welcome.pulse.allClear': 'Nothing needs attention right now.',
 
   // ── Welcome · the declaration tiles ─────────────────────────────────────
   'admin.welcome.counts.region': 'What this app declares',
@@ -258,7 +261,7 @@ export default {
 
   'admin.profile.language.label': 'Language',
   'admin.profile.language.hint':
-    'Saved to your account, it follows you to any browser. Until you save one, each browser keeps its own.',
+    'Applies as soon as you choose, on every browser you sign in from.',
   'admin.profile.language.formRegion': 'Change the console language',
   'admin.profile.language.saved': 'Language saved.',
   'admin.profile.language.savedDetail': 'Language saved. The console switches on your next page.',
@@ -296,29 +299,31 @@ export default {
   'admin.gdpr.export.retry': 'Retry',
   'admin.gdpr.erase.heading': 'Erase my account',
   'admin.gdpr.erase.submit': 'Request erasure',
-  // The type-to-confirm gate. It repeats the irreversibility the row hint
-  // already states, because the two are read at different moments — and it is
+  // The type-to-confirm gate. It repeats the delay and the point of no return the
+  // row states, because the two are read at different moments — and it is
   // keyed for the same reason: a French console must say it in French at the
   // moment the operator is deciding, not only in the paragraph above.
-  'admin.gdpr.erase.confirm.title': 'Confirm erasure',
+  'admin.gdpr.erase.confirm.title': 'Erase your account?',
   'admin.gdpr.erase.confirm.message':
-    'This action is permanent and irreversible. Enter your email address to confirm erasure of your account.',
-  'admin.gdpr.erase.confirm.input': 'Enter your email address',
-  'admin.gdpr.erase.confirm.affirm': 'Erase',
+    'Scheduled in 7 days. You can cancel until then from this page. After that, your account and your data are deleted for good. They can’t be restored.',
+  'admin.gdpr.erase.confirm.input': 'Type your email address to confirm',
+  'admin.gdpr.erase.confirm.affirm': 'Request erasure',
   'admin.gdpr.erase.confirm.dismiss': 'Cancel',
   'admin.gdpr.pending.region': 'Requests in progress',
   'admin.gdpr.pending.account': 'Account',
   'admin.gdpr.pending.due': 'Due',
   'admin.gdpr.pending.actions': 'Actions',
   'admin.gdpr.pending.empty': 'No erasure request in progress',
-  'admin.gdpr.pending.cancel': 'Cancel',
+  'admin.gdpr.pending.empty.guidance':
+    'A request you make above shows here until it runs or you cancel it.',
+  'admin.gdpr.pending.cancel': 'Cancel erasure',
   // The affirm repeats the title rather than saying "Cancel": two buttons one
   // dialog apart reading "Cancel" and meaning opposite things is the ambiguity
   // the longer label buys out of.
-  'admin.gdpr.pending.confirm.title': 'Confirm cancellation',
+  'admin.gdpr.pending.confirm.title': 'Cancel your erasure request?',
   'admin.gdpr.pending.confirm.message':
-    'Cancel your account erasure request? Your account will not be deleted.',
-  'admin.gdpr.pending.confirm.affirm': 'Confirm cancellation',
+    'Your account and your data stay. You can request erasure again later.',
+  'admin.gdpr.pending.confirm.affirm': 'Cancel erasure',
   'admin.gdpr.pending.confirm.dismiss': 'Back',
   'admin.gdpr.account.label': 'Your account',
   'admin.gdpr.account.hint': 'Change your name, email, password, picture or language.',
@@ -348,10 +353,81 @@ export default {
   'admin.auditLog.filter.allTransports': 'All transports',
   'admin.auditLog.filter.resource': 'Resource',
   'admin.auditLog.filter.allResources': 'All resources',
+  'admin.auditLog.filter.actor': 'Actor',
+  'admin.auditLog.filter.allActors': 'All actors',
+  'admin.auditLog.filter.action': 'Action',
+  'admin.auditLog.filter.allActions': 'All actions',
+  'admin.auditLog.filter.period': 'Filter by period',
+  'admin.auditLog.filter.anyTime': 'Any time',
+  'admin.auditLog.search': 'Search the audit log',
   'admin.auditLog.col.time': 'Time',
   'admin.auditLog.col.actor': 'Actor',
   'admin.auditLog.col.action': 'Action',
+  // Action column: what happened, in words; the code stays as the caption.
+  'admin.auditLog.action.account.deletion.scheduled': 'Scheduled an account deletion',
+  'admin.auditLog.action.account.deletion.requested': 'Asked to delete an account',
+  'admin.auditLog.action.account.deletion.deferred': 'Cancelled an account deletion',
+  'admin.auditLog.action.account.deletion.purged': 'Deleted an account for good',
+  'admin.auditLog.action.config.version.queried': 'Read the config version',
+  'admin.auditLog.action.config.schema.queried': 'Read the config schema',
+  'admin.auditLog.action.config.env.queried': 'Read the environment',
+  'admin.auditLog.action.config.design.queried': 'Read the design system',
+  'admin.auditLog.action.table.overview.queried': 'Read the tables overview',
+  'admin.auditLog.action.table.record.created': 'Created a record',
+  'admin.auditLog.action.table.record.updated': 'Updated a record',
+  'admin.auditLog.action.table.record.deleted': 'Deleted a record',
+  'admin.auditLog.action.table.record.button.invoked': 'Pressed a record button',
+  'admin.auditLog.action.bucket.list.queried': 'Read the buckets',
+  'admin.auditLog.action.bucket.overview.queried': 'Read the buckets overview',
+  'admin.auditLog.action.bucket.files.queried': 'Read a bucket’s files',
+  'admin.auditLog.action.bucket.file.uploaded': 'Uploaded a file',
+  'admin.auditLog.action.form.list.queried': 'Read the forms',
+  'admin.auditLog.action.form.detail.queried': 'Read a form',
+  'admin.auditLog.action.form.submission.list.queried': 'Read a form’s submissions',
+  'admin.auditLog.action.form.submission.detail.queried': 'Read a submission',
+  'admin.auditLog.action.form.submission.bulk.queried': 'Read several submissions',
+  'admin.auditLog.action.form.submission.body.revealed': 'Revealed a submission’s answers',
+  'admin.auditLog.action.form.submission.bodies.revealed': 'Revealed several submissions’ answers',
+  'admin.auditLog.action.form.analytics.queried': 'Read a form’s analytics',
+  'admin.auditLog.action.form.export.queried': 'Exported a form’s submissions',
+  'admin.auditLog.action.user.overview.queried': 'Read the users overview',
+  'admin.auditLog.action.user.role.changed': 'Changed a role',
+  'admin.auditLog.action.user.impersonation.started': 'Started acting as a user',
+  'admin.auditLog.action.user.impersonation.stopped': 'Stopped acting as a user',
+  'admin.auditLog.action.user.banned': 'Banned an account',
+  'admin.auditLog.action.user.unbanned': 'Lifted a ban',
+  'admin.auditLog.action.user.password.set': 'Set a password',
+  'admin.auditLog.action.user.groups.changed': 'Changed groups',
+  'admin.auditLog.action.scim.user.created': 'Provisioned an account',
+  'admin.auditLog.action.scim.user.updated': 'Updated a provisioned account',
+  'admin.auditLog.action.scim.user.deactivated': 'Deactivated a provisioned account',
+  'admin.auditLog.action.scim.user.reactivated': 'Reactivated a provisioned account',
+  'admin.auditLog.action.scim.group.members.updated': 'Updated a group’s members',
+  'admin.auditLog.action.automation.overview.queried': 'Read the automations overview',
+  'admin.auditLog.action.automation.runs.list.queried': 'Read the runs',
+  'admin.auditLog.action.automation.runs.detail.queried': 'Read a run',
+  'admin.auditLog.action.automation.paused': 'Paused an automation',
+  'admin.auditLog.action.automation.resumed': 'Resumed an automation',
+  'admin.auditLog.action.automation.auto_paused': 'Automation paused itself',
+  'admin.auditLog.action.agent.conversation.list.queried': 'Read an agent’s conversations',
+  'admin.auditLog.action.agent.conversation.detail.queried': 'Read a conversation',
+  'admin.auditLog.action.agent.list.queried': 'Read the agents',
+  'admin.auditLog.action.agent.detail.queried': 'Read an agent',
+  'admin.auditLog.action.connection.list.queried': 'Read the connections',
+  'admin.auditLog.action.connection.detail.queried': 'Read a connection',
+  'admin.auditLog.action.link.created': 'Created a link',
+  'admin.auditLog.action.link.updated': 'Re-pointed a link',
+  'admin.auditLog.action.link.deleted': 'Deleted a link',
+  'admin.auditLog.action.link.disabled': 'Disabled a link',
+  'admin.auditLog.action.link.enabled': 'Enabled a link',
+  'admin.auditLog.action.design.share.created': 'Shared the design system',
+  'admin.auditLog.action.design.share.revoked': 'Revoked a design-system share',
+  'admin.auditLog.copyResourceId': 'Copy resource ID',
+  'admin.auditLog.count.one': '{count} event',
+  'admin.auditLog.count.other': '{count} events',
+  'admin.auditLog.filter.showReads': 'Show reads',
   'admin.auditLog.col.resource': 'Resource',
+  'admin.auditLog.col.resourceId': 'Resource ID',
   'admin.auditLog.col.result': 'Result',
   'admin.auditLog.col.transport': 'Transport',
   'admin.auditLog.result.success': 'Success',
@@ -447,6 +523,8 @@ export default {
   'admin.login.heading': 'Sign in',
   'admin.login.blurb': 'The operator console for ',
   'admin.login.sessionEnded': 'Your session ended — sign in to continue.',
+  // After Sign out (`?signed-out=1`): a status, never an error.
+  'admin.login.signedOut': 'You’re signed out.',
   'admin.login.submit': 'Sign in',
   // The in-flight label. BRAND §8's smallest and most often lost row: a pending
   // label that falls back to a generic default says the button is busy but not
@@ -455,6 +533,14 @@ export default {
   'admin.login.cloudSignIn': 'Sign in with Sovrium Cloud',
   // The rule between the Sovrium Cloud button and the email form.
   'admin.login.orEmail': 'Or with your email',
+  // A refused password: the fact, then the next step. The recovery label sits
+  // inside the description and becomes the link; without outgoing mail no link
+  // can help, so the next step is a person.
+  'admin.login.credentialError.title': 'Email or password didn’t match.',
+  'admin.login.credentialError.description': 'Check both, or reset your password.',
+  'admin.login.credentialError.descriptionWithoutMail':
+    'Check both, or ask an admin to reset your password for you.',
+  'admin.login.credentialError.recovery': 'reset your password',
 
   // ── Forgot password (`/forgot-password`) ────────────────────────────────
   'admin.forgotPassword.heading': 'Forgot password',
@@ -471,6 +557,10 @@ export default {
   'admin.resetPassword.submit': 'Save the password',
   'admin.resetPassword.pending': 'Saving…',
   'admin.resetPassword.singleUse': 'This link works only once. Request a new one if you need it.',
+  // Opened with no token: no form to submit, and the way to a new link.
+  'admin.resetPassword.missing.heading': 'This link is missing or has expired.',
+  'admin.resetPassword.missing.blurb': 'Reset links work once and expire after one hour.',
+  'admin.resetPassword.missing.ask': 'Ask for a new one',
 
   // Shared by both recovery surfaces.
   'admin.auth.backToSignIn': 'Back to sign in',
@@ -485,7 +575,9 @@ export default {
   'admin.locked.audit.gdpr.exportScope':
     'Download a JSON archive of your data (profile, records you created, form submissions, activity).',
   'admin.locked.audit.gdpr.erasureNotice':
-    'Erasure is permanent and irreversible. After a 7-day grace period, your account and your data are deleted for good — they cannot be restored from the trash.',
+    'Scheduled in 7 days. You can cancel until then from this page.',
+  'admin.locked.audit.gdpr.erasureFinal':
+    'After that, your account and your data are deleted for good. They can’t be restored.',
   'admin.locked.audit.apiKeys.scopeNotice':
     'Long-lived credentials for scripts and services that call this instance on your behalf. Present one in the x-api-key header. A key carries your own role — it can never do more than you can.',
   'admin.locked.audit.env.secrecyNotice':

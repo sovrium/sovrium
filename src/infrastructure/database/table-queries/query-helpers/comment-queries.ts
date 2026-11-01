@@ -9,7 +9,6 @@ import { sql, eq, desc, asc } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { SYSTEM_USER_ID, isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { NotFoundError, DatabaseError } from '@/infrastructure/database'
-import { db } from '@/infrastructure/database/drizzle'
 import {
   authUsersTable,
   resolveDialectSchema,
@@ -17,7 +16,6 @@ import {
 import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
 import { wrapDatabaseError } from '../statement/error-handling'
-import { castToInt } from './aggregation-helpers'
 import { activeCommentById, visibleCommentsByRecordId } from './comment-query-predicates'
 import {
   buildCommentSelectFields,
@@ -25,7 +23,10 @@ import {
   type CommentQueryRow,
 } from './comment-row-transform'
 import type { UserMetadataWithOptionalImage } from '@/application/ports/contracts/user-metadata'
+import type { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
@@ -80,31 +81,20 @@ function buildCommentInsertValues(config: {
 /**
  * Create a comment on a record
  */
-export function createComment(config: {
-  readonly session: Readonly<Session>
-  readonly tableId: string
-  readonly recordId: string
-  readonly content: string
-  readonly parentId?: string
-  readonly guestName?: string
-  readonly guestEmail?: string
-  readonly status?: 'approved' | 'pending' | 'rejected'
-  readonly actor?: 'session' | 'system'
-}): Effect.Effect<
-  {
-    readonly id: string
+export function createComment(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
     readonly tableId: string
     readonly recordId: string
-    readonly userId: string | null
     readonly content: string
-    readonly parentId: string | null
-    readonly status: 'approved' | 'pending' | 'rejected'
-    readonly createdAt: Date
-    readonly guestName: string | null
-    readonly guestEmail: string | null
-  },
-  DatabaseError
-> {
+    readonly parentId?: string
+    readonly guestName?: string
+    readonly guestEmail?: string
+    readonly status?: 'approved' | 'pending' | 'rejected'
+    readonly actor?: 'session' | 'system'
+  }
+): ReturnType<(typeof CommentRepository.Service)['create']> {
   return Effect.tryPromise({
     try: async () => {
       const values = buildCommentInsertValues(config)
@@ -135,7 +125,7 @@ export function createComment(config: {
 /**
  * Execute comment query with user join
  */
-function executeCommentQuery(commentId: string) {
+function executeCommentQuery(db: PortableDb, commentId: string) {
   const users = authUsersTable()
   return db
     .select(buildCommentSelectFields())
@@ -148,10 +138,13 @@ function executeCommentQuery(commentId: string) {
 /**
  * Get comment with user metadata
  */
-export function getCommentWithUser(config: {
-  readonly session: Readonly<Session>
-  readonly commentId: string
-}): Effect.Effect<
+export function getCommentWithUser(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly commentId: string
+  }
+): Effect.Effect<
   | {
       readonly id: string
       readonly tableId: string
@@ -172,7 +165,7 @@ export function getCommentWithUser(config: {
   const { commentId } = config
   return Effect.gen(function* () {
     const result = yield* Effect.tryPromise<Array<CommentQueryRow>, DatabaseError>({
-      try: () => executeCommentQuery(commentId),
+      try: () => executeCommentQuery(db, commentId),
       catch: (error) => new DatabaseError('Failed to get comment', error),
     })
 
@@ -193,10 +186,13 @@ export function getCommentWithUser(config: {
 /**
  * Delete (soft delete) a comment
  */
-export function deleteComment(config: {
-  readonly session: Readonly<Session>
-  readonly commentId: string
-}): Effect.Effect<void, DatabaseError> {
+export function deleteComment(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly commentId: string
+  }
+): Effect.Effect<void, DatabaseError> {
   const { commentId } = config
   return Effect.tryPromise({
     try: async () => {
@@ -224,6 +220,7 @@ export function deleteComment(config: {
  * admins see every status. See {@link visibleCommentsByRecordId}.
  */
 function buildCommentsQuery(
+  db: PortableDb,
   tableKeys: readonly string[],
   recordId: string,
   visibility: { readonly all: boolean; readonly viewerId?: string }
@@ -240,6 +237,7 @@ function buildCommentsQuery(
  * Execute list comments query with sorting and pagination
  */
 function executeListCommentsQuery(
+  db: PortableDb,
   tableKeys: readonly string[],
   recordId: string,
   options?: {
@@ -250,7 +248,7 @@ function executeListCommentsQuery(
     readonly viewerId?: string
   }
 ) {
-  const query = buildCommentsQuery(tableKeys, recordId, {
+  const query = buildCommentsQuery(db, tableKeys, recordId, {
     all: options?.includeAllStatuses ?? false,
     viewerId: options?.viewerId,
   })
@@ -276,43 +274,30 @@ function executeListCommentsQuery(
  * unscoped list returns every same-numbered record's comments app-wide. See
  * {@link visibleCommentsByRecordId}.
  */
-export function listComments(config: {
-  readonly session: Readonly<Session>
-  readonly tableKeys: readonly string[]
-  readonly recordId: string
-  readonly limit?: number
-  readonly offset?: number
-  readonly sortOrder?: 'asc' | 'desc'
-  /**
-   * Moderation visibility. When `true`
-   * (admin viewers) every moderation status is returned; when `false` or
-   * omitted (non-admins, guests, unknown viewer) only `'approved'`
-   * comments are returned. Fail-closed by default.
-   */
-  readonly includeAllStatuses?: boolean
-  readonly ownPending?: boolean
-}): Effect.Effect<
-  readonly {
-    readonly id: string
-    readonly tableId: string
+export function listComments(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly tableKeys: readonly string[]
     readonly recordId: string
-    readonly userId: string | null
-    readonly parentId: string | null
-    readonly content: string
-    readonly createdAt: Date
-    readonly updatedAt: Date
-    readonly user: UserMetadataWithOptionalImage | undefined
-    readonly guestName: string | null
-    readonly guestEmail: string | null
-    readonly status: 'approved' | 'pending' | 'rejected'
-  }[],
-  DatabaseError
-> {
+    readonly limit?: number
+    readonly offset?: number
+    readonly sortOrder?: 'asc' | 'desc'
+    /**
+     * Moderation visibility. When `true`
+     * (admin viewers) every moderation status is returned; when `false` or
+     * omitted (non-admins, guests, unknown viewer) only `'approved'`
+     * comments are returned. Fail-closed by default.
+     */
+    readonly includeAllStatuses?: boolean
+    readonly ownPending?: boolean
+  }
+): ReturnType<(typeof CommentRepository.Service)['list']> {
   const { tableKeys, recordId, limit, offset, sortOrder, includeAllStatuses } = config
   return Effect.gen(function* () {
     const result = yield* Effect.tryPromise<Array<CommentQueryRow>, DatabaseError>({
       try: () =>
-        executeListCommentsQuery(tableKeys, recordId, {
+        executeListCommentsQuery(db, tableKeys, recordId, {
           limit,
           offset,
           sortOrder,
@@ -336,25 +321,29 @@ export function listComments(config: {
 /**
  * Get total count of comments for a record
  */
-export function getCommentsCount(config: {
-  readonly session: Readonly<Session>
-  readonly tableKeys: readonly string[]
-  readonly recordId: string
-  /**
-   * Moderation visibility. Mirrors
-   * the list visibility so the pagination total matches the rows a viewer
-   * can actually see: non-admins (default `false`) count approved-only;
-   * admins (`true`) count every status. Fail-closed by default.
-   */
-  readonly includeAllStatuses?: boolean
-  readonly ownPending?: boolean
-}): Effect.Effect<number, DatabaseError> {
+export function getCommentsCount(
+  db: PortableDb,
+  dialect: Dialect,
+  config: {
+    readonly session: Readonly<Session>
+    readonly tableKeys: readonly string[]
+    readonly recordId: string
+    /**
+     * Moderation visibility. Mirrors
+     * the list visibility so the pagination total matches the rows a viewer
+     * can actually see: non-admins (default `false`) count approved-only;
+     * admins (`true`) count every status. Fail-closed by default.
+     */
+    readonly includeAllStatuses?: boolean
+    readonly ownPending?: boolean
+  }
+): Effect.Effect<number, DatabaseError> {
   const { tableKeys, recordId, includeAllStatuses } = config
   return Effect.gen(function* () {
     const result = yield* Effect.tryPromise<Array<{ count: number }>, DatabaseError>({
       try: () =>
         db
-          .select({ count: castToInt(sql`COUNT(*)`) })
+          .select({ count: dialect.sql.castToInt(sql`COUNT(*)`) })
           .from(recordComments)
           .where(
             visibleCommentsByRecordId(
@@ -374,11 +363,14 @@ export function getCommentsCount(config: {
 /**
  * Update a comment's content
  */
-export function updateComment(config: {
-  readonly session: Readonly<Session>
-  readonly commentId: string
-  readonly content: string
-}): Effect.Effect<
+export function updateComment(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly commentId: string
+    readonly content: string
+  }
+): Effect.Effect<
   {
     readonly id: string
     readonly tableId: string
@@ -429,24 +421,14 @@ export function updateComment(config: {
  * case — moderation actions against literal `'pending-comment-id'`
  * fixtures need to project an envelope without a real backing row).
  */
-export function updateCommentStatus(config: {
-  readonly session: Readonly<Session>
-  readonly commentId: string
-  readonly status: 'approved' | 'rejected' | 'pending'
-}): Effect.Effect<
-  | {
-      readonly id: string
-      readonly tableId: string
-      readonly recordId: string
-      readonly userId: string | null
-      readonly content: string
-      readonly status: 'approved' | 'rejected' | 'pending'
-      readonly createdAt: Date
-      readonly updatedAt: Date
-    }
-  | undefined,
-  DatabaseError
-> {
+export function updateCommentStatus(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly commentId: string
+    readonly status: 'approved' | 'rejected' | 'pending'
+  }
+): ReturnType<(typeof CommentRepository.Service)['updateStatus']> {
   const { session, commentId, status } = config
   return Effect.tryPromise({
     try: async () => {

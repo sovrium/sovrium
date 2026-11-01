@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // One type's fields
@@ -62,7 +62,7 @@ export const componentTypeFieldSchema = Schema.Struct({
   ),
   title: optionalField(
     Schema.String.annotate({
-      description: "The resolved schema's title — what identifies a variant axis",
+      description: "The resolved schema's title: what identifies a variant axis",
       examples: ['Button Variant'],
     })
   ),
@@ -87,7 +87,7 @@ export const componentTypeFieldSchema = Schema.Struct({
   // would state a constraint the decoder does not enforce.
   hasDefault: Schema.Boolean.annotate({
     description:
-      'Whether this field declares a decoding default — `true` exactly when `defaultValue` is present. The gate a page reads to choose between printing that value and printing its own word for an absence.',
+      'Whether this field declares a decoding default: `true` exactly when `defaultValue` is present. The gate a page reads to choose between printing that value and printing its own word for an absence.',
   }),
 }).annotate({
   strictKeys: true,
@@ -179,7 +179,7 @@ export const componentTypeAxisValueSchema = Schema.Struct({
     examples: ['destructive', 'sm'],
   }),
   field: Schema.String.annotate({
-    description: 'The field this value is written on — lifted from the schema, not assumed',
+    description: 'The field this value is written on, lifted from the schema, not assumed',
     examples: ['variant', 'size'],
   }),
 }).annotate({
@@ -202,7 +202,7 @@ export const componentTypeAxisValueSchema = Schema.Struct({
  */
 export const componentTypeStateScopeSchema = Schema.Literals(['component', 'row']).annotate({
   description:
-    '`component` — the state applies to the whole component. `row` — it applies to one row INSIDE it, so a consumer does not read a selected row as a selected table.',
+    '`component`: the state applies to the whole component. `row`: it applies to one row INSIDE it, so a consumer does not read a selected row as a selected table.',
 })
 
 export const componentTypeStateSchema = Schema.Struct({
@@ -212,7 +212,7 @@ export const componentTypeStateSchema = Schema.Struct({
   }),
   source: Schema.Literals(['rendered', 'depicted']).annotate({
     description:
-      '`rendered` — the element IS in this state, reached through an attribute the renderer reads. `depicted` — the state is drawn, because a browser pseudo-class cannot be forced from markup.',
+      '`rendered`: the element IS in this state, reached through an attribute the renderer reads. `depicted`: the state is drawn, because a browser pseudo-class cannot be forced from markup.',
   }),
   // OPTIONAL on the contract and ALWAYS set by the producer, which is not a
   // contradiction: this struct is `strictKeys`, so a producer emitting a key the
@@ -269,7 +269,7 @@ export const componentTypeCellSchema = Schema.Struct({
   }),
   source: Schema.Literals(['rendered', 'depicted']).annotate({
     description:
-      'Read exactly as `states[].source` — carried onto the cell because a page renders cells and cannot join two arrays.',
+      'Read exactly as `states[].source`, carried onto the cell because a page renders cells and cannot join two arrays.',
   }),
   // Rides the cell for the SAME reason `source` does, and it is the same
   // sentence: a page renders cells and cannot join two arrays, so a cell that
@@ -299,7 +299,7 @@ export const componentTypeCellSchema = Schema.Struct({
   // published `variants` order, carrying no word, no label and no sentence.
   exhibit: Schema.Boolean.annotate({
     description:
-      'Whether this cell belongs to the row that exhibits the state vocabulary — `true` exactly where the cell’s variant is `variants[0]`. A page marks its state cells from this; without it, "which states does this type have" has one answer per variant.',
+      'Whether this cell belongs to the row that exhibits the state vocabulary: `true` exactly where the cell’s variant is `variants[0]`. A page marks its state cells from this; without it, "which states does this type have" has one answer per variant.',
   }),
 }).annotate({
   strictKeys: true,

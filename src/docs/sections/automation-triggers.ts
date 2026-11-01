@@ -95,7 +95,7 @@ export const automationTriggers = defineSection({
       slug: 'trigger-webhook-telemetry',
       title: 'Telemetry Ingest',
       description:
-        'Receive errors, transactions and logs from any Sentry-compatible client or OpenTelemetry exporter on a webhook trigger, keyed per sender, with a per-project budget.',
+        'Receive errors, transactions and logs from a Sentry-compatible client or OpenTelemetry exporter on a webhook trigger, keyed per sender, with a project budget.',
       keywords: [
         'sovrium',
         'telemetry ingest',

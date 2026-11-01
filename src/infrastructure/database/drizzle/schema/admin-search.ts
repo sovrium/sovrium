@@ -20,9 +20,8 @@ import { systemSchema } from './migration-audit'
  * ── This is a NEW, SEPARATE table. ────────────────────────────────────────
  * It deliberately does NOT reuse, alter, or share rows with the existing
  * public record-search tables `search_index` / `search_indexes`
- * (`./search.ts`). Those index ONLY user-table records (one `tsvector` row per
- * record, maintained by `fts-manager.ts`) and degrade to a hard
- * `501 requires-postgres` under SQLite. THIS table is the operator-console
+ * (`./search.ts`). Those were shaped for user-table records only (one
+ * `tsvector` row per record) and are PostgreSQL-only. THIS table is the operator-console
  * cross-entity index: it is heterogeneous (a `type` discriminator column), it
  * works on BOTH dialects (FTS5 on SQLite — see the sqlite-core mirror), and it
  * is populated from each entity's EXISTING admin read paths, not from the
@@ -61,7 +60,7 @@ import { systemSchema } from './migration-audit'
  * `search_index.content_tsv` + `idx_search_index_tsv` pattern in `./search.ts`.
  * The SQLite mirror uses an FTS5 virtual table instead (see
  * `../schema-sqlite/admin-search.ts`); the index-maintenance + query dialect
- * dispatch follows the `isSqliteRuntime()` precedent
+ * dispatch follows the `dialect.kind` precedent
  * (`infrastructure/database/lookup/lookup-view-generators.ts`).
  *
  * ── Uniqueness / upsert. ───────────────────────────────────────────────────

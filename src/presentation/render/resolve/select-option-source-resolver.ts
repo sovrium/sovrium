@@ -12,6 +12,7 @@ import {
 } from '@/domain/models/app/pages/components/component-types/form-controls/select-option-source'
 import {
   callerReaderFromSession,
+  noAuthColumnsReadable,
   tableReadPrincipal,
 } from '@/domain/models/app/tables/caller-record-gate-service'
 import {
@@ -19,7 +20,6 @@ import {
   CANONICAL_READ_POLICY,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
-import { isWriteOnlyField } from '@/domain/models/app/tables/write-only-field-service'
 import { resolveSystemOptions } from '@/presentation/render/resolve/system-option-source-resolver'
 import { resolveFilters, scopeTablesOf } from './current-user-resolver'
 import { withFilterBarFields } from './filter-bar-fields-resolver'
@@ -141,10 +141,10 @@ function canResolve(
   valueField: string,
   ctx: SelectOptionSourceContext
 ): boolean {
-  // No auth configured → the full-access model; every table is readable, and
-  // every column but a write-only one, which no one reads.
+  // No auth configured → a table open to the visitor is readable, every column
+  // but a write-only one, which no one reads; any other table is not.
   const fields = [binding.displayField, valueField]
-  if (!ctx.app.auth) return fields.every((f) => !isWriteOnlyField(ctx.app, binding.table, f))
+  if (!ctx.app.auth) return noAuthColumnsReadable(ctx.app, binding.table, fields)
 
   const table = (ctx.app.tables ?? []).find((t) => t.name === binding.table)
   if (!table) return false

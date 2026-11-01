@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { appRegion } from '@/library/manifest/app-block-kit'
+import { appRegion } from '@/library/kit/app-block-kit'
 import {
   asComponent,
   linkButton,
@@ -13,7 +13,7 @@ import {
   PLACE_NOTE,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** What an empty view is, and the one thing to do next. */

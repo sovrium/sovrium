@@ -8,8 +8,10 @@
 /**
  * Removal of the stored objects a purged record owned: find the keys, name
  * their buckets, keep the ones another record still references, delete the
- * rest and drop their derived variants. The first step of a purge, run by
- * `record-delete-orchestration.ts` before the row itself is removed.
+ * rest and drop their derived variants. The last step of a purge, run by
+ * `record-delete-orchestration.ts` once the delete of the row has committed,
+ * on the row as it was read before the delete — so a delete the business
+ * rules refuse inside its transaction, or one that fails, keeps every file.
  */
 
 import { Effect } from 'effect'
@@ -19,9 +21,9 @@ import { parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
 import { parseBucketFileUrl } from '@/domain/kernel/url/bucket-file-url'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { logError } from '@/infrastructure/logging/logger'
-import { rawGetRecordProgram } from './read-record-programs'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
 
@@ -83,7 +85,7 @@ export function collectAttachmentKeys(
   app: App,
   tableName: string
 ): readonly AttachmentRef[] {
-  const table = app.tables?.find((t) => t.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   if (!table?.fields) return []
   return table.fields
     .filter((f) => f.type === 'single-attachment' || f.type === 'signature')
@@ -169,29 +171,20 @@ const deleteStoredObjects = (
   )
 
 /**
- * Remove the stored files a record names before the record itself is purged,
+ * Remove the stored files a purged record named, once its delete committed,
  * keeping every file another record — of any table, trashed ones included —
- * still names.
- * Total: a row that cannot be read leaves its files in place, logged.
+ * still names. `row` is the record as it was read before the delete; the
+ * reference check leaves the purged record itself out, so it answers the same
+ * after the row is gone. Total: a file that cannot be removed stays, logged.
  */
 export function purgeStoredAttachments(
-  scope: PurgeScope & { readonly forgetDerivedVariants: (key: string) => void }
+  scope: PurgeScope & {
+    readonly row: Readonly<Record<string, unknown>>
+    readonly forgetDerivedVariants: (key: string) => void
+  }
 ) {
-  const { session, app, tableName, recordId } = scope
+  const { app, tableName, row } = scope
   return Effect.gen(function* () {
-    const row = yield* rawGetRecordProgram(session, tableName, recordId).pipe(
-      Effect.tapCause((cause) =>
-        Effect.sync(() =>
-          logError('[tables] could not read the record a purge removes files for', cause, {
-            tableName,
-          })
-        )
-      ),
-      // effect-swallow: an unreadable row keeps its files, as it always has;
-      // the permanent delete that follows reports its own failure.
-      Effect.orElseSucceed(() => null)
-    )
-    if (!row) return
     // Bounded: one reference check runs one pooled query at a time (one per
     // attachment column of the app, stopping at the first that names the
     // key), and a record carries as many keys as its table has attachment

@@ -48,6 +48,33 @@ function readableDefsOf(
   return defs.filter((def) => readable.has(def.name))
 }
 
+/** The person's name a sign-up form asks for when its `fields` list `name`. */
+const NAME_FIELD: AuthFormField = {
+  name: 'name',
+  label: 'Name',
+  required: true,
+  inputType: 'text',
+  autoComplete: 'name',
+}
+
+/**
+ * A sign-up form whose action `fields` list `name` asks for the person's name,
+ * drawn where the list places it among the fields the form draws (first when
+ * listed first). Without it the account is named after its address.
+ */
+function withListedName(
+  fields: readonly AuthFormField[],
+  method: string,
+  listed: readonly { readonly name: string }[] | undefined
+): readonly AuthFormField[] {
+  const names = (listed ?? []).map((entry) => entry.name)
+  if (method !== 'signup' || !names.includes('name') || fields.some((f) => f.name === 'name'))
+    return fields
+  const drawn = new Set(fields.map((field) => field.name))
+  const at = names.filter((name) => name === 'name' || drawn.has(name)).indexOf('name')
+  return [...fields.slice(0, at), NAME_FIELD, ...fields.slice(at)]
+}
+
 /**
  * Resolves the list of fields an auth form should render (BEFORE action-level
  * `fields[]` overrides and localization are applied).
@@ -56,13 +83,17 @@ function readableDefsOf(
  * fields (with their custom labels and placeholders) are resolved against the
  * table so the `required` flag and field type are accurate, less every field
  * its reader may not read. Otherwise the default email/password pair for the
- * method is used.
+ * method is used, with the name a sign-up form's action `fields` ask for.
  */
 export function resolveAuthFormFields(
   method: string,
   tables?: Tables,
   component?: Component,
-  strategy?: string
+  action: {
+    readonly strategy?: string
+    readonly factor?: string
+    readonly fields?: readonly { readonly name: string }[]
+  } = {}
 ): readonly AuthFormField[] {
   const tableName = boundTableOf(component)
   if (component && tableName) {
@@ -82,5 +113,7 @@ export function resolveAuthFormFields(
       }))
     }
   }
-  return defaultAuthFields(method, strategy)
+  // A second-factor step names its code by `factor`.
+  const variant = action.strategy ?? action.factor
+  return withListedName(defaultAuthFields(method, variant), method, action.fields)
 }

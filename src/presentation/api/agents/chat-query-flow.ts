@@ -28,17 +28,18 @@
  * names no table ("Now filter by high priority") resolves to it.
  */
 
+import { Effect } from 'effect'
+import { isSignedOut } from '@/application/use-cases/agents/chat-turn/reader-rows'
 import { parseQueryIntent } from '@/domain/models/app/agents/ai-chat-query-parser'
 import { rowsGrantOpensField } from '@/domain/models/app/tables/row-read-admission-service'
 import { runQuery, type QueryTableWithPerms } from './chat-query'
 import { chatReadableColumns, type ChatReader } from './chat-read-scope'
-import { chatReaderRows, isSignedOut } from './chat-reader-rows'
+import { chatReaderRows } from './chat-reader-rows'
 import { projectAppTables } from './chat-table-projection'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
 import type { ContextPageScope } from '@/domain/models/app/agents/ai-chat-context'
 import type { QueryIntent } from '@/domain/models/app/agents/ai-chat-query-parser'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /** The route-facing result of evaluating a turn for a read query. */
 export type QueryTurnResult =
@@ -52,8 +53,6 @@ export type QueryTurnResult =
 
 /** Inputs for evaluating a chat turn against the read-query pipeline. */
 export interface QueryTurnInput {
-  /** The server's resolved services, taken off the request that started the turn. */
-  readonly services: DomainContext
   readonly app: App | undefined
   readonly message: string
   readonly sessionId: string
@@ -93,57 +92,55 @@ const toQueryTables = (
  * is shown on ({@link grantOpenedRowsOf}). A field she may not read narrows,
  * orders and sums nothing.
  */
-const queryableFieldsOf = async (
-  input: QueryTurnInput,
-  table: QueryTableWithPerms
-): Promise<QueryTableWithPerms> => {
-  const opened = await grantOpenedFields(input, table)
-  return { ...table, fields: table.fields.filter((field) => opened(field.name) !== undefined) }
-}
+const queryableFieldsOf = (input: QueryTurnInput, table: QueryTableWithPerms) =>
+  Effect.map(grantOpenedFields(input, table), (opened): QueryTableWithPerms => ({
+    ...table,
+    fields: table.fields.filter((field) => opened(field.name) !== undefined),
+  }))
 
 /**
  * For each field of `table`: `'own-role'` when the reader reads it herself,
  * the rows a per-record grant shows it to her on otherwise (none: `undefined`).
  */
-const grantOpenedFields = async (
-  input: QueryTurnInput,
-  table: QueryTableWithPerms
-): Promise<(field: string) => 'own-role' | readonly string[] | undefined> => {
-  const { app, reader } = input
-  const readable = new Set(chatReadableColumns(app, table, reader).readableColumns)
-  const rows =
-    reader.answering === undefined
-      ? await chatReaderRows(input.services, app, table.name, reader)
-      : undefined
-  const related = { role: reader.role, groups: reader.groups, signedOut: isSignedOut(reader) }
-  return (field) => {
-    if (readable.has(field)) return 'own-role'
-    if (app === undefined || rows === undefined) return undefined
-    const opened = rowsGrantOpensField({ app, tableName: table.name, reader: related }, rows, field)
-    return opened === 'own-role' || opened.length > 0 ? opened : undefined
-  }
-}
+const grantOpenedFields = (input: QueryTurnInput, table: QueryTableWithPerms) =>
+  Effect.gen(function* () {
+    const { app, reader } = input
+    const readable = new Set(chatReadableColumns(app, table, reader).readableColumns)
+    const rows =
+      reader.answering === undefined ? yield* chatReaderRows(app, table.name, reader) : undefined
+    const related = { role: reader.role, groups: reader.groups, signedOut: isSignedOut(reader) }
+    return (field: string): 'own-role' | readonly string[] | undefined => {
+      if (readable.has(field)) return 'own-role'
+      if (app === undefined || rows === undefined) return undefined
+      const opened = rowsGrantOpensField(
+        { app, tableName: table.name, reader: related },
+        rows,
+        field
+      )
+      return opened === 'own-role' || opened.length > 0 ? opened : undefined
+    }
+  })
 
 /**
  * The rows a query over `intent` may run over when a per-record grant alone
  * opens a field it names: the rows every such field is shown on. `undefined`
  * when the reader reads each named field herself.
  */
-const grantOpenedRowsOf = async (
+const grantOpenedRowsOf = (
   input: QueryTurnInput,
   table: QueryTableWithPerms,
   intent: QueryIntent
-): Promise<readonly string[] | undefined> => {
-  const opened = await grantOpenedFields(input, table)
-  const named = [intent.aggregateColumn, intent.filter?.column, intent.sortColumn].filter(
-    (field): field is string => field !== undefined
-  )
-  const lists = named
-    .map(opened)
-    .filter((rows): rows is readonly string[] => rows !== undefined && rows !== 'own-role')
-  if (lists.length === 0) return undefined
-  return lists.reduce((shared, rows) => shared.filter((id) => rows.includes(id)))
-}
+) =>
+  Effect.map(grantOpenedFields(input, table), (opened): readonly string[] | undefined => {
+    const named = [intent.aggregateColumn, intent.filter?.column, intent.sortColumn].filter(
+      (field): field is string => field !== undefined
+    )
+    const lists = named
+      .map(opened)
+      .filter((rows): rows is readonly string[] => rows !== undefined && rows !== 'own-role')
+    if (lists.length === 0) return undefined
+    return lists.reduce((shared, rows) => shared.filter((id) => rows.includes(id)))
+  })
 
 /**
  * Evaluate a chat turn for a read query.
@@ -156,39 +153,49 @@ const grantOpenedRowsOf = async (
  *  3. Run the query — a `forbidden` outcome maps to HTTP 403, an `answered`
  *     outcome carries the reply text and `type: 'query'` action.
  */
-export const evaluateQueryTurn = async (input: QueryTurnInput): Promise<QueryTurnResult> => {
-  const tables = toQueryTables(input.app, input.pageContext)
-  if (tables.length === 0) return { kind: 'none' }
+export const evaluateQueryTurn = (input: QueryTurnInput) =>
+  Effect.gen(function* () {
+    const none: QueryTurnResult = { kind: 'none' }
+    const tables = toQueryTables(input.app, input.pageContext)
+    if (tables.length === 0) return none
 
-  // Fallback table for a message that names none: the session's prior table,
-  // or — when a page scope narrows the visible list to exactly one table — that
-  // sole table, so "Show all records" on a single-table page resolves
-  const fallback =
-    lastQueriedTable.get(input.sessionId) ?? (tables.length === 1 ? tables[0]?.name : undefined)
-  const named = parseQueryIntent(input.message, tables, fallback)
-  if (named === undefined) return { kind: 'none' }
-  // The table is named by its name alone; the query is then read off the
-  // fields its reader may name in it, so a field she may not read filters,
-  // orders and sums nothing.
-  const queryable = await Promise.all(
-    tables.map((table) => (table.name === named.table ? queryableFieldsOf(input, table) : table))
-  )
-  const intent = parseQueryIntent(input.message, queryable, fallback)
-  if (intent === undefined) return { kind: 'none' }
+    // Fallback table for a message that names none: the session's prior table,
+    // or — when a page scope narrows the visible list to exactly one table — that
+    // sole table, so "Show all records" on a single-table page resolves
+    const fallback =
+      lastQueriedTable.get(input.sessionId) ?? (tables.length === 1 ? tables[0]?.name : undefined)
+    const named = parseQueryIntent(input.message, tables, fallback)
+    if (named === undefined) return none
+    // The table is named by its name alone; the query is then read off the
+    // fields its reader may name in it, so a field she may not read filters,
+    // orders and sums nothing.
+    const queryable = yield* Effect.forEach(
+      tables,
+      (table) =>
+        table.name === named.table ? queryableFieldsOf(input, table) : Effect.succeed(table),
+      { concurrency: 'unbounded' }
+    )
+    const intent = parseQueryIntent(input.message, queryable, fallback)
+    if (intent === undefined) return none
 
-  const target = queryable.find((table) => table.name === intent.table)
-  const outcome = await runQuery({
-    services: input.services,
-    intent,
-    app: input.app,
-    reader: input.reader,
-    tables: queryable,
-    fieldRows: target === undefined ? undefined : await grantOpenedRowsOf(input, target, intent),
+    const target = queryable.find((table) => table.name === intent.table)
+    const outcome = yield* runQuery({
+      intent,
+      app: input.app,
+      reader: input.reader,
+      tables: queryable,
+      fieldRows: target === undefined ? undefined : yield* grantOpenedRowsOf(input, target, intent),
+    })
+    if (outcome.status === 'forbidden') {
+      const forbidden: QueryTurnResult = { kind: 'forbidden', message: outcome.message }
+      return forbidden
+    }
+    // Remember the table so a follow-up on this session can reuse it.
+    lastQueriedTable.set(input.sessionId, intent.table)
+    const answered: QueryTurnResult = {
+      kind: 'answered',
+      action: outcome.action,
+      reply: outcome.reply,
+    }
+    return answered
   })
-  if (outcome.status === 'forbidden') {
-    return { kind: 'forbidden', message: outcome.message }
-  }
-  // Remember the table so a follow-up on this session can reuse it.
-  lastQueriedTable.set(input.sessionId, intent.table)
-  return { kind: 'answered', action: outcome.action, reply: outcome.reply }
-}

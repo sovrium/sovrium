@@ -1,6 +1,6 @@
 # Agent Tools
 
-> An agent's capability allowlist — and the second gate that means it can only ever narrow a role, never widen one.
+> An agent's capability allowlist, and the second gate that means it can only ever narrow a role, never widen one.
 
 `tools` is the single most consequential thing you write about an agent, because it is the only place where "what this agent is for" becomes machine-checkable.
 
@@ -12,26 +12,37 @@ agents:
     tools:
       tables: [tickets, customers]
       actions: [record.read, record.update, email.send]
+    approval:
+      mode: selective
+      required: [email.send]
 ```
 
 <!-- sovrium:options AgentCapabilitiesSchema -->
 
-Each needs at least one entry, and every table named must exist. An agent with **no** `tools` block has no access at all — secure by default, and quiet about it, so an agent that seems to do nothing is often an agent whose allowlist you forgot.
+Each needs at least one entry, and every table named must exist. An agent with **no** `tools` block has no access at all. That is secure by default, and quiet about it, so an agent that seems to do nothing is often an agent whose allowlist you forgot.
 
 ## The double gate
 
 Every call an agent attempts passes two independent checks, and both must allow it:
 
-1. **The role gate** — does the agent's role permit this operation on this table?
-2. **The allowlist gate** — is this table and this action written in `tools`?
+1. **The role gate**: does the agent's role permit this operation on this table?
+2. **The allowlist gate**: is this table and this action written in `tools`?
 
 The order does not matter; the conjunction does. What it buys you is that `tools` can only ever **narrow** a role, never widen one. Listing a delete action on an agent whose role cannot delete grants nothing.
 
 So reviewing an agent means reviewing its role: the allowlist cannot smuggle in a capability the role withheld. Row-level and field-level rules apply on top, unchanged.
 
-In a chat there is a third check: the person chatting must be allowed the action herself — a record action on that table, or, for an `auth` action, a role with admin rights — and it then runs as her. A visitor who is not signed in gets neither. An agent's reach is a ceiling on whoever talks to it, never a grant.
+In a chat there is a third check: the person chatting must be allowed the action herself (a record action on that table, or, for an `auth` action, a role with admin rights), and it then runs as her. A visitor who is not signed in gets neither. An agent's reach is a ceiling on whoever talks to it, never a grant. Stored files follow the same rule: in a chat, `file.download`, `file.list` and every other file action that reads a stored file reach only what the buckets API would serve the person chatting. A member asking an admin-role agent for a file in a bucket whose `download` names only admins gets nothing, the listing leaves that file out, and another person's chat upload is never reachable. An admin gets the file. A run no person started, from an automation or the agent's schedule, keeps the app's authority.
 
-Because the gate is a conjunction, **tightening the allowlist is always safe to try**. If the agent still works, the entry was never needed — which is the cheapest way to deal with the drift that puts a delete action there for a one-off cleanup and leaves it.
+A chat also changes what waits for a human. When an agent answers a person:
+
+- `email.send`, `http.request`, `file.upload` and `file.delete` always wait for [approval](/en/docs/agent-approvals), whatever `approval` declares, and the person who asked can reject the call but not approve it herself, unless her role has admin rights. Someone else approves it on the agent's approvals.
+- `record.create`, `record.update` and `record.delete` ask her to confirm first, the way the assistant does without an agent. Set `approval: { mode: none }` to let an agent write without asking.
+- An agent's mail always goes from the sender the server is configured with, under the app's name, and never carries a blind copy: the model cannot choose `from` or `bcc`.
+
+The same agent run by an automation or its schedule follows its `approval` alone.
+
+Because the gate is a conjunction, **tightening the allowlist is always safe to try**. If the agent still works, the entry was never needed. That is the cheapest way to deal with the drift that puts a delete action there for a one-off cleanup and leaves it.
 
 ## The actions
 
@@ -51,7 +62,7 @@ They follow the same `type.operator` vocabulary as the automation engine, so a r
 
 ### Reading is two capabilities, not one
 
-`record.read` fetches a single record by its id. `record.list` returns a **set** — it is the one that takes a filter, a sort and a limit.
+`record.read` fetches a single record by its id. `record.list` returns a **set**. It is the one that takes a filter, a sort and a limit.
 
 They are separate entries because they expose very different amounts of data: an agent with the first can look up a record it was already pointed at, while an agent with the second can sweep the table. Granting the first does **not** imply the second.
 
@@ -65,7 +76,7 @@ An agent answering someone writes as that person, and `record.update` and `recor
 
 **Auth actions** are the sharpest thing on the list. Creating a user, assigning a role or banning somebody means an agent can alter who has access to your app. Grant them only to an agent whose role is itself privileged enough to justify it, and put them behind approval.
 
-**Running code** runs on its own thread with restricted globals, as trusted as the configuration, and it is still the broadest capability here — it is the action that turns "what the agent may do" from a list into a language.
+**Running code** is the broadest capability here: it is the action that turns "what the agent may do" from a list into a language, and the code it runs is written by the model. So only an agent no person can reach may hold it: an agent listing `code.runTypescript` must set `permissions.trigger: none`, and is then run only by automation `ai/agent` steps and its own schedule. Any other agent that lists it refuses the configuration, naming the agent and the action. When people need the result of some code, put the code in an automation's [`code/runTypescript` step](/en/docs/automation-code-actions), whose code you write yourself: people can start that automation, and the agent can read what it wrote.
 
 ### Driving a browser
 
@@ -84,6 +95,6 @@ It is narrower than the `browser/agent` action on purpose. It has no secrets: a 
 
 ## Inside and outside
 
-`tools` scopes what the agent may do **inside** Sovrium. Reaching outside — an external server's web search or document fetch — is a separate allowlist on the agent's MCP block.
+`tools` scopes what the agent may do **inside** Sovrium. Reaching outside, such as an external server's web search or document fetch, is a separate allowlist on the agent's MCP block.
 
 The two are independent by design. A read-only internal agent that can search the web is a perfectly coherent configuration, and so is the reverse.

@@ -53,6 +53,7 @@
  */
 
 import { Effect } from 'effect'
+import { ProcessEnv, type ProcessEnvShape } from '@/application/ports/services/process-env'
 import { withBlockTimeout } from '@/application/use-cases/admin/overview-block-timeout'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import {
@@ -306,12 +307,12 @@ export type AttentionReport = Omit<
 const assembleAttention = (
   app: App,
   since: string,
-  sources: Readonly<AttentionSources>
+  sources: Readonly<AttentionSources & { readonly env: ProcessEnvShape }>
 ): AttentionReport => {
   const { failedRuns, tokensExpired, invitationsPending, recentSubmissions, findings } = sources
-  const { automations, links, usersBanned } = sources
-  const variablesUnset = variablesUnsetCell(app)
-  const buckets = bucketSplit(app)
+  const { automations, links, usersBanned, env } = sources
+  const variablesUnset = variablesUnsetCell(app, env)
+  const buckets = bucketSplit(app, env)
 
   const degraded = collectDegraded([
     failedRuns.source,
@@ -352,7 +353,7 @@ const assembleAttention = (
 
     tableFields: tableFieldsCount(app),
     automationsDisabled: toFiniteCount(automations.value.disabled),
-    agentsSystem: agentsSystemCount(),
+    agentsSystem: agentsSystemCount(env),
     bucketsSystem: buckets.system,
     bucketsS3: toFiniteCount(buckets.s3),
     bucketsLocal: toFiniteCount(buckets.local),
@@ -392,5 +393,5 @@ export const buildAdminAttention = (
   Effect.gen(function* () {
     const windows = { runs: new Date(since), submissions: new Date(since) }
     const sources = yield* readSources(app, windows, Date.now(), language)
-    return assembleAttention(app, since, sources)
+    return assembleAttention(app, since, { ...sources, env: yield* ProcessEnv })
   }).pipe(Effect.withSpan('admin.build-admin-attention'))

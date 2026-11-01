@@ -33,6 +33,7 @@ import {
   formOwnSourcesOf,
   submittedScalarOf,
 } from '@/domain/models/app/forms/hidden-default-pin-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import {
   embeddingsOf,
   holdsOnlyRenderedValues,
@@ -69,7 +70,7 @@ export const withoutUnrenderedHiddenValues = (input: {
         ? undefined
         : yield* loadSubmitter({
             app,
-            table: app.tables?.find((table) => table.name === form.submitTo.table),
+            table: findTableByName(app.tables, form.submitTo.table),
             visitor: input.visitor,
             submitterUserId: input.submitterUserId,
           })

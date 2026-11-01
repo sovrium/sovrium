@@ -27,9 +27,10 @@ import { Effect, Option, Schema } from 'effect'
 import {
   declaredEnvOf,
   requiredEnvNamesOf,
-} from '@/application/use-cases/env/validate-required-env-vars'
+} from '@/application/use-cases/config/validate-required-env-vars'
 import { confirmOrFail, isInteractive } from '@/cli/runtime/confirm-prompt'
-import { getFlagValues } from '@/cli/runtime/flag-vocabulary'
+import { defineFlags, flag, type FlagsOf } from '@/cli/runtime/flag-schema'
+import { CliRefusal, tryCommandPromise, withFlags } from '@/cli/runtime/run-command'
 import {
   ENV_VAR_NAME_PATTERN,
   PLATFORM_ENV_NAME_PATTERN,
@@ -38,25 +39,30 @@ import {
 import { inflect } from '@/infrastructure/logging/cli-output'
 import { discoverConfigFile } from './app-prelude'
 import { explicitAddress, lookUpAddress, resolveAddress } from './cloud-app-lookup'
-import {
-  CliRefusal,
-  assertNetworkAllowed,
-  callCloud,
-  describeUnreachable,
-  runCliProgram,
-  say,
-} from './cloud-session'
-import { signedInCloud } from './cloud-sign-in'
+import { assertNetworkAllowed, callCloud, describeUnreachable, say } from './cloud-session'
+import { cloudTargetFlags, signedInCloud } from './cloud-sign-in'
 import { callAppEnv, preparePush, readEnvFile, sayPreview, sendPlan } from './env-push'
 import { loadConfigForValidationWithSources, validateParsedConfig } from './validate'
 import type { AddressLookup } from './cloud-app-lookup'
 import type { SignedInCloud } from './cloud-sign-in'
 
+/** The flags `sovrium env` reads. */
+export const envFlags = defineFlags({
+  ...cloudTargetFlags,
+  yes: flag.switch('--yes'),
+  overwrite: flag.switch('--overwrite'),
+  plain: flag.values('--plain'),
+  redeploy: flag.switch('--redeploy'),
+  json: flag.switch('--json'),
+})
+
+type EnvFlags = FlagsOf<typeof envFlags>
+
 /** Everything `sovrium env` reads from the command line. */
 export interface EnvCommandOptions {
   /** The positional arguments after `env`: the verb, then its own. */
   readonly args: readonly string[]
-  readonly argv: readonly string[]
+  readonly flags: EnvFlags
 }
 
 /** The project's config, validated as `sovrium deploy` validates it before bundling. */
@@ -84,10 +90,10 @@ interface HostedApp {
  */
 const readProject = (configFile: string | undefined): Effect.Effect<Project, CliRefusal> =>
   Effect.gen(function* () {
-    const { configPath, parsed, outcome } = yield* Effect.tryPromise({
+    const { configPath, parsed, outcome } = yield* tryCommandPromise({
       try: async () => {
         const path = resolve(configFile ?? (await discoverConfigFile()))
-        // Prints its own refusal and exits 1 on a missing or unparsable file.
+        // Stops with its own refusal (exit 1) on a missing or unparsable file.
         const loaded = await loadConfigForValidationWithSources(path)
         return {
           configPath: path,
@@ -117,11 +123,11 @@ const readProject = (configFile: string | undefined): Effect.Effect<Project, Cli
   })
 
 /** Sign in, find the app the project means, and require it to be one of the caller's. */
-const hostedApp = (argv: readonly string[], project: Project, announce: boolean) =>
+const hostedApp = (flags: EnvFlags, project: Project, announce: boolean) =>
   Effect.gen(function* () {
-    const explicit = yield* explicitAddress(argv)
+    const explicit = yield* explicitAddress(flags.app)
     yield* assertNetworkAllowed('env')
-    const cloud = yield* signedInCloud(argv)
+    const cloud = yield* signedInCloud(flags.host)
     const { slug } = yield* resolveAddress({
       explicit,
       configPath: project.configPath,
@@ -165,9 +171,9 @@ const appIdOf = (app: HostedApp): Effect.Effect<string, CliRefusal> =>
     : Effect.succeed(app.found.app.id)
 
 /** Ask before changing the app's variables; `--yes` goes on, a script without it is refused. */
-const confirm = (argv: readonly string[], question: string): Effect.Effect<void, CliRefusal> =>
+const confirm = (flags: EnvFlags, question: string): Effect.Effect<void, CliRefusal> =>
   confirmOrFail({
-    yes: argv.includes('--yes'),
+    yes: flags.yes,
     question,
     refusal: new CliRefusal({
       headline: 'Changing the app’s variables was not confirmed — nothing was sent.',
@@ -217,26 +223,27 @@ const push = (options: EnvCommandOptions) =>
     }
     const entries = yield* readEnvFile(resolve(file))
     const project = yield* readProject(configFile)
-    const app = yield* hostedApp(options.argv, project, true)
+    const { flags } = options
+    const app = yield* hostedApp(flags, project, true)
     const appId = yield* appIdOf(app)
-    const overwrite = options.argv.includes('--overwrite')
-    const plan = yield* preparePush(entries, app.declared, getFlagValues(options.argv, '--plain'))
-    if (!options.argv.includes('--yes') && isInteractive()) {
+    const { overwrite } = flags
+    const plan = yield* preparePush(entries, app.declared, flags.plain)
+    if (!flags.yes && isInteractive()) {
       yield* sayPreview(plan, app.found.envNames ?? [], overwrite)
     }
     if (plan.send.length > 0) {
-      yield* confirm(options.argv, `Send ${inflect(plan.send.length, 'variable')} to ${app.slug}?`)
+      yield* confirm(flags, `Send ${inflect(plan.send.length, 'variable')} to ${app.slug}?`)
     }
     yield* sendPlan(app.cloud, appId, plan, overwrite)
-    if (options.argv.includes('--redeploy')) return yield* redeploy(app)
+    if (flags.redeploy) return yield* redeploy(app)
     if (plan.send.length > 0) yield* say('They reach the app on its next deployment.')
   })
 
 const list = (options: EnvCommandOptions) =>
   Effect.gen(function* () {
-    const json = options.argv.includes('--json')
+    const { json } = options.flags
     const project = yield* readProject(options.args[1])
-    const app = yield* hostedApp(options.argv, project, !json)
+    const app = yield* hostedApp(options.flags, project, !json)
     const setNames = app.found.envNames ?? app.found.env.map((variable) => variable.name)
     const kindOf = new Map(app.found.env.map((variable) => [variable.name, variable.kind]))
     const platform = app.declared.filter(
@@ -287,9 +294,9 @@ const unset = (options: EnvCommandOptions) =>
       })
     }
     const project = yield* readProject(configFile)
-    const app = yield* hostedApp(options.argv, project, true)
+    const app = yield* hostedApp(options.flags, project, true)
     const appId = yield* appIdOf(app)
-    yield* confirm(options.argv, `Remove ${names.join(', ')} from ${app.slug}?`)
+    yield* confirm(options.flags, `Remove ${names.join(', ')} from ${app.slug}?`)
     const results = yield* callAppEnv(app.cloud, appId, { unset: names }, 'nothing was removed')
     yield* Effect.forEach(
       results,
@@ -313,21 +320,23 @@ const VERBS: Readonly<
   unset,
 }
 
-/** Handle `sovrium env`. Exits 1 on any refusal; returns on success. */
-export const handleEnvCommand = async (options: EnvCommandOptions): Promise<void> => {
+/** Handle `sovrium env`: the verb and its arguments, then its flags. */
+export const handleEnvCommand = withFlags(envFlags, (commandArgs) => {
+  const options: EnvCommandOptions = {
+    args: commandArgs.positionalArgs ?? [],
+    flags: commandArgs.flags,
+  }
   const verb = options.args[0]
   const run = verb === undefined ? undefined : VERBS[verb]
-  return runCliProgram(
-    run === undefined
-      ? Effect.fail(
-          new CliRefusal({
-            headline:
-              verb === undefined
-                ? 'sovrium env needs a verb: push, list or unset.'
-                : `"${verb}" is not a verb of sovrium env: push, list or unset.`,
-            guidance: "Run 'sovrium env --help' for the usage.",
-          })
-        )
-      : run(options)
-  )
-}
+  return run === undefined
+    ? Effect.fail(
+        new CliRefusal({
+          headline:
+            verb === undefined
+              ? 'sovrium env needs a verb: push, list or unset.'
+              : `"${verb}" is not a verb of sovrium env: push, list or unset.`,
+          guidance: "Run 'sovrium env --help' for the usage.",
+        })
+      )
+    : run(options)
+})

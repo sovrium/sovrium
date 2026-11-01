@@ -20,7 +20,6 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AdminAutomationsDatabaseError,
   AdminAutomationsRepository,
@@ -32,12 +31,12 @@ import {
   type StepLatestRun,
 } from '@/application/ports/repositories/automations/admin-automations-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import {
-  ROUTINE_RUN_STATUSES,
-  type RoutineRunSource,
-} from '@/domain/models/app/automations/routine-run-service'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type Dialect,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   automationDefinitions as automationDefinitionsPg,
   automationRunSteps as automationRunStepsPg,
@@ -50,8 +49,15 @@ import {
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { triggerNameFilter } from './automation-run-list-repository-live'
+import {
+  onDemandCondition,
+  routineCondition,
+  routineFlag,
+  triggerNameFilter,
+} from './automation-run-list-repository-live'
+import { submissionRunsConditions } from './submission-runs-repository-live'
+import type { RoutineRunSource } from '@/domain/models/app/automations/routine-run-service'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 // Dialect-aware schema resolution for `automation_runs` / `automation_definitions`
 // — moved verbatim from the former presentation/api/routes/admin/automations.ts.
@@ -95,75 +101,23 @@ const buildSearchConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL
   searchAnyColumn(filters.q, automationDefinitions.name, automationRuns.error)
 
 /**
- * Whether the run's own trigger data says an operator started it by hand
- * (`invokedOnDemand: true`) — what `?onDemand=` filters on, and what keeps a
- * run from being routine. The JSON boolean is read by its JSON type on SQLite (where `json_extract`
- * answers `1`) and by its text on PostgreSQL; `COALESCE` makes a run whose
- * trigger data holds no such key one of the others, never neither.
- */
-const startedByHand = (): SQL =>
-  isSqliteRuntime()
-    ? sql`COALESCE(json_type(${automationRuns.triggerData}, '$.invokedOnDemand') = 'true', 0) = 1`
-    : sql`COALESCE((${automationRuns.triggerData} ->> 'invokedOnDemand') = 'true', false)`
-
-/** The `?onDemand=` predicate: started by hand (`true`), or not (`false`). */
-const onDemandCondition = (onDemand: boolean | undefined): ReadonlyArray<SQL> => {
-  if (onDemand === undefined) return []
-  const byHand = startedByHand()
-  // `sql` rather than drizzle's `not()`, typed `SQL | undefined` since 1.0.0-rc.5.
-  return [onDemand ? byHand : sql`not (${byHand})`]
-}
-
-/** The runs one routine source starts: its automation, narrowed to its entries. */
-const fromRoutineSource = (source: RoutineRunSource): SQL | undefined => {
-  const ofAutomation = eq(automationDefinitions.name, source.automationName)
-  if (source.triggerNames === undefined) return ofAutomation
-  const named =
-    source.triggerNames.length === 0
-      ? undefined
-      : inArray(automationRuns.triggerName, [...source.triggerNames])
-  const unrecorded = source.orUnrecorded ? isNull(automationRuns.triggerName) : undefined
-  const entries = or(named, unrecorded)
-  return entries === undefined ? undefined : and(ofAutomation, entries)
-}
-
-/**
- * `1` for a routine run, `0` for any other, on both engines: started by one of
- * the routine `sources`, in a routine status, and not by hand. A `CASE` rather
- * than a bare predicate so a NULL anywhere (an unrecorded trigger name, a
- * status not yet written) reads as "not routine" — never as an unknown that
- * drops the row from either side of a filter.
- */
-const routineFlag = (sources: ReadonlyArray<RoutineRunSource>): SQL => {
-  const started = or(...sources.map(fromRoutineSource))
-  if (started === undefined) return sql`0`
-  const predicate = and(
-    started,
-    inArray(sql`COALESCE(${automationRuns.status}, 'pending')`, [...ROUTINE_RUN_STATUSES]),
-    sql`not (${startedByHand()})`
-  )
-  return sql`(CASE WHEN ${predicate} THEN 1 ELSE 0 END)`
-}
-
-/** The `?routine=` filter: absent sources list every run, else the routine ones are left out. */
-const routineCondition = (
-  sources: ReadonlyArray<RoutineRunSource> | undefined
-): ReadonlyArray<SQL> =>
-  sources === undefined || sources.length === 0 ? [] : [sql`${routineFlag(sources)} = 0`]
-
-/**
  * Every run created on/after `since`, with its timestamps, its status and the
  * routine flag judged against `routine` — the one read both overview methods
  * project. The flag comes back as `1`/`0` (a number on SQLite, text on some
  * PostgreSQL drivers), so callers compare it through `Number`.
  */
-const selectOverviewRowsSince = (since: Date, routine: ReadonlyArray<RoutineRunSource>) =>
+const selectOverviewRowsSince = (
+  db: PortableDb,
+  dialect: Dialect,
+  since: Date,
+  routine: ReadonlyArray<RoutineRunSource>
+) =>
   db
     .select({
       startedAt: automationRuns.startedAt,
       createdAt: automationRuns.createdAt,
       status: automationRuns.status,
-      routine: sql<number | string>`${routineFlag(routine)}`,
+      routine: sql<number | string>`${routineFlag(routine, dialect)}`,
     })
     .from(automationRuns)
     .leftJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
@@ -190,7 +144,10 @@ const startedOn = (compare: typeof gte, bound: Date): SQL =>
     and(isNull(automationRuns.startedAt), compare(automationRuns.createdAt, bound))
   ) ?? sql`false`
 
-const buildListConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> => {
+const buildListConditions = (
+  filters: AdminRunsListFilters,
+  dialect: Dialect
+): ReadonlyArray<SQL> => {
   const statusFilter: ReadonlyArray<SQL> =
     filters.status !== undefined ? [eq(automationRuns.status, filters.status)] : []
   const nameFilter: ReadonlyArray<SQL> =
@@ -214,8 +171,9 @@ const buildListConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> 
     ...fromFilter,
     ...toFilter,
     ...buildSearchConditions(filters),
-    ...onDemandCondition(filters.onDemand),
-    ...routineCondition(filters.hideRoutineOf),
+    ...onDemandCondition(filters.onDemand, dialect),
+    ...routineCondition(filters.hideRoutineOf, dialect),
+    ...submissionRunsConditions(filters.submissionRuns, dialect),
     ...cursorFilter,
   ]
 }
@@ -226,9 +184,11 @@ const buildListConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> 
  * cap. Fetches `limit + 1` joined rows so the use case can derive `hasMore`.
  */
 const listAdminRunsImpl = async (
+  db: PortableDb,
+  dialect: Dialect,
   filters: AdminRunsListFilters
 ): Promise<ReadonlyArray<AdminAutomationRunRow>> => {
-  const conditions = buildListConditions(filters)
+  const conditions = buildListConditions(filters, dialect)
   const whereClause = conditions.length === 0 ? undefined : and(...conditions)
   const baseQuery = db
     .select({
@@ -255,9 +215,11 @@ const listAdminRunsImpl = async (
 
 /** The matching runs per stored status, every filter applied but the page window. */
 const countAdminRunsByStatusImpl = async (
+  db: PortableDb,
+  dialect: Dialect,
   filters: AdminRunsListFilters
 ): Promise<ReadonlyMap<string, number>> => {
-  const conditions = buildListConditions({ ...filters, cursorBefore: undefined })
+  const conditions = buildListConditions({ ...filters, cursorBefore: undefined }, dialect)
   const baseQuery = db
     .select({ status: automationRuns.status, runs: count() })
     .from(automationRuns)
@@ -274,6 +236,7 @@ const countAdminRunsByStatusImpl = async (
  * and only each step's first row comes back.
  */
 const findLatestRunPerStepImpl = async (
+  db: PortableDb,
   steps: readonly AutomationStepRef[]
 ): Promise<readonly StepLatestRun[]> => {
   const which = or(
@@ -316,38 +279,36 @@ const findLatestRunPerStepImpl = async (
   return rows as readonly StepLatestRun[]
 }
 
-/**
- * Admin Automations Repository Implementation (Drizzle).
- *
- * Three dialect-aware reads over `system.automation_runs` (joined to
- * `automation_definitions` for the runs name) backing the admin overview, list,
- * and detail endpoints. All projection / bucketing / cursor logic lives in the
- * `automations-overview` use case; this layer emits only raw queries.
- */
-export const AdminAutomationsRepositoryLive = Layer.succeed(AdminAutomationsRepository, {
-  listOverviewRowsSince: (since, routine) =>
+const members: MembersOverDatabase<typeof AdminAutomationsRepository> = {
+  listOverviewRowsSince: (db, dialect) => (since, routine) =>
     wrap(async () =>
-      (await selectOverviewRowsSince(since, routine)).map((row): AdminAutomationOverviewRow => ({
-        startedAt: row.startedAt as Date | string | null,
-        createdAt: row.createdAt as Date | string,
-        status: row.status,
-        routine: Number(row.routine) === 1,
-      }))
+      (await selectOverviewRowsSince(db, dialect, since, routine)).map(
+        (row): AdminAutomationOverviewRow => ({
+          startedAt: row.startedAt as Date | string | null,
+          createdAt: row.createdAt as Date | string,
+          status: row.status,
+          routine: Number(row.routine) === 1,
+        })
+      )
     ),
 
-  listOverviewStatusesSince: (since, routine) =>
+  listOverviewStatusesSince: (db, dialect) => (since, routine) =>
     wrap(async () =>
-      (await selectOverviewRowsSince(since, routine)).map((row): AdminAutomationStatusRow => ({
-        status: row.status,
-        routine: Number(row.routine) === 1,
-      }))
+      (await selectOverviewRowsSince(db, dialect, since, routine)).map(
+        (row): AdminAutomationStatusRow => ({
+          status: row.status,
+          routine: Number(row.routine) === 1,
+        })
+      )
     ),
 
-  listAdminRuns: (filters) => wrap(async () => listAdminRunsImpl(filters)),
+  listAdminRuns: (db, dialect) => (filters) =>
+    wrap(async () => listAdminRunsImpl(db, dialect, filters)),
 
-  countAdminRunsByStatus: (filters) => wrap(async () => countAdminRunsByStatusImpl(filters)),
+  countAdminRunsByStatus: (db, dialect) => (filters) =>
+    wrap(async () => countAdminRunsByStatusImpl(db, dialect, filters)),
 
-  findAdminRunById: (runId) =>
+  findAdminRunById: (db) => (runId) =>
     wrap(async () => {
       const rows = (await db
         .select({
@@ -370,12 +331,12 @@ export const AdminAutomationsRepositoryLive = Layer.succeed(AdminAutomationsRepo
       return rows[0]
     }),
 
-  findLatestRunPerStep: (steps) =>
+  findLatestRunPerStep: (db) => (steps) =>
     steps.length === 0
       ? wrap(async (): Promise<readonly StepLatestRun[]> => [])
-      : wrap(async () => findLatestRunPerStepImpl(steps)),
+      : wrap(async () => findLatestRunPerStepImpl(db, steps)),
 
-  countStepsByRunIds: (runIds) =>
+  countStepsByRunIds: (db) => (runIds) =>
     runIds.length === 0
       ? wrap(async () => new Map<string, number>())
       : wrap(async () => {
@@ -391,4 +352,14 @@ export const AdminAutomationsRepositoryLive = Layer.succeed(AdminAutomationsRepo
             .groupBy(automationRunSteps.runId)
           return new Map(rows.map((row) => [row.runId, toFiniteCount(row.steps)] as const))
         }),
-})
+}
+
+/**
+ * Admin Automations Repository Implementation (Drizzle).
+ *
+ * Three dialect-aware reads over `system.automation_runs` (joined to
+ * `automation_definitions` for the runs name) backing the admin overview, list,
+ * and detail endpoints. All projection / bucketing / cursor logic lives in the
+ * `automations-overview` use case; this layer emits only raw queries.
+ */
+export const AdminAutomationsRepositoryLive = layerOverDatabase(AdminAutomationsRepository, members)

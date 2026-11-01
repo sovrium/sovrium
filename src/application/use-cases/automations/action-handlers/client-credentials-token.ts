@@ -14,6 +14,7 @@ import {
 } from '@/application/ports/services/oauth-token-client'
 import { SentinelTokens } from '@/application/ports/services/sentinel-tokens'
 import { withProviderEndpoints } from '@/domain/models/app/connections/oauth2-provider-validation'
+import { tokenRequestRefusal } from '@/domain/models/app/connections/token-request-refusal-service'
 import { stringProp } from './shared'
 import { unsetEnvReference, type ConnectionDef } from './static-auth-header'
 
@@ -140,7 +141,7 @@ const requestAndStore = (
     if (!result.ok) {
       return {
         ok: false,
-        reason: `connection ${name}: client credentials token request refused (${result.error})`,
+        reason: tokenRequestRefusal(name, 'client credentials token request', result.error),
       } as const
     }
     const tokenRepo = yield* ConnectionTokenRepository
@@ -153,7 +154,7 @@ const requestAndStore = (
         grantFingerprint: grantFingerprint(props),
       })
       .pipe(
-        Effect.map(() => true),
+        Effect.as(true),
         // effect-swallow: the failure is RETURNED as `false` and turned into the step's refusal below; a token that cannot be stored must not be used, or the next call would ask the provider again.
         Effect.orElseSucceed(() => false)
       )

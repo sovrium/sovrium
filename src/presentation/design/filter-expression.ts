@@ -137,6 +137,9 @@ const WITHIN_LABELS: Readonly<Record<string, string>> = {
 export const withinLabel = (window: string, strings?: Readonly<Record<string, string>>): string =>
   strings?.[`filterBar.within.${window}`] ?? WITHIN_LABELS[window] ?? window
 
+// Spelled locally, not imported from `kernel/time/durations`: this module ships in
+// the island bundle, where a shared constants module becomes a chunk of its own
+// and adds a request and graph bytes to every island that mounts it.
 const DAY_MS = 24 * 60 * 60 * 1000
 
 /** A `within` window as the two ends of a `between`, around `nowMs`. */

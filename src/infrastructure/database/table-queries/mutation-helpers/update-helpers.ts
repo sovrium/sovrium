@@ -8,13 +8,14 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { StaleWriteError } from '@/domain/errors'
 import { isLanguageMerge } from '@/domain/models/app/tables/translatable-write-service'
-import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { DatabaseError, type PortableTx } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { languageMergeSql } from '@/infrastructure/database/sql/sql-translatable-writes'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { validateColumnName, tableIdentifier } from '../statement/validation'
 import { encodeColumnValue } from './column-value-encoding'
 import { rowAfterTriggers } from './record-fetch-helpers'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Validate fields object is not empty
@@ -54,6 +55,7 @@ export async function validateFieldsNotEmpty(
  * whereas guessing `text[]` for a JSONB column would silently corrupt data.
  */
 export function buildUpdateSetClauseCRUD(
+  dialect: DatabaseDialect,
   entries: readonly [string, unknown][],
   arrayColumnTypes: Readonly<Record<string, string>>
 ): Readonly<ReturnType<typeof sql.join>> {
@@ -61,8 +63,8 @@ export function buildUpdateSetClauseCRUD(
     validateColumnName(key)
     // A translatable field's write merges into its stored map, never replaces it.
     const written = isLanguageMerge(value)
-      ? languageMergeSql(key, value)
-      : encodeColumnValue(value, arrayColumnTypes[key])
+      ? languageMergeSql(dialect, key, value)
+      : encodeColumnValue(dialect, value, arrayColumnTypes[key])
     return sql`${sql.identifier(key)} = ${written}`
   })
   return sql.join(setClauses, sql.raw(', '))
@@ -78,9 +80,9 @@ export function buildUpdateSetClauseCRUD(
  * dates, so rounding recovers the exact millisecond. PostgreSQL truncates, the
  * way a microsecond timestamp reads back as a JavaScript `Date`.
  */
-const updatedAtIs = (epochMs: number): Readonly<SQL> => {
+const updatedAtIs = (dialect: Dialect, epochMs: number): Readonly<SQL> => {
   const column = sql.identifier('updated_at')
-  return isSqliteRuntime()
+  return dialect.kind === 'sqlite'
     ? sql`CAST(ROUND((julianday(${column}) - 2440587.5) * 86400000) AS INTEGER) = ${epochMs}`
     : sql`FLOOR(EXTRACT(EPOCH FROM ${column}) * 1000)::bigint = ${epochMs}`
 }
@@ -98,7 +100,8 @@ const updatedAtIs = (epochMs: number): Readonly<SQL> => {
  * row inside the same transaction, so "absent" is not the explanation.
  */
 export async function executeRecordUpdateCRUD(
-  tx: Readonly<DrizzleTransaction>,
+  tx: Readonly<PortableTx>,
+  dialect: Dialect,
   target: {
     readonly tableName: string
     readonly recordId: string
@@ -109,9 +112,12 @@ export async function executeRecordUpdateCRUD(
 ): Promise<Record<string, unknown>> {
   const { tableName, recordId, expectedUpdatedAtMs } = target
   const tokenGuard =
-    expectedUpdatedAtMs === undefined ? sql`` : sql` AND ${updatedAtIs(expectedUpdatedAtMs)}`
+    expectedUpdatedAtMs === undefined
+      ? sql``
+      : sql` AND ${updatedAtIs(dialect, expectedUpdatedAtMs)}`
   try {
-    const result = await executeRaw(
+    const result = await executeRawOn(
+      dialect.kind,
       tx,
       sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id = ${recordId}${tokenGuard} RETURNING *`
     )
@@ -128,7 +134,7 @@ export async function executeRecordUpdateCRUD(
       throw new Error(`Record not found or access denied`)
     }
 
-    return { ...(await rowAfterTriggers(tx, tableName, result[0]!)) }
+    return { ...(await rowAfterTriggers({ tx, dialect }, tableName, result[0]!)) }
   } catch (error) {
     if (error instanceof StaleWriteError) throw error
     // Preserve "not found" or "access denied" in wrapper message for API error handling

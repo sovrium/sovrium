@@ -50,7 +50,10 @@ const zoneGuidanceLine = (subject: string, description: string) =>
  * register — one app, one personality, two pronouns.
  */
 export const ZoneVoiceOverrideSchema = Schema.Struct({
-  /** Replaces `design.voice.pronoun` for routes this zone governs. */
+  /**
+   * Replaces `design.voice.pronoun` for routes this zone governs, in the same
+   * language: the app's default one.
+   */
   pronoun: Schema.optional(VoicePronounSchema),
 
   /** Replaces `design.voice.prefer` for routes this zone governs. */
@@ -82,7 +85,7 @@ export const ZoneVoiceOverrideSchema = Schema.Struct({
     identifier: 'ZoneVoiceOverride',
     title: 'Zone Voice Override',
     description:
-      'How this zone departs from `design.voice`. Per-FIELD: a declared field replaces the same field of `design.voice` for routes this zone governs; an undeclared field inherits. `personality` is not overridable — it is app identity, not situational register.',
+      'How this zone departs from `design.voice`. Per-FIELD: a declared field replaces the same field of `design.voice` for routes this zone governs; an undeclared field inherits. `personality` is not overridable: it is app identity, not situational register.',
     examples: [{ pronoun: 'vous', avoid: ['No marketing superlatives behind auth.'] }],
   })
 )

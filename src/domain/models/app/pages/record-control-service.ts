@@ -31,6 +31,7 @@
  * `visibleWhen` on a control that starts an automation.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   satisfiesFieldCondition,
   type FieldCondition,
@@ -65,9 +66,6 @@ interface Located {
   readonly node: Node
   readonly table: string
 }
-
-const isRecord = (value: unknown): value is Node =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const conditionOf = (value: unknown): FieldCondition | undefined =>
   isRecord(value) && typeof value['field'] === 'string' ? (value as FieldCondition) : undefined

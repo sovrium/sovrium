@@ -20,14 +20,13 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { scrubRunsReading } from './account-purge-runs'
-import { executeRaw } from './sql/dialect-execute'
-import { systemTableRef } from './sql/dialect-sql'
 import type { ErasedRecords } from './account-purge-runs'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import type { Dialect, TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
-const outbox = (): SQL => systemTableRef('webhook_outbox')
-const subjects = (): SQL => systemTableRef('webhook_outbox_subjects')
+const outbox = (dialect: Dialect): SQL => dialect.sql.systemTableRef('webhook_outbox')
+const subjects = (dialect: Dialect): SQL => dialect.sql.systemTableRef('webhook_outbox_subjects')
 
 const idList = (ids: readonly string[]): SQL =>
   sql.join(
@@ -37,16 +36,17 @@ const idList = (ids: readonly string[]): SQL =>
 
 /** The outbox rows about one erased record set, table by table. */
 const deliveriesAboutRecords = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   records: ErasedRecords
 ): Promise<readonly string[]> => {
   // One statement at a time: a transaction handle runs its statements in order.
   const perTable = await [...records]
     .filter(([, ids]) => ids.size > 0)
     .reduce<Promise<readonly string[]>>(async (found, [table, ids]) => {
-      const rows = await executeRaw(
+      const rows = await executeRawOn(
+        dialect.kind,
         tx,
-        sql`SELECT id FROM ${outbox()}
+        sql`SELECT id FROM ${outbox(dialect)}
              WHERE table_name = ${table} AND record_id IN (${idList([...ids])})`
       )
       return [...(await found), ...rows.map((row) => String(row['id']))]
@@ -59,27 +59,40 @@ const deliveriesAboutRecords = async (
  * and their delivery-log rows. Resolves how many deliveries went.
  */
 const deleteWebhookDeliveriesAbout = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string,
   records: ErasedRecords
 ): Promise<number> => {
-  const naming = await executeRaw(
+  const naming = await executeRawOn(
+    dialect.kind,
     tx,
-    sql`SELECT DISTINCT outbox_id FROM ${subjects()} WHERE user_id = ${userId}`
+    sql`SELECT DISTINCT outbox_id FROM ${subjects(dialect)} WHERE user_id = ${userId}`
   )
   const ids = [
     ...new Set([
       ...naming.map((row) => String(row['outbox_id'])),
-      ...(await deliveriesAboutRecords(tx, records)),
+      ...(await deliveriesAboutRecords({ tx, dialect }, records)),
     ]),
   ]
   if (ids.length === 0) return 0
   // A delivery that owed something has a log only once it settled; the log
   // exists wherever a table declares webhooks, which is what made the outbox
   // row in the first place.
-  await executeRaw(tx, sql`DELETE FROM _webhook_deliveries WHERE delivery_id IN (${idList(ids)})`)
-  await executeRaw(tx, sql`DELETE FROM ${subjects()} WHERE outbox_id IN (${idList(ids)})`)
-  await executeRaw(tx, sql`DELETE FROM ${outbox()} WHERE id IN (${idList(ids)})`)
+  await executeRawOn(
+    dialect.kind,
+    tx,
+    sql`DELETE FROM _webhook_deliveries WHERE delivery_id IN (${idList(ids)})`
+  )
+  await executeRawOn(
+    dialect.kind,
+    tx,
+    sql`DELETE FROM ${subjects(dialect)} WHERE outbox_id IN (${idList(ids)})`
+  )
+  await executeRawOn(
+    dialect.kind,
+    tx,
+    sql`DELETE FROM ${outbox(dialect)} WHERE id IN (${idList(ids)})`
+  )
   return ids.length
 }
 
@@ -90,10 +103,10 @@ const deleteWebhookDeliveriesAbout = async (
  * below deletes or empties them.
  */
 export const scrubWhatErasureReaches = async (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string,
   records: ErasedRecords
 ): Promise<void> => {
-  await scrubRunsReading(tx, records)
-  await deleteWebhookDeliveriesAbout(tx, userId, records)
+  await scrubRunsReading({ tx, dialect }, records)
+  await deleteWebhookDeliveriesAbout({ tx, dialect }, userId, records)
 }

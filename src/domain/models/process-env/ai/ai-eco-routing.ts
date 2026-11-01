@@ -67,7 +67,7 @@ export const resolveOllamaBaseUrl = (
  * `AI_PROVIDER` is unset / unrecognised / itself `ollama` (a local provider,
  * not a cloud fallback target).
  */
-const resolveCloudProvider = (
+export const resolveCloudProvider = (
   processEnv: Readonly<Record<string, string | undefined>>
 ): SupportedAiProvider | undefined => {
   const raw = processEnv['AI_PROVIDER']?.trim()

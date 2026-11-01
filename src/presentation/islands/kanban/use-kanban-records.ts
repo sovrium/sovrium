@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { settledReadState } from '@/domain/models/app/pages/read-state-gate-service'
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import { useReadState } from '../hooks/use-read-state'
 import { useLiveRefresh } from '../hooks/use-realtime-subscription'
 import {
   buildFilterParam,
@@ -32,5 +34,7 @@ export function useKanbanRecords(dataSource: RecordsDataSource | undefined) {
   )
   const query = useRecordsQuery('kanban', dataSource, shared)
   useLiveRefresh(dataSource, query.refetch)
+  // What the board last read, for the buttons that follow it (`hiddenWhenRead`).
+  useReadState(dataSource?.bindTo, settledReadState(query.isError, query.data?.records.length))
   return query
 }

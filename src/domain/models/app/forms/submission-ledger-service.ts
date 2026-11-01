@@ -20,6 +20,24 @@ export type SubmissionSurface = 'route' | 'embed'
  */
 export const SUBMISSION_SURFACE_PARAM = 'surface'
 
+/**
+ * The query parameter a form posted without JavaScript is sent back to its
+ * page under (`?submitted=<form name>`): the page then draws the form's
+ * success page in place of the form.
+ */
+export const FORM_ANSWERED_PARAM = 'submitted'
+
+/**
+ * Whether a page request with `query` comes back from a post of `form`, made
+ * without JavaScript, that its success page answers.
+ */
+export function answeredNatively(
+  form: Readonly<Pick<Form, 'name' | 'onSuccess'>>,
+  query: Readonly<Record<string, string>> | undefined
+): boolean {
+  return form.onSuccess?.type === 'successPage' && query?.[FORM_ANSWERED_PARAM] === form.name
+}
+
 /** The submission surface a posted query names: `embed` only when it says so. */
 export function submissionSurfaceOf(value: string | undefined): SubmissionSurface {
   return value === 'embed' ? 'embed' : 'route'

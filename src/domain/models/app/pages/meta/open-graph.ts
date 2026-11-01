@@ -42,18 +42,20 @@ export const OpenGraphTypeSchema = Schema.Literals([
 /**
  * Open Graph locale format
  *
- * Language and territory format: [language]_[TERRITORY]
+ * Language and territory format: [language]_[TERRITORY], or a `$t:` key whose
+ * value is one, resolved per served language.
  */
 export const OpenGraphLocaleSchema = Schema.String.pipe(
   Schema.check(
-    Schema.isPattern(/^[a-z]{2}_[A-Z]{2}$/, {
+    Schema.isPattern(/^(?:[a-z]{2}_[A-Z]{2}|\$t:[A-Za-z0-9_.-]+)$/, {
       message:
-        'Locale must be in format language_TERRITORY (e.g., en_US, fr_FR, es_ES, de_DE, ja_JP)',
+        'Locale must be in format language_TERRITORY (e.g., en_US, fr_FR, es_ES, de_DE, ja_JP), or a $t: key',
     })
   )
 ).annotate({
-  description: 'Locale in format language_TERRITORY',
-  examples: ['en_US', 'fr_FR', 'es_ES'],
+  description:
+    "Locale in format language_TERRITORY, or a `$t:` key resolved in the served language. Omitted, it is the served language's `locale`.",
+  examples: ['en_US', 'fr_FR', 'es_ES', '$t:og.locale'],
 })
 
 /**

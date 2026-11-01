@@ -40,6 +40,7 @@ import {
   type CallerReader,
   type CallerTableGate,
 } from '@/domain/models/app/tables/caller-record-gate-service'
+import { pageReadFilterOf } from '@/domain/models/app/tables/linked-records-filter-service'
 import {
   lookupKeyColumnsFor,
   relatedValuesRefusedTo,
@@ -55,7 +56,6 @@ import {
   countsNarrowedFor,
   relatedReaderFor,
 } from '@/domain/models/app/tables/row-read-admission-service'
-import { readFilterOf } from '@/domain/models/app/tables/user-list-field-service'
 import { admittedWindow, visitorRowRule } from '@/domain/models/app/tables/visitor-row-rule-service'
 import { readAdmittedRows, withReaderRowAdmission } from './reader-row-admission'
 import { judgedOn, judgedRead, judgedRows, narrowTo } from './record-disabled-controls'
@@ -115,15 +115,15 @@ const projectOne =
  * page's session names ({@link callerReaderFromSession}), the gate the
  * records API and a hosted form answer too:
  *
- *  - `refused` — the visitor may read no row of the table: its read permission
- *    refuses her (a role her assignment gives counts only on a table with
- *    row-level rules), it is not a declared table, or its row-level rule names
- *    the signed-in person and there is no one signed in;
+ *  - `refused` — the visitor may read no row of the table: the table read
+ *    verdict the records API asks answers `NotFound` (a role her assignment
+ *    gives counts only on a table with row-level rules), it is not a declared
+ *    table, or its row-level rule names the signed-in person and none is;
  *  - `open` — `rowCheck` asks whether a row is for her (`undefined` admits
  *    every row), and `project` hands a row back less the columns she may not
  *    read.
  *
- * An app with no `auth` block is the full-access model: every table is open,
+ * An app with no `auth` block opens a table that opens `read` to everyone,
  * with nothing to check and nothing to strip. Every single-record read of a
  * page answers through this — {@link gateRecordForCaller},
  * {@link readRecordForCaller} and a collection page's own 404 / access-denied
@@ -154,7 +154,7 @@ export function callerRecordGateOf(input: {
       : async (record: RecordRow) => withoutPlanColumns(gate.plan, record),
   }
   const admitted = withReaderRowAdmission({ ...input, reader }, open)
-  return { kind: 'open', ...admitted, project: judgedOn(app, tableName, admitted.project) }
+  return { kind: 'open', ...admitted, project: judgedOn(app, tableName, admitted.project, reader) }
 }
 
 /**
@@ -295,17 +295,17 @@ export async function readRowsForCaller(input: {
   const withTotal = input.withTotal === true
   const table = (app.tables ?? []).find((t) => t.name === tableName) as TableLike | undefined
   // A trashed row is drawn on no page (live rows only, unless asked); a system
-  // source has no trash. A filter is compiled as `readFilterOf` reads it.
-  const filter = readFilterOf(input.query.filter, table?.fields)
+  // source has no trash. A filter is compiled as `pageReadFilterOf` reads it.
+  const filter = pageReadFilterOf(input.query.filter, { app, tableName, session })
   const query = { ...input.query, filter, liveOnly: input.query.liveOnly ?? table !== undefined }
   if (table === undefined) return readUncheckedRows(tableName, query, { db, withTotal })
-  if (!app.auth) return readFullAccessRows(app, table, query, { db, withTotal })
   const reader = callerReaderFromSession(session, app)
   const gate =
     input.authority === 'form'
       ? formChoicesGate(app, table, reader)
       : callerTableGate(app, tableName, reader)
   if (gate.kind === 'refused') return NO_ROWS
+  if (!app.auth) return readFullAccessRows(app, table, query, { db, withTotal })
   const { plan } = gate
   const check = rowCheckOf(gate.rule, reader, { app, tableName, db })
   // A hosted form is granted the columns its choices are built from, by the
@@ -320,12 +320,12 @@ export async function readRowsForCaller(input: {
   const { query: judgedQuery, kept } = judgedRead(app, tableName, query)
   const read = await readAdmittedRows({ app, tableName, session, db, reader }, judgedQuery, {
     read: (admitted) => readGatedRows(tableName, withLookupKeys(app, tableName, admitted), ctx),
-    project: judgedRows(app, tableName, projectionOf(app, tableName, reader, { plan, db })),
+    project: judgedRows(app, tableName, projectionOf(app, tableName, reader, { plan, db }), reader),
   })
   return { rows: read.rows.map((row) => narrowTo(row, kept)), total: read.total }
 }
 
-/** An app with no `auth`: the full-access model, less the write-only columns no one reads. */
+/** No `auth`, a table open to the visitor: full access, less the write-only columns no one reads. */
 async function readFullAccessRows(
   app: App,
   table: TableLike,
@@ -391,7 +391,7 @@ export async function readRecordForCaller(input: {
     })
     return rows[0]
   }
-  const record = await db.fetchSingleRecord(tableName, at.field, at.value, undefined, {
+  const record = await db.fetchSingleRecord(tableName, at.field, at.value, {
     liveOnly: true,
   })
   if (record === undefined) return undefined

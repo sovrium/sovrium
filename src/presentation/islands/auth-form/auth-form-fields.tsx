@@ -36,8 +36,8 @@ import { type AuthFormField, type FieldErrors } from './auth-form-validation'
  * the ABSENCE of one: with no className the message inherited the body's
  * default foreground at the body size, so an error painted at 16px in the
  * plain text colour under a 12px label — larger and quieter than the label it
- * corrected. The recipe's `text-error-fg text-xs` is what the canvas draws for
- * the invalid state (11px on the error tone), pairing the message with the
+ * corrected. The recipe's `text-error-fg text-sm` sets it at the label's size on
+ * the error tone, pairing the message with the
  * `error`-state border the control beside it already carries.
  *
  * Inline errors deliberately omit `role="alert"` so a `[role="alert"]`

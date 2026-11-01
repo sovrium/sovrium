@@ -34,7 +34,7 @@ export const DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 60
  *   of seconds above zero.
  */
 export const parseRateLimitWindowSeconds = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): number => {
   const raw = env[RATE_LIMIT_WINDOW_SECONDS_VAR]
   if (raw === undefined || raw.trim() === '') return DEFAULT_RATE_LIMIT_WINDOW_SECONDS
@@ -55,6 +55,6 @@ export const parseRateLimitWindowSeconds = (
  * refused an invalid value.
  */
 export const resolveRateLimitWindowSeconds = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): number =>
   parsePositiveIntEnv(env[RATE_LIMIT_WINDOW_SECONDS_VAR]) ?? DEFAULT_RATE_LIMIT_WINDOW_SECONDS

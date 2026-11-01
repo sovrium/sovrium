@@ -11,6 +11,7 @@ import {
   decodeFlash,
   withFlashToast,
 } from '@/presentation/api/runtime/form-flash'
+import { replaceResponse } from '@/presentation/api/runtime/replace-response'
 import type { Hono } from 'hono'
 
 const CLEAR_FLASH = `${FORM_FLASH_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`
@@ -35,9 +36,6 @@ export const applyFormFlash = <T extends Hono>(hono: T): T =>
     headers.append('Set-Cookie', CLEAR_FLASH)
     const body =
       flash === undefined ? await c.res.text() : withFlashToast(await c.res.text(), flash)
-    // Cleared first: Hono's setter would copy the old headers back over these.
-    // eslint-disable-next-line no-param-reassign -- Hono's middleware contract replaces the response by assignment
-    c.res = undefined
-    // eslint-disable-next-line no-param-reassign -- as above
-    c.res = new Response(body, { status: 200, headers })
+    // Replaced outright: Hono's setter would copy the old headers back over these.
+    replaceResponse(c, new Response(body, { status: 200, headers }))
   }) as T

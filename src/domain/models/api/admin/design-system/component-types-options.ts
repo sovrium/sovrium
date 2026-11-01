@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // One type's whole option surface
@@ -45,7 +45,7 @@ export const componentTypeOptionSchema = Schema.Struct({
   values: optionalField(
     Schema.Array(Schema.String).annotate({
       description:
-        'A closed union’s members, deduplicated. Absent — never empty — when the option is not one.',
+        'A closed union’s members, deduplicated. Absent, never empty, when the option is not one.',
     })
   ),
   defaultValue: optionalField(
@@ -140,7 +140,7 @@ export const componentTypeOptionSchema = Schema.Struct({
 export const componentTypeOptionGroupSchema = Schema.Struct({
   key: Schema.String.annotate({
     description:
-      'The top-level key this group is over, in the config’s own grammar — the mono heading a Configuration group prints, the value `?group=` takes, and the string a group element is addressed by.',
+      'The top-level key this group is over, in the config’s own grammar: the mono heading a Configuration group prints, the value `?group=` takes, and the string a group element is addressed by.',
     examples: ['variant', 'pagination', 'columns'],
   }),
   kind: Schema.String.annotate({
@@ -151,7 +151,7 @@ export const componentTypeOptionGroupSchema = Schema.Struct({
   description: optionalField(
     Schema.String.annotate({
       description:
-        'The schema’s own description of the key, resolved through indirection. Never invented, and ABSENT — never a placeholder — where none resolves.',
+        'The schema’s own description of the key, resolved through indirection. Never invented, and ABSENT, never a placeholder, where none resolves.',
     })
   ),
   defaultValue: optionalField(
@@ -167,7 +167,7 @@ export const componentTypeOptionGroupSchema = Schema.Struct({
   // operator, so gating on the absence of `defaultValue` is not expressible.
   hasDefault: Schema.Boolean.annotate({
     description:
-      'Whether `defaultValue` is present. `false` — never absent — for the large majority of keys, which is what lets a page print `unset` under its own gate.',
+      'Whether `defaultValue` is present. `false`, never absent, for the large majority of keys, which is what lets a page print `unset` under its own gate.',
   }),
   total: Schema.Int.annotate({
     description:
@@ -194,7 +194,7 @@ export const componentTypeOptionsResponseSchema = Schema.Struct({
   }),
   items: Schema.Array(componentTypeOptionSchema).annotate({
     description:
-      'Unfiltered: one row per key path this type accepts, at any depth, merged across branches. Under `?group=<key>`: the rows that group DRAWS — one per member for a closed union, otherwise the key’s own row and its subtree — each carrying `value`.',
+      'Unfiltered: one row per key path this type accepts, at any depth, merged across branches. Under `?group=<key>`: the rows that group DRAWS (one per member for a closed union, otherwise the key’s own row and its subtree), each carrying `value`.',
   }),
   groups: Schema.Array(componentTypeOptionGroupSchema).annotate({
     description:

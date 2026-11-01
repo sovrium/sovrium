@@ -65,6 +65,10 @@ export interface CommentsFields {
   readonly table: string | undefined
   readonly recordId: string | undefined
   readonly refreshMode: string
+  /** The thread's own heading, translated; absent when the author set none. */
+  readonly title?: string | undefined
+  /** `hideWhenEmpty`: an empty thread draws no empty-state sentence. */
+  readonly hideWhenEmpty?: boolean
 }
 
 /**
@@ -101,8 +105,24 @@ export function resolveCommentsFields(
     table: pickString(c, props, 'table', undefined),
     recordId: pickString(c, props, 'recordId', undefined),
     refreshMode: pickString(c, props, 'refreshMode', 'none'),
+    title: titleOf(pickString(c, props, 'title', undefined), translate),
+    hideWhenEmpty: (c.hideWhenEmpty ?? props.hideWhenEmpty) === true,
   }
 }
+
+const titleOf = (title: string | undefined, translate: (text: string) => string) =>
+  title === undefined || title === '' ? undefined : translate(title)
+
+/**
+ * The id of a titled thread's heading, which names its section. Derived from
+ * the author's `id` when there is one, else from the record the thread is bound
+ * to, so the server-drawn heading and the mounted thread's carry the same id.
+ */
+export const commentsTitleIdOf = (f: CommentsFields): string =>
+  `${f.id ?? `comments-${f.table ?? 'thread'}-${f.recordId ?? 'unbound'}`}-title`.replace(
+    /\s+/g,
+    '-'
+  )
 
 /**
  * Resolve table-level comments config (PG-01/PG-02).
@@ -231,6 +251,14 @@ function sessionIsAdmin(session: SessionInfo | undefined): boolean {
   return session?.isUnrestricted === true
 }
 
+/** A titled thread's heading, and `hideWhenEmpty`'s silent empty state, for the island. */
+const titleAndEmptyStateProps = (fields: CommentsFields): Record<string, unknown> => ({
+  ...(fields.title !== undefined
+    ? { title: fields.title, titleId: commentsTitleIdOf(fields) }
+    : {}),
+  ...(fields.hideWhenEmpty === true ? { hideEmptyText: true } : {}),
+})
+
 export function buildCommentThreadIslandProps(input: {
   readonly fields: CommentsFields
   readonly elementProps: Record<string, unknown>
@@ -251,6 +279,7 @@ export function buildCommentThreadIslandProps(input: {
     placeholder: fields.placeholder,
     emptyText: fields.emptyText,
     'data-testid': readTestId(elementProps),
+    ...titleAndEmptyStateProps(fields),
     ...(session?.userId !== undefined ? { currentUserId: session.userId } : {}),
     ...(sessionIsAdmin(session) ? { currentUserIsAdmin: true } : {}),
     ...(threading === true ? { threading: true } : {}),

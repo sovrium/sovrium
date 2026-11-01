@@ -40,12 +40,9 @@
 // (the form, the way back to sign in, and the one note the step needs).
 // Re-install with `sovrium library add block/login-03 --update`.
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consolePasswordCard = {
+export const consolePasswordCard: TemplateEncoded = {
   name: 'console-password-card',
   type: 'container',
   render: 'transparent',
@@ -150,4 +147,4 @@ export const consolePasswordCard = {
       ],
     },
   ],
-} as unknown as Template
+}

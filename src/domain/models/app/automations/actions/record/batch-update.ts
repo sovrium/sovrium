@@ -39,7 +39,7 @@ export const RecordBatchUpdateActionSchema = Schema.Struct({
     items: TemplateStringSchema.pipe(
       Schema.annotate({
         description:
-          'Template variable referencing an array of { filter, data } objects for batch updates',
+          'A template naming the list of { filter, data } objects to apply, such as "{{buildUpdates.result}}". Filled in, it must be a list; a code step passes the list itself',
       })
     ),
 

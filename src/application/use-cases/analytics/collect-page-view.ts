@@ -6,10 +6,13 @@
  */
 
 import { Effect } from 'effect'
+import { withoutQuery } from '@/domain/models/app/analytics/analytics-profile-service'
 import { AnalyticsRepository } from '../../ports/repositories/analytics/analytics-repository'
 import { parseUserAgent } from './ua-parser'
-import { computeSessionHash, computeVisitorHash } from './visitor-hash'
+import { visitorIdentifiers } from './visitor-hash'
 import type { AnalyticsDatabaseError } from '../../ports/repositories/analytics/analytics-repository'
+import type { VisitorSecret } from '../../ports/services/visitor-secret'
+import type { AnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
 
 /**
  * Input for collecting a page view event
@@ -28,10 +31,12 @@ export interface CollectPageViewInput {
   readonly screenHeight?: number
   readonly ip: string
   readonly userAgent: string
-  /** IANA zone whose calendar day rotates the visitor hash (the operator timezone). */
+  /** IANA zone whose calendar day rotates the visitor identifier (the operator timezone). */
   readonly timeZone: string
   readonly acceptLanguage?: string
   readonly sessionTimeoutMinutes?: number
+  /** Which fields the row keeps: `audience-only` drops everything the visitor's browser sent beyond the page. */
+  readonly profile: AnalyticsProfile
 }
 
 /**
@@ -72,19 +77,17 @@ const extractReferrerDomain = (referrerUrl: string | undefined): string | undefi
  */
 export const collectPageView = (
   input: CollectPageViewInput
-): Effect.Effect<void, AnalyticsDatabaseError, AnalyticsRepository> =>
+): Effect.Effect<void, AnalyticsDatabaseError, AnalyticsRepository | VisitorSecret> =>
   Effect.gen(function* () {
     const repo = yield* AnalyticsRepository
 
-    // Compute privacy-safe visitor and session hashes
-    // effect-promise: total -- the hash helper wraps `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
-    const visitorHash = yield* Effect.promise(() =>
-      computeVisitorHash(input.ip, input.userAgent, input.appName, input.timeZone)
-    )
-    // effect-promise: total -- the hash helper wraps `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
-    const sessionHash = yield* Effect.promise(() =>
-      computeSessionHash(visitorHash, input.sessionTimeoutMinutes ?? 30, input.timeZone)
-    )
+    const { visitorHash, sessionHash } = yield* visitorIdentifiers({
+      address: input.ip,
+      userAgent: input.userAgent,
+      timeZone: input.timeZone,
+      sessionTimeoutMinutes: input.sessionTimeoutMinutes ?? 30,
+      profile: input.profile,
+    })
 
     // Parse device information from User-Agent
     const { deviceType, browserName, osName } = parseUserAgent(input.userAgent)
@@ -93,26 +96,32 @@ export const collectPageView = (
     const language = extractLanguage(input.acceptLanguage)
     const referrerDomain = extractReferrerDomain(input.referrerUrl)
 
-    // Record the page view
+    // Under `audience-only` the server drops what the tracker sent beyond the
+    // page, the referring host and the device, whatever the tracker sent.
+    const full = input.profile === 'full'
     yield* repo.recordPageView({
       appName: input.appName,
-      pagePath: input.pagePath,
-      pageTitle: input.pageTitle,
+      pagePath: full ? input.pagePath : withoutQuery(input.pagePath),
       visitorHash,
       sessionHash,
       isEntrance: false, // TODO: detect entrance based on session history
-      referrerUrl: input.referrerUrl,
       referrerDomain,
-      utmSource: input.utmSource,
-      utmMedium: input.utmMedium,
-      utmCampaign: input.utmCampaign,
-      utmContent: input.utmContent,
-      utmTerm: input.utmTerm,
       deviceType,
       browserName,
       osName,
       language,
-      screenWidth: input.screenWidth,
-      screenHeight: input.screenHeight,
+      ...(full
+        ? {
+            pageTitle: input.pageTitle,
+            referrerUrl: input.referrerUrl,
+            utmSource: input.utmSource,
+            utmMedium: input.utmMedium,
+            utmCampaign: input.utmCampaign,
+            utmContent: input.utmContent,
+            utmTerm: input.utmTerm,
+            screenWidth: input.screenWidth,
+            screenHeight: input.screenHeight,
+          }
+        : {}),
     })
   }).pipe(Effect.withSpan('analytics.collect-page-view'))

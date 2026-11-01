@@ -56,7 +56,7 @@ export const SOVRIUM_NOTIFY_TO_VAR = 'SOVRIUM_NOTIFY_TO'
  * @throws Error when set to anything other than `on` or `off`.
  */
 export const parseSovriumNotifyAutomations = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): SovriumNotifyAutomationsMode =>
   parseEcoEnum(SOVRIUM_NOTIFY_AUTOMATIONS_VAR, env[SOVRIUM_NOTIFY_AUTOMATIONS_VAR], {
     allowed: ['on', 'off'] as const,
@@ -72,7 +72,7 @@ export const parseSovriumNotifyAutomations = (
  *   valid email address.
  */
 export const parseSovriumNotifyTo = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): readonly string[] => {
   const entries = (env[SOVRIUM_NOTIFY_TO_VAR] ?? '')
     .split(',')
@@ -102,7 +102,7 @@ export const SOVRIUM_AUTOMATION_AUTOPAUSE_VAR = 'SOVRIUM_AUTOMATION_AUTOPAUSE'
  * never, and the operator would find out only when an automation stopped.
  */
 export const parseSovriumAutomationAutopause = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): number | undefined => {
   const raw = env[SOVRIUM_AUTOMATION_AUTOPAUSE_VAR]?.trim() ?? ''
   if (raw === '') return undefined
@@ -128,7 +128,7 @@ export const SOVRIUM_NOTIFY_DIGEST_VAR = 'SOVRIUM_NOTIFY_DIGEST'
  * @throws Error when set to anything other than `weekly` or `off`.
  */
 export const parseSovriumNotifyDigest = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): SovriumNotifyDigestMode =>
   parseEcoEnum(SOVRIUM_NOTIFY_DIGEST_VAR, env[SOVRIUM_NOTIFY_DIGEST_VAR], {
     allowed: ['weekly', 'off'] as const,
@@ -156,7 +156,7 @@ export const DEFAULT_NOTIFY_DIGEST_CRON = '0 8 * * 1'
  *   five-field cron expression.
  */
 export const parseSovriumNotifyDigestCron = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): string => {
   const raw = env[SOVRIUM_NOTIFY_DIGEST_CRON_VAR]?.trim() ?? ''
   if (raw === '') return DEFAULT_NOTIFY_DIGEST_CRON

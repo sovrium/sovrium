@@ -56,7 +56,7 @@ const formatHumanDate = (input: string | Date, lang?: string): string | undefine
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    timeZone: isCalendarDate(input, date) ? 'UTC' : parseSovriumTimezone().zoneId,
+    timeZone: isCalendarDate(input, date) ? 'UTC' : parseSovriumTimezone(process.env).zoneId,
   }
   try {
     return new Intl.DateTimeFormat(lang ?? 'en', options).format(date)
@@ -111,14 +111,13 @@ const resolveContentFilePath = (
  * the layout is not `docs`, or when neither a frontmatter date nor an mtime is
  * available.
  */
-// eslint-disable-next-line max-params -- the active currentLang is threaded through the last-updated resolver
 export async function resolveLastUpdated(
   page: Page,
   routeParams: Readonly<Record<string, string>>,
   frontmatter: Readonly<Record<string, string>>,
-  layout: 'prose' | 'docs' | 'full' | 'none',
-  currentLang?: string
+  rendering: { readonly layout: 'prose' | 'docs' | 'full' | 'none'; readonly currentLang?: string }
 ): Promise<string | undefined> {
+  const { layout, currentLang } = rendering
   if (layout !== 'docs') return undefined
   const frontmatterDate = frontmatter['updated'] ?? frontmatter['date']
   if (typeof frontmatterDate === 'string' && frontmatterDate.trim().length > 0) {

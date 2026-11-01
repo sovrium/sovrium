@@ -1,12 +1,12 @@
 # The AI Chat Component
 
-> `ai-chat` — an embedded chat panel backed by one of the app's configured agents.
+> `ai-chat`: an embedded chat panel backed by one of the app's configured agents.
 
 `ai-chat` is the only type in its category. It draws a chat panel wired to an agent the app declares. Its options sit beside `type`. It also accepts the `visibility` and `responsive` modules.
 
 <!-- sovrium:options type:ai-chat -->
 
-`agent` names an entry of `app.agents[]`; what the agent can do — its model, its tools, its memory, its approval rules — is configured there rather than here. `chatHeight` is the container height in pixels, and `showHistory` loads the previous conversation on arrival. `allowAttachments` is superseded by `attachments` (below): on its own it lets a reader pick files that are shown with their message and never sent, and each file's chip says so.
+`agent` names an entry of `app.agents[]`; what the agent can do (its model, its tools, its memory, its approval rules) is configured there rather than here. `chatHeight` is the container height in pixels, and `showHistory` loads the previous conversation on arrival. `allowAttachments` is superseded by `attachments` (below): on its own it lets a reader pick files that are shown with their message and never sent, and each file's chip says so.
 
 Every option listed above is written beside `type`. A config that still carries `agent`, `placeholder`, `chatHeight`, `showHistory` or `allowAttachments` under `props` keeps working, and where one of them appears in both places the one beside `type` is used. `voiceInput` is read beside `type` only.
 
@@ -22,7 +22,7 @@ The composer sends nothing until the page's script has run: its Send button wait
 
 ### What the panel is made of
 
-The panel is drawn from the conversation types rather than markup of its own, so it looks and behaves like any other thread on the page. The transcript is a `message-scroller`: it scrolls inside the panel and keeps the latest turn in view. Each turn is a `message`, the reader's at the end of the line in the primary colour and the assistant's at the start in the muted one. Until a reply starts, a live `marker` says one is coming. The reply then streams into its bubble as it is written, drawn from its Markdown — bold, lists, links, code — which the server renders and sanitizes; the reader's own turn is shown exactly as typed. The answer is set as a message rather than an article: its paragraphs, lists and code blocks stand one line apart, at the bubble's text size and a slightly open leading, on a phone as on a wide screen, while the reader's own turn keeps the bubble's plain setting. Above the answer, the agent at work is drawn as a trace: the model's reasoning is a collapsed "Reasoning" line that opens onto what it thought, and each tool the agent calls is a line naming it, which says in words while the call runs (its name shimmers, unless the reader asks for reduced motion) and when it was denied or failed, a failed call drawn in the destructive colour. With `showHistory`, a separator `marker` reading "Earlier conversation" closes the replayed turns. Picked files are `attachment` chips, removable until the message is sent.
+The panel is drawn from the conversation types rather than markup of its own, so it looks and behaves like any other thread on the page. The transcript is a `message-scroller`: it scrolls inside the panel and keeps the latest turn in view. Each turn is a `message`, the reader's at the end of the line in the primary colour and the assistant's at the start in the muted one. Until a reply starts, a live `marker` says one is coming. The reply then streams into its bubble as it is written, drawn from its Markdown (bold, lists, links, code), which the server renders and sanitizes; the reader's own turn is shown exactly as typed. The answer is set as a message rather than an article: its paragraphs, lists and code blocks stand one line apart, at the bubble's text size and a slightly open leading, on a phone as on a wide screen, while the reader's own turn keeps the bubble's plain setting. Above the answer, the agent at work is drawn as a trace: the model's reasoning is a collapsed "Reasoning" line that opens onto what it thought, and each tool the agent calls is a line naming it, which says in words while the call runs (its name shimmers, unless the reader asks for reduced motion) and when it was denied or failed, a failed call drawn in the destructive colour. With `showHistory`, a separator `marker` reading "Earlier conversation" closes the replayed turns. Picked files are `attachment` chips, removable until the message is sent.
 
 The composer is an `input-group` around a text area. Enter sends the message, and Shift+Enter starts a new line.
 
@@ -86,13 +86,13 @@ Set `voiceInput` on an `ai-chat` component (beside `type`, like every other opti
 
 ## It degrades honestly where AI cannot run
 
-An app may declare an agent on a deployment that has no AI provider configured. The renderer does not draw a broken composer in that case: it drops the island and renders a `role="status"` line saying that the assistant is unavailable here and naming the variables to set — `AI_PROVIDER`, and `AI_API_KEY` for a hosted provider.
+An app may declare an agent on a deployment that has no AI provider configured. The renderer does not draw a broken composer in that case: it drops the island and renders a `role="status"` line saying that the assistant is unavailable here and naming the variables to set: `AI_PROVIDER`, and `AI_API_KEY` for a hosted provider.
 
-The panel's own words follow the page's language — the notice, the message shown when a reply fails, the composer's buttons, the conversation list and, when the author sets none, the placeholder: English and French are built in, and any other language shows English.
+The panel's own words follow the page's language. That covers the notice, the message shown when a reply fails, the composer's buttons, the conversation list and, when the author sets none, the placeholder. English and French are built in, and any other language shows English.
 
-That is a component telling the truth about itself, and it is correct as far as it goes — but it cannot give way to a _different_ component. The alternative to a composer is not a disabled composer; it is usually a search trigger, which is a different control with a different label, keyboard affordance and endpoint.
+That is a component telling the truth about itself, and it is correct as far as it goes, but it cannot give way to a _different_ component. The alternative to a composer is not a disabled composer; it is usually a search trigger, which is a different control with a different label, keyboard affordance and endpoint.
 
-The `visibility` module is what expresses that. `runtime: ai` renders the component only where AI can run on this deployment — wherever a provider is configured, since every app has the built-in System Agent — and `unlessRuntime: ai` renders its alternative everywhere else:
+The `visibility` module is what expresses that. `runtime: ai` renders the component only where AI can run on this deployment (wherever a provider is configured, since every app has the built-in System Agent), and `unlessRuntime: ai` renders its alternative everywhere else:
 
 ```yaml
 - type: ai-chat
@@ -102,4 +102,4 @@ The `visibility` module is what expresses that. `runtime: ai` renders the compon
   visibility: { unlessRuntime: ai }
 ```
 
-Naming the same capability in both halves on one component is refused when the config is decoded: AI either runs here or it does not, so the component would render on no instance at all — the opposite of what its author wrote, and invisible at runtime.
+Naming the same capability in both halves on one component is refused when the config is decoded: AI either runs here or it does not, so the component would render on no instance at all: the opposite of what its author wrote, and invisible at runtime.

@@ -6,7 +6,7 @@
  */
 
 import { type ReactElement, useContext } from 'react'
-import { PageLanguageAlternatesContext } from './page-alternates'
+import { PageLanguageAlternatesContext, type FeedAnnouncement } from './page-alternates'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { ContentDirSeoMeta } from '@/domain/models/app/pages/content-dir-seo-meta'
@@ -109,10 +109,10 @@ function HreflangLinks({
  * Renders hreflang alternate links for a content-directory page.
  *
  * Unlike the generic {@link HreflangLinks} (which keys off the static route
- * pattern and uses the longer `locale`), these alternates are pre-resolved per
- * file by the markdown resolver: the `:lang` segment is substituted with each
- * configured language `code` and the slug is already concrete. The hreflang
- * value is the language `code` (e.g. `en`, `fr`) — the URL-prefix segment.
+ * pattern), these alternates are pre-resolved per file by the markdown
+ * resolver: the `:lang` segment is substituted with each configured language
+ * `code` and the slug is already concrete. The hreflang value is the declared
+ * `locale` (`en-US`), as on every other page and in the sitemap.
  */
 function ContentDirHreflangLinks({
   alternates,
@@ -166,28 +166,28 @@ export function HreflangSection({
 
 /**
  * The page's other representations, announced for discovery:
- *  - `application/rss+xml` → `/feed.xml`, on the page the feed is built from,
+ *  - `application/rss+xml` → the feed's address, on the page it is built from,
  *    titled like the feed's channel (RSS autodiscovery);
  *  - `text/markdown` → the article's `.md` twin, on a content-directory
  *    article (the llmstxt.org convention). The twin is derived from the
  *    article's canonical URL, so it always names this article.
  */
 function AlternateRepresentationLinks({
-  feedTitle,
+  feed,
   markdownCanonical,
 }: {
-  readonly feedTitle: string | undefined
+  readonly feed: FeedAnnouncement | undefined
   readonly markdownCanonical: string | undefined
 }): ReactElement | undefined {
-  if (feedTitle === undefined && markdownCanonical === undefined) return undefined
+  if (feed === undefined && markdownCanonical === undefined) return undefined
   return (
     <>
-      {feedTitle !== undefined && (
+      {feed !== undefined && (
         <link
           rel="alternate"
           type="application/rss+xml"
-          title={feedTitle}
-          href="/feed.xml"
+          title={feed.title}
+          href={feed.path}
         />
       )}
       {markdownCanonical !== undefined && (
@@ -203,21 +203,21 @@ function AlternateRepresentationLinks({
 
 /**
  * Every `<link rel="alternate">` in the head: the language cluster, then the
- * feed and Markdown representations. `feedTitle` is the title of the feed this
- * page publishes at `/feed.xml`, or `undefined` when it publishes none.
+ * feed and Markdown representations. `feed` is the feed this page publishes
+ * (its title and address), or `undefined` when it publishes none.
  */
 export function HeadAlternateLinks({
   page,
   canonical,
   languages,
   contentDirSeo,
-  feedTitle,
+  feed,
 }: {
   readonly page: Page
   readonly canonical?: string
   readonly languages?: Languages
   readonly contentDirSeo?: ContentDirSeoMeta
-  readonly feedTitle?: string
+  readonly feed?: FeedAnnouncement | undefined
 }): ReactElement {
   return (
     <>
@@ -228,7 +228,7 @@ export function HeadAlternateLinks({
         contentDirSeo={contentDirSeo}
       />
       <AlternateRepresentationLinks
-        feedTitle={feedTitle}
+        feed={feed}
         markdownCanonical={contentDirSeo?.canonical}
       />
     </>

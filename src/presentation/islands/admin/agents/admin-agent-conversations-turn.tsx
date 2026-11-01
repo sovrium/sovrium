@@ -99,6 +99,7 @@ function MessageFootnote({
 }: {
   readonly message: ThreadMessage
 }): ReactElement | undefined {
+  const interruptedWord = useWord('interrupted', 'reply interrupted')
   const parts: ReadonlyArray<string> = [
     typeof message.tokenCount === 'number' ? `${message.tokenCount} tokens` : '',
   ].filter((part) => part.length > 0)
@@ -109,7 +110,7 @@ function MessageFootnote({
       {parts.length > 0 ? <span className="font-mono">{parts.join(' · ')}</span> : undefined}
       {interrupted ? (
         <span className="inline-flex items-center gap-1 font-medium">
-          <span aria-hidden="true">•</span> reply interrupted
+          <span aria-hidden="true">•</span> {interruptedWord}
         </span>
       ) : undefined}
     </div>

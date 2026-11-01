@@ -8,6 +8,7 @@
 import {
   highlightCodeToHtml,
   withFenceIndexClass,
+  type CodeHighlightOptions,
 } from '@/infrastructure/markdown/shiki-highlighter'
 
 /**
@@ -24,7 +25,7 @@ import {
  */
 const MAX_MEMOISED_FENCES = 256
 
-/** Highlighted fences, by language and source. */
+/** Highlighted fences, by role-class mode, language and source. */
 const FENCE_MEMO = new Map<string, string>()
 
 /** Remember a highlighted fence, dropping the oldest past {@link MAX_MEMOISED_FENCES}. */
@@ -50,11 +51,18 @@ const withShikiClass = (html: string): string =>
     ? html
     : html.replace(/^<pre\b/, '<pre class="shiki"')
 
-/** One block highlighted, from the memo when its language and source were seen. */
-const highlightFence = async (lang: string, code: string): Promise<string> => {
-  const key = `${lang}\u0000${code}`
+/**
+ * One block highlighted, from the memo when its language and source were seen
+ * in the same role-class mode (two apps in one process may differ on it).
+ */
+const highlightFence = async (
+  lang: string,
+  code: string,
+  options: CodeHighlightOptions
+): Promise<string> => {
+  const key = `${options.roleClasses === true ? 'roles' : 'plain'}\u0000${lang}\u0000${code}`
   const cached = FENCE_MEMO.get(key)
-  return cached ?? memoiseFence(key, withShikiClass(await highlightCodeToHtml(lang, code)))
+  return cached ?? memoiseFence(key, withShikiClass(await highlightCodeToHtml(lang, code, options)))
 }
 
 /**
@@ -62,16 +70,17 @@ const highlightFence = async (lang: string, code: string): Promise<string> => {
  * chat renderer) in the engine's default palette, keeping each one's ordinal
  * class so the frame can still find it after the sanitizer. A block naming no
  * language, and a placeholder with no entry, are left as they are: plain, and
- * still framed.
+ * still framed. `options.roleClasses` adds each token's syntax role as a class.
  */
 export const highlightOrdinalFences = async (
   html: string,
-  codeBlocks: readonly { readonly lang: string; readonly code: string }[]
+  codeBlocks: readonly { readonly lang: string; readonly code: string }[],
+  options: CodeHighlightOptions = {}
 ): Promise<string> => {
   if (codeBlocks.length === 0) return html
   const highlighted = await Promise.all(
     codeBlocks.map(({ lang, code }) =>
-      lang.length === 0 ? Promise.resolve(undefined) : highlightFence(lang, code)
+      lang.length === 0 ? Promise.resolve(undefined) : highlightFence(lang, code, options)
     )
   )
   return html.replace(ORDINAL_FENCE_RE, (match, idxStr: string) => {

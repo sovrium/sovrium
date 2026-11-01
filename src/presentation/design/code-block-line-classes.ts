@@ -30,7 +30,11 @@
  * on the page background, while ours is drawn on the highlighter's chrome,
  * which in the light scheme IS `muted`. A highlighted or added line on
  * `bg-muted` would therefore be invisible; both take a tint of the chrome's own
- * ink instead (`bg-current/10`), which reads on a light and a dark theme alike.
+ * ink instead (`bg-current/5`), which reads on a light and a dark theme alike.
+ * The tint is kept that light because the highlighter's token colours are
+ * chosen for the bare chrome: at 10% the lighter light-scheme tokens fall
+ * under 4.5:1 on an added line, while 5% still marks the line and keeps them
+ * at AA in both schemes.
  */
 
 /** Which line variant a source line is drawn in. Mirrors shadcn's `CodeBlockLine`. */
@@ -64,9 +68,9 @@ export const CODE_BLOCK_WRAP_CLASSES = 'whitespace-pre-wrap wrap-anywhere'
 
 const LINE_VARIANT_CLASSES: Readonly<Record<CodeBlockLineVariant, string>> = {
   default: '',
-  added: "bg-current/10 after:content-['+']",
+  added: "bg-current/5 after:content-['+']",
   removed: "bg-destructive/10 after:text-destructive after:content-['−']",
-  highlighted: 'bg-current/10',
+  highlighted: 'bg-current/5',
 }
 
 /**
@@ -77,6 +81,11 @@ const LINE_VARIANT_CLASSES: Readonly<Record<CodeBlockLineVariant, string>> = {
  * A NUMBERED block keeps its lines inside a scroller of their own beside the
  * gutter, which has no padding to bleed into: the bleed there would only add a
  * sideways scroll, so it is left out.
+ *
+ * The sign sits in that padding, inset from the frame's edge and ending before
+ * the text: 6px in on the default 16px padding. The small size's 10px padding
+ * and a numbered line's 12px leave room for the glyph only, so the sign moves
+ * to 2px there rather than run into the code.
  */
 export const computeCodeBlockLineClasses = (
   variant: CodeBlockLineVariant,
@@ -85,8 +94,10 @@ export const computeCodeBlockLineClasses = (
   const bleed = numbered
     ? 'ps-3'
     : '-mx-4 px-4 group-data-[size=sm]/code-block:-mx-2.5 group-data-[size=sm]/code-block:px-2.5'
-  const marker =
-    'after:absolute after:start-1 after:top-0 after:select-none after:text-muted-foreground'
+  const inset = numbered
+    ? 'after:start-0.5'
+    : 'after:start-1.5 group-data-[size=sm]/code-block:after:start-0.5'
+  const marker = `after:absolute ${inset} after:top-0 after:select-none after:text-muted-foreground`
   return `relative block min-h-lh ${bleed} ${marker} ${LINE_VARIANT_CLASSES[variant]}`.trim()
 }
 

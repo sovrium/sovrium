@@ -9,11 +9,12 @@ intro: |
 glance:
   - '**Tables** (8): projects, tasks, activity, clients, people, workspace_settings, reminders, bookings'
   - |-
-    **Pages** (25): eight sign-in pages, overview (`/`), metrics, worklist, five settings
+    **Pages** (24): seven sign-in pages, overview (`/`), metrics, worklist, five settings
     pages, projects, a project page and its edit page, and six `/kit/*` pages showing every
     other application block in its stock copy
   - |-
-    **Library blocks** (60) — every application block: under `library/block/`, each starting with a
+    **Library blocks** (59) — every application block but the sign-up form, which an app that
+    admits people by invitation leaves out: under `library/block/`, each starting with a
     `sovrium-library:` line naming the entry and version it was installed from
   - |-
     **Forms** (5): the worklist's "New" dialog, the project page's "Add a task", and the
@@ -42,8 +43,8 @@ whatsInside: |
 
   - **Every way in** — sign in with a password, an emailed link, a passkey or single sign-on;
     two-step verification, whose code is asked on its own page once the password is right;
-    sign up; reset a forgotten password; accept an invitation. Each alternative is drawn
-    only when `config/auth.yaml` turns it on.
+    reset a forgotten password; accept an invitation, the one way a new person joins. Each
+    alternative is drawn only when `config/auth.yaml` turns it on.
   - **Overview** (`/`) and **Metrics** — figures, a trend, a breakdown and the latest
     activity, all narrowed by one period selector.
   - **Worklist** — the active projects in tabs, with the figures that matter and a "New" dialog.

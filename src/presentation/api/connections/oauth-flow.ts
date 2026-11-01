@@ -63,12 +63,20 @@ export const resolveOAuth2PropsEnv = <P extends OAuth2Props>(props: P, app: App)
 }
 
 /**
- * PKCE is "active" when the connection requests S256 or plain (i.e. NOT
- * 'none' and NOT undefined). 'none' is an explicit opt-out kept for
- * providers that don't support PKCE; treat it identically to "no pkce".
+ * The PKCE method an authorization uses: the connection's own, `S256` when it
+ * names none, and `undefined` — no challenge, no verifier — only for the
+ * explicit `pkce: 'none'` a provider that refuses a code challenge needs.
+ * The one place the default is decided: the verifier, the authorize URL and
+ * the code exchange all follow it.
  */
-export const isPkceActive = (pkce: OAuth2Props['pkce']): pkce is 'S256' | 'plain' =>
-  pkce === 'S256' || pkce === 'plain'
+export const resolvePkceMethod = (pkce: OAuth2Props['pkce']): 'S256' | 'plain' | undefined => {
+  if (pkce === 'none') return undefined
+  return pkce ?? 'S256'
+}
+
+/** Whether an authorization sends a code challenge (see {@link resolvePkceMethod}). */
+export const isPkceActive = (pkce: OAuth2Props['pkce']): boolean =>
+  resolvePkceMethod(pkce) !== undefined
 
 /**
  * Build the provider authorization URL with the full OAuth2 + PKCE param set.
@@ -90,9 +98,10 @@ export const buildAuthorizeUrl = (
   // ignore the empty value).
   url.searchParams.set('scope', (props.scopes ?? []).join(' '))
   url.searchParams.set('state', state)
-  if (codeVerifier !== undefined && isPkceActive(props.pkce)) {
-    url.searchParams.set('code_challenge', computeCodeChallenge(codeVerifier, props.pkce))
-    url.searchParams.set('code_challenge_method', props.pkce)
+  const pkceMethod = resolvePkceMethod(props.pkce)
+  if (codeVerifier !== undefined && pkceMethod !== undefined) {
+    url.searchParams.set('code_challenge', computeCodeChallenge(codeVerifier, pkceMethod))
+    url.searchParams.set('code_challenge_method', pkceMethod)
   }
   // Audience: e.g. Auth0 requires this on the authorization endpoint
   // (and also on the token endpoint — see exchangeCodeForToken below).
@@ -196,6 +205,16 @@ const toLongLivedToken = async (
 }
 
 /**
+ * The code exchange's request bounds. Its form carries the authorization code and
+ * the client secret, so a redirect to another origin is refused, never followed.
+ */
+const CODE_EXCHANGE_OPTIONS = {
+  timeoutMs: OAUTH_CALLBACK_TIMEOUT_MS,
+  maxBodyBytes: TOKEN_RESPONSE_MAX_BYTES,
+  bodyCarriesSecret: true,
+} as const
+
+/**
  * Exchange an authorization code (+ PKCE verifier) for tokens at the provider
  * `tokenUrl`. SSRF-guarded on the URL and every redirect hop (`guardedFetch`)
  * so a misconfigured `tokenUrl` cannot exchange the auth code against an
@@ -226,7 +245,7 @@ export const exchangeCodeForToken = async (
         },
         body: body.toString(),
       },
-      { timeoutMs: OAUTH_CALLBACK_TIMEOUT_MS, maxBodyBytes: TOKEN_RESPONSE_MAX_BYTES }
+      CODE_EXCHANGE_OPTIONS
     )
     if (!sent.ok) return { ok: false, error: `token_invalid_url_${sent.reason}` }
     const { response } = sent

@@ -88,7 +88,7 @@ export const automations = defineSection({
       slug: 'document-template-helpers',
       title: 'Document Template Helpers',
       description:
-        'The helpers only a document or email template has — page breaks, pictures, QR codes, translations — plus partials and layouts, Word templates, and what a template stored in a bucket may not do.',
+        'Helpers only document and email templates have (page breaks, pictures, QR codes, translations), partials and layouts, Word templates and bucket template limits.',
       keywords: [
         'sovrium',
         'document templates',
@@ -116,7 +116,7 @@ export const automations = defineSection({
       slug: 'automation-triggers',
       title: 'Triggers Overview',
       description:
-        'The nine automation trigger types at a glance — what starts each one, the context it exposes, how one automation starts on several, and where each is configured in detail.',
+        'The nine trigger types at a glance: what starts each, the context it exposes, how one automation starts on several, and where each is configured in detail.',
       keywords: [
         'sovrium',
         'automation triggers',
@@ -176,7 +176,7 @@ export const automations = defineSection({
       slug: 'automation-retry-failure',
       title: 'Retry & Failure Handling',
       description:
-        'Retry policies (fixed/exponential), automation- and action-level timeouts, dead-letter exhaustion, idempotent resume, deduplication, and partial-failure recovery.',
+        'Retry policies (fixed or exponential), automation and action timeouts, dead-letter exhaustion, idempotent resume, deduplication and partial-failure recovery.',
       keywords: [
         'sovrium',
         'automation retry',
@@ -257,7 +257,7 @@ export const automations = defineSection({
       slug: 'automation-connection-operations',
       title: 'Connection Operations',
       description:
-        'Declare the endpoints of a connected service once — method, path, typed parameters, a field-encoded or written body, pagination — and call them by name from any automation step.',
+        "Declare a connected service's endpoints once (method, path, typed parameters, a field-encoded or written body, pagination) and call them by name from any step.",
       keywords: [
         'sovrium',
         'connections',

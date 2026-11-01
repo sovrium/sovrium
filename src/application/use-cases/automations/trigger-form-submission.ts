@@ -71,13 +71,6 @@ export interface TriggerFormSubmissionInput {
   readonly linkedRecord?: { readonly table: string; readonly id: string } | null
   /** Submitter context surfaced at `{{trigger.data.meta.<member>}}`. */
   readonly meta: FormSubmitterMeta
-  /**
-   * Process env captured at the route boundary — threaded through to
-   * `executeAutomationRun` so action handlers can resolve `$env.VAR_NAME`
-   * references and so secrets get redacted from run-history. Mirrors the
-   * pattern used by the record-event trigger.
-   */
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /** The user who submitted the form (null for public/guest submissions). */
   readonly userId?: string
 }
@@ -210,7 +203,7 @@ const runFormAutomationsThenSettle = (
   matching: ReturnType<typeof findMatchingFormAutomations>
 ): Effect.Effect<void, never, ExecuteAutomationRunRequirements | FormSubmissionRepository> =>
   Effect.gen(function* () {
-    const { app, processEnv, userId, submissionId } = input
+    const { app, userId, submissionId } = input
     // The signed-in submitter is `{{trigger.user}}`, lifted out of reach of the submitted values.
     const requester = yield* identifyFormSubmitter(userId, app)
     const envelope = buildFormTriggerData(input)
@@ -218,7 +211,7 @@ const runFormAutomationsThenSettle = (
     const results = yield* Effect.forEach(
       matching,
       ({ automation, trigger }) =>
-        dispatchAutomationOnce({ automation, trigger, app, processEnv, triggerData, userId }),
+        dispatchAutomationOnce({ automation, trigger, app, triggerData, userId }),
       { concurrency: 1 }
     )
     const outcome = collapseToLedgerOutcome(results)

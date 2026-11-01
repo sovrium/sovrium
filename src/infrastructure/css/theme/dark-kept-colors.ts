@@ -8,7 +8,7 @@
 import { escapeCssValue } from '@/domain/kernel/sanitize/css-value-escaping'
 import { isKeptInDark, keptForegroundOf } from '@/domain/models/app/design/dark-palette-service'
 import { derivedPrimaryInteraction } from '@/domain/models/app/design/primary-interaction-service'
-import { authorVarLines, DEFAULT_DARK_SELECTOR } from './theme-generators'
+import { authorVarLines, DEFAULT_DARK_SELECTOR } from './theme-color-generators'
 import type { DesignColors, DesignDarkColors } from '@/domain/models/app/design/colors'
 
 /**

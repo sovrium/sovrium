@@ -27,6 +27,7 @@
 
 import { Effect } from 'effect'
 import { AdminReadHost } from '@/application/ports/services/admin-read-host'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   answerWithSchema,
   defineAdminRead,
@@ -52,9 +53,6 @@ const noInput = (): AdminReadDecode<undefined> => ({ _tag: 'Ok', input: undefine
 /** The audit resource of a whole-config read: the caller, which makes it filterable per operator. */
 const byActor = (_app: unknown, _input: unknown, request: { readonly actorUserId: string }) =>
   request.actorUserId
-
-/** The process environment, as the redactors and the env viewer read it. */
-const processEnv = (): Readonly<Record<string, string | undefined>> => process.env
 
 // ─── The configuration itself ─────────────────────────────────────────────────
 
@@ -82,12 +80,14 @@ const configSchema = defineAdminRead<undefined>({
   subject: 'config schema response',
   decode: noInput,
   read: (app) =>
-    Effect.sync(() =>
-      answerWithSchema(configSchemaResponseSchema, {
-        app: redactAppConfigForReflection(app, processEnv()),
-        // Per request: it timestamps the READ, so two reflections can be ordered.
-        generatedAt: new Date().toISOString(),
-      })
+    ProcessEnv.pipe(
+      Effect.map((env) =>
+        answerWithSchema(configSchemaResponseSchema, {
+          app: redactAppConfigForReflection(app, env),
+          // Per request: it timestamps the READ, so two reflections can be ordered.
+          generatedAt: new Date().toISOString(),
+        })
+      )
     ),
   audit: { action: AUDIT_ACTIONS.CONFIG_SCHEMA_QUERIED, resourceId: byActor },
 })
@@ -117,8 +117,8 @@ const envList = defineAdminRead<undefined>({
   subject: 'env config response',
   decode: noInput,
   read: (app) =>
-    Effect.sync(() => {
-      const variables = buildEnvVarStatuses(app, processEnv())
+    Effect.map(ProcessEnv, (env) => {
+      const variables = buildEnvVarStatuses(app, env)
       return answerWithSchema(envConfigResponseSchema, {
         variables,
         // The keys the page's alert names: required and resolved to nothing.

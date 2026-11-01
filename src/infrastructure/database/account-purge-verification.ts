@@ -6,9 +6,8 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
-import { executeRaw } from './sql/dialect-execute'
-import { authTableRef } from './sql/dialect-sql'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import type { Dialect, TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The pending tokens of a person, in `auth.verification`, and the statements
@@ -51,8 +50,12 @@ const startsWith = (column: 'identifier' | 'value', prefix: string): SQL =>
  * @param email - Her address, when it could be read; without it the
  *   address-keyed rows are skipped rather than matched against an empty string.
  */
-export const verificationRowsOf = (userId: string, email: string | undefined): readonly SQL[] => {
-  const table = authTableRef('verification')
+export const verificationRowsOf = (
+  dialect: Dialect,
+  userId: string,
+  email: string | undefined
+): readonly SQL[] => {
+  const table = dialect.sql.authTableRef('verification')
   const byId = [
     sql`DELETE FROM ${table} WHERE value = ${userId}`,
     sql`DELETE FROM ${table}
@@ -96,11 +99,12 @@ const inviteeOfInvitationSentBy = (value: string, inviterId: string): string | u
  * order is a JSON detail a SQL pattern would have to hard-code.
  */
 async function shedInviterFromInvitations(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string
 ): Promise<void> {
-  const table = authTableRef('verification')
-  const rows = (await executeRaw(
+  const table = dialect.sql.authTableRef('verification')
+  const rows = (await executeRawOn(
+    dialect.kind,
     tx,
     sql`SELECT id, value FROM ${table}
         WHERE ${startsWith('identifier', 'invitation:')} AND ${startsWith('value', '{')}`
@@ -108,7 +112,11 @@ async function shedInviterFromInvitations(
   for (const row of rows) {
     const invitee = inviteeOfInvitationSentBy(row.value, userId)
     if (invitee === undefined) continue
-    await executeRaw(tx, sql`UPDATE ${table} SET value = ${invitee} WHERE id = ${row.id}`)
+    await executeRawOn(
+      dialect.kind,
+      tx,
+      sql`UPDATE ${table} SET value = ${invitee} WHERE id = ${row.id}`
+    )
   }
 }
 
@@ -117,12 +125,12 @@ async function shedInviterFromInvitations(
  * from the invitations she sent ({@link shedInviterFromInvitations}).
  */
 export async function deleteVerificationRows(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string,
   email: string | undefined
 ): Promise<void> {
-  for (const statement of verificationRowsOf(userId, email)) {
-    await executeRaw(tx, statement)
+  for (const statement of verificationRowsOf(dialect, userId, email)) {
+    await executeRawOn(dialect.kind, tx, statement)
   }
-  await shedInviterFromInvitations(tx, userId)
+  await shedInviterFromInvitations({ tx, dialect }, userId)
 }

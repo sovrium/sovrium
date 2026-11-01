@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { appRegion, para, span } from '@/library/manifest/app-block-kit'
-import { asComponent, flex, PLACE_NOTE, stack, THEME_NOTE } from '@/library/manifest/block-kit'
+import { appRegion, para, span } from '@/library/kit/app-block-kit'
+import { asComponent, flex, PLACE_NOTE, stack, THEME_NOTE } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** A progress bar with what is running, how far it is, and what the reader may do meanwhile. */

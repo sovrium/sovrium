@@ -13,7 +13,6 @@ import {
   StructuredDataFromComponent,
   type ComponentMeta,
 } from '@/presentation/render/page/structured-data-from-component'
-import { useBreakpoint } from '@/presentation/render/props/use-breakpoint'
 import {
   namingReferenceOf,
   isComponentReferenceNode,
@@ -40,8 +39,16 @@ import {
 } from '../registry/component-reference-handler'
 import { resolveComponent } from '../registry/component-resolution'
 import { dispatchComponentType } from '../registry/component-type-dispatcher'
+import {
+  componentField,
+  entryAsComponent,
+  rewriteComponent,
+  type ComponentEntry,
+  type ComponentResponsive as Responsive,
+} from '../resolve/component-rewrite'
 import { buildInteractionProps } from '../styling/interaction-props-builder'
 import { withFieldControlId } from './field-control-id'
+import { drawnElementOf } from './html-element-renderer'
 import { childrenToRender } from './slot-children'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -131,12 +138,12 @@ function renderComponentReference(
  * @returns Rendered children elements (cast to ReactElement[] for compatibility)
  */
 function renderChildren(
-  children: ReadonlyArray<Component | string> | undefined,
+  children: ReadonlyArray<ComponentEntry> | undefined,
   props: ComponentRendererProps
 ): readonly ReactElement[] {
   if (!Array.isArray(children)) return [] // an unfilled `$children` slot draws nothing
 
-  return children.map((child: Component | string, index: number) =>
+  return children.map((child: ComponentEntry, index: number) =>
     typeof child === 'string' ? (
       resolveChildTranslation(child, props.currentLang, props.languages)
     ) : (
@@ -167,16 +174,15 @@ function applyVariableSubstitution(
   pageVars: ComponentRendererProps['pageVars']
 ): Component {
   if (!pageVars) return component
-
-  return {
-    ...component,
+  const content = componentField(component, 'content')
+  return rewriteComponent(component, {
     props: substitutePropsVariables(component.props, pageVars),
     children: substituteChildrenVariables(component.children, pageVars),
     content:
-      typeof component.content === 'string'
-        ? (substituteVariableValues(component.content, pageVars) as string)
-        : component.content,
-  }
+      typeof content === 'string'
+        ? (substituteVariableValues(content, pageVars) as string)
+        : content,
+  })
 }
 
 /** Add `data-component-type`, and the `data-sovrium-id` a page export wrote on the node. */
@@ -193,7 +199,7 @@ function addComponentTypeAttribute(
 }
 
 /** Check if component has responsive content overrides */
-function hasResponsiveContentOverrides(responsive: Component['responsive']): boolean {
+function hasResponsiveContentOverrides(responsive: Responsive): boolean {
   return (
     !!responsive &&
     Object.values(responsive).some(
@@ -202,10 +208,8 @@ function hasResponsiveContentOverrides(responsive: Component['responsive']): boo
   )
 }
 
-/**
- * Check if component has responsive children overrides
- */
-function hasResponsiveChildrenOverrides(responsive: Component['responsive']): boolean {
+/** Check if component has responsive children overrides */
+function hasResponsiveChildrenOverrides(responsive: Responsive): boolean {
   return (
     !!responsive &&
     Object.values(responsive).some(
@@ -218,7 +222,7 @@ function hasResponsiveChildrenOverrides(responsive: Component['responsive']): bo
  * Render component with responsive content variants
  */
 function renderWithResponsiveContent(config: {
-  responsive: Component['responsive']
+  responsive: Responsive
   type: ComponentType
   finalElementPropsWithType: Record<string, unknown>
   finalElementPropsWithSpacingAndType: Record<string, unknown>
@@ -249,7 +253,7 @@ function renderWithResponsiveContent(config: {
  * Build responsive children with variant rendering
  */
 function buildResponsiveChildren(
-  responsive: Component['responsive'],
+  responsive: Responsive,
   baseChildren: readonly ReactElement[],
   props: ComponentRendererProps
 ): readonly ReactElement[] {
@@ -270,22 +274,22 @@ function buildResponsiveChildren(
         )
       }
 
-      const childWithVisibility: Component = additionalClassName
-        ? {
-            ...child,
+      const node = entryAsComponent(child)
+      const childWithVisibility = additionalClassName
+        ? rewriteComponent(node, {
             props: {
-              ...(child.props || {}),
+              ...(node.props || {}),
               // The responsive visibility class is a FLOOR, not a default: it
               // is what makes this breakpoint variant appear at the right
               // width, so an author `className` must not be able to drop it.
               className: resolveClasses(
                 '',
                 undefined,
-                (child.props as { className?: string } | undefined)?.className,
+                (node.props as { className?: string } | undefined)?.className,
                 additionalClassName
               ),
-            } as Record<string, unknown>,
-          }
+            },
+          })
         : child
 
       return (
@@ -337,35 +341,29 @@ function RenderDirectComponent({
     uniqueId
   )
 
-  const {
-    type,
-    props: componentProps,
-    children,
-    content,
-    interactions: topLevelInteractions,
-    i18n,
-    responsive,
-  } = substitutedComponent
+  const { type, props: componentProps, children } = substitutedComponent
+  const content = componentField(substitutedComponent, 'content')
+  const topLevelInteractions = componentField(substitutedComponent, 'interactions')
+  const i18n = componentField(substitutedComponent, 'i18n')
+  const responsive = componentField(substitutedComponent, 'responsive')
   // Support interactions from both top-level field and inside props
   const interactions =
     topLevelInteractions ?? (componentProps?.interactions as typeof topLevelInteractions)
-  const currentBreakpoint = useBreakpoint()
-
-  // Merge responsive props using extracted module
+  // The server cannot see the viewport: prop overrides resolve at the `mobile`
+  // base, and wider breakpoints arrive as CSS media-query classes and variants.
   const {
     mergedProps: mergedPropsWithVisibility,
     mergedChildren,
     mergedContent,
-  } = mergeResponsiveProps(responsive, componentProps, children, content, currentBreakpoint)
+  } = mergeResponsiveProps(responsive, componentProps, children, content, 'mobile')
 
-  // `design.components[<type>]` under this instance's `classes`, resolved ONCE
-  // per instance: `buildFinalClassName` folds the root part and the floor into
-  // `className`; the dispatch config carries `replace` + the non-root parts.
+  // `design.components[<type>]` under this node's `classes`, resolved ONCE (root+floor -> className)
   const designStyles = resolveComponentStyle(
     props.design,
     type,
     (substitutedComponent as { variant?: string }).variant,
-    (substitutedComponent as { classes?: ComponentStyle }).classes
+    (substitutedComponent as { classes?: ComponentStyle }).classes,
+    drawnElementOf(type, substitutedComponent, mergedPropsWithVisibility)
   )
 
   const { elementProps, elementPropsWithSpacing } = buildComponentProps({
@@ -489,7 +487,7 @@ function RenderDirectComponent({
     languages: props.languages,
     currentLang: props.currentLang,
     interactions,
-    action: substitutedComponent.action,
+    action: componentField(substitutedComponent, 'action'),
     component: substitutedComponent,
     rawProps: mergedPropsWithVisibility as Record<string, unknown> | undefined,
     tables: props.tables,

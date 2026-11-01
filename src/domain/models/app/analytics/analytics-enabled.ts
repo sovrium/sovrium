@@ -5,13 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveAnalyticsProfile } from './analytics-profile-service'
 import type { App } from '@/domain/models/app'
 
 /**
  * Whether the operator declared a LIVE `analytics` block.
  *
  * `BuiltInAnalyticsSchema` is `Boolean | Struct`, so `analytics: false` is a
- * config an operator can write — and `api-routes.ts` reads it exactly as it
+ * config an operator can write — and `compose-api-routes.ts` reads it exactly as it
  * reads an absent block: every `/api/analytics/*` endpoint is left
  * unregistered. So "declared" and "enabled" are different questions, and only
  * the second one is worth asking.
@@ -33,4 +34,12 @@ import type { App } from '@/domain/models/app'
  */
 export function analyticsIsEnabled(app: App): boolean {
   return app.analytics !== undefined && app.analytics !== false
+}
+
+/**
+ * Whether the app declares analytics with `profile: full`. An app declaring it
+ * under the default profile, in the shorthand or leaving the key unset, does not.
+ */
+export function analyticsKeepsEveryEvent(app: App): boolean {
+  return analyticsIsEnabled(app) && resolveAnalyticsProfile(app.analytics) === 'full'
 }

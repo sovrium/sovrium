@@ -45,6 +45,24 @@ export const dateFormatterOf = (
 }
 
 /**
+ * One `Intl.RelativeTimeFormat` per locale and options, built once, for the
+ * reason {@link dateFormatterOf} gives: a feed column phrasing "3 days ago" on
+ * every row paid the constructor per cell. Same bound, same keys.
+ */
+const RELATIVE_FORMATTERS = new Map<string, Intl.RelativeTimeFormat>()
+
+export const relativeFormatterOf = (
+  locale: string,
+  options: Readonly<Intl.RelativeTimeFormatOptions>
+): Intl.RelativeTimeFormat => {
+  const key = locale + JSON.stringify(options)
+  const formatter = RELATIVE_FORMATTERS.get(key) ?? new Intl.RelativeTimeFormat(locale, options)
+  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- the memo write IS the state this cache holds; a formatter is a pure function of its key
+  if (RELATIVE_FORMATTERS.size < 256) RELATIVE_FORMATTERS.set(key, formatter)
+  return formatter
+}
+
+/**
  * `value` through `options` in `locale`, at the wall clock of `timeZone` (the
  * runtime's own zone when `undefined`); the value as text when it names no date.
  */
@@ -92,7 +110,7 @@ export function readDayRelativeTime(
   value: unknown,
   locale: string,
   timeZone: string | undefined,
-  now: Readonly<Date> = new Date(),
+  now: Readonly<Date>,
   seconds = false
 ): DayRelativeReading {
   const date = toDate(value)
@@ -102,7 +120,7 @@ export function readDayRelativeTime(
   const offset = Math.round((Date.parse(day) - Date.parse(today)) / 86_400_000)
   const clock = formatZonedDate(date, locale, seconds ? CLOCK_SECONDS : CLOCK, timeZone)
   if (offset === 0 || offset === -1) {
-    const word = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(offset, 'day')
+    const word = relativeFormatterOf(locale, { numeric: 'auto' }).format(offset, 'day')
     return { relative: true, text: `${word} ${clock}` }
   }
   const year = day.slice(0, 4) === today.slice(0, 4) ? {} : YEAR
@@ -134,7 +152,7 @@ export function formatDayRelativeTime(
   value: unknown,
   locale: string,
   timeZone: string | undefined,
-  now: Readonly<Date> = new Date(),
+  now: Readonly<Date>,
   seconds = false
 ): string {
   const { relative, text } = readDayRelativeTime(value, locale, timeZone, now, seconds)

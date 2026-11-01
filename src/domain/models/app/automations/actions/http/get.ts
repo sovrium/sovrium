@@ -78,7 +78,7 @@ export const HttpGetActionSchema = Schema.Struct({
   Schema.annotate({
     identifier: 'HttpGetAction',
     title: 'HTTP GET Action',
-    description: 'Send GET requests to external services — no body field',
+    description: 'Send GET requests to external services (no body field)',
   })
 )
 

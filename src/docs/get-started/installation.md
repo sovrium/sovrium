@@ -4,7 +4,7 @@
 
 You can install Sovrium on your own machine or run it on a cloud host. Pick the path that fits where your app will run.
 
-**There is a third path, and for a first app it is the shortest.** The Sovrium app is a downloadable window around the same engine: it installs the binary for you, makes the project folder, and runs the server, so that editing the configuration is the only thing left to do. Install it from the [download page](https://sovrium.com/download) rather than by command, and see **The Sovrium App**. Everything below still applies to the project it creates — the configuration file is an ordinary one.
+**There is a third path, and for a first app it is the shortest.** The Sovrium app is a downloadable window around the same engine: it installs the binary for you, makes the project folder, and runs the server, so that editing the configuration is the only thing left to do. Install it from the [download page](https://sovrium.com/download) rather than by command, and see **The Sovrium App**. Everything below still applies to the project it creates: the configuration file is an ordinary one.
 
 ## Prerequisites
 
@@ -33,9 +33,11 @@ docker pull ghcr.io/sovrium/sovrium:latest
 
 After installing, the `sovrium` command is available from anywhere.
 
-The install script downloads over HTTPS only and installs the binary only when its published sha256 matches. When the checksum cannot be fetched, cannot be read or does not match, it stops with nothing installed and tells you how to report it. `--insecure-skip-checksum` installs without that check and says so; use it only when you have verified the archive another way.
+The install script downloads over HTTPS only and installs the binary only when its published sha256 matches. When the checksum cannot be fetched, cannot be read or does not match, it stops with nothing installed and tells you how to report it.
 
-The checksum proves the download is intact, not who built it, because it comes from the same release page. Each release archive and its checksums file also carry a build provenance attestation, which proves the file came out of the project's release workflow from a known commit (older releases, published before attestations were added, have none); the Docker image carries its provenance and SBOM in the registry. With the GitHub CLI installed, check an archive with:
+It then checks the archive's release signature against the Sovrium release key written into the script, the same key `sovrium update` trusts, and stops with nothing installed when the signature is missing or does not verify. The check needs OpenSSL 3 or later, which current Linux distributions ship. Where none is found (macOS ships LibreSSL, so a Mac without Homebrew's `openssl@3`, or an older distribution), the script installs on the checksum alone and its closing lines say the signature was not checked. Versions older than 0.33.0 were published without a signature and install on their checksum. `--insecure-skip-checksum` skips both checks and says so; use it only when you have verified the archive another way.
+
+The checksum alone proves the download is intact, not who built it, because it comes from the same release page. Each release archive and its checksums file also carry a build provenance attestation, which proves the file came out of the project's release workflow from a known commit (older releases, published before attestations were added, have none); the Docker image carries its provenance and SBOM in the registry. With the GitHub CLI installed, check an archive with:
 
 ```bash
 gh attestation verify sovrium-<version>-<platform>.tar.gz -R sovrium/sovrium
@@ -43,9 +45,9 @@ gh attestation verify sovrium-<version>-<platform>.tar.gz -R sovrium/sovrium
 
 ## Cloud installation
 
-Run Sovrium on a managed host without provisioning a server yourself. Any platform that runs a long-lived container will do: point it at the published `ghcr.io/sovrium/sovrium` image. Render, Railway, Heroku, Platform.sh and Fly.io all run Sovrium this way. Scalingo can too, or you can deploy there from source with the Sovrium buildpack, which downloads the released, checksum-verified binary — see **Deploy on Scalingo**.
+Run Sovrium on a managed host without provisioning a server yourself. Any platform that runs a long-lived container will do: point it at the published `ghcr.io/sovrium/sovrium` image. Render, Railway, Heroku, Platform.sh and Fly.io all run Sovrium this way. Scalingo can too, or you can deploy there from source with the Sovrium buildpack, which downloads the released, checksum-verified binary. See **Deploy on Scalingo**.
 
-Whichever host you pick, set `BASE_URL` (required) and `SOVRIUM_ENCRYPTION_KEY`. Sovrium generates its own encryption key when none is given, but a managed host rebuilds the container filesystem on every deploy, so a self-generated key would not survive one unless it lands on a persistent volume — on a managed host, set it explicitly. That is the only secret you need: the session-signing secret is derived from the encryption key, so leave `AUTH_SECRET` unset unless you have a reason to manage it separately. Generate the key with `sovrium secret generate encryption`, or with `openssl rand -hex 32` if you do not have the binary to hand yet. If you do set `AUTH_SECRET`, it wins over the derived value and the two rotate independently: changing the encryption key no longer signs anyone out, changing `AUTH_SECRET` signs everyone out, and you now have two secrets to keep and back up. An existing deployment that already sets `AUTH_SECRET` should keep it — removing it switches to the derived secret and signs every user out once. `DATABASE_URL` is optional — Sovrium defaults to embedded SQLite — and so are the `SMTP_*` variables for sending email.
+Whichever host you pick, set `BASE_URL` (required) and `SOVRIUM_ENCRYPTION_KEY`. Sovrium generates its own encryption key when none is given, but a managed host rebuilds the container filesystem on every deploy, so a self-generated key would not survive one unless it lands on a persistent volume. On a managed host, set it explicitly. That is the only secret you need: the session-signing secret is derived from the encryption key, so leave `AUTH_SECRET` unset unless you have a reason to manage it separately. Generate the key with `sovrium secret generate encryption`, or with `openssl rand -hex 32` if you do not have the binary to hand yet. If you do set `AUTH_SECRET`, it wins over the derived value and the two rotate independently: changing the encryption key no longer signs anyone out, changing `AUTH_SECRET` signs everyone out, and you now have two secrets to keep and back up. An existing deployment that already sets `AUTH_SECRET` should keep it: removing it switches to the derived secret and signs every user out once. `DATABASE_URL` is optional, since Sovrium defaults to embedded SQLite, and so are the `SMTP_*` variables for sending email.
 
 Vercel is not supported, because it is serverless: it offers no persistent server or container, and Sovrium needs a long-running process to serve your app and store its data.
 
@@ -64,7 +66,7 @@ docker run -p 3000:3000 \
   ghcr.io/sovrium/sovrium:latest start /app/app.yaml
 ```
 
-Two mounts, and both matter. The first gives the container your config; the second is where it keeps state. `SOVRIUM_DATA_DIR` has to point at that second mount — Sovrium writes to `./.sovrium` by default, which inside the container is `/app/.sovrium`, so a data volume without this variable persists nothing. That includes the encryption key, which is why it is passed in above: with the volume wired up you could drop it and let Sovrium keep its own key on the volume instead.
+Two mounts, and both matter. The first gives the container your config; the second is where it keeps state. `SOVRIUM_DATA_DIR` has to point at that second mount. Sovrium writes to `./.sovrium` by default, which inside the container is `/app/.sovrium`, so a data volume without this variable persists nothing. That includes the encryption key, which is why it is passed in above: with the volume wired up you could drop it and let Sovrium keep its own key on the volume instead.
 
 Sovrium accepts either entry file, `app.yaml` or `app.ts`, so a guide that shows one works just as well with the other. See **Deploy with Docker** for the full production walkthrough.
 
@@ -90,23 +92,23 @@ Authoring the config in TypeScript instead? Run `sovrium types` in the project d
 
 ## Database setup
 
-Sovrium uses an embedded SQLite database by default — tables and auth work with zero configuration. Set `DATABASE_URL` only to choose the SQLite file location or to switch to PostgreSQL:
+Sovrium uses an embedded SQLite database by default, so tables and auth work with zero configuration. Set `DATABASE_URL` only to choose the SQLite file location or to switch to PostgreSQL:
 
 ```bash
-# Default: embedded SQLite — no DATABASE_URL needed
+# Default: embedded SQLite, no DATABASE_URL needed
 
-# Optional — choose where the SQLite file lives:
+# Optional: choose where the SQLite file lives:
 export DATABASE_URL="file:./data/app.db"
 
-# Optional — use PostgreSQL for advanced features:
+# Optional: use PostgreSQL for advanced features:
 export DATABASE_URL="postgresql://user:password@localhost:5432/myapp"
 ```
 
-Leave `DATABASE_URL` unset and Sovrium stores data in a local SQLite file. Use a `file:` URL to pick its location, or a `postgresql://` URL to switch engines. Pure static sites — pages and design only — need no database at all.
+Leave `DATABASE_URL` unset and Sovrium stores data in a local SQLite file. Use a `file:` URL to pick its location, or a `postgresql://` URL to switch engines. Pure static sites (pages and design only) need no database at all.
 
 ## Next steps
 
-- **Quick Start** — build and run your first app.
-- **The Sovrium App** — the same engine, in a window that runs it for you.
-- **Core Concepts** — the anatomy of a Sovrium app.
-- **Configuration Files** — YAML, JSON, TypeScript, and `$ref`.
+- **Quick Start**: build and run your first app.
+- **The Sovrium App**: the same engine, in a window that runs it for you.
+- **Core Concepts**: the anatomy of a Sovrium app.
+- **Configuration Files**: YAML, JSON, TypeScript, and `$ref`.

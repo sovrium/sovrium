@@ -67,11 +67,19 @@ function buildTwitterCardFields(
   }))
 }
 
-/** A card declared without a description fills the slot; it never creates a card. */
-const withFallbackDescription = <T extends { readonly description?: string | undefined }>(
+/** A card declared without a title or description fills the slot; it never creates a card. */
+const withFallbacks = <
+  T extends { readonly title?: string | undefined; readonly description?: string | undefined },
+>(
   card: T,
-  fallback: string | undefined
-): T => (card.description === undefined && fallback ? { ...card, description: fallback } : card)
+  fallback: { readonly title: string | undefined; readonly description: string | undefined }
+): T => ({
+  ...card,
+  ...(card.title === undefined && fallback.title ? { title: fallback.title } : {}),
+  ...(card.description === undefined && fallback.description
+    ? { description: fallback.description }
+    : {}),
+})
 
 /**
  * Render Twitter Card metadata tags
@@ -79,6 +87,7 @@ const withFallbackDescription = <T extends { readonly description?: string | und
  * Supports both 'twitter' and 'twitterCard' field names for compatibility
  *
  * @param page - Page configuration
+ * @param fallbackTitle - What `twitter:title` reads when the card declares none
  * @param fallbackDescription - What `twitter:description` reads when the card declares none
  * @returns React fragment with Twitter meta tags
  */
@@ -86,11 +95,14 @@ export function TwitterCardMeta({
   page,
   lang,
   languages,
+  fallbackTitle,
   fallbackDescription,
 }: {
   readonly page: Page
   readonly lang?: string
   readonly languages?: Languages
+  /** The resolved title a card declared without one takes (`openGraph`, then `meta`). */
+  readonly fallbackTitle?: string
   /** The resolved description a card declared without one takes (`openGraph`, then `meta`). */
   readonly fallbackDescription?: string
 }): Readonly<ReactElement | undefined> {
@@ -99,10 +111,13 @@ export function TwitterCardMeta({
   if (!declaredCard) {
     return undefined
   }
-  const twitterCard = withFallbackDescription(declaredCard, fallbackDescription)
+  const twitterCard = withFallbacks(declaredCard, {
+    title: fallbackTitle,
+    description: fallbackDescription,
+  })
 
-  // Resolve `$t:` translation patterns in the human-readable title/description
-  // (mirrors OpenGraphMeta). Without this, Twitter/X cards leak raw `$t:` tokens.
+  // Resolve `$t:` translation patterns in the human-readable title, description
+  // and image text (mirrors OpenGraphMeta). Without this, Twitter/X cards leak raw `$t:` tokens.
   const resolvedCard =
     lang && languages
       ? {
@@ -112,6 +127,9 @@ export function TwitterCardMeta({
           }),
           ...(typeof twitterCard.description === 'string' && {
             description: resolveTranslationPattern(twitterCard.description, lang, languages),
+          }),
+          ...(typeof twitterCard.imageAlt === 'string' && {
+            imageAlt: resolveTranslationPattern(twitterCard.imageAlt, lang, languages),
           }),
         }
       : twitterCard

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { codeOnAddressableAgentMessage } from './agent-reach-validation'
 import { AgentApprovalSchema } from './approval'
 import { AgentDefinitionSchema } from './definition'
 import { AgentKnowledgeSchema } from './knowledge'
@@ -107,10 +108,14 @@ export const AgentsSchema = Schema.Array(AgentSchema).pipe(
     // no JSON Schema representation, so a filter in final position swallows the
     // title + description and the PUBLISHED schema silently loses them —
     // measured, not assumed. Keeping a representable check last preserves them.
+    //
+    // The code rule is checked here too, rather than on `AgentSchema`: a check
+    // on the agent struct takes its `Agent` definition out of the published
+    // schema (measured), and the array check already names the agent it refuses.
     Schema.makeFilter((agents) =>
       agents.some((agent) => agent.name === RESERVED_SYSTEM_AGENT_NAME)
         ? `Agent name '${RESERVED_SYSTEM_AGENT_NAME}' is reserved for the built-in System Agent every app carries. Rename this agent.`
-        : undefined
+        : agents.map(codeOnAddressableAgentMessage).find((message) => message !== undefined)
     ),
     Schema.isMinLength(1)
   ),

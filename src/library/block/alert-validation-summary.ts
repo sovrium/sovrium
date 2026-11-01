@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { appRegion, span } from '@/library/manifest/app-block-kit'
-import { asComponent, PLACE_NOTE, stack } from '@/library/manifest/block-kit'
+import { appRegion, span } from '@/library/kit/app-block-kit'
+import { asComponent, PLACE_NOTE, stack } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** The list of fields a form refused, each linking to the field. */

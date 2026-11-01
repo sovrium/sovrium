@@ -66,6 +66,8 @@ export const resumeApprovedTurn = <R>(input: {
       agent: input.agent,
       app: input.app,
       caller,
+      // A call the resumed turn holds again is still the person's request.
+      requestedById: caller?.userId,
       tools: external.tools,
     }
     const result = yield* runApprovedToolCall(input.agent, call, context)

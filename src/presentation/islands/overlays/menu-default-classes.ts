@@ -70,7 +70,11 @@ export const computeMenuPopupClasses = ({
 } = {}): string =>
   [MENU_CONTENT_FRAME, MENU_CONTENT_MIN_WIDTH[kind], MENU_CONTENT_SURFACE[variant]].join(' ')
 
-/** The row's tone at rest and when highlighted (pointer or keyboard). */
+/**
+ * The row's tone at rest and when highlighted (pointer or keyboard). A default
+ * row inherits the panel's ink at rest: a `navigate` row is an `<a>`, and the
+ * page's base link colour would otherwise tint it apart from its neighbours.
+ */
 const MENU_ITEM_TONE = cva('', {
   variants: {
     surface: { default: '', inverted: '' },
@@ -81,7 +85,7 @@ const MENU_ITEM_TONE = cva('', {
       surface: 'default',
       variant: 'default',
       className:
-        'focus:bg-accent focus:text-accent-foreground data-highlighted:bg-accent data-highlighted:text-accent-foreground',
+        'text-inherit focus:bg-accent focus:text-accent-foreground data-highlighted:bg-accent data-highlighted:text-accent-foreground',
     },
     {
       surface: 'default',

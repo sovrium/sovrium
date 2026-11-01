@@ -38,15 +38,14 @@ import {
   type BucketBinding,
   type StorageError,
 } from '@/application/ports/services/storage-service'
-import { logStorageFailure } from '@/application/use-cases/storage/storage-failure-log'
+import { logStorageFailure } from '@/application/use-cases/buckets/storage-failure-log'
+import { DAY_MS } from '@/domain/kernel/time/durations'
 import {
   BROWSER_ARTIFACT_PREFIX,
   runIdOfArtifactKey,
 } from '@/domain/models/app/automations/actions/browser/browser-artifact-service'
 import { logError } from '@/infrastructure/logging/logger'
 import type { AutomationRunDatabaseError } from '@/application/ports/repositories/automations/automation-run-repository'
-
-const DAY_MS = 86_400_000
 
 /** What the sweep knows of one run's pictures. */
 interface RunPictures {

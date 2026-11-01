@@ -21,6 +21,7 @@ export function KanbanFormatProvider({
   table,
   colorFieldColors,
   draggableEnabled,
+  laneFields,
   recordText,
   select,
   children,
@@ -29,6 +30,7 @@ export function KanbanFormatProvider({
   readonly table: string | undefined
   readonly colorFieldColors: Readonly<Record<string, string>> | undefined
   readonly draggableEnabled: boolean
+  readonly laneFields?: readonly (string | undefined)[] | undefined
   readonly recordText: RecordTextFields | undefined
   readonly select?: ((recordId: unknown) => void) | undefined
   readonly children: ReactNode
@@ -41,10 +43,11 @@ export function KanbanFormatProvider({
       ...(table ? { table } : {}),
       ...(colorFieldColors ? { colorFieldColors } : {}),
       draggableEnabled,
+      ...(laneFields ? { laneFields } : {}),
       ...(recordText ? { recordText } : {}),
       ...(select ? { select } : {}),
     }),
-    [fieldMeta, table, colorFieldColors, draggableEnabled, recordText, select]
+    [fieldMeta, table, colorFieldColors, draggableEnabled, laneFields, recordText, select]
   )
   return <KanbanFormatContext.Provider value={value}>{children}</KanbanFormatContext.Provider>
 }

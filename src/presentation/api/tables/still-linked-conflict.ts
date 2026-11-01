@@ -10,11 +10,10 @@ import { findConstraintViolation, findStillReferencingTable } from '@/domain/err
 import { findForeignKeyCandidates } from '@/domain/models/app/tables/relationship-foreign-key'
 import { conflict } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runEffect, runOnRequest } from '@/presentation/api/runtime/run-effect'
+import { respondWith } from '@/presentation/api/runtime/run-effect'
 import { handleRouteError } from './error-handlers'
 import { callerReadsTable } from './table-read-gate'
 import type { App, Table } from '@/domain/models/app'
-import type { DomainServices } from '@/infrastructure/logging/request-effect'
 import type { Context } from 'hono'
 
 /** Referential actions that let the delete through instead of refusing it. */
@@ -60,44 +59,45 @@ export const stillLinkingTable = (
  * record. The linking table is named only when `reads` admits the caller to
  * it; anyone else is told the same thing without the name.
  */
-export const stillLinkedMessage = async (
+export const stillLinkedMessage = <R>(
   input: { readonly app: App; readonly deletedTable: string; readonly error: unknown },
-  reads: (table: Table) => Promise<boolean>
-): Promise<string> => {
-  const linking = stillLinkingTable(input.app, input.deletedTable, input.error)
-  const named = linking !== undefined && (await reads(linking)) ? linking.name : undefined
-  const source = named === undefined ? 'other records' : `records of the "${named}" table`
-  return `This record is still linked from ${source}. Unlink or delete them first, then delete it again.`
-}
+  reads: (table: Table) => Effect.Effect<boolean, never, R>
+) =>
+  Effect.gen(function* () {
+    const linking = stillLinkingTable(input.app, input.deletedTable, input.error)
+    const named = linking !== undefined && (yield* reads(linking)) ? linking.name : undefined
+    const source = named === undefined ? 'other records' : `records of the "${named}" table`
+    return `This record is still linked from ${source}. Unlink or delete them first, then delete it again.`
+  })
 
 /**
  * The `409` of a delete refused because other rows still link to the record,
  * or `undefined` for any other failure, which the caller answers as before.
  */
-export async function stillLinkedConflict(
-  c: Context,
-  app: App,
-  error: unknown
-): Promise<Response | undefined> {
-  if (findConstraintViolation(error) !== 'still-referenced') return undefined
-  const input = { app, deletedTable: getTableContext(c).tableName, error }
-  return conflict(c, await stillLinkedMessage(input, (table) => callerReadsTable(c, app, table)))
-}
+export const stillLinkedConflict = (c: Context, app: App, error: unknown) =>
+  Effect.gen(function* () {
+    if (findConstraintViolation(error) !== 'still-referenced') return undefined
+    const input = { app, deletedTable: getTableContext(c).tableName, error }
+    const message = yield* stillLinkedMessage(input, (table) => callerReadsTable(c, app, table))
+    return conflict(c, message)
+  })
 
 /**
- * Run a delete program and answer it: its success through `schema`, a record
- * other rows still link to as {@link stillLinkedConflict}'s `409`, and every
- * other failure through the sanitized route error.
+ * Answer a delete program: its success through `schema`, a record other rows
+ * still link to as {@link stillLinkedConflict}'s `409`, and every other failure
+ * through the sanitized route error.
  */
-export async function answerDeleteProgram<A, E>(
+export const answerDeleteProgram = <A, E, R>(
   c: Context,
   app: App,
-  program: Effect.Effect<A, E, DomainServices>,
+  program: Effect.Effect<A, E, R>,
   schema: Schema.Top
-): Promise<Response> {
-  const outcome = await runOnRequest(c, program)
-  if (outcome._tag === 'Success') return runEffect(c, Effect.succeed(outcome.success), schema)
-  return (
-    (await stillLinkedConflict(c, app, outcome.failure)) ?? handleRouteError(c, outcome.failure)
-  )
-}
+) =>
+  Effect.gen(function* () {
+    const outcome = yield* Effect.result(program)
+    if (outcome._tag === 'Success') {
+      return yield* respondWith(c, Effect.succeed(outcome.success), schema)
+    }
+    const stillLinked = yield* stillLinkedConflict(c, app, outcome.failure)
+    return stillLinked ?? handleRouteError(c, outcome.failure)
+  })

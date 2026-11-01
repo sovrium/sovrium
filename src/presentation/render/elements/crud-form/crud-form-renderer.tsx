@@ -15,6 +15,7 @@ import { tableLabel } from '@/domain/models/app/tables/table-display-name-servic
 import { computeFormLayoutClasses } from '../../../design/forms-default-classes'
 import { resolveClasses } from '../../../design/resolve-classes'
 import { omitInternalMarkers } from '../../props/internal-marker-props'
+import { controlFieldDefs } from './crud-form-control-fields'
 import { buildResolvedFieldDefs, updateFieldDefsForReader } from './crud-form-field-resolver'
 import {
   buildAutomationIslandProps,
@@ -22,6 +23,7 @@ import {
   formLayoutProps,
   readAutoSaveConfig,
 } from './crud-form-island-props'
+import { applyRecordLocks } from './crud-form-record-locks'
 import { readFormSections, renderSectionedFields } from './crud-form-sections'
 import { renderSkeletonField, renderUpdateSkeletonField } from './crud-form-skeleton'
 import type { ElementProps } from '../html-element-renderer'
@@ -61,14 +63,24 @@ function formString(key: string, context: CrudFormRenderContext): string {
 /**
  * The island's own strings, where they differ from English: the form's words,
  * its actions', the rate-limited notice's, the rich-text field's and the
- * pickers', and the shared coercion rule's refusal words (`datatable.takes*`).
+ * pickers', the shared coercion rule's refusal words (`datatable.takes*`) and
+ * a select's empty row (`select.placeholder`).
  */
 function formUiStrings(
   context: CrudFormRenderContext
 ): Readonly<Record<string, string>> | undefined {
   const { lang, languages } = context
   return resolveInterpreterStringOverrides(
-    ['form.', 'action.', 'rateLimit.', 'richText.', 'picker.', 'datePicker.', 'datatable.takes'],
+    [
+      'form.',
+      'action.',
+      'rateLimit.',
+      'richText.',
+      'picker.',
+      'datePicker.',
+      'datatable.takes',
+      'select.placeholder',
+    ],
     lang ?? languages?.default,
     languages
   )
@@ -151,7 +163,7 @@ function readLayout(component?: Component): string | undefined {
 /**
  * The fields an update form renders an input for: every resolved field but the
  * ones the resolver marked unreadable for this visitor (`_unreadableFields`,
- * `resolve/data-source-modes.ts`). The form never received their values, and
+ * `resolve/read-plan-gates.ts`). The form never received their values, and
  * an input it rendered anyway would be submitted empty over the stored value.
  */
 function readableFieldDefs(
@@ -192,7 +204,9 @@ export function renderCrudUpdateForm(
   // every skeleton field as `disabled: true` (rendering the inputs disabled
   // but still visible) and suppress the Save button so the form can't even
   // attempt a submit.
-  const fields = isReadOnly ? rawFields.map((f) => ({ ...f, disabled: true })) : rawFields
+  const fields = isReadOnly
+    ? rawFields.map((f) => ({ ...f, disabled: true }))
+    : applyRecordLocks(rawFields, record)
   const recordId = String(record['id'] ?? '')
   const layout = readLayout(component)
   const sections = readFormSections(component, (text) => localize(text, context))
@@ -212,6 +226,11 @@ export function renderCrudUpdateForm(
     autoSave: readAutoSaveConfig(component),
     uiStrings: formUiStrings(context),
     formName,
+    // A table's business rules can refuse a save the form could not foresee
+    // (the record changed since the page was read): the script save shows that
+    // refusal beside the field it names, where a native post could only answer
+    // with the refusal itself.
+    submitInPlace: (table?.rules ?? []).length > 0,
   })
   const formAction = buildUpdateFormAction(action.table, recordId)
 
@@ -279,7 +298,11 @@ export function renderAutomationForm(
   const componentRecord = (component ?? {}) as Record<string, unknown>
   const dataSource = componentRecord['dataSource'] as { table?: string } | undefined
   const tableName = dataSource?.table ?? ''
-  const resolved = buildResolvedFieldDefs(tables, tableName, component, buckets)
+  // Bound to no table, the form draws the fields that declare their own control.
+  const resolved =
+    tableName === ''
+      ? controlFieldDefs(component)
+      : buildResolvedFieldDefs(tables, tableName, component, buckets)
   const fields = applyCrudFieldOverrides(resolved, undefined, context) // labels in the page language
   // No action-level submit label: an action naming only the table falls back to props.label.
   const submitBtn = readSubmitButtonProps(
@@ -287,6 +310,7 @@ export function renderAutomationForm(
     context,
     component
   )
+  const uiStrings = formUiStrings(context)
   const islandProps = buildAutomationIslandProps({
     automationName: action.name,
     inputData: action.inputData,
@@ -298,7 +322,7 @@ export function renderAutomationForm(
     testId: props['data-testid'],
     id: props.id,
     className: authorClass(props.className),
-    uiStrings: formUiStrings(context),
+    uiStrings,
   })
 
   return (
@@ -318,7 +342,7 @@ export function renderAutomationForm(
         data-action-automation={action.name}
         noValidate
       >
-        {fields.map((field) => renderSkeletonField(field))}
+        {fields.map((field) => renderSkeletonField(field, uiStrings))}
         <div
           data-error-summary
           hidden

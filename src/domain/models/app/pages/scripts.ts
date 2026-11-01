@@ -184,6 +184,16 @@ export const ScriptPositionSchema = Schema.Literals(['head', 'body-start', 'body
   description: 'Where to insert the script in the document',
 })
 
+/** The purpose a script waits for; the app-level consent check resolves the id. */
+const ScriptConsentSchema = Schema.String.pipe(
+  Schema.annotate({
+    description:
+      'Id of a purpose declared in consent.purposes. The script is held back until the visitor accepts that purpose.',
+    examples: ['support-chat'],
+  }),
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(50))
+)
+
 /**
  * External JavaScript dependency
  *
@@ -240,6 +250,7 @@ export const ExternalScriptSchema = Schema.Struct({
   ),
   crossorigin: Schema.optional(CrossOriginSchema),
   position: Schema.optional(ScriptPositionSchema),
+  consent: Schema.optional(ScriptConsentSchema),
 }).annotate({
   description: 'External JavaScript dependency',
 })
@@ -301,6 +312,7 @@ export const InlineScriptSchema = Schema.Struct({
       default: false,
     })
   ),
+  consent: Schema.optional(ScriptConsentSchema),
 }).annotate({
   description: 'Inline JavaScript code snippet',
 })

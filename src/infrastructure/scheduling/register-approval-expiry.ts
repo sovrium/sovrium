@@ -49,10 +49,9 @@ const BOOT_SWEEP_JOB_ID = 'approval-expiry-boot'
 /** One sweep, its failure logged and absorbed: the next tick retries. */
 const sweepOnce = (
   app: App,
-  processEnv: Readonly<Record<string, string | undefined>>,
   when: 'boot' | 'scheduled'
 ): Effect.Effect<void, never, ResolveRequirements> =>
-  expireAutomationApprovals(app, processEnv).pipe(
+  expireAutomationApprovals(app).pipe(
     // The boot run's result is logged with its count; it lands after the
     // listening banner, so a boot that resolved nothing says so at debug level
     // only rather than adding a line to every start.
@@ -73,23 +72,21 @@ const sweepOnce = (
   )
 
 export const registerApprovalExpiryScheduler = (
-  app: App,
-  processEnv: Readonly<Record<string, string | undefined>>
+  app: App
 ): Effect.Effect<string | undefined, never, CronScheduler | ResolveRequirements> =>
   Effect.gen(function* () {
     if ((app.automations ?? []).length === 0) return undefined
     const services = yield* Effect.context<ResolveRequirements>()
     const scheduler = yield* CronScheduler
     yield* Effect.sync(() => logDebug('[approval-expiry] boot sweep started'))
-    yield* scheduler.runOnce(
-      () => sweepOnce(app, processEnv, 'boot').pipe(Effect.provide(services)),
-      { jobId: BOOT_SWEEP_JOB_ID }
-    )
+    yield* scheduler.runOnce(() => sweepOnce(app, 'boot').pipe(Effect.provide(services)), {
+      jobId: BOOT_SWEEP_JOB_ID,
+    })
     return yield* scheduler
       .schedule(
         EXPIRY_CRON_EXPRESSION,
-        () => sweepOnce(app, processEnv, 'scheduled').pipe(Effect.provide(services)),
-        { jobId: EXPIRY_JOB_ID, timezone: resolveOperatorTimezone() }
+        () => sweepOnce(app, 'scheduled').pipe(Effect.provide(services)),
+        { jobId: EXPIRY_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
       )
       .pipe(
         Effect.catch((err) =>

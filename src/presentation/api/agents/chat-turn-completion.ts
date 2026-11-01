@@ -22,7 +22,12 @@
  * no cycle to reason about.
  */
 
-import { type ChatResponse, type ChatAction } from '@/domain/models/api/ai/chat'
+import { Effect } from 'effect'
+import {
+  rememberChatTurn,
+  type ChatTurnToPersist,
+} from '@/application/use-cases/agents/chat-turn/durable-memory'
+import { chatResponseSchema, type ChatAction, type ChatResponse } from '@/domain/models/api/ai/chat'
 import { type ContextPageScope } from '@/domain/models/app/agents/ai-chat-context'
 import { type AgentTurnBinding } from '@/presentation/api/agents/agent-chat'
 import {
@@ -31,7 +36,6 @@ import {
 } from '@/presentation/api/agents/chat-activity-log'
 import { completeTriggerTurn } from '@/presentation/api/agents/chat-automation-flow'
 import { appendConversationTurn } from '@/presentation/api/agents/chat-conversation-store'
-import { persistTurnDurably } from '@/presentation/api/agents/chat-durable-memory'
 import {
   evaluateMutationTurn,
   resolveUserEmail,
@@ -40,18 +44,15 @@ import {
 import { evaluateQueryTurn } from '@/presentation/api/agents/chat-query-flow'
 import { respondWithActions } from '@/presentation/api/agents/chat-tool-reply'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { respondWith } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { StoredToolCall } from '@/domain/models/app/agents/stored-tool-call-service'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
-import type { ChatTurnToPersist } from '@/presentation/api/agents/chat-durable-memory'
 import type { ChatReader } from '@/presentation/api/agents/chat-read-scope'
 import type { AdmittedTurnParts } from '@/presentation/api/agents/chat-turn-parts'
 import type { Context } from 'hono'
 
 /** Inputs for a single non-agent chat turn dispatched to the AI provider. */
 export interface ChatTurnInput {
-  /** The server's resolved services, taken off the request that started the turn. */
-  readonly services: DomainContext
   readonly systemPrompt: string
   readonly message: string
   readonly sessionId: string
@@ -95,27 +96,19 @@ export interface ChatTurnInput {
 }
 
 /**
- * Project a turn's inputs onto the persistence shape.
- *
- * One expression at the call site, which is what keeps the two "complete the
- * turn" functions inside the project-wide function-length limit — they each
- * finish with a run of best-effort side effects and nothing else.
- */
-/**
  * S1 anti-enumeration: an authorization denial in chat answers 404, so a caller
  * cannot enumerate the tables they lack access to by reading the status. The
- * refusal's own message is deliberately discarded from the envelope.
+ * refusal's own message is deliberately discarded from the envelope. The
+ * refusal row is written before the answer: a spec that asserts it exists
+ * right after the 404 must find it.
  */
-const refuseAsNotFound = async (c: Context, input: ChatTurnInput): Promise<Response> => {
-  // AWAITED, as it was inline: a spec that asserts the refusal row exists
-  // immediately after the 404 would otherwise race the write.
-  await recordChatActivity(input.services, {
-    action: 'ai.chat.error',
-    actorName: input.actorName,
-  })
-  return notFound(c, 'Resource not found')
-}
+const refuseAsNotFound = (c: Context, input: ChatTurnInput) =>
+  Effect.as(
+    recordChatActivity({ action: 'ai.chat.error', actorName: input.actorName }),
+    notFound(c, 'Resource not found')
+  )
 
+/** Project a turn's inputs onto the persistence shape. */
 const turnToPersist = (
   input: ChatTurnInput,
   reply: string,
@@ -153,75 +146,57 @@ const readLines = (
  * record activity, and build the `{ reply, actions, pendingConfirmation? }`
  * response envelope.
  */
-export const finishChatTurn = async (
-  c: Context,
-  input: ChatTurnInput,
-  aiReply: string
-): Promise<Response> => {
-  // Read-query path. Evaluated before the mutation
-  // path because a query verb ("show", "how many") and a mutation verb
-  // ("create", "update", "delete") are disjoint — but a query message such as
-  // "Show users where …; DROP TABLE users;--" must be read as a *query*, not a
-  // delete. A `forbidden` query short-circuits to HTTP 403; an `answered`
-  // query owns the reply text and the `type: 'query'` action.
-  const query = await evaluateQueryTurn({
-    services: input.services,
-    app: input.app,
-    message: input.message,
-    sessionId: input.sessionId,
-    reader: input.reader,
-    ...(input.pageContext !== undefined && { pageContext: input.pageContext }),
-  })
-  if (query.kind === 'forbidden') return await refuseAsNotFound(c, input)
-  if (query.kind === 'answered') {
-    return finishQueryTurn(c, input, query.reply, query.action)
-  }
-
-  // Automation-trigger path. Evaluated before
-  // the mutation path because a trigger verb ("run", "trigger") is disjoint
-  // from a mutation verb ("create", "update", "delete"). `completeTriggerTurn`
-  // owns the whole completion path — a `forbidden` trigger becomes HTTP 403,
-  // a `triggered` / `not-triggerable` / `not-found` turn becomes the 200
-  // envelope; `undefined` means the turn is not a trigger turn.
-  const triggerResponse = await completeTriggerTurn(c, {
-    services: input.services,
-    app: input.app,
-    message: input.message,
-    sessionId: input.sessionId,
-    userRole: input.userRole,
-    actorName: input.actorName,
-    aiReply,
-    rateLimitRemaining: input.rateLimitRemaining,
-  })
-  if (triggerResponse !== undefined) return triggerResponse
-
-  // The mutation parser owns intent extraction (the E2E mock AI never returns
-  // structured actions for these prompts), so the AI provider is used purely
-  // for the conversational reply.
-  const mutation = await evaluateMutationTurn({
-    services: input.services,
-    app: input.app,
-    message: input.message,
-    userId: input.actorName,
-    userRole: input.userRole,
-    reader: input.reader,
-    ...(input.confirmationToken !== undefined && {
-      confirmationToken: input.confirmationToken,
-    }),
-  })
-  if (mutation.kind === 'forbidden') {
-    await recordChatActivity(input.services, {
-      action: 'ai.chat.error',
-      actorName: input.actorName,
+export const finishChatTurn = (c: Context, input: ChatTurnInput, aiReply: string) =>
+  Effect.gen(function* () {
+    // Read-query path. Evaluated before the mutation path because a query verb
+    // ("show", "how many") and a mutation verb ("create", "update", "delete")
+    // are disjoint — but a query message such as
+    // "Show users where …; DROP TABLE users;--" must be read as a *query*, not
+    // a delete. A `forbidden` query is refused as not found; an `answered`
+    // query owns the reply text and the `type: 'query'` action.
+    const query = yield* evaluateQueryTurn({
+      app: input.app,
+      message: input.message,
+      sessionId: input.sessionId,
+      reader: input.reader,
+      ...(input.pageContext !== undefined && { pageContext: input.pageContext }),
     })
-    // S1 anti-enumeration: authz denials in chat (record mutation) return 404
-    // so the user cannot enumerate which tables they lack write access to.
-    // `mutation.message` is intentionally discarded from the response envelope.
-    return notFound(c, 'Resource not found')
-  }
+    if (query.kind === 'forbidden') return yield* refuseAsNotFound(c, input)
+    if (query.kind === 'answered') return yield* finishQueryTurn(c, input, query)
 
-  return finishMutationTurn(c, input, aiReply, mutation)
-}
+    // Automation-trigger path. Evaluated before the mutation path because a
+    // trigger verb ("run", "trigger") is disjoint from a mutation verb.
+    // `completeTriggerTurn` owns the whole completion path; `undefined` means
+    // the turn is not a trigger turn.
+    const triggerResponse = yield* completeTriggerTurn(c, {
+      app: input.app,
+      message: input.message,
+      sessionId: input.sessionId,
+      userRole: input.userRole,
+      actorName: input.actorName,
+      aiReply,
+      rateLimitRemaining: input.rateLimitRemaining,
+    })
+    if (triggerResponse !== undefined) return triggerResponse
+
+    // The mutation parser owns intent extraction (the E2E mock AI never returns
+    // structured actions for these prompts), so the AI provider is used purely
+    // for the conversational reply.
+    const mutation = yield* evaluateMutationTurn({
+      app: input.app,
+      message: input.message,
+      userId: input.actorName,
+      userRole: input.userRole,
+      reader: input.reader,
+      ...(input.confirmationToken !== undefined && {
+        confirmationToken: input.confirmationToken,
+      }),
+    })
+    // S1 anti-enumeration: a refused write answers 404 so the user cannot
+    // enumerate which tables they lack write access to.
+    if (mutation.kind === 'forbidden') return yield* refuseAsNotFound(c, input)
+    return yield* finishMutationTurn(c, input, aiReply, mutation)
+  })
 
 /** The tables a write's answer names: those it wrote, or the one awaiting confirmation. */
 const mutationReads = (
@@ -244,42 +219,38 @@ const mutationReads = (
  * history, records `ai.chat.message` activity, and builds the
  * `{ reply, actions, pendingConfirmation? }` envelope.
  */
-const finishMutationTurn = async (
+const finishMutationTurn = (
   c: Context,
   input: ChatTurnInput,
   aiReply: string,
   mutation: Exclude<MutationTurnResult, { kind: 'forbidden' }>
-): Promise<Response> => {
-  const reply = resolveReply(aiReply, mutation)
+) =>
+  Effect.gen(function* () {
+    const reply = resolveReply(aiReply, mutation)
 
-  // Persist this completed exchange so the *next* turn on the same session
-  // carries it forward. The in-memory store keeps the
-  // sessionless `anonymous` fallback working; durable PostgreSQL persistence
-  // makes history survive a restart and powers the conversation endpoints.
-  appendConversationTurn(c, input, input.message, reply)
-  await persistTurnDurably(input.services, turnToPersist(input, reply, mutationReads(mutation)))
-  // Record the interaction in activity monitoring.
-  await recordChatActivity(input.services, {
-    action: 'ai.chat.message',
-    actorName: input.actorName,
+    // Persist this completed exchange so the *next* turn on the same session
+    // carries it forward. The in-memory store keeps the sessionless `anonymous`
+    // fallback working; durable persistence makes history survive a restart
+    // and powers the conversation endpoints.
+    appendConversationTurn(c, input, input.message, reply)
+    yield* rememberChatTurn(turnToPersist(input, reply, mutationReads(mutation)))
+    // Record the interaction in activity monitoring.
+    yield* recordChatActivity({ action: 'ai.chat.message', actorName: input.actorName })
+
+    const actions: ReadonlyArray<ChatAction> = mutation.kind === 'applied' ? mutation.actions : []
+    const body: ChatResponse = {
+      reply,
+      actions: [...actions],
+      sessionId: input.sessionId,
+      ...(mutation.kind === 'pending' && { pendingConfirmation: mutation.pendingConfirmation }),
+    }
+    // Surface the remaining chat quota so clients can self-throttle; the header
+    // is present only when rate limiting is set.
+    if (input.rateLimitRemaining !== undefined) {
+      c.header('X-RateLimit-Remaining', input.rateLimitRemaining.toString())
+    }
+    return yield* respondWith(c, Effect.succeed(body), chatResponseSchema)
   })
-
-  const actions: ReadonlyArray<ChatAction> = mutation.kind === 'applied' ? mutation.actions : []
-  const body: ChatResponse = {
-    reply,
-    actions: [...actions],
-    sessionId: input.sessionId,
-    ...(mutation.kind === 'pending' && { pendingConfirmation: mutation.pendingConfirmation }),
-  }
-  // Surface the remaining chat quota so clients can self-throttle
-  // Header is present only when rate limiting is set.
-  if (input.rateLimitRemaining !== undefined) {
-    return c.json(body, 200, {
-      'X-RateLimit-Remaining': input.rateLimitRemaining.toString(),
-    })
-  }
-  return c.json(body, 200)
-}
 
 /**
  * Complete a chat turn after the read-query pipeline answered it
@@ -288,32 +259,32 @@ const finishMutationTurn = async (
  * email, and builds the `{ reply, actions }` envelope
  * with the single `type: 'query'` action.
  */
-const finishQueryTurn = async (
+const finishQueryTurn = (
   c: Context,
   input: ChatTurnInput,
-  reply: string,
-  action: ChatAction
-): Promise<Response> => {
-  appendConversationTurn(c, input, input.message, reply)
-  await persistTurnDurably(input.services, turnToPersist(input, reply, [action]))
-  // Record the read query in activity monitoring with explicit user
-  // attribution. Best-effort — a logging failure must
-  // never break the chat turn.
-  const userEmail = await resolveUserEmail(input.services, input.actorName)
-  await recordActivityLogRow(input.services, {
-    actorType: 'user',
-    actorName: input.actorName,
-    action: 'ai.chat.query',
-    targetTable: action.table,
-    userEmail,
+  answered: { readonly reply: string; readonly action: ChatAction }
+) =>
+  Effect.gen(function* () {
+    const { reply, action } = answered
+    appendConversationTurn(c, input, input.message, reply)
+    yield* rememberChatTurn(turnToPersist(input, reply, [action]))
+    // Record the read query in activity monitoring with explicit user
+    // attribution. Best-effort — a logging failure must never break the turn.
+    const userEmail = yield* resolveUserEmail(input.actorName)
+    yield* recordActivityLogRow({
+      actorType: 'user',
+      actorName: input.actorName,
+      action: 'ai.chat.query',
+      targetTable: action.table,
+      userEmail,
+    })
+    return respondWithActions(c, {
+      reply,
+      actions: [action],
+      sessionId: input.sessionId,
+      rateLimitRemaining: input.rateLimitRemaining,
+    })
   })
-  return respondWithActions(c, {
-    reply,
-    actions: [action],
-    sessionId: input.sessionId,
-    rateLimitRemaining: input.rateLimitRemaining,
-  })
-}
 
 /**
  * Choose the reply text for a chat turn: the mutation executor's summary /

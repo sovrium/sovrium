@@ -5,13 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  asComponent,
-  param,
-  PLACE_NOTE,
-  stringParam,
-  THEME_NOTE,
-} from '@/library/manifest/block-kit'
+import { asComponent, param, PLACE_NOTE, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** The rows shadcn's table demo writes: four invoices, the amount last. */

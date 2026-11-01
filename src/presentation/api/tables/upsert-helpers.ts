@@ -14,11 +14,11 @@ import {
 import { readonlyFieldWriteMessage } from '@/domain/models/app/tables/computed-field-write-validation'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import { findMissingRequiredFieldNames } from '@/domain/models/app/tables/required-fields-validation'
-import { checkForExistingRecords } from '@/infrastructure/layers/table-layer'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/runtime/field-permission-validator'
 import { forbiddenCreateResponse } from './response-helpers'
 import { resolveAccessRolesFor } from './row-level-guard'
+import { anyMergeMatch } from './upsert-merge-matches'
 import { enforceUpsertRowGate, hiddenMatchesOf, unresolvableMergeField } from './upsert-row-gate'
 import type { App } from '@/domain/models/app'
 import type { FieldWriter } from '@/domain/models/app/tables/field-write-permission-service'
@@ -34,20 +34,18 @@ import type { Context } from 'hono'
  * create fine through one route and be rejected with `Required field is
  * missing` through this one.
  */
-export async function validateUpsertRequiredFields(
+const missingUpsertFields = (
   table: NonNullable<App['tables']>[number] | undefined,
   records: readonly { fields: Record<string, unknown> }[]
-): Promise<Array<{ record: number; field: string; error: string }>> {
-  return records.flatMap((record, index) => {
+): readonly { record: number; field: string; error: string }[] =>
+  records.flatMap((record, index) =>
     // Extract fields from nested format
-    const missingFields = findMissingRequiredFieldNames(table, record.fields)
-    return missingFields.map((field: string) => ({
+    findMissingRequiredFieldNames(table, record.fields).map((field: string) => ({
       record: index,
       field,
       error: 'Required field is missing',
     }))
-  })
-}
+  )
 
 /**
  * Check upsert permissions including update permission check
@@ -73,7 +71,7 @@ export async function validateUpsertRequiredFields(
  * The two are now indistinguishable.
  */
 
-export async function checkUpsertPermissionsWithUpdateCheck(config: {
+const checkUpsertPermissionsWithUpdateCheck = (config: {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
@@ -86,65 +84,53 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
   /** The matched rows the caller's read rule hides: none of them is a match. */
   readonly hiddenIds: readonly string[]
   readonly c: Context
-}): Promise<{ allowed: true } | { allowed: false; response: Response }> {
-  const { app, tableName, userRole, userGroups, accessRoles, records, fieldsToMergeOn, c } = config
-  const table = app.tables?.find((t) => t.name === tableName)
+}) =>
+  Effect.gen(function* () {
+    const { app, tableName, userRole, userGroups, accessRoles, records, fieldsToMergeOn, c } =
+      config
+    const table = app.tables?.find((t) => t.name === tableName)
 
-  // Both gates below evaluate the caller's EFFECTIVE ROLES exactly as the
-  // records route's create and update do — her account role, a `group:<name>`
-  // entry per membership and, on a table with row-level rules, her assignment
-  // roles — so an upsert admits whom a create and an update admit.
-  const effectiveRoles = tableEffectiveRoles(table, {
-    role: userRole,
-    groups: userGroups,
-    accessRoles,
+    // Both gates below evaluate the caller's EFFECTIVE ROLES exactly as the
+    // records route's create and update do — her account role, a `group:<name>`
+    // entry per membership and, on a table with row-level rules, her assignment
+    // roles — so an upsert admits whom a create and an update admit.
+    const effectiveRoles = tableEffectiveRoles(table, {
+      role: userRole,
+      groups: userGroups,
+      accessRoles,
+    })
+
+    const unresolvable = unresolvableMergeField(table, fieldsToMergeOn)
+
+    // Check if any records will be updated. An unresolvable merge field skips the
+    // query outright: its answer would be "no match" on SQLite and a rejected
+    // promise on Postgres, and neither is evidence that no row matches.
+    const hasExistingRecords =
+      unresolvable !== undefined ||
+      (yield* anyMergeMatch({ tableName, records, fieldsToMergeOn, hiddenIds: config.hiddenIds }))
+
+    // If records will be updated, check update permission
+    if (hasExistingRecords && !hasUpdatePermissionForRoles(table, effectiveRoles, app)) {
+      return { allowed: false as const, response: notFound(c, 'Not found') }
+    }
+
+    // Check table-level create permission (for new records)
+    if (!hasCreatePermissionForRoles(table, effectiveRoles, app)) {
+      return { allowed: false as const, response: forbiddenCreateResponse(c) }
+    }
+
+    // Both gates cleared, so the caller may already read and write this table and
+    // naming the bad field reveals nothing they cannot see. Answering here also
+    // keeps a caller's typo from reaching the database layer, which would blame
+    // the operator for it with a 500.
+    if (unresolvable !== undefined) {
+      const message = `Merge field '${unresolvable}' does not exist in table '${tableName}'`
+      const refusal = { success: false, message, code: 'VALIDATION_ERROR' }
+      return { allowed: false as const, response: c.json(refusal, 400) }
+    }
+
+    return { allowed: true as const }
   })
-
-  const unresolvable = unresolvableMergeField(table, fieldsToMergeOn)
-
-  // Check if any records will be updated. An unresolvable merge field skips the
-  // query outright: its answer would be "no match" on SQLite and a rejected
-  // promise on Postgres, and neither is evidence that no row matches.
-  const hasExistingRecords =
-    unresolvable !== undefined ||
-    (await checkForExistingRecords(tableName, records, fieldsToMergeOn, config.hiddenIds))
-
-  // If records will be updated, check update permission
-  if (hasExistingRecords && !hasUpdatePermissionForRoles(table, effectiveRoles, app)) {
-    return {
-      allowed: false,
-      response: notFound(c, 'Not found'),
-    }
-  }
-
-  // Check table-level create permission (for new records)
-  if (!hasCreatePermissionForRoles(table, effectiveRoles, app)) {
-    return {
-      allowed: false,
-      response: forbiddenCreateResponse(c),
-    }
-  }
-
-  // Both gates cleared, so the caller may already read and write this table and
-  // naming the bad field reveals nothing they cannot see. Answering here also
-  // keeps a caller's typo from reaching the database layer, which would blame
-  // the operator for it with a 500.
-  if (unresolvable !== undefined) {
-    return {
-      allowed: false,
-      response: c.json(
-        {
-          success: false,
-          message: `Merge field '${unresolvable}' does not exist in table '${tableName}'`,
-          code: 'VALIDATION_ERROR',
-        },
-        400
-      ),
-    }
-  }
-
-  return { allowed: true }
-}
 
 /**
  * The intrinsic creation date is engine-owned over HTTP. A seed file may set it
@@ -389,12 +375,12 @@ function checkAllFieldsStripped(config: {
 /**
  * Check required field validation
  */
-async function checkRequiredFields(
+function checkRequiredFields(
   table: NonNullable<App['tables']>[number] | undefined,
   strippedRecords: ReadonlyArray<{ fields: Record<string, unknown> }>,
   c: Context
-): Promise<{ success: true } | { success: false; response: Response }> {
-  const validationErrors = await validateUpsertRequiredFields(table, strippedRecords)
+): { success: true } | { success: false; response: Response } {
+  const validationErrors = missingUpsertFields(table, strippedRecords)
   if (validationErrors.length === 0) {
     return { success: true }
   }
@@ -421,7 +407,7 @@ async function checkRequiredFields(
  * - Multi-record upserts (batch): Strip protected fields, succeed if any writable fields remain
  * - Filter protected fields from response
  */
-export async function validateUpsertRequest(config: {
+export const validateUpsertRequest = (config: {
   readonly c: Context
   readonly app: App
   readonly tableName: string
@@ -430,57 +416,54 @@ export async function validateUpsertRequest(config: {
   readonly session: Parameters<typeof enforceUpsertRowGate>[0]['session']
   readonly records: readonly { fields: Record<string, unknown> }[]
   readonly fieldsToMergeOn: readonly string[]
-}) {
-  const { c, app, tableName, userRole, userGroups, records, fieldsToMergeOn } = config
-  const table = app.tables?.find((t) => t.name === tableName)
+}) =>
+  Effect.gen(function* () {
+    const { c, app, tableName, userRole, userGroups, records, fieldsToMergeOn } = config
+    const table = app.tables?.find((t) => t.name === tableName)
 
-  // Single-record upsert: reject if ANY protected fields present
-  const singleRecordCheck = checkSingleRecordProtectedFields(config)
-  if (!singleRecordCheck.success) return singleRecordCheck
+    // Single-record upsert: reject if ANY protected fields present
+    const singleRecordCheck = checkSingleRecordProtectedFields(config)
+    if (!singleRecordCheck.success) return singleRecordCheck
 
-  // For multi-record upserts, strip unwritable fields
-  const strippedRecords = stripUnwritableFields(
-    app,
-    tableName,
-    { role: userRole, groups: userGroups },
-    records
-  )
+    // For multi-record upserts, strip unwritable fields
+    const strippedRecords = stripUnwritableFields(
+      app,
+      tableName,
+      { role: userRole, groups: userGroups },
+      records
+    )
 
-  // Check if all fields were stripped
-  const stripCheck = checkAllFieldsStripped({ ...config, strippedRecords })
-  if (!stripCheck.success) return stripCheck
+    // Check if all fields were stripped
+    const stripCheck = checkAllFieldsStripped({ ...config, strippedRecords })
+    if (!stripCheck.success) return stripCheck
 
-  const hiddenIds = await hiddenMatchesOf({ ...config, table, records: strippedRecords })
+    const hiddenIds = yield* hiddenMatchesOf({ ...config, table, records: strippedRecords })
 
-  // Check table-level permissions (create/update)
-  const permissionCheck = await checkUpsertPermissionsWithUpdateCheck({
-    app,
-    tableName,
-    userRole,
-    userGroups,
-    accessRoles: await resolveAccessRolesFor(c, config.session, table ? [table] : []),
-    records: strippedRecords,
-    fieldsToMergeOn,
-    hiddenIds,
-    c,
+    // Check table-level permissions (create/update)
+    const permissionCheck = yield* checkUpsertPermissionsWithUpdateCheck({
+      ...{ app, tableName, userRole, userGroups, fieldsToMergeOn, hiddenIds, c },
+      accessRoles: yield* resolveAccessRolesFor(config.session, table ? [table] : []),
+      records: strippedRecords,
+    })
+    if (!permissionCheck.allowed) {
+      return { success: false as const, response: permissionCheck.response }
+    }
+
+    // Validate required fields
+    const requiredCheck = checkRequiredFields(table, strippedRecords, c)
+    if (!requiredCheck.success) {
+      return { success: false as const, response: requiredCheck.response }
+    }
+
+    // Row-level rules: each row it merges onto is checked as it stands and as it
+    // will be written, and each row it creates against `create.when`.
+    const rowError = yield* enforceUpsertRowGate({
+      ...config,
+      table,
+      records: strippedRecords,
+      hiddenIds,
+    })
+    if (rowError) return { success: false as const, response: rowError }
+
+    return { success: true as const, strippedRecords, hiddenIds }
   })
-  if (!permissionCheck.allowed) {
-    return { success: false as const, response: permissionCheck.response }
-  }
-
-  // Validate required fields
-  const requiredCheck = await checkRequiredFields(table, strippedRecords, c)
-  if (!requiredCheck.success) return { success: false as const, response: requiredCheck.response }
-
-  // Row-level rules: each row it merges onto is checked as it stands and as it
-  // will be written, and each row it creates against `create.when`.
-  const rowError = await enforceUpsertRowGate({
-    ...config,
-    table,
-    records: strippedRecords,
-    hiddenIds,
-  })
-  if (rowError) return { success: false as const, response: rowError }
-
-  return { success: true as const, strippedRecords, hiddenIds }
-}

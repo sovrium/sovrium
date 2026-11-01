@@ -6,6 +6,7 @@
  */
 
 import { Effect, Layer } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   SpeechInputError,
   SpeechNotConfiguredError,
@@ -71,8 +72,8 @@ const inert = SpeechService.of({
 
 export const SpeechServiceLive = Layer.effect(
   SpeechService,
-  Effect.sync(() => {
-    const parsed = parseSpeechEnv(process.env)
+  Effect.map(ProcessEnv, (env) => {
+    const parsed = parseSpeechEnv(env)
     if (!parsed.ok) {
       const message = parsed.error
       return SpeechService.of({
@@ -83,6 +84,6 @@ export const SpeechServiceLive = Layer.effect(
     const { config } = parsed
     return config === undefined
       ? inert
-      : makeConfigured(config, speechPrecedenceRefusal(config, process.env))
+      : makeConfigured(config, speechPrecedenceRefusal(config, env))
   })
 )

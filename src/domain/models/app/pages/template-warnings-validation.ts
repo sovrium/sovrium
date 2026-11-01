@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The warnings `app.components` earns without being refused.
  *
@@ -28,9 +30,6 @@ export interface TemplateWarning {
 
 /** The prefix the operator console's own templates are named with. */
 export const RESERVED_TEMPLATE_PREFIX = 'console-'
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The warnings one template earns. */
 const warningsOf = (template: Readonly<Record<string, unknown>>): readonly TemplateWarning[] => {

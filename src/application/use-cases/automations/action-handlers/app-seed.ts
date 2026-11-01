@@ -19,7 +19,7 @@ import {
   type SelfSeedGate,
 } from '@/domain/models/process-env/self-seed'
 import { logError } from '@/infrastructure/logging/logger'
-import { actionAttributes } from './shared'
+import { actionAttributes, runEnvOf } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type { AppSelfSeedError } from '@/application/ports/services/app-self-seeder'
 
@@ -53,8 +53,8 @@ const modeOf = (value: unknown) =>
     : refuse(`app/seed: mode must be one of ${APP_SEED_MODES.join(', ')} (got ${String(value)})`)
 
 /** The switch, read now: the variable is the host's, never the config's. Off refuses every step. */
-const switchOf = () => {
-  const gate = parseSovriumSelfSeed(process.env)
+const switchOf = (env: Readonly<Record<string, string | undefined>>) => {
+  const gate = parseSovriumSelfSeed(env)
   return gate === 'off'
     ? refuse(`app/seed is disabled; set ${SOVRIUM_SELF_SEED_VAR} on the host to switch it on`)
     : Effect.succeed(gate)
@@ -94,9 +94,9 @@ const dryRunOf = (value: unknown) => {
     : refuse(`app/seed: dryRun must be true or false (got ${String(value)})`)
 }
 
-export const handleAppSeed: ActionHandler = (action, app) =>
+export const handleAppSeed: ActionHandler = (action, app, _automation, runContext) =>
   Effect.gen(function* () {
-    const gate = yield* switchOf()
+    const gate = yield* switchOf(runEnvOf(runContext))
     const props = propsOf(action)
     const mode = yield* modeOf(props['mode'])
     yield* gateOf(gate, mode)

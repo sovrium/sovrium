@@ -10,41 +10,35 @@
  * `ON DELETE SET NULL`.
  *
  * ── What drifts, and why it matters ───────────────────────────────────────
- * `generateForeignKeyConstraints` emits the key for a `type: 'user'` field with
- * `ON DELETE SET NULL`. It did not always: the clause was absent, so the key
- * defaulted to `NO ACTION` — and that default is not a neutral choice. If any
- * record assigns a person and was authored by SOMEBODY ELSE, that record
- * outlives the purge's `created_by = userId` sweep, and the closing
- * `DELETE FROM auth.user` raises a foreign-key violation that rolls back the
- * WHOLE GDPR Art. 17 transaction. The account cannot be erased at all for as
- * long as the assignment exists, and the deletion request answers 500.
+ * `generateForeignKeyConstraints` emits the key for a `type: 'user'` field with `ON DELETE SET
+ * NULL`. It did not always: the clause was absent, so the key defaulted to `NO ACTION` — and that
+ * default is not a neutral choice. If any record assigns a person and was authored by SOMEBODY
+ * ELSE, that record outlives the purge's `created_by = userId` sweep, and the closing `DELETE FROM
+ * auth.user` raises a foreign-key violation that rolls back the WHOLE GDPR Art. 17 transaction. The
+ * account cannot be erased at all for as long as the assignment exists, and the deletion request
+ * answers 500.
  *
  * ── Why the ordinary migration path cannot deliver the fix ────────────────
- * `generateSchemaChecksum` hashes `app.tables` and nothing else — no engine
- * version. `resolveSkip` then skips `executeMigrationSteps` outright on a match.
- * An operator who upgrades the binary WITHOUT editing their config therefore
- * reconciles nothing, on either dialect. That is the most common upgrade, and it
- * is exactly the install still carrying the unerasable key. Even a config edit
- * only half-helps: Postgres re-adds every app table's keys through
- * `syncForeignKeyConstraints`, but that helper is a deliberate no-op on SQLite,
- * where a constraint change is carried by table recreation — which
- * `migrateExistingTableEffect` performs only when THAT table's own definition
- * changed.
+ * `generateSchemaChecksum` hashes `app.tables` and nothing else — no engine version. `resolveSkip`
+ * then skips `executeMigrationSteps` outright on a match. An operator who upgrades the binary
+ * WITHOUT editing their config therefore reconciles nothing, on either dialect. That is the most
+ * common upgrade, and it is exactly the install still carrying the unerasable key. Even a config
+ * edit only half-helps: Postgres re-adds every app table's keys through
+ * `syncForeignKeyConstraints`, but that helper is a deliberate no-op on SQLite, where a constraint
+ * change is carried by table recreation — which `migrateExistingTableEffect` performs only when
+ * THAT table's own definition changed.
  *
  * No `drizzle/000N_*.sql` migration can close the gap either: app tables are
  * created at runtime from arbitrary `app.tables[]` config, so a migration file
  * can only ever name `auth.*` / `system.*` relations.
  *
- * The drift is a property of the LIVE constraint, not of the config, so it is
- * probed unconditionally on every boot — same placement and same reasoning as
- * the timestamptz reconciler and the attachment-URL repair that share this
- * startup phase.
+ * The drift is a property of the LIVE constraint, not of the config, so it is probed
+ * unconditionally on every boot.
  *
  * ── Why this one is NOT behind an operator gate ───────────────────────────
- * The timestamptz reconciler next door IS gated, because `ALTER … TYPE` is a
- * full table rewrite under `ACCESS EXCLUSIVE` — a boot-time outage. Changing a
- * foreign key's referential action is a different animal, and the measurements
- * say so:
+ * The timestamptz reconciler next door IS gated: `ALTER … TYPE` is a full table
+ * rewrite under `ACCESS EXCLUSIVE`, a boot-time outage. Changing a foreign key's
+ * referential action is not, as measured:
  *
  *   - **Postgres** — a single `ALTER TABLE … DROP CONSTRAINT …, ADD CONSTRAINT
  *     … NOT VALID` is catalog-only: ~2 ms on a 2M-row / 369 MB table and ~2 ms
@@ -56,38 +50,36 @@
  *     key (verified: the parent delete nulls the child), because `NOT VALID`
  *     only skips the initial verification, never the RI triggers.
  *   - **SQLite** — there is no `ALTER … DROP CONSTRAINT` at all, so the repair
- *     IS a full recreate-and-copy. Measured at 0.9 s for 2M rows / 293 MB
- *     (~0.45 ms per MB). SQLite's own documented `PRAGMA writable_schema`
- *     in-place edit would have made this O(1), and is unavailable: `bun:sqlite`
- *     runs in defensive mode, where the pragma is silently ignored (it reads
- *     back `0`).
+ *     IS a full recreate-and-copy, measured at 0.9 s for 2M rows / 293 MB.
+ *     SQLite's `PRAGMA writable_schema` in-place edit would have made this
+ *     O(1), and is unavailable: `bun:sqlite` runs in defensive mode, where the
+ *     pragma is silently ignored (it reads back `0`).
  *
- * A gate would have to default OFF to be worth having, and SQLite is the
- * ZERO-CONFIG default — so gating would leave the majority of self-hosted
- * installs unerasable until their operator read a warning and set a variable.
- * That reproduces the very bug this module exists to close, for the commonest
- * deployment, in exchange for a one-off sub-second boot cost that only a
- * deployment carrying the drift ever pays. Every boot after the first finds the
+ * A gate would have to default OFF to be worth having, and SQLite is the ZERO-CONFIG default — so
+ * gating would leave the majority of self-hosted installs unerasable until their operator read a
+ * warning and set a variable. That reproduces the very bug this module exists to close, for the
+ * commonest deployment, in exchange for a one-off sub-second boot cost that only a deployment
+ * carrying the drift ever pays. Every boot after the first finds the
  * key correct and emits nothing.
  *
  * ── Why a failure does not abort the boot ─────────────────────────────────
- * Nothing here is destructive, so there is no dangerous half-state to protect
- * against by refusing to start. A failed repair leaves a latent compliance
- * defect; aborting would convert it into a total outage of the whole app. The
- * failure is instead reported as a WARN that names the consequence and the
- * manual remedy, so it is loud rather than silent.
+ * Nothing here is destructive, so there is no dangerous half-state to protect against by refusing
+ * to start. A failed repair leaves a latent compliance defect; aborting would convert it into a
+ * total outage of the whole app. The failure is instead reported as a WARN that names the
+ * consequence and the manual remedy, so it is loud rather than silent.
  */
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { SchemaInitializationError } from '@/domain/errors/schema-initialization-error'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { db } from '@/infrastructure/database'
-import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { logInfo, logWarning } from '@/infrastructure/logging/logger'
+import { Database } from '../drizzle/layer'
 import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generators'
 import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialect-ddl'
-import { executeRaw } from '../sql/dialect-execute'
 import { getExistingColumns } from '../sql/sql-execution'
 import { isSingleUser } from '../sql/sql-field-predicates'
 import { generateForeignKeyConstraints } from '../sql/sql-key-constraints'
@@ -97,6 +89,7 @@ import { recreateTableWithDataEffect } from '../table-operations/migration-utils
 import { applySchemaDefaults } from './apply-schema-defaults'
 import type { SQLExecutionError, TransactionLike } from '../sql/sql-execution'
 import type { App, Table } from '@/domain/models/app'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** Tag a thrown value with the step that produced it. */
 const asSchemaError = (operation: string) => (cause: unknown) =>
@@ -169,11 +162,13 @@ type GeneratorMaps = ReturnType<typeof buildGeneratorMaps>
  * tables the app declares.
  */
 const probePostgresDrift = (
+  { client: db, dialect }: DatabaseService,
   candidates: readonly UserForeignKeyCandidate[]
 ): Effect.Effect<readonly UserForeignKeyCandidate[], SchemaInitializationError> =>
   Effect.tryPromise({
     try: () =>
-      executeRaw(
+      executeRawOn(
+        dialect.kind,
         db,
         sql`SELECT cl.relname AS relation, att.attname AS column_name, con.confdeltype AS on_delete
           FROM pg_constraint con
@@ -207,12 +202,14 @@ const probePostgresDrift = (
  * single in-memory schema read.
  */
 const probeSqliteDrift = (
+  { client: db, dialect }: DatabaseService,
   candidates: readonly UserForeignKeyCandidate[]
 ): Effect.Effect<readonly UserForeignKeyCandidate[], SchemaInitializationError> =>
   Effect.forEach(candidates, (candidate) =>
     Effect.tryPromise({
       try: () =>
-        executeRaw(
+        executeRawOn(
+          dialect.kind,
           db,
           sql`SELECT on_delete FROM pragma_foreign_key_list(${candidate.relation})
               WHERE "from" = ${candidate.column}`
@@ -227,14 +224,14 @@ const probeSqliteDrift = (
   ).pipe(Effect.map((nested) => nested.flat()))
 
 /**
- * The corrected key, taken from the ONE generator that emits it, so the
- * reconciled constraint can never diverge from the one `CREATE TABLE` writes.
+ * The corrected PostgreSQL key (SQLite rebuilds instead), taken from the ONE generator
+ * that emits it, so the reconciled constraint can never diverge from `CREATE TABLE`'s.
  */
-const correctedConstraint = (candidate: Readonly<UserForeignKeyCandidate>): string | undefined =>
-  generateForeignKeyConstraints(
-    candidate.table.name,
-    candidate.table.fields.filter((field) => isSingleUser(field) && field.name === candidate.column)
-  )[0]
+const correctedConstraint = (candidate: Readonly<UserForeignKeyCandidate>): string | undefined => {
+  const { table, column } = candidate
+  const fields = table.fields.filter((field) => isSingleUser(field) && field.name === column)
+  return generateForeignKeyConstraints('postgres', { name: table.name, fields })[0]
+}
 
 /**
  * Swap one drifted Postgres key in a SINGLE `ALTER TABLE`.
@@ -249,6 +246,7 @@ const correctedConstraint = (candidate: Readonly<UserForeignKeyCandidate>): stri
  * without the key, and so both take their locks once.
  */
 const repairPostgresKey = (
+  { client: db, dialect }: DatabaseService,
   candidate: Readonly<UserForeignKeyCandidate>
 ): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
@@ -257,7 +255,8 @@ const repairPostgresKey = (
 
     const existing = yield* Effect.tryPromise({
       try: () =>
-        executeRaw(
+        executeRawOn(
+          dialect.kind,
           db,
           sql`SELECT con.conname AS name
               FROM pg_constraint con
@@ -276,7 +275,8 @@ const repairPostgresKey = (
 
     yield* Effect.tryPromise({
       try: () =>
-        executeRaw(
+        executeRawOn(
+          dialect.kind,
           db,
           // sql-literal: ddl -- a foreign-key clause built from catalog and config identifiers, not request input
           sql`ALTER TABLE ${sql.identifier(candidate.relation)} ${sql.join(drops, sql.raw(', '))}, ADD ${sql.raw(constraint)} NOT VALID`
@@ -375,26 +375,26 @@ const logReconciled = (drifted: readonly UserForeignKeyCandidate[]): Effect.Effe
 
 /**
  * Post-schema startup step: bring every `type: 'user'` foreign key onto
- * `ON DELETE SET NULL`, so an account assigned on another author's record can be
- * erased.
+ * `ON DELETE SET NULL`, so an account on another author's record can be erased.
  *
  * Never fails the boot: a repair that cannot be applied is reported and startup
  * continues (see the module docstring).
  */
-export const reconcileUserForeignKeys = (app: Readonly<App>): Effect.Effect<void, never> =>
+export const reconcileUserForeignKeys = (
+  app: Readonly<App>
+): Effect.Effect<void, never, Database> =>
   Effect.gen(function* () {
     const candidates = collectUserForeignKeyCandidates(app)
     if (candidates.length === 0) return
-
-    const config = parseDatabaseDialectConfig()
-    const drifted = yield* (config.dialect === 'sqlite' ? probeSqliteDrift : probePostgresDrift)(
-      candidates
-    )
+    const database = yield* Database
+    const config = parseDatabaseDialectConfig(yield* ProcessEnv)
+    const probe = config.dialect === 'sqlite' ? probeSqliteDrift : probePostgresDrift
+    const drifted = yield* probe(database, candidates)
     if (drifted.length === 0) return
 
     yield* config.dialect === 'sqlite'
       ? repairSqlite(drifted, config.path, buildGeneratorMaps(app))
-      : Effect.forEach(drifted, repairPostgresKey, { discard: true })
+      : Effect.forEach(drifted, (drift) => repairPostgresKey(database, drift), { discard: true })
 
     yield* logReconciled(drifted)
   }).pipe(Effect.catch((error) => warnReconcileFailed(collectUserForeignKeyCandidates(app), error)))

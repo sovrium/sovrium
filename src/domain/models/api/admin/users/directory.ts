@@ -45,10 +45,10 @@
  */
 
 import { Schema } from 'effect'
-import { coercedNumber } from '@/domain/models/api/combinators/coerce'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { appliedQuerySchema, searchTermSchema } from '../../combinators'
-import { withDefault } from '../../combinators/schema-defaults'
+import { coercedNumber } from '@/domain/kernel/config-parsing/coerce'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import { withDefault } from '../../schema-defaults'
+import { appliedQuerySchema, searchTermSchema } from '../../search-term'
 
 // ─── Directory Query ─────────────────────────────────────────────────────────
 
@@ -167,6 +167,12 @@ export const adminUsersDirectoryQuerySchema = Schema.Struct({
         '`banned` keeps only the banned accounts, `active` only the others. Combines with `q` and `role`. Any other value is refused with 400.',
     })
   ),
+  consoleAccess: optionalField(
+    Schema.Literals(['yes', 'no']).annotate({
+      description:
+        '`yes` keeps only the accounts whose role opens the operator console (the roles `GET /api/admin/roles` marks `consoleAccess: true`), `no` only the others. Which side a custom role falls on follows from its level, so the filter answers it on the server rather than from a list of names. Combines with every other filter. Any other value is refused with 400.',
+    })
+  ),
 })
 
 // ─── Directory User Row ──────────────────────────────────────────────────────
@@ -205,12 +211,19 @@ export const adminDirectoryUserSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isMinLength(1))),
   name: Schema.String.annotate({
     description:
-      'Account display name (`auth.user.name`). The other `?q=` search key. The column is nullable in storage; a null/absent name is coalesced to the empty string, so this is always a string (possibly empty) rather than sometimes missing — an absent key would make "this account has no name" indistinguishable from "this build does not send names".',
+      'Account display name (`auth.user.name`). The other `?q=` search key. The column is nullable in storage; a null/absent name is coalesced to the empty string, so this is always a string (possibly empty) rather than sometimes missing: an absent key would make "this account has no name" indistinguishable from "this build does not send names".',
   }),
   role: Schema.String.annotate({
     description:
       'Account role (`auth.user.role`). The column is nullable in storage; the handler coalesces a null/empty role to the app default role, so this is always a non-empty string. The vocabulary is the APP’s configured roles, not the operator tier.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
+  selfLabel: optionalField(
+    Schema.String.annotate({
+      description:
+        'What the console prints under the name on the reader\'s own row, in the operator\'s console language (the account language, then the language preference, then English, as `roleLabel`): "You" in English, "Toi" in French. Present on that one row only and absent on every other, so a column naming it as its second line draws a caption there and nothing elsewhere. Display only; `self` is the fact.',
+      examples: ['You', 'Toi'],
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
   roleLabel: Schema.String.annotate({
     description:
       'What the console shows for the account role, resolved in this order: the `label` the app declares for the role in `auth.roles` (a `$t:` key is translated into the operator\'s console language: the account language, then the language preference, then English); otherwise, for the roles every app carries, the console\'s own words (in English "Admin", "Member", "Viewer", and "Admin (read-only)" for `admin-viewer`); otherwise the name made readable, its first letter capitalised and its hyphens as spaces (`accounting-read` reads "Accounting read"). Always present. The Role column shows it. Filtering, sorting (`sort=role` orders by the role name, not by these words) and Change role keep using `role`.',
@@ -218,6 +231,10 @@ export const adminDirectoryUserSchema = Schema.Struct({
   banned: Schema.Boolean.annotate({
     description:
       'Whether the account is banned (`auth.user.banned`). Drives the Statut pill: `false` → actif, `true` → banni.',
+  }),
+  self: Schema.Boolean.annotate({
+    description:
+      "Whether this row is the account of the operator reading the directory. `true` on exactly one row, the caller's own, and `false` on every other. A row action can read it like any row field, for instance to offer no Ban on the operator's own account.",
   }),
   unclaimed: optionalField(
     Schema.Boolean.annotate({
@@ -245,7 +262,7 @@ export const adminDirectoryUserSchema = Schema.Struct({
   ),
   activeSessionCount: Schema.Int.annotate({
     description:
-      'How many sessions the account holds that have not expired: one per browser or device it is signed in from. A fact about its sessions, never a session — no token, address or browser string is carried.',
+      'How many sessions the account holds that have not expired: one per browser or device it is signed in from. A fact about its sessions, never a session: no token, address or browser string is carried.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   twoFactorEnabled: Schema.Boolean.annotate({
     description:
@@ -253,7 +270,7 @@ export const adminDirectoryUserSchema = Schema.Struct({
   }),
   signInMethods: Schema.Array(Schema.String).annotate({
     description:
-      'How the account signs in: the provider of each sign-in account linked to it, distinct and sorted — `credential` for an email and password, the provider id for a social or single sign-on account (`google`, `github`, …). Empty for an invited colleague who has not yet set a way to sign in.',
+      'How the account signs in: the provider of each sign-in account linked to it, distinct and sorted: `credential` for an email and password, the provider id for a social or single sign-on account (`google`, `github`, …). Empty for an invited colleague who has not yet set a way to sign in.',
   }),
   signInMethodLabels: optionalField(
     Schema.Array(Schema.String).annotate({
@@ -299,11 +316,11 @@ export const adminDirectoryUserSchema = Schema.Struct({
 export const adminUsersDirectoryResponseSchema = Schema.Struct({
   users: Schema.Array(adminDirectoryUserSchema).annotate({
     description:
-      'ONE PAGE of accounts from the auth `user` table — operators and app users alike — as secret-free directory rows. Narrowed to the MATCHING accounts when `?q=` is supplied, ordered by `sort`, sliced by `page`/`limit`.',
+      'ONE PAGE of accounts from the auth `user` table (operators and app users alike), as secret-free directory rows. Narrowed to the MATCHING accounts when `?q=` is supplied, ordered by `sort`, sliced by `page`/`limit`.',
   }),
   total: Schema.Int.annotate({
     description:
-      'How many accounts MATCH across every page — narrowed by `?q=`, unaffected by `page`/`limit`. The pager renders its "1-25 of N" range and decides whether a next page exists from this number, so a page that omitted it could only report the rows in front of it.',
+      'How many accounts MATCH across every page, narrowed by `?q=`, unaffected by `page`/`limit`. The pager renders its "1-25 of N" range and decides whether a next page exists from this number, so a page that omitted it could only report the rows in front of it.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   appliedQuery: appliedQuerySchema,
 }).annotate({

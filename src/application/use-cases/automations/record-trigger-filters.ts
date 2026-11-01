@@ -5,13 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { transformRecord } from '@/application/use-cases/tables/record-transformer'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { COMPARATORS } from '@/domain/models/app/automations/comparison-operators'
 import {
   firstMatchingTrigger,
   type TriggerOfType,
 } from '@/domain/models/app/automations/trigger-entries-service'
+import { transformRecord } from '@/domain/models/app/tables/record-transformer-service'
 import { hydratedFieldIdOf } from './hydrated-field-reference'
 import { resolveTriggerInString } from './resolve-trigger-data'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'

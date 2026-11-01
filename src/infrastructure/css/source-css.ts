@@ -32,11 +32,13 @@ import {
   generateAuthorSvBridge,
   generateDarkColorOverrides,
   generateSidebarRoleFollowers,
+  generateThemeColors,
+} from '@/infrastructure/css/theme/theme-color-generators'
+import {
   generateMotionScale,
   generateSpacingScale,
   generateThemeBorderRadius,
   generateThemeBreakpoints,
-  generateThemeColors,
   generateThemeFonts,
   generateThemeShadows,
   generateThemeTypeScale,
@@ -249,7 +251,7 @@ export function buildSourceCSS(app?: App, darkPalette: readonly string[] = []): 
   // Code-block chrome (and `.tok-XXX` token color rules) for markdown pages.
   // Plain CSS — flows through BOTH the native PostCSS pipeline AND the
   // pure-JS native-free engine because `buildSourceCSS` is the shared input.
-  const codeBlockCSS = generateCodeBlockStyles(darkPalette)
+  const codeBlockCSS = generateCodeBlockStyles(darkPalette, design?.code)
   // Marquee band chrome + motion. Plain CSS for the same reason as the code-block
   // rules above: `@keyframes`, `animation-play-state` under `:hover`/`:focus-within`
   // and a `prefers-reduced-motion` override are not utility-shaped, so they must

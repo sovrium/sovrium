@@ -33,16 +33,16 @@ import {
   type InviteDay,
   type InviteTime,
 } from '@/domain/kernel/format/icalendar-invite'
+import { HOUR_MS } from '@/domain/kernel/time/durations'
 import { zonedIsoDate, zonedWallClockInstant } from '@/domain/kernel/time/zoned-calendar'
 import { triggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
-import { writeGeneratedFile } from './document-output'
-import { runDocumentAction } from './document-run'
+import { writeGeneratedFile } from './document/output'
+import { runDocumentAction } from './document/run'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionRunContext, AutomationContext } from './shared'
 import type { App } from '@/domain/models/app'
 
-const HOUR_MS = 3_600_000
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 /** A reading with no offset, which only the event's zone can place. */
 const NO_OFFSET = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/
@@ -172,7 +172,7 @@ const optionalText = (props: Readonly<Record<string, unknown>>, name: string) =>
 export const handleCalendarExportIcs: ActionHandler = (action, app, automation, runContext) => {
   const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
   const program = Effect.gen(function* () {
-    const zone = stringProp(props, 'timezone').trim() || parseSovriumTimezone().zoneId
+    const zone = stringProp(props, 'timezone').trim() || parseSovriumTimezone(process.env).zoneId
     if (!isKnownTimeZone(zone)) {
       return yield* Effect.fail(
         new InviteRefusal(`the time zone "${zone}" is not one the engine knows`)

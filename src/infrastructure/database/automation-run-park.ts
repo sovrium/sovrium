@@ -16,7 +16,6 @@
  */
 
 import { and, asc, eq, isNotNull, lte, notInArray } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   automationDefinitions as automationDefinitionsPg,
@@ -29,6 +28,7 @@ import {
   automationRunSteps as automationRunStepsSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import type { CreateStepInput } from '@/application/ports/repositories/automations/automation-run-repository'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const automationDefinitions = resolveDialectSchema(
   automationDefinitionsPg,
@@ -44,11 +44,14 @@ const WAITING_DELAY = 'waiting-delay'
  * those of the automations named in `exceptAutomations` (paused ones): left in
  * the batch, they would fill it on every sweep and hold back everyone else.
  */
-export const listDueDelayedRuns = async (input: {
-  readonly now: Readonly<Date>
-  readonly limit: number
-  readonly exceptAutomations: readonly string[]
-}): Promise<readonly { readonly id: string; readonly automationName: string }[]> =>
+export const listDueDelayedRuns = async (
+  db: PortableDb,
+  input: {
+    readonly now: Readonly<Date>
+    readonly limit: number
+    readonly exceptAutomations: readonly string[]
+  }
+): Promise<readonly { readonly id: string; readonly automationName: string }[]> =>
   db
     .select({ id: automationRuns.id, automationName: automationDefinitions.name })
     .from(automationRuns)
@@ -72,7 +75,7 @@ export const listDueDelayedRuns = async (input: {
  * row: the server asks it once per boot, to keep the resume sweep for runs
  * parked under an earlier configuration that no longer declares a long wait.
  */
-export const hasWaitingDelayRuns = async (): Promise<boolean> => {
+export const hasWaitingDelayRuns = async (db: PortableDb): Promise<boolean> => {
   const [first] = await db
     .select({ id: automationRuns.id })
     .from(automationRuns)
@@ -87,10 +90,13 @@ export const hasWaitingDelayRuns = async (): Promise<boolean> => {
  * its time has not come. The cursor stays on the row until the run is
  * finalised, which clears it.
  */
-export const claimDelayedRun = async (input: {
-  readonly id: string
-  readonly now: Readonly<Date>
-}): Promise<{ readonly cursor: unknown } | undefined> => {
+export const claimDelayedRun = async (
+  db: PortableDb,
+  input: {
+    readonly id: string
+    readonly now: Readonly<Date>
+  }
+): Promise<{ readonly cursor: unknown } | undefined> => {
   const [claimed] = await db
     .update(automationRuns)
     .set({ status: 'running', resumeAt: null })
@@ -109,10 +115,13 @@ export const claimDelayedRun = async (input: {
  * Cancel a run that still waits, with `error`; answers whether this call did.
  * The file ledgers it stored for its resume go with the resume.
  */
-export const cancelWaitingRun = async (input: {
-  readonly id: string
-  readonly error: string
-}): Promise<boolean> => {
+export const cancelWaitingRun = async (
+  db: PortableDb,
+  input: {
+    readonly id: string
+    readonly error: string
+  }
+): Promise<boolean> => {
   const cancelled = await db
     .update(automationRuns)
     .set({
@@ -128,10 +137,13 @@ export const cancelWaitingRun = async (input: {
 }
 
 /** Rewrite the step row at `step.stepIndex` of `runId`; answers whether one matched. */
-export const updateRunStep = async (input: {
-  readonly runId: string
-  readonly step: CreateStepInput
-}): Promise<boolean> => {
+export const updateRunStep = async (
+  db: PortableDb,
+  input: {
+    readonly runId: string
+    readonly step: CreateStepInput
+  }
+): Promise<boolean> => {
   const { step } = input
   const updated = await db
     .update(automationRunSteps)

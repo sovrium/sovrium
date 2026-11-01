@@ -18,7 +18,9 @@
  *  2. **rate limit**, then 3. **limits** — the agent's action ceiling and its
  *     `maxActionsPerMinute` window ({@link AgentGuard});
  *  4. **approval** — a call the agent's approval rule covers is held as a
- *     pending approval named after the action, and the turn pauses;
+ *     pending approval named after the action, and the turn pauses; on a chat
+ *     turn, a side effect outside the app always is, and a record write is
+ *     unless the agent declares `approval: { mode: 'none' }`;
  *  5. **execution** — through the automation engine's handler for the action,
  *     uninterruptible once started, so a stop never leaves half a write;
  *  6. **activity log** — one row per executed step, naming the agent, the
@@ -33,14 +35,14 @@
 import { Effect } from 'effect'
 import { AgentApprovalStore } from '@/application/ports/services/agent-approval-store'
 import { AgentGuard } from '@/application/ports/services/agent-guard'
-import { MirrorApprovalCreate } from '@/application/use-cases/agents/approval'
+import { mirrorApprovalCreate } from '@/application/use-cases/agents/approval'
 import { recordAiActivity } from '@/application/use-cases/ai/record-ai-activity'
 import { agentActionFailureText } from '@/domain/models/app/agents/agent-action-failure-service'
 import {
   agentToolRefusal,
   isCallerDeniedAgentAction,
-  requiresApproval,
   resolveAgentLimits,
+  waitsForHuman,
   type AgentToolRefusal,
 } from '@/domain/models/app/agents/agent-gate-validation'
 import {
@@ -228,7 +230,7 @@ const holdForApproval = (
       caller: context.caller,
     })
     yield* bestEffort(
-      MirrorApprovalCreate({
+      mirrorApprovalCreate({
         id: record.id,
         status: record.status,
         agentName: record.agentName,
@@ -386,7 +388,7 @@ export const executeAgentToolCall = <R>(
     }
     const refusal = yield* gateRefusal(agent, call, context)
     if (refusal !== undefined) return refused(call, refusal, toolCallTable(call.arguments))
-    if (requiresApproval(agent, call.name)) {
+    if (waitsForHuman(agent, call.name, context.caller !== undefined)) {
       return yield* holdForApproval(agent, call, context, continuation)
     }
     return yield* runAgentAction(agent, call, context)

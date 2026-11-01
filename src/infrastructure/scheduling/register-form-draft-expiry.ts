@@ -64,7 +64,7 @@ export const registerFormDraftExpiryScheduler = (
       .schedule(
         DRAFT_EXPIRY_CRON_EXPRESSION,
         () => sweepOnce(app, 'scheduled').pipe(Effect.provide(services)),
-        { jobId: DRAFT_EXPIRY_JOB_ID, timezone: resolveOperatorTimezone() }
+        { jobId: DRAFT_EXPIRY_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
       )
       .pipe(
         Effect.catch((err) =>

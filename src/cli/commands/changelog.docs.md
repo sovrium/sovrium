@@ -1,12 +1,12 @@
 # Release Notes
 
-> `sovrium changelog` prints the release notes of the version you run, of any earlier version, or of everything since the version you upgraded from — read from the binary, with no network.
+> `sovrium changelog` prints the release notes of the version you run, of any earlier version, or of everything since the version you upgraded from. It reads them from the binary, with no network.
 
 ```text
 Usage: sovrium changelog [<version>] [--list] [--since <version>] [--format md|json] [--output <path>]
 ```
 
-Every Sovrium release publishes release notes: what broke, what is new, what was fixed and what got faster. The binary carries those notes for every release, so the answer to "what changed?" is always one command away — on your laptop, on a server with no internet access, or inside the AI that edits your config.
+Every Sovrium release publishes release notes: what broke, what is new, what was fixed and what got faster. The binary carries those notes for every release, so the answer to "what changed?" is always one command away: on your laptop, on a server with no internet access, or inside the AI that edits your config.
 
 The notes the binary prints are the ones published with it. Nothing is fetched, and nothing in your project is read.
 
@@ -51,7 +51,7 @@ Both spellings work. A version the binary does not carry is refused, and the mes
 sovrium changelog --list
 ```
 
-One line per release, newest first, with its date and a count of what it holds — `1 feature, 3 fixes`, `4 breaking, …` — so you can see which entries are worth opening. The version you run is marked `current`.
+One line per release, newest first, with its date and a count of what it holds (`1 feature, 3 fixes`, `4 breaking, …`), so you can see which entries are worth opening. The version you run is marked `current`.
 
 ## Everything since I upgraded
 
@@ -109,7 +109,7 @@ sovrium changelog --since 0.24.0 --output notes/upgrade.md
 Each exits `1` with a message saying what to do instead:
 
 - a version the binary does not carry, or a word that is not a version;
-- a version together with `--list` or `--since` — ask for one view at a time;
+- a version together with `--list` or `--since`: ask for one view at a time;
 - a `--format` other than `md` or `json`.
 
 `sovrium changelog --help` prints the usage.

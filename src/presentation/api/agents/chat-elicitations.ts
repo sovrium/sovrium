@@ -72,24 +72,29 @@ const sweep = (nowMs: number): void => {
  * open one an external MCP server asked: its server is told `cancel`, so the
  * tool call it holds open ends now rather than an hour later.
  */
-const releaseOldest = (): void => {
-  if (elicitations.size < MAX_HELD_TURNS) return
+const releaseOldest = (): Effect.Effect<void> => {
+  if (elicitations.size < MAX_HELD_TURNS) return Effect.void
   const oldest = elicitations.values().next().value
   const relay = oldest?.state === 'open' ? oldest.held.elicitation.relay : undefined
   // Fire and forget: nobody can answer this question any more, and `relay` never fails.
-  if (relay !== undefined) void Effect.runPromise(relay({ action: 'cancel' }))
+  return relay === undefined
+    ? Effect.void
+    : Effect.asVoid(Effect.forkDetach(relay({ action: 'cancel' })))
 }
 
 /** Remember the turn a question paused. */
-export const holdChatElicitation = (held: HeldChatElicitation, nowMs = Date.now()): void => {
-  sweep(nowMs)
-  releaseOldest()
-  rememberHeld(elicitations, held.elicitation.id, {
-    state: 'open',
-    held,
-    expiresAtMs: nowMs + ELICITATION_TTL_MS,
+export const holdChatElicitation = (held: HeldChatElicitation): Effect.Effect<void> =>
+  Effect.suspend(() => {
+    const nowMs = Date.now()
+    sweep(nowMs)
+    const released = releaseOldest()
+    rememberHeld(elicitations, held.elicitation.id, {
+      state: 'open',
+      held,
+      expiresAtMs: nowMs + ELICITATION_TTL_MS,
+    })
+    return released
   })
-}
 
 /** A question, as one person finds it. */
 export type ChatElicitationLookup =

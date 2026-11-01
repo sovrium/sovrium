@@ -30,6 +30,35 @@ interface Conditional {
 }
 
 /**
+ * The value a sheet entry or a condition names: the key of that name when the
+ * record carries one, else — for a dotted name such as `_admin.submitter` — the
+ * value at that path through the record's nested objects. A read-only entry
+ * over an envelope a system read nests reads the same way a grid column does.
+ */
+export function readRecordPath(record: Readonly<Record<string, unknown>>, name: string): unknown {
+  if (name in record || !name.includes('.')) return record[name]
+  return name
+    .split('.')
+    .reduce<unknown>(
+      (value, segment) =>
+        typeof value === 'object' && value !== null && !Array.isArray(value)
+          ? (value as Readonly<Record<string, unknown>>)[segment]
+          : undefined,
+      record
+    )
+}
+
+/** A condition read against `record`, its field resolved as a path. */
+const satisfiedBy = (
+  condition: FieldCondition,
+  record: Readonly<Record<string, unknown>>
+): boolean =>
+  satisfiesFieldCondition(condition, {
+    ...record,
+    [condition.field]: readRecordPath(record, condition.field),
+  })
+
+/**
  * The entries `record` keeps. `known` is false while the record has not
  * loaded yet: only the unconditional entries are kept then.
  */
@@ -40,8 +69,6 @@ export function visibleForRecord<T extends Conditional>(
 ): ReadonlyArray<T> {
   if (!entries.some((entry) => entry.visibleWhen !== undefined)) return entries
   return entries.filter(
-    (entry) =>
-      entry.visibleWhen === undefined ||
-      (known && satisfiesFieldCondition(entry.visibleWhen, record))
+    (entry) => entry.visibleWhen === undefined || (known && satisfiedBy(entry.visibleWhen, record))
   )
 }

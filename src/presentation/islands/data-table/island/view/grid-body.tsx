@@ -14,6 +14,7 @@ import { usePhoneViewport } from '../../../hooks/use-phone-viewport'
 import { LoadMoreButton } from '../../../parts/load-more-button'
 import { GridInfiniteFooter } from '../../pagination/grid-infinite-footer'
 import { PaginationControls } from '../../pagination/pagination-controls'
+import { useSpansPages } from '../../pagination/use-spans-pages'
 import { SessionControls } from '../../view-options/session-controls'
 import { ToolbarViewOptions } from '../../view-options/toolbar-view-options'
 import { SelectionBar } from '../bulk-actions'
@@ -44,6 +45,30 @@ function showsPagerAt(props: GridBodyProps, edge: 'top' | 'bottom'): boolean {
     return false
   const position = props.paginationConfig.position ?? 'bottom'
   return position === edge || position === 'both'
+}
+
+/**
+ * A field column the grid starts without (`visible: hidden`): its way back is
+ * the View menu, so a one-page grid keeps the menu while one is hidden.
+ */
+function hidesAField(table: GridBodyProps['table']): boolean {
+  return table
+    .getAllLeafColumns()
+    .some((column) => column.columnDef.meta?.field !== undefined && !column.getIsVisible())
+}
+
+/** The toolbar View menu: on a grid of several pages, or while a field waits hidden. */
+function drawsToolbarView(props: GridBodyProps, spansPages: boolean): boolean {
+  return props.viewOptions === 'toolbar' && (spansPages || hidesAField(props.table))
+}
+
+/**
+ * The pager above the rows. Held while the first read is out, so a grid of
+ * several pages does not shift its rows down when the count arrives; a grid
+ * whose rows fit on one page drops it then.
+ */
+function drawsTopPager(props: GridBodyProps, spansPages: boolean): boolean {
+  return showsPagerAt(props, 'top') && (spansPages || props.unanswered)
 }
 
 /** The pager above the rows: the range summary and the steps, nothing else. */
@@ -120,15 +145,23 @@ export function GridBody(props: GridBodyProps) {
   const phone = usePhoneViewport(props.phoneLayout === 'rows')
   const empty = props.grid.table.getRowModel().rows.length === 0 && !props.grid.isLoading
   const phoneRows = phone && !empty
+  // A grid whose rows fit on one page draws no page navigation and no View
+  // menu (unless a field waits hidden behind it): one count line says what it
+  // holds.
+  const spansPages = useSpansPages({
+    table: props.table,
+    total: props.totalRecords,
+    pageSizeOptions: props.paginationConfig?.pageSizeOptions,
+  })
   return (
     <>
-      {props.viewOptions === 'toolbar' && (
+      {drawsToolbarView(props, spansPages) && (
         <ToolbarViewOptions
           session={props.session}
           channel={props.viewChannel}
         />
       )}
-      {showsPagerAt(props, 'top') && <GridPager props={props} />}
+      {drawsTopPager(props, spansPages) && <GridPager props={props} />}
       {phoneRows ? (
         <>
           <PhoneRows
@@ -142,7 +175,10 @@ export function GridBody(props: GridBodyProps) {
       ) : (
         <TableContent {...props.grid} />
       )}
-      <GridFooter {...props} />
+      <GridFooter
+        {...props}
+        spansPages={spansPages}
+      />
     </>
   )
 }
@@ -154,7 +190,7 @@ const LOAD_MORE_FOOTER_CLASSES = `${computeTablePagerClasses({ position: 'bottom
  * and for a table grid that loads page by page. The continuation is drawn only
  * while more rows exist: at the end there is nothing to offer.
  */
-function GridFooter(props: GridBodyProps) {
+function GridFooter(props: GridBodyProps & { readonly spansPages: boolean }) {
   const paged = showsPagerAt(props, 'bottom')
   // A caption is drawn in the bottom bar, so a grid declaring one always has it.
   const captioned = useContext(GridCaptionContext) !== undefined
@@ -163,7 +199,7 @@ function GridFooter(props: GridBodyProps) {
       {[paged, props.selection !== undefined, captioned].includes(true) && (
         <BottomBar
           props={props}
-          paged={paged}
+          paged={paged && props.spansPages}
         />
       )}
       {props.onLoadMore && props.paginationConfig?.style === 'infinite' && (

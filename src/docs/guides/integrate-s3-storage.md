@@ -2,7 +2,7 @@
 
 > Send Sovrium bucket uploads to any S3-compatible object store, hosted or self-hosted, with a handful of `STORAGE_S3_` environment variables.
 
-Sovrium stores uploaded files on the local disk by default. To use durable S3-compatible object storage — a provider's hosted service or your own MinIO — switch the storage backend with environment variables. Your `buckets` config never changes.
+Sovrium stores uploaded files on the local disk by default. To use durable S3-compatible object storage (a provider's hosted service or your own MinIO), switch the storage backend with environment variables. Your `buckets` config never changes.
 
 ## Point storage at S3
 
@@ -18,14 +18,14 @@ export STORAGE_S3_FORCE_PATH_STYLE=true
 sovrium start app.yaml
 ```
 
-The storage backend is operator-controlled and deliberately kept out of the app schema — the same config runs against local disk in development and S3 in production.
+The storage backend is operator-controlled and deliberately kept out of the app schema: the same config runs against local disk in development and S3 in production.
 
 ## Keep the bucket private
 
 Sovrium's bucket permissions only govern requests that go through Sovrium. Anyone who can reach the S3 bucket directly bypasses them, so:
 
-- **Keep the S3 bucket private** — no public-read policy and no public ACLs. Sovrium serves files itself, or through short-lived signed links, so nothing needs public access to the bucket.
-- **Give the access key only what Sovrium uses** — read, write, delete and list objects (`s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket`) on that one bucket, and nothing on any other.
+- **Keep the S3 bucket private**: no public-read policy and no public ACLs. Sovrium serves files itself, or through short-lived signed links, so nothing needs public access to the bucket.
+- **Give the access key only what Sovrium uses**: read, write, delete and list objects (`s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket`) on that one bucket, and nothing on any other.
 - **Keep the secret key in the environment**, never in the config file.
 
 ## Verify
@@ -34,6 +34,6 @@ Upload a file through any bucket-backed attachment field or form upload; the obj
 
 ## Next
 
-- **Buckets Overview** — declaring buckets, size limits and visibility.
-- **Form File Uploads** — accepting uploads that write to a bucket.
-- **Environment Variables** — the full storage variable set.
+- **Buckets Overview**: declaring buckets, size limits and visibility.
+- **Form File Uploads**: accepting uploads that write to a bucket.
+- **Environment Variables**: the full storage variable set.

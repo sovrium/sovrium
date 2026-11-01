@@ -17,21 +17,23 @@
  *
  * Every method surfaces a typed `ApprovalDatabaseError` on failure (via
  * `makeDbWrap`). The best-effort discard-on-error and the `''` email-lookup
- * default live in the route-side runner (`runApprovalMirror`), NOT here, so the
+ * default live on the route side (`mirrorBestEffort`), NOT here, so the
  * port contract stays honest about the possible failure.
  */
 
 import { eq } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   ApprovalRepository,
   ApprovalDatabaseError,
 } from '@/application/ports/repositories/ai/approval-repository'
-import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
   resolveDialectSchema,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { automationApprovalRequests as automationApprovalRequestsPg } from '@/infrastructure/database/drizzle/schema/automation'
 import { automationApprovalRequests as automationApprovalRequestsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -50,8 +52,8 @@ const automationApprovalRequests = resolveDialectSchema(
 /** Wrap a DB promise, adapting failures to ApprovalDatabaseError. */
 const wrap = makeDbWrap((cause) => new ApprovalDatabaseError({ cause }))
 
-export const ApprovalRepositoryLive = Layer.succeed(ApprovalRepository, {
-  insertApprovalRow: (record) =>
+const members: MembersOverDatabase<typeof ApprovalRepository> = {
+  insertApprovalRow: (db) => (record) =>
     wrap(async () => {
       // `run_id` is null for agent approvals (migration 0006 made it nullable);
       // `step_index` is 0. Column mapping preserved verbatim from approval-db.ts.
@@ -71,7 +73,7 @@ export const ApprovalRepositoryLive = Layer.succeed(ApprovalRepository, {
       })
     }),
 
-  updateApprovalRow: (record) =>
+  updateApprovalRow: (db) => (record) =>
     wrap(async () => {
       await db
         .update(automationApprovalRequests)
@@ -86,7 +88,7 @@ export const ApprovalRepositoryLive = Layer.succeed(ApprovalRepository, {
         .where(eq(automationApprovalRequests.id, record.id))
     }),
 
-  lookupUserIdentity: (userId) =>
+  lookupUserIdentity: (db) => (userId) =>
     wrap(async () => {
       // Resolve the dialect-correct auth users table per call — `auth.user` on
       // Postgres, `auth_user` on SQLite.
@@ -98,4 +100,6 @@ export const ApprovalRepositoryLive = Layer.succeed(ApprovalRepository, {
         .limit(1)
       return { email: rows[0]?.email ?? '', name: rows[0]?.name ?? '' }
     }),
-})
+}
+
+export const ApprovalRepositoryLive = layerOverDatabase(ApprovalRepository, members)

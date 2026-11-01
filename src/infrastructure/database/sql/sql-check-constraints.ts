@@ -7,10 +7,10 @@
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { optionValue } from '@/domain/models/app/tables/select-option'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { escapeSqlString } from './sql-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
 import type { SelectOption } from '@/domain/models/app/tables/fields/field-types/validation-utils'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Generate CHECK constraints for array fields with maxItems
@@ -20,15 +20,19 @@ import type { SelectOption } from '@/domain/models/app/tables/fields/field-types
  * built-in JSON1 extension (always enabled in `bun:sqlite`). Both branches
  * preserve the `IS NULL OR …` shape so an unset column is allowed.
  */
-export const generateArrayConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+export const generateArrayConstraints = (
+  fields: readonly Fields[number][],
+  dialect: DatabaseDialect
+): readonly string[] =>
   fields
     .filter(
       (field): field is Fields[number] & { type: 'array'; maxItems: number } =>
         field.type === 'array' && 'maxItems' in field && typeof field.maxItems === 'number'
     )
     .map((field) => {
-      const lengthFn = isSqliteRuntime() ? 'json_array_length' : 'array_length'
-      const callArgs = isSqliteRuntime()
+      const sqlite = dialect === 'sqlite'
+      const lengthFn = sqlite ? 'json_array_length' : 'array_length'
+      const callArgs = sqlite
         ? `(${quoteSqlIdentifier(field.name)})`
         : `(${quoteSqlIdentifier(field.name)}, 1)`
       return `CONSTRAINT check_${field.name}_max_items CHECK (${lengthFn}${callArgs} IS NULL OR ${lengthFn}${callArgs} <= ${field.maxItems})`
@@ -43,7 +47,8 @@ export const generateArrayConstraints = (fields: readonly Fields[number][]): rea
  * the array length over the parsed text. Semantically equivalent.
  */
 export const generateMultipleAttachmentsConstraints = (
-  fields: readonly Fields[number][]
+  fields: readonly Fields[number][],
+  dialect: DatabaseDialect
 ): readonly string[] =>
   fields
     .filter(
@@ -53,7 +58,7 @@ export const generateMultipleAttachmentsConstraints = (
         typeof field.maxFiles === 'number'
     )
     .map((field) => {
-      const lengthFn = isSqliteRuntime() ? 'json_array_length' : 'jsonb_array_length'
+      const lengthFn = dialect === 'sqlite' ? 'json_array_length' : 'jsonb_array_length'
       return `CONSTRAINT check_${field.name}_max_files CHECK (${lengthFn}(${quoteSqlIdentifier(field.name)}) IS NULL OR ${lengthFn}(${quoteSqlIdentifier(field.name)}) <= ${field.maxFiles})`
     })
 
@@ -229,7 +234,10 @@ const barcodeFormatSqliteGlobs: Readonly<Record<string, string | undefined>> = {
  * for the formats where GLOB cannot express the regex. Returns `''` when the
  * format is not recognized at all (filtered out at the end).
  */
-export const generateBarcodeConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+export const generateBarcodeConstraints = (
+  fields: readonly Fields[number][],
+  dialect: DatabaseDialect
+): readonly string[] =>
   fields
     .filter(
       (field): field is Fields[number] & { type: 'barcode'; format: string } =>
@@ -237,7 +245,7 @@ export const generateBarcodeConstraints = (fields: readonly Fields[number][]): r
     )
     .map((field) => {
       const constraintName = `check_${field.name}_format`
-      if (isSqliteRuntime()) {
+      if (dialect === 'sqlite') {
         // Unknown format: same drop-the-constraint behavior as PG path below.
         if (!(field.format in barcodeFormatPgPatterns)) return ''
         const glob = barcodeFormatSqliteGlobs[field.format]
@@ -263,12 +271,15 @@ export const generateBarcodeConstraints = (fields: readonly Fields[number][]): r
  * character classes — `[0-9A-Fa-f]` is identical syntax in both POSIX glob
  * and ERE regex character classes.
  */
-export const generateColorConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+export const generateColorConstraints = (
+  fields: readonly Fields[number][],
+  dialect: DatabaseDialect
+): readonly string[] =>
   fields
     .filter((field): field is Fields[number] & { type: 'color' } => field.type === 'color')
     .map((field) => {
       const constraintName = `check_${field.name}_format`
-      if (isSqliteRuntime()) {
+      if (dialect === 'sqlite') {
         return `CONSTRAINT ${constraintName} CHECK (${quoteSqlIdentifier(field.name)} GLOB '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]')`
       }
       return `CONSTRAINT ${constraintName} CHECK (${quoteSqlIdentifier(field.name)} ~ '^#[0-9a-fA-F]{6}$')`
@@ -336,7 +347,8 @@ export const generateColorConstraints = (fields: readonly Fields[number][]): rea
  * SQLite: <constraint omitted; validation happens in the application layer>
  */
 export const generateMultiSelectConstraints = (
-  fields: readonly Fields[number][]
+  fields: readonly Fields[number][],
+  dialect: DatabaseDialect
 ): readonly string[] =>
   fields
     .filter(
@@ -349,7 +361,7 @@ export const generateMultiSelectConstraints = (
       // SQLite: drop the constraint entirely (subqueries are prohibited in
       // CHECK; no subquery-free equivalent exists). Application-layer
       // validation enforces the rule on writes.
-      if (isSqliteRuntime()) return []
+      if (dialect === 'sqlite') return []
       // Options may be bare strings OR `{ value, label }` objects — normalize via
       // `optionValue` so the member CHECK is built on the stored VALUE (an object
       // option's display label is never a valid member). Mirrors the single-select

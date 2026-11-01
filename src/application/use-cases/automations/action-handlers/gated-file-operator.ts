@@ -12,8 +12,8 @@ import {
   uploadTargetParts,
 } from '@/application/ports/services/storage-service'
 import { resolveTranscribeSource } from './ai-transcribe-source'
-import { isSelfContainedSource } from './file-support'
-import { CALLER_REFUSAL } from './record-caller-gate'
+import { isSelfContainedSource } from './file/support'
+import { CALLER_REFUSAL } from './record/caller-gate'
 import { actionAttributes, stringProp } from './shared'
 import { firstStarterRefusal, starterFileGate, starterRemovalGate } from './starter-file-gate'
 import { starterOverwriteVerdict } from './starter-overwrite-gate'

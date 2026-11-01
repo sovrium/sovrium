@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { recordDbTransactionOpened } from '@/infrastructure/telemetry/db-query-counter'
 import { InTransactionBody } from './drizzle/transaction-body-guard'
-import type { DrizzleDB, DrizzleTransaction } from './drizzle/db'
+import type { PortableDb, PortableTx } from './drizzle/db'
 
 /**
  * Run an Effect inside a database transaction, on the CALLING fiber's services.
@@ -101,7 +101,8 @@ import type { DrizzleDB, DrizzleTransaction } from './drizzle/db'
  * fails at once with a message naming this rule instead of hanging
  * (`drizzle/transaction-body-guard.ts`).
  *
- * @param database - the Drizzle client to open the transaction on
+ * @param database - the Drizzle client to open the transaction on; the module-level
+ *   client gives way to the `Database` service's when the fiber carries one
  * @param body - the work to run against the transaction handle
  * @param onTransactionFailure - maps anything the transaction rejects with (a
  *   squashed body failure, or a driver/rollback error) onto the caller's error
@@ -110,8 +111,8 @@ import type { DrizzleDB, DrizzleTransaction } from './drizzle/db'
  * @returns the body's value, or `onTransactionFailure`'s error
  */
 export const withTransaction = <A, E, R, E2>(
-  database: Readonly<DrizzleDB>,
-  body: (tx: Readonly<DrizzleTransaction>) => Effect.Effect<A, E, R>,
+  database: Readonly<PortableDb>,
+  body: (tx: Readonly<PortableTx>) => Effect.Effect<A, E, R>,
   onTransactionFailure: (error: unknown) => E2
 ): Effect.Effect<A, E2, R> =>
   Effect.flatMap(Effect.context<R>(), (services) =>
@@ -127,4 +128,27 @@ export const withTransaction = <A, E, R, E2>(
       },
       catch: onTransactionFailure,
     })
+  )
+
+/**
+ * {@link withTransaction} for a body written as a Promise over its `tx`.
+ *
+ * The body's rejection is the transaction's failure, handed to
+ * `onTransactionFailure` VERBATIM (Effect 4 squashes a failure to its own
+ * value), so a caller's driver-error predicates — the unique-conflict 409
+ * among them — see what they saw with a raw `db.transaction`. What this adds
+ * over the raw call is the caller's span and interruption, the
+ * `InTransactionBody` guard and the transaction counter.
+ */
+export const withPromiseTransaction = <A, E2>(
+  database: Readonly<PortableDb>,
+  body: (tx: Readonly<PortableTx>) => Promise<A>,
+  onTransactionFailure: (error: unknown) => E2
+): Effect.Effect<A, E2> =>
+  withTransaction(
+    database,
+    (tx) =>
+      // @effect-diagnostics-next-line unknownInEffectCatch:off -- the body's own rejection reaches `onTransactionFailure` verbatim, which is this helper's contract
+      Effect.tryPromise({ try: () => body(tx), catch: (cause: unknown) => cause }),
+    onTransactionFailure
   )

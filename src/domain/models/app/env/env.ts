@@ -34,7 +34,7 @@ export const EnvVarSchema = Schema.Struct({
   /**
    * Whether this env var must be set. Defaults to `true`, and boot enforces the
    * default. It is resolved by `isEnvVarRequired`
-   * (`application/use-cases/env/validate-required-env-vars.ts`) rather
+   * (`application/use-cases/config/validate-required-env-vars.ts`) rather
    * than by a decoding default, so the console and the boot check read one
    * answer: a decoding transform under `EnvVarsSchema` would make a mistyped
    * `env:` report its identifier ("Expected EnvVars") instead of its shape
@@ -95,7 +95,7 @@ export const EnvVarSchema = Schema.Struct({
     Schema.Boolean.pipe(
       Schema.annotate({
         description:
-          'Whether `default` holds a credential. Defaults to TRUE — omit it and the default is redacted wherever the config is reflected to an operator. Set `secret: false` to let a harmless default (a port, a region, a base URL) render verbatim in the configuration-as-booted view of the admin console (/_admin/changelog?view=current) instead of ***.',
+          'Whether `default` holds a credential. Defaults to TRUE: omit it and the default is redacted wherever the config is reflected to an operator. Set `secret: false` to let a harmless default (a port, a region, a base URL) render verbatim in the configuration-as-booted view of the admin console (/_admin/changelog?view=current) instead of ***.',
       })
     )
   ),

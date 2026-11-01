@@ -6,11 +6,13 @@
  */
 
 import { Schema } from 'effect'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
 import {
+  connectionCallbackResponseSchema,
+  connectionDisconnectResponseSchema,
   connectionStatusResponseSchema,
   connectionUsersResponseSchema,
 } from '@/domain/models/api/connections'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import { effectJsonResponse, effectParameters } from '@/presentation/api/openapi/route-fragments'
 import { type ResourceGroupSpec, type RouteSpec } from '../openapi/route-spec'
 
@@ -52,13 +54,7 @@ const routes: readonly RouteSpec[] = [
       'query'
     ),
     responses: {
-      200: effectJsonResponse(
-        Schema.Struct({
-          success: Schema.Boolean,
-          connectionId: Schema.String,
-        }),
-        'Connection established'
-      ),
+      200: effectJsonResponse(connectionCallbackResponseSchema, 'Connection established'),
       400: errorResponse('Missing or mismatched code/state'),
       401: errorResponse('Not authenticated'),
       404: errorResponse('Connection not found'),
@@ -101,13 +97,7 @@ const routes: readonly RouteSpec[] = [
     description: 'Removes the stored OAuth tokens for the authenticated user.',
     operationIdBase: 'disconnectConnection',
     responses: {
-      200: effectJsonResponse(
-        Schema.Struct({
-          success: Schema.Boolean,
-          deleted: Schema.Boolean,
-        }),
-        'Connection disconnected'
-      ),
+      200: effectJsonResponse(connectionDisconnectResponseSchema, 'Connection disconnected'),
       400: errorResponse('Connection name required'),
       401: errorResponse('Not authenticated'),
       404: errorResponse('Connection not found'),

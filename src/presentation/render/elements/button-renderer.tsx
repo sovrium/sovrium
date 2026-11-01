@@ -34,13 +34,14 @@ import {
   isClipboardAction,
   buildClipboardDataAttributes,
 } from './button-page-action-builders'
+import { readGateAttributes } from './button-read-gate'
 import {
   buttonPressAttributes,
   buttonRecordControlOf,
   renderRecordDisabledButton,
   type ButtonRecordControl,
 } from './button-record-control'
-import { crudToggleFetchAction } from './button-toggle-action'
+import { crudToggleFetchAction, crudTogglePressedAttribute } from './button-toggle-action'
 import { renderCrudDeleteButton } from './crud-form/crud-delete-button-renderer'
 import { buildCrudRecordUpdateAttributes, isCrudRecordUpdate } from './crud-record-update-button'
 import { renderOpenImportButton } from './open-import-button'
@@ -157,7 +158,11 @@ function clientActionAttributes(
   if (isAuthAction(action)) return buildAuthDataAttributes(action)
   if (isFetchAction(action)) return buildFetchDataAttributes(action)
   const toggle = crudToggleFetchAction(action, props as Record<string, unknown>)
-  if (toggle !== undefined) return buildFetchDataAttributes(toggle)
+  if (toggle !== undefined)
+    return {
+      ...buildFetchDataAttributes(toggle),
+      ...crudTogglePressedAttribute(props as Record<string, unknown>),
+    }
   if (isToastAction(action)) return buildToastDataAttributes(action)
   return recordBoundActionAttributes(action, props, routeParams)
 }
@@ -172,8 +177,7 @@ function recordBoundActionAttributes(
   routeParams: RouteParams | undefined
 ): Record<string, string> | undefined {
   const boundRecord = (props as { _record?: Readonly<Record<string, unknown>> })._record
-  if (isCrudRecordUpdate(action))
-    return buildCrudRecordUpdateAttributes(action, boundRecord?.['id'])
+  if (isCrudRecordUpdate(action)) return buildCrudRecordUpdateAttributes(action, boundRecord)
   if (!isFillAction(action) && !isSeekAction(action) && !isClipboardAction(action)) return undefined
   const record = buildRecordContext(boundRecord, routeParams)
   if (isClipboardAction(action)) return buildClipboardDataAttributes(action, record)
@@ -302,7 +306,13 @@ export function renderButton(options: RenderButtonOptions): ReactElement {
   const { props, content, children } = options
   // Disabled on its record by the server's verdict: drawn with no action at all.
   const control = buttonRecordControlOf(options.component, props, options.lang)
-  if (control?.disabled !== true) return renderUsableButton(options, control)
+  // A button its record disables is disabled whatever its page reads: the read
+  // gates only ride on a usable one.
+  if (control?.disabled !== true)
+    return renderUsableButton(
+      { ...options, props: { ...props, ...readGateAttributes(options.component) } },
+      control
+    )
   const label = (props.label ?? props['data-label']) as string | undefined
   const buttonContent = content || (children.length > 0 ? children : undefined) || label
   return renderRecordDisabledButton(props, buttonContent, control)

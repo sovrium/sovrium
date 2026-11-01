@@ -79,7 +79,7 @@ export const FormFieldControlSchema = Schema.Literals([
 ]).annotate({
   title: 'Form Field Control',
   description:
-    'Explicit input control for a form field (text/email/password/number/tel/url/textarea/select/switch/rating). Required on an endpoint-bound form. On a table-bound form it is optional and overrides the control the column type gives: `password` draws a text column as a masked input and `textarea` as a multi-line box, the value still saved as the column type. A control that cannot hold the column’s values (`password` on a number column) is refused when the config is read, naming the field and the column type. `rating` draws a scale of `max` ranks (default 5) and sends the rank picked as a number. `switch` is an on/off switch that submits a JSON boolean — `true` when on, `false` when off, never omitted — and takes no options.',
+    'Explicit input control for a form field (text/email/password/number/tel/url/textarea/select/switch/rating). Required on an endpoint-bound form. On a table-bound form it is optional and overrides the control the column type gives: `password` draws a text column as a masked input and `textarea` as a multi-line box, the value still saved as the column type. A control that cannot hold the column’s values (`password` on a number column) is refused when the config is read, naming the field and the column type. `rating` draws a scale of `max` ranks (default 5) and sends the rank picked as a number. `switch` is an on/off switch that submits a JSON boolean (`true` when on, `false` when off, never omitted) and takes no options.',
 })
 
 /** The controls a `minLength` / `maxLength` rule means something on: the ones a visitor types text into. */
@@ -112,12 +112,16 @@ export const FormFieldConfigSchema = Schema.Struct({
         value: Schema.String.annotate({ description: 'Option value submitted on choice' }),
         /** Display label (defaults to value). */
         label: Schema.optional(
-          Schema.String.annotate({ description: 'Option display label (defaults to value)' })
+          Schema.String.annotate({
+            description:
+              "Option display label (defaults to the select column's own label for this value, else the value)",
+          })
         ),
       })
     ).pipe(
       Schema.annotate({
-        description: 'Dropdown options for a control: select field ({ value, label? })',
+        description:
+          'Dropdown options for a control: select field ({ value, label? }). On a field bound to a select column, the list narrows what the control offers to these options, in this order.',
       }),
       Schema.check(Schema.isMinLength(1))
     )
@@ -283,7 +287,7 @@ export const FormFieldConfigSchema = Schema.Struct({
   readOnly: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        'If true, the field is shown but cannot be edited, and its value is still submitted — on a table-bound form and on an endpoint form alike. A text control carries the browser `readonly` attribute; a `select` or `switch` is drawn disabled with `aria-readonly="true"`, its value still sent. Not a security boundary: the rules on the receiving end protect the data.',
+        'If true, the field is shown but cannot be edited, and its value is still submitted, on a table-bound form and on an endpoint form alike. A text control carries the browser `readonly` attribute; a `select` or `switch` is drawn disabled with `aria-readonly="true"`, its value still sent. Not a security boundary: the rules on the receiving end protect the data.',
     })
   ),
   /** Disable the field input */
@@ -312,7 +316,7 @@ export const FormFieldConfigSchema = Schema.Struct({
   hidden: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        'If true, no control and no label are drawn and the value is still submitted — an `<input type="hidden">` carrying `defaultValue`, on a table-bound form and on an endpoint form alike. A browser does not check `required` on a hidden control, so a hidden field that is `required` must carry a `defaultValue`, or the configuration is refused.',
+        'If true, no control and no label are drawn and the value is still submitted: an `<input type="hidden">` carrying `defaultValue`, on a table-bound form and on an endpoint form alike. A browser does not check `required` on a hidden control, so a hidden field that is `required` must carry a `defaultValue`, or the configuration is refused.',
     })
   ),
   /**

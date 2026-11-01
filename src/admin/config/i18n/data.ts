@@ -343,7 +343,9 @@ export default {
   'admin.connections.action.connect': 'Connect',
   'admin.connections.action.reconnect': 'Reconnect',
   'admin.connections.action.disconnect': 'Disconnect',
-  'admin.connections.action.disconnectConfirm': 'Revoke this connection’s tokens?',
+  'admin.connections.action.disconnectConfirm': 'Disconnect this account?',
+  'admin.connections.action.disconnectMessage':
+    'Its tokens are revoked now. Automations that use it fail until someone connects again.',
   'admin.connections.search': 'Search connections',
   'admin.connections.noMatch': 'No connection matches “{query}”',
   'admin.connections.empty': 'No connections',
@@ -366,6 +368,14 @@ export default {
   'admin.users.col.lastActive': 'Last active',
   'admin.users.filter.role': 'Filter by role',
   'admin.users.filter.allRoles': 'All roles',
+  // Who can open this console, rather than every role: the roles behind each
+  // answer are named on the line under the filter.
+  'admin.users.filter.access': 'Filter by console access',
+  'admin.users.filter.access.everyone': 'Everyone',
+  'admin.users.filter.access.yes': 'Can open the console',
+  'admin.users.filter.access.no': 'Cannot open the console',
+  'admin.users.filter.access.hintYes': 'Can open it:',
+  'admin.users.filter.access.hintNo': 'Cannot:',
   'admin.users.filter.status': 'Filter by status',
   'admin.users.filter.allStatuses': 'All statuses',
   'admin.users.account.created': 'Created',
@@ -373,23 +383,31 @@ export default {
   'admin.users.account.sessions': 'Active sessions',
   'admin.users.account.twoFactor': 'Two-factor',
   'admin.users.account.signInMethods': 'Sign-in methods',
-  'admin.users.account.danger.region': 'Ban or delete',
-  'admin.users.account.danger.heading': 'Ban or delete this account',
+  'admin.users.account.danger.region': 'End sessions, ban or delete',
+  'admin.users.account.danger.heading': 'End sessions, ban or delete',
+  'admin.users.account.danger.end': 'Signs them out on every device. They can sign in again.',
+  'admin.users.account.danger.ban':
+    'Signs them out and stops them signing in until you lift the ban.',
+  'admin.users.account.danger.delete':
+    'Removes the account and its sessions. This can’t be undone.',
   'admin.users.account.danger.body':
     'Banning signs this person out and stops them signing in until you lift it. Deleting removes the account and cannot be undone.',
   'admin.users.account.danger.self':
     'This is your account. To ban or delete it, ask another admin.',
+  'admin.users.account.danger.self.chrome': 'This is your account.',
+  'admin.users.account.danger.self.guidance':
+    'To ban or delete it, ask another admin. To sign out, use the account menu.',
   'admin.users.account.roles.region': 'Assignable roles',
   'admin.users.account.roles.heading': 'Assignable roles',
   'admin.users.account.roles.source': 'from your config file',
   // Access — the scope-table grants this account holds, read-only, beside the
-  // way to Organisation › Reach, where every path to a table is drawn.
+  // way to Access › Reach, where every path to a table is drawn.
   'admin.users.account.access.region': 'Access',
   'admin.users.account.access.heading': 'Access',
   'admin.users.account.access.body':
     'What this person can read and write, with the grant behind each line. Grants change through the API, the seed or automations, never here.',
   'admin.users.account.access.grid': 'Grants',
-  'admin.users.account.access.reach': 'Organisation › Reach',
+  'admin.users.account.access.reach': 'Access › Reach',
 
   // ── Invitations (`/users?tab=invitations`) ──────────────────────────────────
 
@@ -404,7 +422,12 @@ export default {
   'admin.pages.blurb':
     'Measure your pages’ audience over the last 30 days: views, visitors, and sessions, the trend over time, the most-viewed pages, where the traffic came from, what it browsed with, and the raw event log.',
   'admin.pages.blurbDisabled':
-    'Measure your pages’ audience — views, visitors, sessions and their sources. Analytics is off for this app; turn it on to start collecting.',
+    'Measure your pages’ audience: views, visitors, sessions and their sources.',
+  'admin.pages.off.title': 'Analytics is off for this app.',
+  // Split around the key, which the page draws as code between the two halves.
+  'admin.pages.off.guidance.before': 'Add',
+  'admin.pages.off.guidance.after':
+    'to your config file, then restart the app. Page views count from then on.',
   'admin.pages.tabs.region': 'Analytics sub-views',
 
   // ── Runs (`/runs`) ─────────────────────────────────────
@@ -541,6 +564,7 @@ export default {
   // A step the run is parked inside until its wait ends.
   'admin.automations.runs.step.waiting': 'Waiting',
   'admin.automations.runs.col.automation': 'Automation',
+  'admin.automations.runs.filter.submission': 'Started by submission',
   'admin.automations.runs.col.trigger': 'Trigger',
   'admin.automations.runs.col.status': 'Status',
   'admin.automations.runs.col.started': 'Started',
@@ -624,6 +648,11 @@ export default {
   'admin.forms.dropOff.singlePage': 'Not applicable: single-page form',
   'admin.forms.reveal': 'Reveal answers',
   'admin.forms.answers': 'Answers',
+  'admin.forms.submitter': 'Submitter',
+  'admin.forms.anonymous': 'Anonymous',
+  'admin.forms.runs': 'Runs it started',
+  'admin.forms.openRecord': 'Open the record',
+  'admin.forms.seeRuns': 'See its runs',
   'admin.forms.status.received': 'Received',
   'admin.forms.status.processing': 'In progress',
   'admin.forms.status.processed': 'Processed',
@@ -672,6 +701,8 @@ export default {
   'admin.links.campaigns.region': 'Campaigns',
   'admin.links.clickLog.heading': 'Click log',
   'admin.links.clickLog.region': 'Click log',
+  'admin.links.clickLog.notListed':
+    "Individual clicks aren't listed under this app's analytics settings. Clicks and Scans above give the totals, rounded to the tens. To list each click, set analytics.profile to full in your app config.",
   'admin.links.definition.full': 'Full definition',
   'admin.links.create.region': 'New link',
   'admin.links.create.heading': 'New link',
@@ -686,6 +717,7 @@ export default {
 
   // ── Footprint (`/analytics?tab=footprint`) ────────────────────────────────────────────
   'admin.footprint.measured.heading': 'Measured',
+  'admin.footprint.intro': 'Resources this instance used to serve pages.',
   'admin.footprint.storage.heading': 'Storage',
   'admin.footprint.storage.region': 'Storage consumers',
   'admin.footprint.configuration.heading': 'Configuration',

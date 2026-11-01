@@ -50,7 +50,11 @@ export interface PlannedSeedTable {
   readonly name: string
   readonly fileName: string
   readonly records: readonly PlannedSeedRecord[]
-  /** Columns `--mode upsert` matches on. Empty for the other two modes. */
+  /**
+   * Columns `--mode upsert` matches on. A table no upsert merges carries its
+   * file's declared `mergeOn` (or none): only a database lookup for a
+   * reference into it reads them.
+   */
   readonly mergeOn: readonly string[]
   /** `many-to-many` fields this seed data actually writes to. */
   readonly manyToManyFields: readonly string[]
@@ -225,6 +229,39 @@ export const checkAccountReferences = (
         `Create it with sovrium admin create, or list it in seed/users.yaml.`
     )
 
+const isEmptyValue = (value: unknown): boolean =>
+  value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
+
+/**
+ * The merge key, unless a record leaves one of its columns empty: such a
+ * record matches no row it could update, and the write would refuse it with
+ * no name attached, so it is refused here, dry run included.
+ */
+const mergeKeysFilled = (
+  file: LoadedSeedFile,
+  mergeOn: readonly string[],
+  source: string
+):
+  | { readonly ok: true; readonly mergeOn: readonly string[] }
+  | { readonly ok: false; readonly error: string } => {
+  const empties = file.records.flatMap((record) =>
+    mergeOn
+      .filter((field) => isEmptyValue(record.fields[field]))
+      .map((field) => ({ key: record.key, field }))
+  )
+  const [first] = empties
+  if (first === undefined) return { ok: true, mergeOn }
+  const more = empties.length > 1 ? ` (${empties.length - 1} more record(s) too)` : ''
+  return {
+    ok: false,
+    error:
+      `${file.fileName} (key "${first.key}"): field "${first.field}" is empty, but ` +
+      `--mode upsert matches rows on ${list(mergeOn.map((name) => `"${name}"`))} ` +
+      `(${source})${more}. Fill it, or ${file.mergeOn === undefined ? 'declare' : 'change'} ` +
+      `mergeOn in ${file.fileName}.`,
+  }
+}
+
 /**
  * Resolve the columns `--mode upsert` matches on: the file's `mergeOn`, else
  * the table's single `unique: true` field.
@@ -244,7 +281,7 @@ export const resolveMergeOn = (
   if (file.mergeOn !== undefined) {
     const unknown = file.mergeOn.filter((name) => !declared.includes(name))
     return unknown.length === 0
-      ? { ok: true, mergeOn: file.mergeOn }
+      ? mergeKeysFilled(file, file.mergeOn, `the file's mergeOn`)
       : {
           ok: false,
           error:
@@ -255,7 +292,7 @@ export const resolveMergeOn = (
 
   const unique = uniqueFieldNames(table)
   return unique.length === 1 && unique[0] !== undefined
-    ? { ok: true, mergeOn: [unique[0]] }
+    ? mergeKeysFilled(file, [unique[0]], `the table's only unique field`)
     : {
         ok: false,
         error:

@@ -8,14 +8,13 @@
 import { Effect } from 'effect'
 import {
   StorageService,
-  StorageError,
   storageObjectNotFound,
   uploadTargetParts,
 } from '@/application/ports/services/storage-service'
 import { logWarning } from '@/infrastructure/logging/logger'
 import { boundedDownload } from './bounded-read'
 import { deleteFileMetadata, type CatalogWrite } from './bytea-adapter'
-import { withoutClaimedKeys } from './catalog-claim'
+import { isClaimed, withoutClaimedKeys } from './catalog-claim'
 import {
   assertBucketBinding,
   catalogBucketsOf,
@@ -30,27 +29,18 @@ import {
   createS3Client,
   s3Delete,
   s3GetSignedUrl,
-  s3GetTotalBytes,
-  s3List,
-  s3ListPage,
   s3Upload,
   s3UploadCreateOnly,
 } from './s3-adapter'
 import { s3DownloadWithin, s3HashObject } from './s3-bounded-download'
+import { s3GetTotalBytes, s3List, s3ListPage } from './s3-listing'
 import { warnIfS3BucketUnreachable } from './s3-reachability'
-import {
-  absentWhileClaimed,
-  s3ObjectIdentity,
-  storedObjectIdentity,
-} from './stored-object-identity'
+import { attemptStorage, toStorageError } from './storage-attempt'
+import { absentWhileClaimed, s3ObjectIdentity } from './stored-object-identity'
 import { s3StoredSize, storedObjectSize } from './stored-object-size'
 import type { BucketBinding } from '@/application/ports/services/storage-service'
 import type { S3StorageEnvConfig } from '@/domain/models/process-env/storage/storage'
-
-const makeError = (cause: unknown): StorageError => new StorageError({ cause })
-
-const attempt = <A>(run: () => Promise<A>): Effect.Effect<A, StorageError> =>
-  Effect.tryPromise({ try: run, catch: (e: unknown) => makeError(e) })
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Unwrap an S3 listing result, warning when the walk was truncated.
@@ -77,7 +67,11 @@ const S3_STORE: SpellingStore = { caseInsensitive: false, provider: 's3' }
 
 /** The S3 provider's `upload`: bytes in `s3Bucket`, then the catalog row. */
 const s3StorageUpload =
-  (client: Bun.S3Client, s3Bucket: string): StorageService['Service']['upload'] =>
+  (
+    catalog: PortableDb,
+    client: Bun.S3Client,
+    s3Bucket: string
+  ): StorageService['Service']['upload'] =>
   (key, content, mimeType, target) => {
     const { bucket, uploadedById, generatedBy, mode } = uploadTargetParts(target)
     const recorded: CatalogWrite = {
@@ -93,34 +87,38 @@ const s3StorageUpload =
     const write =
       mode === 'create-only'
         ? createOnlyOutsideCatalog({
+            client: catalog,
             catalog: recorded,
             store: S3_STORE,
-            writeBytes: () => s3UploadCreateOnly(params),
+            writeBytes: s3UploadCreateOnly(params),
           })
         : replaceOutsideCatalog({
+            client: catalog,
             catalog: recorded,
             store: S3_STORE,
-            writeBytes: () => s3Upload(params),
+            writeBytes: s3Upload(params),
           })
     return write.pipe(withSpellingLock(key))
   }
 
 /** The S3 provider's read of an object's bytes, bounded, checking the binding. */
 const s3Reads = (
+  catalog: PortableDb,
   client: Bun.S3Client,
   s3Bucket: string
 ): Pick<StorageService['Service'], 'downloadBounded'> => ({
   downloadBounded: (key: string, bucket: BucketBinding, maxBytes: number) =>
-    assertBucketBinding(key, bucket).pipe(
+    assertBucketBinding(catalog, key, bucket).pipe(
       Effect.andThen(
-        boundedDownload(key, maxBytes, () => s3DownloadWithin(client, s3Bucket, key, maxBytes))
+        boundedDownload(key, maxBytes, s3DownloadWithin(client, s3Bucket, key, maxBytes))
       )
     ),
 })
 
-/** The S3 provider: bytes in the configured bucket, metadata in the catalog. */
+/** The S3 provider: bytes in the configured bucket, metadata in the catalog `catalog` holds. */
 export const makeS3Storage = (
-  config: S3StorageEnvConfig
+  config: S3StorageEnvConfig,
+  catalog: PortableDb
 ): Effect.Effect<StorageService['Service']> =>
   Effect.gen(function* () {
     const client = createS3Client(config)
@@ -129,40 +127,42 @@ export const makeS3Storage = (
     // {@link warnIfS3BucketUnreachable} and ./s3-bucket-probe.
     // effect-promise: total -- `warnIfS3BucketUnreachable` only awaits `probeS3BucketOnce`, which converts every rejection into a value; neither has a failure mode.
     yield* Effect.promise(() => warnIfS3BucketUnreachable(client, config.endpoint, s3Bucket))
+    const claimed = (key: string) => isClaimed(catalog, key)
     return StorageService.of({
-      upload: s3StorageUpload(client, s3Bucket),
-      ...s3Reads(client, s3Bucket),
+      upload: s3StorageUpload(catalog, client, s3Bucket),
+      ...s3Reads(catalog, client, s3Bucket),
       delete: (key: string, bucket: BucketBinding) =>
-        attempt(() => deleteFileMetadata(key, bucket)).pipe(
+        attemptStorage(() => deleteFileMetadata(catalog, key, bucket)).pipe(
           Effect.flatMap((found) =>
             found
-              ? attempt(() => s3Delete(client, s3Bucket, key))
-              : Effect.fail(makeError(storageObjectNotFound(key)))
+              ? attemptStorage(s3Delete(client, s3Bucket, key))
+              : Effect.fail(toStorageError(storageObjectNotFound(key)))
           )
         ),
-      deleteUncataloguedBytes: (key: string) => attempt(() => s3Delete(client, s3Bucket, key)),
+      deleteUncataloguedBytes: (key: string) => attemptStorage(s3Delete(client, s3Bucket, key)),
       getSignedUrl: (key: string, expiresIn: number) =>
-        attempt(() => s3GetSignedUrl(client, s3Bucket, key, expiresIn)),
-      getMetadata: getMetadataFromCatalog,
-      findOtherSpelling: findOtherSpellingIn(S3_STORE),
-      statObject: (key: string) => storedObjectSize(key, () => s3StoredSize(client, s3Bucket, key)),
+        attemptStorage(() => s3GetSignedUrl(client, s3Bucket, key, expiresIn)),
+      getMetadata: getMetadataFromCatalog(catalog),
+      findOtherSpelling: findOtherSpellingIn(catalog, S3_STORE),
+      statObject: (key: string) => storedObjectSize(key, s3StoredSize(client, s3Bucket, key)),
       objectIdentity: (key: string) =>
-        storedObjectIdentity(
-          absentWhileClaimed(key, () => s3ObjectIdentity(client, s3Bucket, key))
-        ),
-      hashObject: (key: string) => attempt(() => s3HashObject(client, s3Bucket, key)),
+        absentWhileClaimed(key, s3ObjectIdentity(client, s3Bucket, key), claimed),
+      hashObject: (key: string) => attemptStorage(s3HashObject(client, s3Bucket, key)),
       list: (prefix: string) =>
-        attempt(() => s3List(client, s3Bucket, prefix)).pipe(
+        attemptStorage(s3List(client, s3Bucket, prefix)).pipe(
           Effect.map((page) => unwrapS3Listing(page.keys, page.truncated, 'list', s3Bucket)),
-          Effect.flatMap((keys) => attempt(() => withoutClaimedKeys(keys)))
+          Effect.flatMap((keys) => attemptStorage(() => withoutClaimedKeys(catalog, keys)))
         ),
       listPage: (input) =>
-        attempt(async () => {
-          const page = await s3ListPage(client, s3Bucket, input)
-          return { ...page, keys: await withoutClaimedKeys(page.keys) }
-        }),
-      catalogBuckets: catalogBucketsOf,
-      getTotalBytes: attempt(() => s3GetTotalBytes(client, s3Bucket)).pipe(
+        attemptStorage(s3ListPage(client, s3Bucket, input)).pipe(
+          Effect.flatMap((page) =>
+            attemptStorage(() => withoutClaimedKeys(catalog, page.keys)).pipe(
+              Effect.map((keys) => ({ ...page, keys }))
+            )
+          )
+        ),
+      catalogBuckets: catalogBucketsOf(catalog),
+      getTotalBytes: attemptStorage(s3GetTotalBytes(client, s3Bucket)).pipe(
         Effect.map((total) =>
           unwrapS3Listing(total.bytes, total.truncated, 'getTotalBytes', s3Bucket)
         )

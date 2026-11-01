@@ -1,0 +1,159 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Effect, Ref } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import { logStorageFailure } from '@/application/use-cases/buckets/storage-failure-log'
+import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
+import { parseStorageTempCleanupAfter } from '@/domain/models/process-env/storage/storage-temp-cleanup-after'
+import type { StorageService } from '@/application/ports/services/storage-service'
+
+/**
+ * Reclamation of automation temp storage (`tmp/automations/`).
+ *
+ * File actions that omit a destination write to a temp key, and nothing else
+ * ever removes those files. The sweep below is what makes `tmp/` mean what it
+ * says: any temp file older than `STORAGE_TEMP_CLEANUP_AFTER` is deleted.
+ *
+ * The sweep is opportunistic — it runs as part of the NEXT temp write rather
+ * than on a timer. An app with no file actions therefore does no cleanup work
+ * at all, and multi-instance deployments do not each schedule a duplicate
+ * pass. The accepted cost is that the last temp file written before an app
+ * goes idle lingers until the next temp write.
+ *
+ * A sweep lists every temp file, so it runs at most once per
+ * {@link sweepIntervalFor} per process rather than on EVERY temp write: a
+ * loop writing a thousand temp files lists the folder a handful of times, not
+ * a thousand. A file is therefore reclaimed between `STORAGE_TEMP_CLEANUP_AFTER`
+ * and that plus the interval after it was written — never before.
+ *
+ * Composed entirely from the storage port (`list` / `getMetadata` / `delete`),
+ * so it works identically on every backend — including the local filesystem,
+ * which is the zero-config default and has no lifecycle rules of its own.
+ */
+
+type StoragePort = Effect.Success<typeof StorageService>
+
+/**
+ * The prefix handed to `list()`, without the canonical trailing slash: the
+ * local-filesystem adapter joins the prefix and each entry with `/`, so the
+ * canonical `tmp/automations/` would produce double-slashed keys that no
+ * `delete()` could resolve. Results are re-filtered on the canonical prefix,
+ * so a sibling key such as `tmp/automations-archive/report.csv` can never be
+ * mistaken for a temp file.
+ */
+const TEMP_LIST_PREFIX = TEMP_STORAGE_PREFIX.replace(/\/$/, '')
+
+/** The longest wait between two sweeps of one process. */
+export const SWEEP_INTERVAL_CAP_MS = 60_000
+
+/**
+ * The least time between two sweeps: the TTL itself, capped at a minute. A
+ * short TTL keeps the folder within twice its age; a long one is not listed
+ * more than once a minute.
+ */
+export const sweepIntervalFor = (ttlMs: number): number => Math.min(ttlMs, SWEEP_INTERVAL_CAP_MS)
+
+/** When this process last swept, in epoch milliseconds. */
+export type SweepClock = Ref.Ref<number>
+
+/** A fresh clock: the next sweep runs whatever the interval. */
+export const makeSweepClock = (): SweepClock => Ref.makeUnsafe(Number.NEGATIVE_INFINITY)
+
+/** The process's own clock, shared by every temp write. */
+const processSweepClock = makeSweepClock()
+
+/** Whether a sweep is due at `now`; claims it when it is, so concurrent writes sweep once. */
+const claimSweep = (clock: SweepClock, ttlMs: number, now: number): Effect.Effect<boolean> =>
+  Ref.modify(clock, (last): readonly [boolean, number] =>
+    now - last >= sweepIntervalFor(ttlMs) ? [true, now] : [false, last]
+  )
+
+export interface SweepTempStorageOptions {
+  /**
+   * A key to leave alone regardless of age — the file the triggering write
+   * just produced. Age alone would normally spare it, but excluding it
+   * structurally means a misconfigured TTL can never destroy the output of
+   * the very step that fired the sweep.
+   */
+  readonly preserve?: string
+  /** When the last sweep ran; the process's own unless a test provides one. */
+  readonly clock?: SweepClock
+  /** The current time; `Date.now` unless a test provides one. */
+  readonly now?: () => number
+}
+
+/**
+ * Delete `key` when its stored age is at or beyond `cutoff`.
+ *
+ * Every failure is swallowed deliberately. Reclamation is best-effort
+ * housekeeping riding along on a user-visible action, so it must never turn a
+ * successful automation step into a failed one. In particular, a `delete` of
+ * an already-deleted key — the shape a concurrent sweep produces — is treated
+ * as success, which is what makes concurrent sweeps safe.
+ */
+const reclaimIfAged = (
+  storage: StoragePort,
+  key: string,
+  cutoff: number
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    // effect-swallow: fail-soft — a temp file whose age cannot be read is kept for a later sweep; a failure other than a missing row is logged.
+    const metadata = yield* Effect.result(
+      storage.getMetadata(key, UNATTRIBUTED_BUCKET).pipe(
+        logStorageFailure('[storage] temp sweep could not read a catalog row; keeping the file', {
+          'sovrium.storage.key': key,
+        })
+      )
+    )
+    // No catalog row means the age is unknown (or the file is already gone).
+    // Keeping it is the safe branch: an unsweepable file is a smaller problem
+    // than a file deleted on a guess.
+    if (metadata._tag === 'Failure') return
+    const lastModified = Date.parse(metadata.success.lastModified)
+    if (!Number.isFinite(lastModified) || lastModified > cutoff) return
+    const removal = storage.delete(key, UNATTRIBUTED_BUCKET)
+    // effect-swallow: this is a periodic SWEEP — a delete that fails leaves the file for the next pass, which is the same outcome as never having reached it, and a storage outage must not abort the whole sweep partway through.
+    yield* Effect.ignore(removal)
+  })
+
+/**
+ * Remove every temp file that has aged past `STORAGE_TEMP_CLEANUP_AFTER`.
+ *
+ * Never fails: a storage backend that cannot be listed simply gets no sweep
+ * this pass, and the next temp write tries again.
+ */
+export const sweepAgedTempFiles = (
+  storage: StoragePort,
+  options?: SweepTempStorageOptions
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const ttlMs = parseStorageTempCleanupAfter(yield* ProcessEnv)
+    if (ttlMs <= 0) return
+    const now = (options?.now ?? Date.now)()
+    const due = yield* claimSweep(options?.clock ?? processSweepClock, ttlMs, now)
+    if (!due) return
+
+    // effect-swallow: fail-soft — a store that cannot be listed gets no sweep this pass, and the next temp write tries again; the cause is logged on the way.
+    const listed = yield* Effect.result(
+      storage
+        .list(TEMP_LIST_PREFIX)
+        .pipe(
+          logStorageFailure('[storage] temp sweep could not list temp files; skipping this pass')
+        )
+    )
+    if (listed._tag === 'Failure') return
+
+    const cutoff = now - ttlMs
+    const candidates = listed.success.filter(
+      (key) => key.startsWith(TEMP_STORAGE_PREFIX) && key !== options?.preserve
+    )
+    yield* Effect.forEach(candidates, (key) => reclaimIfAged(storage, key, cutoff), {
+      discard: true,
+    })
+  }).pipe(Effect.withSpan('storage.sweep-aged-temp-files'))

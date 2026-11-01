@@ -29,21 +29,20 @@
  * key.
  */
 
+import { Effect } from 'effect'
 import { rawListRecordsProgram } from '@/application/use-cases/tables/raw-list-program'
 import {
   readerListsEveryRow,
   rowsReaderMayNotList,
 } from '@/application/use-cases/tables/row-read-admission'
 import { isResolvableColumnName } from '@/domain/models/app/tables/system-fields'
-import { findRecordIdsByMergeFields } from '@/infrastructure/layers/table-layer'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import {
   enforceBulkCreateGate,
   enforceBulkMutationGate,
+  guardForTable,
   projectReadPredicateClause,
-  resolveGuardForTable,
 } from './row-level-guard'
+import { mergeMatchIds } from './upsert-merge-matches'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App, Table } from '@/domain/models/app'
 import type { getTableContext } from '@/presentation/api/runtime/context-helpers'
@@ -85,18 +84,19 @@ interface UpsertScope {
 }
 
 /** The rows each merge key of `records` matches, every key's matches together. */
-const allMergeMatches = async (
+const allMergeMatches = (
   tableName: string,
   records: readonly { readonly fields: Fields }[],
   fieldsToMergeOn: readonly string[]
-): Promise<readonly string[]> => {
-  const perKey = await Promise.all(
-    mergedByKey(records, fieldsToMergeOn).map((fields) =>
-      findRecordIdsByMergeFields(tableName, fields, fieldsToMergeOn)
-    )
+) =>
+  Effect.map(
+    Effect.forEach(
+      mergedByKey(records, fieldsToMergeOn),
+      (fields) => mergeMatchIds({ tableName, fields, fieldsToMergeOn }),
+      { concurrency: 'unbounded' }
+    ),
+    (perKey): readonly string[] => [...new Set(perKey.flat())]
   )
-  return [...new Set(perKey.flat())]
-}
 
 /**
  * The ids of the rows the records' merge keys match that the caller may not
@@ -104,17 +104,18 @@ const allMergeMatches = async (
  * table does not admit (`callerUnlistedRows`) — to an upsert, rows that do not
  * exist. A caller whose list admits every row costs no further lookup.
  */
-export async function hiddenMergeMatches(
+export const hiddenMergeMatches = (
   input: UpsertScope & { readonly records: readonly { readonly fields: Fields }[] }
-): Promise<readonly string[]> {
-  const { c, app, tableName, session, userRole, userGroups } = input
-  const ruleHidden = await ruleHiddenMergeMatches(input)
-  const reader = { session, role: userRole, groups: userGroups }
-  if (readerListsEveryRow(app, tableName, reader)) return ruleHidden
-  const matched = await allMergeMatches(tableName, input.records, input.fieldsToMergeOn)
-  const unlisted = await runDomainPromise(c, rowsReaderMayNotList(app, tableName, reader, matched))
-  return [...new Set([...ruleHidden, ...unlisted])]
-}
+) =>
+  Effect.gen(function* () {
+    const { app, tableName, session, userRole, userGroups } = input
+    const ruleHidden = yield* ruleHiddenMergeMatches(input)
+    const reader = { session, role: userRole, groups: userGroups }
+    if (readerListsEveryRow(app, tableName, reader)) return ruleHidden
+    const matched = yield* allMergeMatches(tableName, input.records, input.fieldsToMergeOn)
+    const unlisted = yield* rowsReaderMayNotList(app, tableName, reader, matched)
+    return [...new Set([...ruleHidden, ...unlisted])]
+  })
 
 /**
  * The ids of the rows the records' merge keys match that the caller's
@@ -122,82 +123,85 @@ export async function hiddenMergeMatches(
  * a caller they do not narrow. Trashed rows are judged like the others: the
  * rule decides, not the trash. A read that fails hides every match.
  */
-async function ruleHiddenMergeMatches(
+const ruleHiddenMergeMatches = (
   input: UpsertScope & { readonly records: readonly { readonly fields: Fields }[] }
-): Promise<readonly string[]> {
-  const { c, app, table, tableName, userRole, userGroups, session, fieldsToMergeOn } = input
-  if (!table?.rowLevelPermissions) return []
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-  if (!guard) return []
-  const clause = projectReadPredicateClause(table.rowLevelPermissions, guard.current)
-  if (clause === 'bypass' || clause === 'no-rlp') return []
-  const matched = await allMergeMatches(tableName, input.records, fieldsToMergeOn)
-  if (matched.length === 0 || clause === 'empty' || clause === undefined) return matched
-  const readable = await runOnRequest(
-    c,
-    rawListRecordsProgram(
-      session as UserSession,
-      tableName,
-      { and: [{ field: 'id', operator: 'in', value: matched }, clause] },
-      true
+) =>
+  Effect.gen(function* () {
+    const { app, table, tableName, userRole, userGroups, session, fieldsToMergeOn } = input
+    if (!table?.rowLevelPermissions) return []
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
+    if (!guard) return []
+    const clause = projectReadPredicateClause(table.rowLevelPermissions, guard.current)
+    if (clause === 'bypass' || clause === 'no-rlp') return []
+    const matched = yield* allMergeMatches(tableName, input.records, fieldsToMergeOn)
+    if (matched.length === 0 || clause === 'empty' || clause === undefined) return matched
+    // effect-swallow: a read that fails hides every match.
+    const readable = yield* Effect.result(
+      rawListRecordsProgram(
+        session as UserSession,
+        tableName,
+        { and: [{ field: 'id', operator: 'in', value: matched }, clause] },
+        true
+      )
     )
-  )
-  if (readable._tag === 'Failure') return matched
-  const visible = new Set(readable.success.map((row) => String(row.id)))
-  return matched.filter((id) => !visible.has(id))
-}
+    if (readable._tag === 'Failure') return matched
+    const visible = new Set(readable.success.map((row) => String(row.id)))
+    return matched.filter((id) => !visible.has(id))
+  })
 
 /**
  * Refuse an upsert whose writes the caller's row-level rules do not allow, or
  * `undefined` when every create and update it would make is in scope. A table
  * with no row-level rules, and a caller they do not narrow, pass untouched.
  */
-export async function enforceUpsertRowGate(
+export const enforceUpsertRowGate = (
   input: UpsertScope & {
     /** The records as they will be written (fields the role may not write already dropped). */
     readonly records: readonly { readonly fields: Fields }[]
     /** The matched rows the caller's read rule hides ({@link hiddenMergeMatches}). */
     readonly hiddenIds: readonly string[]
   }
-): Promise<Response | undefined> {
-  const { c, app, table, tableName, userRole, userGroups, session, records, fieldsToMergeOn } =
-    input
-  const hidden = new Set(input.hiddenIds)
-  if (!table?.rowLevelPermissions) return undefined
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-  if (!guard) return undefined
+) =>
+  Effect.gen(function* () {
+    const { c, app, table, tableName, userRole, userGroups, session, records, fieldsToMergeOn } =
+      input
+    const hidden = new Set(input.hiddenIds)
+    if (!table?.rowLevelPermissions) return undefined
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
+    if (!guard) return undefined
 
-  const targets: readonly UpsertTarget[] = await Promise.all(
-    mergedByKey(records, fieldsToMergeOn).map(async (fields) => ({
-      fields,
-      ids: (await findRecordIdsByMergeFields(tableName, fields, fieldsToMergeOn)).filter(
-        (id) => !hidden.has(id)
+    const targets: readonly UpsertTarget[] = yield* Effect.forEach(
+      mergedByKey(records, fieldsToMergeOn),
+      (fields) =>
+        Effect.map(mergeMatchIds({ tableName, fields, fieldsToMergeOn }), (ids) => ({
+          fields,
+          ids: ids.filter((id) => !hidden.has(id)),
+        })),
+      { concurrency: 'unbounded' }
+    )
+
+    const creates = targets.filter((target) => target.ids.length === 0)
+    const createError =
+      creates.length === 0
+        ? undefined
+        : enforceBulkCreateGate({ c, table, guard, records: creates.map((t) => t.fields) })
+    if (createError) return createError
+
+    const updates = targets.filter((target) => target.ids.length > 0)
+    if (updates.length === 0) return undefined
+    return yield* enforceBulkMutationGate({
+      c,
+      table,
+      session,
+      tableName,
+      ids: updates.flatMap((target) => target.ids),
+      guard,
+      op: 'write',
+      changes: new Map(
+        updates.flatMap((target) => target.ids.map((id) => [id, target.fields] as const))
       ),
-    }))
-  )
-
-  const creates = targets.filter((target) => target.ids.length === 0)
-  const createError =
-    creates.length === 0
-      ? undefined
-      : enforceBulkCreateGate({ c, table, guard, records: creates.map((t) => t.fields) })
-  if (createError) return createError
-
-  const updates = targets.filter((target) => target.ids.length > 0)
-  if (updates.length === 0) return undefined
-  return enforceBulkMutationGate({
-    c,
-    table,
-    session,
-    tableName,
-    ids: updates.flatMap((target) => target.ids),
-    guard,
-    op: 'write',
-    changes: new Map(
-      updates.flatMap((target) => target.ids.map((id) => [id, target.fields] as const))
-    ),
+    })
   })
-}
 
 /**
  * The first merge field that resolves to no column of `table`, or undefined when
@@ -224,9 +228,7 @@ export function unresolvableMergeField(
  * update check, the row gate and the write alike. A merge field naming no
  * column is never looked up: the permission check answers it.
  */
-export const hiddenMatchesOf = (
-  input: Parameters<typeof hiddenMergeMatches>[0]
-): Promise<readonly string[]> =>
+export const hiddenMatchesOf = (input: Parameters<typeof hiddenMergeMatches>[0]) =>
   unresolvableMergeField(input.table, input.fieldsToMergeOn) === undefined
     ? hiddenMergeMatches(input)
-    : Promise.resolve([])
+    : Effect.succeed<readonly string[]>([])

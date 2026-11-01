@@ -39,7 +39,7 @@ export const FileUploadActionSchema = Schema.Union([
 ]).annotate({
   title: 'Upload Action',
   description:
-    'Upload destination — either a URL string (e.g. "/api/buckets/default/files") or an Action object',
+    'Upload destination: either a URL string (e.g. "/api/buckets/default/files") or an Action object',
 })
 
 export const fileUploadFields = {
@@ -67,7 +67,7 @@ export const fileUploadFields = {
   compact: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        'Draw only the trigger — an outline button at a toolbar\'s size with an upload icon — for an upload that sits in a toolbar. While the file goes up the trigger is disabled and reads "Uploading…"; the outcome, and a file refused by `accept`, `maxFiles` or `maxFileSize`, is a toast (`onSuccess`, `onError`), never a file chip or a message under the trigger. The types it takes and its size cap — `PNG, JPEG, PDF · 10 MB each` — are stated on one line just after the trigger, read with it by a screen reader; with no rule to state, nothing is. Refused together with `dropZone: true`, which needs the area it draws.',
+        'Draw only the trigger (an outline button at a toolbar\'s size with an upload icon) for an upload that sits in a toolbar. While the file goes up the trigger is disabled and reads "Uploading…"; the outcome, and a file refused by `accept`, `maxFiles` or `maxFileSize`, is a toast (`onSuccess`, `onError`), never a file chip or a message under the trigger. The types it takes and its size cap (`PNG, JPEG, PDF · 10 MB each`) are stated on one line just after the trigger, read with it by a screen reader; with no rule to state, nothing is. Refused together with `dropZone: true`, which needs the area it draws.',
       defaultNote: 'false',
     })
   ),

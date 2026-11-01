@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   DEFAULT_PASSWORD_MIN_LENGTH,
   resolvePasswordPolicy,
@@ -18,9 +19,6 @@ import type { App } from '@/domain/models/app'
 const PASSWORD_MIN_LENGTH_KEY = '_passwordMinLength'
 
 type Node = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is Node =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * The edit stamping one node, when it is a `form`, with the app's minimum

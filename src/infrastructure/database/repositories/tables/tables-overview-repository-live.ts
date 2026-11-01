@@ -61,9 +61,10 @@ import {
   type TableAggregateRow,
 } from '@/application/ports/repositories/tables/tables-overview-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { db } from '@/infrastructure/database'
-import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
+import { Database } from '@/infrastructure/database/drizzle/layer'
+import { executeRawTypedOn } from '@/infrastructure/database/sql/dialect-execute'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Width of every per-table fan-out in this file.
@@ -154,9 +155,13 @@ function normalizeLastWrite(raw: Readonly<Date> | string | null | undefined): st
  * Returns zeros + `null` for tables that do not exist (engine has not yet
  * created the table, or the table was removed at config time).
  */
-async function aggregateOneTable(tableName: string): Promise<TableAggregateRow> {
+async function aggregateOneTable(
+  { client: db, dialect }: DatabaseService,
+  tableName: string
+): Promise<TableAggregateRow> {
   try {
-    const rows = await executeRawTyped<AggregateQueryRow>(
+    const rows = await executeRawTypedOn<AggregateQueryRow>(
+      dialect.kind,
       db,
       sql`SELECT SUM(CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END) AS live_count, SUM(CASE WHEN deleted_at IS NOT NULL THEN 1 ELSE 0 END) AS soft_deleted_count, MAX(updated_at) AS last_write FROM ${tableIdentifier(tableName)}`
     )
@@ -181,11 +186,15 @@ async function aggregateOneTable(tableName: string): Promise<TableAggregateRow> 
  * roll-up. The outer `Effect.tryPromise` catch is a type-level backstop only —
  * the inner catch already resolves every failure to 0.
  */
-const countLiveRowsOne = (tableName: string): Effect.Effect<number, TablesOverviewError> =>
+const countLiveRowsOne = (
+  { client: db, dialect }: DatabaseService,
+  tableName: string
+): Effect.Effect<number, TablesOverviewError> =>
   Effect.tryPromise({
     try: async () => {
       try {
-        const result = await executeRawTyped<{ readonly count: number | string }>(
+        const result = await executeRawTypedOn<{ readonly count: number | string }>(
+          dialect.kind,
           db,
           sql`SELECT COUNT(*) AS count FROM ${tableIdentifier(tableName)} WHERE deleted_at IS NULL`
         )
@@ -206,12 +215,14 @@ const countLiveRowsOne = (tableName: string): Effect.Effect<number, TablesOvervi
  * validated table name and parameter binding for the window bounds (S3).
  */
 async function countWritesInWindow(
+  { client: db, dialect }: DatabaseService,
   tableName: string,
   start: Readonly<Date>,
   end: Readonly<Date> | undefined
 ): Promise<number> {
   try {
-    const result = await executeRawTyped<{ readonly count: number | string }>(
+    const result = await executeRawTypedOn<{ readonly count: number | string }>(
+      dialect.kind,
       db,
       sql`SELECT COUNT(*) AS count FROM ${tableIdentifier(tableName)} WHERE ${writtenIn(start, end)}`
     )
@@ -242,6 +253,7 @@ const bucketAlias = (index: number): string => `bucket_${index}`
  * column alias; parameter binding for every date bound. Nothing is interpolated.
  */
 async function countWritesPerBucketOneTable(
+  { client: db, dialect }: DatabaseService,
   tableName: string,
   buckets: ReadonlyArray<BucketWindow>
 ): Promise<ReadonlyArray<number>> {
@@ -263,7 +275,8 @@ async function countWritesPerBucketOneTable(
           )
         )
 
-    const rows = await executeRawTyped(
+    const rows = await executeRawTypedOn(
+      dialect.kind,
       db,
       sql`SELECT ${sql.join(bucketColumns, sql.raw(', '))} FROM ${tableIdentifier(tableName)} WHERE ${writtenIn(windowStart, windowEnd)}`
     )
@@ -281,50 +294,57 @@ async function countWritesPerBucketOneTable(
  * every table costs exactly one query — see the QUERY BUDGET note at the top of
  * this file for why both halves of that sentence are load-bearing.
  */
-export const TablesOverviewRepositoryLive = Layer.succeed(TablesOverviewRepository, {
-  aggregateTables: (tableNames) =>
-    Effect.forEach(
-      tableNames,
-      (name) =>
-        Effect.tryPromise({
-          try: () => aggregateOneTable(name),
-          catch: (cause) => new TablesOverviewError({ cause }),
-        }),
-      { concurrency: TABLE_FANOUT_CONCURRENCY }
-    ),
-
-  countLiveRows: (tableNames) =>
-    Effect.forEach(tableNames, countLiveRowsOne, { concurrency: TABLE_FANOUT_CONCURRENCY }),
-
-  countWritesPerTable: (tableNames, windowStart, windowEnd) =>
-    Effect.forEach(
-      tableNames,
-      (name) =>
-        Effect.tryPromise({
-          try: () => countWritesInWindow(name, windowStart, windowEnd),
-          catch: (cause) => new TablesOverviewError({ cause }),
-        }),
-      { concurrency: TABLE_FANOUT_CONCURRENCY }
-    ),
-
-  countWritesPerBucket: (tableNames, buckets) =>
-    buckets.length === 0
-      ? Effect.succeed([])
-      : Effect.forEach(
+export const TablesOverviewRepositoryLive = Layer.effect(
+  TablesOverviewRepository,
+  Effect.map(Database, ({ client: db, dialect }) =>
+    TablesOverviewRepository.of({
+      aggregateTables: (tableNames) =>
+        Effect.forEach(
           tableNames,
           (name) =>
             Effect.tryPromise({
-              try: () => countWritesPerBucketOneTable(name, buckets),
+              try: () => aggregateOneTable({ client: db, dialect }, name),
               catch: (cause) => new TablesOverviewError({ cause }),
             }),
           { concurrency: TABLE_FANOUT_CONCURRENCY }
-        ).pipe(
-          // Transpose: one row per table, each holding one count per bucket →
-          // one summed count per bucket, in bucket order (the port's contract).
-          Effect.map((perTable) =>
-            buckets.map((_bucket, index) =>
-              perTable.reduce((sum, counts) => sum + (counts[index] ?? 0), 0)
-            )
-          )
         ),
-})
+
+      countLiveRows: (tableNames) =>
+        Effect.forEach(tableNames, (name) => countLiveRowsOne({ client: db, dialect }, name), {
+          concurrency: TABLE_FANOUT_CONCURRENCY,
+        }),
+
+      countWritesPerTable: (tableNames, windowStart, windowEnd) =>
+        Effect.forEach(
+          tableNames,
+          (name) =>
+            Effect.tryPromise({
+              try: () => countWritesInWindow({ client: db, dialect }, name, windowStart, windowEnd),
+              catch: (cause) => new TablesOverviewError({ cause }),
+            }),
+          { concurrency: TABLE_FANOUT_CONCURRENCY }
+        ),
+
+      countWritesPerBucket: (tableNames, buckets) =>
+        buckets.length === 0
+          ? Effect.succeed([])
+          : Effect.forEach(
+              tableNames,
+              (name) =>
+                Effect.tryPromise({
+                  try: () => countWritesPerBucketOneTable({ client: db, dialect }, name, buckets),
+                  catch: (cause) => new TablesOverviewError({ cause }),
+                }),
+              { concurrency: TABLE_FANOUT_CONCURRENCY }
+            ).pipe(
+              // Transpose: one row per table, each holding one count per bucket →
+              // one summed count per bucket, in bucket order (the port's contract).
+              Effect.map((perTable) =>
+                buckets.map((_bucket, index) =>
+                  perTable.reduce((sum, counts) => sum + (counts[index] ?? 0), 0)
+                )
+              )
+            ),
+    })
+  )
+)

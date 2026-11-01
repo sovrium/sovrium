@@ -11,6 +11,7 @@ import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { createDefaultHomePageConfig } from '@/presentation/render/page/default-page-configs'
 import { DynamicPage } from '@/presentation/render/page/dynamic-page'
 import type { App } from '@/domain/models/app'
+import type { AnalyticsBeaconSettings } from '@/presentation/render/page/analytics-beacon-script'
 
 /**
  * DefaultHomePage component - Default home page displaying application information
@@ -28,11 +29,11 @@ import type { App } from '@/domain/models/app'
 export function DefaultHomePage({
   app,
   builtInAnalyticsEnabled,
-  builtInAnalyticsSessionTimeout,
+  builtInAnalyticsSettings,
 }: {
   readonly app: App
   readonly builtInAnalyticsEnabled?: boolean
-  readonly builtInAnalyticsSessionTimeout?: number
+  readonly builtInAnalyticsSettings?: AnalyticsBeaconSettings
 }): Readonly<ReactElement> {
   const pageConfig = createDefaultHomePageConfig(app)
   // `devNoticeEnabled` mirrors the operator-console carve-out that
@@ -43,7 +44,7 @@ export function DefaultHomePage({
     <DynamicPage
       page={pageConfig}
       builtInAnalyticsEnabled={builtInAnalyticsEnabled}
-      builtInAnalyticsSessionTimeout={builtInAnalyticsSessionTimeout}
+      builtInAnalyticsSettings={builtInAnalyticsSettings}
       badgePlacement={resolveBadge(app.badge)}
       devNoticeEnabled={!isOperatorConsoleApp(app)}
     />

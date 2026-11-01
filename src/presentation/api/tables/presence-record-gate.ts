@@ -24,7 +24,7 @@ import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
-import { recordPassesPredicate, resolveGuardForTable } from './row-level-guard'
+import { guardForTable, recordPassesPredicate, type RowLevelGuardContext } from './row-level-guard'
 import { checkGetReadGate } from './row-level-read-helpers'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App, Table } from '@/domain/models/app'
@@ -66,7 +66,7 @@ async function findLiveRecord(
     c,
     Effect.gen(function* () {
       const repo = yield* DataSourceRepository
-      return yield* repo.fetchSingleRecord(tableName, paramField, paramValue, undefined, {
+      return yield* repo.fetchSingleRecord(tableName, paramField, paramValue, {
         liveOnly: true,
       })
     })
@@ -208,7 +208,7 @@ function idOf(row: Readonly<Record<string, unknown>> | undefined): string | unde
   return typeof id === 'string' || typeof id === 'number' ? String(id) : undefined
 }
 
-type RowLevelGuard = Awaited<ReturnType<typeof resolveGuardForTable>>
+type RowLevelGuard = RowLevelGuardContext | undefined
 
 /**
  * Step 1: the table's read grant for the caller, no record read. The guard it
@@ -221,7 +221,10 @@ async function readGateOf(
   table: Table
 ): Promise<'refused' | { readonly guard: RowLevelGuard; readonly reader: LinkReader }> {
   const { session, userRole, userGroups } = getTableContext(c)
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
+  const guard = await runDomainPromise(
+    c,
+    guardForTable(session, { userRole, userGroups }, table, app)
+  )
   const refusal = checkGetReadGate({ c, app, table, userRole, userGroups, guard })
   const reader = { session, role: userRole, groups: userGroups }
   return refusal === undefined ? { guard, reader } : 'refused'

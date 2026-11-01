@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import type { StepLogEntry } from './shared'
 
 /**
@@ -78,9 +79,6 @@ export type FromWorker =
 
 const LOG_LEVELS: ReadonlySet<string> = new Set(['debug', 'info', 'warn', 'error'])
 const CONSOLE_LEVELS: ReadonlySet<string> = new Set(['log', 'info', 'warn', 'error', 'debug'])
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
 
 const decodeTarget = (value: unknown): ActionTarget | undefined => {
   if (!isRecord(value)) return undefined

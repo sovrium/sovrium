@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { span } from '@/library/manifest/app-block-kit'
-import { asComponent, param, PLACE_NOTE, stringParam, when } from '@/library/manifest/block-kit'
+import { span } from '@/library/kit/app-block-kit'
+import { asComponent, param, PLACE_NOTE, stringParam, when } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** One time-bound message across the top of the site. */

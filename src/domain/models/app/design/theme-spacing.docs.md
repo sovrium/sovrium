@@ -1,6 +1,6 @@
 # Spacing, Radius & Elevation
 
-> Three ladders that decide how much room things take and how far they sit off the page, plus `codeBlock`, deprecated.
+> Three ladders that decide how much room things take and how far they sit off the page, plus `code`, the colours of code blocks.
 
 All four keys are plain name-to-value maps, all four are optional, and each step's **name** becomes the suffix of a real utility. That is the point of declaring one: a later change to the page rhythm is a one-line config edit rather than a find-and-replace across every page.
 
@@ -18,13 +18,13 @@ design:
     section: '5rem'
 ```
 
-Each name becomes the suffix of every spacing utility — padding, margin, gap and the rest — so the `section` step above makes `py-section` and `gap-section` real.
+Each name becomes the suffix of every spacing utility (padding, margin, gap and the rest), so the `section` step above makes `py-section` and `gap-section` real.
 
-**A class list is refused.** A step used to accept any string and drop what was not a length when the stylesheet was emitted, which meant a config could validate and reach nothing; a value that is not a length is now refused at decode. A token the whole app inherits is a measurement, not a layout recipe — a reusable class list belongs on `props.className`, where it is one node's business.
+**A class list is refused.** A step used to accept any string and drop what was not a length when the stylesheet was emitted, which meant a config could validate and reach nothing; a value that is not a length is now refused at decode. A token the whole app inherits is a measurement, not a layout recipe. A reusable class list belongs on `props.className`, where it is one node's business.
 
 Step names are lowercase letters, digits and hyphens. A name that could not appear in a class name is refused, and the message names the ladder it was under.
 
-**Display and size keywords are refused as step names.** `block`, `inline`, `flex`, `grid`, `table`, `hidden` and `contents` are refused, naming the step. A step's name also becomes the suffix of the logical-size utilities, so a step called `block` would turn `inline-block` into a width as well as a display, and every inline-block element on the site would take it. For the same reason `full`, `screen`, `auto`, `min`, `max`, `fit`, `svh`, `dvh`, `lvh`, `svw`, `dvw`, `lvw`, `none` and `lh` are refused: a step called `full` would make `w-full` that length instead of 100%, one called `none` would do the same to `max-w-none` and `leading-none`, and one called `lh` to `h-lh`. The container sizes `xs` to `7xl` are allowed as step names. `px` is allowed — it is the hairline step the default ladder defines. Any other name works, including one that merely contains a keyword (`block-gap`).
+**Display and size keywords are refused as step names.** `block`, `inline`, `flex`, `grid`, `table`, `hidden` and `contents` are refused, naming the step. A step's name also becomes the suffix of the logical-size utilities, so a step called `block` would turn `inline-block` into a width as well as a display, and every inline-block element on the site would take it. For the same reason `full`, `screen`, `auto`, `min`, `max`, `fit`, `svh`, `dvh`, `lvh`, `svw`, `dvw`, `lvw`, `none` and `lh` are refused: a step called `full` would make `w-full` that length instead of 100%, one called `none` would do the same to `max-w-none` and `leading-none`, and one called `lh` to `h-lh`. The container sizes `xs` to `7xl` are allowed as step names. `px` is allowed: it is the hairline step the default ladder defines. Any other name works, including one that merely contains a keyword (`block-gap`).
 
 ## `radius`
 
@@ -45,7 +45,7 @@ The two names Sovrium's own recipes read are `base` and `md`, so declaring those
 
 ## `elevation`
 
-Named `box-shadow` values. Each becomes a `shadow-{name}` utility. A value of `none` — `sm: none` on a flat design — draws no shadow and leaves a control's keyboard focus ring drawn.
+Named `box-shadow` values. Each becomes a `shadow-{name}` utility. A value of `none` (`sm: none` on a flat design) draws no shadow and leaves a control's keyboard focus ring drawn.
 
 ```yaml
 design:
@@ -58,9 +58,41 @@ design:
 
 ## Code blocks
 
-Code blocks — a `code` component, a markdown fence, a code block in an ai-chat answer — use shadcn/ui's default colours: `github-light` in the light colour scheme and `github-dark` in the dark one, following the reader's scheme. No key chooses them: `design.codeBlock`, which named a theme, was ignored from 0.40 and is refused from 0.41.
+Code blocks (a `code` component, a markdown fence, a code block in an ai-chat answer) use shadcn/ui's default colours by default: `github-light` in the light colour scheme and `github-dark` in the dark one, following the reader's scheme. Every token reads at 4.5:1 or more against its block in both schemes: where a theme's own colour for a token falls under that, it is drawn in the nearest tone of the same hue that reaches it.
 
-Every token reads at 4.5:1 or more against its block in both schemes: where a theme's own colour for a token falls under that — the comments of `github-dark` and `github-light`, the keywords, keys and variables of `github-light` — it is drawn in the nearest tone of the same hue that reaches it.
+### `code.tokens`
+
+To colour code from your design, map a syntax role to the name of a colour token under `design.code.tokens`. Each key is a role, each value a name declared in `design.colors`. In the dark scheme the role takes that colour's `design.darkColors` value, or its light value when it has none.
+
+```yaml
+design:
+  colors:
+    lichen: '#4a6b5c'
+    clay: '#9a3b1f'
+  darkColors:
+    lichen: '#a8b5ad'
+    clay: '#f0a487'
+  code:
+    tokens:
+      comment: lichen
+      keyword: clay
+```
+
+| Role       | What it paints                                                   |
+| ---------- | ---------------------------------------------------------------- |
+| `comment`  | comments                                                         |
+| `keyword`  | keywords, storage words and operators (`export`, `const`, `=>`)  |
+| `string`   | strings and regular expressions                                  |
+| `constant` | numbers, constants, built-in types and JSON property names       |
+| `function` | function, class and other declared names                         |
+| `tag`      | tag names in markup and the keys of YAML (`name` in `name: crm`) |
+| `variable` | variables and parameters                                         |
+
+A role you leave out keeps the default colour. Once `design.code` is declared, every token span of a role carries a class naming it (`tok-comment`, `tok-keyword` and so on), whether or not you gave that role a colour, so a stylesheet can target a role rather than a hex. Without the key, the markup and the stylesheet are exactly what they were. The design-system bundle carries the same roles: each token document has a `code` group in which every coloured role is a colour token aliasing the one you named (`{color.clay}`), `css/theme.css` maps it to a `--code-<role>` variable and paints `.tok-<role>` with it, and `DESIGN.md` lists each role with its light and dark value.
+
+**Each colour must be legible.** A role's colour must reach 4.5:1 on the code block and on the tint an added or highlighted line lays over it, in both schemes. The light block is your design's `muted` colour; the dark block is a fixed near-black. `sovrium validate` (and `sovrium start`) refuses a colour that falls short, naming the role, the scheme and the ratio it measured, and refuses a value that is not a declared colour name. The engine never adjusts a colour you named: pick a darker one, or give it a lighter `design.darkColors` value.
+
+`design.codeBlock`, which used to name a theme, has been refused since 0.41.
 
 ## Composing them
 

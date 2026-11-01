@@ -1,6 +1,6 @@
 # Number Fields
 
-> The numeric field types — integer, decimal (also spelled number), currency, percentage, rating and progress.
+> The numeric field types: integer, decimal (also spelled number), currency, percentage, rating and progress.
 
 Seven field types store numbers, currencies, percentages, ratings and progress indicators. All of them also accept the base field properties every field type shares.
 
@@ -26,7 +26,7 @@ Whole numbers, with no decimal places.
 
 ## `decimal`
 
-Fixed-precision decimal numbers. `precision` is the number of decimal places kept, and it is a storage decision rather than a display one — a value is rounded to it on write.
+Fixed-precision decimal numbers. `precision` is the number of decimal places kept, and it is a storage decision rather than a display one: a value is rounded to it on write.
 
 <!-- sovrium:options DecimalFieldSchema -->
 
@@ -46,9 +46,9 @@ Fixed-precision decimal numbers. `precision` is the number of decimal places kep
 
 Monetary values, carrying the ISO 4217 code alongside the amount so a figure is never ambiguous about what it is denominated in.
 
-An amount is grouped by thousands unless the field declares `thousandsSeparator` — including at `precision: 0`, so a whole-euro field reads `€48,500`. On a page, the amount is written in the page language: an undeclared separator follows it (`48 500 €` on a French page), and so does the place of the symbol. A declared `thousandsSeparator`, `none` included, always wins for the digits, but only regroups them: a field declaring `thousandsSeparator: space` reads `9 600 €` on a French page and `€9 600` on an English one. Declare `symbolPosition` to place the symbol yourself on every page. The records API has no page: it always groups with a comma unless a separator is declared, and puts the symbol where `symbolPosition` says.
+An amount is grouped by thousands unless the field declares `thousandsSeparator`, including at `precision: 0`, so a whole-euro field reads `€48,500`. On a page, the amount is written in the page language: an undeclared separator follows it (`48 500 €` on a French page), and so does the place of the symbol. A declared `thousandsSeparator`, `none` included, always wins for the digits, but only regroups them: a field declaring `thousandsSeparator: space` reads `9 600 €` on a French page and `€9 600` on an English one. Declare `symbolPosition` to place the symbol yourself on every page. The records API has no page: it always groups with a comma unless a separator is declared, and puts the symbol where `symbolPosition` says.
 
-The same rule holds on every surface that prints an amount — a grid, a kanban card, a KPI — and for a formula field that declares `format: currency`.
+The same rule holds on every surface that prints an amount (a grid, a kanban card, a KPI) and for a formula field that declares `format: currency`.
 
 <!-- sovrium:options CurrencyFieldSchema -->
 

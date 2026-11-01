@@ -7,7 +7,6 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { db } from '@/infrastructure/database/drizzle'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
@@ -15,6 +14,7 @@ import { wrapDatabaseError } from '../statement/error-handling'
 import { approvedGuestCommentByEmail } from './comment-query-predicates'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DatabaseError } from '@/infrastructure/database'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Moderation-policy lookups for the comment-create gate (PG-02).
@@ -39,11 +39,14 @@ const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqli
  * the moderation policy as `priorApprovedCommentExists`, which keeps that helper
  * pure and synchronous.
  */
-export function hasApprovedGuestComment(config: {
-  readonly session: Readonly<Session>
-  readonly tableKeys: readonly string[]
-  readonly guestEmail: string
-}): Effect.Effect<boolean, DatabaseError> {
+export function hasApprovedGuestComment(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly tableKeys: readonly string[]
+    readonly guestEmail: string
+  }
+): Effect.Effect<boolean, DatabaseError> {
   const { tableKeys, guestEmail } = config
   return Effect.tryPromise({
     try: async () => {

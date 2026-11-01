@@ -48,7 +48,7 @@ import type { SlidingWindowConfig } from '@/infrastructure/process/sliding-windo
  * NOT used by the admin limiter — admin uses a hardcoded 1-second window
  * (see ADMIN_CONFIG below). Used by auth / tables / activity.
  */
-export const getRateLimitWindowMs = (): number => resolveRateLimitWindowSeconds() * 1000
+export const getRateLimitWindowMs = (): number => resolveRateLimitWindowSeconds(process.env) * 1000
 
 interface EndpointRateLimitConfig {
   readonly windowMs: number
@@ -95,6 +95,13 @@ const getAuthRateLimitConfigs = (): Readonly<Record<string, EndpointRateLimitCon
       windowMs,
       maxRequests: 10, // 10 attempts per window (prevents enumeration while allowing legitimate use)
     },
+    // The routes that check a second-step code, one budget each per client
+    // address. The account lock (ten wrong codes in a row) protects one
+    // account; this caps an address working through many accounts whose
+    // passwords it holds, which the per-account lock alone would not see.
+    '/api/auth/two-factor/verify-totp': { windowMs, maxRequests: 30 },
+    '/api/auth/two-factor/verify-otp': { windowMs, maxRequests: 30 },
+    '/api/auth/two-factor/verify-backup-code': { windowMs, maxRequests: 30 },
     // RFC 7591 dynamic client registration, capped at the sign-up rate because
     // it is the same kind of surface once an operator sets
     // `SOVRIUM_OAUTH_ANONYMOUS_CLIENT_REGISTRATION=true`: an unauthenticated
@@ -149,6 +156,12 @@ const getAuthRateLimitConfigs = (): Readonly<Record<string, EndpointRateLimitCon
     // walking user codes through it. It answers an unknown code and someone
     // else's alike, so the walk learns nothing either way.
     '/api/auth/device/decide': { windowMs, maxRequests: 30 },
+    // Anonymous requests that WRITE a row: a device code (`auth.device_code`)
+    // and a passkey sign-in challenge (`auth.verification`). Neither needs a
+    // session, so without a budget one caller could fill both tables; the
+    // expired rows they leave are swept daily (`auth-expired-rows-sweep.ts`).
+    '/api/auth/device/code': { windowMs, maxRequests: 20 },
+    '/api/auth/passkey/generate-authenticate-options': { windowMs, maxRequests: 30 },
   }
 }
 
@@ -223,11 +236,14 @@ export const tablesBudgetOf = (
     return { bucket: 'key', config: { windowMs, maxRequests: API_KEY_TABLES_BUDGET } }
   }
   if (TABLES_WRITE_METHODS.has(verb)) {
-    return { bucket: 'write', config: { windowMs, maxRequests: resolveRateLimitWrites() } }
+    return {
+      bucket: 'write',
+      config: { windowMs, maxRequests: resolveRateLimitWrites(process.env) },
+    }
   }
   if (verb !== 'GET') return undefined
   const maxRequests = callerKey.startsWith('user:')
-    ? resolveRateLimitReads()
+    ? resolveRateLimitReads(process.env)
     : ANONYMOUS_TABLES_READS
   return {
     bucket: `read:${path === '/api/tables' ? 'list' : 'records'}`,

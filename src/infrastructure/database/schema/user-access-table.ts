@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { executeSQL, type SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 
 /**
@@ -139,7 +138,7 @@ export const ensureUserAccessTable = (
   tx: TransactionLike
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    if (isSqliteRuntime()) {
+    if (tx.dialect === 'sqlite') {
       // No `public → system` relocation on SQLite (no schemas).
       yield* executeSQL(tx, USER_ACCESS_TABLE_DDL_SQLITE)
       yield* executeSQL(tx, USER_ACCESS_INDEX_USER_SQLITE)

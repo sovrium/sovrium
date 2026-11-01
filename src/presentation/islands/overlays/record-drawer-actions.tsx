@@ -8,7 +8,8 @@
 /**
  * The record drawer's footer actions (CAP-1): a row of buttons below the record
  * body, each firing against the loaded record — a `fetch`, a `crud` delete or
- * update (`record-drawer-crud.ts`), or an `openSheet` that hands the same
+ * update (`record-drawer-crud.ts`), a `navigate` to an address filled from the
+ * record, or an `openSheet` that hands the same
  * record to the drawer it names — behind an optional confirm gate. Split out of `record-drawer-content.tsx`, which composes it.
  */
 
@@ -32,6 +33,7 @@ import {
 } from '@/presentation/design/button-default-classes'
 import { executeFetchAction } from '../runtime/action-executor'
 import { dispatch } from '../runtime/event-bus'
+import { followAddress } from '../runtime/follow-address'
 import { InlineConfirmDialog, ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
 import { renderToast } from '../runtime/toast'
 import {
@@ -96,7 +98,8 @@ async function runDrawerFetch(
  * Dispatch a drawer footer action against the loaded record. Reuses the shared
  * `executeFetchAction` runtime — `$record.<field>` in the action's `url` / `body`
  * resolves against `record` at CLICK time (the drawer loads its record lazily).
- * An `openSheet` action closes this drawer and opens the one it names.
+ * A `navigate` action follows its `$record.*`-filled path through `followAddress`;
+ * an `openSheet` action closes this drawer and opens the one it names.
  */
 function dispatchDrawerAction(
   action: Action,
@@ -111,6 +114,14 @@ function dispatchDrawerAction(
   }
   if ('type' in action && action.type === 'crud') {
     void runDrawerCrud(action as CrudAction, record, settle, words.writeRefusal)
+    return
+  }
+  // `navigate` leaves for an address read off the record the sheet shows,
+  // through the same safe-address check a grid row click takes.
+  if ('type' in action && action.type === 'navigate') {
+    followAddress(substituteRecordVars(action.path, record), {
+      openInNewTab: action.openInNewTab,
+    })
     return
   }
   // `openSheet` hands the SAME record to the drawer it names — a detail drawer

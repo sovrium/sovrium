@@ -107,7 +107,7 @@ export const CodeContentFromSchema = Schema.Struct({
   template: Schema.String.pipe(
     Schema.annotate({
       description:
-        'The line rendered once per row, with $record.<field> substituted from that row. Must reference at least one $record. field — a template with none renders the same constant once per row, which no author means.',
+        'The line rendered once per row, with $record.<field> substituted from that row. Must reference at least one $record. field. A template with none renders the same constant once per row, which no author means.',
       examples: ['GET  /api/tables/$record.name/records      # List “$record.name”'],
     }),
     Schema.check(Schema.isMinLength(1))

@@ -25,6 +25,7 @@
  * stays in its own module (`list-island-mode.ts`).
  */
 
+import { componentField, keyOf } from '@/presentation/render/resolve/component-rewrite'
 import type { Component } from '@/domain/models/app/pages/components'
 
 /**
@@ -34,8 +35,7 @@ import type { Component } from '@/domain/models/app/pages/components'
  * DB-table binding, returns false (backward compatible).
  */
 function hasOwnSystemDetailSource(component: Component): boolean {
-  const dataSource = component.dataSource as { readonly system?: unknown } | undefined
-  return dataSource?.system !== undefined
+  return keyOf(componentField(component, 'dataSource'), 'system') !== undefined
 }
 
 /**

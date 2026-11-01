@@ -35,7 +35,7 @@
  * behind a function named for an envelope.
  */
 
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { Context } from 'hono'
 

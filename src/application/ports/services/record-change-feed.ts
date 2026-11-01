@@ -67,10 +67,10 @@ export interface CommittedRowChange {
 export interface RowChangeCollector {
   /** `true` inside an announcing scope; a nested scope then reports to the outer one. */
   readonly active: boolean
-  readonly report: (changes: readonly CommittedRowChange[]) => void
+  readonly report: (changes: readonly CommittedRowChange[]) => Effect.Effect<void>
 }
 
-const IDLE_COLLECTOR: RowChangeCollector = { active: false, report: () => undefined }
+const IDLE_COLLECTOR: RowChangeCollector = { active: false, report: () => Effect.void }
 
 /** The collector in scope. Outside any announcing scope, reports go nowhere. */
 export const CommittedRowChanges = Context.Reference<RowChangeCollector>(
@@ -87,7 +87,7 @@ export const reportCommittedRows = (changes: readonly CommittedRowChange[]): Eff
     ? Effect.void
     : Effect.gen(function* () {
         const collector = yield* CommittedRowChanges
-        collector.report(changes)
+        yield* collector.report(changes)
       })
 
 /** What one write announces on one app's change streams. */

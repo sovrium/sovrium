@@ -6,8 +6,8 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { transformed } from '@/domain/models/api/combinators/transform'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import { transformed } from '@/domain/kernel/config-parsing/transform'
 
 // ---------------------------------------------------------------------------
 // Message parts
@@ -320,6 +320,18 @@ export const chatResponseSchema = Schema.Struct({
     })
   ),
   citations: optionalField(chatCitationsSchema),
+})
+
+/** `POST /api/ai/chat/stop`: the turn is stopping. */
+export const chatStopResponseSchema = Schema.Struct({
+  status: Schema.Literal('stopping'),
+  sessionId: Schema.String,
+})
+
+/** A cancelled question: it is closed and the turn does not resume. */
+export const chatElicitationCancelledResponseSchema = Schema.Struct({
+  status: Schema.Literal('cancelled'),
+  elicitationId: Schema.String,
 })
 
 // ---------------------------------------------------------------------------

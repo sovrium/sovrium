@@ -17,7 +17,10 @@ import type { ReactElement } from 'react'
  * draws — a choice, as the Select, and a date, as the date picker — painted
  * as the `crud-form` island will paint them (see `form-control-skeletons`).
  */
-export function renderSelectSkeleton(field: SkeletonFieldDef): ReactElement {
+export function renderSelectSkeleton(
+  field: SkeletonFieldDef,
+  words?: Readonly<Record<string, string>>
+): ReactElement {
   // A schema-declared `default` preselects its option, so the value the user
   // sees before hydration is the value the form will actually write.
   const defaultValue = field.defaultValue !== undefined ? String(field.defaultValue) : ''
@@ -30,7 +33,7 @@ export function renderSelectSkeleton(field: SkeletonFieldDef): ReactElement {
         name={field.name}
         value={defaultValue}
         options={field.options ?? []}
-        emptyLabel={field.placeholder ?? 'Select...'}
+        emptyLabel={field.placeholder ?? words?.['select.placeholder'] ?? 'Select...'}
         required={field.required === true}
         disabled={field.disabled === true}
       />

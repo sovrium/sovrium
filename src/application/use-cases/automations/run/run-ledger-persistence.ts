@@ -39,7 +39,7 @@ import {
   isStorageObjectNotFound,
   StorageService,
 } from '@/application/ports/services/storage-service'
-import { logStorageFailure } from '@/application/use-cases/storage/storage-failure-log'
+import { logStorageFailure } from '@/application/use-cases/buckets/storage-failure-log'
 import {
   createParkedStepCell,
   type ParkedStepCell,

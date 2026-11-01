@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { mountHref } from '@/domain/models/app/admin/mount-hrefs'
 import { findDeclaredLanguageCode } from '@/domain/models/app/languages/language-detection'
@@ -39,11 +40,6 @@ export interface PaletteNavPage {
   readonly path: string
   readonly title: string
 }
-
-type Rec = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is Rec =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every `{ href, label }` entry of a sidebar's groups, children included. */
 const entryLabels = (entries: unknown): ReadonlyArray<readonly [string, string]> =>
@@ -171,4 +167,37 @@ export const paletteTablePages = (
       title: `${heading} › ${table.label}`,
     }))
   })
+}
+
+/** Every `href` an authored `groups` row of a palette goes to. */
+const authoredHrefs = (palette: unknown): readonly string[] => {
+  const groups = isRecord(palette) ? palette['groups'] : undefined
+  if (!Array.isArray(groups)) return []
+  return groups.flatMap((group) =>
+    isRecord(group) && Array.isArray(group['items'])
+      ? group['items'].flatMap((item) =>
+          isRecord(item) && typeof item['href'] === 'string' ? [item['href']] : []
+        )
+      : []
+  )
+}
+
+/**
+ * `pages` less every page an authored group of `palette` already goes to, so
+ * typing never offers one destination twice: once in the author's group, once
+ * under Pages. An authored `href` is matched as written and under the mount
+ * the app's links point under.
+ */
+export const withoutAuthoredDestinations = (
+  pages: readonly PaletteNavPage[],
+  palette: unknown,
+  app: App
+): readonly PaletteNavPage[] => {
+  const hrefs = authoredHrefs(palette)
+  if (hrefs.length === 0) return pages
+  const { base } = navLabelsOf(app)
+  const offered = new Set(
+    hrefs.flatMap((href) => [href, ...(base === '' ? [] : [mountHref(base, href)])])
+  )
+  return pages.filter((page) => !offered.has(page.path))
 }

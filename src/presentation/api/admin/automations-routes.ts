@@ -22,7 +22,7 @@
  * a run through the replay engine) and `POST /:name/pause` | `/:name/resume`.
  *
  * Auth gating is wired upstream by `requireAdminTier()` in
- * `infrastructure/server/route-setup/api-routes.ts`. Anti-enumeration 404
+ * `middleware/admin-route-guards.ts`. Anti-enumeration 404
  * applies to every unauthorized-or-unknown path (keystone §6.4 / S1).
  *
  * Locks [internal ref] D2 (soft-delete default off — forward-contract honoured),
@@ -31,33 +31,36 @@
 
 import { Effect } from 'effect'
 import {
-  PauseAutomation,
-  ResumeAutomation,
+  pauseAutomation,
+  resumeAutomation,
+  type AutomationPauseOutcome,
 } from '@/application/use-cases/admin/automations-catalog'
 import { AUTOMATIONS_READ_OPERATIONS } from '@/application/use-cases/admin/automations-read-operations'
-import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import {
   retryAutomationRun,
   type RetryAutomationRunOptions,
 } from '@/application/use-cases/automations/retry-automation-run'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
+  automationCatalogItemSchema,
   automationPauseParamsSchema,
+  automationRunRetryResponseSchema,
   automationsRunsDetailParamsSchema,
 } from '@/domain/models/api/admin/automations'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { logError } from '@/infrastructure/logging/logger'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
-import { emitAuditEvent } from '@/presentation/api/admin/audit-events'
+import { emitAuditEventAs } from '@/presentation/api/admin/audit-events'
 import { chainAdminReadRoutes } from '@/presentation/api/admin/read-operation-routes'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { isAutomationStoreFailure } from '@/presentation/api/runtime/automation-error-responses'
 import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
-import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+  shapedJson,
+  toErrorResponse,
+} from '@/presentation/api/runtime/run-effect'
 import type { ReplayAutomationRunError } from '@/application/use-cases/automations/replay-automation-run'
 import type { App } from '@/domain/models/app'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
@@ -118,20 +121,23 @@ async function handleRetryRun(c: Context, app: App): Promise<Response> {
   const options: RetryAutomationRunOptions = {
     runId,
     app,
-    processEnv: process.env,
     userId: session.userId,
   }
-  const result = await runRequestEffect(
+  return runHandlerEffect(
     c,
-    Effect.result(provideDomain(c, retryAutomationRun(options)))
+    Effect.match(retryAutomationRun(options), {
+      onFailure: (error) => retryErrorResponse(c, error),
+      // 202 Accepted — the retry created a NEW run (`runId`); the original run's
+      // row is untouched. Hand-shaped ack (no raw DB row leaks, S4).
+      onSuccess: (retried) =>
+        shapedJson(
+          c,
+          { runId: retried.runId, status: 'accepted' },
+          automationRunRetryResponseSchema,
+          202
+        ),
+    })
   )
-  if (result._tag === 'Failure') {
-    return retryErrorResponse(c, result.failure)
-  }
-
-  // 202 Accepted — the retry created a NEW run (`runId`); the original run's
-  // row is untouched. Hand-shaped ack (no raw DB row leaks, S4).
-  return c.json({ runId: result.success.runId, status: 'accepted' }, 202)
 }
 
 // ─── Pause / resume handlers ─────────────────────────────────────────────────
@@ -163,51 +169,54 @@ async function handlePauseMutation(
 
   const program =
     mutation === 'pause'
-      ? PauseAutomation(app, name, session.userId)
-      : ResumeAutomation(app, name, session.userId)
-  const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
-
-  if (result._tag === 'Failure') {
-    logError(`[admin] automation ${mutation} failed`, result.failure, requestLogAttributes(c))
-    return c.json(
-      { success: false, message: `Failed to ${mutation} automation`, code: 'INTERNAL_ERROR' },
-      500
-    )
-  }
-
-  const outcome = result.success
-  if (outcome._tag === 'NotFound') {
-    return notFound(c, 'Not found')
-  }
-  if (outcome._tag === 'Conflict') {
-    return c.json(
-      {
-        success: false,
-        message: 'Automation is disabled in config',
-        code: 'CONFLICT',
-      },
-      409
-    )
-  }
-
-  // These are the FIRST audited automation MUTATIONS — every existing
-  // `automation.*` action is a readback. `emitAuditEvent` SILENTLY DROPS an
-  // action missing from ACTION_CATALOG (a warning, not a throw), so
-  // `automation.paused` / `automation.resumed` being registered there is what
-  // makes these rows appear at all; an admin automations pause spec asserts they do.
-  const actor = await runDomainPromise(c, resolveActor(session.userId))
-  await emitAuditEvent({
-    action:
-      mutation === 'pause' ? AUDIT_ACTIONS.AUTOMATION_PAUSED : AUDIT_ACTIONS.AUTOMATION_RESUMED,
-    actor,
-    resourceId: name,
-    severity: 'info',
-    result: 'success',
-  })
-
-  c.header('Cache-Control', 'no-store')
-  return c.json(outcome.body, 200)
+      ? pauseAutomation(app, name, session.userId)
+      : resumeAutomation(app, name, session.userId)
+  return runHandlerEffect(c, answerFailures(c, answerPauseMutation(c, program, { mutation, name })))
 }
+
+/** Answer a pause or resume, auditing it only when it took: see {@link handlePauseMutation}. */
+const answerPauseMutation = <E, R>(
+  c: Context,
+  program: Effect.Effect<AutomationPauseOutcome, E, R>,
+  target: { readonly mutation: 'pause' | 'resume'; readonly name: string }
+) =>
+  Effect.gen(function* () {
+    const { mutation, name } = target
+    const session = (c as ContextWithSession).var.session!
+    const result = yield* Effect.result(program)
+    if (result._tag === 'Failure') {
+      logError(`[admin] automation ${mutation} failed`, result.failure, requestLogAttributes(c))
+      return c.json(
+        { success: false, message: `Failed to ${mutation} automation`, code: 'INTERNAL_ERROR' },
+        500
+      )
+    }
+
+    const outcome = result.success
+    if (outcome._tag === 'NotFound') return notFound(c, 'Not found')
+    if (outcome._tag === 'Conflict') {
+      return c.json(
+        { success: false, message: 'Automation is disabled in config', code: 'CONFLICT' },
+        409
+      )
+    }
+
+    // These are the FIRST audited automation MUTATIONS — every existing
+    // `automation.*` action is a readback. `emitAuditEvent` SILENTLY DROPS an
+    // action missing from ACTION_CATALOG (a warning, not a throw), so
+    // `automation.paused` / `automation.resumed` being registered there is what
+    // makes these rows appear at all; an admin automations pause spec asserts they do.
+    yield* emitAuditEventAs(session.userId, {
+      action:
+        mutation === 'pause' ? AUDIT_ACTIONS.AUTOMATION_PAUSED : AUDIT_ACTIONS.AUTOMATION_RESUMED,
+      resourceId: name,
+      severity: 'info',
+      result: 'success',
+    })
+
+    c.header('Cache-Control', 'no-store')
+    return yield* respondWith(c, Effect.succeed(outcome.body), automationCatalogItemSchema)
+  })
 
 // ─── Route registration ──────────────────────────────────────────────────────
 
@@ -219,22 +228,17 @@ async function handlePauseMutation(
  * registry; no read path overlaps another (each has a distinct segment count or
  * a literal segment), so their order is the registry's. The three POSTs never
  * shadow — and are never shadowed by — a GET.
- *
- * The handlers resolve the live App via the `resolveApp` thunk so a config
- * swap without restart is reflected on the next request.
  */
-export function chainAdminAutomationsRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
+export function chainAdminAutomationsRoutes<T extends Hono>(honoApp: T, app: App): T {
   return (
-    chainAdminReadRoutes(honoApp, resolveApp, AUTOMATIONS_READ_OPERATIONS)
-      .post('/api/admin/automations/runs/:runId/retry', (c) => handleRetryRun(c, resolveApp()))
+    chainAdminReadRoutes(honoApp, app, AUTOMATIONS_READ_OPERATIONS)
+      .post('/api/admin/automations/runs/:runId/retry', (c) => handleRetryRun(c, app))
       // The pause/resume mutations are POSTs on a two-segment path
       // (`/:name/pause`), so they cannot shadow — nor be shadowed by — the
       // three-segment `/runs/:runId/retry` POST above.
-      .post('/api/admin/automations/:name/pause', (c) =>
-        handlePauseMutation(c, resolveApp(), 'pause')
-      )
+      .post('/api/admin/automations/:name/pause', (c) => handlePauseMutation(c, app, 'pause'))
       .post('/api/admin/automations/:name/resume', (c) =>
-        handlePauseMutation(c, resolveApp(), 'resume')
+        handlePauseMutation(c, app, 'resume')
       ) as T
   )
 }

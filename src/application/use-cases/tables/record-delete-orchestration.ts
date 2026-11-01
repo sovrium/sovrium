@@ -18,26 +18,40 @@
  *
  * The order is fixed, and the unit tests pin it:
  *
- *  1. a purge only: delete the stored files no other record references
- *  2. read the row as it stands (it feeds steps 4 and 5)
- *  3. delete (to the trash, or permanently), recording the table's delete
- *     webhook deliveries in the same transaction
+ *  0. judge the table's business rules on the row as the door read it: a lock
+ *     blocking `delete` keeps the row — and hand the same rules to the delete
+ *  1. read the row as it stands, a live one (it feeds steps 4 and 5) and, for a
+ *     purge, the one it removes, in the trash or not (it feeds step 3)
+ *  2. delete (to the trash, or permanently), the rules judged once more INSIDE
+ *     its transaction on the row as it stands there, so a delete racing a
+ *     change that locks the row is judged on what that change left; recording
+ *     the table's delete webhook deliveries in the same transaction
+ *  3. a purge only: delete the stored files of the row read in step 1 that no
+ *     other record references — once the delete committed, so a delete refused
+ *     or failed keeps every file
  *  4. dispatch the table's record-delete automations, handed the row as it stood
  *  5. deliver the webhook deliveries the delete recorded
  *
- * Steps 4–5 run only when the delete removed a row: not for a missing one, and
+ * A permanent delete and a purge reach a row in the trash as well as a live
+ * one: the rules judge it and a purge removes its files alike. A row already in
+ * the trash fired its `delete` event when it went there, so steps 4–5 run for
+ * a live row only.
+ *
+ * Steps 3–5 run only when the delete removed a row: not for a missing one, and
  * not for one a `restrict` link holds in place. The realtime `delete` event is
  * not published here — the delete program announces every row it removed,
  * cascaded children included, once the delete commits.
  */
 
 import { Effect } from 'effect'
-import { rawGetRecordProgram } from './read-record-programs'
+import { prepareRowOpRuleJudge, type prepareRuleJudge } from './permissions/business-rule-gate'
+import { rawGetRecordIncludingTrashProgram, rawGetRecordProgram } from './read-record-programs'
 import { deleteRecordProgram, permanentlyDeleteRecordProgram } from './record-lifecycle-programs'
 import { purgeStoredAttachments } from './record-purge-attachments'
 import { deliverRecordWebhooks, withRecordWebhooks } from './record-webhook-outbox'
 import type { StoredRow } from './record-update-orchestration'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { InTransactionRuleJudge } from '@/application/ports/repositories/tables/in-transaction-rule-judge'
 import type {
   DeliveryMode,
   OutboxedWrite,
@@ -71,9 +85,9 @@ export interface RecordDeleteInput {
   readonly mode: DeleteMode
   /** Who made the write, as the automations' `trigger.user`: absent for a write no person made. */
   readonly requester?: TriggerRequester
-  /** Process env captured at the route boundary, for the automations' `$env` lookups. */
-  readonly processEnv: Readonly<Record<string, string | undefined>>
-  /** Whether the request waits for its webhook deliveries (it does, by default). */
+  /** The writer's groups: a refusal names a field only to a writer they let read it. */
+  readonly userGroups?: readonly string[]
+  /** Whether the write waits for its webhook deliveries; unnamed, the caller's receipt decides. */
   readonly deliveryMode?: DeliveryMode
   /** Forgets every derived variant of a stored file a purge deleted. */
   readonly forgetDerivedVariants: (key: string) => void
@@ -85,9 +99,21 @@ export interface RecordDeleteInput {
  * unit-testable property rather than a reading of the code.
  */
 export interface RecordDeleteSteps<E, R, RD = never, RA = never> {
-  readonly purgeAttachments: Effect.Effect<void, never, R>
+  /**
+   * Refuse a delete the table's business rules forbid, before anything is
+   * removed, and answer those rules for the delete to judge again inside its
+   * transaction (`undefined` for a table without rules).
+   */
+  readonly authorizeRules: Effect.Effect<InTransactionRuleJudge | undefined, E, R>
+  /** Remove the stored files of the row as it was read, once its delete committed. */
+  readonly purgeAttachments: (row: StoredRow) => Effect.Effect<void, never, R>
+  /** The live row, for the automations and webhooks; `null` for one in the trash. */
   readonly readRow: Effect.Effect<StoredRow | null, E, R>
-  readonly remove: Effect.Effect<OutboxedWrite<DeleteResult>, E, R | RD>
+  /** The row a purge removes, in the trash or not. */
+  readonly readPurgedRow: Effect.Effect<StoredRow | null, E, R>
+  readonly remove: (
+    judge: InTransactionRuleJudge | undefined
+  ) => Effect.Effect<OutboxedWrite<DeleteResult>, E, R | RD>
   readonly dispatchAutomations: (input: TriggerRecordEventInput) => Effect.Effect<void, never, RA>
   readonly deliverWebhooks: (deliveryIds: readonly string[]) => Effect.Effect<void, never, RD>
 }
@@ -101,27 +127,30 @@ export const removedARow = (result: DeleteResult): boolean =>
  * Resolves to what the delete answered.
  */
 export function orchestrateRecordDelete<E, R, RD = never, RA = never>(
-  input: Pick<RecordDeleteInput, 'app' | 'tableName' | 'mode' | 'processEnv' | 'requester'> & {
+  input: Pick<RecordDeleteInput, 'app' | 'tableName' | 'mode' | 'requester'> & {
     readonly userId: string
   },
   steps: RecordDeleteSteps<E, R, RD, RA>
 ): Effect.Effect<DeleteResult, E, R | RD | RA> {
   const { app, tableName } = input
   return Effect.gen(function* () {
-    if (input.mode === 'purge') yield* steps.purgeAttachments
+    const judge = yield* steps.authorizeRules
     const previous = yield* steps.readRow
-    const removed = yield* steps.remove
+    const purged = input.mode === 'purge' ? yield* steps.readPurgedRow : null
+    const removed = yield* steps.remove(judge)
     const result = removed.value
+    if (!removedARow(result)) return result
+    if (purged) yield* steps.purgeAttachments(purged)
     // A missing row, or one held in place, fires nothing: dispatching against
     // an empty record would surface as `undefined` for every
-    // `{{trigger.data.record.X}}`. It recorded no delivery either.
-    if (!removedARow(result) || !previous) return result
+    // `{{trigger.data.record.X}}`. Nor does one already in the trash: its
+    // soft delete fired the one `delete` event.
+    if (!previous) return result
     yield* steps.dispatchAutomations({
       app,
       tableName,
       event: 'delete',
       record: { ...previous },
-      processEnv: input.processEnv,
       userId: input.userId,
       ...(input.requester === undefined ? {} : { requester: input.requester }),
     })
@@ -142,6 +171,35 @@ const asDeleteResult = (success: boolean): DeleteResult => ({
 })
 
 /**
+ * The row a delete removes, as it stands: a permanent delete or a purge reaches
+ * a row in the trash too, a delete to the trash only a live one.
+ */
+const readDeletedRow = (input: RecordDeleteInput) => {
+  const { session, tableName, recordId, app } = input
+  return input.mode === 'soft'
+    ? rawGetRecordProgram(session, tableName, recordId, app)
+    : rawGetRecordIncludingTrashProgram(session, tableName, recordId, app)
+}
+
+/**
+ * The rules' step of a delete: the table's rules judged on the row as the door
+ * read it, and handed on for the delete to judge again inside its transaction.
+ * A row that does not exist is left to the delete, which answers it is not found.
+ */
+const deleteRulesStep = (input: RecordDeleteInput) => {
+  const { session, app, tableName, recordId } = input
+  return prepareRowOpRuleJudge(
+    {
+      ...{ app, tableName, userId: session.userId },
+      ...(input.requester === undefined ? {} : { userRole: input.requester.role }),
+      ...(input.userGroups === undefined ? {} : { userGroups: input.userGroups }),
+    },
+    { op: 'delete', recordId },
+    readDeletedRow(input)
+  ).pipe(Effect.withSpan('tables.delete-rules-step', { attributes: { tableName } }))
+}
+
+/**
  * One delete with every side effect it carries, its record automations started by
  * `dispatchAutomations`: the records API's own dispatch for every road but an
  * automation step, which hands its run's record-event channel (see
@@ -153,31 +211,36 @@ export function deleteRecordVia<RA>(
 ) {
   const { session, app, tableName, recordId, mode } = input
   return orchestrateRecordDelete<
-    Effect.Error<ReturnType<typeof deleteRecordProgram>>,
+    | Effect.Error<ReturnType<typeof deleteRecordProgram>>
+    | Effect.Error<ReturnType<typeof permanentlyDeleteRecordProgram>>,
     | Effect.Services<ReturnType<typeof deleteRecordProgram>>
+    | Effect.Services<ReturnType<typeof prepareRuleJudge>>
     | Effect.Services<ReturnType<typeof purgeStoredAttachments>>,
     RecordWebhookDispatcher,
     RA
   >(
     { ...input, userId: session.userId },
     {
-      purgeAttachments: purgeStoredAttachments({
-        ...{ session, app, tableName, recordId },
-        forgetDerivedVariants: input.forgetDerivedVariants,
-      }),
+      authorizeRules: deleteRulesStep(input),
+      purgeAttachments: (row) =>
+        purgeStoredAttachments({
+          ...{ session, app, tableName, recordId, row },
+          forgetDerivedVariants: input.forgetDerivedVariants,
+        }),
       // `app` so this pre-fetch refuses a table with no single-value record
       // address, rather than being the statement that names its missing `id`.
       readRow: rawGetRecordProgram(session, tableName, recordId, app),
-      remove: (mode === 'soft'
-        ? deleteRecordProgram(session, tableName, recordId, app)
-        : Effect.map(
-            permanentlyDeleteRecordProgram(session, tableName, recordId, app),
-            asDeleteResult
-          )
-      ).pipe(withRecordWebhooks(app, tableName)),
+      readPurgedRow: readDeletedRow(input),
+      remove: (judge) =>
+        (mode === 'soft'
+          ? deleteRecordProgram(session, tableName, recordId, { app, judge })
+          : Effect.map(
+              permanentlyDeleteRecordProgram(session, tableName, recordId, { app, judge }),
+              asDeleteResult
+            )
+        ).pipe(withRecordWebhooks(app, tableName)),
       dispatchAutomations,
-      deliverWebhooks: (deliveryIds) =>
-        deliverRecordWebhooks(app, deliveryIds, input.deliveryMode ?? 'await'),
+      deliverWebhooks: (deliveryIds) => deliverRecordWebhooks(app, deliveryIds, input.deliveryMode),
     }
   ).pipe(Effect.withSpan('tables.delete-record-with-side-effects', { attributes: { tableName } }))
 }

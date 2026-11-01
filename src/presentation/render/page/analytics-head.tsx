@@ -18,8 +18,11 @@ import type { Analytics } from '@/domain/models/app/pages/meta'
  */
 export function AnalyticsHead({
   analytics,
+  heldForConsent = false,
 }: {
   readonly analytics?: Analytics | { readonly [x: string]: unknown }
+  /** The app declares an `analytics` purpose, so the providers wait for it. */
+  readonly heldForConsent?: boolean
 }): Readonly<ReactElement | undefined> {
   // Type guard: ensure analytics has providers array (not generic record)
   if (
@@ -35,5 +38,11 @@ export function AnalyticsHead({
   const analyticsConfig = analytics as Analytics
 
   // Render all providers using builder pattern
-  return <>{analyticsConfig.providers.flatMap(buildProviderElements)}</>
+  return (
+    <>
+      {analyticsConfig.providers.flatMap((provider, index) =>
+        buildProviderElements(provider, index, heldForConsent)
+      )}
+    </>
+  )
 }

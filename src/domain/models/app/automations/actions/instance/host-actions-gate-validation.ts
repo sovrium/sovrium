@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { HOST_ACTIONS_DISABLED_MESSAGE } from '@/domain/models/process-env/host-actions'
 
 /**
@@ -26,9 +27,6 @@ import { HOST_ACTIONS_DISABLED_MESSAGE } from '@/domain/models/process-env/host-
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** A step found in the config, with where it was found. */
 interface FoundStep {

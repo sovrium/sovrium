@@ -76,7 +76,7 @@ export const TabPanelSchema = Schema.Struct({
   body: Schema.optional(
     Schema.String.annotate({
       description:
-        'Text content of the panel. Omit when the panel body is the index-aligned entry of the parent’s `children`.',
+        'Text content of the panel, shown exactly as written: markup in it, and any value a reference in it fills, reads as text. A body that needs markup is a component in the parent’s `children` instead, at the same index; omit `body` then.',
     })
   ),
   /**

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { componentFields, rewriteComponent } from '@/presentation/render/resolve/component-rewrite'
 import type { Component } from '@/domain/models/app/pages/components'
 
 /**
@@ -90,11 +91,11 @@ function withIdOnControl(node: Node, id: string): Node {
  * (React `useId`), which is what keeps two such fields apart on one page.
  */
 export function withFieldControlId(component: Component, renderId: string): Component {
-  const field = component as Node
+  const field = componentFields(component)
   if (field['type'] !== 'field' || typeof field['fieldLabel'] !== 'string') return component
   const control = fieldControlOf(field)
   if (control === undefined || extractFirstChildId(component) !== undefined) return component
   const id = mintedControlId(field, control, renderId)
   const [first, ...rest] = field['children'] as readonly Node[]
-  return { ...component, children: [withIdOnControl(first as Node, id), ...rest] } as Component
+  return rewriteComponent(component, { children: [withIdOnControl(first as Node, id), ...rest] })
 }

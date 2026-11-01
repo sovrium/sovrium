@@ -6,10 +6,10 @@
  */
 
 import { Schema } from 'effect'
-import { describedRef } from '@/domain/models/api/combinators/described-ref'
-import { email, looseIsoDateTime, uri } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { timestampSchema } from '../combinators/common'
+import { describedRef } from '@/domain/kernel/config-parsing/described-ref'
+import { email, looseIsoDateTime, uri } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import { timestampSchema } from '../common'
 
 // ============================================================================
 // User Schemas
@@ -268,6 +268,15 @@ export const adminUpdateUserResponseSchema = Schema.Struct({
 })
 
 /**
+ * `POST /api/auth/admin/update-user`. The route changes one thing, the role, and
+ * answers that it did; it does not echo the account.
+ */
+export const adminUserRoleUpdatedResponseSchema = Schema.Struct({
+  success: Schema.Literal(true).annotate({ description: 'The role was changed' }),
+  message: Schema.String.annotate({ description: 'What happened, in English' }),
+})
+
+/**
  * Admin delete user response schema
  */
 export const adminDeleteUserResponseSchema = Schema.Struct({
@@ -309,7 +318,7 @@ const invitedUserSchema = Schema.Struct({
  *
  * A Sovrium-owned Hono route, not a Better Auth plugin endpoint — which is
  * precisely why it was missing from the catalogue. An admin-issued invitation
- * is the ONLY onboarding path when `allowSignUp: false`, so an integrator who
+ * is the ONLY onboarding path while sign-up is closed (the default), so an integrator who
  * cannot discover this endpoint cannot onboard anyone at all.
  */
 export const adminInviteUserResponseSchema = Schema.Struct({
@@ -593,3 +602,110 @@ export const deviceDecisionResponseSchema = Schema.Struct({
 
 /** @public */
 export type DeviceDecisionResponse = Schema.Schema.Type<typeof deviceDecisionResponseSchema>
+
+// ============================================================================
+// Session refresh, teams and token introspection
+// ============================================================================
+
+/**
+ * `POST /api/auth/refresh-session`.
+ */
+export const sessionRefreshResponseSchema = Schema.Struct({
+  message: Schema.String.annotate({ description: 'What happened, in English' }),
+})
+
+/**
+ * One team of this instance's organization, as `GET /api/auth/organization/get-team`
+ * answers it.
+ */
+export const teamResponseSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Team identifier' }),
+  name: Schema.String.annotate({ description: 'Team name' }),
+  organizationId: Schema.String.annotate({ description: 'The organization the team belongs to' }),
+  memberCount: Schema.Int.annotate({ description: 'How many members the team holds' }),
+  createdAt: Schema.String.annotate({ description: 'When the team was created (ISO 8601)' }),
+  updatedAt: Schema.String.annotate({ description: 'When the team last changed (ISO 8601)' }),
+}).annotate({ identifier: 'Team' })
+
+/** @public */
+export type TeamResponse = typeof teamResponseSchema.Type
+
+/**
+ * `GET /api/auth/organization/list-team-members`, as answered to an organization
+ * manager who is not on the team.
+ */
+export const teamMembersResponseSchema = Schema.Struct({
+  members: Schema.Array(
+    Schema.Struct({
+      id: Schema.String.annotate({ description: 'Membership identifier' }),
+      teamId: Schema.String.annotate({ description: 'Team identifier' }),
+      userId: Schema.String.annotate({ description: 'User identifier' }),
+      createdAt: Schema.NullOr(
+        Schema.String.annotate({
+          description: 'When the membership began (ISO 8601); null when it was not recorded',
+        })
+      ),
+    })
+  ).annotate({ description: 'Every member of the team' }),
+})
+
+/** @public */
+export type TeamMembersResponse = typeof teamMembersResponseSchema.Type
+
+/**
+ * `POST /api/auth/oauth2/introspect`, RFC 7662: a token that is not active says
+ * so and nothing else, so a caller learns nothing about why.
+ */
+export const tokenIntrospectionResponseSchema = Schema.Union([
+  Schema.Struct({
+    active: Schema.Literal(false).annotate({ description: 'The token cannot be used' }),
+  }),
+  Schema.Struct({
+    active: Schema.Literal(true).annotate({ description: 'The token can be used' }),
+    client_id: Schema.String.annotate({ description: 'The client the token was issued to' }),
+    sub: optionalField(Schema.String.annotate({ description: 'The user the token acts for' })),
+    exp: Schema.Int.annotate({ description: 'When the token expires, in seconds since the epoch' }),
+    iat: Schema.Int.annotate({
+      description: 'When the token was issued, in seconds since the epoch',
+    }),
+    scope: optionalField(
+      Schema.String.annotate({ description: 'The scopes of the token, separated by spaces' })
+    ),
+  }),
+]).annotate({ identifier: 'TokenIntrospection' })
+
+/** @public */
+export type TokenIntrospectionResponse = typeof tokenIntrospectionResponseSchema.Type
+
+// ============================================================================
+// Two-step sign-in lockout
+// ============================================================================
+
+/**
+ * Body of `POST /api/auth/two-factor/unlock`: the account whose locked
+ * second step an administrator clears. Requires an administrator's session;
+ * any other caller, and an account that does not exist, is answered 404.
+ *
+ * @public
+ */
+export const twoFactorUnlockRequestSchema = Schema.Struct({
+  userId: Schema.String.annotate({
+    description: 'The id of the account whose two-step sign-in lock is cleared',
+  }).check(Schema.isMinLength(1)),
+})
+
+/** @public */
+export type TwoFactorUnlockRequest = Schema.Schema.Type<typeof twoFactorUnlockRequestSchema>
+
+/**
+ * Answer of `POST /api/auth/two-factor/unlock`: the lock is cleared and the
+ * account's count of wrong codes starts again from zero.
+ *
+ * @public
+ */
+export const twoFactorUnlockResponseSchema = Schema.Struct({
+  success: Schema.Literal(true).annotate({ description: 'The two-step sign-in lock was cleared' }),
+})
+
+/** @public */
+export type TwoFactorUnlockResponse = Schema.Schema.Type<typeof twoFactorUnlockResponseSchema>

@@ -20,9 +20,9 @@ import { COPY_READY_MARK, TOC_SPY_READY_MARK } from '@/presentation/design/runti
  * control to every block.
  *
  * They live here (not in `markdown-article.tsx`) purely to keep that SSR
- * component under its line cap; the hoisted `*_HTML` wrappers are exported so
- * the component can bind them to `dangerouslySetInnerHTML` without allocating a
- * fresh object in render scope (react-perf/jsx-no-new-object-as-prop).
+ * component under its line cap; each is exported as a SCREAMING_CASE string and
+ * placed with `<InlineScript>` (`@/presentation/design/inline-script`), the one
+ * place that owns `dangerouslySetInnerHTML` for engine-authored script constants.
  */
 
 /**
@@ -51,7 +51,7 @@ import { COPY_READY_MARK, TOC_SPY_READY_MARK } from '@/presentation/design/runti
  * Tailwind utility class names are candidate-gated), so this scoped sheet is
  * safe to inject directly without a `bun run build:css-assets` regeneration.
  */
-const DOCS_PROSE_PATCH = `
+export const DOCS_PROSE_PATCH = `
 .typeset :where(a):not(:where([data-slot] *,[data-component] *)):not([data-part]){color:var(--color-warmth, inherit);text-underline-offset:2px;}
 .typeset :where(a):not(:where([data-slot] *,[data-component] *)):not([data-part]):hover{color:var(--color-warmth-border, inherit);}
 .typeset .md-callout:not([data-part]),.typeset [data-component="alert"]:not([data-part]){border:1px solid #e5ded5;border-left:3px solid var(--color-warmth-border, var(--color-border-strong));background:#f5f0eb;border-radius:0 .5rem .5rem 0;padding:.85rem 1rem;margin:var(--typeset-flow) 0 0;color:#3f3a34;}
@@ -65,60 +65,43 @@ const DOCS_PROSE_PATCH = `
 `
 
 /**
- * Hoisted `dangerouslySetInnerHTML` payload for the scoped docs patch
- * (react-perf/jsx-no-new-object-as-prop: the prop object must not be allocated
- * in render scope). Allocating it once at module scope keeps the lint rule
- * satisfied without per-element `eslint-disable`s; the TOC scroll-spy hoists
- * below (`TOC_SCROLLSPY_STYLE_HTML` / `TOC_SCROLLSPY_SCRIPT_HTML`) follow the
- * same pattern.
+ * TOC scroll-spy enhancement. An inline IIFE (no island runtime) that drives
+ * every outline on the page: the docs layout's (`[data-component="markdown-toc"]`)
+ * and every `toc` component (`nav[data-slot="toc"]`). For each one it observes
+ * the headings its `#` links point at and marks the link to the section being
+ * read `data-active="true"` as the reader scrolls. Each outline gets its own
+ * observer, whose band starts below the outline's own sticky offset (capped at
+ * 80px, the headings' scroll margin) or at the top of the screen when it is not
+ * sticky, and ends 70% of the way down. Degrades gracefully when
+ * IntersectionObserver is unavailable (the static anchors still work).
+ * Idempotent via a `data-toc-spy-ready` mark on each outline, so a second copy of
+ * the script, or a client navigation, never binds one twice.
  */
-export const DOCS_PROSE_PATCH_HTML = { __html: DOCS_PROSE_PATCH }
-
-/**
- * Active-link styling for the TOC scroll-spy (P4). Raw CSS (a sibling of
- * DOCS_PROSE_PATCH) so the `data-active` selector never has to flow through the
- * Tailwind candidate pipeline — `[data-toc-link][data-active="true"]` is a plain
- * attribute selector, not a utility class. The active entry gets the warmth
- * accent border + brighter text so the reader sees where they are.
- */
-const TOC_SCROLLSPY_STYLE = `
-.sv-toc-link[data-active="true"]{border-left-color:var(--color-warmth-border, var(--color-border-strong));color:var(--color-foreground, #fafafa);font-weight:500;}
-`
-
-/**
- * TOC scroll-spy enhancement (P4). An inline IIFE (the docs article's
- * "no island runtime" pattern) observes every heading the TOC links to and toggles
- * `data-active="true"` on the matching `[data-toc-link]` as the reader scrolls,
- * so the right-rail "On this page" tracks the viewport. Degrades gracefully when
- * IntersectionObserver is unavailable (the static anchors still work). Idempotent
- * via a `data-toc-spy-ready` guard on the nav so client navigations don't double-bind.
- */
-const TOC_SCROLLSPY_SCRIPT = `(function(){
+export const TOC_SCROLLSPY_SCRIPT = `(function(){
 "use strict";
-function init(){
-var nav=document.querySelector('[data-component="markdown-toc"]:not([${TOC_SPY_READY_MARK}])');
-if(!nav){return;}
+function spy(nav){
 nav.setAttribute("${TOC_SPY_READY_MARK}","");
-var links=nav.querySelectorAll("[data-toc-link]");
+var links=nav.querySelectorAll('a[href^="#"]');
 if(!links.length||typeof IntersectionObserver==="undefined"){return;}
 var linkById={};
 var ids=[];
-for(var i=0;i<links.length;i++){var id=links[i].getAttribute("data-toc-link");if(id){linkById[id]=links[i];ids.push(id);}}
+for(var i=0;i<links.length;i++){var id=links[i].getAttribute("data-toc-link")||links[i].getAttribute("href").slice(1);try{id=decodeURIComponent(id);}catch(x){}if(id&&!linkById[id]){linkById[id]=links[i];ids.push(id);}}
 var visible={};
-function setActive(id){for(var j=0;j<ids.length;j++){var l=linkById[ids[j]];if(l){if(ids[j]===id){l.setAttribute("data-active","true");}else{l.removeAttribute("data-active");}}}}
+function setActive(id){for(var j=0;j<ids.length;j++){var l=linkById[ids[j]];if(ids[j]===id){l.setAttribute("data-active","true");}else{l.removeAttribute("data-active");}}}
+var t=parseFloat(getComputedStyle(nav).top);var top=isNaN(t)?0:Math.min(Math.max(t,0),80);
 var obs=new IntersectionObserver(function(entries){
 for(var k=0;k<entries.length;k++){var e=entries[k];var hid=e.target.id;if(e.isIntersecting){visible[hid]=true;}else{delete visible[hid];}}
 var firstVisible=null;for(var m=0;m<ids.length;m++){if(visible[ids[m]]){firstVisible=ids[m];break;}}
 if(firstVisible){setActive(firstVisible);}
-},{rootMargin:"-80px 0px -70% 0px",threshold:0});
+},{rootMargin:"-"+top+"px 0px -70% 0px",threshold:0});
 for(var n=0;n<ids.length;n++){var h=document.getElementById(ids[n]);if(h){obs.observe(h);}}
+}
+function init(){
+var navs=document.querySelectorAll('[data-component="markdown-toc"]:not([${TOC_SPY_READY_MARK}]),nav[data-slot="toc"]:not([${TOC_SPY_READY_MARK}])');
+for(var i=0;i<navs.length;i++){spy(navs[i]);}
 }
 if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}
 })();`
-
-/** Hoisted TOC scroll-spy payloads (see `DOCS_PROSE_PATCH_HTML`). */
-export const TOC_SCROLLSPY_STYLE_HTML = { __html: TOC_SCROLLSPY_STYLE }
-export const TOC_SCROLLSPY_SCRIPT_HTML = { __html: TOC_SCROLLSPY_SCRIPT }
 
 /**
  * Copy-as-Markdown enhancement. The docs
@@ -132,7 +115,7 @@ export const TOC_SCROLLSPY_SCRIPT_HTML = { __html: TOC_SCROLLSPY_SCRIPT }
  * keeps the accessible name stable). Idempotent via a `data-copy-ready` guard.
  * The "View as Markdown" link is the no-JS fallback and always works.
  */
-const COPY_MARKDOWN_SCRIPT = `(function(){
+export const COPY_MARKDOWN_SCRIPT = `(function(){
 "use strict";
 function enhance(){
 var btns=document.querySelectorAll("[data-copy-markdown]:not([${COPY_READY_MARK}])");
@@ -157,6 +140,3 @@ else if(url){fetch(url).then(function(r){return r.text();}).then(write).catch(fu
 }
 if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",enhance);}else{enhance();}
 })();`
-
-/** Hoisted copy-as-markdown payload (see `DOCS_PROSE_PATCH_HTML`). */
-export const COPY_MARKDOWN_SCRIPT_HTML = { __html: COPY_MARKDOWN_SCRIPT }

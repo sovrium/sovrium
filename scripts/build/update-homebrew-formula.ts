@@ -9,7 +9,10 @@
  * Update Homebrew Formula - Generates a Homebrew formula from template + release checksums
  *
  * Fetches SHA256 checksums from a GitHub Release and produces a ready-to-commit
- * Formula/sovrium.rb file for the sovrium/homebrew-tap repository.
+ * Formula/sovrium.rb file for the sovrium/homebrew-tap repository. Each hash is
+ * written only after `fetchChecksum` proved it: a 64-hex digest equal to the
+ * digest of the archive it downloaded, whose `.sig` verifies against an
+ * embedded release key. Anything else exits 1 before a file is written.
  *
  * Usage:
  *   bun run scripts/build/update-homebrew-formula.ts --version 0.3.0

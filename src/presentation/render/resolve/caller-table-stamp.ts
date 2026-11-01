@@ -14,6 +14,7 @@ import {
   recordViewForReader,
 } from '@/presentation/render/props/record-view-for-reader'
 import { isViewBoundSource } from '@/presentation/render/props/view-binding-inputs'
+import { componentFields, keyOf, rewriteComponent, tableBindingOf } from './component-rewrite'
 import {
   emptyDataBoundComponent,
   isWithheldOverUnreadableTable,
@@ -23,7 +24,7 @@ import type { DataSourceDb } from './data-source-contracts'
 import type { CallerTableView, ReadTableAsCaller } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
-import type { Component } from '@/domain/models/app/pages/components'
+import type { Component, ComponentOfType } from '@/domain/models/app/pages/components'
 
 /** The render-time-only key a drawer's related tables are stamped under, by table name. */
 export const RELATED_CALLER_TABLES_KEY = '_relatedCallerTables'
@@ -38,7 +39,7 @@ const isDeclared = (app: App, tableName: unknown): tableName is string =>
   typeof tableName === 'string' && (app.tables ?? []).some((t) => t.name === tableName)
 
 const withProps = (component: Component, props: Record<string, unknown>): Component =>
-  ({ ...component, props: { ...(component.props ?? {}), ...props } }) as Component
+  rewriteComponent(component, { props: { ...(component.props ?? {}), ...props } })
 
 /**
  * A grid: the table as its reader may see it, and — when it reads through one
@@ -47,9 +48,11 @@ const withProps = (component: Component, props: Record<string, unknown>): Compon
  * and its switcher every alternate view laid out by one. Over a table whose
  * list admits her no row it is drawn as a grid she may not read: no grid.
  */
-async function stampGrid(component: Component, ctx: StampContext): Promise<Component> {
-  const binding = component.dataSource as
-    { readonly table?: unknown; readonly view?: unknown } | undefined
+async function stampGrid(
+  component: ComponentOfType<'table'>,
+  ctx: StampContext
+): Promise<Component> {
+  const binding = tableBindingOf(component)
   const table = (ctx.app.tables ?? []).find((t) => t.name === binding?.table)
   if (table === undefined) return component
   const view = typeof binding?.view === 'string' ? binding.view : undefined
@@ -57,13 +60,12 @@ async function stampGrid(component: Component, ctx: StampContext): Promise<Compo
   // A table whose list admits her no row is drawn as one she may not read,
   // through a view or not: the grid bound to the table, naming nothing of the view.
   if (callerTable.refused === true) return emptyDataBoundComponent(component)
-  const { columns } = component as { readonly columns?: readonly unknown[] }
+  const { columns } = component
   const readable = view === undefined ? readableColumnsOf(columns, table, callerTable) : columns
   return alternateViewsForReader(
-    {
-      ...withProps(component, { _callerTable: callerTable }),
+    rewriteComponent(withProps(component, { _callerTable: callerTable }), {
       ...(readable !== columns && { columns: readable }),
-    } as Component,
+    }),
     table,
     callerTable
   )
@@ -79,8 +81,7 @@ async function stampGrid(component: Component, ctx: StampContext): Promise<Compo
  * visitor, and a view that refuses her withholds the component.
  */
 async function stampRecordView(component: Component, ctx: StampContext): Promise<Component> {
-  const binding = component.dataSource as
-    { readonly table?: unknown; readonly view?: unknown } | undefined
+  const binding = tableBindingOf(component)
   const table = (ctx.app.tables ?? []).find((t) => t.name === binding?.table)
   if (table === undefined) return component
   const view = typeof binding?.view === 'string' ? binding.view : undefined
@@ -97,9 +98,9 @@ async function stampRecordView(component: Component, ctx: StampContext): Promise
 
 /** A record drawer: the table it edits, as its reader may see it. */
 async function stampOwnTable(component: Component, ctx: StampContext): Promise<Component> {
-  const binding = component.dataSource as { readonly table?: unknown } | undefined
-  if (!isDeclared(ctx.app, binding?.table)) return component
-  return withProps(component, { _callerTable: await ctx.read(ctx.app, binding.table, ctx.session) })
+  const table = tableBindingOf(component)?.table
+  if (!isDeclared(ctx.app, table)) return component
+  return withProps(component, { _callerTable: await ctx.read(ctx.app, table, ctx.session) })
 }
 
 /**
@@ -110,18 +111,13 @@ async function stampOwnTable(component: Component, ctx: StampContext): Promise<C
  * `undefined` for any other form (a page form never creates a row).
  */
 function recordFormTable(component: Component): unknown {
-  const { action, dataSource } = component as {
-    readonly action?: {
-      readonly type?: unknown
-      readonly operation?: unknown
-      readonly table?: unknown
-    }
-    readonly dataSource?: { readonly mode?: unknown; readonly table?: unknown }
+  const { action, dataSource } = componentFields(component)
+  if (action === undefined) {
+    return keyOf(dataSource, 'mode') === 'single' ? keyOf(dataSource, 'table') : undefined
   }
-  if (action === undefined) return dataSource?.mode === 'single' ? dataSource.table : undefined
-  if (action.type === 'auth') return dataSource?.table
-  if (action.type !== 'crud') return undefined
-  return action.operation === 'update' ? action.table : undefined
+  if (keyOf(action, 'type') === 'auth') return keyOf(dataSource, 'table')
+  if (keyOf(action, 'type') !== 'crud') return undefined
+  return keyOf(action, 'operation') === 'update' ? keyOf(action, 'table') : undefined
 }
 
 /**
@@ -137,12 +133,12 @@ async function stampRecordForm(component: Component, ctx: StampContext): Promise
 
 /** A drawer's related sections: each related table, as the drawer's reader may see it. */
 async function stampRelatedSections(component: Component, ctx: StampContext): Promise<Component> {
-  const { related } = component as { readonly related?: readonly unknown[] }
+  const { related } = componentFields(component)
   if (!Array.isArray(related) || related.length === 0) return component
   const names = [
     ...new Set(
       related
-        .map((entry) => (entry as { readonly table?: unknown } | null)?.table)
+        .map((entry: unknown) => keyOf(entry, 'table'))
         .filter((name): name is string => isDeclared(ctx.app, name))
     ),
   ]
@@ -191,7 +187,7 @@ export async function withCallerTableView(
     return stampRelatedSections(await stampOwnTable(component, stampCtx), stampCtx)
   }
   const throughView =
-    isWithheldOverUnreadableTable(component) && isViewBoundSource(component.dataSource)
+    isWithheldOverUnreadableTable(component) && isViewBoundSource(tableBindingOf(component))
   if (isRecordViewForReader(component) || throughView) {
     return stampRecordView(component, stampCtx)
   }

@@ -24,9 +24,10 @@ const PILL_CLASSES = `border-border bg-card text-muted-foreground hover:text-for
  * - Zero telemetry: static dofollow link to `https://sovrium.com?ref=badge`
  *   with `rel="noopener"` — no beacon, no pixel, no image request.
  * - `placement: 'floating'` (the default) pins it bottom-right, `z-40` (below
- *   the `z-50` dialogs/skip-link layer). `placement: 'footer'` wraps it in a
- *   `<footer>` landmark rendered after `<main>`, in the document flow, so it
- *   never covers the page's last row (a submit button, a pager).
+ *   the `z-50` dialogs/skip-link layer). `placement: 'footer'` draws it as a
+ *   plain line after `<main>`, in the document flow, so it never covers the
+ *   page's last row (a submit button, a pager). The line is a `div`, not a
+ *   `<footer>`: a page that draws its own footer keeps exactly one.
  * - Hidden in print (`print:hidden`) in both placements.
  * - Contrast-safe in both light and dark themes via the neutral design-token
  *   scale (same platform-chrome approach as the skip link in DynamicPage).
@@ -69,5 +70,5 @@ export function SovriumBadge({
     </a>
   )
   if (!isFooter) return link
-  return <footer className="flex justify-center px-4 py-6 print:hidden">{link}</footer>
+  return <div className="flex justify-center px-4 py-6 print:hidden">{link}</div>
 }

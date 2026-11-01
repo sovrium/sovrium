@@ -40,11 +40,11 @@ const ON_VALUES: ReadonlySet<string> = new Set(['1', 'true'])
  * process that exports the name empty cannot switch it on. Any other value is a
  * typo the boot refuses ({@link parseSovriumHostActions}); read here it is off.
  */
-export const isHostActionsEnabled = (env: Env = process.env): boolean =>
+export const isHostActionsEnabled = (env: Env): boolean =>
   ON_VALUES.has(env[SOVRIUM_HOST_ACTIONS_VAR]?.trim().toLowerCase() ?? '')
 
 /** The boot-time reading of the switch: a value other than `1`, `true` or empty is refused. */
-export const parseSovriumHostActions = (env: Env = process.env): boolean => {
+export const parseSovriumHostActions = (env: Env): boolean => {
   const raw = env[SOVRIUM_HOST_ACTIONS_VAR]?.trim().toLowerCase() ?? ''
   if (raw === '' || ON_VALUES.has(raw)) return raw !== ''
   // eslint-disable-next-line functional/no-throw-statements -- a boot-time refusal: the caller turns it into a startup failure before the port binds.
@@ -54,7 +54,7 @@ export const parseSovriumHostActions = (env: Env = process.env): boolean => {
 }
 
 /** The directory holding one folder per supervised app, or `undefined` when unset. */
-export const resolveInstancesDir = (env: Env = process.env): string | undefined => {
+export const resolveInstancesDir = (env: Env): string | undefined => {
   const raw = env[SOVRIUM_INSTANCES_DIR_VAR]?.trim() ?? ''
   return raw === '' ? undefined : raw
 }
@@ -63,15 +63,15 @@ export const resolveInstancesDir = (env: Env = process.env): string | undefined 
  * The engine store — one `<version>/sovrium` per Sovrium release a supervised
  * app runs on: `SOVRIUM_ENGINES_DIR`, else {@link DEFAULT_ENGINES_DIR}.
  */
-export const resolveEnginesDir = (env: Env = process.env): string =>
+export const resolveEnginesDir = (env: Env): string =>
   env[SOVRIUM_ENGINES_DIR_VAR]?.trim() || DEFAULT_ENGINES_DIR
 
 /** The `systemctl` to run: `SOVRIUM_SYSTEMCTL_PATH`, else `systemctl` on the `PATH`. */
-export const resolveSystemctlPath = (env: Env = process.env): string =>
+export const resolveSystemctlPath = (env: Env): string =>
   env[SOVRIUM_SYSTEMCTL_PATH_VAR]?.trim() || 'systemctl'
 
 /** The `journalctl` to run: `SOVRIUM_JOURNALCTL_PATH`, else `journalctl` on the `PATH`. */
-export const resolveJournalctlPath = (env: Env = process.env): string =>
+export const resolveJournalctlPath = (env: Env): string =>
   env[SOVRIUM_JOURNALCTL_PATH_VAR]?.trim() || 'journalctl'
 
 const KEY_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
@@ -109,7 +109,7 @@ const toTrustedKey = (entry: string): TrustedPublicKey => {
  * The trusted keys, `<id>:<base64>[,…]`, refusing a malformed value at boot so
  * a typo in the keyring is not discovered as a refused release.
  */
-export const parseSovriumBundlePublicKeys = (env: Env = process.env): readonly TrustedPublicKey[] =>
+export const parseSovriumBundlePublicKeys = (env: Env): readonly TrustedPublicKey[] =>
   parsePublicKeyring(SOVRIUM_BUNDLE_PUBLIC_KEYS_VAR, env)
 
 /**
@@ -118,10 +118,7 @@ export const parseSovriumBundlePublicKeys = (env: Env = process.env): readonly T
  * Ed25519 keys, so they all accept, and refuse, exactly the same text. A
  * malformed entry throws, naming the variable.
  */
-export const parsePublicKeyring = (
-  varName: string,
-  env: Env = process.env
-): readonly TrustedPublicKey[] => {
+export const parsePublicKeyring = (varName: string, env: Env): readonly TrustedPublicKey[] => {
   const entries = splitEntries(env[varName] ?? '')
   const problem = entries.map(entryProblem).find((found) => found !== undefined)
   if (problem !== undefined) {
@@ -136,7 +133,7 @@ export const parsePublicKeyring = (
  * keyring holds no well-formed entry of that name. Never throws: the boot has
  * already refused a malformed keyring.
  */
-export const findBundlePublicKey = (keyId: string, env: Env = process.env): string | undefined =>
+export const findBundlePublicKey = (keyId: string, env: Env): string | undefined =>
   splitEntries(env[SOVRIUM_BUNDLE_PUBLIC_KEYS_VAR] ?? '')
     .filter((entry) => entryProblem(entry) === undefined)
     .map(toTrustedKey)

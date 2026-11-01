@@ -13,6 +13,7 @@ import {
   updatedByFieldNames,
 } from '@/domain/models/app/tables/authorship-fields'
 import { userListFieldNames } from '@/domain/models/app/tables/user-list-field-service'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'
 import {
   cascadingChildren,
@@ -22,9 +23,8 @@ import {
 } from './account-purge-runs'
 import { signatureFieldNames } from './account-purge-signatures'
 import { removeFromUserLists } from './account-purge-user-lists'
-import { executeRaw, type RawSqlRunner } from './sql/dialect-execute'
 import { getExistingColumnNames } from './sql/dialect-introspection'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import type { TransactionOn } from './drizzle/layer'
 
 /**
  * The app tables' side of the erasure: which columns of a config-declared table
@@ -156,7 +156,7 @@ export const resolvePurgeTableAuthorship = (
  * `information_schema` on Postgres and `pragma_table_info` on SQLite.
  */
 async function authorshipColumnsByTable(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   appTables: readonly PurgeTableAuthorship[]
 ): Promise<ReadonlyMap<string, ProbedAuthorship>> {
   if (appTables.length === 0) return new Map()
@@ -166,15 +166,11 @@ async function authorshipColumnsByTable(
     .filter((table) => table.name.length > 0)
   if (sanitized.length === 0) return new Map()
 
-  // The transaction handle drives `getExistingColumnNames` as a `RawSqlRunner`
-  // — it carries `execute()` (Postgres) or `all()` (SQLite); the helper picks
-  // whichever the active dialect needs.
-  const runner = tx as RawSqlRunner
   const probed = await Promise.all(
     sanitized.map(async (table) => {
       const lists = table.userListColumns ?? []
       const candidates = [...new Set([...table.createdByColumns, ...table.shedColumns, ...lists])]
-      const existing = await getExistingColumnNames(runner, table.name, candidates)
+      const existing = await getExistingColumnNames(dialect.kind, tx, table.name, candidates)
       return [
         table.name,
         {
@@ -210,22 +206,24 @@ async function authorshipColumnsByTable(
  * @param appTables - app tables to scan for authorship columns.
  */
 export async function sweepAppTableAuthorship(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string,
   appTables: readonly PurgeTableAuthorship[]
 ): Promise<void> {
-  const authorshipTables = await authorshipColumnsByTable(tx, appTables)
+  const authorshipTables = await authorshipColumnsByTable({ tx, dialect }, appTables)
 
   for (const [tableName, columns] of authorshipTables) {
     for (const column of columns.createdBy) {
-      await executeRaw(
+      await executeRawOn(
+        dialect.kind,
         tx,
         sql`DELETE FROM ${sql.identifier(tableName)} WHERE ${sql.identifier(column)} = ${userId}`
       )
     }
 
     for (const column of columns.shed) {
-      await executeRaw(
+      await executeRawOn(
+        dialect.kind,
         tx,
         sql`UPDATE ${sql.identifier(tableName)} SET ${sql.identifier(column)} = NULL WHERE ${sql.identifier(column)} = ${userId}`
       )
@@ -241,12 +239,12 @@ export async function sweepAppTableAuthorship(
  * reads each list such a write stored, and a later write finds no account.
  */
 export async function removeFromEveryUserList(
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   userId: string,
   appTables: readonly PurgeTableAuthorship[]
 ): Promise<void> {
-  const tables = await authorshipColumnsByTable(tx, appTables)
+  const tables = await authorshipColumnsByTable(on, appTables)
   for (const [tableName, columns] of tables) {
-    await removeFromUserLists(tx, tableName, columns.lists, userId)
+    await removeFromUserLists(on, tableName, columns.lists, userId)
   }
 }

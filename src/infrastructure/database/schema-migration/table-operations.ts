@@ -8,7 +8,6 @@
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generators'
 import {
   getExistingTableNames,
@@ -19,7 +18,6 @@ import {
   SQLExecutionError,
   type TransactionLike,
 } from '../sql/sql-execution'
-import { PROTECTED_SYSTEM_TABLES } from './constants'
 import { planLinkTableRenames } from './link-table-renames'
 import { detectAmbiguousTableRenames, detectTableRenames } from './rename-detection'
 import { runViewTopologyStep } from './renamed-relation-triggers'
@@ -28,38 +26,24 @@ import {
   classifyPhysicalTables,
   formatPopulatedDropRefusal,
   isCommandSearchIndexTable,
+  isProtectedTable,
   sqliteDropOrder,
   storedTableIdentityFor,
+  type LiveCatalogue,
 } from './table-classification'
 import type { Table } from '@/domain/models/app/tables'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
- * Whether `tableName` is a managed Better-Auth / system table that runtime
- * schema migration must never drop.
- *
- * On PostgreSQL the Better-Auth (`auth.*`) and system (`system.*`) tables live
- * in dedicated schemas, so `getExistingTableNames` (scoped to `public`) never
- * even returns them; the `PROTECTED_SYSTEM_TABLES` set is otherwise defensive.
- *
- * On SQLite there are no schemas: the `schema-sqlite/` mirror prefixes those
- * tables `auth_` / `system_`, and `getExistingTableNames` returns every
- * non-`sqlite_%` table in one flat namespace. So the SQLite arm protects any
- * `auth_`- or `system_`-prefixed physical table.
- */
-const isProtectedTable = (tableName: string): boolean =>
-  PROTECTED_SYSTEM_TABLES.has(tableName) ||
-  (isSqliteRuntime() && (tableName.startsWith('auth_') || tableName.startsWith('system_')))
-
-/**
- * `DROP TABLE` statement for the active dialect.
+ * `DROP TABLE` statement for the named dialect.
  *
  * PostgreSQL supports `DROP TABLE … CASCADE` (drops dependent FK constraints
  * and objects). SQLite has no `CASCADE` clause on `DROP TABLE`; dependent
  * foreign keys are governed by their `ON DELETE` actions instead.
  */
-const dropTableStatement = (tableName: string): string =>
-  isSqliteRuntime()
+const dropTableStatement = (tableName: string, dialect: DatabaseDialect): string =>
+  dialect === 'sqlite'
     ? `DROP TABLE ${quoteSqlIdentifier(tableName)}`
     : `DROP TABLE ${quoteSqlIdentifier(tableName)} CASCADE`
 
@@ -76,9 +60,9 @@ export const ambiguousRenameMessage = (names: readonly string[]): string =>
   `so Sovrium cannot tell which existing table each name should follow and refuses to guess. ` +
   `Rename them one at a time — deploy an intermediate name first, then the final one — or give the tables ids that stay attached to the same data.`
 
-/** `DROP VIEW IF EXISTS` for the active dialect (Postgres also takes the views built on it). */
-const dropViewStatement = (viewName: string): string =>
-  isSqliteRuntime()
+/** `DROP VIEW IF EXISTS` for the named dialect (Postgres also takes the views built on it). */
+const dropViewStatement = (viewName: string, dialect: DatabaseDialect): string =>
+  dialect === 'sqlite'
     ? `DROP VIEW IF EXISTS ${quoteSqlIdentifier(viewName)}`
     : `DROP VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
 
@@ -131,11 +115,11 @@ export interface TableRenameStep {
  */
 export const planTableRenames = (
   renames: ReadonlyMap<string, string>,
-  existing: { readonly tables: ReadonlySet<string>; readonly views: ReadonlySet<string> },
+  existing: LiveCatalogue,
   tables: readonly Table[] = []
 ): readonly TableRenameStep[] => [
   ...planConfigTableRenames(renames, existing),
-  ...planLinkTableRenames(renames, tables, existing.tables).map((link): TableRenameStep => ({
+  ...planLinkTableRenames(renames, tables, existing).map((link): TableRenameStep => ({
     oldName: link.from,
     newName: link.to,
     ...link,
@@ -145,7 +129,7 @@ export const planTableRenames = (
 /** The config tables' own renames: the first half of {@link planTableRenames}. */
 const planConfigTableRenames = (
   renames: ReadonlyMap<string, string>,
-  existing: { readonly tables: ReadonlySet<string>; readonly views: ReadonlySet<string> }
+  existing: LiveCatalogue
 ): readonly TableRenameStep[] =>
   [...renames].flatMap(([oldName, newName]): readonly TableRenameStep[] => {
     const from = sanitizeTableName(oldName)
@@ -166,7 +150,7 @@ const planConfigTableRenames = (
         to: toBase,
         ...(droppedView === undefined ? {} : { droppedView }),
         statements: [
-          ...(droppedView === undefined ? [] : [dropViewStatement(droppedView)]),
+          ...(droppedView === undefined ? [] : [dropViewStatement(droppedView, existing.dialect)]),
           renameTableStatement(fromBase, toBase),
         ],
       },
@@ -176,7 +160,7 @@ const planConfigTableRenames = (
 /** The statements of {@link planTableRenames}, in the order Step 3.5 runs them. */
 export const planTableRenameStatements = (
   renames: ReadonlyMap<string, string>,
-  existing: { readonly tables: ReadonlySet<string>; readonly views: ReadonlySet<string> },
+  existing: LiveCatalogue,
   tables: readonly Table[] = []
 ): readonly string[] =>
   planTableRenames(renames, existing, tables).flatMap((step) => step.statements)
@@ -207,9 +191,10 @@ export const renameTablesIfNeeded = (
 
     if (tableRenames.size === 0) return
 
-    const existing = {
+    const existing: LiveCatalogue = {
       tables: new Set(yield* getExistingTableNames(tx)),
       views: new Set(yield* getExistingViews(tx)),
+      dialect: tx.dialect,
     }
     yield* executeSQLStatements(tx, planTableRenameStatements(tableRenames, existing, tables))
     // A table renamed in place keeps its triggers, constraints and indexes under
@@ -265,7 +250,9 @@ export const findObsoleteTables = (
     const virtualTables = yield* getSqliteVirtualTableNames(tx)
     const { obsolete } = classifyPhysicalTables(existingTableNames, tables)
     return yield* Effect.forEach(
-      sqliteDropOrder(obsolete, virtualTables).filter((tableName) => !isProtectedTable(tableName)),
+      sqliteDropOrder(obsolete, virtualTables).filter(
+        (tableName) => !isProtectedTable(tableName, tx.dialect)
+      ),
       (table): Effect.Effect<ObsoleteTable, SQLExecutionError> =>
         isCommandSearchIndexTable(table)
           ? Effect.succeed({ table, rows: 0, engineManaged: true })
@@ -275,9 +262,9 @@ export const findObsoleteTables = (
     )
   })
 
-/** The `DROP TABLE` a {@link dropObsoleteTables} run would issue for `tableName`. */
-export const obsoleteTableDropStatement = (tableName: string): string =>
-  dropTableStatement(tableName)
+/** The `DROP TABLE` a {@link dropObsoleteTables} run would issue for `tableName` on `dialect`. */
+export const obsoleteTableDropStatement = (tableName: string, dialect: DatabaseDialect): string =>
+  dropTableStatement(tableName, dialect)
 
 /**
  * Drop tables that exist in the database but that the config no longer owns —
@@ -320,7 +307,7 @@ export const dropObsoleteTables = (
     }
 
     // Drop all obsolete tables sequentially, in the order found (SQLite has no CASCADE).
-    const dropStatements = obsolete.map((entry) => dropTableStatement(entry.table))
+    const dropStatements = obsolete.map((entry) => dropTableStatement(entry.table, tx.dialect))
     yield* executeSQLStatements(tx, dropStatements)
   })
 
@@ -369,14 +356,14 @@ export interface ViewTopologyStep {
  */
 export const planViewTopology = (
   tables: readonly Table[],
-  existing: { readonly tables: ReadonlySet<string>; readonly views: ReadonlySet<string> }
+  existing: LiveCatalogue
 ): readonly ViewTopologyStep[] =>
   tables.flatMap((table): readonly ViewTopologyStep[] => {
     const name = sanitizeTableName(table.name)
     const base = getBaseTableName(name)
     if (shouldUseView(table)) {
       const becomesViewBacked = existing.tables.has(name) && !existing.tables.has(base)
-      const dropView = existing.views.has(name) ? [dropViewStatement(name)] : []
+      const dropView = existing.views.has(name) ? [dropViewStatement(name, existing.dialect)] : []
       if (becomesViewBacked) {
         return [
           {
@@ -394,7 +381,7 @@ export const planViewTopology = (
             table: table.name,
             rename: { from: base, to: name },
             statements: [
-              ...(existing.views.has(name) ? [dropViewStatement(name)] : []),
+              ...(existing.views.has(name) ? [dropViewStatement(name, existing.dialect)] : []),
               renameTableStatement(base, name),
             ],
           },
@@ -408,7 +395,7 @@ export const planViewTopology = (
  */
 export const planViewTopologyStatements = (
   tables: readonly Table[],
-  existing: { readonly tables: ReadonlySet<string>; readonly views: ReadonlySet<string> }
+  existing: LiveCatalogue
 ): readonly string[] => planViewTopology(tables, existing).flatMap((step) => step.statements)
 
 /**
@@ -423,6 +410,10 @@ export const reconcileViewTopology = (
   Effect.gen(function* () {
     const existingTables = new Set(yield* getExistingTableNames(tx))
     const existingViews = new Set(yield* getExistingViews(tx))
-    const steps = planViewTopology(tables, { tables: existingTables, views: existingViews })
+    const steps = planViewTopology(tables, {
+      tables: existingTables,
+      views: existingViews,
+      dialect: tx.dialect,
+    })
     yield* Effect.forEach(steps, (step) => runViewTopologyStep(tx, step), { discard: true })
   })

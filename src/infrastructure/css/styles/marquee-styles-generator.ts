@@ -32,6 +32,9 @@
  *    translating exactly 50% of its own width. A gap on the track would make that
  *    50% under-shoot by half a gap, and the band would visibly jump once per
  *    cycle — a defect no screenshot catches, because it only shows at the seam.
+ *    The group also pads its END by the same gap, so the last item of one group
+ *    and the first of the next stand as far apart as any two items, and both
+ *    groups stay the same size, which keeps the 50% translate exact.
  *
  * 2. **Each group is at least one viewport wide (`100cqw`).** Two content-sized
  *    groups loop seamlessly but do not necessarily overflow the band, so a short
@@ -98,6 +101,7 @@ const STRUCTURE = `[data-marquee] {
       justify-content: space-around;
       min-width: 100cqw;
       gap: var(--sv-marquee-gap, 0px);
+      padding-inline-end: var(--sv-marquee-gap, 0px);
     }
 
     [data-marquee-direction='right'] [data-marquee-track],
@@ -116,6 +120,8 @@ const STRUCTURE = `[data-marquee] {
       flex-direction: column;
       min-width: 0;
       min-height: 100%;
+      padding-inline-end: 0;
+      padding-block-end: var(--sv-marquee-gap, 0px);
     }`
 
 /**

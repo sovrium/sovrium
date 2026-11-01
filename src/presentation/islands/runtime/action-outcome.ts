@@ -82,12 +82,15 @@ export function onThisSite(address: string | undefined): string | undefined {
 }
 
 /**
- * True when `address` names another document of this site: a different path
- * or query. A `#fragment` on this page stays; another site is never left for.
+ * True when following `address` loads a document of this site: a different
+ * path or query, or this very page named again without a `#fragment` — the
+ * browser loads that one afresh, which is how a save shows its new values. A
+ * `#fragment` on this page stays; another site is never left for.
  */
 export function leavesPage(address: string | undefined): boolean {
   const target = onThisSite(address)
-  return target !== undefined && isAnotherDocument(target, window.location.href)
+  if (target === undefined) return false
+  return isAnotherDocument(target, window.location.href) || !target.includes('#')
 }
 
 /** Ask the overlay `control` sits in to close: the innermost one hears it. */

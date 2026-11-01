@@ -8,10 +8,16 @@
 import { Effect } from 'effect'
 import { type Hono } from 'hono'
 import { OAuthServerRepository } from '@/application/ports/repositories/auth/oauth-server-repository'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { tokenIntrospectionResponseSchema } from '@/domain/models/api/auth/auth'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { chainAccountListRoutes } from './account-lists-routes'
 import { chainAdminInvitationRoutes } from './admin-invitation-routes'
+import { applyAuthAddressBudgetMiddleware } from './auth-address-budgets'
 import {
   setupAgentUserListFilter,
   setupSavedLanguageCookie,
@@ -84,48 +90,58 @@ const setupOauthPublicClientIntrospect = (
       )
     }
 
-    // Verify the client exists and is flagged as public.
-    const client = await runDomainPromise(
+    return runHandlerEffect(
       c,
-      Effect.gen(function* () {
-        const repository = yield* OAuthServerRepository
-        return yield* repository.findClientByClientId(clientId)
-      })
-    )
-    if (!client?.public) {
-      return c.json(
-        { error: 'invalid_client', error_description: 'missing required credentials' },
-        401
+      answerFailures(
+        c,
+        Effect.gen(function* () {
+          const repository = yield* OAuthServerRepository
+
+          // Verify the client exists and is flagged as public.
+          const client = yield* repository.findClientByClientId(clientId)
+          if (!client?.public) {
+            return c.json(
+              { error: 'invalid_client', error_description: 'missing required credentials' },
+              401
+            )
+          }
+
+          // Look up the access token. Revoked tokens are deleted from this table,
+          // so a missing row means inactive.
+          const accessToken = yield* repository.findAccessToken(token)
+
+          if (!accessToken || accessToken.expiresAt < new Date()) {
+            return yield* respondWith(
+              c,
+              Effect.succeed({ active: false }),
+              tokenIntrospectionResponseSchema
+            )
+          }
+
+          // Reject tokens issued to a different client.
+          if (accessToken.clientId !== clientId) {
+            return yield* respondWith(
+              c,
+              Effect.succeed({ active: false }),
+              tokenIntrospectionResponseSchema
+            )
+          }
+
+          return yield* respondWith(
+            c,
+            Effect.succeed({
+              active: true,
+              client_id: accessToken.clientId,
+              sub: accessToken.userId ?? undefined,
+              exp: Math.floor(accessToken.expiresAt.getTime() / 1000),
+              iat: Math.floor(accessToken.createdAt.getTime() / 1000),
+              scope: accessToken.scopes?.join(' ') ?? undefined,
+            }),
+            tokenIntrospectionResponseSchema
+          )
+        })
       )
-    }
-
-    // Look up the access token. Revoked tokens are deleted from this table,
-    // so a missing row means inactive.
-    const accessToken = await runDomainPromise(
-      c,
-      Effect.gen(function* () {
-        const repository = yield* OAuthServerRepository
-        return yield* repository.findAccessToken(token)
-      })
     )
-
-    if (!accessToken || accessToken.expiresAt < new Date()) {
-      return c.json({ active: false })
-    }
-
-    // Reject tokens issued to a different client.
-    if (accessToken.clientId !== clientId) {
-      return c.json({ active: false })
-    }
-
-    return c.json({
-      active: true,
-      client_id: accessToken.clientId,
-      sub: accessToken.userId ?? undefined,
-      exp: Math.floor(accessToken.expiresAt.getTime() / 1000),
-      iat: Math.floor(accessToken.createdAt.getTime() / 1000),
-      scope: accessToken.scopes?.join(' ') ?? undefined,
-    })
   })
 }
 
@@ -201,10 +217,9 @@ export function setupAuthRoutes(
   }
 
   // The instance is ALWAYS the one `createHonoApp` built — shared with page
-  // routes for session extraction, and constructed with `app.connections` so
-  // the user-create hook can auto-seed test tokens.
+  // routes for session extraction.
   //
-  // There is deliberately no `?? createAuthInstance(app.auth, app.connections)`
+  // There is deliberately no `?? createAuthInstance(app.auth, app)`
   // fallback for callers that pass none: it would make this module need
   // `createAuthInstance` as a VALUE, and that single import loads the entire
   // Better Auth package at boot. It would also build a SECOND instance with
@@ -230,7 +245,11 @@ export function setupAuthRoutes(
 
   // Apply rate limiting middleware to authentication endpoints (sign-in, sign-up,
   // password reset, and every route that sends mail)
-  const appWithAuthRateLimit = applyAuthRateLimitMiddleware(appWithAdminRateLimit)
+  // Then the budgets kept per email address: one send budget across every
+  // route that mails a code or link, and the lock on code guesses.
+  const appWithAuthRateLimit = applyAuthAddressBudgetMiddleware(
+    applyAuthRateLimitMiddleware(appWithAdminRateLimit)
+  )
 
   // Register Sovrium-engine admin invitation routes BEFORE the Better Auth
   // catch-all so the specific paths win the route lookup. These are NOT

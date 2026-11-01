@@ -9,7 +9,7 @@ metadata:
 
 # Sovrium security
 
-A bare agent reviews a Sovrium app the way it reviews a web framework: it greps for SQL injection the engine already binds, calls the `404` on a refused read a bug and asks for a `403`, trusts a page filter or a page's `access` to protect the rows behind it, and assumes `NODE_ENV=production` turns on secure cookies. It misses what actually opens a Sovrium app: `allowSignUp` is `true` until you say otherwise, `requireEmailVerification` is `false` and needs SMTP once you turn it on, a loopback `BASE_URL` switches the CSRF check and the `Secure` cookie flag off, a bucket with no grants takes uploads from any signed-in user, `AI_CHAT_RATE_LIMIT` is unset, an admin-role agent lends its reach to whoever may trigger it, and `SOVRIUM_DEV_MODE` prints the admin credentials on the sign-in page. Most Sovrium findings are a default the author never set, not a line of code.
+A bare agent reviews a Sovrium app the way it reviews a web framework: it greps for SQL injection the engine already binds, calls the `404` on a refused read a bug and asks for a `403`, trusts a page filter or a page's `access` to protect the rows behind it, and assumes `NODE_ENV=production` turns on secure cookies. It misses what actually opens a Sovrium app: `allowSignUp` is `true` until you say otherwise, `requireEmailVerification` is `false` and needs SMTP once you turn it on, a loopback `BASE_URL` switches the CSRF check and the `Secure` cookie flag off, a bucket with no grants takes uploads from any signed-in user, `AI_CHAT_RATE_LIMIT` caps a hosted provider at a default the author never chose and a local model not at all, an admin-role agent lends its reach to whoever may trigger it, and `SOVRIUM_DEV_MODE` prints the admin credentials on the sign-in page. Most Sovrium findings are a default the author never set, not a line of code.
 
 Run the core loop from `sovrium-app` underneath this skill. Manual: `sovrium docs operations/security-hardening`, `sovrium docs operations/gdpr-privacy`, `sovrium docs operations/logs-and-personal-data`, `sovrium docs auth/auth-overview`, `sovrium docs auth/auth-registration`, `sovrium docs tables/table-permissions`, `sovrium docs buckets/buckets-permissions`, `sovrium docs mcp/mcp-security`.
 
@@ -69,7 +69,7 @@ Tags in brackets point to `references/sources.md`.
 
 1. `origin-public-https` — `BASE_URL` is the public `https://` origin people type. A loopback `BASE_URL` turns the CSRF origin check off and drops `Secure` from session cookies even when the port is reachable; `NODE_ENV` changes neither. `SOVRIUM_ALLOW_INSECURE` stays unset on anything other people reach. Details: `references/posture.md`. [S12][S13][S18]
 2. `dev-mode-off` — `SOVRIUM_DEV_MODE` is unset before launch. Dev mode prints the admin email and password on the sign-in page for every visitor; on a public origin the boot banner warns with a `⚠` line naming the account, and the app still starts. [S2]
-3. `signup-matches-audience` — `auth.allowSignUp` defaults to `true`. An invited-only app, an internal tool or a customer portal sets it to `false`; otherwise anyone who finds the URL gets `defaultRole` and every table and bucket that role reaches. The boot banner's `⚠ Open sign-up` line names them. Details: `references/auth-hardening.md`. [S1][S16]
+3. `signup-matches-audience` — `auth.allowSignUp` defaults to `false`, and only a public product writes `true`. With it on, anyone who finds the URL gets `defaultRole` and every table and bucket that role reaches. The boot banner's `⚠ Open sign-up` line names them. Details: `references/auth-hardening.md`. [S1][S16]
 4. `secrets-in-env` — no key, token or password inline in the config, a record, a template or a commit. Every `$env.NAME` is declared in the `env` block, its value lives in `.env`, and `.env` is not committed. Details: `references/secrets-and-env.md`. [S1][S10]
 5. `every-table-has-a-block` — every table carries a `permissions` block written for this app; a table with none stays open to every non-viewer role. Write and test the grammar with `sovrium-data-model`, `references/permissions.md`. [S1]
 6. `bucket-grants-declared` — every bucket whose files not every user should read or add declares `download` and `upload`, and `delete` when someone other than the uploader may remove files. Undeclared, any signed-in user uploads to it and, unless it is `public`, reads every file in it. [S1]
@@ -77,8 +77,8 @@ Tags in brackets point to `references/sources.md`.
 
 **HIGH** — reachable by any signed-in user, or costly at scale
 
-8. `verify-email-on-open-signup` — with open sign-up, `requireEmailVerification: true` on the `emailAndPassword` strategy. It defaults to `false`, and it needs SMTP: without email configured nobody who signs up can ever sign in. [S16]
-9. `chat-rate-capped` — `AI_CHAT_RATE_LIMIT` is set wherever signed-in people reach a chat. Unset, a signed-in user's chat has no cap on a metered provider. [S4]
+8. `verify-email-on-open-signup` — with open sign-up, `requireEmailVerification: true` on the `emailAndPassword` strategy. It defaults to `false`, except beside an `oauth` strategy or an `auth.sso` provider where it defaults to `true`, and it needs SMTP: without email configured nobody who signs up can ever sign in. [S16]
+9. `chat-rate-capped` — `AI_CHAT_RATE_LIMIT` is chosen wherever signed-in people reach a chat. Unset, a hosted provider allows 60 messages a minute per user and a local Ollama model has no cap; `0` lifts it. [S4]
 10. `gate-at-the-data` — the protection of a row lives in the table's permissions, never in a page's `access`, a `dataSource` filter or a hidden component: the records API still answers. Test the API, not the page. [S1]
 11. `public-writes-bounded` — every surface an anonymous visitor writes to is intended: a form with no `access` (public by default), a table with `create: all`, a bucket with `upload: all`, a signing grant of `all`. Forms keep their default honeypot and rate limit; never `honeypot: false` on a public form. Details: `references/public-surfaces.md`. [S1]
 12. `admin-sign-in-strong` — admins use two-factor or a passkey; with passkeys enabled, `auth.passkeys.requireForAdmin: true`. [S2][S16]
@@ -149,8 +149,8 @@ A vulnerability in Sovrium itself, an access check the manual says holds and doe
 ## Must not claim
 
 1. A `404` on a refused read is a bug, or should be a `403`.
-2. `allowSignUp` is off by default.
-3. `requireEmailVerification` is on by default, or works without SMTP.
+2. `allowSignUp` is on by default.
+3. `requireEmailVerification` is on by default in an app with no federated provider, or works without SMTP.
 4. A page's `access`, a page filter or a hidden component protects the rows behind it.
 5. `aiAccess` grants a permission the role does not have.
 6. Sovrium locks an account after failed sign-ins.

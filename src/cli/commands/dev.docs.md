@@ -1,6 +1,6 @@
 # The Dev Session
 
-> `sovrium dev` boots your app on a fresh copy of its seed data, with an account to sign in with printed in the terminal and shown on every page, and reloads it on every save. One command, so you — or the AI agent working beside you — can open the printed address, sign in, and check each change against data you know.
+> `sovrium dev` boots your app on a fresh copy of its seed data, with an account to sign in with printed in the terminal and shown on every page, and reloads it on every save. One command, so you (or the AI agent working beside you) can open the printed address, sign in, and check each change against data you know.
 
 ## `sovrium dev`
 
@@ -24,7 +24,7 @@ Each run does the same things, in this order:
 5. **Turns dev mode on** and boots the server with the watcher, exactly as `sovrium start --watch` does.
 6. **Prints the session** and opens the browser.
 
-Your project's own `.sovrium/` directory — the one `sovrium start` uses — is never read, wiped or written. The two sessions keep separate databases.
+Your project's own `.sovrium/` directory (the one `sovrium start` uses) is never read, wiped or written. The two sessions keep separate databases.
 
 ## What it prints
 
@@ -55,15 +55,17 @@ The block is written for an agent as much as for you: every value it needs to co
 
 ## The account
 
-When the app declares `auth`, `sovrium dev` creates an admin named after the app — `admin@crm.local` for an app named `crm` — with the password `sovrium-dev-password`. Every account your `seed/users.yaml` lists takes the same password, so one password signs in as anyone the seed creates.
+When the app declares `auth`, `sovrium dev` creates an admin named after the app (`admin@crm.local` for an app named `crm`) with the password `sovrium-dev-password`. Every account your `seed/users.yaml` lists takes the same password, so one password signs in as anyone the seed creates.
 
-To use another password, set `SOVRIUM_DEV_PASSWORD` in the environment, for example in the project's `.env.local`. It is printed, shown and used in place of the default. A password shorter than the app's minimum length is refused before anything is deleted.
+To use another password, set `SOVRIUM_DEV_PASSWORD` in the environment, for example in the project's `.env.local`. It is printed, shown and used in place of the default. A password shorter than the app's minimum length is refused before anything is deleted. On a `DATABASE_URL` database it is required when the app declares `auth` (see **On PostgreSQL** below).
+
+The password reaches the account through standard input, never through a command line, where any user of the machine could read it in the process list.
 
 An app without `auth` has no account: the `Sign in` and `Admin` rows are left out, and the browser opens the home page.
 
 ## Dev mode
 
-Every page the app serves carries a small panel at the bottom-left, saying the instance is in development mode, that its data is disposable, and which account to sign in with. On the sign-in page, its **Fill sign-in form** button fills the email and password into the form without submitting it. That is what lets an agent driving a browser — or you — sign in in one step.
+Every page the app serves carries a small panel at the bottom-left, saying the instance is in development mode, that its data is disposable, and which account to sign in with. On the sign-in page, its **Fill sign-in form** button fills the email and password into the form without submitting it. That is what lets an agent driving a browser, or you, sign in in one step.
 
 `sovrium dev` sets the panel's five variables on every run. A value already in the environment wins, one variable at a time:
 
@@ -79,17 +81,17 @@ The panel never shows the real administrator credentials of `AUTH_ADMIN_EMAIL` a
 
 ### On a public address
 
-Dev mode is not refused behind a public address — a hosted demo is exactly that — but it is announced. When dev mode is on and the public origin (the host of `BASE_URL`, else the address the server binds) is not a loopback host, the startup banner prints one warning naming the account every visitor can read:
+Dev mode is not refused behind a public address (a hosted demo is exactly that), but it is announced. When dev mode is on and the public origin (the host of `BASE_URL`, else the address the server binds) is not a loopback host, the startup banner prints one warning naming the account every visitor can read:
 
 ```text
 ⚠ Dev mode is on while the public origin is app.example.com — the sign-in page shows admin@crm.local to every visitor; unset SOVRIUM_DEV_MODE before launch
 ```
 
-When the public address is deliberate — a hosted preview of an app still in dev mode — set `SOVRIUM_DEV_PUBLIC=on` to say so. The startup banner then prints no warning, and the instance keeps itself out of search indexes: every response carries `X-Robots-Tag: noindex`, every page a `noindex` robots meta, and `/robots.txt` disallows the whole site. The variable has no effect unless `SOVRIUM_DEV_MODE` is on.
+When the public address is deliberate, as for a hosted preview of an app still in dev mode, set `SOVRIUM_DEV_PUBLIC=on` to say so. The startup banner then prints no warning, and the instance keeps itself out of search indexes: every response carries `X-Robots-Tag: noindex`, every page a `noindex` robots meta, and `/robots.txt` disallows the whole site. The variable has no effect unless `SOVRIUM_DEV_MODE` is on.
 
 ## Already running
 
-Run `sovrium dev` again while a session is live and it does not start a second one. It prints the running session — its address, its account, its status — and exits `0`, leaving the data as it is:
+Run `sovrium dev` again while a session is live and it does not start a second one. It prints the running session (its address, its account, its status) and exits `0`, leaving the data as it is:
 
 ```text
 ✓ Already serving this project (PID 48211)
@@ -119,7 +121,16 @@ Sovrium runs no model and holds no AI key: the agent is yours, in your own clien
 
 ## On PostgreSQL
 
-With `DATABASE_URL` set, the database is not on disk under `.sovrium/dev/`, and `sovrium dev` never drops anything. It keeps the database, creates the dev account if it is missing, and seeds only the tables that are empty. The `Data` row says `kept`, and a warning says how to reset:
+With `DATABASE_URL` set, the database is not the disposable one under `.sovrium/dev/`, and `sovrium dev` refuses to start unless you say the database is meant for it. A `.env` that still holds a production address would otherwise gain an admin account whose password is printed in this manual. Two things are required (the second only when the app declares `auth`), and each refusal exits `1` before anything is created in the database:
+
+- `--external-database`, which says the database is yours to use for development;
+- `SOVRIUM_DEV_PASSWORD`, the password the dev account and the seeded accounts take there, when the app declares `auth`. The default `sovrium-dev-password` is never used on an external database. An app without `auth` creates no account, so it needs only the flag.
+
+```bash
+SOVRIUM_DEV_PASSWORD='<generate-a-password>' sovrium dev --external-database
+```
+
+Then `sovrium dev` never drops anything. It keeps the database, creates the dev account if it is missing, and seeds only the tables that are empty. The `Data` row says `kept`, and a warning says how to reset:
 
 ```text
 ⚠ DATABASE_URL is set — dev did not reset this database (only empty tables were seeded); `sovrium seed --mode replace` resets the seeded tables; set SOVRIUM_ENCRYPTION_KEY so dev and start read one key

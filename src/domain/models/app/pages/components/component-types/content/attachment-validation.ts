@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * An `attachment` drawn as a thumbnail (`media: image`) needs the image: a
  * thumbnail chip with no `src` would draw an empty tile beside the name, with
@@ -13,9 +15,6 @@
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every object at any depth, with its location. */
 function collectNodes(node: unknown, path: string): readonly (readonly [RawRecord, string])[] {

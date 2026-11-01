@@ -7,9 +7,9 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { db } from '@/infrastructure/database/drizzle'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { tableIdentifier } from '../statement/validation'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * `AND id NOT IN (…)` for the rows a match must skip, or nothing when there are
@@ -30,18 +30,23 @@ export const excludingIds = (ids: readonly string[]): SQL =>
  * Used by upsert operations to determine whether records will be
  * created or updated, which affects permission checks.
  *
- * @param tableName - Sanitized table name
- * @param records - Records with field values to check
- * @param fieldsToMergeOn - Field names to match against
- * @param hiddenIds - Rows the caller's row-level read rule hides: never a match
+ * @param db - The client the lookup reads through
+ * @param match.tableName - Sanitized table name
+ * @param match.records - Records with field values to check
+ * @param match.fieldsToMergeOn - Field names to match against
+ * @param match.hiddenIds - Rows the caller's row-level read rule hides: never a match
  * @returns true if any matching records exist
  */
 export async function checkForExistingRecords(
-  tableName: string,
-  records: readonly { fields: Record<string, unknown> }[],
-  fieldsToMergeOn: readonly string[],
-  hiddenIds: readonly string[] = []
+  { client: db, dialect }: DatabaseService,
+  match: {
+    readonly tableName: string
+    readonly records: readonly { fields: Record<string, unknown> }[]
+    readonly fieldsToMergeOn: readonly string[]
+    readonly hiddenIds?: readonly string[]
+  }
 ): Promise<boolean> {
+  const { tableName, records, fieldsToMergeOn, hiddenIds = [] } = match
   // Build WHERE clause - skip records missing merge fields (will fail validation)
   const mergeConditions = records
     .filter((record) =>
@@ -59,7 +64,8 @@ export async function checkForExistingRecords(
   if (mergeConditions.length === 0) return false
 
   const whereClause = sql.join(mergeConditions, sql` OR `)
-  const existingRecords = await executeRaw(
+  const existingRecords = await executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT COUNT(*) as count FROM ${tableIdentifier(tableName)}
          WHERE (${whereClause})${excludingIds(hiddenIds)}`
@@ -78,6 +84,7 @@ export async function checkForExistingRecords(
  * them, and the row-level gate that reads this must judge whichever it is.
  */
 export async function findRecordIdsByMergeFields(
+  { client: db, dialect }: DatabaseService,
   tableName: string,
   fields: Readonly<Record<string, unknown>>,
   fieldsToMergeOn: readonly string[]
@@ -87,7 +94,8 @@ export async function findRecordIdsByMergeFields(
   const conditions = fieldsToMergeOn.map(
     (fieldName) => sql`${sql.identifier(fieldName)} = ${fields[fieldName]}`
   )
-  const rows = await executeRaw(
+  const rows = await executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT id FROM ${tableIdentifier(tableName)} WHERE ${sql.join(conditions, sql` AND `)}`
   )

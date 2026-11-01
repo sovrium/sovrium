@@ -1,6 +1,6 @@
 # Selection Fields
 
-> The four selection field types — checkbox, single-select, multi-select and status.
+> The four selection field types: checkbox, single-select, multi-select and status.
 
 Four field types let records choose from predefined options. All of them also accept the base field properties every field type shares.
 
@@ -13,7 +13,7 @@ Four field types let records choose from predefined options. All of them also ac
 
 ## Option grammar
 
-`single-select`, `multi-select` and `status` share one grammar for `options`. Every option is **either a bare string, or an object** — and the two forms mix freely in the same list.
+`single-select`, `multi-select` and `status` share one grammar for `options`. Every option is **either a bare string, or an object**, and the two forms mix freely in the same list.
 
 | Form                        | Use it when                                                                        |
 | --------------------------- | ---------------------------------------------------------------------------------- |
@@ -33,7 +33,7 @@ options:
   - { value: published, label: '$t:statusPublished', color: '#10B981' }
 ```
 
-Changing an option's `label` or `color` never rewrites stored data — only `value` is persisted. That is what makes renaming a label safe and renaming a `value` a migration.
+Changing an option's `label` or `color` never rewrites stored data. Only `value` is persisted. That is what makes renaming a label safe and renaming a `value` a migration.
 
 ## `checkbox`
 
@@ -47,7 +47,7 @@ A boolean. Stored as a real boolean column, so it filters and aggregates as one 
 
 ## `single-select`
 
-One option from the list, enforced by a column constraint rather than only by the UI — so a value written through the API is refused just as a value chosen in a form would be.
+One option from the list, enforced by a column constraint rather than only by the UI, so a value written through the API is refused just as a value chosen in a form would be.
 
 <!-- sovrium:options SingleSelectFieldSchema -->
 

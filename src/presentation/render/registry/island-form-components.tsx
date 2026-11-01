@@ -5,9 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { createElement, Fragment } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { resolveTranslationTokensDeep } from '@/domain/models/app/languages/translation-resolver'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { StaticMarkup } from '@/presentation/design/static-markup'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { AccordionSkeleton } from './accordion-skeleton'
 import { renderBottomBarNav } from './bottom-bar-nav'
@@ -339,7 +341,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       string | undefined
     const scrollOrientation = pickFromComponent(c, rawProps, 'scrollOrientation') as
       'vertical' | 'horizontal' | 'both' | undefined
-    const childrenHtml = renderedChildren.map((child) => renderToStaticMarkup(child)).join('')
+    const childrenHtml = renderToStaticMarkup(createElement(Fragment, null, ...renderedChildren))
     const props = {
       scrollAreaHeight,
       scrollOrientation,
@@ -347,7 +349,8 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       ...baseProps(elementProps),
     }
     return (
-      <div
+      <StaticMarkup
+        html={childrenHtml}
         data-island="scroll-area"
         data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
@@ -355,8 +358,6 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         style={{ maxHeight: scrollAreaHeight ?? '400px', overflow: 'auto' }}
         id={elementProps.id as string | undefined}
         className={elementProps.className as string | undefined}
-        // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
-        dangerouslySetInnerHTML={{ __html: childrenHtml }}
       />
     )
   },

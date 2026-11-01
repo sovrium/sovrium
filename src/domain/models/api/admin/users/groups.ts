@@ -27,7 +27,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 const groupNameSchema = Schema.String.annotate({
   description:
@@ -39,7 +39,7 @@ export const adminGroupItemSchema = Schema.Struct({
   name: groupNameSchema,
   label: Schema.String.annotate({
     description:
-      'What the console shows for the group: the `label` the app declares for it in `auth.groups` (a `$t:` key is translated into the operator\'s console language: the account language, then the language preference, then English); otherwise the name made readable, its first letter capitalised and its hyphens as spaces (`equipe-a` reads "Equipe a"). Always present. Display only — the membership write still takes `name`.',
+      'What the console shows for the group: the `label` the app declares for it in `auth.groups` (a `$t:` key is translated into the operator\'s console language: the account language, then the language preference, then English); otherwise the name made readable, its first letter capitalised and its hyphens as spaces (`equipe-a` reads "Equipe a"). Always present. Display only; the membership write still takes `name`.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   description: optionalField(
     Schema.String.annotate({

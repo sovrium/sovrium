@@ -105,7 +105,7 @@ const checkSkill = async (path: string, root: string): Promise<Checked> => {
   if (info.size > SKILL_FILE_MAX_BYTES) {
     return fail(`${file} is over ${SKILL_FILE_MAX_BYTES / 1024} KB`)
   }
-  const parsed = parseSkillFrontmatter(await Bun.file(resolved).text())
+  const parsed = parseSkillFrontmatter(await Bun.file(resolved).text(), Bun.YAML)
   if (!parsed.ok) return fail(`${file} ${describeSkillFrontmatterProblem(parsed.problem)}`)
   const { name, description } = parsed.skill
   const misformatted = formatIssue(file, name, description)
@@ -215,7 +215,7 @@ const storeFor = (index: ReadonlyMap<string, readonly IndexedSkill[]>): AgentSki
         const skill = yield* find(agentName, skillName)
         const label = `The SKILL.md of skill '${skill.name}'`
         const text = yield* readContainedText(skill.dir, 'SKILL.md', SKILL_FILE_MAX_BYTES, label)
-        const parsed = parseSkillFrontmatter(text)
+        const parsed = parseSkillFrontmatter(text, Bun.YAML)
         if (!parsed.ok) {
           return yield* refuse(
             'unreadable',

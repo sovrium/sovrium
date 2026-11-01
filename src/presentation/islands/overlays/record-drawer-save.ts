@@ -28,6 +28,7 @@
 import { useCallback } from 'react'
 import { consoleRequestIdOf } from '@/presentation/islands/runtime/console-request-id'
 import { dispatch } from '@/presentation/islands/runtime/event-bus'
+import { refusalMessageOf } from '@/presentation/islands/runtime/refusal-message'
 import { readFieldErrors } from '@/presentation/islands/runtime/write-refusal'
 import { holdsSameLinks, isLinkList } from '../parts/crud-form/record-picker-value'
 import { isStructured, type RecordDrawerField } from './record-drawer-field'
@@ -167,13 +168,13 @@ async function patchRecord(
   table: string,
   recordId: string,
   payload: Readonly<Record<string, unknown>>
-): Promise<number> {
+): Promise<{ readonly status: number; readonly message: string | undefined }> {
   const res = await fetch(`/api/tables/${table}/records/${recordId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
-  return res.status
+  return { status: res.status, message: await refusalMessageOf(res) }
 }
 
 /** Create the record; `false` when refused, with the refusal drawn. */
@@ -206,10 +207,12 @@ async function updateRecord(
   const sent = changedFields(writable, values, params.loaded)
   const payload = Object.fromEntries(sent.map((f) => [f.name, toEntryWireValue(f, values)]))
   const replace = sendsLinkList(sent) ? { linkLists: 'replace' } : {}
-  const status = await patchRecord(table, recordId, { ...payload, ...replace })
+  const { status, message } = await patchRecord(table, recordId, { ...payload, ...replace })
   if (!tookIt(status)) {
     params.setError(
-      isRefusal(status) ? (words.refused ?? REFUSED) : (words.failed ?? 'Operation failed')
+      isRefusal(status)
+        ? (words.refused ?? REFUSED)
+        : (message ?? words.failed ?? 'Operation failed')
     )
     return false
   }

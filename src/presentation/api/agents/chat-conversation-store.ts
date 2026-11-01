@@ -9,7 +9,8 @@
  * In-memory conversation store for the signed-out callers of the generic
  * `/api/ai/chat` endpoint — an app without `auth`, where every caller is
  * `anonymous`. A signed-in caller's history is the durable conversation store
- * (`chat-durable-memory.ts`); nothing of hers is kept here.
+ * (`application/use-cases/agents/chat-turn/durable-memory.ts`); nothing of hers
+ * is kept here.
  *
  * A chat turn that reuses an earlier `sessionId` carries the prior
  * user/assistant messages forward so the provider sees the conversation, not

@@ -11,7 +11,7 @@ import {
   agentFactsChatResponseSchema,
   agentFactsRecallResponseSchema,
 } from '@/domain/models/api/ai/agents'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   effectJsonBody,
   effectJsonResponse,

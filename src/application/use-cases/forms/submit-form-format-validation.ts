@@ -26,6 +26,8 @@
 
 import { Data, Effect } from 'effect'
 import { findColumnFormatViolations } from '@/domain/models/app/tables/column-formats-validation'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
+import { engineMessageForReader, fieldLabelForReader } from './submit-form-messages'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { FormatConstrainedFieldType } from '@/domain/models/app/tables/column-formats-validation'
@@ -41,16 +43,16 @@ export class FormFieldFormatError extends Data.TaggedError('FormFieldFormatError
 }> {}
 
 /**
- * Submitter-facing copy for each format violation, keyed by column type.
+ * The catalog sentence for each format violation, keyed by column type.
  *
  * Deliberately NOT the records path's `Invalid email format for field 'email'`.
- * A public form is filled in by a stranger, so the message must read as UX copy
- * rather than as an API diagnostic naming a column. Single-sourcing the RULE
- * while keeping the COPY at each boundary is the whole shape of this fix.
+ * A public form is filled in by a stranger, so the message reads as UX copy in
+ * the language the form was served in, naming the field by its label, rather
+ * than as an API diagnostic naming a column.
  */
-const FORMAT_MESSAGES: Readonly<Record<FormatConstrainedFieldType, (column: string) => string>> = {
-  email: (column) => `${column} must be a valid email address`,
-  url: (column) => `${column} must be a valid URL`,
+const FORMAT_MESSAGE_KEYS: Readonly<Record<FormatConstrainedFieldType, string>> = {
+  email: 'form.invalidEmailNamed',
+  url: 'form.invalidUrlNamed',
 }
 
 /**
@@ -84,20 +86,26 @@ const boundColumnDeclarations = (
 export const validateFieldFormats = (
   app: Readonly<App>,
   form: Readonly<Form>,
-  body: Readonly<Record<string, unknown>>
+  body: Readonly<Record<string, unknown>>,
+  lang?: string
 ): Effect.Effect<void, FormFieldFormatError, never> => {
   if (form.submitTo.table === undefined) return Effect.void
-  const table = app.tables?.find((t) => t.name === form.submitTo.table)
+  const table = findTableByName(app.tables, form.submitTo.table)
   if (!table) return Effect.void
 
   const violations = findColumnFormatViolations(boundColumnDeclarations(form, table), body)
   const first = violations[0]
   if (!first) return Effect.void
 
+  const reader = { app, lang }
   return Effect.fail(
     new FormFieldFormatError({
       fieldName: first.field,
-      message: FORMAT_MESSAGES[first.type](first.field),
+      message: engineMessageForReader(
+        reader,
+        FORMAT_MESSAGE_KEYS[first.type],
+        fieldLabelForReader(reader, form, first.field)
+      ),
     })
   ).pipe(Effect.withSpan('forms.validate-field-formats'))
 }

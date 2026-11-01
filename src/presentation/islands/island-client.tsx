@@ -11,6 +11,7 @@ import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import { ISLANDS, PRIORITY_ISLAND_LOADERS } from './island-registry'
 import { IslandHostIdContext } from './runtime/island-host-context'
+import { cancelDeferredMount, heldBack, waitFor } from './runtime/island-mount-timing'
 import { IslandReadySignal } from './runtime/island-ready-signal'
 import {
   replayPendingFiles,
@@ -59,10 +60,8 @@ function parseIslandProps(raw: string | undefined): Record<string, unknown> | un
  * first gesture. A component reached through `ISLANDS` renders one Suspense
  * boundary later, with the SSR skeleton visible in between.
  *
- * That difference is the entire reason fourteen islands used to be static
- * imports of the entry module — and why twelve of them no longer need to be.
- * The two that still are, and why preloading is not enough for them, are named
- * in `island-registry.ts` along with the measurements.
+ * Why preloading is enough for most of them, and what the rest need on top,
+ * is in `island-registry.ts` with the measurements.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Island props vary by type
 const resolvedPriorityIslands = new Map<string, React.ComponentType<any>>()
@@ -98,13 +97,17 @@ const inFlightPriorityLoads = new Map<string, Promise<void>>()
  */
 // eslint-disable-next-line react-refresh/only-export-components -- island bootstrap entry, not a fast-refresh component module
 export async function preloadIslandsWithin(root: ParentNode = document.body): Promise<void> {
-  const present = new Set(
+  // A host that will wait is not preloaded: fetching its chunk is the cost the wait avoids.
+  await preloadIslandTypes(
     Array.from(root.querySelectorAll<HTMLElement>('[data-island]'))
-      .map((el) => el.dataset.island)
-      .filter((type): type is string => type !== undefined)
+      .filter((el) => el.dataset.island && !waitFor(el, el.dataset.island))
+      .map((el) => el.dataset.island as string)
   )
+}
 
-  const pending = Array.from(present)
+/** Resolve the priority islands among `types`; the per-type half of {@link preloadIslandsWithin}. */
+async function preloadIslandTypes(types: readonly string[]): Promise<void> {
+  const pending = Array.from(new Set(types))
     .filter((type) => !resolvedPriorityIslands.has(type))
     .map((type) => {
       const started = inFlightPriorityLoads.get(type)
@@ -223,6 +226,9 @@ function onIslandUncaughtError(error: unknown): void {
  * Captures any form values entered in the SSR skeleton before replacement to
  * preserve user input across the hydration boundary.
  *
+ * A display island far below the fold, or a quiet AI chat, waits until it is
+ * seen or used, keeping its server markup meanwhile (`runtime/island-mount-timing.ts`).
+ *
  * ─── A MARKER THIS SCAN ITSELF DETACHED IS SKIPPED ─────────────────────────
  *
  * `querySelectorAll` hands back a STATIC list, so an island whose host sits
@@ -254,51 +260,54 @@ export function mountIslandsWithin(root: ParentNode = document.body): void {
     if (scanIsLive && !el.isConnected) return
     const type = el.dataset.island
     if (!type || !(type in ISLANDS)) return
-    const Component = componentFor(type)
-    if (!Component) return
-    // eslint-disable-next-line no-param-reassign -- idempotency flag prevents a double-mount on a re-scan
-    el.dataset.islandMounted = 'true'
-
-    // Parse props from data attribute
-    const props = parseIslandProps(el.dataset.islandProps)
-    if (!props) return
-
-    const { mergedProps, pendingFiles } = capturePreMountInput(el, props)
-    const pendingFocus = capturePendingFocus(el)
-
-    // Preserve the SSR skeleton as Suspense fallback
-    const fallback = ssrFallback(el.innerHTML)
-
-    const root = createRoot(el, { onUncaughtError: onIslandUncaughtError })
-    // Track the root so `unmountIslandsWithin` can tear it down on an SPA swap.
-    islandRoots.set(el, root)
-    // `flushSync` is retained so that eagerly-imported islands (auth-form,
-    // crud-form, ai-chat per `island-registry.ts`) take over event handling
-    // before the user can type into the SSR skeleton. For lazy-imported
-    // islands this only commits the Suspense fallback synchronously — the
-    // real Component mounts asynchronously once the lazy chunk loads.
-    flushSync(() => {
-      root.render(
-        <IslandWrapper
-          Component={Component}
-          props={mergedProps}
-          fallback={fallback}
-          host={el}
-        />
-      )
-    })
-
-    // Note: `data-island-ready` is set by <IslandReadySignal> INSIDE the
-    // Suspense boundary once the lazy chunk has resolved + the real Component
-    // has mounted. Setting it synchronously here would fire while the SSR
-    // skeleton is still rendering (lazy-import case), breaking tests that gate
-    // computed-style reads on the signal.
-
-    // …which is also the signal the file replay waits for, so it must be armed
-    // after the render that can set it.
-    if (pendingFiles.length > 0) replayPendingFiles(el, pendingFiles)
-    if (pendingFocus) restorePendingFocus(el, pendingFocus)
+    const later = (): void => void preloadIslandTypes([type]).then(() => mountIslandHost(el, type))
+    if (!(scanIsLive && heldBack(el, type, later))) mountIslandHost(el, type)
   })
+}
+
+/** Mount the island of `type` on one host, now: the per-host half of {@link mountIslandsWithin}. */
+function mountIslandHost(el: HTMLElement, type: string): void {
+  cancelDeferredMount(el)
+  if (el.dataset.islandMounted === 'true') return
+  const Component = componentFor(type)
+  if (!Component) return
+  // eslint-disable-next-line no-param-reassign -- idempotency flag prevents a double-mount on a re-scan
+  el.dataset.islandMounted = 'true'
+
+  const props = parseIslandProps(el.dataset.islandProps)
+  if (!props) return
+
+  const { mergedProps, pendingFiles } = capturePreMountInput(el, props)
+  const pendingFocus = capturePendingFocus(el)
+
+  // The SSR skeleton stays up as the Suspense fallback
+  const fallback = ssrFallback(el.innerHTML)
+
+  const root = createRoot(el, { onUncaughtError: onIslandUncaughtError })
+  // Track the root so `unmountIslandsWithin` can tear it down on an SPA swap.
+  islandRoots.set(el, root)
+  // `flushSync` is retained so that eagerly-imported islands (auth-form,
+  // crud-form, ai-chat per `island-registry.ts`) take over event handling
+  // before the user can type into the SSR skeleton. For lazy-imported
+  // islands this only commits the Suspense fallback synchronously — the
+  // real Component mounts asynchronously once the lazy chunk loads.
+  flushSync(() => {
+    root.render(
+      <IslandWrapper
+        Component={Component}
+        props={mergedProps}
+        fallback={fallback}
+        host={el}
+      />
+    )
+  })
+
+  // `data-island-ready` is set by <IslandReadySignal> INSIDE the Suspense
+  // boundary once the real Component has mounted, never synchronously here
+  // (the SSR skeleton may still be up). The file replay waits for that signal,
+  // so it is armed after the render that can set it.
+  if (pendingFiles.length > 0) replayPendingFiles(el, pendingFiles)
+  if (pendingFocus) restorePendingFocus(el, pendingFocus)
 }
 
 /**
@@ -340,6 +349,7 @@ export function staleInactivePageQueries(): void {
 // eslint-disable-next-line react-refresh/only-export-components -- island bootstrap entry, not a fast-refresh component module; this is the shared island unmounter
 export function unmountIslandHosts(hosts: Iterable<HTMLElement>): void {
   Array.from(hosts).forEach((el) => {
+    cancelDeferredMount(el)
     const mounted = islandRoots.get(el)
     if (mounted) {
       mounted.unmount()
@@ -363,11 +373,8 @@ const bootstrap = async (): Promise<void> => {
   mountIslandsWithin()
 }
 
-// A host the page defers until it is wanted — the built-in ⌘K palette, whose
-// head capture script turns its marker into a `data-island` on the first open
-// — asks for a mount after this runtime has already scanned the page. A scan
-// that lands first finds the marker anyway; this answers the one that lands
-// after.
+// A host the page wakes after this runtime scanned it (the built-in ⌘K palette,
+// on its first open) asks for a mount here; an earlier scan finds it anyway.
 document.addEventListener('sovrium:mount-islands', () => mountIslandsWithin())
 
 // This module is served as `<script type="module">`, which is deferred, so
@@ -383,11 +390,9 @@ document.addEventListener('sovrium:mount-islands', () => mountIslandsWithin())
 // SSR skeletons swallow the next gesture.
 //
 // The `loading` branch must NOT await: a deferred script runs BEFORE
-// `DOMContentLoaded`, so awaiting that event from inside one would deadlock the
-// module against an event it is itself blocking. It stays a callback.
+// `DOMContentLoaded`, so awaiting it from inside one would deadlock the module.
 //
-// A module reached from a priority loader must not STATICALLY import this file
-// — see the hazard note in `island-registry.ts`.
+// A module reached from a priority loader must not STATICALLY import this file (`island-registry.ts`).
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => void bootstrap())
 } else {

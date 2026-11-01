@@ -26,14 +26,14 @@ import {
   quoteOriginalFormula,
   translateFormula,
   formulaFieldMap,
-} from './formula-translation-service'
+} from './formula/translation-service'
 import { linkTargetOf } from './link-pairing-service'
 import { inferRollupAggregation } from './rollup-aggregation-mappings'
 import { toolDisplayName } from './source-display-name-service'
 import type { CanonicalField } from './canonical-base'
 import type { TableSourceTool } from './field-type-mappings'
-import type { FormulaDialect } from './formula-ast'
-import type { FormulaFieldSource } from './formula-translation-service'
+import type { FormulaDialect } from './formula/ast'
+import type { FormulaFieldSource } from './formula/translation-service'
 import type { FieldType } from '@/domain/models/app/tables/fields/field'
 
 /** What one formula or rollup field becomes. */

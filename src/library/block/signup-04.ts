@@ -5,14 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, param } from '@/library/manifest/block-kit'
-import { defineLibraryEntry } from '@/library/manifest/define'
+import { asComponent, param } from '@/library/kit/block-kit'
 import {
   COMPACT_ROW,
   SIGNUP_NOTES,
   signupParams,
   splitCardScreen,
-} from '@/library/manifest/login-block-kit'
+} from '@/library/kit/login-block-kit'
 import {
   bareHeader,
   closedNotice,
@@ -21,7 +20,8 @@ import {
   signInLine,
   signUpForm,
   socials,
-} from '@/library/manifest/login-block-parts'
+} from '@/library/kit/login-block-parts'
+import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** shadcn/ui's `signup-04`, composed in config. */
 export const entry = defineLibraryEntry({

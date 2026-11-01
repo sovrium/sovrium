@@ -16,7 +16,7 @@ import {
   stringParam,
   THEME_NOTE,
   wrap,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** One line of footer: mark, four links, copyright. */

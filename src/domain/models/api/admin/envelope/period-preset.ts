@@ -25,15 +25,16 @@
  */
 
 import { Schema } from 'effect'
-import { withDefault } from '../../combinators/schema-defaults'
+import { DAY_MS, HOUR_MS } from '@/domain/kernel/time/durations'
+import { withDefault } from '../../schema-defaults'
 
 /**
  * Period preset literal accepted by every admin overview endpoint.
  *
  * Default `'24h'` — operators on the dashboard footer expect "today's
- * snapshot" without picking a value first. The default is enforced at the Zod
- * layer so a missing `?period` query param produces the same handler input as
- * an explicit `?period=24h`.
+ * snapshot" without picking a value first. The default is applied when the
+ * schema decodes (`withDefault('24h')`), so a missing `?period` query param
+ * produces the same handler input as an explicit `?period=24h`.
  */
 export const periodPresetSchema = Schema.Literals(['24h', '7d', '30d'])
   .annotate({
@@ -87,22 +88,6 @@ export interface PeriodWindow {
 }
 
 /**
- * Resolve a period preset to the concrete window the handler will query.
- *
- * Pure function — does not read any environment state, does not cache. Pass
- * `now` explicitly in tests to make assertions deterministic; production
- * callers omit it to use the system clock at the moment the handler runs.
- *
- * @param preset — One of the three period presets; default applied at the
- *   Zod layer means the parameter is always a literal value here, never
- *   `undefined`.
- * @param now — Reference timestamp (defaults to `new Date()`). Tests override
- *   this to assert the from/to boundary exactly.
- */
-const HOUR_MS = 60 * 60 * 1000
-const DAY_MS = 24 * HOUR_MS
-
-/**
  * Per-preset offset and bucket interval pairing.
  *
  * The mapping is locked by [internal ref] D5; declared as a frozen record so the
@@ -116,12 +101,24 @@ const PRESET_TO_WINDOW: Readonly<
   '30d': { offsetMs: 30 * DAY_MS, interval: '1d' },
 }
 
+/**
+ * Resolve a period preset to the concrete window the handler will query.
+ *
+ * Pure function — does not read any environment state or clock, does not
+ * cache. The caller supplies `now`: the server's clock (`serverNow`) in a
+ * handler, a fixed instant in a test.
+ *
+ * @param preset — One of the three period presets; because
+ *   `periodPresetSchema` applies its `'24h'` default when it decodes, the
+ *   parameter is always a literal value here, never `undefined`.
+ * @param now — Reference timestamp the window ends at.
+ */
 export function resolvePeriodWindow(
-  preset: 'default' | PeriodPreset = 'default',
-  now: Date = new Date()
+  preset: 'default' | PeriodPreset,
+  now: Readonly<Date>
 ): PeriodWindow {
-  // The Zod default is applied before this function is called, but consumers
-  // that bypass parsing (e.g. internal call sites) may pass `'default'` to
+  // The schema's decode default is applied before this function is called, but
+  // consumers that bypass decoding (e.g. internal call sites) may pass `'default'` to
   // request the canonical default behavior. Map it to '24h' explicitly.
   const resolved: PeriodPreset = preset === 'default' ? '24h' : preset
   const { offsetMs, interval } = PRESET_TO_WINDOW[resolved]

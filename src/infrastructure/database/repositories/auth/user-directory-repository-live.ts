@@ -6,21 +6,22 @@
  */
 
 import { and, asc, inArray, isNull, not, notInArray, or, sql } from 'drizzle-orm'
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import {
   UserDirectoryRepository,
   UserDirectoryDatabaseError,
   type UserDirectoryEntry,
   type UserDirectoryQuery,
 } from '@/application/ports/repositories/auth/user-directory-repository'
-import { db } from '@/infrastructure/database'
 import {
   authTeamMembersTable,
   authUsersTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { notAnAgentAccount } from '@/infrastructure/database/sql/auth-user-predicates'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { containsInsensitive } from '@/infrastructure/database/sql/dialect-sql-helpers'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /** Wrap a DB promise, adapting failures to UserDirectoryDatabaseError. */
 const wrap = makeDbWrap((error) => new UserDirectoryDatabaseError({ cause: error }))
@@ -46,6 +47,7 @@ function amongIdsCondition(
  * narrows nothing. `false` when it admits no one.
  */
 function audienceCondition(
+  db: PortableDb,
   users: Readonly<ReturnType<typeof authUsersTable>>,
   audience: UserDirectoryQuery['audience']
 ) {
@@ -66,12 +68,13 @@ function audienceCondition(
  * `undefined` when one of them admits no one.
  */
 function pageConditions(
+  db: PortableDb,
   users: Readonly<ReturnType<typeof authUsersTable>>,
   { term, after, ids, audience }: UserDirectoryQuery
 ) {
   // Within no one is no one.
   if (ids?.within === true && ids.ids.length === 0) return undefined
-  const inAudience = audienceCondition(users, audience)
+  const inAudience = audienceCondition(db, users, audience)
   if (inAudience === false) return undefined
   const amongIds = amongIdsCondition(users, ids)
   // Keyset on the ORDER BY: strictly after `(lower(name), id)` of the previous
@@ -136,30 +139,35 @@ function toEntry(row: {
  *
  * `email` is never selected. See the port's {@link UserDirectoryEntry}.
  */
-export const UserDirectoryRepositoryLive = Layer.succeed(UserDirectoryRepository, {
-  listPickableUsers: (query) =>
-    wrap(async (): Promise<readonly UserDirectoryEntry[]> => {
-      const users = authUsersTable()
-      const conditions = pageConditions(users, query)
-      // A narrowing that admits no one is answered without touching the store.
-      if (conditions === undefined) return []
-      const rows = await db
-        .select({ id: users.id, name: users.name, image: users.image })
-        .from(users)
-        .where(and(...pickable(users), ...conditions))
-        .orderBy(asc(sql`lower(${users.name})`), asc(users.id))
-        .limit(query.limit)
+export const UserDirectoryRepositoryLive = Layer.effect(
+  UserDirectoryRepository,
+  Effect.map(Database, ({ client: db }) =>
+    UserDirectoryRepository.of({
+      listPickableUsers: (query) =>
+        wrap(async (): Promise<readonly UserDirectoryEntry[]> => {
+          const users = authUsersTable()
+          const conditions = pageConditions(db, users, query)
+          // A narrowing that admits no one is answered without touching the store.
+          if (conditions === undefined) return []
+          const rows = await db
+            .select({ id: users.id, name: users.name, image: users.image })
+            .from(users)
+            .where(and(...pickable(users), ...conditions))
+            .orderBy(asc(sql`lower(${users.name})`), asc(users.id))
+            .limit(query.limit)
 
-      return rows.map(toEntry)
-    }),
-  findPickableUsersByIds: (ids) =>
-    wrap(async (): Promise<readonly UserDirectoryEntry[]> => {
-      if (ids.length === 0) return []
-      const users = authUsersTable()
-      const rows = await db
-        .select({ id: users.id, name: users.name, image: users.image })
-        .from(users)
-        .where(and(...pickable(users), inArray(users.id, [...new Set(ids)])))
-      return rows.map(toEntry)
-    }),
-})
+          return rows.map(toEntry)
+        }),
+      findPickableUsersByIds: (ids) =>
+        wrap(async (): Promise<readonly UserDirectoryEntry[]> => {
+          if (ids.length === 0) return []
+          const users = authUsersTable()
+          const rows = await db
+            .select({ id: users.id, name: users.name, image: users.image })
+            .from(users)
+            .where(and(...pickable(users), inArray(users.id, [...new Set(ids)])))
+          return rows.map(toEntry)
+        }),
+    })
+  )
+)

@@ -10,6 +10,7 @@ import { LinkPreviewReaderLive } from '@/infrastructure/egress/link-preview-read
 import { CommentChangeFeedLive } from '@/infrastructure/realtime/comment-change-feed-live'
 import { RecordChangeFeedLive } from '@/infrastructure/realtime/record-change-feed-live'
 import { RecordWebhookDispatcherLive } from '@/infrastructure/webhooks/record-webhook-dispatcher-live'
+import { WebhookDeliveryLogLive } from '@/infrastructure/webhooks/webhook-delivery-log-live'
 import { AiComputeStatusRepositoryLive } from './repositories/ai/ai-compute-status-repository-live'
 import { ActivityRepositoryLive } from './repositories/analytics/activity-repository-live'
 import { AuthRepositoryLive } from './repositories/auth/auth-repository-live'
@@ -51,6 +52,8 @@ export const TableLive = Layer.mergeAll(
   LinkPreviewReaderLive,
   // The table webhooks every record write fires, through the durable outbox.
   RecordWebhookDispatcherLive,
+  // The delivery log the webhook management routes read and resend through.
+  WebhookDeliveryLogLive,
   // The AI-compute status store: the `_aiCompute` read projection on record
   // reads, and the write-phase signal every record write sends.
   AiComputeStatusRepositoryLive

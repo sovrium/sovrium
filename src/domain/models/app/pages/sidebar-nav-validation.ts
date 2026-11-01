@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Family 5b of the page decode rules — a sidebar's landmark grouping, its
  * per-element `props` bags, and its disclosures.
@@ -408,8 +410,4 @@ function groupSourceViolations(
     ...ownedPropViolations(source?.['itemProps'], where, 'itemProps', label),
     ...ownedPropViolations(children?.['itemProps'], where, 'childrenSource.itemProps', label),
   ]
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

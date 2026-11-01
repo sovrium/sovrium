@@ -290,7 +290,7 @@ const groupHits = (hits: readonly AdminSearchIndexHit[]): readonly GroupEntry[] 
  * Run the admin global search for `query`. An empty/whitespace query short-
  * circuits to an empty body (a 200 with no groups) WITHOUT touching the index.
  */
-export const SearchAdminGlobal = (
+export const searchAdminGlobal = (
   app: App,
   rawQuery: string
 ): Effect.Effect<AdminSearchProgramResponse, AdminSearchDatabaseError, AdminSearchRepository> =>

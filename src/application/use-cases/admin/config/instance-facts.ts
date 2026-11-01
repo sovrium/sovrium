@@ -107,15 +107,16 @@ type InstanceRuntimeFacts = Pick<
 export function buildInstanceRuntimeFacts(
   app: App,
   bootedAt: string,
-  processEnv: Readonly<Record<string, string | undefined>> = process.env
+  processEnv: Readonly<Record<string, string | undefined>>
 ): InstanceRuntimeFacts {
   const routing = appRequiresAi(app)
     ? resolveAiEcoRouting(processEnv, resolveOllamaBaseUrl(processEnv) !== undefined)
     : undefined
   return {
     bootedAt,
-    database: parseDatabaseDialectConfig().dialect === 'postgres' ? 'postgresql' : 'sqlite',
-    storage: parseStorageEnvConfig().provider,
+    database:
+      parseDatabaseDialectConfig(processEnv).dialect === 'postgres' ? 'postgresql' : 'sqlite',
+    storage: parseStorageEnvConfig(processEnv).provider,
     aiProvider: routing?.resolvedProvider ?? null,
   }
 }

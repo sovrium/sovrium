@@ -5,24 +5,31 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
+import {
+  WebhookDeliveryLog,
+  type TestDeliveryResult,
+  type WebhookDeliveryLogError,
+} from '@/application/ports/services/webhook-delivery-log'
+import { retryWebhookDelivery } from '@/application/use-cases/tables/webhook-delivery-programs'
 import { redactSecretHeaders } from '@/domain/kernel/sanitize/http-header-redaction'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
+import {
+  listDeliveriesResponseSchema,
+  retryDeliveryResponseSchema,
+  testWebhookResponseSchema,
+  webhookDeliverySchema,
+} from '@/domain/models/api/tables/webhooks'
 import { isAdminEquivalent } from '@/domain/models/app'
 import { isFieldReadByNoOne } from '@/domain/models/app/tables/field-read-filter-service'
-import { rebuildRetryPayload } from '@/domain/models/app/tables/webhooks/delivery-retry-service'
-import {
-  getDelivery,
-  getDeliveryOutboxId,
-  listDeliveries,
-} from '@/infrastructure/webhooks/delivery-log-queries'
 import { buildSampleRecord, type SampleFieldShape } from '@/infrastructure/webhooks/sample-record'
-import { deliverAndLog, deliverTestWebhook } from '@/infrastructure/webhooks/table-webhook-dispatch'
 import {
   errorBody,
   notFound as notFoundResponse,
   notFoundBody,
 } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { answerFailures, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Webhook } from '@/domain/models/app/tables/webhooks'
 import type { Context } from 'hono'
@@ -42,6 +49,12 @@ const findWebhook = (app: App, tableName: string, webhookName: string): Webhook 
   const table = app.tables?.find((t) => t.name === tableName)
   return table?.webhooks?.find((w) => w.name === webhookName)
 }
+
+/** Run one handler's program on the request's services; a failure gets the sanitized envelope. */
+const answered = (
+  c: Context,
+  program: Effect.Effect<Response, WebhookDeliveryLogError, WebhookDeliveryLog>
+): Promise<Response> => runHandlerEffect(c, answerFailures(c, program))
 
 /** The canonical 404 these handlers return for BOTH absence and denial (S1). */
 const notFound = (c: Context, what: string): Response =>
@@ -117,21 +130,28 @@ export async function handleListDeliveries(c: Context, app: App): Promise<Respon
     return notFound(c, 'Webhook')
   }
 
-  const result = await listDeliveries({
+  const options = {
     tableName,
     webhookName,
     limit: parseLimit(c.req.query('limit')),
     cursor: parseCursor(c.req.query('cursor')),
     status: parseStatus(c.req.query('status')),
-  })
-
-  return c.json(
-    {
-      deliveries: result.deliveries.map(redactDelivery),
-      totalCount: result.totalCount,
-      ...(result.nextCursor === undefined ? {} : { nextCursor: result.nextCursor }),
-    },
-    200
+  }
+  return answered(
+    c,
+    Effect.map(
+      WebhookDeliveryLog.use((log) => log.list(options)),
+      (result) =>
+        shapedJson(
+          c,
+          {
+            deliveries: result.deliveries.map(redactDelivery),
+            totalCount: result.totalCount,
+            ...(result.nextCursor === undefined ? {} : { nextCursor: result.nextCursor }),
+          },
+          listDeliveriesResponseSchema
+        )
+    )
   )
 }
 
@@ -158,12 +178,16 @@ export async function handleGetDelivery(c: Context, app: App): Promise<Response>
     return notFound(c, 'Delivery')
   }
 
-  const delivery = await getDelivery({ tableName, webhookName, deliveryId })
-  if (delivery === undefined) {
-    return notFound(c, 'Delivery')
-  }
-
-  return c.json(redactDelivery(delivery), 200)
+  return answered(
+    c,
+    Effect.map(
+      WebhookDeliveryLog.use((log) => log.get({ tableName, webhookName, deliveryId })),
+      (delivery) =>
+        delivery === undefined
+          ? notFound(c, 'Delivery')
+          : shapedJson(c, redactDelivery(delivery), webhookDeliverySchema)
+    )
+  )
 }
 
 /**
@@ -190,33 +214,24 @@ export async function handleRetryDelivery(c: Context, app: App): Promise<Respons
     return notFound(c, 'Delivery')
   }
 
-  const delivery = await getDelivery({ tableName, webhookName, deliveryId })
-  if (delivery === undefined) {
-    return notFound(c, 'Delivery')
-  }
-
-  // The stored envelope, re-read from its JSON text, under a fresh timestamp.
-  const payload = rebuildRetryPayload({
-    app,
-    tableName: delivery.tableName,
-    event: delivery.event,
-    stored: delivery.payload,
-    timestamp: new Date().toISOString(),
-  })
-  const outcome = await deliverAndLog({
-    webhook,
-    tableName,
-    payload,
-    appEnv: app.env,
-    outboxDeliveryId: await getDeliveryOutboxId(deliveryId),
-  })
-
-  return c.json(
-    {
-      success: outcome.success,
-      ...(outcome.deliveryId === undefined ? {} : { deliveryId: String(outcome.deliveryId) }),
-    },
-    200
+  return answered(
+    c,
+    Effect.map(
+      retryWebhookDelivery({ app, webhook, address: { tableName, webhookName, deliveryId } }),
+      (outcome) =>
+        outcome === undefined
+          ? notFound(c, 'Delivery')
+          : shapedJson(
+              c,
+              {
+                success: outcome.success,
+                ...(outcome.deliveryId === undefined
+                  ? {}
+                  : { deliveryId: String(outcome.deliveryId) }),
+              },
+              retryDeliveryResponseSchema
+            )
+    )
   )
 }
 
@@ -230,6 +245,35 @@ const findTableFields = (app: App, tableName: string): ReadonlyArray<SampleField
   // A field no role may read is left out of a sample, as out of every payload.
   return ((table?.fields ?? []) as ReadonlyArray<SampleFieldShape>).filter(
     (field) => !isFieldReadByNoOne(app, tableName, field.name)
+  )
+}
+
+/** The test endpoint's answer: a 502 when the request never reached the endpoint. */
+const testAnswer = (c: Context, result: TestDeliveryResult): Response => {
+  // A `httpStatus` of 0 means the request never reached the endpoint
+  // (DNS/connection failure or SSRF-guard rejection) — surface a 502.
+  if (result.httpStatus === 0) {
+    return c.json(
+      {
+        ...errorBody({
+          error: result.error ?? 'Webhook endpoint unreachable',
+          code: ApiErrorCode.SERVICE_UNAVAILABLE,
+        }),
+        duration: result.duration,
+      },
+      502
+    )
+  }
+
+  return shapedJson(
+    c,
+    {
+      success: result.success,
+      httpStatus: result.httpStatus,
+      duration: result.duration,
+      ...(result.error === undefined ? {} : { error: result.error }),
+    },
+    testWebhookResponseSchema
   )
 }
 
@@ -259,35 +303,11 @@ export async function handleTestWebhook(c: Context, app: App): Promise<Response>
   }
 
   const sampleRecord = buildSampleRecord(findTableFields(app, tableName))
-  const result = await deliverTestWebhook({
-    webhook,
-    tableName,
-    sampleRecord,
-    appEnv: app.env,
-  })
-
-  // A `httpStatus` of 0 means the request never reached the endpoint
-  // (DNS/connection failure or SSRF-guard rejection) — surface a 502.
-  if (result.httpStatus === 0) {
-    return c.json(
-      {
-        ...errorBody({
-          error: result.error ?? 'Webhook endpoint unreachable',
-          code: ApiErrorCode.SERVICE_UNAVAILABLE,
-        }),
-        duration: result.duration,
-      },
-      502
+  return answered(
+    c,
+    Effect.map(
+      WebhookDeliveryLog.use((log) => log.sendTest({ webhook, tableName, sampleRecord, app })),
+      (result) => testAnswer(c, result)
     )
-  }
-
-  return c.json(
-    {
-      success: result.success,
-      httpStatus: result.httpStatus,
-      duration: result.duration,
-      ...(result.error === undefined ? {} : { error: result.error }),
-    },
-    200
   )
 }

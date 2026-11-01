@@ -50,15 +50,15 @@
  */
 
 import { Schema } from 'effect'
+import { booleanFlag } from '@/domain/kernel/config-parsing/coerce'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { adminEnvelopeSchema } from '@/domain/models/api/admin/envelope/admin-envelope'
-import { booleanFlag } from '@/domain/models/api/combinators/coerce'
 import {
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
-} from '@/domain/models/api/combinators/cursor-pagination'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+} from '@/domain/models/api/cursor-pagination'
 import { formSummarySchema } from '@/domain/models/api/forms/forms'
-import { withDefault } from '../../combinators/schema-defaults'
+import { withDefault } from '../../schema-defaults'
 
 /**
  * Filter query parameters accepted by `GET /api/admin/forms`.
@@ -84,13 +84,13 @@ export const formsListQuerySchema = Schema.Struct({
   search: optionalField(
     Schema.String.annotate({
       description:
-        "Case-insensitive free-text substring match over each form's `title` AND `name` (matches in either field qualify). Empty result set returns `items: []` with HTTP 200, NOT 404 — matching the canonical empty-result-vs-anti-enum distinction (anti-enum 404 is reserved for unauthorized access, NOT empty queries).",
+        "Case-insensitive free-text substring match over each form's `title` AND `name` (matches in either field qualify). Empty result set returns `items: []` with HTTP 200, NOT 404, matching the canonical empty-result-vs-anti-enum distinction (anti-enum 404 is reserved for unauthorized access, NOT empty queries).",
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   include_deleted: booleanFlag
     .annotate({
       description:
-        'Include soft-deleted forms. Default `false` — D2 consumption from runs-list. Pass `?include_deleted=true` to surface tombstones for compliance review. The flag parses without 400 even though forms cannot be soft-deleted in Phase 0 (forward-contract — see story §dependencies).',
+        'Include soft-deleted forms. Default `false` (D2 consumption from runs-list). Pass `?include_deleted=true` to surface tombstones for compliance review. The flag parses without 400 even though forms cannot be soft-deleted in Phase 0 (forward-contract, see story §dependencies).',
     })
     .pipe(withDefault(false)),
 }).annotate({ identifier: 'FormsListQuery' })
@@ -196,7 +196,7 @@ export type FormsListResponse = typeof formsListResponseSchema.Type
 export const formsDetailParamsSchema = Schema.Struct({
   formName: Schema.String.annotate({
     description:
-      'Form name (kebab-case) — matches `formNameSchema` from the public `/api/forms/:name` endpoint.',
+      'Form name (kebab-case). Matches `formNameSchema` from the public `/api/forms/:name` endpoint.',
   }).pipe(
     Schema.check(
       Schema.isMinLength(1),

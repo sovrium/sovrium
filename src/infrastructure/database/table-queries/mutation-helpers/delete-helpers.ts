@@ -8,13 +8,12 @@
 import { sql } from 'drizzle-orm'
 import { DatabaseError } from '@/domain/errors'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
-import { nowExpr } from '@/infrastructure/database/sql/dialect-sql'
 import { validateColumnName, tableIdentifier, databaseTableName } from '../statement/validation'
 import { hasDeletedByColumn, getDeletedByValue } from './authorship-helpers'
 import type { CommittedRowChange } from '@/application/ports/services/record-change-feed'
-import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
+import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Cascade soft delete to related records
@@ -25,7 +24,7 @@ import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
  * on their own table's change stream once it commits.
  */
 export async function cascadeSoftDelete(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   recordId: string,
   app: {
@@ -69,21 +68,28 @@ export async function cascadeSoftDelete(
       validateColumnName(childColumn)
 
       // Check if child table has deleted_at column (dialect-aware introspection)
-      const childHasDeletedAt = await columnExists(tx, databaseTableName(childTable), 'deleted_at')
+      const childHasDeletedAt = await columnExists(
+        dialect.kind,
+        tx,
+        databaseTableName(childTable),
+        'deleted_at'
+      )
       if (!childHasDeletedAt) return []
 
       // Check if child table has deleted_by column (using helper)
-      const hasDeletedByCol = await hasDeletedByColumn(tx, childTable)
+      const hasDeletedByCol = await hasDeletedByColumn({ tx, dialect }, childTable)
 
       // Cascade soft delete to related records with deleted_by if column exists
       const rows = hasDeletedByCol
-        ? await executeRaw(
+        ? await executeRawOn(
+            dialect.kind,
             tx,
-            sql`UPDATE ${tableIdentifier(childTable)} SET deleted_at = ${nowExpr()}, deleted_by = ${deletedByValue} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL RETURNING *`
+            sql`UPDATE ${tableIdentifier(childTable)} SET deleted_at = ${dialect.sql.nowExpr()}, deleted_by = ${deletedByValue} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL RETURNING *`
           )
-        : await executeRaw(
+        : await executeRawOn(
+            dialect.kind,
             tx,
-            sql`UPDATE ${tableIdentifier(childTable)} SET deleted_at = ${nowExpr()} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL RETURNING *`
+            sql`UPDATE ${tableIdentifier(childTable)} SET deleted_at = ${dialect.sql.nowExpr()} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL RETURNING *`
           )
       return rows.map((row): CommittedRowChange => ({
         tableName: childTable,
@@ -105,7 +111,7 @@ export async function cascadeSoftDelete(
  * stood, so the delete can announce them as updates on their own table.
  */
 export async function cascadeSetNull(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   recordId: string,
   app: {
@@ -147,7 +153,8 @@ export async function cascadeSetNull(
 
       validateColumnName(childColumn)
 
-      const rows = await executeRaw(
+      const rows = await executeRawOn(
+        dialect.kind,
         tx,
         sql`UPDATE ${tableIdentifier(childTable)} SET ${sql.identifier(childColumn)} = NULL WHERE ${sql.identifier(childColumn)} = ${recordId} RETURNING *`
       )
@@ -176,7 +183,7 @@ export async function cascadeSetNull(
  * HTTP 400 instead of attempting the delete.
  */
 export async function checkRestrictConstraint(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   recordId: string,
   app: {
@@ -210,7 +217,8 @@ export async function checkRestrictConstraint(
     restrictedTables.map(async (relatedInfo) => {
       validateColumnName(relatedInfo.fieldName)
 
-      const result = await executeRaw(
+      const result = await executeRawOn(
+        dialect.kind,
         tx,
         sql`SELECT COUNT(*) as count FROM ${tableIdentifier(relatedInfo.tableName)} WHERE ${sql.identifier(relatedInfo.fieldName)} = ${recordId}`
       )
@@ -227,27 +235,29 @@ export async function checkRestrictConstraint(
  * Promise-based for transaction use
  */
 export async function executeSoftDelete(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   recordId: string,
   userId?: string
 ): Promise<boolean> {
   try {
     // Check if table has deleted_by column using helper
-    const hasDeletedByCol = await hasDeletedByColumn(tx, tableName)
+    const hasDeletedByCol = await hasDeletedByColumn({ tx, dialect }, tableName)
     const deletedByValue = getDeletedByValue(userId)
 
     const tableIdent = tableIdentifier(tableName)
 
     // Build UPDATE query with or without deleted_by
     const result = hasDeletedByCol
-      ? await executeRaw(
+      ? await executeRawOn(
+          dialect.kind,
           tx,
-          sql`UPDATE ${tableIdent} SET deleted_at = ${nowExpr()}, deleted_by = ${deletedByValue} WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+          sql`UPDATE ${tableIdent} SET deleted_at = ${dialect.sql.nowExpr()}, deleted_by = ${deletedByValue} WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
         )
-      : await executeRaw(
+      : await executeRawOn(
+          dialect.kind,
           tx,
-          sql`UPDATE ${tableIdent} SET deleted_at = ${nowExpr()} WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+          sql`UPDATE ${tableIdent} SET deleted_at = ${dialect.sql.nowExpr()} WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
         )
 
     return result.length > 0
@@ -261,13 +271,14 @@ export async function executeSoftDelete(
  * Promise-based for transaction use
  */
 export async function executeHardDelete(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   recordId: string
 ): Promise<boolean> {
   try {
     const tableIdent = tableIdentifier(tableName)
-    const result = await executeRaw(
+    const result = await executeRawOn(
+      dialect.kind,
       tx,
       sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
     )
@@ -282,11 +293,11 @@ export async function executeHardDelete(
  * Promise-based for transaction use
  */
 export async function checkDeletedAtColumn(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string
 ): Promise<boolean> {
   try {
-    return await columnExists(tx, databaseTableName(tableName), 'deleted_at')
+    return await columnExists(dialect.kind, tx, databaseTableName(tableName), 'deleted_at')
   } catch (error) {
     throw new DatabaseError(`Failed to check columns for ${tableName}`, error)
   }

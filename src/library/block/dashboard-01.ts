@@ -5,19 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, DATA_NOTE, param, stringParam } from '@/library/manifest/block-kit'
-import { CHART_THEME_NOTE } from '@/library/manifest/chart-block-kit'
-import { inWindow, PERIOD_NOTE, periodSelector } from '@/library/manifest/dashboard-block-kit'
-import { defineLibraryEntry } from '@/library/manifest/define'
-import { brandRow, userRow } from '@/library/manifest/navigation-block-kit'
+import { asComponent, DATA_NOTE, param, stringParam } from '@/library/kit/block-kit'
+import { CHART_THEME_NOTE } from '@/library/kit/chart-block-kit'
+import { inWindow, PERIOD_NOTE, periodSelector } from '@/library/kit/dashboard-block-kit'
+import { brandRow, userRow } from '@/library/kit/navigation-block-kit'
 import {
   SHELL_NOTES,
   shellHeader,
   shellInset,
   shellLayout,
   shellSidebar,
-} from '@/library/manifest/sidebar-shell-block-kit'
-import type { BlockNode } from '@/library/manifest/block-kit'
+} from '@/library/kit/sidebar-shell-block-kit'
+import { defineLibraryEntry } from '@/library/manifest/define'
+import type { BlockNode } from '@/library/kit/block-kit'
 
 type P = (key: string) => string
 type Entry = readonly [label: string, icon: string, href: string]

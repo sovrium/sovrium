@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
 
 // ─── Connection User Status ──────────────────────────────────────────────────
 
@@ -62,10 +62,21 @@ export const connectionCallerStatusSchema = Schema.Literals([
 /** @public */
 export type ConnectionCallerStatus = typeof connectionCallerStatusSchema.Type
 
+/** Response of the OAuth callback: the connection was established. */
+export const connectionCallbackResponseSchema = Schema.Struct({
+  success: Schema.Boolean,
+  connectionId: Schema.String,
+})
+
+/** Response of `DELETE /api/connections/{name}`. */
+export const connectionDisconnectResponseSchema = Schema.Struct({
+  success: Schema.Boolean,
+  deleted: Schema.Boolean,
+})
+
 /**
  * Response of `GET /api/connections/{name}/status`. Carries no token material:
  * the state, the connection's name and type, and when the token expires.
- * @public
  */
 export const connectionStatusResponseSchema = Schema.Struct({
   name: Schema.String.annotate({ description: 'The connection name, as declared in the config.' }),
@@ -151,7 +162,7 @@ export type ConnectionUserEntry = typeof connectionUserEntrySchema.Type
 export const connectionUsersResponseSchema = Schema.Struct({
   users: Schema.Array(connectionUserEntrySchema).annotate({
     description:
-      'Members who have completed OAuth authorization for this connection. Admin users are excluded — their token rows are auth-only artifacts (see `dropAdminUsers` in users-handler).',
+      'Members who have completed OAuth authorization for this connection. Admin users are excluded: their token rows are auth-only artifacts (see `dropAdminUsers` in users-handler).',
   }),
 }).annotate({ strictKeys: true, title: 'sovrium:strict-keys' })
 
@@ -189,7 +200,7 @@ const gifIdSchema = Schema.String.annotate({
   examples: ['xT9IgG50Fb7Mi0prBC'],
 }).pipe(Schema.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,64}$/)))
 
-/** The query of a GIF search. @public */
+/** The query of a GIF search. */
 export const gifSearchQuerySchema = Schema.Struct({
   q: Schema.String.annotate({
     description: 'The words searched for, 1 to 100 characters.',
@@ -243,7 +254,7 @@ export const gifSearchResultSchema = Schema.Struct({
 /** @public */
 export type GifSearchResult = typeof gifSearchResultSchema.Type
 
-/** The answer of a GIF search: at most 24 results, the provider's order kept. @public */
+/** The answer of a GIF search: at most 24 results, the provider's order kept. */
 export const gifSearchResponseSchema = Schema.Struct({
   results: Schema.Array(gifSearchResultSchema)
     .annotate({

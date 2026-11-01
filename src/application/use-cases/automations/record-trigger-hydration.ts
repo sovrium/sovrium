@@ -10,8 +10,8 @@ import { CommentRepository } from '@/application/ports/repositories/comment-repo
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { getManyToManyFieldSpecs } from '@/application/use-cases/tables/many-to-many-fields'
 import { storedRowOf } from '@/application/use-cases/tables/record-stored-row'
-import { transformRecord } from '@/application/use-cases/tables/record-transformer'
 import { readManyToManyLinks } from '@/application/use-cases/tables/to-many-link-reads'
+import { transformRecord } from '@/domain/models/app/tables/record-transformer-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { buildSyntheticSession } from './build-guest-session'
 import { singleUserFieldNames, withHydratedId } from './hydrated-field-reference'
@@ -331,7 +331,11 @@ const hydratePreviousRecord = (input: {
     const unchanged = hydratable
       .filter((field) => previousRecord[field] === record[field])
       .map((field) => [field, hydratedRecord[field]] as const)
-    const seeded = { ...previousRecord, ...Object.fromEntries(unchanged) }
+    // A link list the change did not name stood as it stands now.
+    const keptLinks = getManyToManyFieldSpecs(app.tables, tableName)
+      .filter(({ fieldName }) => !Object.hasOwn(previousRecord, fieldName))
+      .map(({ fieldName }) => [fieldName, record[fieldName]] as const)
+    const seeded = { ...previousRecord, ...Object.fromEntries([...unchanged, ...keptLinks]) }
     const withUsers = yield* hydrateUserFields({ app, tableName, record: seeded, userId })
     return yield* hydrateRelationshipFields({ app, tableName, record: withUsers })
   })

@@ -27,12 +27,12 @@
  * dark only through the base is not a dark decision, and is not emitted.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   adapterError,
   adapterOk,
   baseName,
   flattenTree,
-  isObject,
   mergeTrees,
   namesDark,
   parseJson,
@@ -49,13 +49,13 @@ type JsonObject = Readonly<Record<string, unknown>>
 
 /** Whether a parsed document is a DTCG resolver. */
 export const isDtcgResolver = (document: unknown): boolean =>
-  isObject(document) &&
-  (Array.isArray(document['resolutionOrder']) || isObject(document['modifiers'])) &&
+  isRecord(document) &&
+  (Array.isArray(document['resolutionOrder']) || isRecord(document['modifiers'])) &&
   !('$value' in document)
 
 /** A `$ref` inside the resolver (`#/sets/base`), or a file beside it. */
 const refOf = (value: unknown): string | undefined =>
-  isObject(value) && typeof value['$ref'] === 'string' ? value['$ref'] : undefined
+  isRecord(value) && typeof value['$ref'] === 'string' ? value['$ref'] : undefined
 
 const directoryOf = (path: string): string => {
   const slash = path.lastIndexOf('/')
@@ -87,7 +87,7 @@ export const normaliseSourcePath = (path: string): string | undefined => {
 export const resolverFileRefs = (resolver: unknown): readonly string[] => {
   const refs = (value: unknown): readonly string[] => {
     if (Array.isArray(value)) return value.flatMap(refs)
-    if (!isObject(value)) return []
+    if (!isRecord(value)) return []
     const own = refOf(value)
     return [...(own === undefined ? [] : [own]), ...Object.values(value).flatMap(refs)]
   }
@@ -115,11 +115,11 @@ const loadSources = (sources: unknown, context: Context): Loaded =>
       if ('missing' in loaded) return loaded
       const ref = refOf(source)
       if (ref === undefined)
-        return isObject(source) ? { tree: mergeTrees(loaded.tree, source) } : loaded
+        return isRecord(source) ? { tree: mergeTrees(loaded.tree, source) } : loaded
       const path = normaliseSourcePath(`${context.base}${ref}`)
       const text = path === undefined ? undefined : context.files.get(path)
       const document = text === undefined ? undefined : parseJson(text)
-      return isObject(document) ? { tree: mergeTrees(loaded.tree, document) } : { missing: ref }
+      return isRecord(document) ? { tree: mergeTrees(loaded.tree, document) } : { missing: ref }
     },
     { tree: {} }
   )
@@ -131,7 +131,7 @@ interface Modifier {
 }
 
 const readModifier = (modifier: JsonObject): Modifier | undefined => {
-  const contexts = isObject(modifier['contexts']) ? Object.keys(modifier['contexts']) : []
+  const contexts = isRecord(modifier['contexts']) ? Object.keys(modifier['contexts']) : []
   const dark = contexts.find(namesDark)
   const fallback = typeof modifier['default'] === 'string' ? modifier['default'] : undefined
   const light = contexts.find((name) => name === fallback) ?? contexts.find((name) => name !== dark)
@@ -142,16 +142,16 @@ const readModifier = (modifier: JsonObject): Modifier | undefined => {
 /** What one `resolutionOrder` entry points at: a set, a modifier, or an inline one. */
 const targetOf = (resolver: JsonObject, entry: unknown): JsonObject | undefined => {
   const match = /^#\/(sets|modifiers)\/(.+)$/.exec(refOf(entry) ?? '')
-  if (match === null) return isObject(entry) ? entry : undefined
+  if (match === null) return isRecord(entry) ? entry : undefined
   const table = resolver[match[1] ?? '']
-  const target = isObject(table) ? table[match[2] ?? ''] : undefined
-  return isObject(target) ? target : undefined
+  const target = isRecord(table) ? table[match[2] ?? ''] : undefined
+  return isRecord(target) ? target : undefined
 }
 
 /** The sources a modifier contributes in one mode: its dark context, or its light one. */
 const modifierSources = (modifier: JsonObject, mode: 'light' | 'dark'): unknown => {
   const read = readModifier(modifier)
-  const contexts = isObject(modifier['contexts']) ? modifier['contexts'] : {}
+  const contexts = isRecord(modifier['contexts']) ? modifier['contexts'] : {}
   const context = mode === 'dark' ? (read?.dark ?? read?.light) : read?.light
   return context === undefined ? [] : contexts[context]
 }
@@ -164,8 +164,8 @@ const entrySources = (resolver: JsonObject, entry: unknown, mode: 'light' | 'dar
 }
 
 const resolverModifiers = (resolver: JsonObject): readonly Modifier[] =>
-  Object.values(isObject(resolver['modifiers']) ? resolver['modifiers'] : {})
-    .filter(isObject)
+  Object.values(isRecord(resolver['modifiers']) ? resolver['modifiers'] : {})
+    .filter(isRecord)
     .map(readModifier)
     .filter((modifier): modifier is Modifier => modifier !== undefined)
 
@@ -185,7 +185,7 @@ const darkLayerSources = (resolver: JsonObject): readonly unknown[] => {
     const target = targetOf(resolver, entry)
     if (target === undefined || 'sources' in target) return []
     const dark = readModifier(target)?.dark
-    const contexts = isObject(target['contexts']) ? target['contexts'] : {}
+    const contexts = isRecord(target['contexts']) ? target['contexts'] : {}
     const sources = dark === undefined ? undefined : contexts[dark]
     return Array.isArray(sources) ? sources : []
   })
@@ -268,7 +268,7 @@ const fromResolver = (resolver: JsonObject, entry: string, source: ImportSource)
 const mergeFiles = (files: readonly SourceFile[]): JsonObject =>
   files
     .map((file) => parseJson(file.text))
-    .filter(isObject)
+    .filter(isRecord)
     .reduce<JsonObject>((tree, document) => mergeTrees(tree, document), {})
 
 const fromFolder = (source: ImportSource): AdapterResult => {
@@ -291,7 +291,7 @@ const fromFolder = (source: ImportSource): AdapterResult => {
 export const fromDtcg = (source: ImportSource): AdapterResult => {
   if (source.entry === undefined) return fromFolder(source)
   const document = parseJson(source.files.find((file) => file.path === source.entry)?.text ?? '')
-  if (!isObject(document)) return adapterError('It is not a DTCG document.')
+  if (!isRecord(document)) return adapterError('It is not a DTCG document.')
   if (isDtcgResolver(document)) return fromResolver(document, source.entry, source)
   const tokens = flattenTree(document, 'dtcg')
   return tokens.length === 0

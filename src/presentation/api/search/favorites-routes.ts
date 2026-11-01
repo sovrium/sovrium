@@ -5,14 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import {
-  AddFavorite,
-  ListFavorites,
-  RemoveFavorite,
-} from '@/application/use-cases/user-entity-lists'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+  addFavorite,
+  listFavorites,
+  removeFavorite,
+} from '@/application/use-cases/tables/user-entity-lists'
+import { successResponseSchema } from '@/domain/models/api/common'
+import { favoriteListResponseSchema } from '@/domain/models/api/search/entity-lists'
 import { badRequest, notFound, unauthorized } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+  shapedJson,
+} from '@/presentation/api/runtime/run-effect'
 import { parseEntityMutationBody } from '@/presentation/api/search/entity-list-parsers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -40,15 +48,22 @@ import type { Context, Hono } from 'hono'
  * caller's list of its table no longer admits — removed, missing, not hers to
  * list, or of a table the app does not declare.
  */
-const handleList = async (c: Context, app: App) => {
-  const session = getSessionContext(c)
-  if (!session) return unauthorized(c)
+const handleList = (c: Context, app: App) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const session = getSessionContext(c)
+        if (!session) return unauthorized(c)
 
-  const caller = { app, userId: session.userId }
-  const visible = await runRequestEffect(c, provideDomain(c, ListFavorites(caller)))
+        const caller = { app, userId: session.userId }
+        const visible = yield* listFavorites(caller)
 
-  return c.json(visible, 200)
-}
+        return shapedJson(c, visible, favoriteListResponseSchema)
+      })
+    )
+  )
 
 /**
  * POST /api/favorites — add an entity to the caller's favorites.
@@ -58,48 +73,64 @@ const handleList = async (c: Context, app: App) => {
  * a table the app does not declare, or whose list admits the caller no row, is
  * refused with the unknown table's 404.
  */
-const handleAdd = async (c: Context, app: App) => {
-  const session = getSessionContext(c)
-  if (!session) return unauthorized(c)
+const handleAdd = (c: Context, app: App) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const session = getSessionContext(c)
+        if (!session) return unauthorized(c)
 
-  const body = await c.req.json().catch(() => undefined)
-  const input = parseEntityMutationBody(body)
-  if (!input) return badRequest(c, 'Invalid favorite payload')
+        // effect-promise: total -- a body that is not JSON is caught here and read as none.
+        const body = yield* Effect.promise(() => c.req.json().catch(() => undefined))
+        const input = parseEntityMutationBody(body)
+        if (!input) return badRequest(c, 'Invalid favorite payload')
 
-  const caller = { app, userId: session.userId }
-  const kept = await runRequestEffect(c, provideDomain(c, AddFavorite(caller, input)))
-  // A table she may not list answers as a table that does not exist.
-  if (!kept) return notFound(c)
-  return c.json({ success: true }, 201)
-}
+        const caller = { app, userId: session.userId }
+        const kept = yield* addFavorite(caller, input)
+        // A table she may not list answers as a table that does not exist.
+        if (!kept) return notFound(c)
+        return yield* respondWith(c, Effect.succeed({ success: true }), successResponseSchema, 201)
+      })
+    )
+  )
 
 /**
  * DELETE /api/favorites — soft-delete an entity from the caller's favorites.
  */
-const handleRemove = async (c: Context) => {
-  const session = getSessionContext(c)
-  if (!session) return unauthorized(c)
+const handleRemove = (c: Context) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const session = getSessionContext(c)
+        if (!session) return unauthorized(c)
 
-  const body = await c.req.json().catch(() => undefined)
-  const input = parseEntityMutationBody(body)
-  if (!input) return badRequest(c, 'Invalid favorite payload')
+        // effect-promise: total -- a body that is not JSON is caught here and read as none.
+        const body = yield* Effect.promise(() => c.req.json().catch(() => undefined))
+        const input = parseEntityMutationBody(body)
+        if (!input) return badRequest(c, 'Invalid favorite payload')
 
-  await runRequestEffect(c, provideDomain(c, RemoveFavorite(session.userId, input)))
+        yield* removeFavorite(session.userId, input)
 
-  return c.json({ success: true }, 200)
-}
+        return yield* respondWith(c, Effect.succeed({ success: true }), successResponseSchema)
+      })
+    )
+  )
 
 /**
  * Chain favorite routes onto a Hono app.
  *
  * **Authentication**: `authMiddleware` is applied to `/api/favorites` in
- * `api-routes.ts` when `app.auth` is configured so `getSessionContext` can
+ * `middleware/api-auth-guards.ts` when `app.auth` is configured so `getSessionContext` can
  * resolve the caller. Each handler returns 401 itself when no session is
  * attached, so the routes behave consistently whether or not auth is wired.
  */
-export function chainFavoriteRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
+export function chainFavoriteRoutes(honoApp: Hono, app: App): Hono {
   return honoApp
-    .get('/api/favorites', (c) => handleList(c, resolveApp()))
-    .post('/api/favorites', (c) => handleAdd(c, resolveApp()))
-    .delete('/api/favorites', handleRemove) as T
+    .get('/api/favorites', (c) => handleList(c, app))
+    .post('/api/favorites', (c) => handleAdd(c, app))
+    .delete('/api/favorites', handleRemove)
 }

@@ -5,8 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { SearchReadablePages } from '@/application/use-cases/page-search-corpus'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { Effect } from 'effect'
+import { searchReadablePages } from '@/application/use-cases/search/page-search-corpus'
+import { pageSearchResponseSchema } from '@/domain/models/api/search/page-search'
+import { answerFailures, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
 import { resolvePageReader, type PageReaderResolver } from '@/presentation/api/search/page-reader'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -37,26 +39,33 @@ const MIN_QUERY_LENGTH = 2
  */
 const CACHE_HEADERS = { 'Cache-Control': 'private, max-age=10', Vary: 'Cookie' } as const
 
+/** The hits, under the cache headers: `shapedJson` takes none, so they go on `c` first. */
+const answerHits = (c: Context, hits: unknown): Response => {
+  Object.entries(CACHE_HEADERS).forEach(([name, value]) => c.header(name, value))
+  return shapedJson(c, hits, pageSearchResponseSchema)
+}
+
 const buildPageSearchHandler =
-  (app: App, getSession: PageReaderResolver | undefined) =>
-  async (c: Context): Promise<Response> => {
-    const query = (c.req.query('q') ?? '').trim()
-    if (query.length < MIN_QUERY_LENGTH) {
-      return c.json([], 200, CACHE_HEADERS)
-    }
-    const reader = await resolvePageReader(c, app, getSession)
-    const hits = await runRequestEffect(
+  (app: App, getSession: PageReaderResolver | undefined) => (c: Context) =>
+    runHandlerEffect(
       c,
-      provideDomain(c, SearchReadablePages(app, query, reader))
+      answerFailures(
+        c,
+        Effect.gen(function* () {
+          const query = (c.req.query('q') ?? '').trim()
+          if (query.length < MIN_QUERY_LENGTH) return answerHits(c, [])
+          const reader = yield* resolvePageReader(c, app, getSession)
+          const hits = yield* searchReadablePages(app, query, reader)
+          return answerHits(c, hits)
+        })
+      )
     )
-    return c.json(hits, 200, CACHE_HEADERS)
-  }
 
 /** Chain `GET /api/search/pages` onto a Hono app. */
-export function chainPageSearchRoutes<T extends Hono>(
-  honoApp: T,
+export function chainPageSearchRoutes(
+  honoApp: Hono,
   app: App,
   getSession: PageReaderResolver | undefined
-): T {
-  return honoApp.get('/api/search/pages', buildPageSearchHandler(app, getSession)) as T
+): Hono {
+  return honoApp.get('/api/search/pages', buildPageSearchHandler(app, getSession))
 }

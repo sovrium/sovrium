@@ -35,7 +35,7 @@
 
 import { Effect, Layer } from 'effect'
 import { LinkRepository } from '@/application/ports/repositories/links/link-repository'
-import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
+import { DatabaseUnownedLive } from '@/infrastructure/database/drizzle/layer'
 import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
 import { logWarning } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
@@ -93,7 +93,7 @@ export const runLinkShadowSweep = async (app: Readonly<App>): Promise<LinkShadow
 
   return Effect.runPromise(
     program.pipe(
-      Effect.provide(LinkRepositoryLive.pipe(Layer.provide(DatabaseLive))),
+      Effect.provide(LinkRepositoryLive.pipe(Layer.provide(DatabaseUnownedLive))),
       Effect.catchCause((cause) =>
         Effect.sync(() => {
           logWarning('[links] shadow sweep failed; link states may be stale', {

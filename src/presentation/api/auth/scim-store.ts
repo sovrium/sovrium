@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Data, Effect } from 'effect'
 import type { ScimGroupRow, ScimUserRow } from './scim-resources'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
@@ -73,13 +74,38 @@ export const listUsers = async (
   return { rows: rows as readonly ScimUserRow[], total }
 }
 
-/** Create a provisioned user; Better Auth's create hooks give it the default role. */
+/**
+ * Whether the directory must leave this account alone: one somebody opened
+ * here themselves (it holds a sign-in method: a password, a social or SSO
+ * identity) on an address that was never verified. The directory may not
+ * adopt it, since the address the directory knows the person by is not proven
+ * to be theirs; once the address is verified it is managed like any other. An
+ * account the directory provisions is stored verified, and one it provisioned
+ * unverified before that holds no sign-in method until someone gives it one,
+ * so both stay manageable.
+ */
+export const isUnverifiedSelfRegistered = async (
+  ctx: ScimAuthContext,
+  user: ScimUserRow
+): Promise<boolean> =>
+  user.emailVerified !== true && (await ctx.internalAdapter.findAccounts(user.id)).length > 0
+
+/** The refusal an account the directory may not manage receives. */
+export const UNVERIFIED_ACCOUNT_DETAIL =
+  'This account was opened on an address that is not verified, so the directory cannot manage it'
+
+/**
+ * Create a provisioned user; Better Auth's create hooks give it the default
+ * role. Its address is the directory's, which vouches for it, so it is stored
+ * verified: that keeps it the directory's to manage once its person signs in
+ * (see {@link isUnverifiedSelfRegistered}).
+ */
 export const createUser = async (
   ctx: ScimAuthContext,
   data: { readonly email: string; readonly name: string }
 ): Promise<ScimUserRow> =>
   (await ctx.internalAdapter.createUser(
-    { email: data.email, name: data.name, emailVerified: false },
+    { email: data.email, name: data.name, emailVerified: true },
     { method: 'scim' }
   )) as ScimUserRow
 
@@ -87,6 +113,15 @@ export const createUser = async (
 export const renameUser = async (ctx: ScimAuthContext, id: string, name: string): Promise<void> => {
   await ctx.internalAdapter.updateUser(id, { name })
 }
+
+/**
+ * Whether the directory may lift this account's ban: only a ban it placed
+ * itself, by deactivating the account. A ban an administrator placed is the
+ * administrator's to lift; a directory reactivating the account leaves it in
+ * place, and the account still reads `active: false`.
+ */
+export const isLiftableByDirectory = (user: ScimUserRow): boolean =>
+  user.banned !== true || user.banReason === DEACTIVATED_REASON
 
 /**
  * Activate or deactivate a user. Deactivation is a ban that ends every
@@ -163,3 +198,12 @@ export const setGroupMembers = async (
     ),
   ])
 }
+
+/** A read or write of the account store did not finish. */
+class ScimStoreError extends Data.TaggedError('ScimStoreError')<{
+  readonly cause: unknown
+}> {}
+
+/** One promise call of this store, on the handler's program. */
+export const scimStore = <A>(call: () => Promise<A>) =>
+  Effect.tryPromise({ try: call, catch: (cause) => new ScimStoreError({ cause }) })

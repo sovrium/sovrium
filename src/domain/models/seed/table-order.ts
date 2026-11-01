@@ -21,7 +21,7 @@
  * | --------------- | --------------------------- | ----- |
  * | `many-to-one`   | this table                  | yes   |
  * | `one-to-one`    | this table                  | yes   |
- * | `many-to-many`  | a junction row needs both   | yes   |
+ * | `many-to-many`  | **a junction row**          | no    |
  * | `one-to-many`   | **the child table**         | no    |
  *
  * Excluding `one-to-many` is load-bearing, not an optimisation. A `companies`
@@ -29,6 +29,12 @@
  * `company: many-to-one` describes ONE relationship declared from both ends. If
  * both directions produced an edge, that pair would be reported as a cycle and
  * the command would refuse the most ordinary schema in the catalog.
+ *
+ * Excluding `many-to-many` holds for the same reason. A junction row needs
+ * both of its rows, not one before the other, so the seed writer inserts every
+ * table's rows first and every junction row after the last table. Counting it
+ * as an edge would turn `jobs.apps: many-to-many` beside `apps.job:
+ * many-to-one` into a cycle that no write order actually has.
  *
  * ## Cycles fail loudly
  *
@@ -75,11 +81,7 @@ export interface SeedTableEdge {
 }
 
 /** Relationship kinds whose foreign key lives on the declaring table. */
-const OWNING_RELATION_TYPES: ReadonlySet<string> = new Set([
-  'many-to-one',
-  'one-to-one',
-  'many-to-many',
-])
+const OWNING_RELATION_TYPES: ReadonlySet<string> = new Set(['many-to-one', 'one-to-one'])
 
 /**
  * Derive the dependency edges implied by a config's relationship fields.

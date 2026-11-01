@@ -19,7 +19,9 @@
  * recorded at send time: a failure was held back exactly when another final
  * failure of the same automation completed in the hour before it. So the job
  * reads two hours — the hour it reports, and the hour before it that decides
- * the first failures of the reported one.
+ * the first failures of the reported one. A failure the history did not record
+ * — the database refused the write — was counted by the server's in-memory
+ * hold-back instead, and is merged in here (and forgotten there).
  *
  * Runs at the top of every hour in the operator's timezone
  * (`register-failure-rollup.ts`), and on demand through the token-gated
@@ -30,10 +32,13 @@
 
 import { Effect } from 'effect'
 import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import { FailureAlertHoldBack } from '@/application/ports/services/failure-alert-hold-back'
 import {
   FAILURE_ALERT_WINDOW_MS,
   groupHeldBackFailures,
+  mergeRollupGroups,
   selectHeldBackFailures,
+  type HeldBackTally,
   type RollupGroup,
 } from '@/domain/models/app/automations/automation-run-outcome-service'
 import { summariseRunError } from '@/domain/models/app/automations/failure-summary-service'
@@ -101,13 +106,33 @@ const entryLines = (entry: FailureRollupEntry): readonly string[] => [
     : `Recovered at: ${entry.recoveredAt} (a later run succeeded).`,
 ]
 
+/**
+ * The failures of automations the in-memory hold-back had no room to track
+ * one by one, told as a single line rather than dropped.
+ */
+const overflowLines = (overflow: HeldBackTally): readonly string[] => [
+  `Other automations: ${overflow.extraFailures} further ${overflow.extraFailures === 1 ? 'failure' : 'failures'}`,
+  `Last error: ${summariseRunError(overflow.lastError)}`,
+]
+
 /** What the roll-up says. */
-const rollupNotice = (entries: readonly FailureRollupEntry[]): AutomationNoticeContent => {
-  const failures = entries.reduce((sum, entry) => sum + entry.extraFailures, 0)
+const rollupNotice = (
+  entries: readonly FailureRollupEntry[],
+  overflow: HeldBackTally | undefined
+): AutomationNoticeContent => {
+  const failures =
+    entries.reduce((sum, entry) => sum + entry.extraFailures, 0) + (overflow?.extraFailures ?? 0)
+  const names = [
+    ...entries.map((entry) => entry.name),
+    ...(overflow === undefined ? [] : ['other automations']),
+  ]
   return {
-    title: `Automation failures in the last hour: ${entries.map((entry) => entry.name).join(', ')}`,
-    intro: `After their first failure was emailed, ${entries.length === 1 ? 'this automation' : 'these automations'} failed ${failures} more ${failures === 1 ? 'time' : 'times'} in the last hour. Those failures were held back and are summarised here.`,
-    sections: entries.map((entry) => ({ lines: entryLines(entry) })),
+    title: `Automation failures in the last hour: ${names.join(', ')}`,
+    intro: `After their first failure was emailed, ${names.length === 1 ? 'this automation' : 'these automations'} failed ${failures} more ${failures === 1 ? 'time' : 'times'} in the last hour. Those failures were held back and are summarised here.`,
+    sections: [
+      ...entries.map((entry) => ({ lines: entryLines(entry) })),
+      ...(overflow === undefined ? [] : [{ lines: overflowLines(overflow) }]),
+    ],
   }
 }
 
@@ -121,7 +146,7 @@ export const sendFailureRollup = (
 ): Effect.Effect<
   FailureRollupResult,
   AutomationRunOutcomeDatabaseError,
-  AutomationRunOutcomeRepository | AuthRepository | EmailSender
+  AutomationRunOutcomeRepository | AuthRepository | EmailSender | FailureAlertHoldBack
 > =>
   Effect.gen(function* () {
     const hourStart = new Date(now.getTime() - FAILURE_ALERT_WINDOW_MS)
@@ -130,10 +155,17 @@ export const sendFailureRollup = (
       from: new Date(hourStart.getTime() - FAILURE_ALERT_WINDOW_MS),
       to: now,
     })
-    const groups = groupHeldBackFailures(selectHeldBackFailures(failures, hourStart, now))
-    if (groups.length === 0) return { sent: false, automations: [] }
+    const held = yield* (yield* FailureAlertHoldBack).take
+    const groups = mergeRollupGroups(
+      groupHeldBackFailures(selectHeldBackFailures(failures, hourStart, now)),
+      held.groups
+    )
+    if (groups.length === 0 && held.overflow === undefined) return { sent: false, automations: [] }
     const automations = yield* withRecovery(groups)
-    const recipients = yield* deliverAutomationNotice({ app, content: rollupNotice(automations) })
+    const recipients = yield* deliverAutomationNotice({
+      app,
+      content: rollupNotice(automations, held.overflow),
+    })
     return {
       sent: recipients > 0,
       automations: automations.map(({ name, extraFailures, recoveredAt }) => ({

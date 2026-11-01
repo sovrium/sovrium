@@ -15,7 +15,6 @@
 
 import { eq } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { db } from '@/infrastructure/database/drizzle'
 import {
   authUsersTable,
   resolveDialectSchema,
@@ -26,6 +25,7 @@ import { wrapDatabaseError } from '../statement/error-handling'
 import { activeCommentsByRecordId } from './comment-query-predicates'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DatabaseError } from '@/infrastructure/database'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
@@ -38,11 +38,14 @@ const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqli
  * Scoped to `(table, recordId)`: a record id alone is not an identity —
  * record ids are per-table sequences. See `activeCommentsByRecordId`.
  */
-export function listCommentAuthorsForRecord(config: {
-  readonly session: Readonly<Session>
-  readonly tableKeys: readonly string[]
-  readonly recordId: string
-}): Effect.Effect<readonly string[], DatabaseError> {
+export function listCommentAuthorsForRecord(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly tableKeys: readonly string[]
+    readonly recordId: string
+  }
+): Effect.Effect<readonly string[], DatabaseError> {
   const { tableKeys, recordId } = config
   return Effect.tryPromise({
     try: async () => {
@@ -72,11 +75,14 @@ export function listCommentAuthorsForRecord(config: {
  * every same-numbered record's commenters across the whole app — personal
  * data crossing a table boundary. See {@link activeCommentsByRecordId}.
  */
-export function listCommentAuthorEmailsForRecord(config: {
-  readonly session: Readonly<Session>
-  readonly tableKeys: readonly string[]
-  readonly recordId: string
-}): Effect.Effect<readonly { readonly userId: string; readonly email: string }[], DatabaseError> {
+export function listCommentAuthorEmailsForRecord(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly tableKeys: readonly string[]
+    readonly recordId: string
+  }
+): Effect.Effect<readonly { readonly userId: string; readonly email: string }[], DatabaseError> {
   const { tableKeys, recordId } = config
   return Effect.tryPromise({
     try: async () => {
@@ -107,10 +113,13 @@ export function listCommentAuthorEmailsForRecord(config: {
  * notify-thread automation still has a recipient. Returns `undefined` when
  * the user row is missing.
  */
-export function getUserEmailById(config: {
-  readonly session: Readonly<Session>
-  readonly userId: string
-}): Effect.Effect<string | undefined, DatabaseError> {
+export function getUserEmailById(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly userId: string
+  }
+): Effect.Effect<string | undefined, DatabaseError> {
   const { userId } = config
   return Effect.tryPromise({
     try: async () => {
@@ -136,10 +145,13 @@ export function getUserEmailById(config: {
  * resolve against the returned object instead of the bare id string.
  * Returns `undefined` when the user row is missing or has no email.
  */
-export function getUserMetadataById(config: {
-  readonly session: Readonly<Session>
-  readonly userId: string
-}): Effect.Effect<
+export function getUserMetadataById(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly userId: string
+  }
+): Effect.Effect<
   { readonly id: string; readonly email: string; readonly name: string } | undefined,
   DatabaseError
 > {

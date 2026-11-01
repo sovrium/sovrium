@@ -7,12 +7,15 @@
 
 import { Schema } from 'effect'
 import {
+  agentApprovalListResponseSchema,
+  agentScheduleResponseSchema,
+  agentUsageResponseSchema,
   approvalStatusSchema,
   executeResultSchema,
   serializedAgentSchema,
   serializedApprovalSchema,
 } from '@/domain/models/api/agents/agents'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   effectJsonResponse,
   effectParameters,
@@ -78,14 +81,7 @@ const routes: readonly RouteSpec[] = [
     description: 'Returns the agent token usage for the current UTC day.',
     operationIdBase: 'getAgentUsage',
     responses: {
-      200: effectJsonResponse(
-        Schema.Struct({
-          tokensUsedToday: Schema.Finite,
-          maxTokensPerDay: Schema.Finite,
-          day: Schema.String.annotate({ description: 'UTC date (YYYY-MM-DD)' }),
-        }),
-        'Agent usage'
-      ),
+      200: effectJsonResponse(agentUsageResponseSchema, 'Agent usage'),
       404: errorResponse('Agent not found, or the caller lacks permission to read it back'),
     },
   },
@@ -105,10 +101,7 @@ const routes: readonly RouteSpec[] = [
       'query'
     ),
     responses: {
-      200: effectJsonResponse(
-        Schema.Struct({ approvals: Schema.Array(serializedApprovalSchema) }),
-        'Approval list'
-      ),
+      200: effectJsonResponse(agentApprovalListResponseSchema, 'Approval list'),
       404: errorResponse('Agent not found, or the caller lacks permission to read it back'),
     },
   },
@@ -183,16 +176,7 @@ const routes: readonly RouteSpec[] = [
     description: 'Returns the cron schedule configured for the agent.',
     operationIdBase: 'getAgentSchedule',
     responses: {
-      200: effectJsonResponse(
-        Schema.Struct({
-          agent: Schema.String,
-          cron: Schema.String,
-          timezone: Schema.String,
-          taskPrompt: Schema.String,
-          nextRunAt: Schema.optionalKey(Schema.String),
-        }),
-        'Agent schedule'
-      ),
+      200: effectJsonResponse(agentScheduleResponseSchema, 'Agent schedule'),
       404: errorResponse(
         'Agent not found, no schedule configured, or the caller lacks permission to read it back'
       ),

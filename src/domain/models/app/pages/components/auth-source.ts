@@ -44,7 +44,7 @@ export const AuthSourceListSchema = Schema.Literals([...AUTH_SOURCE_LISTS]).anno
   identifier: 'AuthSourceList',
   title: 'Auth Source List',
   description:
-    'Which account list to read: the reader’s own passkeys, sessions or API keys, or — for a reader who may administer accounts — the members and the pending invitations',
+    'Which account list to read: the reader’s own passkeys, sessions or API keys, or, for a reader who may administer accounts, the members and the pending invitations',
 })
 
 export const AuthSourceSchema = Schema.Struct({

@@ -14,15 +14,10 @@
  * extraction, the preview flag, the page-output cache, and the request-edge
  * tracing wrapper.
  *
- * The dependency now runs strictly one way (`page-routes.ts` → this file). It
- * previously did not: `HonoAppConfig` lived in `page-routes.ts`, so this file
- * and four other route-setup siblings imported the type back out of it, forming
- * five import cycles. They were type-only and erased at compile time, so nothing
- * broke at runtime — but a config contract shared by five modules is not one
- * module's private type, and the old note here argued for keeping it in
- * `page-routes.ts` on exactly the grounds that condemned it. It now lives in the
- * leaf module `./hono-app-config`, which imports no sibling. Import it from
- * there, never re-export it from a route module.
+ * The dependency runs strictly one way (`page-routes.ts` → this file). The
+ * config contract the route modules share, `HonoAppConfig`, lives in a leaf
+ * module that imports no sibling, so no route module imports a type back out of
+ * another: import it from there, never re-export it from a route module.
  */
 
 import { Data, Effect } from 'effect'
@@ -39,12 +34,13 @@ import { throwIfPageFaultInjected } from '@/presentation/api/runtime/page-fault-
 import { varyOnPartial } from '@/presentation/api/runtime/vary'
 import { pageCapturesMicrophone } from '@/presentation/render/page/page-microphone-detection'
 import { absolutizeSharingImage } from '@/presentation/render/page/sharing-image-address'
-import { resolveRequestBaseUrl } from '../../../domain/kernel/url/request-base-url'
 import {
   systemRecordFetcher,
   systemRowsFetcher,
 } from '../../../infrastructure/egress/system-rows-fetcher'
+import { resolveRequestBaseUrl } from '../runtime/request-origin'
 import { callerTableReaders } from './caller-table-reader'
+import { sendPageRedirect, type PageRedirect } from './ended-session'
 import { fileUrlSigner } from './file-url-signer'
 import {
   CACHED_PAGE_CACHE_CONTROL,
@@ -54,7 +50,10 @@ import {
 } from './page-cache-decision'
 import { isPartialEligible, pagePartialOf } from './page-partial'
 import { sendRevalidatedPage } from './page-revalidation'
-import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
+import type {
+  HonoAppConfig,
+  SessionCookie,
+} from '../../../application/ports/contracts/hono-app-config'
 import type { ReadReadPosition } from '@/application/ports/repositories/tables/read-state-repository'
 import type {
   LoadRowRuleContext,
@@ -74,10 +73,7 @@ function renderAccessErrorPage(message: string): string {
 }
 
 type ResolvedPage =
-  | { readonly redirect: string }
-  | { readonly html: string }
-  | { readonly unauthorized: true }
-  | undefined
+  PageRedirect | { readonly html: string } | { readonly unauthorized: true } | undefined
 
 /**
  * Resolves a PageRenderResult into one of: redirect URL, error HTML, page HTML,
@@ -90,10 +86,9 @@ function resolvePageResult(result: PageRenderResult): ResolvedPage {
 }
 
 function resolveObjectResult(
-  result:
-    { readonly redirect: string } | { readonly error: string } | { readonly unauthorized: true }
+  result: PageRedirect | { readonly error: string } | { readonly unauthorized: true }
 ): ResolvedPage {
-  if ('redirect' in result) return { redirect: result.redirect }
+  if ('redirect' in result) return result
   if ('error' in result) return { html: renderAccessErrorPage(result.error) }
   if ('unauthorized' in result) return { unauthorized: true }
   return undefined
@@ -182,15 +177,27 @@ interface ResponseDisposition {
    * `page-partial.ts`) — decided from its CONFIG, beside `grants`.
    */
   readonly partialEligible: boolean
+  readonly ended?: readonly SessionCookie[] // a refused session's cookies (`ended-session.ts`)
 }
+
+/** What a response carries beside its body: from the matched page's config, and the request. */
+const pageDispositionOf = (
+  config: HonoAppConfig,
+  page: Parameters<typeof isPartialEligible>[0],
+  c: Context
+) => ({
+  grants: microphonePolicyHeaders(pageCapturesMicrophone(page, config.app)),
+  partialEligible: isPartialEligible(page),
+  ended: config.endedSession?.(c.req.raw.headers),
+})
 
 function sendResolved(
   resolved: ReturnType<typeof resolvePageResult>,
-  { cacheStatus, cacheControl, grants, partialEligible }: ResponseDisposition,
+  { cacheStatus, cacheControl, grants, partialEligible, ended }: ResponseDisposition,
   c: Context
 ): Response | undefined {
   if (!resolved) return undefined
-  if ('redirect' in resolved) return c.redirect(resolved.redirect, 302)
+  if ('redirect' in resolved) return sendPageRedirect(c, resolved, ended)
   if ('unauthorized' in resolved) {
     return c.text('Unauthorized', 401)
   }
@@ -265,14 +272,12 @@ export async function renderWithCache(
   config: HonoAppConfig,
   path: string,
   reqCtx: PageRequestContext,
-
   c: Context
 ): Promise<Response | undefined> {
   const { app, renderPage } = config
   throwIfPageFaultInjected(c.req.path)
 
-  // P3: the renderer's request-bound readers (and the file signer), built HERE:
-  // the one funnel every page passes through and the only place holding the request.
+  // P3: the request-bound readers and file signer, built in the one funnel holding the request.
   const renderCtx: PageRequestContext = {
     ...reqCtx,
     fetchSystemRows: systemRowsFetcher(c),
@@ -289,10 +294,7 @@ export async function renderWithCache(
   }
 
   const decision = decidePageCache(app, path, reqCtx)
-  const pageDisposition = {
-    grants: microphonePolicyHeaders(pageCapturesMicrophone(decision.classification.page, app)),
-    partialEligible: isPartialEligible(decision.classification.page),
-  }
+  const pageDisposition = pageDispositionOf(config, decision.classification.page, c)
   const send = (resolved: ResolvedPage, cacheStatus: CacheStatus, cacheControl: string) =>
     sendResolved(resolved, { cacheStatus, cacheControl, ...pageDisposition }, c)
   if (!decision.usable) {

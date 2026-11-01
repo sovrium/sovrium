@@ -1,3 +1,376 @@
+## [0.46.0](https://github.com/sovrium/sovrium/compare/v0.45.0...v0.46.0) (2026-11-01)
+
+### BREAKING CHANGES
+
+- **analytics**: store only audience fields by default with analytics.profile
+- **pages**: refuse a record gate on a contentDir page, and hold record gates in breakpoint children and on pages with no record
+- **design**: refuse a part name a component does not have under design.components
+- **auth**: a directory sync lifts only its own deactivations, manages verified accounts only, and needs a 32-character token
+- **automations**: a connection's credential goes only to the service it was declared for
+- **ai**: an agent's record changes in a chat ask for confirmation like the generic chat
+- **ai**: an agent people can chat with may not run code; the code step stays for automations
+- **automations**: a public webhook has a request budget, keeps a bounded copy of each call and forgets runs after 90 days by default
+- **tables**: record writes answer once committed; webhook deliveries continue in the background
+- **buckets**: a public bucket accepts uploads from administrators unless it says otherwise
+- **tables**: an app without sign-in serves only the tables that open themselves to everyone
+- **auth**: require a verified email when a federated provider is declared
+- **auth**: close sign-up unless the config opens it
+- **tables**: declare business rules on a table and refuse the single-select conditions key
+
+### Features
+
+- **pages**: add a consent banner that holds back analytics and page scripts until the visitor accepts
+- **pages**: let a page or component depend on the app keeping full analytics
+- **analytics**: answer aggregate-only, rounded analytics reads under the audience-only profile
+- **pages**: let visitors turn the measurement of their visits off and on
+- **pages**: let a button follow what a data component on its page last read
+- **analytics**: honour Global Privacy Control in built-in analytics
+- **pages**: show a component only when an $app value holds
+- **image**: let an image inline an SVG drawing from public files so it follows the app's colours
+- **design-system**: export the code-block syntax colours in the design-system bundle
+- **pages**: draw a command item's description under its label
+- **data-table**: empty guidance, row count noun, second line, short ids and copy
+- **pages**: KPI legend under the value, and guidance in a chart's empty region
+- **admin**: filter the account directory on who can open the console
+- **pages**: draw an irreversible confirm's verb as a solid destructive fill
+- **auth**: say what to do next after a refused password on a sign-in form
+- **admin**: leave the reads out of the audit log on request
+- **design**: style every markdown article once with design.components.markdown
+- **design**: style every text drawn as one element with design.components.text.elements
+- **theming**: colour code blocks by syntax role from the design's own colour tokens
+- **pages**: draw the docs zones and search inside the sidebar when asked
+- **pages**: a list drawn through a row template follows its filter bar
+- **pages**: mark the section being read in every table of contents
+- **pages**: style the docs outline's active link with the tocLinkActive part
+- **pages**: an image can show its own file in the dark scheme
+- **design**: name the code block's copy button as a stylable part
+- **brand**: rename Sovrium Academy to Sovrium Builder
+- **pages**: accept repeat on a collection page and on a single-mode container
+- **auth**: the account owner is emailed when a key or a passkey is added
+- **pages**: give a comments thread its own title, and hide it while empty for readers who cannot comment
+- **pages**: let each page publish its own RSS feed at an address of its own
+- **cli**: `sovrium reindex` rebuilds the AI knowledge index from the command line
+- **auth**: the two-factor lockout tells the person by email and an administrator can clear it
+- **admin**: show the instance's uptime, AI provider and health on the overview
+- **admin**: show who sent each form submission, a preview of its answers, and the record and runs it started
+- **admin**: filter the audit log by actor, action, period and search, and export the rows you select
+- **admin**: let a record sheet read nested values and follow a navigate action
+- **admin**: judge the instance's health on the overview read
+- **install**: verify the release signature before installing
+- **admin**: name who sent each form submission, the record it created and the runs it started
+- **admin**: narrow the audit log by period and search, and list its actors and actions
+- **tables**: let a url button's address name the record it is pressed on
+- **tables**: give calendar feed events a place and a link
+- **auth**: ask for the person's name on a sign-up form
+- **pages**: show lock states on edit forms and return a refused kanban card to its stored lane
+- **pages**: draw a grid's delete action disabled on a record a lock rule keeps, with the lock's message
+- **pages**: show locked fields as disabled and surface the rule's message in the form, drawer, grid, kanban and calendar
+- **tables**: enforce business rules on every record write and report locked fields on reads
+- **cli**: generate a typed client for the records API
+- **cli**: import a Supabase project
+- **api**: allow a configured list of origins on the records API
+
+### Bug Fixes
+
+- **pages**: keep a confirmation opened while a region was being refreshed
+- **admin**: ask the links pages' 24-hour period for daily figures
+- **theming**: nothing keeps animating on an idle page under reduced motion
+- **admin**: let the account's role badge wrap instead of clipping
+- **admin**: say so when an erasure request is refused
+- **admin**: point an account's access section to Access › Reach
+- **admin**: name the overview's empty attention line as the console shows it
+- **admin**: Request erasure stays hidden while an erasure is pending
+- **pages**: accept a read gate whose grid is placed from a template with a key
+- **admin**: records actions wait for a working read, and the palette offers only pages that exist
+- **analytics**: start fresh visitor identifiers each day and on every restart
+- **tables**: a grid that fits on one page no longer announces its count line as page navigation
+- **admin**: the sidebar version reads v and its number as text, and nothing when none is declared
+- **pages**: match nothing when a page data filter value resolves empty or to text its column cannot hold
+- **pages**: the search palette offers each destination once
+- **analytics**: stop claiming the built-in analytics settles GDPR consent
+- **pages**: a menu's link rows read in the same ink as its other rows
+- **desktop**: register sovrium:// links on Linux without update-desktop-database, and close a second Windows launch during startup
+- **auth**: offer Forgot your password? only when the instance can send mail
+- **pages**: keep tab and step labels with their gated bodies, and repeat in every child list of a record-bound component
+- **tables**: name an empty grid's guidance line with the empty-description slot
+- **tables**: mark a column's second line as its caption
+- **pages**: keep a single-space text that separates two inline siblings
+- **admin**: console lists count their rows and drop the View menu they do not need
+- **islands**: never swallow a press held for an island that fails to load
+- **api**: check field read permissions on every node of a records filter
+- **admin**: the audit log reads in words and hides reads until asked
+- **api**: refuse a records filter value its field cannot hold with a 400 naming the field
+- **admin**: account actions protect your own account and name the person they affect
+- **admin**: Footprint gets its own page, Analytics loses its tabs, empty lists say what fills them
+- **pages**: a mistyped filter-bar condition leaves a row-template list empty instead of failing the page
+- **admin**: the command palette opens on the console's pages and names only declared data
+- **pages**: draw a text with element kbd as a kbd
+- **design**: let a type-scale step's letter spacing replace a heading's default tracking
+- **admin**: sign-in, sign-out and reset pages say what happened and what to do next
+- **islands**: keep the first press made on an island before it is live
+- **theming**: paint a code block placed in a breakpoint's responsive children like any other
+- **pages**: resolve relative dates in the conditions a filter bar publishes to a row-template list
+- **pages**: word the console search palette from what the app declares
+- **pages**: a text whose content resolves to nothing draws no element
+- **pages**: a control publishing an empty value keeps the grid's static query value
+- **i18n**: keep rendered Markdown through the language script, and navigate on a language switch
+- **i18n**: stop a translated new-tab link drawing a visible space
+- **assets**: serve captions as text/vtt and answer HEAD and range requests correctly on public files
+- **pages**: apply a component's record gate at the top level of a collection page
+- **media**: honour a default track and hold a video or iframe at its aspect ratio
+- **admin**: mark the reader's own row in the account directory
+- **pages**: put Cancel before the verb in every confirm
+- **admin**: name local file storage by its folder, not its host path
+- **pages**: keep row checkboxes where Export selected is offered, and hold the top pager while a grid first reads
+- **pages**: a data table whose rows fit on one page draws no pager
+- **theming**: a scaleUp animation with no easing settles without overshooting
+- **pages**: overlays open and close without motion under reduced motion
+- **theming**: raise the default focus ring and status text to WCAG AA
+- **pages**: let a page name its own main region beside its sidebar and header
+- **design-system**: the exported theme stylesheet declares the app's font families
+- **design**: a heading carrying a type-scale step takes that step's weight
+- **pages**: keep the docs tabs when the sidebar groups are collapsed
+- **design**: set headings in the body face when a design declares no title face
+- **design-system**: name the default language beside the voice pronoun in exports
+- **server**: keep the request on error reports from API handlers
+- **admin**: console pages keep a clean outline and offer a way on from a failure
+- **admin**: destructive actions state their consequence
+- **admin**: overview leads with one line when nothing needs attention
+- **admin**: console text follows the type scale, and theme lives in the account menu
+- **admin**: stop the conversation title skipping a heading level
+- **admin**: show an interrupted reply's footnote in the console's language
+- **admin**: name the conversation viewer's landmarks in the console's language
+- **design-system**: ship only the Geist faces the component kit still draws
+- **design-system**: mark every exported measure token as declared or inherited
+- **design-system**: drop the spaced em dash from the exported design brief and component kit
+- **design-system**: drop the spaced em dash from component catalogue copy
+- **pages**: mount islands placed in component slots and through references
+- **cli**: check translatable seed values only in the tables a run writes
+- **cli**: plan only the tables in --table scope and document the backslash escape
+- **cli**: order seeded tables without counting many-to-many links as a cycle
+- **cli**: look up a seed reference into a table outside --table on that file's merge key
+- **cli**: match an upsert merge key on a translatable field in every language
+- **cli**: watch a missing file a refused $ref names and reload once it exists
+- **ai**: field refinement counts the calls it starts and reads its budget through the environment port
+- **auth**: a sign-in by link or code refuses to start without its second-step hook
+- **auth**: a display name is cleaned once, whichever road opens the account
+- **api**: name the too-many-code-attempts answer in the error catalogue
+- **auth**: signing out forgets the language chosen in that browser
+- **auth**: a sign-in through Google or another provider follows the SSO-owned-domain rule
+- **auth**: changing the account email first asks the current address and needs a recent sign-in
+- **pages**: the history panel shows its empty-state message when a record has no change
+- **desktop**: the screens shown while an address is checked no longer call it a bundle
+- **ai**: knowledge search returns a document's passages only to people who may use the agent that declares it
+- **ai**: an SVG attached to a chat is downloaded, never rendered on the app's origin
+- **auth**: device-code and passkey challenges are budgeted and their expired rows are swept
+- **auth**: sign-in codes and links share one send budget per address, and repeated wrong codes lock the address for a while
+- **pages**: draw the favorites star only for a signed-in reader
+- **pages**: fill neighbour record references inside a translated value
+- **pages**: drop HTML comments and raw HTML from markdown pages instead of printing them
+- **automations**: credentials and secret bodies never follow a redirect to another site
+- **pages**: answer 404 for a content directory that does not exist and warn at validate
+- **ai**: speech-to-text, attachments, knowledge search and field refinement share the per-person budget the chat already has
+- **automations**: a spreadsheet that inflates past its declared size is refused before it fills memory
+- **migrations**: refuse a required field without a default on a populated table
+- **pages**: read a feed heading's date in any position and write it at UTC midnight
+- **pages**: filter a server-drawn list on a many-to-many field by its linked records
+- **auth**: sign-in links and codes are stored hashed and expire within an hour
+- **auth**: a sign-in link, code or reset request answers in the same time for a known and an unknown address
+- **auth**: a link or code sign-up obeys the avatar, name, language and notification rules
+- **auth**: signing in by link or by code asks for the second step like a password does
+- **ai**: an agent's email, web and file actions wait for approval when a person is chatting
+- **install**: check the release signature on stock macOS instead of skipping it
+- **desktop**: sign the macOS engine with the JIT entitlement alone
+- **desktop**: refuse an update whose signature names another version
+- **docker**: bind the image's server to every interface by name
+- **automations**: a webhook's deduplication memory stays bounded
+- **automations**: a webhook opened from another site never runs as the signed-in visitor
+- **tables**: webhook retries are bounded and one slow receiver no longer delays the others
+- **auth**: a password reset or turning on two-step verification signs out every other session and revokes the account's API keys
+- **auth**: an API key can call the records API, never the account's own settings
+- **tables**: cap webhook retry attempts and floor the first retry delay
+- **cli**: give the generated client's requests a timeout
+- **pages**: give a content-directory page's synthesised sharing card an og:url equal to its canonical
+- **pages**: resolve frontmatter references in declared Open Graph and Twitter titles and descriptions
+- **records**: an upsert row that stops matching inside the write is judged as the record it creates
+- **desktop**: the import consent says when a project contains code
+- **cli**: `sovrium init --from-url --inspect` reports what the project contains
+- **records**: deleting a trashed record for good fires no second delete event
+- **auth**: one membership per person and organisation, kept by a unique index
+- **records**: business rules judge a trashed record before its permanent delete
+- **records**: a record's files are purged only after its delete is committed
+- **records**: batch refusals name the fields the caller is allowed to read
+- **records**: an upsert judges every row it matches, including one matched late
+- **automations**: browser steps keep WebSockets away from an allowed host whose name resolves to a private address
+- **cli**: a remote config, bundle or import source is checked against the private-network rule on every redirect hop
+- **auth**: two-factor code checks share the per-address rate window
+- **cli**: `sovrium dev --external-database` asks for no password on an app that declares no sign-in
+- **auth**: magic-link and email-code sign-up follow the rule that an SSO-owned domain signs in through SSO only
+- **automations**: refuse a browser step whose settings fail its schema before running it
+- **automations**: refuse a file step whose settings fail its schema before running it
+- **automations**: let a record update step name its row by id, as documented
+- **automations**: refuse a document step whose settings fail its schema before running it
+- **automations**: refuse a PDF step whose settings fail its schema before running it
+- **auth**: let an administrator read the organisation's groups whenever they joined
+- **cli**: rebuild an administrator's organisation membership as a seed run makes it
+- **automations**: refuse an action whose settings fail its schema before running it
+- **auth**: decide proxy trust from one parser
+- **server**: create the data directory private from the first file it holds
+- **tables**: a lock rule binds a restore as it binds a delete
+- **tables**: judge an upsert's updates under the same lock as any update
+- **tables**: a closed table answers the same way whatever the request body
+- **server**: keep the database and stored files private to the service account
+- **server**: answer only the hosts a local server is meant to serve
+- **security**: refuse state changes from a foreign origin on every route
+- **buckets**: a public bucket on an app without sign-in refuses the deletes and overwrites it does not open to everyone
+- **server**: cap request bodies per route instead of per upload size
+- **tables**: make webhook delivery retries interruptible on shutdown
+- **tables**: stop the presence reaper and connection recheck with the server they belong to
+- **templates**: stop the sign-in page assuming its reader signed up
+- **connections**: refuse test tokens on any public deployment
+- **tables**: judge a record under one lock whatever spelling of its id a write uses
+- **tables**: judge business rules against the row as it is written
+- **automations**: free an automation's concurrency slot when a queued run is interrupted
+- **pages**: keep the pinned save bar and per-column sections on a main-aside form
+- **pages**: keep every line of a multi-line field when an edit form opens and saves
+- **pages**: follow a navigate item pressed in a table's action column
+- **ai**: rebuilding the knowledge index needs an administrator
+- **auth**: the first-admin link works on an app that declares agents
+- **cli**: sovrium client writes only the tables and fields its audience may read
+- **cli**: the config write tool refuses a path through a linked folder
+- **tables**: refuse a visitor's comment edit or delete before reading the comment
+- **cli**: a preview refuses production credentials unless asked
+- **docker**: run the image in production mode
+- **cli**: say when a template or bundle contains code before creating the project
+- **desktop**: sign the app shell with the minimum entitlements
+- **auth**: an API key cannot change notification preferences or delete the account
+- **auth**: list other accounts only where the app needs to pick a person
+- **desktop**: a link can only create a project from a bundled template
+- **cli**: sovrium dev never seeds a known password into an external database
+- **ai**: cap chat requests and message length by default on a metered provider
+- **tables**: refuse an upsert the caller may not make before reading any record
+- **pages**: drop plain-http allowed origins on any public deployment, not only under NODE_ENV=production
+- **tables**: clean rich text and check formats on every road that writes a record
+- **ai**: a confirmation token works only for the person it was issued to
+- **forms**: accept files only for the fields a form declares
+- **server**: warn when a public origin runs with a relaxed posture
+- **pages**: show a neighbouring record's values as text inside page content
+- **tables**: a url field accepts only web addresses
+- **email**: require TLS on the mail connection unless the server is local
+- **server**: decide every security behaviour from the deployment posture
+- **templates**: the business starter admits new people by invitation
+- **email**: never print sign-in links on a public deployment
+- **pages**: keep dates and every multi-select choice when saving an edit form
+- **automations**: a code step sees only the variables the config declares
+- **connections**: use PKCE on every OAuth connection unless the provider refuses it
+- **automations**: judge outbound requests by the address a name resolves to
+- **auth**: sign every session out when a password is reset
+- **auth**: keep API keys off organisation changes and invitations
+- **auth**: let only administrators register OAuth clients
+- **pages**: show an inviter's name as text and keep page values out of declared scripts
+- **auth**: expire API keys by default and keep them off the admin plane
+- **auth**: refuse password accounts on a domain an identity provider owns
+- **pages**: show a tab panel's text as text
+- **auth**: keep group membership and organisation changes to administrators
+- **pages**: show route and query values as text inside HTML content
+- **database**: create the agent-user columns through migrations
+- **telemetry**: put a deadline on OTLP exports and PostgreSQL listener connects
+- **tables**: let the server finish AI field work started by a record write
+- **pages**: check every address the browser is sent to from a page action
+- **automations**: refuse an email suppression behind a form trigger inside a branch
+- **ai**: use the provider's default model when AI_MODEL is unset
+- **auth**: stop seeding OAuth2 connection tokens when a user signs up
+- **admin**: count only the record-trigger runs on the table a submission wrote into
+- **auth**: keep a no-auth app from loading better-auth for the ended-session redirect
+- **automations**: say when an email link is dropped for its scheme
+- **admin**: export the nested columns of a selected console grid
+- **admin**: keep the audit log's server-side search results on screen
+- **tables**: answer an empty view page in the shape of any other page
+- **pages**: render the footer badge as a line, not a second footer
+- **pages**: let a markdown table wider than its column scroll inside it
+- **tables**: keep a view's withheld fields out of a url button's address
+- **pages**: say through aria-pressed whether a reader's own-row toggle is on
+- **pages**: draw a page's leading header before its main landmark
+- **tables**: allow a public view on a table with row-level read rules
+- **pages**: fold a kanban column to its heading's width on a phone too
+- **pages**: show the whole period title of an event calendar on a phone
+- **pages**: fill every month, quarter, year and week of a chart with fillEmpty
+- **tables**: tell when a formula's read grant is narrowed by what it reads
+- **pages**: make a toggleElement button a keyboard disclosure
+- **theming**: expose the theme toggle state and give it a usable target
+- **pages**: announce a section as a region only when it is named
+- **tables**: tell when a formula reading the clock is frozen at save time
+- **pages**: print list columns on SQLite as on PostgreSQL on a page bound to one record
+- **pages**: read a datetime the same way, in the field's time zone, on every surface
+- **pages**: send a sign-in redirect to the page in the visitor's language
+- **pages**: draw the not-found page for the signed-in reader on unknown addresses
+- **design**: keep diff signs off the frame edge and added lines at AA contrast
+- **seo**: resolve translation keys in llms.txt and head its sections with the sidebar's group labels
+- **pages**: refresh cached pages when a form they place by formRef changes
+- **pages**: make code blocks that scroll sideways reachable by keyboard
+- **seo**: read a content article's sitemap lastmod from its front matter, never its file time
+- **pages**: fill invitation tokens inside a translated value
+- **pages**: resolve a translated field label in a row-expand panel
+- **pages**: read the select placeholder key in a crud form's empty row
+- **languages**: translate the overlay placeholder, the code copy button and the summary colon
+- **languages**: draw the guest comment form, grid checkbox cells, a drawer's empty thread and the sign-up refusal in the page language
+- **seo**: name content-directory languages by their locale and list index alternates in the sitemap
+- **seed**: name the record and field when an upsert merge key is empty
+- **seo**: name and link breadcrumb sections, date and language synthesised articles, and use the index's canonical
+- **design**: write only the pages named by --page in a split config
+- **seo**: resolve translation keys and app references inside authored structured data
+- **seo**: take the sharing card's locale and title from the page when it declares none
+- **pages**: keep the marquee gap at the seam where the band loops
+- **seo**: resolve record values in sharing card titles and image descriptions
+- **pages**: mark a sidebar footer link to the current page as current
+- **seo**: resolve app references in the sharing address and share attachments as file addresses
+- **pages**: mark the destination's sidebar entry after a swap from a fetched entry's page
+- **automations**: send one email per restart for the runs it interrupted
+- **design**: keep the sidebar ink on an entry the browser un-marks
+- **pages**: apply a list's list part classes when its rows are drawn from children
+- **automations**: hold back repeated failure emails when the run history cannot be written
+- **automations**: give an update run's previousRecord its many-to-many links
+- **api**: list a created record's many-to-many links in its 201 answer
+- **api**: refuse a created record's undeclared field with a 400 naming it
+- **auth**: send magic-link and reset links with one token and true wording
+- **pages**: draw a container among a board card's children
+- **pages**: draw a form picker's suggestions on a popover surface
+- **pages**: narrow a form's select field to the options it lists
+- **auth**: keep a session through browser updates and say when one ended
+- **api**: store an inline attachment sent by an update, as a create does
+- **pages**: send a form's fields as the input of the automation it runs
+- **pages**: show a save's toast when it reloads the page it was made on
+- **pages**: follow onSuccess navigate after a crud update button writes
+- **forms**: answer a form posted without JavaScript on its own page
+- **pages**: drive a form's relationship picker from the keyboard
+- **pages**: confirm a delete on a record page before removing the record
+- **forms**: announce a form's success page and move the focus to its title
+- **forms**: set form reasons at the label size and draw inputs with the input token
+- **forms**: keep a hidden prefill drawn from a translated column
+- **languages**: a page write fills the language the page was shown in
+- **forms**: name a taken value by its label in the page language
+- **forms**: read a translated takenMessage in the language the form was served in
+- **forms**: write a form's format refusals and rate-limit notice in the page language
+- **migrations**: convert a field renamed and made translatable in the same edit
+- **migrations**: repair SQLite update triggers an earlier release left on renamed tables
+- **cli**: complete the scaffold's reporting section
+- **cli**: prefill the domain, kind and verification of a crash report and print its signature search
+- **mcp**: offer write tools only to roles the table admits
+- **tables**: refuse a single-id update on a composite-key table before reading the row
+- **tables**: name a locked field by its label in the default lock message
+- **tables**: refuse an update whose record cannot be read before its rules are judged, and keep unreadable fields out of a refusal
+- **ai**: report a business rule's message when the chat cannot create a record
+- **forms**: refuse a hosted-form edit that breaks a business rule with a 400
+- **ai**: report a business rule's message when the chat cannot change a record
+- **automations**: fail a run that breaks a business rule without retrying it
+- **api**: let a refused delete report its rule without naming a field
+
+### Performance Improvements
+
+- **islands**: mount an island when it can be seen or used
+- **ai**: a chat attachment's text is extracted once, not on every turn
+- **pages**: send tab panels once, as markup, instead of inside the tabs island props
+
 ## [0.45.0](https://github.com/sovrium/sovrium/compare/v0.44.0...v0.45.0) (2026-10-26)
 
 ### Features

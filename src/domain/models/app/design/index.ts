@@ -8,6 +8,7 @@
 export * from './design'
 
 export * from './breakpoints'
+export * from './code'
 export * from './color-roles'
 export * from './colors'
 export * from './components'

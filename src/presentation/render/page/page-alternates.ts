@@ -9,6 +9,10 @@ import { createContext } from 'react'
 import { languageAlternates } from '@/domain/kernel/matching/localized-alternates'
 import { appRoutePatterns, type PageAddress } from '@/domain/kernel/matching/localized-path'
 import { findDeclaredLanguageCode } from '@/domain/models/app/languages/language-detection'
+import {
+  publishesFeed,
+  resolveFeedPath,
+} from '@/domain/models/app/pages/feed-path-uniqueness-validation'
 import { findRssPage, resolveRssChannelIdentity } from '@/domain/models/app/pages/rss-feed-builder'
 import type { App } from '@/domain/models/app'
 import type { Languages } from '@/domain/models/app/languages'
@@ -65,15 +69,23 @@ export const pageLanguageAlternatesFor = (
   })
 }
 
+/** The feed a page announces in its head: its channel title and its address. */
+export interface FeedAnnouncement {
+  readonly title: string
+  readonly path: string
+}
+
 /**
- * The feed title a page announces in its head, or `undefined` when the page
- * is not the one `/feed.xml` is built from. Only that page links the feed, so
+ * The feed a page announces in its head, or `undefined` when the page is not
+ * the one its feed address is built from. Only that page links the feed, so
  * the autodiscovery link never points a reader at a feed of another page.
  */
-export const resolveFeedTitle = (app: App, page: Page): string | undefined => {
-  const rssPage = findRssPage(app)
+export const resolveFeedAnnouncement = (app: App, page: Page): FeedAnnouncement | undefined => {
+  if (!publishesFeed(page)) return undefined
+  const path = resolveFeedPath(page)
+  const rssPage = findRssPage(app, path)
   return rssPage !== undefined && rssPage.name === page.name
-    ? resolveRssChannelIdentity(app, rssPage).title
+    ? { title: resolveRssChannelIdentity(app, rssPage).title, path }
     : undefined
 }
 

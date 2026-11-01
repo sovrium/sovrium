@@ -239,10 +239,11 @@
   }
 
   // Replace an element's words, keeping the visually hidden new-tab notice it carries.
+  // The notice holds its own leading space, as the server wrote it: the link draws none.
   function setWords(element, words) {
     const notice = element.querySelector(':scope>[data-new-tab-notice]')
-    element.textContent = words
-    if (notice) element.append(' ', notice)
+    element.textContent = element.hasAttribute('data-new-tab-notice') ? ` ${words}` : words
+    if (notice) element.append(notice)
   }
 
   // Updates every element with a translation key from its server-resolved data-translations.
@@ -493,12 +494,13 @@
 
   /**
    * Selects a new language: remembers it when `persistSelection` is on, then
-   * lets the SERVER compose the next document — by address where the URL
-   * carries a `/{lang}/` segment, by reloading the current one where it does
-   * not. A repaint only reaches what this script can see; an island's labels,
-   * a nav row or a form's submit text stay in the first language, and the
-   * cookie makes recomposing cost one request. Without persistence there is
-   * nothing to recompose from, so that case repaints in place.
+   * lets the SERVER compose the next document. A repaint only reaches what this
+   * script can see; rendered Markdown, an island's labels, a nav row or a form's
+   * submit text would stay in the first language. So it goes to this page's
+   * address in `code` wherever a reload could not change the language: on a
+   * `/{lang}/` address, with nothing remembered, and at `/`, which on a built
+   * site has no server behind it. Elsewhere the cookie makes recomposing the
+   * current address cost one request.
    *
    * @param {string} code - ISO 639-1 short language code (e.g., 'en', 'fr', 'es')
    */
@@ -511,22 +513,14 @@
       rememberLanguage(code)
     }
 
-    // On a `/{lang}/` address, go to this page's address in `code`
-    if (languageFromPath()) {
+    if (languageFromPath() || !persistSelection || window.location.pathname === '/') {
       window.location.href = addressIn(code)
       return
     }
 
     // No language subdirectory, but the choice is now readable by the server:
     // ask it for the whole document again rather than repainting a part of it.
-    if (persistSelection) {
-      window.location.reload()
-      return
-    }
-
-    // Nothing persisted: a reload would come back in the default language, so repaint in place
-    updateUI()
-    setMenuOpen(false)
+    window.location.reload()
   }
 
   /** A radio row's indicator, holding the server-drawn check on the picked row only. */

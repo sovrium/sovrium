@@ -7,12 +7,16 @@
 
 import { Data, Duration, Effect } from 'effect'
 import { EmailSender, type EmailAttachment } from '@/application/ports/services/email-sender'
-import { sanitizeRichTextHTML, stripHtmlToText } from '@/domain/kernel/sanitize/html-sanitization'
-import { resolveFileRef, type FileRefScope, type ResolvedFile } from './document-file-ref'
-import { failureOf, typedOwnProp, type Raw } from './document-run'
+import {
+  sanitizeRichTextHTMLReportingLinks,
+  stripHtmlToText,
+  type DroppedLink,
+} from '@/domain/kernel/sanitize/html-sanitization'
+import { resolveFileRef, type FileRefScope, type ResolvedFile } from './document/file-ref'
+import { failureOf, typedOwnProp, type Raw } from './document/run'
 import { bulkPrelude, decorateBulk, recordSent, type EmailBulkRequirements } from './email-bulk'
 import { templatedEmail } from './email-template-body'
-import { fileRefsOf } from './file-ref-origin'
+import { fileRefsOf } from './file/ref-origin'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type { EmailCssInliner } from '@/application/ports/services/email-css-inliner'
@@ -98,6 +102,8 @@ interface MessageBody {
   readonly html: string
   readonly text: string
   readonly attachments: readonly EmailAttachment[]
+  /** The links the sanitizer kept as text only, their scheme being one email does not keep. */
+  readonly droppedLinks: readonly DroppedLink[]
 }
 
 /** An inline `body`: rich text, sanitized as page content; its text part derived from it. */
@@ -106,11 +112,24 @@ const inlineBody = (body: string): MessageBody => {
   // RFC 5322 multipart conventions (Mailpit's strict mode + some
   // production gateways) don't 554 on html-only messages.
   const textBody = stripHtmlToText(body).trim()
-  return {
-    html: sanitizeRichTextHTML(body),
-    text: textBody === '' ? body : textBody,
-    attachments: [],
-  }
+  const { html, droppedLinks } = sanitizeRichTextHTMLReportingLinks(body)
+  return { html, text: textBody === '' ? body : textBody, attachments: [], droppedLinks }
+}
+
+/**
+ * One run-log warning per link the message lost the address of, naming its
+ * scheme and its text — never the address, which may carry run data.
+ */
+const droppedLinkWarnings = (links: readonly DroppedLink[]) =>
+  links.map((link) => ({
+    level: 'warn' as const,
+    message: `A link was removed from the email: its address uses the ${link.scheme}: scheme, which email does not keep (link text: "${link.text}").`,
+  }))
+
+/** A sent message's outcome: its id, and a warning per link it lost the address of. */
+const sentOutcome = (messageId: string, droppedLinks: readonly DroppedLink[]): ActionOutcome => {
+  const logs = droppedLinkWarnings(droppedLinks)
+  return { status: 'success', output: { messageId }, ...(logs.length > 0 ? { logs } : {}) }
 }
 
 /** The refusal of a message whose attachments and inline pictures pass the 15 MB cap. */
@@ -179,6 +198,7 @@ const messageBody = (props: Raw, scope: FileRefScope) =>
       text: templated.text,
       subject: templated.subject ?? stringProp(props, 'subject'),
       attachments: [...files, ...templated.inline],
+      droppedLinks: templated.droppedLinks,
     }
   })
 
@@ -254,10 +274,7 @@ export const handleEmailSend: ActionHandler = (action, app, automation, runConte
       } as const satisfies ActionOutcome
     }
     yield* recordSent(decoration, intent, result.success)
-    return {
-      status: 'success',
-      output: { messageId: result.success },
-    } as const satisfies ActionOutcome
+    return sentOutcome(result.success, body.success.droppedLinks)
   }).pipe(
     Effect.withSpan('automations.handle-email-send', { attributes: actionAttributes(action) })
   )

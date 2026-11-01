@@ -64,10 +64,9 @@ const BOOT_SWEEP_JOB_ID = 'delayed-run-resume-boot'
 /** One sweep, its failure logged and absorbed: the next tick retries. */
 const sweepOnce = (
   app: App,
-  processEnv: Readonly<Record<string, string | undefined>>,
   when: 'boot' | 'scheduled'
 ): Effect.Effect<void, never, RunRequirements> =>
-  resumeDelayedRuns(app, processEnv).pipe(
+  resumeDelayedRuns(app).pipe(
     Effect.tap((resumed) =>
       Effect.sync(() => {
         const message = `[delayed-runs] ${when} sweep resumed ${String(resumed.length)} run(s)`
@@ -100,22 +99,20 @@ const anyRunWaiting: Effect.Effect<boolean, never, AutomationRunRepository> = Ef
 )
 
 export const registerDelayedRunResumeScheduler = (
-  app: App,
-  processEnv: Readonly<Record<string, string | undefined>>
+  app: App
 ): Effect.Effect<string | undefined, never, CronScheduler | RunRequirements> =>
   Effect.gen(function* () {
     if (!declaresParkingDelay(app) && !(yield* anyRunWaiting)) return undefined
     const services = yield* Effect.context<RunRequirements>()
     const scheduler = yield* CronScheduler
-    yield* scheduler.runOnce(
-      () => sweepOnce(app, processEnv, 'boot').pipe(Effect.provide(services)),
-      { jobId: BOOT_SWEEP_JOB_ID }
-    )
+    yield* scheduler.runOnce(() => sweepOnce(app, 'boot').pipe(Effect.provide(services)), {
+      jobId: BOOT_SWEEP_JOB_ID,
+    })
     return yield* scheduler
       .schedule(
         RESUME_CRON_EXPRESSION,
-        () => sweepOnce(app, processEnv, 'scheduled').pipe(Effect.provide(services)),
-        { jobId: RESUME_JOB_ID, timezone: resolveOperatorTimezone() }
+        () => sweepOnce(app, 'scheduled').pipe(Effect.provide(services)),
+        { jobId: RESUME_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
       )
       .pipe(
         Effect.catch((err) =>

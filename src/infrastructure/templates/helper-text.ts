@@ -101,14 +101,6 @@ export const slugify = (input: string): string =>
 /** Delegates to the canonical parser-based stripper — never an ad-hoc regex. */
 export const stripHtml = (input: string): string => stripHtmlToText(input)
 
-export const escapeHtml = (input: string): string =>
-  input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-
 /**
  * `{{unescapeHtml v}}` — exact inverse of `escapeHtml` over the five entities
  * that helper produces.

@@ -14,6 +14,6 @@ import { readSovriumDevClock } from '@/domain/models/process-env/dev-clock'
  * production), nothing — the column's own default stamps the real time.
  */
 export const devClockStamp = (): { readonly timestamp?: Date } => {
-  const pinned = readSovriumDevClock()
+  const pinned = readSovriumDevClock(process.env)
   return pinned === undefined ? {} : { timestamp: new Date(pinned.getTime()) }
 }

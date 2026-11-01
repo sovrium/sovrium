@@ -14,10 +14,13 @@
 
 import { Effect, Schema } from 'effect'
 import { runPagePressedAutomation } from '@/application/use-cases/automations/run-page-pressed-automation'
-import { pressReferenceSchema } from '@/domain/models/api/automations/automations'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+import {
+  pressReferenceSchema,
+  triggerResponseSchema,
+} from '@/domain/models/api/automations/automations'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { pressDisabledResponse } from '@/presentation/api/runtime/press-disabled-response'
+import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import { triggerResponseAsSeenByCaller } from './trigger-response-body'
 import type { PageActionAdmission } from './page-action-gate'
 import type { App } from '@/domain/models/app'
@@ -40,7 +43,7 @@ export async function startPagePress(
   c: Context,
   app: App,
   press: { readonly name: string; readonly admitted: PageActionAdmission; readonly body: object }
-) {
+): Promise<Response> {
   const { name, admitted } = press
   const inputData = (press.body as { inputData?: Record<string, unknown> }).inputData ?? {}
   // The payload is exposed at BOTH `trigger.data.body.X` (the form/webhook shape)
@@ -59,20 +62,28 @@ export async function startPagePress(
     automation: admitted.automation,
     userId: admitted.userId,
     app,
-    processEnv: process.env,
     triggerData,
     ...(reference === undefined ? {} : { press: reference }),
   })
-  const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
-  if (result._tag === 'Failure') {
-    const { failure } = result
-    return failure._tag === 'AutomationPressDisabled'
-      ? pressDisabledResponse(c, failure.message)
-      : notFound(c, 'Automation not found')
-  }
-  if (result.success === undefined) {
-    return c.json({ success: false, message: 'Automation dispatch failed' }, 500)
-  }
-  const started = { automationName: name, result: result.success }
-  return c.json(await triggerResponseAsSeenByCaller(c, app, started), 200)
+  return runHandlerEffect(
+    c,
+    Effect.gen(function* () {
+      const result = yield* Effect.result(program)
+      if (result._tag === 'Failure') {
+        const { failure } = result
+        return failure._tag === 'AutomationPressDisabled'
+          ? pressDisabledResponse(c, failure.message)
+          : notFound(c, 'Automation not found')
+      }
+      if (result.success === undefined) {
+        return c.json({ success: false, message: 'Automation dispatch failed' }, 500)
+      }
+      const started = { automationName: name, result: result.success }
+      return yield* respondWith(
+        c,
+        triggerResponseAsSeenByCaller(c, app, started),
+        triggerResponseSchema
+      )
+    })
+  )
 }

@@ -36,6 +36,7 @@ import {
 } from '@/presentation/render/props/resolve-record-drawer-related'
 import { RELATED_CALLER_TABLES_KEY } from '@/presentation/render/resolve/caller-table-stamp'
 import { RECORD_TITLE_KEY } from '@/presentation/render/resolve/drawer-record-title-resolver'
+import { overlayLoadingLabel } from './overlay-loading-label'
 import { drawerCanEdit } from './record-drawer-edit-right'
 import { withSystemDateTime } from './record-drawer-system-instants'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -389,7 +390,7 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
         role={role}
         aria-label={title}
       >
-        <p>Loading...</p>
+        <p>{overlayLoadingLabel({ currentLang, languages })}</p>
       </div>
     </div>
   )

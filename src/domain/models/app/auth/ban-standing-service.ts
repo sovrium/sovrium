@@ -14,11 +14,7 @@
  * every gate that refuses a banned person reads this one rule. A ban without
  * an end date, or with one that cannot be read as a date, holds.
  */
-export const isBanInForce = (
-  banned: unknown,
-  banExpires: unknown,
-  now: number = Date.now()
-): boolean => {
+export const isBanInForce = (banned: unknown, banExpires: unknown, now: number): boolean => {
   if (banned !== true) return false
   if (banExpires === null || banExpires === undefined) return true
   const ends =

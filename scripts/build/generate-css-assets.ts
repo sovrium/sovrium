@@ -8,7 +8,7 @@
 /**
  * Generate CSS Assets Script
  *
- * Produces `src/infrastructure/css/generated-css-assets.ts`, which embeds the
+ * Produces `src/infrastructure/css/generated-css-assets.generated.ts`, which embeds the
  * static inputs the native-free CSS compiler needs to run inside the standalone
  * compiled binary (`bun build --compile`).
  *
@@ -272,7 +272,7 @@ const main = async (): Promise<void> => {
     )
     .join('\n')
 
-  const outPath = join(REPO_ROOT, 'src/infrastructure/css/generated-css-assets.ts')
+  const outPath = join(REPO_ROOT, 'src/infrastructure/css/generated-css-assets.generated.ts')
   const fileContent = `// @ts-nocheck -- generated file: huge embedded string literals, never type-checked
 /* eslint-disable -- generated file: never linted (see eslint/base.config.ts) */
 ${COPYRIGHT_HEADER}
@@ -341,7 +341,7 @@ export const TYPESET_CSS: string = ${JSON.stringify(typesetCss)}
 
   const { stats } = attribution
   console.log(
-    `generated-css-assets.ts — ${builtin.length} candidates kept of ${all.length} scanned ` +
+    `generated-css-assets.generated.ts — ${builtin.length} candidates kept of ${all.length} scanned ` +
       `(${stats.droppedCandidates} tokens produced no CSS under ${designs.length} designs); ` +
       `CORE ${attribution.core.length}, console-only ${attribution.console.length}, ` +
       `${attribution.groups.length} type groups over ${stats.typeReachedFiles} of ` +

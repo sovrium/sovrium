@@ -18,20 +18,23 @@
 
 import { isNavigationSidebar } from '@/presentation/render/registry/search-palette-mode'
 import type { Component } from '@/domain/models/app/pages/components'
+import type { ComponentEntry } from '@/presentation/render/resolve/component-rewrite'
 
-/** Walk a component tree (including `children`) testing each real component. */
+/**
+ * Walk a component tree (including `children`) testing each real component. A
+ * page entry may be an unexpanded reference; it is skipped, as is text.
+ */
 function someComponent(
-  items: ReadonlyArray<Component | string> | undefined,
+  items: ReadonlyArray<ComponentEntry> | undefined,
   predicate: (component: Component) => boolean
 ): boolean {
   if (!items) return false
   return items.some((item) => {
     if (typeof item === 'string') return false
     if ('component' in item || '$ref' in item) return false
-    const component = item as Component
+    const component: Component = item
     if (predicate(component)) return true
-    const { children } = component as { readonly children?: ReadonlyArray<Component | string> }
-    return someComponent(children, predicate)
+    return someComponent(component.children, predicate)
   })
 }
 
@@ -45,7 +48,7 @@ function someComponent(
  * it on the first open.
  */
 export function hasCommandPaletteHost(
-  components: ReadonlyArray<Component | string> | undefined
+  components: ReadonlyArray<ComponentEntry> | undefined
 ): boolean {
   return someComponent(components, (component) => component.type === 'command')
 }
@@ -58,9 +61,7 @@ export function hasCommandPaletteHost(
  * shell expresses its aside as a marked `container` rather than as a `sidebar`,
  * and both must get a working burger.
  */
-export function hasDrawerSidebar(
-  components: ReadonlyArray<Component | string> | undefined
-): boolean {
+export function hasDrawerSidebar(components: ReadonlyArray<ComponentEntry> | undefined): boolean {
   return someComponent(components, (component) => {
     if (isNavigationSidebar(component)) return true
     const { props } = component as { readonly props?: Record<string, unknown> }

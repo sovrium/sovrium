@@ -55,12 +55,14 @@ export const computeCalendarNavGroupClasses = (): string =>
   'flex w-fit items-stretch *:focus-visible:relative *:focus-visible:z-10 *:data-slot:rounded-r-none [&>[data-slot]:not(:has(~[data-slot]))]:rounded-r-lg! [&>[data-slot]~[data-slot]]:rounded-l-none [&>[data-slot]~[data-slot]]:border-l-0'
 
 /**
- * The period title: `text-base font-semibold`, claiming the free space and
- * truncating rather than wrapping the row taller. See the module docstring for
+ * The period title: `text-base font-semibold`. Below `sm` it takes a full line
+ * of its own above the controls, so a phone reads the whole period instead of
+ * a cut « 2… »; from `sm` up it claims the free space between them and
+ * truncates rather than wrapping the row taller. See the module docstring for
  * why {@link CALENDAR_TITLE_HOOK} is here.
  */
 export const computeCalendarTitleClasses = (): string =>
-  `${CALENDAR_TITLE_HOOK} min-w-0 flex-1 truncate text-center text-base font-semibold text-foreground`
+  `${CALENDAR_TITLE_HOOK} order-first basis-full min-w-0 text-center text-base font-semibold text-foreground sm:order-none sm:flex-1 sm:truncate`
 
 /**
  * The dimmer behind the create-event dialog: base-nova's dialog backdrop

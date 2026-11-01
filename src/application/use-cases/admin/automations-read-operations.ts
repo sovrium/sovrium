@@ -21,14 +21,15 @@
 
 import { Effect, Option, Schema } from 'effect'
 import { defineAdminRead } from '@/application/use-cases/admin/admin-read-operation'
-import { BuildAutomationsCatalog } from '@/application/use-cases/admin/automations-catalog'
+import { buildAutomationsCatalog } from '@/application/use-cases/admin/automations-catalog'
 import {
-  BuildAdminRunDetail,
-  BuildAdminRunsList,
-  BuildAutomationsOverview,
+  buildAdminRunDetail,
+  buildAdminRunsList,
+  buildAutomationsOverview,
   type AdminRunsListInput,
 } from '@/application/use-cases/admin/automations-overview'
 import { decodeAdminRunsListQuery } from '@/application/use-cases/admin/automations-runs-query'
+import { submissionRunsFilterFor } from '@/application/use-cases/admin/form-submission-triage'
 import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
@@ -41,7 +42,7 @@ import {
   automationsRunsListResponseSchema,
 } from '@/domain/models/api/admin/automations'
 import { runStatusSchema } from '@/domain/models/api/automations/automations'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import type { AdminReadOperation } from '@/application/use-cases/admin/admin-read-operation'
 
 const RUNS_LIST_TOOL_PROPERTIES: Readonly<Record<string, unknown>> = {
@@ -80,6 +81,12 @@ const RUNS_LIST_TOOL_PROPERTIES: Readonly<Record<string, unknown>> = {
     type: 'string',
     description: 'Case-insensitive search over the automation name and the failure message.',
   },
+  submissionId: {
+    type: 'string',
+    minLength: 1,
+    description:
+      'Only the runs one form submission started: its form trigger runs and the record trigger runs on the record it created. An unknown id answers an empty page.',
+  },
   limit: {
     type: 'integer',
     minimum: 1,
@@ -110,7 +117,13 @@ const RUNS_LIST_TOOL_PROPERTIES: Readonly<Record<string, unknown>> = {
   },
 }
 
-const runsList = defineAdminRead<AdminRunsListInput>({
+/** A runs-list request: the history's filters, and the submission it may narrow to. */
+interface RunsListRequest {
+  readonly input: AdminRunsListInput
+  readonly submissionId?: string | undefined
+}
+
+const runsList = defineAdminRead<RunsListRequest>({
   id: 'automations.runs.list',
   method: 'get',
   path: '/api/admin/automations/runs',
@@ -131,6 +144,7 @@ const runsList = defineAdminRead<AdminRunsListInput>({
     'q',
     'onDemand',
     'routine',
+    'submissionId',
   ],
   tool: {
     suffix: 'automation_runs_list',
@@ -153,19 +167,22 @@ const runsList = defineAdminRead<AdminRunsListInput>({
     responseDescription: 'One page of runs',
   },
   subject: 'runs list',
-  decode: (raw) => {
-    const decoded = decodeAdminRunsListQuery(raw, resolveOperatorTimezone())
+  decode: (raw, _app, env) => {
+    const decoded = decodeAdminRunsListQuery(raw, parseSovriumTimezone(env).zoneId)
     if (decoded._tag === 'InvalidQuery') return { _tag: 'InvalidInput', reason: 'malformed' }
     if (decoded._tag === 'InvertedWindow') {
       return { _tag: 'InvalidInput', reason: 'inverted-window' }
     }
-    return decoded
+    return { _tag: 'Ok', input: { input: decoded.input, submissionId: decoded.submissionId } }
   },
   // `stepsLabel` is phrased in the operator's console language.
-  read: (app, input, request) =>
-    Effect.flatMap(resolveOperatorLanguage(request), (language) =>
-      BuildAdminRunsList(app, input, language)
-    ),
+  read: (app, { input, submissionId }, request) =>
+    Effect.gen(function* () {
+      const language = yield* resolveOperatorLanguage(request)
+      const submissionRuns =
+        submissionId === undefined ? undefined : yield* submissionRunsFilterFor(app, submissionId)
+      return yield* buildAdminRunsList(app, { ...input, submissionRuns }, language)
+    }),
   audit: { action: AUDIT_ACTIONS.AUTOMATION_RUNS_LIST_QUERIED, resourceId: (app) => app.name },
 })
 
@@ -209,7 +226,7 @@ const runRead = defineAdminRead<string>({
     ),
   read: (app, runId, request) =>
     Effect.flatMap(resolveOperatorLanguage(request), (language) =>
-      BuildAdminRunDetail(app, runId, language)
+      buildAdminRunDetail(app, runId, language)
     ),
   audit: {
     action: AUDIT_ACTIONS.AUTOMATION_RUNS_DETAIL_QUERIED,
@@ -261,7 +278,7 @@ const overview = defineAdminRead<OverviewPeriod>({
         onSome: (query) => ({ _tag: 'Ok', input: query.period ?? '24h' }) as const,
       }
     ),
-  read: BuildAutomationsOverview,
+  read: buildAutomationsOverview,
   audit: { action: AUDIT_ACTIONS.AUTOMATION_OVERVIEW_QUERIED, resourceId: (app) => app.name },
 })
 
@@ -293,7 +310,7 @@ const catalog = defineAdminRead<undefined>({
   // `pausedLabel` and each trigger's reading are phrased in the operator's console language.
   read: (app, _input, request) =>
     Effect.flatMap(resolveOperatorLanguage(request), (language) =>
-      Effect.map(BuildAutomationsCatalog(app, language), (body) => ({ _tag: 'Ok', body }) as const)
+      Effect.map(buildAutomationsCatalog(app, language), (body) => ({ _tag: 'Ok', body }) as const)
     ),
 })
 

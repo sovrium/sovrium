@@ -18,6 +18,7 @@
 import { utcMinuteInstant } from '@/domain/models/app/pages/components/relative-date-filter'
 import { renderNow } from '@/presentation/render/page/render-clock'
 import { withLinksAndLabels } from './bound-record-links'
+import { synthesizedComponent, tableBindingOf } from './component-rewrite'
 import { resolveCurrentUserFilters } from './current-user-filter-pass'
 import { scopeTablesOf } from './current-user-resolver'
 import { UNAUTHORIZED, type DataSourceDb } from './data-source-contracts'
@@ -26,7 +27,6 @@ import { readBoundRecordForCaller, type SingleBindingQuery } from './single-reco
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
-import type { Component } from '@/domain/models/app/pages/components'
 
 /**
  * Outcome of resolving a page's host record.
@@ -81,7 +81,10 @@ async function concreteBindingOf(
   reader: PageParentReader
 ): Promise<SingleBindingQuery | typeof UNAUTHORIZED> {
   if (binding.filter === undefined || binding.filter.length === 0) return binding
-  const host = bindRouteParams({ type: 'container', dataSource: binding } as Component, routeParams)
+  const host = bindRouteParams(
+    synthesizedComponent({ type: 'container', dataSource: binding }),
+    routeParams
+  )
   const resolved = await resolveCurrentUserFilters(host, {
     now: utcMinuteInstant(renderNow()),
     session: reader.session,
@@ -89,7 +92,7 @@ async function concreteBindingOf(
     db: reader.db,
     scopeTables: scopeTablesOf(reader.app),
   })
-  return resolved === UNAUTHORIZED ? UNAUTHORIZED : (resolved.dataSource ?? binding)
+  return resolved === UNAUTHORIZED ? UNAUTHORIZED : (tableBindingOf(resolved) ?? binding)
 }
 
 /**

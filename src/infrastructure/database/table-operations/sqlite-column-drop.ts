@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getPhysicalTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, type SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import type { ColumnDrop } from '../schema-migration/column-detection'
@@ -146,7 +145,7 @@ export const planSqliteDrops = (params: {
   Effect.gen(function* () {
     const { tx, alterStatements, drops } = params
     const unchanged = { statements: alterStatements, rebuild: false }
-    if (!isSqliteRuntime() || drops.length === 0) return unchanged
+    if (tx.dialect !== 'sqlite' || drops.length === 0) return unchanged
     const catalog = yield* readSqliteDropCatalog(
       tx,
       params.source ?? getPhysicalTableName(params.table)

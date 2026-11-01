@@ -2,7 +2,7 @@
 
 > Named colour tokens, how each one becomes a CSS custom property and a Tailwind utility, and the two rules a palette is decoded against.
 
-`design` holds the app's design system as named tokens. Every token becomes a CSS custom property and a Tailwind utility class, so a design decision made in config is available to every `className` in the app. Every category is optional — a usable design can be colours and nothing else.
+`design` holds the app's design system as named tokens. Every token becomes a CSS custom property and a Tailwind utility class, so a design decision made in config is available to every `className` in the app. Every category is optional: a usable design can be colours and nothing else.
 
 **There is no `theme` key.** Every token category is a DIRECT key of `design`, named for the decision it makes rather than for the CSS property that renders it. A config still declaring `theme` is refused by `sovrium validate`, with the destination for each member in the message.
 
@@ -12,7 +12,7 @@ The Design System article lists every key of `design` and what each decides. Thi
 
 Named colour tokens, as key-value pairs. Each `name` mints a `--color-{name}` custom property plus the `bg-{name}`, `text-{name}` and `border-{name}` utilities.
 
-**`border` is the default for every border.** An element with a plain `border` class — no colour class beside it — paints its border in `--color-border`, not in its text colour. Set `colors.border` (and `darkColors.border`) to restyle every card and divider at once; an explicit colour class such as `border-foreground` or `border-primary` still wins, because the default lives in the base layer and utilities come after it.
+**`border` is the default for every border.** An element with a plain `border` class, with no colour class beside it, paints its border in `--color-border`, not in its text colour. Set `colors.border` (and `darkColors.border`) to restyle every card and divider at once; an explicit colour class such as `border-foreground` or `border-primary` still wins, because the default lives in the base layer and utilities come after it.
 
 ```yaml
 design:
@@ -26,12 +26,12 @@ design:
     muted-foreground: '#94a3b8'
 ```
 
-The map is open — declare whatever vocabulary the design needs — so it publishes no option table. Two rules are enforced when the config decodes, which is what makes a malformed palette fail `sovrium validate` instead of shipping a broken stylesheet:
+The map is open (declare whatever vocabulary the design needs), so it publishes no option table. Two rules are enforced when the config decodes, which is what makes a malformed palette fail `sovrium validate` instead of shipping a broken stylesheet:
 
-- **The token name is lowercase kebab-case.** `primary`, `muted-foreground`, `brand-2`. No camelCase, no underscores — a name that could not appear in a class name would mint a utility nobody can write.
+- **The token name is lowercase kebab-case.** `primary`, `muted-foreground`, `brand-2`. No camelCase, no underscores: a name that could not appear in a class name would mint a utility nobody can write.
 - **The value is 6- or 8-digit hex, or an `rgb(`, `rgba(`, `hsl(` or `hsla(` function.** Nothing else decodes.
 
-Sovrium's own prebuilt components look for the conventional roles — `primary`, `background`, `text`, `muted` — so supplying those restyles the shipped chrome for free. A sidebar's own primary, primary foreground and ring follow `primary`, `primary-foreground` and `ring` in both schemes — the ones you declare, or the default palette's when you declare none — unless you declare the `sidebar-*` roles yourself. (shadcn/ui's default palette gives the sidebar a primary of its own, a near-black in light and a blue in dark; Sovrium does not.) A surface role you declare without its `-foreground` — `primary`, `secondary`, `accent`, `muted`, `card`, `popover`, `destructive` — gets one derived: white while white reaches 3:1 against the colour, else near-black, so a cream `accent` reads in dark ink. The `text-accent-foreground` utility and the component variable carry the same derived value.
+Sovrium's own prebuilt components look for the conventional roles (`primary`, `background`, `text`, `muted`), so supplying those restyles the shipped chrome for free. A sidebar's own primary, primary foreground and ring follow `primary`, `primary-foreground` and `ring` in both schemes (the ones you declare, or the default palette's when you declare none) unless you declare the `sidebar-*` roles yourself. (shadcn/ui's default palette gives the sidebar a primary of its own, a near-black in light and a blue in dark; Sovrium does not.) A surface role you declare without its `-foreground` (`primary`, `secondary`, `accent`, `muted`, `card`, `popover`, `destructive`) gets one derived: white while white reaches 3:1 against the colour, else near-black, so a cream `accent` reads in dark ink. The `text-accent-foreground` utility and the component variable carry the same derived value.
 
 Every page is painted in the theme's `background` colour (`darkColors.background` in the dark scheme), so a page whose components do not reach the bottom of the window never shows the browser's white below them. A component that sets its own background still draws over it.
 
@@ -39,19 +39,19 @@ Every page is painted in the theme's `background` colour (`darkColors.background
 
 `colors` is one of twenty-one keys. The rest have their own articles:
 
-- **Baseline & Dark Mode** — `baseline`, `colorScheme`, `darkColors`.
-- **Typography** — `typeScale.families`, the faces.
-- **Type Scale** — `typeScale.steps`, the ladder each face is set on.
-- **Spacing, Radius & Elevation** — `spacing`, `radius`, `elevation`, and how code blocks are coloured.
-- **Responsive Design** — `breakpoints`.
-- **Animations** — `motion`.
-- **Density** — `density`.
-- **Component Styles** — `components`, `ramps`, `colorRoles`, `badgeForm`.
-- **Design System** — `zones`, `logo`, `imagery`, `principles`, `voice`, and the export.
+- **Baseline & Dark Mode**: `baseline`, `colorScheme`, `darkColors`.
+- **Typography**: `typeScale.families`, the faces.
+- **Type Scale**: `typeScale.steps`, the ladder each face is set on.
+- **Spacing, Radius & Elevation**: `spacing`, `radius`, `elevation`, and how code blocks are coloured.
+- **Responsive Design**: `breakpoints`.
+- **Animations**: `motion`.
+- **Density**: `density`.
+- **Component Styles**: `components`, `ramps`, `colorRoles`, `badgeForm`.
+- **Design System**: `zones`, `logo`, `imagery`, `principles`, `voice`, and the export.
 
 ## What the stylesheet contains
 
-Every page of an app links one stylesheet, compiled for that app: the base styles every page needs, the styles of the component types the app's pages and reusable `components` declare — a type placed only through a reusable component counts, and so does one a reusable component declares that no page has placed yet — and every class written in a `className`, a `classes` key or `design.components`. A grid, a calendar or a chart the config never mentions adds nothing to it. Because the stylesheet is per app rather than per page, moving between pages never fetches another one, and a page reached without a reload is styled by the stylesheet the reader arrived with. The operator console at `/_admin` is the one surface served the complete set.
+Every page of an app links one stylesheet, compiled for that app: the base styles every page needs, the styles of the component types the app's pages and reusable `components` declare (a type placed only through a reusable component counts, and so does one a reusable component declares that no page has placed yet), and every class written in a `className`, a `classes` key or `design.components`. A grid, a calendar or a chart the config never mentions adds nothing to it. Because the stylesheet is per app rather than per page, moving between pages never fetches another one, and a page reached without a reload is styled by the stylesheet the reader arrived with. The operator console at `/_admin` is the one surface served the complete set.
 
 ## A design, end to end
 

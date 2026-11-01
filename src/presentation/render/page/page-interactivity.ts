@@ -13,6 +13,7 @@ import { extractComponentMetaFromSections } from '@/presentation/render/page/ext
 // Island-runtime detection lives in page-island-detection.ts (extracted on main);
 // this file keeps only interactive-runtime detection, which shares the same
 // reference-aware walker so a template-hosted action button also ships client.js.
+import { componentFields } from '@/presentation/render/resolve/component-rewrite'
 import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
 import type { Components } from '@/domain/models/app/components'
 import type { Page } from '@/domain/models/app/pages'
@@ -127,7 +128,9 @@ function componentSelfIsInteractive(record: Record<string, unknown>): boolean {
  * `/assets/client.js` and the button would be inert.
  */
 export function hasInteractiveFeatures(page: Page, components?: Components): boolean {
-  return someComponentInTree(page.components, components, componentSelfIsInteractive)
+  return someComponentInTree(page.components, components, (item) =>
+    componentSelfIsInteractive(componentFields(item))
+  )
 }
 
 /**

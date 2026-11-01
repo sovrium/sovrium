@@ -19,13 +19,19 @@
  *
  * A transform may return a non-string — a whole-value reference can stand for
  * a list — and that value replaces the string leaf as-is.
+ *
+ * Only a PLAIN object is walked into. Any other object — a `Date` a database
+ * driver returned, a `File`, a typed array — is a leaf and passes through as
+ * the same object: copied key by key it became `{}`, and a record's day and
+ * save token reached the page as empty objects.
  */
 export function mapStringsDeep(value: unknown, transform: (str: string) => unknown): unknown {
   if (typeof value === 'string') return transform(value)
   if (Array.isArray(value)) return value.map((item) => mapStringsDeep(item, transform))
-  if (value !== null && typeof value === 'object') {
+  // A plain object, literal or prototype-less; `null`, a `Date` or a typed array tags otherwise.
+  if (Object.prototype.toString.call(value) === '[object Object]') {
     return Object.fromEntries(
-      Object.entries(value).map(([key, val]) => [key, mapStringsDeep(val, transform)])
+      Object.entries(value as object).map(([key, val]) => [key, mapStringsDeep(val, transform)])
     )
   }
   return value

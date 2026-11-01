@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * A `calendar`'s `defaultValue` takes the shape its `mode` picks: one ISO date
  * for `single`, `{ from, to }` for `range`, a list for `multiple`. The two keys
@@ -13,9 +15,6 @@
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The shape a mode expects, in the words of the message. */
 const EXPECTED: Readonly<Record<string, readonly [(value: unknown) => boolean, string]>> = {

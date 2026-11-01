@@ -19,7 +19,7 @@
  * The endpoint reads the `_admin_search_index` table
  * (`infrastructure/database/drizzle/schema/admin-search.ts` + its sqlite-core
  * mirror) — a NEW, SEPARATE index from the public record-search `search_index`.
- * Full-text is dialect-dispatched (`isSqliteRuntime()`): PostgreSQL uses a
+ * Full-text is dialect-dispatched (`dialect.kind`): PostgreSQL uses a
  * `content_tsv` GIN match, SQLite uses an FTS5 virtual table — BOTH work (the
  * SQLite path does NOT degrade like the public record search).
  *
@@ -64,8 +64,8 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * The closed set of admin entity kinds the global search spans. The query
@@ -120,7 +120,7 @@ export const adminSearchResultSchema = Schema.Struct({
   }),
   href: Schema.String.annotate({
     description:
-      'The deep-link the UI navigates to when this result is selected — the entity itself where the console has an address for it (/_admin/records/{table}?record={id}, /_admin/submissions/{form}?record={id}, /_admin/runs/{id}), else its list (/_admin/connections).',
+      'The deep-link the UI navigates to when this result is selected: the entity itself where the console has an address for it (/_admin/records/{table}?record={id}, /_admin/submissions/{form}?record={id}, /_admin/runs/{id}), else its list (/_admin/connections).',
   }),
   updatedAt: looseIsoDateTime({
     description:
@@ -185,7 +185,7 @@ export const adminSearchResponseSchema = Schema.Struct({
 }).annotate({
   strictKeys: true,
   title: 'sovrium:strict-keys',
-  description: 'Admin global-search response — cross-entity results grouped by kind.',
+  description: 'Admin global-search response: cross-entity results grouped by kind.',
 })
 
 export type AdminSearchResponse = typeof adminSearchResponseSchema.Type

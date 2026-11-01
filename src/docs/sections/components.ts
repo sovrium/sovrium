@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import templateInputsBody from '@/domain/models/app/components/template-inputs.docs.md' with { type: 'file' }
 import { AutoSaveConfigSchema } from '@/domain/models/app/pages/components/auto-save'
 import componentsOverviewBody from '@/domain/models/app/pages/components/component-types/component-types.docs.md' with { type: 'file' }
 import contentComponentsBody from '@/domain/models/app/pages/components/component-types/content/content-components.docs.md' with { type: 'file' }
 import mediaComponentsBody from '@/domain/models/app/pages/components/component-types/content/media-components.docs.md' with { type: 'file' }
 import reusableComponentsBody from '@/domain/models/app/pages/components/component-types/custom/custom.docs.md' with { type: 'file' }
-import templateInputsBody from '@/domain/models/app/pages/components/component-types/custom/template-inputs.docs.md' with { type: 'file' }
 import layoutComponentsBody from '@/domain/models/app/pages/components/component-types/layout/layout-components.docs.md' with { type: 'file' }
 import sidebarClientNavigationBody from '@/domain/models/app/pages/components/component-types/layout/sidebar-client-navigation.docs.md' with { type: 'file' }
 import sidebarFetchedEntriesBody from '@/domain/models/app/pages/components/component-types/layout/sidebar-fetched-entries.docs.md' with { type: 'file' }
@@ -89,7 +89,7 @@ export const section = defineSection({
       slug: 'reusable-components',
       title: 'Reusable Components',
       description:
-        'Define a component template once in app.components and instantiate it across pages with $ref and vars — plus customHTML, the escape hatch for markup the kit does not cover.',
+        'Define a component template once in app.components and use it across pages with $ref and vars, plus customHTML for markup the kit does not cover.',
       keywords: [
         'sovrium',
         'reusable components',
@@ -114,7 +114,7 @@ export const section = defineSection({
       slug: 'template-inputs',
       title: 'Structured Template Inputs',
       description:
-        'Let a template take lists and objects as inputs and name one as the whole value of any field — its columns, data source, panels or actions — with each placement checked at startup.',
+        "Let a template take lists and objects as inputs and use one as a field's whole value (columns, data source, panels, actions), each placement checked at startup.",
       keywords: ['sovrium', 'component templates', 'inputs', 'json', 'vars', 'columns'],
       order: 3205,
       sidebarLabel: 'Structured Template Inputs',
@@ -142,7 +142,7 @@ export const section = defineSection({
       slug: 'sidebar-navigation',
       title: 'Sidebar Navigation',
       description:
-        'The sidebar layout component — declarative navigation groups, fetched entries, expanding sections, the current-entry mark, the icon rail, and the drawer on narrow screens.',
+        'The sidebar layout component: navigation groups, fetched entries, expanding sections, the current-entry mark, the icon rail and the drawer on narrow screens.',
       keywords: ['sovrium', 'sidebar', 'navigation', 'app shell', 'groups', 'landmark'],
       order: 3212,
       sidebarLabel: 'Sidebar',
@@ -163,7 +163,7 @@ export const section = defineSection({
       slug: 'sidebar-fetched-entries',
       title: 'Fetched Sidebar Entries',
       description:
-        'How entries a sidebar group fetches mark the current page — activeMatch, and the longest matching href wins — and how childrenSource gives each a second fetched list.',
+        "How a sidebar group's fetched entries mark the current page (activeMatch, longest matching href wins) and how childrenSource gives each a second fetched list.",
       keywords: ['sovrium', 'sidebar', 'navigation', 'fetched entries', 'activeMatch', 'nested'],
       order: 3213,
       sidebarLabel: 'Fetched Sidebar Entries',
@@ -175,7 +175,7 @@ export const section = defineSection({
       slug: 'sidebar-client-navigation',
       title: 'Client-side Navigation',
       description:
-        'Moving between pages without a reload — a sidebar swaps the content region on an in-app link click by default and keeps loaded data on screen (clientSideNavigation: false opts out), and trackNavigation keeps the current-entry mark true after a swap.',
+        'Move between pages without a reload: a sidebar swaps the content region on in-app links by default and keeps loaded data; trackNavigation keeps the mark true.',
       keywords: ['sovrium', 'sidebar', 'navigation', 'client-side navigation', 'spa', 'no reload'],
       order: 3214,
       sidebarLabel: 'Client-side Navigation',

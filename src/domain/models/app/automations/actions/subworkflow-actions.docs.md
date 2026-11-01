@@ -1,6 +1,6 @@
 # Sub-Workflow Actions
 
-> One workflow invoking another — calling a target, returning a result, and the depth guard that stops a chain calling itself.
+> One workflow invoking another: calling a target, returning a result, and the depth guard that stops a chain calling itself.
 
 The `automation` family lets one workflow invoke another. It is how a step shared by five automations becomes one automation the other five call, instead of five copies that drift apart.
 
@@ -25,7 +25,7 @@ Invokes an automation that declares an automation-call trigger.
 
 ### `waitForCompletion` and `props.timeout` are accepted but ignored
 
-Both validate against the schema and neither is read at runtime, so a call written with `waitForCompletion: true` is **not** thereby synchronous. Use `mode`. This is the failure a configuration cannot warn you about — the key is real, the value is valid, and nothing consumes it.
+Both validate against the schema and neither is read at runtime, so a call written with `waitForCompletion: true` is **not** thereby synchronous. Use `mode`. This is the failure a configuration cannot warn you about: the key is real, the value is valid, and nothing consumes it.
 
 `maxDepth` stops a chain that calls itself, directly or through intermediaries. The callee sees how deep it currently is at `{{trigger.depth}}` and which automation invoked it at `{{trigger.caller}}`.
 
@@ -51,11 +51,11 @@ Hands output back to the caller. It is only meaningful in an automation whose tr
       tier: '{{classify.result}}'
 ```
 
-`data` is the only property and it is required — a return action without it fails when the configuration is decoded. In the parent, the result arrives at `steps.<name>.result.*`, so the call above is read back as `{{enrich.result.score}}`.
+`data` is the only property and it is required: a return action without it fails when the configuration is decoded. In the parent, the result arrives at `steps.<name>.result.*`, so the call above is read back as `{{enrich.result.score}}`.
 
 ### The property is `data`, not `output`
 
-`output` is a real property name — on the stop action, which ends a run rather than returning from one. The two are easy to confuse and behave differently: returning hands a value to a caller, stopping terminates.
+`output` is a real property name, but on the stop action, which ends a run rather than returning from one. The two are easy to confuse and behave differently: returning hands a value to a caller, stopping terminates.
 
 ## Composition is not failure handling
 

@@ -78,18 +78,18 @@
  */
 
 import { Schema } from 'effect'
+import { booleanFlag, coercedNumber } from '@/domain/kernel/config-parsing/coerce'
+import { describedUnknown } from '@/domain/kernel/config-parsing/described-ref'
+import { looseIsoDateOrDateTime, uuid } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { adminEnvelopeSchema } from '@/domain/models/api/admin/envelope/admin-envelope'
 import { runSchema, runStatusSchema, stepLogEntrySchema } from '@/domain/models/api/automations'
-import { booleanFlag, coercedNumber } from '@/domain/models/api/combinators/coerce'
 import {
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
-} from '@/domain/models/api/combinators/cursor-pagination'
-import { describedUnknown } from '@/domain/models/api/combinators/described-ref'
-import { looseIsoDateOrDateTime, uuid } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { appliedQuerySchema, searchTermSchema } from '@/domain/models/api/combinators/search'
-import { withDefault } from '../../combinators/schema-defaults'
+} from '@/domain/models/api/cursor-pagination'
+import { appliedQuerySchema, searchTermSchema } from '@/domain/models/api/search-term'
+import { withDefault } from '../../schema-defaults'
 
 /**
  * Filter query parameters accepted by `GET /api/admin/automations/runs`.
@@ -142,7 +142,13 @@ export const automationsRunsListQuerySchema = Schema.Struct({
   automationId: optionalField(
     Schema.String.annotate({
       description:
-        'Filter by automation definition UUID. Admin-only — operators reading audit log entries scope by `resource.id` and the id is the stable cross-reference. Co-existing with `?automationName` is fine; both are AND-combined when both are provided.',
+        'Filter by automation definition UUID. Admin-only. Operators reading audit log entries scope by `resource.id` and the id is the stable cross-reference. Co-existing with `?automationName` is fine; both are AND-combined when both are provided.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  submissionId: optionalField(
+    Schema.String.annotate({
+      description:
+        'Keep only the runs one form submission started: the runs of a `form` trigger for that submission, and the runs a record trigger started for the record it created, the same runs its `_admin.runCount` counts. AND-combined with every other filter. An id that names no submission answers an empty page, never a 400.',
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   from: optionalField(
@@ -154,13 +160,13 @@ export const automationsRunsListQuerySchema = Schema.Struct({
   to: optionalField(
     looseIsoDateOrDateTime({
       description:
-        'End of the period on `startedAt`: a calendar day (`2026-10-17`) or an ISO 8601 date-time. A day is INCLUDED — the period runs through the last instant of that day, in the operator timezone — so `?from=2026-10-17&to=2026-10-17` reads that one day. A date-time is EXCLUSIVE: a run started at exactly that instant is left out. Days and date-times may be mixed. Returns 400 when the period ends before it starts.',
+        'End of the period on `startedAt`: a calendar day (`2026-10-17`) or an ISO 8601 date-time. A day is INCLUDED: the period runs through the last instant of that day, in the operator timezone, so `?from=2026-10-17&to=2026-10-17` reads that one day. A date-time is EXCLUSIVE: a run started at exactly that instant is left out. Days and date-times may be mixed. Returns 400 when the period ends before it starts.',
     })
   ),
   include_deleted: booleanFlag
     .annotate({
       description:
-        'Include soft-deleted runs. Default `false` — the D2 lock. Pass `?include_deleted=true` to surface tombstones for compliance review. The flag parses without 400 even when the underlying table has no soft-delete column yet (forward-contract — see story §risks).',
+        'Include soft-deleted runs. Default `false` (the D2 lock). Pass `?include_deleted=true` to surface tombstones for compliance review. The flag parses without 400 even when the underlying table has no soft-delete column yet (forward-contract, see story §risks).',
     })
     .pipe(withDefault(false)),
   onDemand: optionalField(
@@ -177,7 +183,7 @@ export const automationsRunsListQuerySchema = Schema.Struct({
   ),
   q: searchTermSchema.annotate({
     description:
-      'Optional free-text search over the run `automationName` and the failure `error` message, as a case-insensitive literal substring. Composes with every other filter (AND) and with the cursor, so a page is a page of MATCHES. `status`, `startedAt` and `triggerData` are intentionally NOT searched — see the searchable-field contract in the module docstring. Empty / whitespace-only means "no search".',
+      'Optional free-text search over the run `automationName` and the failure `error` message, as a case-insensitive literal substring. Composes with every other filter (AND) and with the cursor, so a page is a page of MATCHES. `status`, `startedAt` and `triggerData` are intentionally NOT searched; see the searchable-field contract in the module docstring. Empty / whitespace-only means "no search".',
   }),
 }).annotate({ identifier: 'AutomationsRunsListQuery' })
 
@@ -217,7 +223,7 @@ export const automationRunAdminItemSchema = Schema.Struct({
   automationLabel: optionalField(
     Schema.String.annotate({
       description:
-        'What a person reads for the automation this run belongs to: its declared `label`, else its `name` made readable — hyphens and underscores read as spaces, a camelCase boundary as a space, the first letter capitalised (`weekly-digest` reads `Weekly digest`). Read from the live configuration; for an automation no longer declared, the stored `automationName` made readable. Display text only; `automationName` stays the identifier every filter and address takes.',
+        'What a person reads for the automation this run belongs to: its declared `label`, else its `name` made readable: hyphens and underscores read as spaces, a camelCase boundary as a space, the first letter capitalised (`weekly-digest` reads `Weekly digest`). Read from the live configuration; for an automation no longer declared, the stored `automationName` made readable. Display text only; `automationName` stays the identifier every filter and address takes.',
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   recordTable: Schema.NullOr(
@@ -244,12 +250,12 @@ export const automationRunAdminItemSchema = Schema.Struct({
   ),
   stepsLabel: Schema.String.annotate({
     description:
-      'How far the run got, as one reading built on the server from `stepsRun` and `stepCount` in the operator’s language: `2 of 3` in English, `2 sur 3` in French. Just the number of steps that ran (`2`) when `stepCount` is null. The language is the operator’s own — their account language, else the `sovrium_language` preference — and English otherwise. The two figures stay on the row beside it.',
+      'How far the run got, as one reading built on the server from `stepsRun` and `stepCount` in the operator’s language: `2 of 3` in English, `2 sur 3` in French. Just the number of steps that ran (`2`) when `stepCount` is null. The language is the operator’s own: their account language, else the `sovrium_language` preference, else English. The two figures stay on the row beside it.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   durationLabel: optionalField(
     Schema.String.annotate({
       description:
-        'How long the run took, as one readout built on the server from `durationMs` in the operator’s language, the way a `duration` column prints an elapsed time: `180 ms` under a second, one decimal under ten seconds (`1.4 s`, « 1,4 s » in French), whole seconds under a minute (`42 s`), then minutes and seconds (`2 min 18 s`) and hours and minutes (`1 h 05 min`). Absent while `durationMs` is null — a run still going has no duration yet. The figure stays on the row beside it.',
+        'How long the run took, as one readout built on the server from `durationMs` in the operator’s language, the way a `duration` column prints an elapsed time: `180 ms` under a second, one decimal under ten seconds (`1.4 s`, « 1,4 s » in French), whole seconds under a minute (`42 s`), then minutes and seconds (`2 min 18 s`) and hours and minutes (`1 h 05 min`). Absent while `durationMs` is null, since a run still going has no duration yet. The figure stays on the row beside it.',
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   recordLabel: Schema.NullOr(
@@ -289,7 +295,7 @@ export const automationsRunsListResponseSchema = Schema.Struct({
   }),
   total: Schema.Int.annotate({
     description:
-      'How many runs match the request’s filters and search, across every page — the same figure on every page of one query, so a reader can number the pages. Pagination parameters do not change it.',
+      'How many runs match the request’s filters and search, across every page: the same figure on every page of one query, so a reader can number the pages. Pagination parameters do not change it.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   counts: Schema.Struct({
     failed: Schema.Int.annotate({
@@ -323,7 +329,7 @@ export type AutomationsRunsListResponse = typeof automationsRunsListResponseSche
  * which run ids exist.
  */
 export const automationsRunsDetailParamsSchema = Schema.Struct({
-  runId: uuid({ description: 'Run id (UUID) — matches `runSchema.id` from the public runs API.' }),
+  runId: uuid({ description: 'Run id (UUID). Matches `runSchema.id` from the public runs API.' }),
 }).annotate({ identifier: 'AutomationsRunsDetailParams' })
 
 /** @public */
@@ -376,7 +382,7 @@ const adminRunStepBaseSchema = Schema.Struct({
   label: optionalField(
     Schema.String.annotate({
       description:
-        'What a person reads for this step: the `label` the action declares, else its `name` made readable — a camelCase boundary, a hyphen or an underscore read as a space, the first letter capitalised (`renderInvoice` reads `Render invoice`). Read from the live configuration, so a step renamed since the run reads its current label. Display text only; `name` stays the identifier.',
+        'What a person reads for this step: the `label` the action declares, else its `name` made readable: a camelCase boundary, a hyphen or an underscore read as a space, the first letter capitalised (`renderInvoice` reads `Render invoice`). Read from the live configuration, so a step renamed since the run reads its current label. Display text only; `name` stays the identifier.',
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   status: Schema.String.annotate({
@@ -545,3 +551,15 @@ export const automationsRunsDetailWithStepsResponseSchema = Schema.Struct({
 /** @public */
 export type AutomationsRunsDetailWithStepsResponse =
   typeof automationsRunsDetailWithStepsResponseSchema.Type
+
+/**
+ * `POST /api/admin/automations/runs/:runId/retry` (HTTP 202): the retry started a
+ * NEW run. The original run's row is left as it was.
+ */
+export const automationRunRetryResponseSchema = Schema.Struct({
+  runId: Schema.String.annotate({ description: 'ID of the new run the retry started' }),
+  status: Schema.Literal('accepted').annotate({ description: 'The retry was accepted' }),
+}).annotate({ identifier: 'AutomationRunRetryResponse' })
+
+/** @public */
+export type AutomationRunRetryResponse = typeof automationRunRetryResponseSchema.Type

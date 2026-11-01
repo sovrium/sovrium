@@ -379,7 +379,7 @@ export const runEffectSse = <A, E>(
         await terminate('aborted')
       } else {
         // Awaiting terminate holds the streamSSE callback open until the
-        // caller's onTerminate side-effects (e.g. persistTurnDurably) are
+        // caller's onTerminate side-effects (e.g. saving a chat exchange) are
         // visible to the next request — without this, the HTTP response
         // resolves before chat-history persistence completes and STREAM-008
         // (read-after-write) races.

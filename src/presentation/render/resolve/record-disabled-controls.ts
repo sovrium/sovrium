@@ -5,14 +5,54 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { defaultLanguageTranslator } from '@/domain/models/app/languages/translation-resolver'
 import {
   disabledControlIds,
   tableControls,
   type RecordControl,
 } from '@/domain/models/app/pages/record-control-service'
+import {
+  bareRuleContext,
+  locksOf,
+  ruleColumnsOf,
+  tableDeclaresRules,
+  translatedLocks,
+} from '@/domain/models/app/tables/business-rule-service'
 import type { App } from '@/domain/models/app'
 
 type RecordRow = Readonly<Record<string, unknown>>
+
+/** Who a page reads a row for, as far as the business rules ask: her role and groups. */
+export interface LocksReader {
+  readonly role?: string | undefined
+  readonly groups?: readonly string[] | undefined
+}
+
+/**
+ * `projected` carrying the `_locks` block the table's business rules decide on
+ * `stored` for `reader` — as the records API's list judges it, the rules that
+ * read the row's own columns only. Unchanged when nothing is locked.
+ */
+const withLocksOf = (
+  scope: { readonly app: App; readonly tableName: string },
+  stored: RecordRow,
+  projected: RecordRow,
+  reader: LocksReader | undefined
+): RecordRow => {
+  const { app, tableName } = scope
+  if (!tableDeclaresRules(app, tableName)) return projected
+  const who = {
+    ...(reader?.role === undefined ? {} : { role: reader.role }),
+    groups: reader?.groups ?? [],
+  }
+  const locks = locksOf({
+    ...{ app, tableName, reader: who, existing: stored, ctx: bareRuleContext('', reader?.role) },
+    ownColumnsOnly: true,
+  })
+  return locks === undefined
+    ? projected
+    : { ...projected, _locks: translatedLocks(locks, defaultLanguageTranslator(app.languages)) }
+}
 
 /**
  * `projected` — a row a page read for one visitor, less what she may not read
@@ -39,11 +79,24 @@ export const withDisabledControls = (
   projected: RecordRow
 ): RecordRow => withVerdictOf(tableControls(app, tableName), stored, projected)
 
-/** A projection of one row that also carries its controls' verdict ({@link withDisabledControls}). */
+/**
+ * A projection of one row that also carries its controls' verdict and its
+ * rules' locks for `reader` ({@link withDisabledControls}).
+ */
 export const judgedOn =
-  (app: App, tableName: string, project: (record: RecordRow) => Promise<RecordRow>) =>
+  (
+    app: App,
+    tableName: string,
+    project: (record: RecordRow) => Promise<RecordRow>,
+    reader?: LocksReader
+  ) =>
   async (record: RecordRow): Promise<RecordRow> =>
-    withDisabledControls(app, tableName, record, await project(record))
+    withLocksOf(
+      { app, tableName },
+      record,
+      withDisabledControls(app, tableName, record, await project(record)),
+      reader
+    )
 
 /**
  * A projection of many rows that also carries each row's verdict, judged on
@@ -54,13 +107,15 @@ export const judgedRows =
   (
     app: App,
     tableName: string,
-    project: (rows: readonly RecordRow[]) => Promise<readonly RecordRow[]>
+    project: (rows: readonly RecordRow[]) => Promise<readonly RecordRow[]>,
+    reader?: LocksReader
   ) =>
   async (rows: readonly RecordRow[]): Promise<readonly RecordRow[]> => {
     const controls = tableControls(app, tableName)
-    return (await project(rows)).map((row, index) =>
-      withVerdictOf(controls, rows[index] ?? row, row)
-    )
+    return (await project(rows)).map((row, index) => {
+      const stored = rows[index] ?? row
+      return withLocksOf({ app, tableName }, stored, withVerdictOf(controls, stored, row), reader)
+    })
   }
 
 /** Narrow a row to the columns a binding lists, and its controls' verdict; all when it lists none. */
@@ -68,7 +123,9 @@ export const narrowTo = (record: RecordRow, fields: readonly string[] | undefine
   fields === undefined
     ? record
     : Object.fromEntries(
-        Object.entries(record).filter(([key]) => fields.includes(key) || key === '_disabled')
+        Object.entries(record).filter(
+          ([key]) => fields.includes(key) || key === '_disabled' || key === '_locks'
+        )
       )
 
 /**
@@ -83,9 +140,13 @@ export const narrowTo = (record: RecordRow, fields: readonly string[] | undefine
  * the press no record to be judged on.
  */
 export const judgedColumnsOf = (app: App, tableName: string): readonly string[] => {
-  const columns = tableControls(app, tableName).flatMap((control) =>
-    control.disabledWhen === undefined ? [] : [control.disabledWhen.field]
-  )
+  const columns = [
+    ...tableControls(app, tableName).flatMap((control) =>
+      control.disabledWhen === undefined ? [] : [control.disabledWhen.field]
+    ),
+    // The columns the table's business rules read, so `_locks` is judged on them.
+    ...ruleColumnsOf(app.tables?.find((table) => table.name === tableName)),
+  ]
   return columns.length === 0 ? [] : [...new Set(['id', ...columns])]
 }
 

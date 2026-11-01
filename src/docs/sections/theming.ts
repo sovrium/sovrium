@@ -33,33 +33,10 @@ import { defineArticle, defineSection } from './define'
 /**
  * Theming — the section manifest.
  *
- * Twelve articles over ONE property directory. `design` is a single key of
- * `AppSchema` with sixteen members, so the fragments are sub-fragments named
- * after the article rather than after a directory: a reader wants colours in
- * one place and motion in another, and the tree has nowhere to put that split.
- *
- * ─── WHY SO MANY ARTICLES CARRY NO DIRECTIVE ───────────────────────────────
- *
- * Seven token categories — `colors`, `darkColors`, `spacing`, `radius`,
- * `elevation`, `breakpoints`, `ramps`, `typeScale.families` — are OPEN maps
- * (`Schema.Record`, or the guarded-key variant). The walk publishes no row for
- * an open map, correctly: its keys are the author's vocabulary, not the
- * schema's. So `theme`, `theme-dark-mode` and `responsive-design` carry no
- * table at all, and the rules those maps decode against stay prose. Where a
- * map's VALUE is a struct the directive names that instead — `RampSchema` for
- * a ramp, `FontConfigItemSchema` for a face.
- *
- * `principles` and `zones` are arrays, which the walk also declines to
- * address, so `zones` is documented through `DesignZoneSchema`.
- *
- * ─── TWO ARTICLES LEFT THIS SECTION ────────────────────────────────────────
- *
- * `interactions` documents `pages[].components[].interactions` and
- * `interactivity-scripts` documents `pages[].scripts`. The published corpus
- * filed both under theming, and this manifest carried them for exactly as long
- * as it took to write the `pages` section: neither is about `design`, so by the
- * placement rule both now sit in `pages/` and are registered there. Ten
- * articles remain, and all ten are about the one property.
+ * Why so many articles carry no directive, and which two left:
+ * `[internal ref]`, § `theming`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const section = defineSection({
   slug: 'theming',
@@ -94,7 +71,7 @@ export const section = defineSection({
       slug: 'design-components',
       title: 'Component Styles',
       description:
-        '`design.components` restyles every instance of an engine component type — parts, variants and states — under a focus-ring floor that outranks both your classes and the shipped recipe.',
+        '`design.components` restyles every instance of a component type, its parts, variants and states, under a focus-ring floor no class or recipe can lower.',
       keywords: [
         'sovrium',
         'component styles',
@@ -150,7 +127,7 @@ export const section = defineSection({
       slug: 'design-type-scale',
       title: 'Type Scale',
       description:
-        '`design.typeScale.steps` is the app’s type ladder — twelve named rungs, each a bound size, leading, weight and tracking — and the one design key that emits a usable utility per step.',
+        '`design.typeScale.steps` is the type ladder: twelve named rungs, each a size, leading, weight and tracking, and the one design key emitting a utility per step.',
       keywords: [
         'sovrium',
         'type scale',
@@ -176,7 +153,7 @@ export const section = defineSection({
       slug: 'design-density',
       title: 'Density',
       description:
-        'One ladder of three steps — compact, cozy, roomy — each fixing the row padding, field height, small-button height, gutter and dense-text size that rows, cells and chips are drawn from.',
+        'One ladder of three steps, compact, cozy and roomy, each fixing the row padding, field height, small-button height, gutter and dense-text size.',
       keywords: [
         'sovrium',
         'design density',
@@ -199,7 +176,7 @@ export const section = defineSection({
       slug: 'design-pages-import',
       title: 'Importing Designed Pages',
       description:
-        'Bring a page a designer reworked in Claude Design, Figma or Penpot back into the config: what the import writes, what it keeps, and how it writes YAML, JSON and TypeScript configs.',
+        'Bring a page reworked in Claude Design, Figma or Penpot back into the config: what the import writes, what it keeps, and how it writes YAML, JSON or TypeScript.',
       keywords: [
         'sovrium',
         'design-system import',
@@ -246,7 +223,7 @@ export const section = defineSection({
       slug: 'theme-spacing',
       title: 'Spacing, Radius & Elevation',
       description:
-        'Three ladders that decide how much room things take and how far they sit off the page, plus how fenced code is coloured.',
+        'Three ladders that decide how much room things take and how far they sit off the page, plus how code blocks take their colours from the design.',
       keywords: [
         'sovrium',
         'spacing',

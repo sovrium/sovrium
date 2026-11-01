@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Which tables a config change would newly authorise to drop data.
  *
@@ -27,9 +29,6 @@
  * view cannot tell a default apart from something the author wrote. The question
  * is only answerable of the two documents as they are written.
  */
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every `tables[]` entry of a parsed config, or an empty list. */
 const tablesOf = (parsed: unknown): ReadonlyArray<Record<string, unknown>> => {

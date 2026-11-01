@@ -23,16 +23,17 @@ Every option that decides who can sign in and what each visitor, member, agent o
 | Option | Kind | What it does |
 | --- | --- | --- |
 | `sovrium docs config auth` | object | Authentication configuration with strategies, roles, and plugins. Admin features are always enabled when auth is configured. |
-| `sovrium docs config auth.allowSignUp` | boolean | Controls user self-registration. true allows anyone to sign up. false restricts user creation to admins. |
+| `sovrium docs config auth.allowSignUp` | boolean | Whether a stranger may create an account through the enabled sign-in ways. true opens self-registration. Omitted or false, it is closed: accounts come from an admin, an invitation, or the first-admin environment variables. |
 | `sovrium docs config auth.immediateAccountDeletion` | boolean | Lets a signed-in user delete their own account at once: they ask, a confirmation link is mailed to them, and following it erases the account and everything in it. Needs outgoing email. false closes this door; the scheduled deletion, erased after a 7-day grace period, stays available either way. |
-| `sovrium docs config auth.strategies` | array | Ways a person can sign in — email and password, a magic link, a one-time code, or an external provider. Each way may appear only once. May be empty or omitted when auth.sso declares at least one identity provider (an SSO-only app); otherwise at least one is required. |
+| `sovrium docs config auth.strategies` | array | Ways a person can sign in: email and password, a magic link, a one-time code, or an external provider. Each way may appear only once. May be empty or omitted when auth.sso declares at least one identity provider (an SSO-only app); otherwise at least one is required. |
 | `sovrium docs config auth.strategies[]` | object | Authentication strategy configuration. Discriminated by `type` field: emailAndPassword, magicLink, or oauth. |
 | `sovrium docs config auth.strategies[].type` | enum | Which sign-in strategy this entry configures: emailAndPassword (an email and a password), magicLink (a one-time link sent by email) or oauth (a social provider such as Google or GitHub). |
 | `sovrium docs config auth.strategies[].minPasswordLength` | number | Minimum password length (6-128, default: 8) |
 | `sovrium docs config auth.strategies[].maxPasswordLength` | number | Maximum password length (8-256, default: 128) |
-| `sovrium docs config auth.strategies[].requireEmailVerification` | boolean | Require email verification before sign-in (default: false) |
+| `sovrium docs config auth.strategies[].requireEmailVerification` | boolean | Require a confirmed email address before a password account signs in. On by default beside a federated way in (an oauth strategy or an SSO provider), which links accounts by their address; off otherwise. |
 | `sovrium docs config auth.strategies[].autoSignIn` | boolean | Auto sign in after signup (default: true) |
-| `sovrium docs config auth.strategies[].expirationMinutes` | number | Link expiration time in minutes (default: 15) |
+| `sovrium docs config auth.strategies[].expirationMinutes` | number | Link expiration time in minutes (default: 15). At most 60: a link is a credential sitting in a mailbox, so it may not outlive an hour. |
+| `sovrium docs config auth.strategies[].allowSignUp` | boolean | Whether a link asked for an address with no account creates that account. false sends links to existing accounts only, while the other sign-in ways keep auth.allowSignUp; true opens account creation by link alone. |
 | `sovrium docs config auth.strategies[].providers` | array | OAuth providers to enable. Credentials loaded from environment variables. |
 | `sovrium docs config auth.strategies[].providers[]` | enum | Supported OAuth providers for social login |
 | `sovrium docs config auth.roles` | array | Roles of your own, on top of the built-in admin, member and viewer. Each carries a level that decides what it inherits. A built-in role may also be listed, with nothing but a `defaultLanding` (and `pickerLanding`) or a `label`, to choose where it lands after signing in or what the console calls it. |
@@ -87,12 +88,12 @@ Every option that decides who can sign in and what each visitor, member, agent o
 | `sovrium docs config auth.emailTemplates.invitation.text` | string | Plain text email body with optional $variable substitution |
 | `sovrium docs config auth.emailTemplates.invitation.html` | string | HTML email body with optional $variable substitution |
 | `sovrium docs config auth.invitationTokenExpiry` | string \| number | Lifetime of single-use admin invitation tokens. Defaults to 72h when omitted. |
-| `sovrium docs config auth.sso` | array | Identity providers users can sign in with, over OpenID Connect or SAML 2.0. Declared in config only — providers cannot be registered at runtime. |
+| `sovrium docs config auth.sso` | array | Identity providers users can sign in with, over OpenID Connect or SAML 2.0. Declared in config only; providers cannot be registered at runtime. |
 | `sovrium docs config auth.sso[]` | object | One single sign-on identity provider. type oidc takes an oidc block, type saml a saml block. |
 | `sovrium docs config auth.sso[].id` | string | Stable identifier of the identity provider, used in its callback URL. Lowercase letters, digits and hyphens, starting with a letter. Changing it breaks the redirect URI registered at the provider. |
 | `sovrium docs config auth.sso[].type` | enum | The protocol: oidc (OpenID Connect) or saml (SAML 2.0). |
 | `sovrium docs config auth.sso[].label` | string | The text of the sign-in button for this provider. Supports $t:key translation references. |
-| `sovrium docs config auth.sso[].domains` | array | Email domains this provider is authoritative for. A sign-in that starts from an email address in one of them is routed here, and an existing account with such an address is linked on first SSO sign-in. |
+| `sovrium docs config auth.sso[].domains` | array | Email domains this provider is authoritative for. A sign-in that starts from an email address in one of them is routed here, no password account can be opened or moved onto one of them, and an existing account with such an address whose own address was verified is linked on first SSO sign-in. |
 | `sovrium docs config auth.sso[].domains[]` | string | An email domain, lowercase, without the @ (e.g. acme.com). |
 | `sovrium docs config auth.sso[].oidc` | object | OpenID Connect settings for an identity provider of type oidc. |
 | `sovrium docs config auth.sso[].oidc.issuer` | string | The issuer URL. Endpoints and signing keys are discovered from <issuer>/.well-known/openid-configuration, and the ID token issuer must equal it. |
@@ -120,7 +121,7 @@ Every option that decides who can sign in and what each visitor, member, agent o
 | `sovrium docs config auth.sso[].roleMapping.claim` | string | The claim or attribute holding the value to map — a string, or a list such as groups. |
 | `sovrium docs config auth.sso[].roleMapping.map` | object | Claim value → role name. Entries are tried in the order written; the first value the user carries decides. Only an entry written here can grant an admin role. |
 | `sovrium docs config auth.sso[].roleMapping.default` | string | The role given when no entry matches. Never an admin role. Defaults to auth.defaultRole. |
-| `sovrium docs config auth.sso[].allowSignUp` | boolean | Whether a first sign-in creates an account. false admits only accounts that already exist — invited, created by an admin, or provisioned through SCIM. |
+| `sovrium docs config auth.sso[].allowSignUp` | boolean | Whether a first sign-in creates an account. false admits only accounts that already exist: invited, created by an admin, or provisioned through SCIM. |
 | `sovrium docs config auth.passkeys` | boolean \| object | Passkey (WebAuthn) sign-in. A signed-in user registers a passkey, then signs in with it without a password. The relying party is derived from BASE_URL. |
 | `sovrium docs config auth.passkeys.rpName` | string | The name an authenticator shows when it saves the passkey. Defaults to the app name. |
 | `sovrium docs config auth.passkeys.requireForAdmin` | boolean | Admit an admin-tier account to the admin plane only from a session it opened with a passkey. Its password session can still register one. Over MCP, the admin-only tools need an OAuth token authorised from a passkey session; an API key never qualifies. |
@@ -151,7 +152,7 @@ Every option that decides who can sign in and what each visitor, member, agent o
 | --- | --- | --- |
 | `sovrium docs config pages[].access` | enum \| array \| object | Page access control. 'all' (public), 'authenticated' (logged-in), role array ['admin'], or extended { require, redirectTo }. |
 | `sovrium docs config pages[].access.require` | enum \| array | Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor']. |
-| `sovrium docs config pages[].access.require[]` | string | One role name that has access — a built-in role or one declared in `auth.roles`. |
+| `sovrium docs config pages[].access.require[]` | string | One role name that has access: a built-in role or one declared in `auth.roles`. |
 | `sovrium docs config pages[].access.redirectTo` | string | Path a visitor who has not signed in is sent to. A signed-in person without the required role is answered 404, never redirected. |
 
 ## `forms[].access`
@@ -160,7 +161,7 @@ Every option that decides who can sign in and what each visitor, member, agent o
 | --- | --- | --- |
 | `sovrium docs config forms[].access` | object | Access control for a form. Reuses the shared permission model. |
 | `sovrium docs config forms[].access.require` | enum \| array | Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor']. |
-| `sovrium docs config forms[].access.require[]` | string | One role name that has access — a built-in role or one declared in `auth.roles`. |
+| `sovrium docs config forms[].access.require[]` | string | One role name that has access: a built-in role or one declared in `auth.roles`. |
 | `sovrium docs config forms[].access.redirectTo` | string | URL path to redirect unauthenticated/unauthorized submitters |
 
 ## `forms[].antiSpam`
@@ -183,37 +184,37 @@ Every option that decides who can sign in and what each visitor, member, agent o
 | `sovrium docs config forms[].availability.closesAt` | string | ISO 8601 timestamp at which the form closes |
 | `sovrium docs config forms[].availability.maxSubmissions` | number | Maximum number of submissions accepted before the form auto-closes |
 | `sovrium docs config forms[].availability.closedPage` | object | Custom closed-form UI block (title, message, optional CTA link) |
-| `sovrium docs config forms[].availability.closedPage.type` | enum | How a closed form answers. `page` — the only shape — draws the notice below in place of the form. |
+| `sovrium docs config forms[].availability.closedPage.type` | enum | How a closed form answers. `page`, the only shape, draws the notice below in place of the form. |
 | `sovrium docs config forms[].availability.closedPage.title` | string | Heading shown to a visitor who arrives while the form is closed. Accepts a `$t:` key. |
 | `sovrium docs config forms[].availability.closedPage.message` | string | Text explaining why the form is closed, and what to do instead. Accepts a `$t:` key. |
 | `sovrium docs config forms[].availability.closedPage.cta` | object | An optional link offered to a visitor who arrives while the form is closed. |
 | `sovrium docs config forms[].availability.closedPage.cta.label` | string | Text of the link offered on the closed-form page. Accepts a `$t:` key. |
-| `sovrium docs config forms[].availability.closedPage.cta.href` | string | Where that link goes. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read. |
+| `sovrium docs config forms[].availability.closedPage.cta.href` | string | Where that link goes. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address (`javascript:`, `data:`, `mailto:`, or one starting with `//`) is refused when the config is read. |
 
 ## `buckets[].permissions`
 
 | Option | Kind | What it does |
 | --- | --- | --- |
 | `sovrium docs config buckets[].permissions` | object | Per-bucket permission configuration. Uses the same format as table permissions: all, authenticated, or role array. |
-| `sovrium docs config buckets[].permissions.upload` | enum \| array | Who can upload files to this bucket |
-| `sovrium docs config buckets[].permissions.upload[]` | string | One role name that has access — a built-in role or one declared in `auth.roles`. |
+| `sovrium docs config buckets[].permissions.upload` | enum \| array | Who can upload files to this bucket. Omitted: any signed-in caller on a private bucket, administrators only on a public one. |
+| `sovrium docs config buckets[].permissions.upload[]` | string | One role name that has access: a built-in role or one declared in `auth.roles`. |
 | `sovrium docs config buckets[].permissions.download` | enum \| array | Who can download files from this bucket |
-| `sovrium docs config buckets[].permissions.download[]` | string | One role name that has access — a built-in role or one declared in `auth.roles`. |
+| `sovrium docs config buckets[].permissions.download[]` | string | One role name that has access: a built-in role or one declared in `auth.roles`. |
 | `sovrium docs config buckets[].permissions.sign` | enum \| array | Who can generate signed download URLs |
-| `sovrium docs config buckets[].permissions.sign[]` | string | One role name that has access — a built-in role or one declared in `auth.roles`. |
+| `sovrium docs config buckets[].permissions.sign[]` | string | One role name that has access: a built-in role or one declared in `auth.roles`. |
 | `sovrium docs config buckets[].permissions.signUpload` | enum \| array | Who can generate signed upload URLs |
-| `sovrium docs config buckets[].permissions.signUpload[]` | string | One role name that has access — a built-in role or one declared in `auth.roles`. |
+| `sovrium docs config buckets[].permissions.signUpload[]` | string | One role name that has access: a built-in role or one declared in `auth.roles`. |
 | `sovrium docs config buckets[].permissions.delete` | enum \| array | Who can delete files from this bucket |
-| `sovrium docs config buckets[].permissions.delete[]` | string | One role name that has access — a built-in role or one declared in `auth.roles`. |
+| `sovrium docs config buckets[].permissions.delete[]` | string | One role name that has access: a built-in role or one declared in `auth.roles`. |
 
 ## `tables[].aiAccess`
 
 | Option | Kind | What it does |
 | --- | --- | --- |
 | `sovrium docs config tables[].aiAccess` | boolean \| object | Per-entity declaration of MCP/AI exposure intent. Boolean shorthand (true = enabled with defaults) or rich config object. Schema author declares; operator activates via MCP_ENABLED env var. |
-| `sovrium docs config tables[].aiAccess.description` | string | Hand-written description shown to the AI client. Overrides auto-generated descriptions. The single biggest UX lever for steering AI behavior — explain when to use this tool, what context the AI needs, and any non-obvious constraints. |
-| `sovrium docs config tables[].aiAccess.operations` | array | Subset of CRUD operations to expose. Defaults to all 5 (read, list, create, update, delete) for tables. Automations and actions ignore this field — they expose a single invocation tool. |
-| `sovrium docs config tables[].aiAccess.operations[]` | enum | One CRUD operation to expose as a tool — `read` and `list` are the two reads, `create`, `update` and `delete` the three writes. |
+| `sovrium docs config tables[].aiAccess.description` | string | Hand-written description shown to the AI client. Overrides auto-generated descriptions. The single biggest UX lever for steering AI behavior: explain when to use this tool, what context the AI needs, and any non-obvious constraints. |
+| `sovrium docs config tables[].aiAccess.operations` | array | Subset of CRUD operations to expose. Defaults to all 5 (read, list, create, update, delete) for tables. Automations and actions ignore this field; they expose a single invocation tool. |
+| `sovrium docs config tables[].aiAccess.operations[]` | enum | One CRUD operation to expose as a tool: `read` and `list` are the two reads, `create`, `update` and `delete` the three writes. |
 | `sovrium docs config tables[].aiAccess.fieldExposure` | enum | Field exposure mode. Defaults to permissioned (only fields the connecting role can read/write per RBAC). |
 | `sovrium docs config tables[].aiAccess.whitelistFields` | array | Fields to expose when fieldExposure=whitelist. Required and must be non-empty when fieldExposure=whitelist; ignored otherwise. |
 | `sovrium docs config tables[].aiAccess.whitelistFields[]` | string | One field name to expose, spelled as the table declares it. |
@@ -229,9 +230,9 @@ Every option that decides who can sign in and what each visitor, member, agent o
 | Option | Kind | What it does |
 | --- | --- | --- |
 | `sovrium docs config agents[].permissions` | object | RBAC integration model for AI agents. Agents are stored as auth.user records with type=agent and inherit role-based permissions. |
-| `sovrium docs config agents[].permissions.type` | enum | User type discriminator — always 'agent' for AI agents |
-| `sovrium docs config agents[].permissions.trigger` | enum \| array | Who can trigger this agent. 'all', 'authenticated', or role array ['admin', 'member']. |
-| `sovrium docs config agents[].permissions.trigger[]` | string | One role name that has access — a built-in role or one declared in `auth.roles`. |
+| `sovrium docs config agents[].permissions.type` | enum | User type discriminator, always 'agent' for AI agents |
+| `sovrium docs config agents[].permissions.trigger` | enum \| array | Who can trigger this agent: 'all', 'authenticated', a role list such as ['admin', 'member'], or 'none' for an agent only automations and its own schedule run. An admin passes any role list but not 'none'. An agent whose tools include `code.runTypescript` must declare 'none'. |
+| `sovrium docs config agents[].permissions.trigger[]` | string | One role name that has access: a built-in role or one declared in `auth.roles`. |
 
 ## `env[]`
 
@@ -242,4 +243,4 @@ Every option that decides who can sign in and what each visitor, member, agent o
 | `sovrium docs config env[].description` | string | Description of what this env var is used for |
 | `sovrium docs config env[].required` | boolean | Whether this variable must be set. Defaults to true: an unset required variable refuses to boot. |
 | `sovrium docs config env[].default` | string | Default value used when the environment variable is not set. If both required and default are provided, default acts as fallback. |
-| `sovrium docs config env[].secret` | boolean | Whether `default` holds a credential. Defaults to TRUE — omit it and the default is redacted wherever the config is reflected to an operator. Set `secret: false` to let a harmless default (a port, a region, a base URL) render verbatim in the configuration-as-booted view of the admin console (/_admin/changelog?view=current) instead of ***. |
+| `sovrium docs config env[].secret` | boolean | Whether `default` holds a credential. Defaults to TRUE: omit it and the default is redacted wherever the config is reflected to an operator. Set `secret: false` to let a harmless default (a port, a region, a base URL) render verbatim in the configuration-as-booted view of the admin console (/_admin/changelog?view=current) instead of ***. |

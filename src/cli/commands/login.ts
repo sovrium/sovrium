@@ -31,10 +31,10 @@
 
 import { Effect, Option, Schema } from 'effect'
 import { isHeadless } from '@/cli/runtime/browser-launch'
-import { getFlagValue } from '@/cli/runtime/flag-vocabulary'
+import { defineFlags, flag } from '@/cli/runtime/flag-schema'
+import { CliRefusal, withFlags } from '@/cli/runtime/run-command'
 import { getSessionResponseSchema } from '@/domain/models/api/auth/auth'
 import {
-  CliRefusal,
   DEFAULT_CLOUD_HOST,
   assertNetworkAllowed,
   callCloud,
@@ -43,7 +43,6 @@ import {
   readCredentials,
   removeCredentials,
   resolveCloudOrigin,
-  runCliProgram,
   say,
   writeCredentials,
 } from './cloud-session'
@@ -180,24 +179,32 @@ const signInWithBrowser = (origin: URL, device: boolean) =>
     )
   })
 
-/** Handle `sovrium login`. Exits 1 on any refusal; returns on success. */
-export const handleLoginCommand = async (argv: readonly string[]): Promise<void> => {
-  if (argv.includes('--status')) return runCliProgram(showStatus)
-  if (argv.includes('--logout')) return runCliProgram(signOut)
-  const apiKey = getFlagValue(argv, '--api-key')
-  return runCliProgram(
-    Effect.gen(function* () {
-      if (argv.includes('--api-key') && (apiKey === undefined || apiKey.startsWith('--'))) {
-        return yield* new CliRefusal({
-          headline: '--api-key needs the key after it — nothing was stored.',
-          guidance: "Run 'sovrium login --api-key <key>', or 'sovrium login' to use your browser.",
-        })
-      }
-      yield* assertNetworkAllowed('login')
-      const origin = yield* resolveCloudOrigin(getFlagValue(argv, '--host') ?? DEFAULT_CLOUD_HOST)
-      if (apiKey !== undefined) return yield* signInWithKey(origin, apiKey)
-      // `--open` is still accepted, and changes nothing: the browser opens by default.
-      return yield* signInWithBrowser(origin, argv.includes('--device'))
-    })
-  )
-}
+/** The flags `sovrium login` reads. */
+export const loginFlags = defineFlags({
+  status: flag.switch('--status'),
+  logout: flag.switch('--logout'),
+  apiKey: flag.value('--api-key'),
+  apiKeyGiven: flag.switch('--api-key'),
+  host: flag.value('--host'),
+  device: flag.switch('--device'),
+})
+
+/** Handle `sovrium login`, `login --status` and `login --logout`. */
+export const handleLoginCommand = withFlags(loginFlags, ({ flags }) => {
+  if (flags.status) return showStatus
+  if (flags.logout) return signOut
+  const { apiKey } = flags
+  return Effect.gen(function* () {
+    if (flags.apiKeyGiven && (apiKey === undefined || apiKey.startsWith('--'))) {
+      return yield* new CliRefusal({
+        headline: '--api-key needs the key after it — nothing was stored.',
+        guidance: "Run 'sovrium login --api-key <key>', or 'sovrium login' to use your browser.",
+      })
+    }
+    yield* assertNetworkAllowed('login')
+    const origin = yield* resolveCloudOrigin(flags.host ?? DEFAULT_CLOUD_HOST)
+    if (apiKey !== undefined) return yield* signInWithKey(origin, apiKey)
+    // `--open` is still accepted, and changes nothing: the browser opens by default.
+    return yield* signInWithBrowser(origin, flags.device)
+  })
+})

@@ -42,9 +42,14 @@
  * their inner HTML first would risk terminating that match early.
  */
 
+import {
+  escapeHtmlDoubleQuotedAttribute,
+  escapeHtmlText,
+} from '@/domain/kernel/sanitize/html-escaping'
 import { resolveDefaultCodeFrame } from '@/domain/models/app/pages/code-frame-defaults'
 import {
   computeCodeBlockClasses,
+  computeCodeBlockContentClasses,
   computeCodeBlockFilenameClasses,
   computeCodeBlockHeaderClasses,
 } from '@/presentation/design/code-block-default-classes'
@@ -75,10 +80,6 @@ const COPIED_LABEL = 'Copied'
  */
 const FENCE_RE = /<pre\b[^>]*\bsv-md-code-(\d+)\b[^>]*>[\s\S]*?<\/pre>/g
 
-/** Escape text for safe inclusion in HTML element content. */
-const escapeText = (value: string): string =>
-  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-
 /**
  * Mark the fence's `<pre>` as the copy TARGET and the command surface.
  *
@@ -86,12 +87,16 @@ const escapeText = (value: string): string =>
  * code), so the delegated handler needs an explicit target rather than the
  * scope's first `<pre>` — a docs fence has only one, but the contract is shared
  * with the config renderer, whose framed blocks can also hold a printed output.
+ * The `<pre>` also takes the content classes the config renderer gives its own
+ * (focus ring, trailing-edge fade), joined to the class the highlighter wrote.
  */
 const markCommandPre = (preHtml: string): string =>
-  preHtml.replace(
-    /^<pre\b/,
-    '<pre data-slot="code-block-content" data-code-command="true" data-copy-target="true"'
-  )
+  preHtml
+    .replace(/^(<pre\b[^>]*?\bclass=")/, `$1${computeCodeBlockContentClasses()} `)
+    .replace(
+      /^<pre\b/,
+      '<pre data-slot="code-block-content" data-code-command="true" data-copy-target="true"'
+    )
 
 /** How a frame is drawn: the docs keep the defaults, an ai-chat answer asks for a small one. */
 export interface FenceFrameOptions {
@@ -146,7 +151,7 @@ const renderFenceTitle = (header: FenceHeader): string => {
   return [
     `<span data-slot="code-block-title" class="${computeCodeBlockTitleClasses()}">`,
     `<span data-slot="code-block-filename" ${marker} class="${computeCodeBlockFilenameClasses()}">`,
-    `${escapeText(header.text)}</span></span>`,
+    `${escapeHtmlText(header.text)}</span></span>`,
   ].join('')
 }
 
@@ -182,7 +187,7 @@ export const renderFenceFrame = (
   const label =
     header.label === undefined
       ? ''
-      : ` aria-label="${escapeText(header.label).replace(/"/g, '&quot;')}"`
+      : ` aria-label="${escapeHtmlDoubleQuotedAttribute(header.label)}"`
   return [
     `<figure data-slot="code-block" data-size="${options.size}" data-variant="${options.variant}"`,
     ` data-code-frame="${header.frame}" data-code-copy-scope="true"${label}`,

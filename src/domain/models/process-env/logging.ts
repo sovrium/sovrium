@@ -51,7 +51,7 @@ const clean = (value: string | undefined): string | undefined => {
  * "only `debug` is special-cased" behaviour), so a loosely-set operator value
  * never fails boot.
  */
-export const parseLoggingConfig = (env: EnvRecord = process.env): LoggingConfig => {
+export const parseLoggingConfig = (env: EnvRecord): LoggingConfig => {
   const raw = clean(env['LOG_LEVEL'])
   // Development is verbose, and an explicit LOG_LEVEL=debug always wins. Neither
   // is overridden by a non-debug LOG_LEVEL — this is the historical gate.
@@ -64,6 +64,13 @@ export const parseLoggingConfig = (env: EnvRecord = process.env): LoggingConfig 
   return { level: 'info' }
 }
 
-/** Whether debug-level logging is active for the given (or ambient) config. */
-export const isDebugLevel = (config: LoggingConfig = parseLoggingConfig()): boolean =>
-  config.level === 'debug'
+/** Whether debug-level logging is active for the given config. */
+export const isDebugLevel = (config: LoggingConfig): boolean => config.level === 'debug'
+
+/**
+ * Whether `DEBUG` turns on `namespace`: the variable contains it. The same
+ * substring test every `DEBUG=sovrium:<area>` gate has always applied, so
+ * `DEBUG=sovrium:templates,sovrium:other` turns on both.
+ */
+export const isDebugNamespaceOn = (env: EnvRecord, namespace: string): boolean =>
+  env['DEBUG']?.includes(namespace) === true

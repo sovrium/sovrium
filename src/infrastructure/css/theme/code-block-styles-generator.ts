@@ -43,7 +43,9 @@ import {
   DEFAULT_CODE_BLOCK_DARK_THEME,
   DEFAULT_CODE_BLOCK_THEME,
 } from '@/domain/models/app/design/code-block-service'
+import { generateRoleRules } from './code-block-role-rules'
 import { flooredPalette } from './code-block-theme-palette'
+import type { DesignCode } from '@/domain/models/app/design/code'
 
 /**
  * The curated token colours of each theme, keyed by the hex the highlighter
@@ -363,9 +365,13 @@ ${tokenRules}`
  * so its rules win by source order as well as by specificity.
  *
  * `darkPalette` is every foreground `github-dark` declares
- * (`loadCodeBlockDarkPalette`), each held to the 4.5:1 floor.
+ * (`loadCodeBlockDarkPalette`), each held to the 4.5:1 floor. `code` is the
+ * design's `code` key: each role it colours adds one rule, last.
  */
-export const generateCodeBlockStyles = (darkPalette: readonly string[] = []): string =>
+export const generateCodeBlockStyles = (
+  darkPalette: readonly string[] = [],
+  code?: DesignCode
+): string =>
   [
     generateContainerChrome(LIGHT_CHROME),
     FRAME_CHROME,
@@ -374,4 +380,5 @@ export const generateCodeBlockStyles = (darkPalette: readonly string[] = []): st
     generateThemeScopedHook(LIGHT_CHROME),
     generateContrastFloorRules(),
     generateDarkSchemeArm(darkPalette),
+    ...generateRoleRules(code),
   ].join('\n')

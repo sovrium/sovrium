@@ -49,16 +49,16 @@ The app still boots. The banner warns that agents are inert and AI fields fall b
 
 Every chat limit is off or generous by default:
 
-| Variable                                    | Default                          | Set it when                               |
-| ------------------------------------------- | -------------------------------- | ----------------------------------------- |
-| `AI_CHAT_RATE_LIMIT`, `AI_CHAT_RATE_WINDOW` | no cap, 60 s                     | always, for a chat signed-in people use   |
-| `AI_ANON_RATE_LIMIT`                        | applies on an app without `auth` | rarely; it already caps anonymous use     |
-| `AI_CHAT_MAX_MESSAGE_LENGTH`                | no cap                           | the chat is open to many people           |
-| `AI_CHAT_TIMEOUT`, `AI_CHAT_STREAM_TIMEOUT` | none                             | a slow provider must answer or fail       |
-| `AI_CHAT_MAX_TOOL_ITERATIONS`               | a few rounds                     | an agent needs more tool rounds           |
-| `AI_CHAT_MAX_QUERY_ROWS`                    | a page of records                | a question needs more rows per query      |
-| `AI_MEMORY_CONTEXT_MESSAGES`                | all                              | long conversations cost too much per turn |
-| `AI_MEMORY_MAX_AGE_DAYS`                    | kept                             | conversations hold personal data          |
+| Variable                                    | Default                                        | Set it when                               |
+| ------------------------------------------- | ---------------------------------------------- | ----------------------------------------- |
+| `AI_CHAT_RATE_LIMIT`, `AI_CHAT_RATE_WINDOW` | 60 on a hosted provider (none on Ollama), 60 s | always, for a chat signed-in people use   |
+| `AI_ANON_RATE_LIMIT`                        | applies on an app without `auth`               | rarely; it already caps anonymous use     |
+| `AI_CHAT_MAX_MESSAGE_LENGTH`                | 10,000 on a hosted provider, none on Ollama    | the chat is open to many people           |
+| `AI_CHAT_TIMEOUT`, `AI_CHAT_STREAM_TIMEOUT` | none                                           | a slow provider must answer or fail       |
+| `AI_CHAT_MAX_TOOL_ITERATIONS`               | a few rounds                                   | an agent needs more tool rounds           |
+| `AI_CHAT_MAX_QUERY_ROWS`                    | a page of records                              | a question needs more rows per query      |
+| `AI_MEMORY_CONTEXT_MESSAGES`                | all                                            | long conversations cost too much per turn |
+| `AI_MEMORY_MAX_AGE_DAYS`                    | kept                                           | conversations hold personal data          |
 
 Read the exact current defaults with `sovrium docs configuration/env-vars-ai`. The rate cap is a launch item: hand it to `sovrium-security`.
 

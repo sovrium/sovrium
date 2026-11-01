@@ -7,6 +7,10 @@
 
 import { nameInWords } from '@/domain/kernel/format/name-in-words'
 import {
+  anonymousGrant,
+  servesNoAuthVisitor,
+} from '@/domain/models/app/auth/anonymous-grant-service'
+import {
   callerReaderFromSession,
   tableReadPrincipal,
 } from '@/domain/models/app/tables/caller-record-gate-service'
@@ -139,7 +143,12 @@ const readableFieldNames = (
 ): ReadonlySet<string> => {
   const names = table.fields.map((field) => field.name)
   const open = names.filter((name) => !isWriteOnlyField(app, table.name, name))
-  if (!app.auth) return new Set(open)
+  // No `auth`: the fields of a table that opens `read` to everyone.
+  if (!app.auth) {
+    return !servesNoAuthVisitor(app) || anonymousGrant(table, 'read', app)
+      ? new Set(open)
+      : new Set()
+  }
   const plan = buildReadAccessPlan({
     app,
     table,

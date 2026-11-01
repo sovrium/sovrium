@@ -36,28 +36,34 @@ import {
   loadConversationTree,
   recordConversationBranch,
 } from '@/application/use-cases/ai/conversation-memory'
-import { conversationEditRequestSchema } from '@/domain/models/api/ai/conversations'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import {
+  conversationEditRequestSchema,
+  conversationTurnResponseSchema,
+} from '@/domain/models/api/ai/conversations'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import { currentBranch, pathTo } from '@/domain/models/app/agents/conversation-branch-service'
 import { storedToolCalls } from '@/domain/models/app/agents/stored-tool-call-service'
+import { toolTurnReply } from '@/domain/models/app/agents/tool-turn-reply-service'
+import { hasCodeRoleClasses } from '@/domain/models/app/design/code-block-service'
+import { checkUserChatRateLimit } from '@/infrastructure/ai/agents/chat-rate-limit'
 import { logError } from '@/infrastructure/logging/logger'
-import {
-  provideDomain,
-  requireDomainContext,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
-import { checkChatRateLimit } from '@/infrastructure/process/chat-rate-limit'
-import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { rateLimitedResponse } from '@/presentation/api/runtime/rate-limit-response'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { validateRequest } from '@/presentation/api/runtime/validate-request'
 import { recordChatActivity } from './chat-activity-log'
 import { chatProviderFailure, chatTurnSpec } from './chat-agent-turn'
 import { resolveChatErrorConfig } from './chat-error-handling'
 import { turnCitations, withTurnKnowledge } from './chat-knowledge-citations'
+import { withChatTurnReads } from './chat-reader-rows'
 import { keepListedExchanges } from './chat-replay-scope'
-import { toolTurnActions, toolTurnReply } from './chat-tool-reply'
-import { carriedFilesOf, readmitStoredParts, replayStoredHistory } from './chat-turn-parts'
+import { toolTurnActions } from './chat-tool-reply'
+import { readFilesOf, readmitStoredParts, readStoredHistory } from './chat-turn-parts'
 import { resolveConversationTurnInput } from './conversation-turn-input'
 import { toWireMessages } from './conversation-wire'
 import type { ChatTurnInput } from './chat-turn-completion'
@@ -66,6 +72,7 @@ import type {
   AiMemoryThread,
   AiMessagePart,
 } from '@/application/ports/repositories/ai/ai-memory-repository'
+import type { ChatMessage, MessagePart } from '@/application/ports/services/ai-service'
 import type { ConversationTurnResponse } from '@/domain/models/api/ai/conversations'
 import type { App } from '@/domain/models/app'
 import type { Hono, Context, TypedResponse } from 'hono'
@@ -177,24 +184,26 @@ const replayFor = (
  * whole — less every exchange answered from a table the caller no longer
  * lists — or, for a turn that replays no history, its files alone.
  */
-const branchHistory = async (
+const branchHistory = (
   asked: ChatTurnInput,
   branch: {
     readonly userId: string
     readonly messages: ReadonlyArray<AiMemoryMessage>
     readonly plan: BranchTurnPlan
   }
-): Promise<{
-  readonly history: Awaited<ReturnType<typeof replayStoredHistory>>
-  readonly carried: Awaited<ReturnType<typeof carriedFilesOf>>
-}> => {
-  const { services, app, reader } = asked
+) => {
+  const { app, reader } = asked
   const earlier = replayFor(branch.messages, branch.plan.historyEnd)
   if (asked.agent !== undefined && asked.agent.builtIn !== true) {
-    return { history: [], carried: await carriedFilesOf(services, branch.userId, earlier) }
+    return Effect.map(readFilesOf(branch.userId, earlier), (carried) => ({
+      history: [] as ReadonlyArray<ChatMessage>,
+      carried,
+    }))
   }
-  const replayed = await keepListedExchanges({ services, app, reader }, earlier)
-  return { history: await replayStoredHistory(services, branch.userId, replayed), carried: [] }
+  return keepListedExchanges({ app, reader }, earlier).pipe(
+    Effect.flatMap((replayed) => readStoredHistory(branch.userId, replayed)),
+    Effect.map((history) => ({ history, carried: [] as ReadonlyArray<MessagePart> }))
+  )
 }
 
 /** The answer a branch ends on, with one line per call its turn ran. */
@@ -204,7 +213,7 @@ const answerOf = (turn: {
 }) => ({ role: 'assistant' as const, content: turn.answer, toolCalls: turn.toolCalls })
 
 /** Write the new branch, record the turn, and answer with the branch now current. */
-const respondWithBranch = async (
+const respondWithBranch = (
   c: Context,
   opened: OpenedBranchTurn,
   turn: {
@@ -213,126 +222,140 @@ const respondWithBranch = async (
     readonly actions: ConversationTurnResponse['actions']
     readonly citations: ConversationTurnResponse['citations']
     readonly toolCalls: ReturnType<typeof storedToolCalls>
+    /** Whether the design declares `code`: the answer's code then carries its role classes. */
+    readonly roleClasses: boolean
   }
-): Promise<Response> => {
-  const { userId, sessionId } = opened
-  const services = requireDomainContext(c)
-  const written = await runRequestEffect(
-    c,
-    Effect.gen(function* () {
-      yield* recordConversationBranch({
-        userId,
-        sessionId,
-        parentId: turn.plan.parentId,
-        messages: [...turn.plan.leading, answerOf(turn)],
+) =>
+  Effect.gen(function* () {
+    const { userId, sessionId } = opened
+    const written = yield* Effect.result(
+      Effect.gen(function* () {
+        yield* recordConversationBranch({
+          userId,
+          sessionId,
+          parentId: turn.plan.parentId,
+          messages: [...turn.plan.leading, answerOf(turn)],
+        })
+        const tree = yield* loadConversationTree({ userId, sessionId })
+        // The caller's own uploads the messages name, to give each its name and type.
+        const ids = (tree?.messages ?? []).flatMap((message) =>
+          (message.parts ?? []).flatMap((part) => (part.type === 'text' ? [] : [part.attachmentId]))
+        )
+        const uploads = yield* findOwnedChatAttachments({ userId, ids })
+        return tree === undefined ? undefined : { tree: tree.messages, uploads }
       })
-      const tree = yield* loadConversationTree({ userId, sessionId })
-      // The caller's own uploads the messages name, to give each its name and type.
-      const ids = (tree?.messages ?? []).flatMap((message) =>
-        (message.parts ?? []).flatMap((part) => (part.type === 'text' ? [] : [part.attachmentId]))
-      )
-      const uploads = yield* findOwnedChatAttachments({ userId, ids })
-      return tree === undefined ? undefined : { tree: tree.messages, uploads }
-    }).pipe(Effect.provide(services), Effect.result)
-  )
-  if (written._tag === 'Failure' || written.success === undefined) {
-    logError('[ai] writing a conversation branch failed', written)
-    return c.json(
-      errorBody({ error: 'Failed to save the conversation.', code: ApiErrorCode.INTERNAL_ERROR }),
-      500
     )
-  }
-  await recordChatActivity(services, { action: 'ai.chat.message', actorName: userId })
-  const { tree, uploads } = written.success
-  const messages = await runRequestEffect(c, toWireMessages(tree, currentBranch(tree), uploads))
-  const body: ConversationTurnResponse = {
-    sessionId,
-    reply: turn.answer,
-    actions: [...turn.actions],
-    ...(turn.citations !== undefined && { citations: turn.citations }),
-    messages: [...messages],
-  }
-  return c.json(body, 200)
-}
+    if (written._tag === 'Failure' || written.success === undefined) {
+      logError('[ai] writing a conversation branch failed', written)
+      return c.json(
+        errorBody({ error: 'Failed to save the conversation.', code: ApiErrorCode.INTERNAL_ERROR }),
+        500
+      )
+    }
+    yield* recordChatActivity({ action: 'ai.chat.message', actorName: userId })
+    const { tree, uploads } = written.success
+    const messages = yield* toWireMessages(tree, currentBranch(tree), uploads, turn)
+    const body: ConversationTurnResponse = {
+      sessionId,
+      reply: turn.answer,
+      actions: [...turn.actions],
+      ...(turn.citations !== undefined && { citations: turn.citations }),
+      messages: [...messages],
+    }
+    return yield* respondWith(c, Effect.succeed(body), conversationTurnResponseSchema)
+  })
 
 /**
  * Answer `plan` on the chat's turn — its agent, prompt, tools, gates and
  * knowledge, on the agent runtime — then write it as the new branch.
  */
-const answerBranch = async (
-  c: Context,
-  app: App,
-  opened: OpenedBranchTurn,
-  plan: BranchTurnPlan
-): Promise<Response> => {
-  const { userId, sessionId, thread } = opened
-  const asked = await resolveConversationTurnInput(c, app, {
-    userId,
-    sessionId,
-    question: plan.question,
-    agentName: thread.agentName,
+const answerBranch = (c: Context, app: App, opened: OpenedBranchTurn, plan: BranchTurnPlan) =>
+  Effect.gen(function* () {
+    const { userId, sessionId, thread } = opened
+    const asked = yield* resolveConversationTurnInput(c, app, {
+      userId,
+      sessionId,
+      question: plan.question,
+      agentName: thread.agentName,
+    })
+    if (asked === undefined) return notFound(c, 'Conversation not found.')
+    const parts =
+      plan.parts === undefined ? undefined : yield* readmitStoredParts(userId, plan.parts)
+    const { input, passages } = yield* withTurnKnowledge({
+      ...asked,
+      ...(parts !== undefined && { parts }),
+    })
+    const earlier = yield* branchHistory(asked, { userId, messages: thread.messages, plan })
+    const spec = yield* chatTurnSpec(input, { ...earlier, stream: false })
+    const result = yield* Effect.result(runAgentTurnToEnd(spec))
+    if (result._tag === 'Failure') return yield* chatProviderFailure(c, result.failure, userId)
+    const { reply, toolResults } = result.success
+    const answer = toolResults.length > 0 ? toolTurnReply(reply, toolResults) : reply
+    return yield* respondWithBranch(c, opened, {
+      plan,
+      answer,
+      actions: toolResults.length > 0 ? toolTurnActions(toolResults) : [],
+      citations: turnCitations(answer, passages),
+      toolCalls: storedToolCalls(toolResults),
+      roleClasses: hasCodeRoleClasses(app.design),
+    })
   })
-  if (asked === undefined) return notFound(c, 'Conversation not found.')
-  const services = requireDomainContext(c)
-  const parts =
-    plan.parts === undefined ? undefined : await readmitStoredParts(services, userId, plan.parts)
-  const { input, passages } = await withTurnKnowledge({
-    ...asked,
-    ...(parts !== undefined && { parts }),
-  })
-  const earlier = await branchHistory(asked, { userId, messages: thread.messages, plan })
-  const spec = await chatTurnSpec(input, { ...earlier, stream: false })
-  const result = await runRequestEffect(
-    c,
-    provideDomain(c, runAgentTurnToEnd(spec)).pipe(Effect.result)
-  )
-  if (result._tag === 'Failure') return chatProviderFailure(c, result.failure, userId)
-  const { reply, toolResults } = result.success
-  const answer = toolResults.length > 0 ? toolTurnReply(reply, toolResults) : reply
-  return respondWithBranch(c, opened, {
-    plan,
-    answer,
-    actions: toolResults.length > 0 ? toolTurnActions(toolResults) : [],
-    citations: turnCitations(answer, passages),
-    toolCalls: storedToolCalls(toolResults),
-  })
-}
 
 /**
  * The gates every branch turn passes, in order: a signed-in caller, AI
  * configured, the caller's own conversation, and the chat rate limit. Every
  * refusal but the rate limit reads as a conversation that does not exist.
  */
-const openBranchTurn = async (
-  c: Context
-): Promise<OpenedBranchTurn | { readonly refusal: Response }> => {
-  const userId = getSessionContext(c)?.userId
-  const sessionId = c.req.param('sessionId') ?? ''
-  const messageId = c.req.param('messageId') ?? ''
-  if (userId === undefined || process.env.AI_PROVIDER === undefined) {
-    return { refusal: notFound(c, 'Conversation not found.') }
-  }
-  const loaded = await runRequestEffect(
+const openBranchTurn = (c: Context) =>
+  Effect.gen(function* () {
+    const userId = getSessionContext(c)?.userId
+    const sessionId = c.req.param('sessionId') ?? ''
+    const messageId = c.req.param('messageId') ?? ''
+    if (userId === undefined || process.env.AI_PROVIDER === undefined) {
+      return refused(notFound(c, 'Conversation not found.'))
+    }
+    const loaded = yield* Effect.result(loadConversationTree({ userId, sessionId }))
+    if (loaded._tag === 'Failure') {
+      logError('[ai] loading a conversation to branch failed', loaded.failure)
+      return refused(
+        c.json(
+          errorBody({ error: 'Failed to load conversation.', code: ApiErrorCode.INTERNAL_ERROR }),
+          500
+        )
+      )
+    }
+    if (loaded.success === undefined) return refused(notFound(c, 'Conversation not found.'))
+    const limit = checkUserChatRateLimit(userId)
+    if (limit.limited) return refused(rateLimitedResponse(c, limit.retryAfter))
+    const branch: OpenedBranchTurn = { userId, sessionId, messageId, thread: loaded.success }
+    return branch
+  })
+
+/** A branch turn refused before it opened, with its answer. */
+const refused = (refusal: Response): { readonly refusal: Response } => ({ refusal })
+
+/**
+ * Open the branch turn, then answer the plan `planOf` reads off its thread —
+ * the whole of a branch request's program, with the turn's reads kept for it.
+ */
+const runBranchTurn = (
+  c: Context,
+  app: App,
+  planOf: (opened: OpenedBranchTurn) => BranchTurnPlan | undefined
+): Promise<Response> =>
+  runHandlerEffect(
     c,
-    loadConversationTree({ userId, sessionId }).pipe(
-      Effect.provide(requireDomainContext(c)),
-      Effect.result
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const opened = yield* openBranchTurn(c)
+        if ('refusal' in opened) return opened.refusal
+        const plan = planOf(opened)
+        if (plan === undefined) return notFound(c, 'Message not found.')
+        return yield* answerBranch(c, app, opened, plan)
+      }).pipe(withChatTurnReads)
     )
   )
-  if (loaded._tag === 'Failure') {
-    logError('[ai] loading a conversation to branch failed', loaded.failure)
-    return {
-      refusal: c.json(
-        errorBody({ error: 'Failed to load conversation.', code: ApiErrorCode.INTERNAL_ERROR }),
-        500
-      ),
-    }
-  }
-  if (loaded.success === undefined) return { refusal: notFound(c, 'Conversation not found.') }
-  const limit = checkChatRateLimit(userId)
-  if (limit.limited) return { refusal: rateLimitedResponse(c, limit.retryAfter) }
-  return { userId, sessionId, messageId, thread: loaded.success }
-}
 
 /** `POST /api/ai/conversations/:sessionId/messages/:messageId/edit`. */
 const handleEdit = async (c: Context, app: App): Promise<Response | TypedResponse<unknown>> => {
@@ -345,19 +368,15 @@ const handleEdit = async (c: Context, app: App): Promise<Response | TypedRespons
     const error = `Message exceeds the maximum length of ${String(maxMessageLength)} characters.`
     return c.json(errorBody({ error, code: ApiErrorCode.BAD_REQUEST }), 400)
   }
-  const opened = await openBranchTurn(c)
-  if ('refusal' in opened) return opened.refusal
-  const plan = editPlan(opened.thread.messages, opened.messageId, body.data.content)
-  return plan === undefined ? notFound(c, 'Message not found.') : answerBranch(c, app, opened, plan)
+  const { content } = body.data
+  return runBranchTurn(c, app, (opened) =>
+    editPlan(opened.thread.messages, opened.messageId, content)
+  )
 }
 
 /** `POST /api/ai/conversations/:sessionId/messages/:messageId/regenerate`. */
-const handleRegenerate = async (c: Context, app: App): Promise<Response> => {
-  const opened = await openBranchTurn(c)
-  if ('refusal' in opened) return opened.refusal
-  const plan = regeneratePlan(opened.thread.messages, opened.messageId)
-  return plan === undefined ? notFound(c, 'Message not found.') : answerBranch(c, app, opened, plan)
-}
+const handleRegenerate = (c: Context, app: App): Promise<Response> =>
+  runBranchTurn(c, app, (opened) => regeneratePlan(opened.thread.messages, opened.messageId))
 
 /**
  * Chain the edit and regenerate routes. Without an app there is no agent and

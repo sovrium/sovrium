@@ -31,6 +31,8 @@ export default function CrudFormIsland(props: CrudFormIslandProps) {
       <DeleteView
         confirm={props.confirm}
         confirmMessage={props.confirmMessage}
+        confirmGate={props.confirmGate}
+        confirmCancelLabel={props.confirmCancelLabel}
         buttonLabel={props.buttonLabel}
         state={state}
         onSubmit={onDelete}

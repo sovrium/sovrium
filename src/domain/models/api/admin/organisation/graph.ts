@@ -118,9 +118,9 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { withDefault } from '@/domain/models/api/combinators/schema-defaults'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import { withDefault } from '@/domain/models/api/schema-defaults'
 import { organisationFindingSchema, organisationFindingsBySeveritySchema } from './findings'
 
 /**
@@ -211,7 +211,7 @@ export const organisationNodeStateSchema = Schema.Literals([
   'disabled',
 ]).annotate({
   description:
-    'Operational state, on the kinds that have one (`automation`, `agent-resource`). Rendered as weight (dashed = paused, grey = disabled), never as colour. Emitted explicitly as `active` when running — an absent key means the kind reports no state, not that the thing is healthy.',
+    'Operational state, on the kinds that have one (`automation`, `agent-resource`). Rendered as weight (dashed = paused, grey = disabled), never as colour. Emitted explicitly as `active` when running: an absent key means the kind reports no state, not that the thing is healthy.',
 })
 
 /**
@@ -257,20 +257,20 @@ export const organisationNodeSchema = Schema.Struct({
   kind: organisationNodeKindSchema,
   label: Schema.String.annotate({
     description:
-      'The display name of the thing — a table name, a role name, a person’s display name (S4: a NAME, never a field value, a token or a variable’s value). Never empty: a node the operator cannot name is a node they cannot act on.',
+      'The display name of the thing: a table name, a role name, a person’s display name (S4: a NAME, never a field value, a token or a variable’s value). Never empty: a node the operator cannot name is a node they cannot act on.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   family: optionalField(organisationNodeFamilySchema),
   level: optionalField(
     Schema.Int.annotate({
       description:
-        'Rung on the role ladder, for `role` nodes only — higher is more privileged. Orders the Map’s middle column and the Matrix’s columns (`sortBy: ’level’`). Absent on every other kind, and on a role the ladder does not rank.',
+        'Rung on the role ladder, for `role` nodes only; higher is more privileged. Orders the Map’s middle column and the Matrix’s columns (`sortBy: ’level’`). Absent on every other kind, and on a role the ladder does not rank.',
     }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
   ),
   state: optionalField(organisationNodeStateSchema),
   detail: optionalField(
     Schema.String.annotate({
       description:
-        'One short rendered line under the label, naming SUBJECTS only (e.g. "4 members" or "since 9 Sep 16:20") — never a field value or a secret (S4). Absent when the node has nothing to add; never the empty string, so absence has one spelling.',
+        'One short rendered line under the label, naming SUBJECTS only (e.g. "4 members" or "since 9 Sep 16:20"), never a field value or a secret (S4). Absent when the node has nothing to add; never the empty string, so absence has one spelling.',
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   holds: principalFigure(
@@ -320,7 +320,7 @@ export const organisationEdgeKindSchema = Schema.Literals([
   'step',
 ]).annotate({
   description:
-    'What the edge means: `member` (a principal stands in a role or team), `grant` (a grant source reaches a resource — the Matrix is entirely these), `trigger` (a role may invoke an agent, or an automation fires), `escalation` (an agent escalates to an approver), `step` (one station of an automation to the next).',
+    'What the edge means: `member` (a principal stands in a role or team), `grant` (a grant source reaches a resource; the Matrix is entirely these), `trigger` (a role may invoke an agent, or an automation fires), `escalation` (an agent escalates to an approver), `step` (one station of an automation to the next).',
 })
 
 /**
@@ -362,7 +362,7 @@ export const organisationEdgeKindSchema = Schema.Literals([
 const edgeEndpointLabel = (endpoint: 'from' | 'to') =>
   optionalField(
     Schema.String.annotate({
-      description: `The display name of the node \`${endpoint}\` resolves to — byte-identical to that node's \`label\`. Carried on the edge because a declarative row binding cannot join \`edges\` to \`nodes\`, and a \`person:\` id is otherwise an opaque account key in front of an operator. A NAME, never an address (S4): for an unnamed account this is the same "Unnamed account" fallback the node uses. Never the empty string.`,
+      description: `The display name of the node \`${endpoint}\` resolves to, byte-identical to that node's \`label\`. Carried on the edge because a declarative row binding cannot join \`edges\` to \`nodes\`, and a \`person:\` id is otherwise an opaque account key in front of an operator. A NAME, never an address (S4): for an unnamed account this is the same "Unnamed account" fallback the node uses. Never the empty string.`,
     }).pipe(Schema.check(Schema.isMinLength(1)))
   )
 
@@ -399,7 +399,7 @@ export const organisationEdgeSchema = Schema.Struct({
   viaOpenRung: optionalField(
     Schema.Boolean.annotate({
       description:
-        'True when this grant is reached through the open rung (`*` / everyone / any-session) rather than through a named role or team — the fact that turns a finite principal count into an unbounded exposure. A field rather than a client-side re-derivation, because a lens that does not draw the `open` node would otherwise lose it. Absent means the grant is named.',
+        'True when this grant is reached through the open rung (`*` / everyone / any-session) rather than through a named role or team: the fact that turns a finite principal count into an unbounded exposure. A field rather than a client-side re-derivation, because a lens that does not draw the `open` node would otherwise lose it. Absent means the grant is named.',
     })
   ),
 }).annotate({
@@ -430,7 +430,7 @@ export const organisationEdgeSchema = Schema.Struct({
  */
 export const organisationDegradedSourceSchema = Schema.String.annotate({
   description:
-    'The name of a source that could not be resolved; its contribution to the graph is missing rather than empty. v1 emits `principals`, `team-membership` or `automation-state` — one per runtime query. Open rather than a closed enum on purpose: a new or renamed source must not turn a degraded read into a 500.',
+    'The name of a source that could not be resolved; its contribution to the graph is missing rather than empty. v1 emits `principals`, `team-membership` or `automation-state`, one per runtime query. Open rather than a closed enum on purpose: a new or renamed source must not turn a degraded read into a 500.',
 }).pipe(Schema.check(Schema.isMinLength(1)))
 
 /**
@@ -449,7 +449,7 @@ export const organisationDegradedSourceSchema = Schema.String.annotate({
  */
 export const organisationExceptionScopeSchema = Schema.Literals(['field', 'row']).annotate({
   description:
-    'Which axis the exception narrows: `field` (a per-column read/write restriction from `tables[].permissions.fields`) or `row` (a per-record predicate from `tables[].rowLevelPermissions`). Two, because AppSchema declares two — and they live in two unrelated places, which is why this is the first surface that reads them as one idea.',
+    'Which axis the exception narrows: `field` (a per-column read/write restriction from `tables[].permissions.fields`) or `row` (a per-record predicate from `tables[].rowLevelPermissions`). Two, because AppSchema declares two. They live in two unrelated places, which is why this is the first surface that reads them as one idea.',
 })
 
 /**
@@ -471,7 +471,7 @@ export const organisationExceptionOpSchema = Schema.Literals([
   'delete',
 ]).annotate({
   description:
-    'The operation narrowed. The union of the two declaring vocabularies: a field restriction spells `read` / `write`, a row predicate spells `read` / `write` / `create` / `delete`. Deliberately NOT the table op set — there is no `update` (a field write covers it) and no `comment` (neither axis narrows it).',
+    'The operation narrowed. The union of the two declaring vocabularies: a field restriction spells `read` / `write`, a row predicate spells `read` / `write` / `create` / `delete`. Deliberately NOT the table op set: there is no `update` (a field write covers it) and no `comment` (neither axis narrows it).',
 })
 
 /**
@@ -489,7 +489,7 @@ export const organisationExceptionRungSchema = Schema.Literals([
   'roles',
 ]).annotate({
   description:
-    'The shape of the declared grant, as the domain’s `classifyPermissionRung` reports it: `everyone` (declared `all`), `any-session` (declared `authenticated`), or `roles` (a declared role list, carried in `roles`). The domain’s fourth rung `undeclared` is absent by construction — an undeclared restriction is not an exception, and emitting it would turn this list into a census of every field in the app.',
+    'The shape of the declared grant, as the domain’s `classifyPermissionRung` reports it: `everyone` (declared `all`), `any-session` (declared `authenticated`), or `roles` (a declared role list, carried in `roles`). The domain’s fourth rung `undeclared` is absent by construction: an undeclared restriction is not an exception, and emitting it would turn this list into a census of every field in the app.',
 })
 
 /**
@@ -532,13 +532,13 @@ export const organisationExceptionSchema = Schema.Struct({
   ),
   resource: Schema.String.annotate({
     description:
-      'The display name of that resource — the table name. Carried beside the id for the same reason `fromLabel` is carried beside `from`: the consuming row binding cannot join this list to `nodes`.',
+      'The display name of that resource: the table name. Carried beside the id for the same reason `fromLabel` is carried beside `from`: the consuming row binding cannot join this list to `nodes`.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   scope: organisationExceptionScopeSchema,
   op: organisationExceptionOpSchema,
   field: Schema.String.annotate({
     description:
-      'The field NAME the exception is about: the restricted column for a `field` scope, the column the predicate filters on for a `row` scope. Required on both — a field restriction names its field and every row predicate keys on one, so an exception without a field is a producer bug rather than a broader exception. May be a relation path (`project.client_id`), which a predicate is allowed to declare.',
+      'The field NAME the exception is about: the restricted column for a `field` scope, the column the predicate filters on for a `row` scope. Required on both: a field restriction names its field and every row predicate keys on one, so an exception without a field is a producer bug rather than a broader exception. May be a relation path (`project.client_id`), which a predicate is allowed to declare.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   rung: optionalField(organisationExceptionRungSchema),
   roles: optionalField(
@@ -549,7 +549,7 @@ export const organisationExceptionSchema = Schema.Struct({
     )
       .annotate({
         description:
-          'The role names the restriction declares, verbatim — including any `group:<name>` entry, because `group:` is a convention the evaluator decodes at runtime and NOT part of the declared type, so stripping it here would publish a role that does not exist. Present exactly when `rung` is `roles`; absent on `everyone`, on `any-session`, and on every `row` scope, where a predicate names no role at all.',
+          'The role names the restriction declares, verbatim, including any `group:<name>` entry, because `group:` is a convention the evaluator decodes at runtime and NOT part of the declared type, so stripping it here would publish a role that does not exist. Present exactly when `rung` is `roles`; absent on `everyone`, on `any-session`, and on every `row` scope, where a predicate names no role at all.',
       })
       .pipe(Schema.check(Schema.isMinLength(1)))
   ),
@@ -580,7 +580,7 @@ export const adminOrganisationGraphQuerySchema = Schema.Struct({
   node: optionalField(
     Schema.String.annotate({
       description:
-        'A `nodes[].id` to narrow the graph to. The body then carries that node together with every node it reaches and every node that reaches it, the edges between the survivors, and their exceptions — `findings` and `degraded` are untouched, because they describe the instance rather than the node. A well-formed id that names nothing yields an empty graph and a 200, never a 404: this route already answers 404 to a non-admin, so a second meaning for that status would leave a caller unable to tell "you may not read this" from "no such node". Omitted returns the whole graph.',
+        'A `nodes[].id` to narrow the graph to. The body then carries that node together with every node it reaches and every node that reaches it, the edges between the survivors, and their exceptions. `findings` and `degraded` are untouched, because they describe the instance rather than the node. A well-formed id that names nothing yields an empty graph and a 200, never a 404: this route already answers 404 to a non-admin, so a second meaning for that status would leave a caller unable to tell "you may not read this" from "no such node". Omitted returns the whole graph.',
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
 })
@@ -632,7 +632,7 @@ export const adminOrganisationGraphQuerySchema = Schema.Struct({
 export const adminOrganisationGraphResponseSchema = Schema.Struct({
   nodes: Schema.Array(organisationNodeSchema).annotate({
     description:
-      'Every node of the access graph — principals, grant sources, resources — plus the automation lanes and their steps. Empty only on an instance that declares no tables, pages, buckets, agents or automations AND has no accounts.',
+      'Every node of the access graph (principals, grant sources, resources), plus the automation lanes and their steps. Empty only on an instance that declares no tables, pages, buckets, agents or automations AND has no accounts.',
   }),
   edges: Schema.Array(organisationEdgeSchema).annotate({
     description:
@@ -640,17 +640,17 @@ export const adminOrganisationGraphResponseSchema = Schema.Struct({
   }),
   findings: Schema.Array(organisationFindingSchema).annotate({
     description:
-      'What the map found, ordered by `blastRadius` descending with every `"unbounded"` finding above every finite one. Derived per request and never stored (ADR-022: the console is read-only) — nothing pages, nothing is acknowledged, nothing persists. Empty when the configuration exposes nothing structural.',
+      'What the map found, ordered by `blastRadius` descending with every `"unbounded"` finding above every finite one. Derived per request and never stored (ADR-022: the console is read-only): nothing pages, nothing is acknowledged, nothing persists. Empty when the configuration exposes nothing structural.',
   }),
   findingsCount: Schema.Int.annotate({
     description:
-      'How many findings this read found — equal to `findings.length`. Published so a page can print the count without rendering the list. NOT narrowed by `?node=`, since `findings` is not.',
+      'How many findings this read found, equal to `findings.length`. Published so a page can print the count without rendering the list. NOT narrowed by `?node=`, since `findings` is not.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   findingsBySeverity: organisationFindingsBySeveritySchema,
   exceptions: Schema.Array(organisationExceptionSchema)
     .annotate({
       description:
-        'Every declared narrowing of a grant — the per-field restrictions and the per-row predicates the Matrix draws beneath its grid, which a cell glyph cannot show. Empty when no table declares `permissions.fields` or `rowLevelPermissions`. Filtered by `?node=` along with the graph, since an exception is a fact about a resource.',
+        'Every declared narrowing of a grant: the per-field restrictions and the per-row predicates the Matrix draws beneath its grid, which a cell glyph cannot show. Empty when no table declares `permissions.fields` or `rowLevelPermissions`. Filtered by `?node=` along with the graph, since an exception is a fact about a resource.',
     })
     .pipe(withDefault([])),
   appliedNode: optionalField(
@@ -660,11 +660,11 @@ export const adminOrganisationGraphResponseSchema = Schema.Struct({
   ),
   degraded: Schema.Array(organisationDegradedSourceSchema).annotate({
     description:
-      'Sources that could not be resolved, so their contribution to the graph is MISSING rather than empty. EMPTY on a healthy read — required and empty rather than optional and absent, because an array has one canonical empty value where a string would have had two. NOT narrowed by `?node=`: it reports the read’s health, not the node’s.',
+      'Sources that could not be resolved, so their contribution to the graph is MISSING rather than empty. EMPTY on a healthy read: required and empty rather than optional and absent, because an array has one canonical empty value where a string would have had two. NOT narrowed by `?node=`: it reports the read’s health, not the node’s.',
   }),
   generatedAt: looseIsoDateTime({
     description:
-      'ISO 8601 UTC timestamp of when this graph was derived. Per-request — the whole body is computed on every call, which is why the route sends `Cache-Control: no-store`. There is deliberately no `since`: nothing here is windowed, and the config half is read live rather than frozen at boot.',
+      'ISO 8601 UTC timestamp of when this graph was derived. Per-request: the whole body is computed on every call, which is why the route sends `Cache-Control: no-store`. There is deliberately no `since`: nothing here is windowed, and the config half is read live rather than frozen at boot.',
   }),
 }).annotate({
   strictKeys: true,

@@ -18,9 +18,9 @@ import {
 } from '@/application/ports/repositories/automations/admin-automations-repository'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { withWriteOnlyValuesMasked } from '@/application/use-cases/automations/run/write-only-values'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import { formatElapsedDuration } from '@/domain/kernel/format/duration-format'
 import { runStatusSchema, type RunStatus } from '@/domain/models/api/automations'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { entityLabelFor } from '@/domain/models/app/auth/readable-name-service'
 import {
   isFinalFailureStatus,

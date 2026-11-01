@@ -13,92 +13,86 @@
  * the list she would be served.
  */
 
-import { Effect } from 'effect'
+import { Context, Effect } from 'effect'
 import {
-  buildGuestSession,
-  buildSyntheticSession,
-} from '@/application/use-cases/automations/build-guest-session'
-import { readerRowsOf, type ReaderRows } from '@/application/use-cases/tables/row-read-admission'
+  admitChatReaderRows,
+  type AdmissionReader,
+} from '@/application/use-cases/agents/chat-turn/reader-rows'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { ReaderRows } from '@/application/use-cases/tables/row-read-admission'
 import type { App } from '@/domain/models/app'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
-
-/** The parts of a chat reader the list's admission is asked about. */
-export interface AdmissionReader {
-  readonly role: string
-  readonly groups: readonly string[]
-  /** The signed-in user; absent for no one. */
-  readonly userId?: string | undefined
-  /** True for a declared agent, which reads under its declared role. */
-  readonly agent?: boolean | undefined
-  /** The person a declared agent answers, whose list narrows what it names. */
-  readonly answering?: AdmissionReader | undefined
-}
-
-/** True for a visitor signed in to nothing: no role, no identity, not an agent. */
-export const isSignedOut = (reader: AdmissionReader): boolean =>
-  reader.role === '' && reader.agent !== true && reader.userId === undefined
 
 /** One answer kept for the turn, with the config it was read under. */
 interface TurnRows {
   readonly app: App | undefined
-  readonly read: Promise<ReaderRows | undefined>
+  readonly read: Effect.Effect<ReaderRows | undefined, never, DataSourceRepository>
 }
 
+/** The answers one turn already read, per reader and table. */
+type TurnReads = Map<AdmissionReader, Map<string, TurnRows>>
+
 /**
- * The answers already read this turn, per reader and table. A turn builds its
- * reader once and hands that same object to every step — the context, the
- * tools, the query and write parsers, the history replay — so keying on it
- * reads her grants once per turn; the next turn builds a new reader and reads
- * them afresh, and a finished turn's answers go with its reader. A reader must
- * therefore never be shared between turns (`signedOutReader` is built per
- * call); as a second fence, an answer read under another config (a reload
- * mid-turn) is read again, and a failed read is never kept.
+ * The answers already read in the running turn, per reader and table — none
+ * outside a turn, where every read is made afresh. A turn hands one reader
+ * object to every step — the context, the tools, the query and write parsers,
+ * the history replay — so keying on it reads her grants once per turn; the
+ * store goes with the turn's program ({@link withChatTurnReads}). As a second
+ * fence, an answer read under another config (a reload mid-turn) is read
+ * again, and a failed read is never kept.
  */
-const turnRows = new WeakMap<AdmissionReader, Map<string, TurnRows>>()
+const ChatTurnReads = Context.Reference<TurnReads | undefined>('sovrium/ChatTurnReads', {
+  defaultValue: () => undefined,
+})
+
+/** Run `program` as one turn: the rows each reader is admitted are read once in it. */
+export const withChatTurnReads = <A, E, R>(
+  program: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> =>
+  Effect.suspend(() => Effect.provideService(program, ChatTurnReads, new Map()))
+
+/** One read of {@link chatReaderRows}, kept in the turn's store until it fails. */
+const keptRead = (
+  reads: TurnReads,
+  input: {
+    readonly app: App | undefined
+    readonly tableName: string
+    readonly reader: AdmissionReader
+  }
+): Effect.Effect<ReaderRows | undefined, never, DataSourceRepository> =>
+  Effect.gen(function* () {
+    const known = reads.get(input.reader) ?? new Map<string, TurnRows>()
+    const cached = known.get(input.tableName)
+    if (cached !== undefined && cached.app === input.app) return yield* cached.read
+    const shared = yield* Effect.cached(admitChatReaderRows(input))
+    const read: TurnRows['read'] = shared.pipe(
+      Effect.onError(() =>
+        Effect.sync(() => {
+          if (known.get(input.tableName)?.read === read) known.delete(input.tableName)
+        })
+      )
+    )
+    known.set(input.tableName, { app: input.app, read })
+    reads.set(input.reader, known)
+    return yield* read
+  })
 
 /**
  * The rows of `tableName` the records list admits `reader` and the grants
  * behind them — asked for a person, signed in or not, once per turn
- * ({@link turnRows}). A declared agent reads with the reach its config gives
- * it, so `undefined` (as for a reader with no identity at all).
+ * ({@link withChatTurnReads}). A declared agent reads with the reach its
+ * config gives it, so `undefined` (as for a reader with no identity at all).
  */
 export const chatReaderRows = (
-  services: DomainContext,
   app: App | undefined,
   tableName: string,
   reader: AdmissionReader
-): Promise<ReaderRows | undefined> => {
-  const known = turnRows.get(reader) ?? new Map<string, TurnRows>()
-  const cached = known.get(tableName)
-  if (cached !== undefined && cached.app === app) return cached.read
-  const read = readChatReaderRows(services, app, tableName, reader)
-  known.set(tableName, { app, read })
-  turnRows.set(reader, known)
-  read.catch(() => {
-    if (known.get(tableName)?.read === read) known.delete(tableName)
+): Effect.Effect<ReaderRows | undefined, never, DataSourceRepository> =>
+  Effect.gen(function* () {
+    const reads = yield* ChatTurnReads
+    return yield* reads === undefined
+      ? admitChatReaderRows({ app, tableName, reader })
+      : keptRead(reads, { app, tableName, reader })
   })
-  return read
-}
-
-/** One read of {@link chatReaderRows}, uncached. */
-const readChatReaderRows = async (
-  services: DomainContext,
-  app: App | undefined,
-  tableName: string,
-  reader: AdmissionReader
-): Promise<ReaderRows | undefined> => {
-  if (app === undefined || reader.agent === true) return undefined
-  const signedOut = isSignedOut(reader)
-  if (reader.userId === undefined && !signedOut) return undefined
-  const session =
-    reader.userId === undefined ? buildGuestSession() : buildSyntheticSession(reader.userId)
-  const role = signedOut ? 'guest' : reader.role
-  return Effect.runPromise(
-    readerRowsOf(app, tableName, { session, role, groups: reader.groups }).pipe(
-      Effect.provide(services)
-    )
-  )
-}
 
 /**
  * True unless the records list admits `reader` no row of `tableName` — or, for
@@ -106,29 +100,26 @@ const readChatReaderRows = async (
  * not in its context, not among the tools it offers the model, since the list
  * answers her as one that does not exist.
  */
-export const chatReaderListsTable = async (
-  services: DomainContext,
+export const chatReaderListsTable = (
   app: App | undefined,
   tableName: string,
   reader: AdmissionReader
-): Promise<boolean> => {
-  const rows = await chatReaderRows(services, app, tableName, reader)
-  if (rows?.admission.kind === 'no-row') return false
-  return (
-    reader.answering === undefined ||
-    chatReaderListsTable(services, app, tableName, reader.answering)
-  )
-}
+): Effect.Effect<boolean, never, DataSourceRepository> =>
+  Effect.gen(function* () {
+    const rows = yield* chatReaderRows(app, tableName, reader)
+    if (rows?.admission.kind === 'no-row') return false
+    return (
+      reader.answering === undefined ||
+      (yield* chatReaderListsTable(app, tableName, reader.answering))
+    )
+  })
 
 /** The `tables` {@link chatReaderListsTable} keeps, in their order. */
-export const keepListedTables = async <T extends { readonly name: string }>(
-  services: DomainContext,
+export const keepListedTables = <T extends { readonly name: string }>(
   app: App | undefined,
   tables: ReadonlyArray<T>,
   reader: AdmissionReader
-): Promise<ReadonlyArray<T>> => {
-  const listed = await Promise.all(
-    tables.map((table) => chatReaderListsTable(services, app, table.name, reader))
-  )
-  return tables.filter((_, index) => listed[index] === true)
-}
+): Effect.Effect<ReadonlyArray<T>, never, DataSourceRepository> =>
+  Effect.forEach(tables, (table) => chatReaderListsTable(app, table.name, reader), {
+    concurrency: 'unbounded',
+  }).pipe(Effect.map((listed) => tables.filter((_, index) => listed[index] === true)))

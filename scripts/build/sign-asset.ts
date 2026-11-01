@@ -42,7 +42,16 @@
 
 import { createPrivateKey, createPublicKey, sign, verify, type KeyObject } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { printStderr } from '@/infrastructure/logging/cli-output'
+
+/**
+ * Plain `process.stderr`, not the CLI logger: the release workflow's signing job
+ * runs this script from a bare checkout with NO `bun install`, so no third-party
+ * package shares a process with the key. Only `node:` built-ins may be imported
+ * here — `sign-tauri-updater.test.ts` fails on anything else.
+ */
+const printStderr = (message: string): void => {
+  process.stderr.write(`${message}\n`)
+}
 
 /** The environment variable the CI step fills from the repository secret. */
 export const SIGNING_KEY_ENV = 'SOVRIUM_RELEASE_SIGNING_KEY'

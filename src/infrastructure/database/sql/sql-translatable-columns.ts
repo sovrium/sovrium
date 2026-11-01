@@ -34,11 +34,11 @@ import {
   type RecordLanguages,
 } from '@/domain/models/app/tables/translatable-field-service'
 import { languageUniqueIndexName } from '@/domain/models/app/tables/translatable-unique-service'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { executeSQL, type SQLExecutionError, type TransactionLike } from './sql-execution'
 import { escapeSqlString } from './sql-utils'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /** The key under which a text field carries the app's language codes, default first. */
 export const RECORD_LANGUAGES: unique symbol = Symbol('sovrium.recordLanguages')
@@ -94,7 +94,10 @@ const jsonPath = (code: string): string => literal(`$."${code}"`)
  * no stamped language to file a string under); `undefined` for any field that
  * is not translatable, which keeps the generic clause.
  */
-export const translatableDefaultClause = (field: Fields[number]): string | undefined => {
+export const translatableDefaultClause = (
+  field: Fields[number],
+  dialect: DatabaseDialect
+): string | undefined => {
   if (!declaresTranslatable(field)) return undefined
   const declared = 'default' in field ? field.default : undefined
   const defaultLanguage = recordLanguagesOf(field)[0]
@@ -103,7 +106,7 @@ export const translatableDefaultClause = (field: Fields[number]): string | undef
   if (map === undefined) return ''
   // @effect-diagnostics effect/preferSchemaOverJson:off
   const json = literal(JSON.stringify(map))
-  return isSqliteRuntime() ? ` DEFAULT ${json}` : ` DEFAULT ${json}::jsonb`
+  return dialect === 'sqlite' ? ` DEFAULT ${json}` : ` DEFAULT ${json}::jsonb`
 }
 
 /**
@@ -111,9 +114,10 @@ export const translatableDefaultClause = (field: Fields[number]): string | undef
  * type refuses anything else on its own.
  */
 export const generateTranslatableConstraints = (
-  fields: readonly Fields[number][]
+  fields: readonly Fields[number][],
+  dialect: DatabaseDialect
 ): readonly string[] =>
-  isSqliteRuntime()
+  dialect === 'sqlite'
     ? fields
         .filter(declaresTranslatable)
         .map(
@@ -234,11 +238,12 @@ const languageIndexName = (tableName: string, fieldName: string, code: string): 
 export const translatableIndexStatements = (
   tableName: string,
   field: Fields[number],
-  plainIndexName: string
+  plainIndexName: string,
+  dialect: DatabaseDialect
 ): readonly string[] => {
   const sanitized = sanitizeTableName(tableName)
   const column = quoteSqlIdentifier(field.name)
-  const sqlite = isSqliteRuntime()
+  const sqlite = dialect === 'sqlite'
   return [
     `DROP INDEX IF EXISTS ${plainIndexName}`,
     ...recordLanguagesOf(field).map((code) => {
@@ -270,9 +275,9 @@ export const translatableIndexDrops = (
  * (the default language's, else the first non-empty one), as a read of the
  * stored map: what a unique field's turned-off values are probed with.
  */
-export const collapsedValueDdl = (field: Fields[number]): string => {
+export const collapsedValueDdl = (field: Fields[number], dialect: DatabaseDialect): string => {
   const column = quoteSqlIdentifier(field.name)
-  return isSqliteRuntime()
+  return dialect === 'sqlite'
     ? collapseExpression(
         column,
         recordLanguagesOf(field),
@@ -282,13 +287,16 @@ export const collapsedValueDdl = (field: Fields[number]): string => {
 }
 
 /** Whether a PostgreSQL type change turns `translatable` on or off for this field. */
-const isTranslatableToggle = (field: Fields[number], existingDataType: string): boolean =>
+export const isTranslatableToggle = (field: Fields[number], existingDataType: string): boolean =>
   TRANSLATABLE_FIELD_TYPES.has(field.type) &&
   declaresTranslatable(field) !== (existingDataType.toLowerCase() === 'jsonb')
 
-/** A column's DEFAULT expression in its new shape: a map when translatable, else the text. */
+/**
+ * A column's DEFAULT expression in its new shape: a map when translatable, else
+ * the text. A type toggle is a PostgreSQL statement (SQLite rebuilds the table).
+ */
 const toggledDefaultExpression = (field: Fields[number]): string | undefined => {
-  const clause = translatableDefaultClause(field)
+  const clause = translatableDefaultClause(field, 'postgres')
   if (clause !== undefined) return clause === '' ? undefined : clause.replace(/^ DEFAULT /, '')
   const declared = 'default' in field ? field.default : undefined
   return typeof declared === 'string' ? literal(declared) : undefined

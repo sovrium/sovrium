@@ -1,6 +1,6 @@
 # Form Access Control
 
-> Who may open a form and post to it — and why a role-restricted form answers 404 rather than 403.
+> Who may open a form and post to it, and why a role-restricted form answers 404 rather than 403.
 
 A form is a public route by default. That is right for a contact form and wrong for an internal expense claim, a partner-only order sheet or a member survey, each of which needs its URL to answer differently depending on who asked.
 
@@ -20,7 +20,7 @@ forms:
 
 `require` is `all`, `authenticated`, or an array of role names with at least one entry. Omitting the whole `access` block is the same as `all`.
 
-A role array may also name a group, with a `group:` prefix — `['admin', 'group:partners']` admits anyone whose role is `admin` or who belongs to the `partners` group.
+A role array may also name a group, with a `group:` prefix: `['admin', 'group:partners']` admits anyone whose role is `admin` or who belongs to the `partners` group.
 
 `redirectTo` is accepted and validated today; the canonical route currently answers a denial with the response below rather than a redirect.
 
@@ -28,11 +28,11 @@ A role array may also name a group, with a `group:` prefix — `['admin', 'group
 
 The gate applies to opening the form and to posting to it. The denial is deliberately not uniform.
 
-| `require`        | Anonymous visitor        | Signed in, wrong role | Signed in, right role |
-| ---------------- | ------------------------ | --------------------- | --------------------- |
-| omitted or `all` | Allowed                  | Allowed               | Allowed               |
-| `authenticated`  | `401` — sign-in required | Allowed               | Allowed               |
-| a role list      | `404`                    | `404`                 | Allowed               |
+| `require`        | Anonymous visitor       | Signed in, wrong role | Signed in, right role |
+| ---------------- | ----------------------- | --------------------- | --------------------- |
+| omitted or `all` | Allowed                 | Allowed               | Allowed               |
+| `authenticated`  | `401`, sign-in required | Allowed               | Allowed               |
+| a role list      | `404`                   | `404`                 | Allowed               |
 
 The `401` names the form and the level it requires, because "sign in to use this" is a useful thing to tell a visitor.
 
@@ -52,7 +52,7 @@ The inline form of the same reference is stricter: a per-field default referenci
 
 A form rendered inside a page keeps its own gate, and the page inherits the strictest answer: if any embedded form denies the session, the whole page answers `404`.
 
-The alternative — rendering the page with a hole where the form should be — would leak the form's existence through the shape of the page, which is exactly what the role gate exists to prevent.
+The alternative, rendering the page with a hole where the form should be, would leak the form's existence through the shape of the page, which is exactly what the role gate exists to prevent.
 
 A form without `access` is offered the same way on both surfaces to a signed-out visitor: the page draws it as `/forms/{name}` does, whatever the bound table's `create` grant says, and her submission is stamped with `system`. A signed-in reader is offered the embedded form only when the bound table lets her create a record.
 

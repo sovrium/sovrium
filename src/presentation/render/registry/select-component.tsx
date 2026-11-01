@@ -11,6 +11,7 @@ import {
   renderSsrSelectPlaceholder,
 } from '@/presentation/render/elements/native-select'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
+import { synthesizedComponent } from '@/presentation/render/resolve/component-rewrite'
 import { localizeChildLabel, resolveInterpreterStringOverrides } from './island-child-label'
 import { asRecord, baseProps, pickFromComponent } from './island-form-props'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -148,7 +149,8 @@ export const selectComponent: ComponentRenderer = themedSelect('select')
 export const comboboxComponent: ComponentRenderer = (context) =>
   themedSelect('combobox')({
     ...context,
-    component: { ...asRecord(context.component), searchable: true },
+    // Drawn as a `select` with type-ahead on: the node handed on is a select's.
+    component: synthesizedComponent({ ...asRecord(context.component), searchable: true }),
   })
 
 /**
@@ -157,7 +159,11 @@ export const comboboxComponent: ComponentRenderer = (context) =>
  * own type rather than by `native: true` on a `select`.
  */
 export const nativeSelectComponent: ComponentRenderer = (context) =>
-  selectComponent({ ...context, component: { ...asRecord(context.component), native: true } })
+  selectComponent({
+    ...context,
+    // Drawn as a `select` on its platform branch: the node handed on is a select's.
+    component: synthesizedComponent({ ...asRecord(context.component), native: true }),
+  })
 
 /** The select family's renderers, keyed by type, for the island form registry. */
 export const selectComponents = {

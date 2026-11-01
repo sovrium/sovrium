@@ -15,9 +15,9 @@ import {
   stack,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
+import { labelOf } from '@/library/kit/field-labels'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import { labelOf } from '@/library/manifest/field-labels'
 import { composedToolbar } from './data-table-toolbar'
 
 type P = (key: string) => string

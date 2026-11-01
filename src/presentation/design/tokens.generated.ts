@@ -176,7 +176,7 @@ export const TOKENS = {
   densityGap: '7px',
   densityText: '11px',
 
-  // ---------- shadcn/ui variables (base-nova, 4.22.1) ----------
+  // ---------- shadcn/ui variables (base-nova, 4.23.0) ----------
   background: 'oklch(1 0 0)',
   foreground: 'oklch(0.145 0 0)',
   card: 'oklch(1 0 0)',
@@ -192,7 +192,7 @@ export const TOKENS = {
   accentForeground: 'oklch(0.205 0 0)',
   destructive: 'oklch(0.5 0.245 27.325)',
   input: 'oklch(0.65 0 0)',
-  ring: 'oklch(0.708 0 0)',
+  ring: 'oklch(0.556 0 0)',
   chart1: '#d4d4d4',
   chart2: '#737373',
   chart3: '#525252',
@@ -206,7 +206,7 @@ export const TOKENS = {
   sidebarAccent: 'oklch(0.97 0 0)',
   sidebarAccentForeground: 'oklch(0.205 0 0)',
   sidebarBorder: 'oklch(0.922 0 0)',
-  sidebarRing: 'oklch(0.708 0 0)',
+  sidebarRing: 'oklch(0.556 0 0)',
 } as const
 
 /** @public Design-token key vocabulary. */

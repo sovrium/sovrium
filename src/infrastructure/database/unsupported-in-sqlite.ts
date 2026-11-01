@@ -6,7 +6,6 @@
  */
 
 import { Data } from 'effect'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Graceful-degradation boundary for the SQLite runtime.
@@ -26,7 +25,7 @@ import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database
  *
  *   - {@link UnsupportedInSqliteError} — the tagged error a Postgres-only code
  *     path raises when reached on SQLite.
- *   - {@link isSqliteRuntime} — the runtime check guards branch on.
+ *   - `dialect.kind` on the `Database` service — the check guards branch on.
  *
  * HTTP routes degrade per-route (e.g. the RAG route's SQLite repository
  * implementation, the `AI_PROVIDER` `503` gate) rather than via a shared
@@ -54,12 +53,3 @@ export class UnsupportedInSqliteError extends Data.TaggedError('UnsupportedInSql
   /** Operator-facing explanation of why the call failed and what to do. */
   readonly message: string
 }> {}
-
-/**
- * Whether the active database runtime is SQLite.
- *
- * Delegates to `parseDatabaseDialectConfig()` — the single source of truth for
- * dialect selection. PostgreSQL is used when `DATABASE_URL` is set; SQLite (the
- * zero-config, frugal-by-default engine) is used otherwise.
- */
-export const isSqliteRuntime = (): boolean => parseDatabaseDialectConfig().dialect === 'sqlite'

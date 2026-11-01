@@ -1,6 +1,6 @@
 # Webhook & Cron Triggers
 
-> The two triggers that fire without anyone using your app — an external system calling in, or the clock.
+> The two triggers that fire without anyone using your app: an external system calling in, or the clock.
 
 ## Webhook trigger
 
@@ -18,11 +18,11 @@ trigger:
 
 <!-- sovrium:options WebhookTriggerSchema -->
 
-`deduplicationWindow` is in seconds and defaults to 300. `rateLimit` accepts `window` as an alias for `windowSeconds`, and counts requests per client address unless `per: project` counts them per sender of a telemetry receiver. A trigger with a `protocol` receives errors, transactions or logs at that protocol's standard paths instead of the webhook URL; see Telemetry Ingest.
+`deduplicationWindow` is in seconds and defaults to 300. `rateLimit` accepts `window` as an alias for `windowSeconds`, and counts requests per client address unless `per: project` counts them per sender of a telemetry receiver. A webhook with no `auth` that declares no `rateLimit` is held to 120 calls per minute from one address: the 121st answers `429` with a `Retry-After`. A declared `rateLimit` replaces that budget, higher or lower; a webhook with `auth` has none unless it declares one. Whatever the budget, a call that would leave more than 100 runs of the automation waiting for a concurrency slot answers `503` with a `Retry-After` and starts nothing. A trigger with a `protocol` receives errors, transactions or logs at that protocol's standard paths instead of the webhook URL; see Telemetry Ingest.
 
 ### The caller waits unless you say otherwise
 
-`respondImmediately` is off by default, which takes the **synchronous** path: the HTTP request stays open until the run completes, so a slow automation becomes a slow response for the sender. Set it to `true` for a fire-and-forget receiver that only needs a fast `202` — most payment and repository providers are exactly that, and several will retry a slow delivery as though it had failed.
+`respondImmediately` is off by default, which takes the **synchronous** path: the HTTP request stays open until the run completes, so a slow automation becomes a slow response for the sender. Set it to `true` for a fire-and-forget receiver that only needs a fast `202`. Most payment and repository providers are exactly that, and several will retry a slow delivery as though it had failed.
 
 ### What the caller gets back
 
@@ -73,7 +73,7 @@ The manual trigger (`POST /api/automations/{name}/trigger`) answers differently,
 
 ### Inbound authentication
 
-`auth.type` is one of `bearer`, `apiKey`, `hmac`, `basic`, `session` or `projectKey`. The first four check a secret you share with one sender; `session` checks who is calling (below); `projectKey` looks each sender's own key up in a table and exists only beside a telemetry `protocol` (see Telemetry Ingest). The credential fields — `token`, `prefix`, `key`, `header`, `secret`, `algorithm`, `username`, `password` — are optional and, with one exception below, unconditioned by `type`; `algorithm` is a free string rather than a closed set.
+`auth.type` is one of `bearer`, `apiKey`, `hmac`, `basic`, `session` or `projectKey`. The first four check a secret you share with one sender; `session` checks who is calling (below); `projectKey` looks each sender's own key up in a table and exists only beside a telemetry `protocol` (see Telemetry Ingest). The credential fields (`token`, `prefix`, `key`, `header`, `secret`, `algorithm`, `username`, `password`) are optional and, with one exception below, unconditioned by `type`; `algorithm` is a free string rather than a closed set.
 
 Nothing validates that a `bearer` block actually carries a `token`, so an incomplete block passes `sovrium validate` and fails at request time instead. Check an inbound auth block by sending a request at it, not by validating the configuration. Every credential value supports `$env.VAR`.
 
@@ -100,7 +100,7 @@ A request whose header is missing or differs is answered `401` and runs nothing;
 trigger: { type: webhook, method: POST, auth: { type: session, requiredRole: member } }
 ```
 
-The caller must present a Sovrium session cookie or a user's API key in `x-api-key` (`auth.apiKeys`). A caller with neither, or without `requiredRole` — judged as for a manual trigger, so an admin satisfies any role — is answered `404`, as if the webhook did not exist, and no run is created. The run knows who called: `{{trigger.user.id}}`, `{{trigger.user.role}}`, `{{trigger.user.email}}` and `{{trigger.user.name}}`, and a record action with `runAs: triggering-user` writes as that person. `session` needs an `auth` block on the app. A `session` webhook's run is started by hand by its caller: its record, file and grant steps read and write as that person, exactly as a manual trigger's, and she may read the run. A webhook with any other `auth` runs as the system, and so does a `session` webhook, for a caller presenting an API key, that reveals write-only fields (`revealWriteOnly`) or declares `runAs: system`. `runAs: system` is for a machine reporting with its own key and a dedicated role, writing rows that role holds no grant on: it is accepted only beside a `requiredRole` other than the role every sign-up receives, a caller signed in with a session cookie still runs as the person, `trigger.user` still names the caller, and only an admin may read the automation's runs.
+The caller must present a Sovrium session cookie or a user's API key in `x-api-key` (`auth.apiKeys`); only this type takes its caller from a session cookie, since a browser sends the cookie with a link another site opened. On a server reachable from elsewhere, a cookie-carrying request another site sent to any webhook, whatever its method, is refused with `403` and starts nothing. A caller with neither, or without `requiredRole` (judged as for a manual trigger, so an admin satisfies any role) is answered `404`, as if the webhook did not exist, and no run is created. The run knows who called: `{{trigger.user.id}}`, `{{trigger.user.role}}`, `{{trigger.user.email}}` and `{{trigger.user.name}}`, and a record action with `runAs: triggering-user` writes as that person. `session` needs an `auth` block on the app. A `session` webhook's run is started by hand by its caller: its record, file and grant steps read and write as that person, exactly as a manual trigger's, and she may read the run. A webhook with any other `auth` runs as the system, and so does a `session` webhook, for a caller presenting an API key, that reveals write-only fields (`revealWriteOnly`) or declares `runAs: system`. `runAs: system` is for a machine reporting with its own key and a dedicated role, writing rows that role holds no grant on: it is accepted only beside a `requiredRole` other than the role every sign-up receives, a caller signed in with a session cookie still runs as the person, `trigger.user` still names the caller, and only an admin may read the automation's runs.
 
 ### Signature schemes
 
@@ -109,7 +109,7 @@ An `hmac` webhook checks a signature the way its `scheme` says the provider writ
 | `scheme`         | Signed string                           | Where the signature is read                                                       |
 | ---------------- | --------------------------------------- | --------------------------------------------------------------------------------- |
 | `hex`            | the raw body                            | `header` (default `X-Signature`), after `prefix`, as hex                          |
-| `base64`         | the raw body                            | `header`, after `prefix`, as base64 — Shopify's format                            |
+| `base64`         | the raw body                            | `header`, after `prefix`, as base64 (Shopify's format)                            |
 | `stripe`         | `<t>.<raw body>`                        | `Stripe-Signature: t=<t>,v1=<hex>`; any of several `v1` entries may match         |
 | `slack`          | `v0:<timestamp>:<raw body>`             | `X-Slack-Signature: v0=<hex>`, with the timestamp in `X-Slack-Request-Timestamp`  |
 | `svix`           | `<svix-id>.<svix-timestamp>.<raw body>` | `svix-signature: v1,<base64>`, any of several; the secret is the `whsec_…` value  |
@@ -161,7 +161,7 @@ trigger:
 
 ### Answering a provider's subscription handshake
 
-Some providers check an endpoint before they deliver anything to it. Meta — Facebook Pages and Lead Ads, Instagram, WhatsApp Cloud — sends a `GET` with `hub.mode=subscribe`, `hub.verify_token` and `hub.challenge`, and subscribes only an endpoint that answers the challenge back. Declare `verification` and Sovrium answers it:
+Some providers check an endpoint before they deliver anything to it. Meta (Facebook Pages and Lead Ads, Instagram, WhatsApp Cloud) sends a `GET` with `hub.mode=subscribe`, `hub.verify_token` and `hub.challenge`, and subscribes only an endpoint that answers the challenge back. Declare `verification` and Sovrium answers it:
 
 ```yaml
 # Requires env: [{ key: META_VERIFY_TOKEN }, { key: META_APP_SECRET }] at the top of the app
@@ -172,13 +172,13 @@ trigger:
   auth: { type: hmac, secret: $env.META_APP_SECRET, header: X-Hub-Signature-256, prefix: 'sha256=' }
 ```
 
-A handshake presenting the verify token you entered in the provider console is answered `200` with the challenge, verbatim, as plain text. It runs nothing — no run is created — and it is answered before the method check and before `auth`, since the verify token is its only credential. A wrong token, another `hub.mode` or a missing challenge gets the same `404` as a webhook that does not exist, echoing nothing. The signed events the provider then posts go through `auth` and run the automation as usual.
+A handshake presenting the verify token you entered in the provider console is answered `200` with the challenge, verbatim, as plain text. It runs nothing (no run is created), and it is answered before the method check and before `auth`, since the verify token is its only credential. A wrong token, another `hub.mode` or a missing challenge gets the same `404` as a webhook that does not exist, echoing nothing. The signed events the provider then posts go through `auth` and run the automation as usual.
 
 `GET /api/automations`, the automation listing every signed-in member reads, never carries a webhook secret: the verify token, a signing `secret` and every secret field of `auth` are listed as `[redacted]`, whether you wrote a literal value or an `$env` reference.
 
 ### What the payload looks like
 
-The body is **not** at `{{trigger.body}}`. The available paths are `{{trigger.data.body.*}}`, `{{trigger.data.headers.*}}` and `{{trigger.data.query.*}}`, plus `{{trigger.data.method}}`, `{{trigger.data.path}}` and `{{trigger.data.ip}}`. Scalar body fields are additionally flattened to `{{trigger.data.<field>}}`, which is a convenience rather than the contract — a nested object is only reachable through the full path. When the request carries a session cookie or a user's API key, `{{trigger.user.id}}`, `{{trigger.user.role}}`, `{{trigger.user.email}}` and `{{trigger.user.name}}` name that caller; the body cannot set them, so a posted `user` field only ever lands under `{{trigger.data.*}}`. A credential header (the header your `auth` reads, or any name containing `authorization`, `cookie`, `token`, `secret`, `signature`, `api-key`, `apikey` or `password`) reads `***` there: the run keeps its name, never its value.
+The body is **not** at `{{trigger.body}}`. The available paths are `{{trigger.data.body.*}}`, `{{trigger.data.headers.*}}` and `{{trigger.data.query.*}}`, plus `{{trigger.data.method}}`, `{{trigger.data.path}}` and `{{trigger.data.ip}}`. Scalar body fields are additionally flattened to `{{trigger.data.<field>}}`, which is a convenience rather than the contract: a nested object is only reachable through the full path. When the request carries a user's API key and no session cookie, or, on a `session` webhook only, a session cookie, `{{trigger.user.id}}`, `{{trigger.user.role}}`, `{{trigger.user.email}}` and `{{trigger.user.name}}` name that caller; the body cannot set them, so a posted `user` field only ever lands under `{{trigger.data.*}}`. A credential header (the header your `auth` reads, or any name containing `authorization`, `cookie`, `token`, `secret`, `signature`, `api-key`, `apikey` or `password`) reads `***` there: the run keeps its name, never its value.
 
 ## Cron trigger
 
@@ -193,7 +193,7 @@ trigger:
 
 <!-- sovrium:options CronTriggerSchema -->
 
-`expression` is a standard five-field cron expression, or a six-field one carrying seconds. `timezone` is an IANA zone name; when omitted it is the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset). There are **no `@daily`, `@hourly` or `@weekly` aliases** — write the numeric equivalent, `0 0 * * *` or `0 * * * *`. A step of zero, `*/0`, is refused. Both the expression and the timezone are validated offline, against the IANA database in the timezone's case, so a typo fails `sovrium validate` rather than producing an automation that silently never runs.
+`expression` is a standard five-field cron expression, or a six-field one carrying seconds. `timezone` is an IANA zone name; when omitted it is the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset). There are **no `@daily`, `@hourly` or `@weekly` aliases**: write the numeric equivalent, `0 0 * * *` or `0 * * * *`. A step of zero, `*/0`, is refused. Both the expression and the timezone are validated offline, against the IANA database in the timezone's case, so a typo fails `sovrium validate` rather than producing an automation that silently never runs.
 
 Set `timezone` whenever the schedule tracks human working hours. `0 9 * * 1-5` in `UTC` drifts an hour against Paris twice a year, while the same expression in `Europe/Paris` stays at 09:00 local through both daylight-saving transitions.
 

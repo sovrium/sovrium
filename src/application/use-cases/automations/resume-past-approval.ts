@@ -43,7 +43,7 @@ export const resumePastApproval = (
   output: Readonly<Record<string, unknown>>
 ): Effect.Effect<ResolveApprovalResult, ResolveApprovalError, ResolveRequirements> =>
   Effect.gen(function* () {
-    const { runId, approvalId, target, decision, app, processEnv } = input
+    const { runId, approvalId, target, decision, app } = input
     const runRepo = yield* AutomationRunRepository
     // A failure of `resolveAutomationId` is a registry write
     // (`AutomationRegistrySeedError`), never a 404.
@@ -63,7 +63,6 @@ export const resumePastApproval = (
       trigger: target.trigger,
       automationId,
       app,
-      processEnv,
       triggerData: target.triggerData,
       handlers: input.handlers ?? defaultActionHandlers,
       // The persisted `triggerData`, never a session: a hand-started run resumes as

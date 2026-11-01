@@ -1,6 +1,6 @@
 # Storage Backends
 
-> Where the bytes end up — an operator decision made entirely with environment variables, so one configuration file runs against local disk in development and an object store in production.
+> Where the bytes end up: an operator decision made entirely with environment variables, so one configuration file runs against local disk in development and an object store in production.
 
 All three backends support the full surface: upload, download, delete, signed URLs and image transforms.
 
@@ -62,15 +62,15 @@ Every declared bucket stores its objects in the single object store the environm
 
 A declared bucket is not a folder: keys are flat, and each object records the bucket it was uploaded to rather than carrying it in the path. That record is what keeps one bucket's objects out of another's.
 
-The record also holds the object's size, and a read never goes past it. A download, a signed download, an attachment's size check or its stored metadata, and a file an AI chat turn reads all stop at the recorded size: an object whose bytes in the store outgrew its record — written there by something other than Sovrium — fails the read with a `500` and a storage error code instead of being served whole.
+The record also holds the object's size, and a read never goes past it. A download, a signed download, an attachment's size check or its stored metadata, and a file an AI chat turn reads all stop at the recorded size: an object whose bytes in the store outgrew its record (written there by something other than Sovrium) fails the read with a `500` and a storage error code instead of being served whole.
 
-An object with no record at all — one an automation wrote straight into the store, then shared through a signed download link — is read up to the size the store reports, and never past 100 MiB. A larger one is refused the same way, before any of it is read.
+An object with no record at all (one an automation wrote straight into the store, then shared through a signed download link) is read up to the size the store reports, and never past 100 MiB. A larger one is refused the same way, before any of it is read.
 
 ## A missing variable stops the boot; an unreachable store does not
 
 The two failures look alike and are handled deliberately differently.
 
-A missing required variable is yours to fix before the process is any use, so the boot is refused and the variable is named. A store that is configured correctly and simply does not answer — the endpoint is down, a credential was rotated, the name is a typo only the provider can see — is a condition that can clear itself while the server runs. Failing the boot over it would take the whole app offline, including every page that never touches a file.
+A missing required variable is yours to fix before the process is any use, so the boot is refused and the variable is named. A store that is configured correctly and simply does not answer (the endpoint is down, a credential was rotated, the name is a typo only the provider can see) is a condition that can clear itself while the server runs. Failing the boot over it would take the whole app offline, including every page that never touches a file.
 
 So the store is probed **once per process**, a warning naming it is logged, and serving continues:
 
@@ -78,7 +78,7 @@ So the store is probed **once per process**, a warning naming it is logged, and 
 Warning: [storage] S3 bucket "my-app-files" did not answer a reachability probe: …
 ```
 
-Nothing is papered over. A request that never touches storage is served normally, and the first one that does fails closed with a `500` and a storage error code — never a silent success.
+Nothing is papered over. A request that never touches storage is served normally, and the first one that does fails closed with a `500` and a storage error code, never a silent success.
 
 Treat that warning as the line to alert on. It is the earliest notice you get, and it arrives at startup rather than at whatever hour the first upload does.
 

@@ -14,8 +14,9 @@
  * `generateSchemaChecksum` (infrastructure/database/schema/migration-audit-trail.ts)
  * snapshots only `app.tables` — a page-content edit would never change it, so
  * cached HTML would go stale. This checksum hashes exactly the parts of `app`
- * that can change rendered page HTML: `pages`, `components`, `design`,
- * `languages`, `analytics`. Any edit to those changes the checksum, which
+ * that can change rendered page HTML: `pages`, `components`, `forms` (a page
+ * placing a form by `formRef` draws that form's labels and messages),
+ * `design`, `languages`, `analytics`. Any edit to those changes the checksum, which
  * changes every page-cache key, making stale entries unreachable — automatic
  * invalidation with no purge logic.
  */
@@ -53,7 +54,7 @@ const checksumByApp = new WeakMap<App, string>()
  *
  * The result is deterministic: identical content (even with reordered object
  * keys) yields an identical checksum, and any change to `pages`, `components`,
- * `design`, `languages`, or `analytics` yields a different one. Changes confined
+ * `forms`, `design`, `languages`, or `analytics` yields a different one. Changes confined
  * to `app.tables` (or other non-render fields) do not change the checksum —
  * that is intentional, those fields do not affect rendered page HTML.
  *
@@ -67,6 +68,7 @@ export const computeAppRenderChecksum = (app: App): string => {
   const renderSlice = {
     pages: app.pages,
     components: app.components,
+    forms: app.forms,
     design: app.design,
     languages: app.languages,
     analytics: app.analytics,

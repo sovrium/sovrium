@@ -54,7 +54,7 @@ export const OAuth2PropsSchema = Schema.Struct({
     TemplateStringSchema.pipe(
       Schema.annotate({
         description:
-          'Redirect URI registered with the OAuth2 provider. Defaults to the callback of the place the flow starts from: <base URL>/api/connections/<name>/callback from the app, <base URL>/api/admin/connections/<name>/callback from the operator console — the base URL being BASE_URL when set, otherwise the address the request arrived on. Register the callback of each place you connect from; set this only to use another address.',
+          'Redirect URI registered with the OAuth2 provider. Defaults to the callback of the place the flow starts from: <base URL>/api/connections/<name>/callback from the app, <base URL>/api/admin/connections/<name>/callback from the operator console, the base URL being BASE_URL when set, otherwise the address the request arrived on. Register the callback of each place you connect from; set this only to use another address.',
       })
     )
   ),
@@ -62,14 +62,15 @@ export const OAuth2PropsSchema = Schema.Struct({
     Schema.Literals(['authorizationCode', 'clientCredentials']).pipe(
       Schema.annotate({
         description:
-          'OAuth2 grant type (default: authorizationCode). clientCredentials is machine-to-machine: the token is requested with the client id and secret on first use, stored encrypted as the shared token, reused until it expires and then requested again — no one authorizes anything.',
+          'OAuth2 grant type (default: authorizationCode). clientCredentials is machine-to-machine: the token is requested with the client id and secret on first use, stored encrypted as the shared token, reused until it expires and then requested again. No one authorizes anything.',
       })
     )
   ),
   pkce: Schema.optional(
     Schema.Literals(['S256', 'plain', 'none']).pipe(
       Schema.annotate({
-        description: 'PKCE challenge method: S256 (recommended), plain, or none (default: none)',
+        description:
+          'PKCE challenge method: S256 (the default), plain, or none for a provider that refuses a code challenge',
       })
     )
   ),
@@ -161,24 +162,24 @@ export const OAuth2PropsSchema = Schema.Struct({
     )
   ),
   /**
-   * Internal test-mode escape hatch consumed by the user-create token
-   * seeder (`infrastructure/connections/test-token-seeder.ts`). The
-   * seeder's default behavior is to upsert a sentinel-shaped token with
-   * `expiresAt = now + 1h` so that encryption-at-rest specs have a row
-   * to assert against without driving a real OAuth round-trip. The
-   * deepened token-refresh specs
-   * need the OPPOSITE: a non-sentinel token with `expiresAt < now()`
-   * so the very next automation trigger sees an expired token and
-   * fires a refresh request. `_test.seedExpired: true` flips the
-   * seeder into that mode.
+   * Internal test-mode escape hatch read ONLY by the E2E harness's token
+   * seeding (`[internal ref]`, run by the harness
+   * `signUp` fixture). The server ignores it: it never seeds connection
+   * tokens, in any environment. By default the harness upserts a
+   * sentinel-shaped token with `expiresAt = now + 1h` so that
+   * encryption-at-rest specs have a row to assert against without driving
+   * a real OAuth round-trip. The deepened token-refresh specs need the
+   * OPPOSITE: a non-sentinel token with `expiresAt < now()` so the very
+   * next automation trigger sees an expired token and fires a refresh
+   * request. `_test.seedExpired: true` (or `_test.seedExpiredFor`) flips
+   * the harness into that mode.
    *
-   * Production safety: the seeder no-ops entirely when
-   * `NODE_ENV === 'production'` (see `runSeedTestConnectionTokens`).
    * The leading underscore in the field name signals "internal test
    * affordance, not a public schema feature" — exposed in the schema
    * only because Effect Schema's default is to STRIP unknown keys
-   * during decoding, which would erase this flag before the seeder
-   * ever sees it. Keeping it visible is the price of preserving it.
+   * during decoding, which would erase this flag before the harness
+   * ever sees it in the decoded config. Keeping it visible is the price
+   * of preserving it.
    */
   _test: Schema.optional(
     Schema.Struct({
@@ -325,7 +326,7 @@ export const TokenExchangePropsSchema = Schema.Struct({
   body: Schema.Record(Schema.String, TemplateStringSchema).pipe(
     Schema.annotate({
       description:
-        'Fields sent to tokenUrl, values resolved first — typically the key or the client id and secret, each as $env.VAR.',
+        'Fields sent to tokenUrl, values resolved first, typically the key or the client id and secret, each as $env.VAR.',
       examples: [
         { client_id: '$env.SPENDESK_CLIENT_ID', client_secret: '$env.SPENDESK_CLIENT_SECRET' },
       ],

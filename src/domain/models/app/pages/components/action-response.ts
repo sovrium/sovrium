@@ -88,7 +88,7 @@ export const ActionResponseTypeSchema = Schema.Literals([
 ]).annotate({
   title: 'Action Response Type',
   description:
-    'What the component does once the action returns — navigate away, reset the form, show a message or a success page, send the reader to their role landing, or raise a toast.',
+    'What the component does once the action returns: navigate away, reset the form, show a message or a success page, send the reader to their role landing, or raise a toast.',
 })
 
 /**
@@ -138,7 +138,7 @@ const actionResponseFields = {
   navigate: Schema.optional(
     Schema.String.annotate({
       description:
-        'URL path to navigate to. Supports $variable references. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so on a page an `http://` or `https://` address is refused — use a link to send the reader to another site. Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read. A lone `$response.<path>` reads the address the run returned and is checked when it is followed: an address on this site, or one on an origin `allowOrigins` lists.',
+        'URL path to navigate to. Supports $variable references. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so on a page an `http://` or `https://` address is refused: use a link to send the reader to another site. Any other address (`javascript:`, `data:`, `mailto:`, or one starting with `//`) is refused when the config is read. A lone `$response.<path>` reads the address the run returned and is checked when it is followed: an address on this site, or one on an origin `allowOrigins` lists.',
       examples: ['/dashboard', '/posts/$record.slug', '$response.output.url'],
     }).pipe(Schema.check(successNavigateCheck))
   ),
@@ -210,7 +210,7 @@ const actionResponseFields = {
   redirect: Schema.optional(
     Schema.String.annotate({
       description:
-        'URL navigated to after the success page is shown. Supports $record.X interpolation. Only meaningful when type is "successPage". A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): on a page an `http://` or `https://` address is refused, as for navigate. Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
+        'URL navigated to after the success page is shown. Supports $record.X interpolation. Only meaningful when type is "successPage". A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): on a page an `http://` or `https://` address is refused, as for navigate. Any other address (`javascript:`, `data:`, `mailto:`, or one starting with `//`) is refused when the config is read.',
       examples: ['/support/tickets/$record.id'],
     }).pipe(Schema.check(formAddressCheck))
   ),
@@ -275,7 +275,7 @@ const AutomationSuccessRefetchSchema = Schema.Union([
 ]).annotate({
   title: 'Automation Success Refetch',
   description:
-    'props.id (or a list of them) of the components on this page to re-read once the run succeeds — a table, a list, a board, or a container bound to a data source. They re-read after the start is accepted, or after the run has ended with await: true; set await: true when the list shows what the run writes, or the re-read can come before the writes.',
+    'props.id (or a list of them) of the components on this page to re-read once the run succeeds: a table, a list, a board, or a container bound to a data source. They re-read after the start is accepted, or after the run has ended with await: true; set await: true when the list shows what the run writes, or the re-read can come before the writes.',
   examples: ['tasks-grid', ['grants-grid', 'members-grid']],
 })
 
@@ -287,7 +287,7 @@ const AutomationSuccessRefetchSchema = Schema.Union([
 const AutomationSuccessReloadSchema = Schema.Boolean.annotate({
   title: 'Automation Success Reload',
   description:
-    'When true, the page reloads once the run succeeds, so everything on it is read again — for a run that changes something no single component re-reads. Refused beside refetch, which the reload already covers, and beside close and navigate, since the reload replaces the page they act on. The toast is not shown: the reload replaces the page it would appear on.',
+    'When true, the page reloads once the run succeeds, so everything on it is read again. Use it for a run that changes something no single component re-reads. Refused beside refetch, which the reload already covers, and beside close and navigate, since the reload replaces the page they act on. The toast is not shown: the reload replaces the page it would appear on.',
   examples: [true],
 })
 
@@ -342,7 +342,7 @@ export const AutomationSuccessResponseSchema = Schema.Struct({
   Schema.annotate({
     title: 'Automation Success Response',
     description:
-      'What an automation action does once its run succeeds: the effects every action response offers — a toast, closing the overlay, moving to another page — plus refetch, which re-reads named components on this page, and reload, which redraws it.',
+      'What an automation action does once its run succeeds: the effects every action response offers (a toast, closing the overlay, moving to another page), plus refetch, which re-reads named components on this page, and reload, which redraws it.',
   }),
   Schema.check(Schema.makeFilter(refuseCloseBesideSuccessPage)),
   Schema.check(Schema.makeFilter(refuseBesideReload))

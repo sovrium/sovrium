@@ -33,9 +33,6 @@ import { AUTOMATIONS_READ_OPERATIONS } from '@/application/use-cases/admin/autom
 import { BUCKETS_READ_OPERATIONS } from '@/application/use-cases/admin/buckets-read-operations'
 import { CONFIG_READ_OPERATIONS } from '@/application/use-cases/admin/config-read-operations'
 import { CONSOLE_READ_OPERATIONS } from '@/application/use-cases/admin/console-read-operations'
-import { DESIGN_SYSTEM_BUNDLE_READ_OPERATIONS } from '@/application/use-cases/admin/design-system-bundle-read-operations'
-import { DESIGN_SYSTEM_READ_OPERATIONS } from '@/application/use-cases/admin/design-system-read-operations'
-import { DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS } from '@/application/use-cases/admin/design-system-specimen-share-read-operations'
 import { DEVELOPER_READ_OPERATIONS } from '@/application/use-cases/admin/developer-read-operations'
 import { FORMS_READ_OPERATIONS } from '@/application/use-cases/admin/forms-read-operations'
 import {
@@ -52,6 +49,9 @@ import { RELEASE_READ_OPERATIONS } from '@/application/use-cases/admin/release-r
 import { REPORTS_READ_OPERATIONS } from '@/application/use-cases/admin/reports-read-operations'
 import { SCHEMA_READ_OPERATIONS } from '@/application/use-cases/admin/schema-read-operations'
 import { TEMPLATES_READ_OPERATIONS } from '@/application/use-cases/admin/templates-read-operations'
+import { DESIGN_SYSTEM_BUNDLE_READ_OPERATIONS } from '@/application/use-cases/design/bundle-read-operations'
+import { DESIGN_SYSTEM_READ_OPERATIONS } from '@/application/use-cases/design/read-operations'
+import { DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS } from '@/application/use-cases/design/specimen-share-read-operations'
 import { adminReadToolName } from '@/domain/models/app/admin/admin-mcp-read-tools'
 import type { AdminReadOperation } from '@/application/use-cases/admin/admin-read-operation'
 

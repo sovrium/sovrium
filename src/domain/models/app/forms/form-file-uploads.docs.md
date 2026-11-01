@@ -1,6 +1,6 @@
 # Form File Uploads
 
-> Collecting files through a form — the attachment field's upload options, which bucket they land in, and the metadata shape a submission carries.
+> Collecting files through a form: the attachment field's upload options, which bucket they land in, and the metadata shape a submission carries.
 
 A form can collect resumes, invoices, photos and documents, and persist them to your own storage rather than a third-party service. An attachment field renders a file picker and an optional drop zone, validates type and size before uploading, shows progress and previews, and submits a canonical metadata object per file.
 
@@ -48,6 +48,8 @@ For a table-bound field the multiplicity is **inferred from the column type**, s
 
 A form field names no bucket of its own. A table-bound field uploads into the bucket its attachment column declares. Otherwise the upload lands in the first bucket the app declares, and, when it declares none, in the built-in `system` bucket every app carries. There is no `default: true` flag.
 
+Only a field that takes a file uploads anything. A form with no attachment field stores no file at all, so an app that declares no bucket never writes a form's files into the `system` bucket unless one of its forms asks for a file.
+
 Per-field bucket overrides on a standalone field are reserved for a later release, so a form needing two destinations today binds its fields to columns that name them, or uses two forms.
 
 ```yaml
@@ -78,6 +80,8 @@ forms:
 | Type filter          | `accept` restricts both the dialog and the drop zone; a mismatch is an inline error                                                                                                                                                                 |
 | Size validation      | `maxFileSize` refuses an oversized file before any upload begins                                                                                                                                                                                    |
 | Server enforcement   | The submission endpoint checks every file again, so a file posted by hand cannot skip the page: a type outside `accept` is refused with 400 and a file above `maxFileSize` with 413, both naming the field, and nothing of the submission is stored |
+| Declared fields only | A file is taken only under a field the form declares that takes a file. A file under any other name, a text field's name included, refuses the whole submission with 400, one message that does not repeat the name, and nothing is stored          |
+| Total storage        | A set `STORAGE_MAX_TOTAL_SIZE` applies here as on the bucket's upload endpoint: a submission whose files would pass it is refused with 507 and nothing is stored. Unset, there is no total cap                                                      |
 | Bucket limits        | The bucket's own `maxFileSize` (or `STORAGE_MAX_FILE_SIZE`) and `allowedMimeTypes` apply to form uploads too, exactly as on the bucket's upload endpoint                                                                                            |
 | Progress             | A progress indicator shows while each file uploads                                                                                                                                                                                                  |
 | Preview              | An image renders a thumbnail after upload; anything else renders its name and size                                                                                                                                                                  |
@@ -88,7 +92,7 @@ Validating before the upload rather than after is the part worth noticing: a vis
 
 The server's check reads the file's **content** as well as its declared type. A file whose bytes open with `<` is markup, and is judged as HTML or SVG whatever it is called; both can carry a script. So `image/*` does **not** admit SVG: a field that wants SVG names `image/svg+xml` or `.svg` explicitly, and an HTML page renamed `photo.png` is refused by `image/*` and by `.png` alike. The page's picker applies the same rule the moment a file is picked, so an SVG chosen for an `image/*` field is refused with the field's message before anything is uploaded. The size limit is inclusive: a file of exactly `maxFileSize` bytes is accepted.
 
-A legacy spelling in `accept` names its registered type, on the page and on the server alike: `image/jpg` and `image/pjpeg` mean `image/jpeg` — which is how every browser reports a `.jpg` — just as `audio/x-m4a` means `audio/mp4`. The alias admits nothing else: a PNG is still refused by `image/jpg`.
+A legacy spelling in `accept` names its registered type, on the page and on the server alike: `image/jpg` and `image/pjpeg` mean `image/jpeg` (which is how every browser reports a `.jpg`), just as `audio/x-m4a` means `audio/mp4`. The alias admits nothing else: a PNG is still refused by `image/jpg`.
 
 When storing a file fails on the server side, the visitor gets a generic `500` (`upload_failed`) and the cause is written to the server log, naming the form.
 
@@ -96,7 +100,7 @@ A file a **signed-in** visitor submits is recorded as uploaded by her, so it is 
 
 ## The metadata a submission carries
 
-Each attachment value is normalised to one canonical object — the same shape the bound table, the submit automation and the ledger payload all receive.
+Each attachment value is normalised to one canonical object: the same shape the bound table, the submit automation and the ledger payload all receive.
 
 ```typescript
 type FileMetadata = {
@@ -107,7 +111,7 @@ type FileMetadata = {
 }
 ```
 
-Where the content announces its type — markup, or the signature of a PNG, JPEG, GIF or WebP image — that **detected** type is what is stored, rather than the upload's own claim; otherwise the declared type is kept.
+Where the content announces its type (markup, or the signature of a PNG, JPEG, GIF or WebP image), that **detected** type is what is stored, rather than the upload's own claim; otherwise the declared type is kept.
 
 ### Exposing an existing column through a form
 

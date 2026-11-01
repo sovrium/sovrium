@@ -50,10 +50,24 @@ export interface AuditListFilter {
   readonly resourceId?: string | undefined
   /** Entries at or after this instant only. */
   readonly since?: Readonly<Date> | undefined
+  /** Entries strictly before this instant only. */
+  readonly until?: Readonly<Date> | undefined
+  /**
+   * Free-text term over the actor email, the action and the resource id, as a
+   * case-insensitive literal substring. Never the metadata, which holds
+   * whatever an emitter attached. `undefined` means no search.
+   */
+  readonly q?: string | undefined
   /** Entries whose severity is one of these. An empty list matches nothing. */
   readonly severities?: readonly string[] | undefined
   /** Entries whose action is one of these. An empty list matches nothing. */
   readonly actions?: readonly string[] | undefined
+  /**
+   * `true` leaves the reads out: every entry whose action ends in `.queried`
+   * or `.read`, which records someone looking and nothing changing. Absent or
+   * `false` keeps them, as the trail has always answered.
+   */
+  readonly withoutReads?: boolean | undefined
 }
 
 /**
@@ -76,6 +90,19 @@ export interface AuditPageQuery {
 export interface AuditPage {
   readonly entries: readonly AuditLogEntry[]
   readonly hasMore: boolean
+}
+
+/** One actor the trail names, labelled as the list shows it, with its entry count. */
+export interface AuditActorFacet {
+  readonly id: string
+  readonly label: string
+  readonly count: number
+}
+
+/** The actors and the actions the trail holds, most entries first. */
+export interface AuditFacets {
+  readonly actors: readonly AuditActorFacet[]
+  readonly actions: readonly AuditActionCount[]
 }
 
 /** One action's count over a window, most frequent first. */
@@ -106,5 +133,7 @@ export class AuditLogRepository extends Context.Service<
       readonly severities: readonly string[]
       readonly limit: number
     }) => Effect.Effect<readonly AuditActionCount[]>
+    /** The actors and actions of the whole trail, each capped at `limit`, most entries first. */
+    readonly facets: (limit: number) => Effect.Effect<AuditFacets>
   }
 >()('AuditLogRepository') {}

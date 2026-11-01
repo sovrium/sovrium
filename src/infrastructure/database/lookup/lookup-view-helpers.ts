@@ -16,6 +16,7 @@ import { generateSqlCondition } from '../table-queries/filter-operators'
 import { compileFilterTree } from '../table-queries/filter-tree'
 import type { Table } from '@/domain/models/app/tables'
 import type { ViewFilterCondition, ViewFilterNode } from '@/domain/models/app/tables/views/filters'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Where a computed field's filter reads its fields: the app's tables and the
@@ -65,10 +66,14 @@ export const relatedAliasOf = (relatedTable: string, fieldName: string): string 
  * Runtime queries take the opposite route: they must use bound parameters, so
  * they call `generateSqlConditionFragment` instead of this function.
  */
-export const buildWhereClause = (filter: ViewFilterCondition, aliasPrefix: string): string => {
+export const buildWhereClause = (
+  dialect: DatabaseDialect,
+  filter: ViewFilterCondition,
+  aliasPrefix: string
+): string => {
   const { field, operator, value } = filter
   const column = `${aliasPrefix}.${quoteSqlIdentifier(field)}`
-  return generateSqlCondition(column, operator, value, { useEscapeSqlString: true })
+  return generateSqlCondition(column, operator, value, { dialect, useEscapeSqlString: true })
 }
 
 /**
@@ -90,20 +95,20 @@ export const buildWhereClause = (filter: ViewFilterCondition, aliasPrefix: strin
  * `filters` at all restricts nothing.
  */
 export const compileRelationalFilter = (
+  dialect: DatabaseDialect,
   node: ViewFilterNode | undefined,
   alias: string,
   scope?: RelatedFilterScope
 ): string | undefined =>
   node === undefined
     ? undefined
-    : compileFilterTree(node, (condition) => buildWhereClause(condition, alias), {
+    : compileFilterTree(node, (condition) => buildWhereClause(dialect, condition, alias), {
         wrapGroups: true,
         fields: relatedFieldsOf(scope),
       })
 
 /**
- * Map a rollup `aggregation` term to the SQL that computes it, on the ACTIVE
- * dialect.
+ * Map a rollup `aggregation` term to the SQL that computes it, on `dialect`.
  *
  * RENAMED from `mapAggregationToPostgres`, and the old name was a lie with
  * consequences. This function has always served BOTH engines, but "ToPostgres"
@@ -117,7 +122,11 @@ export const compileRelationalFilter = (
  * other per-dialect expression in this codebase already lives, rather than
  * growing a second dialect switch here.
  */
-export const mapAggregationToSql = (aggregation: string, relatedField: string): string => {
+export const mapAggregationToSql = (
+  dialect: DatabaseDialect,
+  aggregation: string,
+  relatedField: string
+): string => {
   const upperAgg = aggregation.toUpperCase()
 
   switch (upperAgg) {
@@ -132,11 +141,11 @@ export const mapAggregationToSql = (aggregation: string, relatedField: string): 
     case 'MAX':
       return `MAX(${relatedField})`
     case 'COUNTA':
-      return `COUNT(CASE WHEN ${nonEmptyValuePredicate(relatedField)} THEN 1 END)`
+      return `COUNT(CASE WHEN ${nonEmptyValuePredicate(dialect, relatedField)} THEN 1 END)`
     case 'COUNTALL':
       return `COUNT(*)`
     case 'ARRAYUNIQUE':
-      return distinctArrayAggExpression(relatedField)
+      return distinctArrayAggExpression(dialect, relatedField)
     default:
       return `SUM(${relatedField})`
   }
@@ -148,7 +157,10 @@ export const mapAggregationToSql = (aggregation: string, relatedField: string): 
  * Dialect-aware for `ARRAYUNIQUE` only — the other branches are literals both
  * engines read the same way.
  */
-export const getDefaultValueForAggregation = (aggregation: string): string => {
+export const getDefaultValueForAggregation = (
+  dialect: DatabaseDialect,
+  aggregation: string
+): string => {
   const upperAgg = aggregation.toUpperCase()
 
   switch (upperAgg) {
@@ -157,7 +169,7 @@ export const getDefaultValueForAggregation = (aggregation: string): string => {
     case 'MAX':
       return 'NULL'
     case 'ARRAYUNIQUE':
-      return emptyArrayLiteral()
+      return emptyArrayLiteral(dialect)
     default:
       return '0'
   }

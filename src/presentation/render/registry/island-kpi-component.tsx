@@ -23,6 +23,7 @@ import { hostClassName, namedHost } from '@/presentation/render/registry/island-
 import { islandFallback, renderSpecimenDash } from './specimen-island-states'
 import { isWithheldKpi, withheldKpiCard } from './withheld-kpi-card'
 import type { ComponentRenderer } from './component-dispatch-config'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 import type { Tone } from '@/domain/models/app/pages/components/shared-schemas'
 import type { ResponsiveValues } from '@/presentation/design/responsive-classes'
 
@@ -35,7 +36,7 @@ import type { ResponsiveValues } from '@/presentation/design/responsive-classes'
  */
 const kpiValueClasses = (
   elementProps: Record<string, unknown>,
-  parts: Readonly<Record<string, string>> | undefined
+  parts: PartClassMap | undefined
 ): { readonly valueClassName?: string; readonly toneClassName?: string } => {
   const size = elementProps.size as ResponsiveValues<'sm' | 'md' | 'lg'> | undefined
   const tone = toneTextClass(elementProps.tone as Tone | undefined)
@@ -62,12 +63,14 @@ const kpiValueClasses = (
  */
 function extractKpiProps(
   elementProps: Record<string, unknown>,
-  parts: Readonly<Record<string, string>> | undefined
+  parts: PartClassMap | undefined
 ): Record<string, unknown> {
   return {
     ...kpiValueClasses(elementProps, parts),
     dataSource: elementProps.dataSource,
     label: elementProps.label,
+    description:
+      typeof elementProps.description === 'string' ? elementProps.description : undefined,
     kpiAggregate: elementProps.kpiAggregate,
     kpiFormat: elementProps.kpiFormat,
     // The aggregated field's currency display, resolved from `app.tables`, so

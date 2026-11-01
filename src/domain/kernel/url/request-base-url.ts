@@ -28,6 +28,21 @@ type OriginRequestContext = {
 }
 
 /**
+ * The two operator declarations the origin resolver reads, resolved by the
+ * CALLER from the process environment rather than read here: the kernel stays
+ * pure, and the hop count is decoded by the one parser every other trust
+ * decision uses (`resolveTrustedProxyHops`, `models/process-env/proxy.ts`), so
+ * the address this instance prints and the client address it keys rate limits
+ * on can never disagree about whether a proxy was declared.
+ */
+export type RequestOriginSettings = {
+  /** `TRUSTED_PROXY_HOPS`, already decoded — `0` when undeclared or invalid. */
+  readonly trustedProxyHops: number
+  /** `BASE_URL` as declared; absent or empty means undeclared. */
+  readonly baseUrl: string | undefined
+}
+
+/**
  * Whether this process sits behind a reverse proxy the operator DECLARED.
  *
  * `TRUSTED_PROXY_HOPS` is the one switch that decides whether any forwarding
@@ -36,17 +51,9 @@ type OriginRequestContext = {
  * prints. With no proxy declared (the default, `0`) those headers are whatever
  * the CLIENT typed, and an address built from them lets a caller plant its own
  * domain in a page a shared cache keeps.
- *
- * Read here rather than through the `process-env` parser because the kernel may
- * not reach a model; the parser (`models/process-env/proxy.ts`) is still the
- * contract, and it refuses an invalid value at boot. Anything that is not a
- * positive whole number reads as "no proxy" — the failure mode that believes
- * nothing.
  */
-export const isBehindDeclaredProxy = (): boolean => {
-  const hops = Number(Bun.env.TRUSTED_PROXY_HOPS)
-  return Number.isInteger(hops) && hops >= 1
-}
+export const isBehindDeclaredProxy = (trustedProxyHops: number): boolean =>
+  Number.isInteger(trustedProxyHops) && trustedProxyHops >= 1
 
 /**
  * A forwarded scheme, confined to the two an address can have. A proxy may send
@@ -87,9 +94,10 @@ export const confineHost = (value: string | undefined): string | undefined => {
  * otherwise.
  */
 export const trustedForwarding = (
-  header: (name: string) => string | undefined
+  header: (name: string) => string | undefined,
+  trustedProxyHops: number
 ): { readonly host?: string; readonly proto?: 'http' | 'https' } => {
-  if (!isBehindDeclaredProxy()) return {}
+  if (!isBehindDeclaredProxy(trustedProxyHops)) return {}
   const host = confineHost(header('X-Forwarded-Host'))
   const proto = confineForwardedScheme(header('X-Forwarded-Proto'))
   return { ...(host ? { host } : {}), ...(proto ? { proto } : {}) }
@@ -116,11 +124,11 @@ export const trustedForwarding = (
  */
 const resolveBaseUrlFromParts = (
   requestUrl: string,
+  baseUrl: string | undefined,
   host?: string,
   forwardedProto?: string
 ): string => {
-  const fromEnv = Bun.env.BASE_URL
-  if (fromEnv) return fromEnv.replace(/\/$/, '')
+  if (baseUrl) return baseUrl.replace(/\/$/, '')
 
   if (host) {
     const proto = forwardedProto || 'http'
@@ -144,12 +152,17 @@ const resolveBaseUrlFromParts = (
  * declaring `BASE_URL` — an address no outside caller can reach.
  *
  * @param c - the live Hono request context
+ * @param settings - the operator's `BASE_URL` and decoded hop count
  * @returns the origin WITHOUT a trailing slash (e.g. `https://app.example.com`)
  */
-export const resolveRequestBaseUrl = (c: OriginRequestContext): string => {
-  const forwarded = trustedForwarding((name) => c.req.header(name))
+export const resolveRequestBaseUrl = (
+  c: OriginRequestContext,
+  settings: RequestOriginSettings
+): string => {
+  const forwarded = trustedForwarding((name) => c.req.header(name), settings.trustedProxyHops)
   return resolveBaseUrlFromParts(
     c.req.url,
+    settings.baseUrl,
     forwarded.host ?? confineHost(c.req.header('Host')),
     forwarded.proto
   )

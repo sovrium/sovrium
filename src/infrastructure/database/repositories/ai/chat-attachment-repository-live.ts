@@ -6,14 +6,17 @@
  */
 
 import { and, eq, inArray, isNull } from 'drizzle-orm'
-import { Layer, Option } from 'effect'
+import { Option } from 'effect'
 import {
   ChatAttachmentDatabaseError,
   ChatAttachmentRepository,
   type ChatAttachmentRecord,
 } from '@/application/ports/repositories/ai/chat-attachment-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { aiChatAttachments as attachmentsPg } from '@/infrastructure/database/drizzle/schema/ai'
 import { aiChatAttachments as attachmentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -41,55 +44,67 @@ const toRecord = (row: Readonly<AttachmentRow>): ChatAttachmentRecord => ({
 const ownedAmong = (ids: readonly string[], userId: string) =>
   and(inArray(attachments.id, [...ids]), eq(attachments.userId, userId))
 
-/**
- * Chat attachments repository (Drizzle), on `system.ai_chat_attachments`.
- * Every statement carries the caller's `user_id`.
- */
-export const ChatAttachmentRepositoryLive = Layer.succeed(ChatAttachmentRepository, {
-  insert: (row) =>
+const members: MembersOverDatabase<typeof ChatAttachmentRepository> = {
+  insert: (db) => (row) =>
     wrap(async (): Promise<void> => {
       await db.insert(attachments).values({ ...row, createdAt: new Date() })
     }),
 
-  findOwned: ({ id, userId }) =>
-    wrap(async () => {
-      const rows = await db
-        .select()
-        .from(attachments)
-        .where(and(eq(attachments.id, id), eq(attachments.userId, userId)))
-        .limit(1)
-      const [row] = rows
-      return row === undefined ? Option.none() : Option.some(toRecord(row))
-    }),
+  findOwned:
+    (db) =>
+    ({ id, userId }) =>
+      wrap(async () => {
+        const rows = await db
+          .select()
+          .from(attachments)
+          .where(and(eq(attachments.id, id), eq(attachments.userId, userId)))
+          .limit(1)
+        const [row] = rows
+        return row === undefined ? Option.none() : Option.some(toRecord(row))
+      }),
 
-  findManyOwned: ({ ids, userId }) =>
-    wrap(async (): Promise<readonly ChatAttachmentRecord[]> => {
-      if (ids.length === 0) return []
-      const rows = await db.select().from(attachments).where(ownedAmong(ids, userId))
-      return rows.map(toRecord)
-    }),
+  findManyOwned:
+    (db) =>
+    ({ ids, userId }) =>
+      wrap(async (): Promise<readonly ChatAttachmentRecord[]> => {
+        if (ids.length === 0) return []
+        const rows = await db.select().from(attachments).where(ownedAmong(ids, userId))
+        return rows.map(toRecord)
+      }),
 
-  bindToSession: ({ ids, userId, sessionId }) =>
-    wrap(async (): Promise<void> => {
-      if (ids.length === 0) return
-      await db
-        .update(attachments)
-        .set({ sessionId })
-        .where(and(ownedAmong(ids, userId), isNull(attachments.sessionId)))
-    }),
+  bindToSession:
+    (db) =>
+    ({ ids, userId, sessionId }) =>
+      wrap(async (): Promise<void> => {
+        if (ids.length === 0) return
+        await db
+          .update(attachments)
+          .set({ sessionId })
+          .where(and(ownedAmong(ids, userId), isNull(attachments.sessionId)))
+      }),
 
-  listForSession: ({ userId, sessionId }) =>
-    wrap(async (): Promise<readonly ChatAttachmentRecord[]> => {
-      const rows = await db
-        .select()
-        .from(attachments)
-        .where(and(eq(attachments.userId, userId), eq(attachments.sessionId, sessionId)))
-      return rows.map(toRecord)
-    }),
+  listForSession:
+    (db) =>
+    ({ userId, sessionId }) =>
+      wrap(async (): Promise<readonly ChatAttachmentRecord[]> => {
+        const rows = await db
+          .select()
+          .from(attachments)
+          .where(and(eq(attachments.userId, userId), eq(attachments.sessionId, sessionId)))
+        return rows.map(toRecord)
+      }),
 
-  deleteOwned: ({ ids, userId }) =>
-    wrap(async (): Promise<void> => {
-      if (ids.length === 0) return
-      await db.delete(attachments).where(ownedAmong(ids, userId))
-    }),
-})
+  deleteOwned:
+    (db) =>
+    ({ ids, userId }) =>
+      wrap(async (): Promise<void> => {
+        if (ids.length === 0) return
+        await db.delete(attachments).where(ownedAmong(ids, userId))
+      }),
+}
+
+/**
+ * Chat attachments repository (Drizzle), on `system.ai_chat_attachments`.
+ * Every statement carries the caller's `user_id`.
+ */
+export const ChatAttachmentRepositoryLive = layerOverDatabase(ChatAttachmentRepository, members)

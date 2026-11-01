@@ -64,7 +64,7 @@ export const computeNavMenuTriggerClasses = (override?: string): string =>
  * It holds links, not menu items: no `menu` role (see the type's fragment).
  */
 export const computeNavMenuContentClasses = (): string =>
-  'z-50 min-w-48 origin-(--transform-origin) rounded-lg bg-popover p-1 text-popover-foreground shadow ring-1 ring-foreground/10 outline-none transition-[opacity,transform,scale] duration-[0.35s] ease-[cubic-bezier(0.22,1,0.36,1)] data-starting-style:scale-90 data-starting-style:opacity-0 data-ending-style:scale-90 data-ending-style:opacity-0 data-ending-style:duration-150'
+  'z-50 min-w-48 origin-(--transform-origin) rounded-lg bg-popover p-1 text-popover-foreground shadow ring-1 ring-foreground/10 outline-none transition-[opacity,transform,scale] duration-[0.35s] ease-[cubic-bezier(0.22,1,0.36,1)] data-starting-style:scale-90 data-starting-style:opacity-0 data-ending-style:scale-90 data-ending-style:opacity-0 data-ending-style:duration-150 motion-reduce:transition-none!'
 
 /**
  * The Base UI popup the open content is moved into: it takes the content's

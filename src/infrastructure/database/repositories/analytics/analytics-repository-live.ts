@@ -6,24 +6,22 @@
  */
 
 import { and, between, count, countDistinct, eq, inArray, lt, or, sql } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AnalyticsRepository,
   AnalyticsDatabaseError,
 } from '@/application/ports/repositories/analytics/analytics-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { db } from '@/infrastructure/database'
 import { devClockStamp } from '@/infrastructure/database/analytics-event-clock'
 import { countEventsByName } from '@/infrastructure/database/analytics-event-counts'
+import { minimisationMembers } from '@/infrastructure/database/analytics-event-minimisation'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { analyticsEvents as analyticsEventsPg } from '@/infrastructure/database/drizzle/schema/analytics-events'
 import { analyticsEvents as analyticsEventsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/analytics-events'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import {
-  dateTruncTimeBucket,
-  jsonExtractPath,
-} from '@/infrastructure/database/sql/dialect-sql-helpers'
-import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import type { AnalyticsQueryParams } from '@/application/ports/repositories/analytics/analytics-repository'
 
 const analyticsEvents = resolveDialectSchema(analyticsEventsPg, analyticsEventsSqlite)
@@ -92,18 +90,11 @@ const computePercentages = (
   }))
 }
 
-/**
- * Analytics Repository Implementation
- *
- * Uses the unified analytics_events table with JSONB properties.
- * Page-view-specific fields are stored in properties JSONB column.
- * All queries are parameterized (SQL injection safe).
- */
-export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
-  recordEvent: (input) =>
+const members: MembersOverDatabase<typeof AnalyticsRepository> = {
+  recordEvent: (db, dialect) => (input) =>
     wrap(async () => {
       // Query-builder INSERT (SQLite drizzle clients have no `.execute()`);
-      // `jsonbLiteral` makes Postgres store `properties` as a jsonb OBJECT so
+      // `bindJsonb` makes Postgres store `properties` as a jsonb OBJECT so
       // `->>` extraction works — see `recordPageView` for the full rationale.
       // @effect-diagnostics effect/preferSchemaOverJson:off
       await db.insert(analyticsEvents).values({
@@ -113,12 +104,12 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         orgId: input.orgId ?? undefined,
         visitorHash: input.visitorHash,
         sessionHash: input.sessionHash,
-        properties: jsonbLiteral(input.properties ?? {}) as never,
+        properties: dialect.sql.bindJsonb(input.properties ?? {}) as never,
         ...devClockStamp(),
       })
     }),
 
-  recordPageView: (input) =>
+  recordPageView: (db, dialect) => (input) =>
     wrap(async () => {
       const properties = {
         path: input.pagePath,
@@ -138,27 +129,22 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         screenWidth: input.screenWidth,
         screenHeight: input.screenHeight,
       }
-      // Wrap `properties` in `jsonbLiteral` so Postgres parses the JSON
-      // as a jsonb OBJECT (not a jsonb STRING). drizzle-orm + bun-sql
-      // would otherwise TEXT-bind the stringified object, producing a
-      // jsonb-encoded string for which `properties->>'path'` returns
-      // NULL. `jsonbLiteral` is dialect-aware: on SQLite it emits a
-      // plain single-quoted JSON string literal (the `properties`
-      // column is `text` on SQLite, so no `::jsonb` cast).
+      // `bindJsonb` stores a jsonb OBJECT on Postgres (a jsonb STRING would make
+      // `properties->>'path'` NULL) and plain JSON text on SQLite.
       // @effect-diagnostics effect/preferSchemaOverJson:off
       await db.insert(analyticsEvents).values({
         appName: input.appName,
         eventType: 'page_view',
         visitorHash: input.visitorHash,
         sessionHash: input.sessionHash,
-        // drizzle accepts an SQL fragment as a column value; this routes
-        // around the TEXT-bind preprocessing that breaks jsonb storage.
-        properties: jsonbLiteral(properties) as never,
+        // drizzle accepts an SQL fragment as a column value; this carries
+        // the cast that keeps jsonb storage structured.
+        properties: dialect.sql.bindJsonb(properties) as never,
         ...devClockStamp(),
       })
     }),
 
-  getSummary: (params) =>
+  getSummary: (db) => (params) =>
     wrap(async () => {
       const result = await db
         .select({
@@ -177,10 +163,10 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
       }
     }),
 
-  getTimeSeries: (params) =>
+  getTimeSeries: (db, dialect) => (params) =>
     wrap(async () => {
       const bucket = narrowGranularity(params.granularity)
-      const periodExpr = dateTruncTimeBucket(analyticsEvents.timestamp, bucket)
+      const periodExpr = dialect.sql.dateTruncTimeBucket(analyticsEvents.timestamp, bucket)
       const rows = await db
         .select({
           period: sql<string>`${periodExpr}`.as('period'),
@@ -201,9 +187,9 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
       }))
     }),
 
-  getTopPages: (params) =>
+  getTopPages: (db, dialect) => (params) =>
     wrap(async () => {
-      const pathExpr = jsonExtractPath(analyticsEvents.properties, 'path')
+      const pathExpr = dialect.sql.jsonExtractPath(analyticsEvents.properties, 'path')
       const rows = await db
         .select({
           path: sql<string>`${pathExpr}`.as('path'),
@@ -222,10 +208,10 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
       }))
     }),
 
-  getTopReferrers: (params) =>
+  getTopReferrers: (db, dialect) => (params) =>
     wrap(async () => {
-      const refDomain = jsonExtractPath(analyticsEvents.properties, 'referrerDomain')
-      const utmCampaign = jsonExtractPath(analyticsEvents.properties, 'utmCampaign')
+      const refDomain = dialect.sql.jsonExtractPath(analyticsEvents.properties, 'referrerDomain')
+      const utmCampaign = dialect.sql.jsonExtractPath(analyticsEvents.properties, 'utmCampaign')
       const rows = await db
         .select({
           domain: sql<string | null>`${refDomain}`.as('domain'),
@@ -255,12 +241,12 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
       }))
     }),
 
-  getDevices: (params) =>
+  getDevices: (db, dialect) => (params) =>
     wrap(async () => {
       const condition = analyticsWhereClause(params)
-      const deviceExpr = jsonExtractPath(analyticsEvents.properties, 'deviceType')
-      const browserExpr = jsonExtractPath(analyticsEvents.properties, 'browserName')
-      const osExpr = jsonExtractPath(analyticsEvents.properties, 'osName')
+      const deviceExpr = dialect.sql.jsonExtractPath(analyticsEvents.properties, 'deviceType')
+      const browserExpr = dialect.sql.jsonExtractPath(analyticsEvents.properties, 'browserName')
+      const osExpr = dialect.sql.jsonExtractPath(analyticsEvents.properties, 'osName')
 
       // Device type breakdown
       const deviceRows = await db
@@ -315,10 +301,10 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
    * throw away the traffic an operator most likely re-pointed the link because
    * of; the route layer marks them with a null destination instead.
    */
-  getTargets: (params) =>
+  getTargets: (db, dialect) => (params) =>
     wrap(async () => {
       const condition = analyticsWhereClause(params)
-      const targetExpr = jsonExtractPath(analyticsEvents.properties, 'targetIndex')
+      const targetExpr = dialect.sql.jsonExtractPath(analyticsEvents.properties, 'targetIndex')
 
       const rows = await db
         .select({
@@ -333,11 +319,11 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
       return computePercentages(rows)
     }),
 
-  getCampaigns: (params) =>
+  getCampaigns: (db, dialect) => (params) =>
     wrap(async () => {
-      const sourceExpr = jsonExtractPath(analyticsEvents.properties, 'utmSource')
-      const mediumExpr = jsonExtractPath(analyticsEvents.properties, 'utmMedium')
-      const campaignExpr = jsonExtractPath(analyticsEvents.properties, 'utmCampaign')
+      const sourceExpr = dialect.sql.jsonExtractPath(analyticsEvents.properties, 'utmSource')
+      const mediumExpr = dialect.sql.jsonExtractPath(analyticsEvents.properties, 'utmMedium')
+      const campaignExpr = dialect.sql.jsonExtractPath(analyticsEvents.properties, 'utmCampaign')
       const rows = await db
         .select({
           source: sql<string | null>`${sourceExpr}`.as('source'),
@@ -366,7 +352,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
       }))
     }),
 
-  deleteOlderThan: (appName, cutoff) =>
+  deleteOlderThan: (db) => (appName, cutoff) =>
     wrap(async () => {
       const result = await db
         .delete(analyticsEvents)
@@ -382,9 +368,10 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
       return result.length
     }),
 
-  countEventsByName,
+  countEventsByName: (db) => (params) => countEventsByName(db, params),
+  ...minimisationMembers,
 
-  listEvents: (params) =>
+  listEvents: (db) => (params) =>
     wrap(async () => {
       const limit = params.limit ?? 50
       const offset = params.offset ?? 0
@@ -434,4 +421,13 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         },
       }
     }),
-})
+}
+
+/**
+ * Analytics Repository Implementation
+ *
+ * Uses the unified analytics_events table with JSONB properties.
+ * Page-view-specific fields are stored in properties JSONB column.
+ * All queries are parameterized (SQL injection safe).
+ */
+export const AnalyticsRepositoryLive = layerOverDatabase(AnalyticsRepository, members)

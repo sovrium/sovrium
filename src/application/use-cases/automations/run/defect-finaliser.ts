@@ -11,10 +11,10 @@
  * Once the scheduler admits a run it holds a concurrency slot, a registered
  * canceller, and a row marked `running`; the normal path hands all three back in
  * `finaliseAndRelease`. A defect (an action handler that throws instead of
- * failing, a bug in the engine) or an interruption skips that path, and before
- * this guard the row stayed `running`, the slot was never released — so a
- * `concurrency: 1` automation queued every later run forever — and the
- * canceller leaked.
+ * failing, a bug in the engine) or an interruption skips that path. The slot
+ * and the canceller belong to the run's scope (`AutomationScheduler`), so they
+ * go back however the run exits; the ROW is this guard's: before it, a run
+ * that exited that way stayed `running` for good.
  *
  * The guard runs on EVERY exit of the admitted part of the run and does nothing
  * when the normal path already finalised it: `finaliseAndRelease` sets the
@@ -34,7 +34,6 @@ import {
 import { describeKeptFailure } from '@/infrastructure/logging/internal-error-report'
 import { logError } from '@/infrastructure/logging/logger'
 import { finaliseRun } from './run-persistence'
-import { releaseSlot, unregisterCancellation } from './scheduler'
 import type { TriggerData } from '../resolve-trigger-data'
 
 /** What the guard needs to close a run the normal path did not. */
@@ -81,7 +80,7 @@ const recordDefect = (
     Effect.ignore
   )
 
-/** Close an abandoned run as `failed`, then give back its slot and its canceller. */
+/** Close an abandoned run as `failed`. Its slot and canceller go back with the run's scope. */
 const closeAbandonedRun = (
   run: AdmittedRun,
   cause: Cause.Cause<unknown>
@@ -113,13 +112,11 @@ const closeAbandonedRun = (
       ...(run.startedAsGuest === true ? { startedAsGuest: true } : {}),
     })
     if (defect !== undefined) yield* recordDefect(run.runId, defect)
-    releaseSlot(run.name)
-    unregisterCancellation(run.runId)
   })
 
 /**
  * Run the admitted part of a run so that, whatever way it exits, the run ends
- * finalised with its slot and canceller released. A defect or an interruption
+ * finalised. A defect or an interruption
  * still propagates to the caller unchanged: the guard closes the run, it does
  * not hide why it stopped.
  */

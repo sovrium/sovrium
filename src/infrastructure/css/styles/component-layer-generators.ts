@@ -7,6 +7,7 @@
 
 import { generateClickAnimationCSS } from '@/infrastructure/css/styles/click-animations'
 import { generateEntranceAnimationCSS } from '@/infrastructure/css/styles/entrance-animations'
+import { REDUCED_MOTION_LOOPS } from '@/infrastructure/css/styles/reduced-motion-loops'
 
 /**
  * Component-layer class builders.
@@ -61,7 +62,8 @@ import { generateEntranceAnimationCSS } from '@/infrastructure/css/styles/entran
  * full-width so controls fill their field column, a quiet muted placeholder, a
  * smooth focus transition, shadcn's one-ring focus with a ring-coloured edge, and a
  * legible disabled state. Color goes through canonical role tokens only —
- * never raw colors — so design overrides win.
+ * never raw colors — so design overrides win. The resting edge is the `input`
+ * token, as the `input` component draws it, never the hairline `border`.
  *
  * A `<select>` needs more than this shared surface to look like the input
  * beside it — native drawing off, a chevron, a wider right inset and a muted
@@ -76,7 +78,7 @@ export function buildInputClasses(): string {
     'w-full',
     'rounded-md',
     'border',
-    'border-border',
+    'border-input',
     'bg-background',
     'px-3',
     'py-2',
@@ -393,7 +395,6 @@ export function generateUtilitiesLayer(): string {
 ${buildSelectRules()}
 
       ${entranceAnimations}
-
-      ${clickAnimations}
+      ${clickAnimations}${REDUCED_MOTION_LOOPS}
     }`
 }

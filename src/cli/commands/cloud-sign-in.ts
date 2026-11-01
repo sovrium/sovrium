@@ -21,13 +21,9 @@
  */
 
 import { Effect } from 'effect'
-import { readValueFlag } from '@/cli/runtime/flag-vocabulary'
-import {
-  CliRefusal,
-  DEFAULT_CLOUD_HOST,
-  readCredentials,
-  resolveCloudOrigin,
-} from './cloud-session'
+import { defineFlags, flag, type ValueFlagReading } from '@/cli/runtime/flag-schema'
+import { CliRefusal } from '@/cli/runtime/run-command'
+import { DEFAULT_CLOUD_HOST, readCredentials, resolveCloudOrigin } from './cloud-session'
 
 /** The variable that carries an API key instead of the sign-in file. */
 export const API_KEY_VARIABLE = 'SOVRIUM_API_KEY'
@@ -96,13 +92,21 @@ const signInFirst = (origin: URL): CliRefusal =>
   })
 
 /**
+ * The two flags every command that talks to a cloud reads: the cloud
+ * (`--host`) and the app on it (`--app`), each in both spellings.
+ */
+export const cloudTargetFlags = defineFlags({
+  host: flag.named('--host'),
+  app: flag.named('--app'),
+})
+
+/**
  * The cloud a command targets (`--host <url>` or `--host=<url>`, else the one
  * the key belongs to) and the key for it, or the refusal telling the developer
  * to sign in there. A `--host` given no address is refused, not defaulted.
  */
-export const signedInCloud = (argv: readonly string[]): Effect.Effect<SignedInCloud, CliRefusal> =>
+export const signedInCloud = (host: ValueFlagReading): Effect.Effect<SignedInCloud, CliRefusal> =>
   Effect.gen(function* () {
-    const host = readValueFlag(argv, '--host')
     if (host.given && host.value === undefined) {
       return yield* new CliRefusal({
         headline: '--host is given no address — nothing was sent.',

@@ -60,9 +60,8 @@ export const withLocalizedRows = <Db extends DataSourceDb>(db: Db, app: App, lan
     ...db,
     fetchRecords: async (tableName, options) =>
       (await db.fetchRecords(tableName, options)).map((row) => localize(tableName, row)),
-    // eslint-disable-next-line max-params -- implements the port's positional signature
-    fetchSingleRecord: async (tableName, paramField, paramValue, fields, options) => {
-      const row = await db.fetchSingleRecord(tableName, paramField, paramValue, fields, options)
+    fetchSingleRecord: async (tableName, paramField, paramValue, options) => {
+      const row = await db.fetchSingleRecord(tableName, paramField, paramValue, options)
       return row === undefined ? undefined : localize(tableName, row)
     },
   }

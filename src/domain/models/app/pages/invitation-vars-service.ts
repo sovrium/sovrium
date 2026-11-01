@@ -14,6 +14,7 @@
  * whether an invitation ever existed.
  */
 
+import { relativeFormatterOf } from '@/domain/kernel/format/day-relative-time'
 import { escapeRegExp } from '@/domain/kernel/sanitize/escape-regexp'
 import { relativeOffset } from '@/domain/kernel/time/relative-offset'
 import { isAdminTier, type AdminRoleResolvable } from '@/domain/models/app/auth/roles/role'
@@ -95,7 +96,7 @@ export const formatInvitationRelative = (
 ): string => {
   const { count, unit } = relativeOffset(instant.getTime() - now.getTime())
   return inLanguage(lang, (tag) =>
-    new Intl.RelativeTimeFormat(tag, { numeric: 'always' }).format(count, unit)
+    relativeFormatterOf(tag, { numeric: 'always' }).format(count, unit)
   )
 }
 
@@ -146,17 +147,50 @@ const REFERENCE_PATTERN = new RegExp(
   'g'
 )
 
-/** `text` with every `$invitation.*` reference replaced by its value. */
+/**
+ * `text` with every `$invitation.*` reference replaced by its value, each
+ * value passed through `encode` when one is given (the HTML escape, for a
+ * template written as markup).
+ */
 export const substituteInvitationVars = (
   text: string,
-  values: Readonly<Record<InvitationReference, string>>
+  values: Readonly<Record<InvitationReference, string>>,
+  encode?: (value: string) => string
 ): string =>
   text.includes('$invitation.')
-    ? text.replaceAll(
-        REFERENCE_PATTERN,
-        (_match, name: string) => values[name as InvitationReference]
-      )
+    ? text.replaceAll(REFERENCE_PATTERN, (_match, name: string) => {
+        const value = values[name as InvitationReference]
+        return encode === undefined ? value : encode(value)
+      })
     : text
+
+/**
+ * The template the `$invitation.*` references of `text` are filled into: the
+ * translation of a `$t:` key when that translation names an invitation value,
+ * `text` as written otherwise (the key is then left for the translation pass).
+ *
+ * It is this template, not the `$t:` key, that says whether the values land in
+ * markup or in text.
+ */
+export const invitationTemplateOf = (text: string, translate: (text: string) => string): string => {
+  if (!text.includes('$t:')) return text
+  const translated = translate(text)
+  return translated.includes('$invitation.') ? translated : text
+}
+
+/**
+ * `text` with every `$invitation.*` reference replaced, including the ones a
+ * `$t:` key's translation carries: when `translate` turns the text into one
+ * naming an invitation value, that translation is filled; otherwise the text
+ * is filled as written and its key is left for the translation pass. Each
+ * value goes through `encode` when one is given.
+ */
+export const substituteTranslatedInvitationVars = (
+  text: string,
+  values: Readonly<Record<InvitationReference, string>>,
+  translate: (text: string) => string,
+  encode?: (value: string) => string
+): string => substituteInvitationVars(invitationTemplateOf(text, translate), values, encode)
 
 /** A `visibility.condition` as authored: `{ field, operator, value }`. */
 export interface InvitationCondition {

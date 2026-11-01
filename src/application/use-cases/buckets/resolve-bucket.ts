@@ -27,8 +27,11 @@ import type { Bucket } from '@/domain/models/app/buckets'
  *
  * The system bucket is private (`public: false`) when the app declares
  * an `auth` block — writes then require a session. With no auth configured there
- * is no session system to gate against, so it is public, which is what keeps
- * page-component file-upload forms working on a no-auth app.
+ * is no session system to gate against, so it is public: a visitor reads its
+ * files and places NEW ones there, which is what keeps page-component
+ * file-upload forms working on a no-auth app. Nobody owns a file on such an
+ * app, so no visitor deletes or replaces one already stored (the bucket write
+ * gates decide that, not this resolver).
  *
  * It also inherits the STRICTEST role list the app's DECLARED buckets state for
  * each file action. Without that, an app declaring a single admin-only bucket

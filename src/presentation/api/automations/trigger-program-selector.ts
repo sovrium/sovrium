@@ -43,7 +43,6 @@ export function selectTriggerProgram(input: {
   const shared = {
     name,
     app,
-    processEnv: process.env,
     userRole,
     ...(userId !== undefined ? { userId } : {}),
   }

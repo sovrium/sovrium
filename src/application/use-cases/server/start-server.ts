@@ -8,6 +8,7 @@
 import { Cause, Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { ServerFactory } from '@/application/ports/services/server-factory'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { TypeScriptValidator } from '@/application/ports/services/typescript-validator'
@@ -18,7 +19,7 @@ import { decodeAppConfigObject } from '@/application/use-cases/config/decode-app
 import {
   validateTelemetryConfiguration,
   type TelemetryConfigurationError,
-} from '@/application/use-cases/env/validate-telemetry-configuration'
+} from '@/application/use-cases/config/validate-telemetry-configuration'
 import {
   validateBootEnvironment,
   type BootEnvironmentError,
@@ -31,9 +32,7 @@ import { ENGINE_KEY_NOTICE_TOKENS } from '@/domain/models/app/languages/engine-k
 import { prunePagesByRequirements } from '@/domain/models/app/pages/page-requires'
 import { parseSovriumSelfSeed } from '@/domain/models/process-env/self-seed'
 import { Logger } from '@/infrastructure/logging/logger'
-import { publishServerBootInstant } from '@/infrastructure/process/server-boot-instant'
-import { getSovriumVersion } from '@/infrastructure/process/version'
-import { activateTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
+import { sweepAnalyticsToProfile } from './boot-analytics-sweep'
 import { bootstrapAdminAndToken } from './boot-bootstrap'
 import { migrateOrHoldListener } from './boot-database-hold'
 import { prepareSearchArtifacts } from './boot-search-artifacts'
@@ -42,13 +41,13 @@ import type { DatabaseMigrationError } from '@/application/ports/services/databa
 import type { DatabaseStartupReport } from '@/application/ports/services/server-factory'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
 import type { TSValidationError } from '@/application/ports/services/typescript-validator'
+import type { AuthConfigRequiredForUserFields } from '@/domain/errors/auth-config-required-error'
+import type { CSSCompilationError } from '@/domain/errors/css-compilation-error'
+import type { SchemaInitializationError } from '@/domain/errors/schema-initialization-error'
+import type { ServerCreationError } from '@/domain/errors/server-creation-error'
+import type { TransformPresetError } from '@/domain/errors/transform-preset-error'
 import type { App } from '@/domain/models/app'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
-import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
-import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
-import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
-import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
-import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 import type { Context } from 'effect'
 
 /**
@@ -112,12 +111,15 @@ const bootNoticesOf = (notices: readonly string[]): readonly string[] =>
  * withheld before anything reads `automations`, so no trigger is armed, no
  * listing shows it and no route can start it.
  */
-const servedAppOf = (decoded: {
-  readonly app: App
-  readonly authoredTableIds: AuthoredTableIds
-  readonly bootNotices: readonly string[]
-}) => {
-  const gate = parseSovriumSelfSeed(process.env)
+const servedAppOf = (
+  decoded: {
+    readonly app: App
+    readonly authoredTableIds: AuthoredTableIds
+    readonly bootNotices: readonly string[]
+  },
+  env: Readonly<Record<string, string | undefined>>
+) => {
+  const gate = parseSovriumSelfSeed(env)
   const { app, withheld } = withholdSelfSeedAutomations(prunePagesByRequirements(decoded.app), gate)
   return {
     app,
@@ -152,12 +154,14 @@ const runBootSequenceAndBootstrap = (
     // The instant every run of THIS server postdates, published before anything
     // can start a run, so the sweep below and its on-demand trigger route read
     // the same boundary.
-    const bootedAt = publishServerBootInstant()
+    const bootedAt = yield* serverFactory.publishBootInstant
     const { port } = yield* migrateOrHoldListener(validatedApp, options, serverFactory, logger)
     const bootstrapToken = yield* bootstrapAdminAndToken(validatedApp, logger)
     // After the admin bootstrap, so a first boot's admin is already a recipient
     // of the interrupted-run alerts this may send.
     yield* sweepInterruptedRuns(validatedApp, logger, bootedAt)
+    // Before the listener binds, so no reader sees a field the profile excludes.
+    yield* sweepAnalyticsToProfile(validatedApp, logger)
     // The address a degraded phase held is the address the real bind takes.
     return { bootstrapToken, options: port === undefined ? options : { ...options, port } }
   })
@@ -315,7 +319,7 @@ export const startServer = (
     // the search index all take their view of the app from this object. Gating
     // later would deliver the 404 and none of the rest, leaving the app
     // advertising URLs it refuses to serve.
-    const served = servedAppOf(yield* decodeAndValidateApp(app))
+    const served = servedAppOf(yield* decodeAndValidateApp(app), yield* ProcessEnv)
     const { app: validatedApp, authoredTableIds, notices: bootNotices } = served
     yield* validateBootEnvironment(validatedApp)
     // No encryption-key gate here. A server does not refuse to boot without
@@ -325,27 +329,23 @@ export const startServer = (
     // Telemetry (observability-export) gate validation: unset → silently off,
     // set-but-malformed (bad SENTRY_DSN / out-of-range SENTRY_TRACES_SAMPLE_RATE)
     // → boot aborts loudly before the port binds. See the infrastructure observability requirement-*.
-    yield* validateTelemetryConfiguration(process.env)
-    // Activate the enabled telemetry signals ONCE (error reporter + crash
-    // handlers; the OTLP log runtime is wired here in a later step). A no-op
-    // when no gate variable is set.
-    // effect-promise: total -- `getSovriumVersion` wraps its `package.json` read in a try/catch and falls back to the build-time define, so it always resolves a string.
-    const telemetryVersion = yield* Effect.promise(() => getSovriumVersion())
-    yield* Effect.sync(() =>
-      activateTelemetry({ appName: validatedApp.name, version: telemetryVersion })
-    )
+    yield* validateTelemetryConfiguration
+    // Activate the enabled telemetry signals ONCE (error reporter, crash
+    // handlers, OTLP exporters), through the server boot adapter. A no-op when
+    // no gate variable is set.
+    const serverFactory = yield* ServerFactory
+    yield* serverFactory.activateTelemetry(validatedApp.name)
     // AI configuration gate: reject AI fields / agents when AI_PROVIDER is
     // unset, and reject unrecognised AI_PROVIDER values — both surface as
     // operator-facing startup errors rather than silent no-ops or crashes.
-    yield* validateAiConfiguration(validatedApp, process.env)
+    yield* validateAiConfiguration(validatedApp)
     // Eco-conception routing gate: ECO_AI_PROVIDER_PRECEDENCE=local-only refuses
     // to start without a reachable local Ollama (no cloud fall-back permitted).
-    yield* validateEcoAiRouting(validatedApp, process.env)
+    yield* validateEcoAiRouting(validatedApp)
     // Type-check every runTypescript body BEFORE the listener binds
     // (a misconfig must surface at boot, not on hit).
     yield* validateCodeActionsAtStartup(validatedApp)
     yield* StorageService // triggers S3 bucket accessibility check
-    const serverFactory = yield* ServerFactory
     const pageRenderer = yield* PageRenderer
     const logger = yield* Logger
     yield* Effect.forEach(bootNotices, (notice) => logger.warn(notice), { discard: true })

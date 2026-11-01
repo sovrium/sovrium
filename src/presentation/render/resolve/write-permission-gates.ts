@@ -12,12 +12,17 @@
  * (`data-source-modes.ts`, `data-source-resolver.ts`).
  */
 
+import {
+  anonymousGrant,
+  servesNoAuthVisitor,
+} from '@/domain/models/app/auth/anonymous-grant-service'
 import { toGroupReference } from '@/domain/models/app/auth/groups/group-reference'
 import {
   hasCreatePermissionForRoles,
   hasDeletePermissionForRoles,
   hasInlineEditDefaultForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
+import { rewriteComponent } from './component-rewrite'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -93,6 +98,33 @@ function signedInWriteGates(ctx: WriteGateContext, session: SessionInfo) {
 }
 
 /**
+ * The gates for the visitor of an app with no `auth` block, who holds exactly
+ * the writes a table opens with `'all'` (`anonymousGrant`), the rule the records
+ * API judges her by. Only a REFUSED write is stamped (`false`): a write the
+ * table opens leaves its gate absent, so a grid draws it as it always has, and
+ * declaring `all` on a table restores the grid an app had before.
+ */
+function noAuthVisitorWriteGates(ctx: WriteGateContext): Record<string, unknown> {
+  const scope = ctx.app as Parameters<typeof anonymousGrant>[2]
+  const refused = (
+    table: Parameters<typeof anonymousGrant>[0],
+    op: 'create' | 'update' | 'delete'
+  ) => !anonymousGrant(table, op, scope)
+  const relatedRefused = ctx.table.fields.flatMap((field) => {
+    const { relatedTable } = field as { readonly relatedTable?: string }
+    if (field.type !== 'relationship' || relatedTable === undefined) return []
+    const related = ctx.app.tables?.find((t) => t.name === relatedTable)
+    return refused(related, 'create') ? [[field.name, false] as const] : []
+  })
+  return {
+    ...(refused(ctx.table, 'create') && { _canCreate: false }),
+    ...(refused(ctx.table, 'update') && { _canUpdate: false }),
+    ...(refused(ctx.table, 'delete') && { _canDelete: false }),
+    ...(relatedRefused.length > 0 && { _canCreateRelated: Object.fromEntries(relatedRefused) }),
+  }
+}
+
+/**
  * Stamp the render-time write-permission gates into a table component's
  * props, where the session role is known and the island's is not.
  *
@@ -109,7 +141,9 @@ function signedInWriteGates(ctx: WriteGateContext, session: SessionInfo) {
  * model in the client bundle is exactly what the `Permission Evaluator Drift`
  * gate exists to prevent.
  *
- * Both are a no-op for non-data-tables and when auth is not configured. The two
+ * Both are a no-op for non-data-tables and for the operator console mounted
+ * into an app; an app with no `auth` block stamps what its visitor may do
+ * ({@link noAuthVisitorWriteGates}). The two
  * absent-value defaults differ, deliberately: create is OFFERED when unknown
  * (full-access model), edit is WITHHELD when unknown (fail-closed, and the
  * behaviour every grid has today).
@@ -122,7 +156,14 @@ function signedInWriteGates(ctx: WriteGateContext, session: SessionInfo) {
  * forwarded them. One page, two treatments.
  */
 export function withWritePermissionGates(ctx: WriteGateContext): Component {
-  if (ctx.component.type !== 'table' || !ctx.app.auth) return ctx.component
+  if (ctx.component.type !== 'table') return ctx.component
+  if (!ctx.app.auth) {
+    if (!servesNoAuthVisitor(ctx.app)) return ctx.component
+    const visitor = noAuthVisitorWriteGates(ctx)
+    return rewriteComponent(ctx.component, {
+      props: { ...(ctx.component.props ?? {}), ...visitor },
+    })
+  }
   const gates =
     ctx.session !== undefined
       ? signedInWriteGates(ctx, ctx.session)
@@ -134,5 +175,5 @@ export function withWritePermissionGates(ctx: WriteGateContext): Component {
             Object.keys(relatedCreateGates(ctx)).map((name) => [name, false])
           ),
         }
-  return { ...ctx.component, props: { ...(ctx.component.props ?? {}), ...gates } }
+  return rewriteComponent(ctx.component, { props: { ...(ctx.component.props ?? {}), ...gates } })
 }

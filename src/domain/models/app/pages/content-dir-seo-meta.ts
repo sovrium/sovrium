@@ -34,11 +34,13 @@ export interface ContentDirOpenGraph {
   readonly title?: string
   readonly description?: string
   readonly image?: string
+  /** The page's canonical address, so the card names the article it shares. */
+  readonly url?: string
 }
 
 /** A single hreflang alternate link. */
 export interface ContentDirAlternate {
-  /** The hreflang attribute value (configured language code, e.g. `en`, `fr`). */
+  /** The hreflang attribute value (the declared locale, e.g. `en-US`, else the code). */
   readonly hreflang: string
   /** The resolved URL for this locale (absolute when a base URL is available). */
   readonly href: string
@@ -144,11 +146,11 @@ const toAbsolute = (path: string, baseUrl: string | undefined): string =>
  * directories (`content/docs/en` vs `content/docs/fr`) force two declared pages
  * (`/en/:slug` + `/fr/:slug`) instead of one `/:lang/:slug` page.
  *
- * Each alternate uses the configured language `code` (e.g. `en`, `fr`) as the
- * hreflang value — that is the URL-prefix segment and the value the spec locks
- * (`hreflang="en"`), distinct from the longer `locale` (`en-US`) used by the
- * generic page-level hreflang block. A trailing `x-default` points at the
- * default language.
+ * Each alternate names its language by the declared `locale` (`en-US`), or by
+ * its `code` when the language declares no locale — the value a config page's
+ * alternates and the sitemap spell, so a search engine reads one language one
+ * way everywhere. The `code` stays the URL-prefix segment. A trailing
+ * `x-default` points at the default language.
  */
 const buildAlternates = (
   pattern: string,
@@ -161,7 +163,7 @@ const buildAlternates = (
   // `/:lang/:slug`: substitute the :lang template segment with each code.
   if (LANG_SEGMENT.test(pattern)) {
     const perLocale = languages.supported.map((lang) => ({
-      hreflang: lang.code,
+      hreflang: lang.locale ?? lang.code,
       href: toAbsolute(resolvePathForLang(pattern, routeParams, lang.code), baseUrl),
     }))
     const xDefault: ContentDirAlternate = {
@@ -176,7 +178,7 @@ const buildAlternates = (
   // article to its sibling-locale URL.
   if (leadingLanguageCode(pattern, languages) !== undefined) {
     const perLocale = languages.supported.map((lang) => ({
-      hreflang: lang.code,
+      hreflang: lang.locale ?? lang.code,
       href: toAbsolute(resolveHardcodedLangPath(pattern, routeParams, lang.code), baseUrl),
     }))
     const xDefault: ContentDirAlternate = {
@@ -193,10 +195,12 @@ const buildAlternates = (
  * Derive the Open Graph subset from frontmatter. Returns `undefined` when no
  * frontmatter key maps to an OG field so the caller emits no og:* tags for a
  * bare markdown file. `image` accepts the common `image` / `ogImage` /
- * `og:image` frontmatter conventions.
+ * `og:image` frontmatter conventions. A card that is emitted carries the
+ * page's canonical address as its `url`.
  */
 const buildOpenGraph = (
-  frontmatter: Readonly<Record<string, string>>
+  frontmatter: Readonly<Record<string, string>>,
+  canonical: string
 ): ContentDirOpenGraph | undefined => {
   const { title, description } = frontmatter
   const image = frontmatter['image'] ?? frontmatter['ogImage'] ?? frontmatter['og:image']
@@ -205,7 +209,7 @@ const buildOpenGraph = (
     ...(description ? { description } : {}),
     ...(image ? { image } : {}),
   }
-  return Object.keys(og).length > 0 ? og : undefined
+  return Object.keys(og).length > 0 ? { ...og, url: canonical } : undefined
 }
 
 /**
@@ -231,11 +235,11 @@ export const buildContentDirSeoMeta = (input: {
   readonly structuredData?: readonly Record<string, unknown>[]
 }): ContentDirSeoMeta => {
   const { pattern, routeParams, frontmatter, languages, baseUrl, structuredData } = input
-  const resolvedPath = resolvePagePath(pattern, routeParams)
+  const canonical = toAbsolute(resolvePagePath(pattern, routeParams), baseUrl)
   return {
-    canonical: toAbsolute(resolvedPath, baseUrl),
+    canonical,
     alternates: buildAlternates(pattern, routeParams, baseUrl, languages),
-    openGraph: buildOpenGraph(frontmatter),
+    openGraph: buildOpenGraph(frontmatter, canonical),
     structuredData: structuredData ?? [],
   }
 }

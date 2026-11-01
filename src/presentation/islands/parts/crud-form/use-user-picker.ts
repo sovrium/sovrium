@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react'
 import { useCandidateSearch } from '../use-candidate-search'
 import { fetchUserDirectoryPage, USER_DIRECTORY_SOURCE_KEY } from '../user-directory'
 import { readLinkedIds, writeLinkedIds } from './record-picker-value'
+import { usePickerKeyboard } from './use-picker-keyboard'
 import type { FieldDef } from './field-def'
 import type { RecordPicker } from './use-record-picker'
 
@@ -45,6 +46,13 @@ export function useUserPicker(args: {
   const labelOfId = (id: string): string => known[id] ?? id
   const searching = open || search.term !== ''
   const firstId = linkedIds[0]
+  const toggle = (id: string): void => {
+    setPicked((prev) => ({ ...prev, [id]: labelOfId(id) }))
+    onChange(field.name, writeLinkedIds([id], false))
+    search.setTerm('')
+    setOpen(false)
+  }
+  const keyboard = usePickerKeyboard({ open, setOpen, candidates: search.candidates, pick: toggle })
 
   return {
     linkedIds,
@@ -57,14 +65,12 @@ export function useUserPicker(args: {
     closePopup: () => setOpen(false),
     setTerm: (term) => {
       search.setTerm(term)
+      keyboard.resetHighlight()
       setOpen(true)
     },
-    toggle: (id) => {
-      setPicked((prev) => ({ ...prev, [id]: labelOfId(id) }))
-      onChange(field.name, writeLinkedIds([id], false))
-      search.setTerm('')
-      setOpen(false)
-    },
+    toggle,
     remove: () => onChange(field.name, ''),
+    highlight: keyboard.highlight,
+    onKeyDown: keyboard.onKeyDown,
   }
 }

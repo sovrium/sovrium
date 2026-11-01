@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The load-time rule of `control` on a TABLE-BOUND form's field, which needs
  * the app's tables and so cannot live on the schema node: a `password` or a
@@ -17,9 +19,6 @@
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The controls a table-bound form draws its own way, over a text column. */
 const TEXT_DRAWN_CONTROLS: ReadonlySet<string> = new Set(['password', 'textarea'])

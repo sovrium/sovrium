@@ -57,7 +57,7 @@ export const DateEndOfActionSchema = Schema.Struct({
       Schema.annotate({
         description:
           'Unit to snap to the end of (singular): year, month, week, day, hour, minute or ' +
-          'second. Weeks end Sunday (ISO 8601). Inclusive — lands on .999ms.',
+          'second. Weeks end Sunday (ISO 8601). Inclusive: lands on .999ms.',
       })
     ),
 

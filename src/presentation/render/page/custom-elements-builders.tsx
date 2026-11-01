@@ -85,7 +85,7 @@ export function buildScriptElement(element: CustomElements[number], key: string)
       <script
         key={key}
         {...processedAttrs}
-        // eslint-disable-next-line sovrium/require-sanitized-html -- operator-authored code from the validated app config, rendered verbatim by design: the config author is trusted, and sanitizing would strip the script
+        // eslint-disable-next-line sovrium/require-sanitized-html -- operator-authored code from the validated app config, rendered verbatim by design: the config author is trusted, and sanitizing would strip the script; no page reference is substituted into it (withAuthoredMetaCode)
         dangerouslySetInnerHTML={{ __html: element.content }}
       />
     )
@@ -115,7 +115,7 @@ export function buildStyleElement(element: CustomElements[number], key: string):
     <style
       key={key}
       {...element.attrs}
-      // eslint-disable-next-line sovrium/require-sanitized-html -- operator-authored code from the validated app config, rendered verbatim by design: the config author is trusted, and sanitizing would strip the script
+      // eslint-disable-next-line sovrium/require-sanitized-html -- operator-authored code from the validated app config, rendered verbatim by design: the config author is trusted, and sanitizing would strip the style; no page reference is substituted into it (withAuthoredMetaCode)
       dangerouslySetInnerHTML={{ __html: element.content || '' }}
     />
   )

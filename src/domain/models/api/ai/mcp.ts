@@ -6,12 +6,12 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * Model Context Protocol (MCP) status API contract schemas.
  *
- * Mirrors the runtime shapes in `src/presentation/api/routes/ai-mcp-status.ts`.
+ * Mirrors the answers of `src/presentation/api/agents/mcp-status-routes.ts`.
  * Backs the OpenAPI documentation for the MCP status route group.
  */
 
@@ -22,12 +22,30 @@ export const mcpServerStatusSchema = Schema.Struct({
   mountPath: Schema.String,
 })
 
-/** A single configured external MCP server (token omitted). */
+/** Where one declared external MCP server stands. */
+export const mcpServerStateSchema = Schema.Literals([
+  'connected',
+  'unavailable',
+  'refused',
+  'error',
+]).annotate({
+  description:
+    'connected: the session is open. unavailable: it could not be reached. refused: the outbound guard refused its address. error: it answered, but not as an MCP server.',
+})
+
+/** One declared external MCP server (token omitted). */
 export const mcpClientServerSchema = Schema.Struct({
-  url: Schema.String,
+  name: Schema.String.annotate({ description: 'Name the server is declared under' }),
+  url: Schema.String.annotate({ description: 'Declared address, without any user-info part' }),
   authType: Schema.Literals(['bearer', 'header', 'none']),
   headerName: optionalField(Schema.String),
-  status: Schema.Literal('connecting'),
+  status: mcpServerStateSchema,
+  toolCount: optionalField(
+    Schema.Int.annotate({ description: 'How many tools it listed, present when connected' })
+  ),
+  reason: optionalField(
+    Schema.String.annotate({ description: 'Why it is not connected, present otherwise' })
+  ),
 })
 
 /** MCP client enablement and the configured external servers. */
@@ -36,10 +54,14 @@ export const mcpClientStatusSchema = Schema.Struct({
   servers: Schema.Array(mcpClientServerSchema),
 })
 
-/** A discovered MCP tool. */
+/** A tool a connected server listed. */
 export const mcpClientToolSchema = Schema.Struct({
+  server: Schema.String.annotate({ description: 'Name of the server that listed it' }),
   name: Schema.String,
   description: Schema.String,
+  inputSchema: Schema.Record(Schema.String, Schema.Unknown).annotate({
+    description: 'JSON Schema of its arguments, as the server listed it',
+  }),
 })
 
 /** MCP client enablement and the discovered tool catalog. */
@@ -53,16 +75,3 @@ export const mcpDisabledSchema = Schema.Struct({
   enabled: Schema.Literal(false),
   error: Schema.String,
 })
-
-/** @public */
-export type McpServerStatus = typeof mcpServerStatusSchema.Type
-/** @public */
-export type McpClientServer = typeof mcpClientServerSchema.Type
-/** @public */
-export type McpClientStatus = typeof mcpClientStatusSchema.Type
-/** @public */
-export type McpClientTool = typeof mcpClientToolSchema.Type
-/** @public */
-export type McpClientTools = typeof mcpClientToolsSchema.Type
-/** @public */
-export type McpDisabled = typeof mcpDisabledSchema.Type

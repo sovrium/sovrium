@@ -29,13 +29,11 @@
  *     the button would press straight through with nothing picked.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { boundNodesOf, describeNode } from './record-binding-walk'
 import { reachedControlNodesOf } from './record-control-service'
 
 type Node = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is Node =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every object under `value`, itself included, at any depth. */
 const objectsUnder = (value: unknown): readonly Node[] => {

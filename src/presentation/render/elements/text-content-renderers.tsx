@@ -54,3 +54,14 @@ export function renderBlockquote(
 ): ReactElement {
   return <blockquote {...omitInternalMarkers(props)}>{content || children}</blockquote>
 }
+
+/**
+ * Renders kbd element (a key the reader presses, as text names it)
+ */
+export function renderKbd(
+  props: ElementProps,
+  content: string | undefined,
+  children: readonly React.ReactNode[]
+): ReactElement {
+  return <kbd {...omitInternalMarkers(props)}>{content || children}</kbd>
+}

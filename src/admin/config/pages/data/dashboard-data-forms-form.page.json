@@ -301,6 +301,16 @@
                             "field": "submittedAt",
                             "label": "$t:admin.forms.received",
                             "format": "datetime"
+                          },
+                          {
+                            "field": "_admin.submitter",
+                            "label": "$t:admin.forms.submitter",
+                            "minWidth": 180
+                          },
+                          {
+                            "field": "_admin.answersPreview",
+                            "label": "$t:admin.forms.answers",
+                            "minWidth": 280
                           }
                         ],
                         "emptyMessage": "$t:admin.forms.noneYet",
@@ -309,14 +319,15 @@
                           "action": "openSheet",
                           "component": "form-submission-detail"
                         },
-                        "columnsFrom": {
-                          "form": "$param.form"
-                        },
                         "selection": {
                           "mode": "multiple"
                         },
                         "viewOptions": "toolbar",
-                        "caption": "$t:admin.forms.scope"
+                        "caption": "$t:admin.forms.scope",
+                        "countLabel": {
+                          "one": "$t:admin.count.submissions.one",
+                          "other": "$t:admin.count.submissions.other"
+                        }
                       }
                     },
                     {
@@ -357,6 +368,24 @@
                             "label": "$t:admin.forms.received"
                           },
                           {
+                            "name": "_admin.submitter",
+                            "type": "single-line-text",
+                            "label": "$t:admin.forms.submitter",
+                            "visibleWhen": {
+                              "field": "_admin.submitter",
+                              "isNotEmpty": true
+                            }
+                          },
+                          {
+                            "name": "_admin.answersPreview",
+                            "type": "single-line-text",
+                            "label": "$t:admin.forms.answers",
+                            "visibleWhen": {
+                              "field": "answers",
+                              "isEmpty": true
+                            }
+                          },
+                          {
                             "name": "answers",
                             "type": "json",
                             "label": "$t:admin.forms.answers",
@@ -364,6 +393,41 @@
                             "visibleWhen": {
                               "field": "answers",
                               "isNotEmpty": true
+                            }
+                          },
+                          {
+                            "name": "_admin.runCount",
+                            "type": "number",
+                            "label": "$t:admin.forms.runs",
+                            "visibleWhen": {
+                              "field": "_admin.runCount",
+                              "gt": 0
+                            }
+                          }
+                        ],
+                        "actions": [
+                          {
+                            "label": "$t:admin.forms.openRecord",
+                            "variant": "outline",
+                            "visibleWhen": {
+                              "field": "_admin.linkedRecord.id",
+                              "isNotEmpty": true
+                            },
+                            "action": {
+                              "type": "navigate",
+                              "path": "/records/$record._admin.linkedRecord.table?record=$record._admin.linkedRecord.id"
+                            }
+                          },
+                          {
+                            "label": "$t:admin.forms.seeRuns",
+                            "variant": "outline",
+                            "visibleWhen": {
+                              "field": "_admin.runCount",
+                              "gt": 0
+                            },
+                            "action": {
+                              "type": "navigate",
+                              "path": "/runs?automation-runs-filter.submissionId=$record.id"
                             }
                           }
                         ]
@@ -477,7 +541,7 @@
                       "children": [
                         {
                           "type": "text",
-                          "element": "h3",
+                          "element": "h2",
                           "props": {
                             "className": "text-foreground text-md font-medium"
                           },

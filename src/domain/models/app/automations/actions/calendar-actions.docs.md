@@ -1,8 +1,8 @@
 # Calendar Actions
 
-> Pull the events of an external iCalendar feed into a table, matched on each event's UID and kept current on a schedule — or build an `.ics` invite for one event and attach it to an email.
+> Pull the events of an external iCalendar feed into a table, matched on each event's UID and kept current on a schedule, or build an `.ics` invite for one event and attach it to an email.
 
-`calendar` / `importIcs` reads an iCalendar (`.ics`) feed — a Proton booking page, a shared Google calendar, any calendar's "secret address" — and writes one row per event into a table. Run it from a `cron` trigger to keep the table in step with the calendar.
+`calendar` / `importIcs` reads an iCalendar (`.ics`) feed (a Proton booking page, a shared Google calendar, any calendar's "secret address") and writes one row per event into a table. Run it from a `cron` trigger to keep the table in step with the calendar.
 
 <!-- sovrium:options CalendarImportIcsActionSchema -->
 
@@ -41,7 +41,7 @@ automations:
 
 ## Mapping
 
-`map` names the field each event property is written to: `summary`, `description`, `location`, `start`, `end`, `url`, `status`. Leave it out and the table's own `calendarFeed` is used backwards — its `title` receives the summary, `description` the notes, `start` and `end` the times. A step with neither is refused when the configuration is loaded.
+`map` names the field each event property is written to: `summary`, `description`, `location`, `start`, `end`, `url`, `status`. Leave it out and the table's own `calendarFeed` is used backwards: its `title` receives the summary, `description` the notes, `start` and `end` the times. A step with neither is refused when the configuration is loaded.
 
 Times written with a zone are stored as that instant; times without one, or with a zone name the server does not know, are read in the operator timezone (`SOVRIUM_TIMEZONE`). An all-day event written to `date` fields keeps its days, its end being the last day it covers; written to `datetime` fields it starts at midnight UTC. A timed event written to a `date` field keeps the day it starts on in its own time zone. A mapped property the event does not carry clears its field.
 

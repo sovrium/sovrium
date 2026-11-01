@@ -27,7 +27,7 @@
  *
  * ─── AN UNKNOWN IDENTIFIER IS A REFUSAL ────────────────────────────────────
  *
- * {@link expandDirectives} throws on a directive it cannot resolve rather than
+ * {@link expandDirectives} fails on a directive it cannot resolve rather than
  * expanding to an empty table or leaving the comment in place. Both fallbacks
  * publish a page that reads as finished: the first says the schema has no
  * options, the second says nothing at all where a table was promised. The
@@ -36,9 +36,15 @@
  * list to see which.
  */
 
-import { Data } from 'effect'
 import { escapeMarkdownTableCell } from '@/domain/kernel/markdown/markdown-escaping'
 import { schemaOptionTreeFor } from '@/domain/models/app/design/schema-option-tree'
+import {
+  EmptyDocsDirectiveError,
+  refused,
+  rendered,
+  UnknownDocsDirectiveError,
+} from './docs-rendering'
+import type { DocsDirectiveError, Rendering } from './docs-rendering'
 import type { SchemaOption, SchemaOptionTree } from '@/domain/models/app/design/schema-option-tree'
 import type { SchemaNode } from '@/domain/models/app/design/type-introspection'
 
@@ -70,51 +76,6 @@ export interface DocsArticleInput {
   readonly body: string
   readonly registry?: DirectiveRegistry
   readonly behaviour?: readonly BehaviourStory[]
-}
-
-/**
- * A directive naming a schema the registry does not hold.
- *
- * Tagged so a caller can tell it from a genuine programming error: the CLI
- * prints it as a bad-fragment message, while anything else is a crash.
- */
-export class UnknownDocsDirectiveError extends Data.TaggedError('UnknownDocsDirectiveError')<{
-  readonly identifier: string
-  readonly known: readonly string[]
-}> {
-  override get message(): string {
-    return (
-      `Unknown sovrium:options identifier "${this.identifier}". ` +
-      `The registry holds: ${this.known.length === 0 ? '(nothing)' : this.known.join(', ')}.`
-    )
-  }
-}
-
-/**
- * A directive whose schema resolves but publishes no options.
- *
- * The same failure as an unknown identifier wearing a different cause: the
- * fragment promised a table and the page ships without one. It is separate from
- * {@link UnknownDocsDirectiveError} because the fix is different — that one is a
- * typo, this one is a directive aimed one node too high.
- *
- * Measured, it is almost always an ARRAY root. `RedirectsSchema` is
- * `Schema.Array(RedirectSchema)`, and the walk addresses `Objects`, `Union` and
- * `Suspend` roots only, so a fragment naming the plural gets silence where it
- * wanted the element's four options. Hence the tag in the message: it is the one
- * fact that tells an author which schema to name instead.
- */
-export class EmptyDocsDirectiveError extends Data.TaggedError('EmptyDocsDirectiveError')<{
-  readonly identifier: string
-  readonly rootTag: string
-}> {
-  override get message(): string {
-    return (
-      `The sovrium:options identifier "${this.identifier}" resolves to a ` +
-      `${this.rootTag} node, which publishes no options. Name the schema whose ` +
-      `keys the table should list — for an array, that is its element schema.`
-    )
-  }
 }
 
 // =============================================================================
@@ -324,20 +285,48 @@ interface ScanState {
 
 const INITIAL_SCAN: ScanState = { lines: [] }
 
-/** One line's expansion, given the registry. */
-const expandLine = (line: string, registry: DirectiveRegistry): string => {
+/**
+ * One line's expansion, given the registry.
+ *
+ * An unresolvable directive is a build error, and the two alternatives (an
+ * empty table, a silently dropped comment) both publish a page that reads as
+ * finished; a directive that expands to nothing ships a page promising a table
+ * it does not have.
+ */
+const expandLine = (
+  line: string,
+  registry: DirectiveRegistry
+): Rendering<string, DocsDirectiveError> => {
   const match = DIRECTIVE.exec(line)
-  if (match === null) return line
+  if (match === null) return rendered(line)
   const identifier = match[1] ?? ''
   const node = registry[identifier]
   if (node === undefined)
-    // eslint-disable-next-line functional/no-throw-statements -- an unresolvable directive is a build error, and the two alternatives (an empty table, a silently dropped comment) both publish a page that reads as finished
-    throw new UnknownDocsDirectiveError({ identifier, known: Object.keys(registry).toSorted() })
-  const rendered = renderOptionTable(schemaOptionTreeFor(node, parseOptions(match[2] ?? '')))
-  if (rendered === '')
-    // eslint-disable-next-line functional/no-throw-statements -- a directive that expands to nothing ships a page promising a table it does not have; see EmptyDocsDirectiveError
-    throw new EmptyDocsDirectiveError({ identifier, rootTag: node._tag ?? 'unknown' })
-  return rendered
+    return refused(
+      new UnknownDocsDirectiveError({ identifier, known: Object.keys(registry).toSorted() })
+    )
+  const table = renderOptionTable(schemaOptionTreeFor(node, parseOptions(match[2] ?? '')))
+  return table === ''
+    ? refused(new EmptyDocsDirectiveError({ identifier, rootTag: node._tag ?? 'unknown' }))
+    : rendered(table)
+}
+
+/** The scan after one more line: the fence it opens or closes, and the line as emitted. */
+const scanLine = (
+  state: ScanState,
+  line: string,
+  registry: DirectiveRegistry
+): Rendering<ScanState, DocsDirectiveError> => {
+  const { fence } = state
+  if (fence !== undefined) {
+    const lines = [...state.lines, line]
+    return rendered(closesFence(line, fence) ? { lines } : { lines, fence })
+  }
+  const expanded = expandLine(line, registry)
+  if (!expanded.ok) return expanded
+  const lines = [...state.lines, expanded.value]
+  const opener = fenceRunOf(line)
+  return rendered(opener === undefined ? { lines } : { lines, fence: opener })
 }
 
 /**
@@ -345,19 +334,22 @@ const expandLine = (line: string, registry: DirectiveRegistry): string => {
  *
  * @param body - The hand-written markdown, directives unexpanded.
  * @param registry - The schemas this fragment's section declares.
- * @returns The same markdown with each directive line replaced by its tables.
- * @throws UnknownDocsDirectiveError when a directive names a schema the
- *   registry does not hold — never an empty table. See the module header.
+ * @returns The same markdown with each directive line replaced by its tables,
+ *   or the first directive that names a schema the registry does not hold, or
+ *   one that publishes no options — never an empty table. See the module header.
  */
-export function expandDirectives(body: string, registry: DirectiveRegistry): string {
-  const state = body.split('\n').reduce<ScanState>((accumulator, line) => {
-    const { fence } = accumulator
-    const lines = [...accumulator.lines, fence === undefined ? expandLine(line, registry) : line]
-    if (fence !== undefined) return closesFence(line, fence) ? { lines } : { lines, fence }
-    const opener = fenceRunOf(line)
-    return opener === undefined ? { lines } : { lines, fence: opener }
-  }, INITIAL_SCAN)
-  return state.lines.join('\n')
+export function expandDirectives(
+  body: string,
+  registry: DirectiveRegistry
+): Rendering<string, DocsDirectiveError> {
+  const scan = body
+    .split('\n')
+    .reduce<Rendering<ScanState, DocsDirectiveError>>(
+      (accumulator, line) =>
+        accumulator.ok ? scanLine(accumulator.value, line, registry) : accumulator,
+      rendered(INITIAL_SCAN)
+    )
+  return scan.ok ? rendered(scan.value.lines.join('\n')) : scan
 }
 
 // =============================================================================
@@ -404,20 +396,24 @@ export function renderBehaviour(stories: readonly BehaviourStory[]): string {
  * screens is a section in the wrong place.
  *
  * @param input - The article's own words plus what it is composed from.
- * @returns Markdown ending in a single trailing newline.
- * @throws UnknownDocsDirectiveError - via {@link expandDirectives}.
+ * @returns Markdown ending in a single trailing newline, or the directive
+ *   failure of {@link expandDirectives}.
  */
-export function renderArticle(input: DocsArticleInput): string {
-  return [
-    `# ${input.title}`,
-    '',
-    ...(input.description === undefined ? [] : [`> ${input.description}`, '']),
-    expandDirectives(input.body, input.registry ?? {}).trim(),
-    '',
-    renderBehaviour(input.behaviour ?? []),
-  ]
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trimEnd()
-    .concat('\n')
+export function renderArticle(input: DocsArticleInput): Rendering<string, DocsDirectiveError> {
+  const prose = expandDirectives(input.body, input.registry ?? {})
+  if (!prose.ok) return prose
+  return rendered(
+    [
+      `# ${input.title}`,
+      '',
+      ...(input.description === undefined ? [] : [`> ${input.description}`, '']),
+      prose.value.trim(),
+      '',
+      renderBehaviour(input.behaviour ?? []),
+    ]
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trimEnd()
+      .concat('\n')
+  )
 }

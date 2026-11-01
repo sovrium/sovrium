@@ -124,10 +124,12 @@ const ACCENT_BUDGET_REMOVED =
 /**
  * `design.codeBlock` named the Shiki theme of every code block. Deprecated and
  * ignored in 0.40, refused from 0.41: code blocks draw shadcn/ui's default pair
- * whatever it named, so the remedy is to delete it.
+ * whatever it named. A design that wants its code in its own colours names
+ * them per syntax role under `design.code.tokens`, which is what the message
+ * points at.
  */
 const CODE_BLOCK_REMOVED =
-  "`design.codeBlock` has been removed: code blocks use shadcn/ui's default colours, `github-light` in the light colour scheme and `github-dark` in the dark one. Delete the key; no replacement is needed."
+  "`design.codeBlock` has been removed: code blocks use shadcn/ui's default colours, `github-light` in the light colour scheme and `github-dark` in the dark one. Delete the key; to colour code from your design, use `design.code.tokens`."
 
 /** The keys removed from `design` itself, each with the message that says where it went. */
 const REMOVED_ON_DESIGN: ReadonlyMap<string, string> = new Map([

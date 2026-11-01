@@ -9,7 +9,12 @@
  * Update Scoop Manifest - Generates a Scoop manifest from template + release checksums
  *
  * Fetches SHA256 checksum from a GitHub Release and produces a ready-to-commit
- * sovrium.json file for the sovrium/scoop-bucket repository.
+ * sovrium.json file for the sovrium/scoop-bucket repository. The hash is
+ * written only after `fetchChecksum` proved it: a 64-hex digest equal to the
+ * digest of the zip it downloaded, whose `.sig` verifies against an embedded
+ * release key. Anything else exits 1 before a file is written. The template's
+ * `autoupdate` names the per-version `.sha256` too, so a manifest Scoop
+ * regenerates on its own never carries a URL without a hash.
  *
  * Usage:
  *   bun run scripts/build/update-scoop-manifest.ts --version 0.3.0

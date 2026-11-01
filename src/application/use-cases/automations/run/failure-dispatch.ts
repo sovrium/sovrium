@@ -34,7 +34,6 @@ import type { Trigger } from '@/domain/models/app/automations/trigger'
  */
 export interface DispatchFailureHandlersInput {
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly failedAutomationName: string
   readonly failedTriggerType: string
   readonly runId: string
@@ -64,7 +63,6 @@ export interface FailureDispatchRunners {
     readonly trigger: Trigger
     readonly automationId: string
     readonly app: App
-    readonly processEnv: Readonly<Record<string, string | undefined>>
     readonly triggerData: TriggerData
     readonly handlers: typeof defaultActionHandlers
     readonly userId: string | undefined
@@ -148,7 +146,6 @@ export const dispatchFailureHandlers = (
             trigger,
             automationId,
             app: input.app,
-            processEnv: input.processEnv,
             triggerData: failureTriggerData,
             handlers: defaultActionHandlers,
             userId: undefined,

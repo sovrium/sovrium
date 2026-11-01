@@ -70,12 +70,42 @@ const storesEmpty = (field: TableField): boolean => {
  */
 const normalizeValue = (field: TableField | undefined, value: unknown): unknown => {
   if (isEmptyFile(value)) return undefined
+  if (Array.isArray(value)) return postedList(value)
   if (field === undefined || typeof value !== 'string') return value
   if (value.trim() === '' && !storesEmpty(field)) return undefined
   if (holdsList(field)) return parseLinkList(value.trim())
   // A form-encoded body ends every line of a multi-line box with CRLF, whatever
   // the reader typed; the column keeps the line ends a JSON write would send.
   return value.replace(/\r\n?/g, '\n')
+}
+
+/**
+ * A list field posted once per entry (`tags=hot&tags=cold`, the way HTML posts
+ * several values): its non-empty entries, each a list item. None left is
+ * "untouched", as an empty control is.
+ */
+const postedList = (values: readonly unknown[]): unknown => {
+  const entries = values.filter((entry) => typeof entry !== 'string' || entry.trim() !== '')
+  return entries.length === 0 ? undefined : entries
+}
+
+/**
+ * A form body read with every repeated key kept (`parseBody({ all: true })`),
+ * as the update should see it: a list field keeps every value it was posted
+ * with, and any other key keeps its last one, as a body read without `all`
+ * always did.
+ */
+export function collapseRepeatedKeys(
+  table: Pick<Table, 'fields'> | undefined,
+  body: Readonly<Record<string, unknown>>
+): Record<string, unknown> {
+  const lists = new Set((table?.fields ?? []).filter(holdsList).map((field) => field.name))
+  return Object.fromEntries(
+    Object.entries(body).map(([name, value]) => [
+      name,
+      Array.isArray(value) && !lists.has(name) ? value.at(-1) : value,
+    ])
+  )
 }
 
 /**

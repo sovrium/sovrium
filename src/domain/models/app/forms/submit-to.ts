@@ -75,7 +75,7 @@ export const SubmitToSchema = Schema.Struct({
    */
   mapping: Schema.optional(
     Schema.Record(Schema.String, Schema.String).annotate({
-      defaultNote: 'identity — each form field writes to the table column of the same name',
+      defaultNote: 'identity: each form field writes to the table column of the same name',
       description: 'Map form field names to destination column names',
     })
   ),

@@ -37,7 +37,11 @@
 
 import { basename, dirname, relative, sep } from 'node:path'
 import { Result, Schema } from 'effect'
-import { validateComputedFieldForeignKeys } from '@/application/use-cases/tables/validate-computed-field-foreign-keys'
+import {
+  formatDecodeReport,
+  messageLinesAsConfigFindings,
+  toConfigFindings,
+} from '@/domain/kernel/config-parsing/decode-report-format'
 import { reportPrototypePollutingKeys } from '@/domain/kernel/config-parsing/prototype-key-guard'
 import { omitUndefinedKeys } from '@/domain/kernel/config-parsing/undefined-keys'
 import { AppSchema } from '@/domain/models/app'
@@ -46,49 +50,21 @@ import {
   formatProblemReport,
   problemCountLine,
 } from '@/domain/models/app/app-config-report-service'
-import {
-  collectDecodeProblems,
-  formatDecodeReport,
-  messageLinesAsConfigFindings,
-  toConfigFindings,
-} from '@/domain/models/app/app-excess-property-report'
-import { validateAssetReferences } from '@/domain/models/app/asset-reference-validation'
-import { validateApprovalTimeouts } from '@/domain/models/app/automations/actions/approval/approval-timeout-validation'
+import { collectDecodeProblems } from '@/domain/models/app/app-excess-property-report'
+import { runAppSemanticChecks } from '@/domain/models/app/app-semantic-checks'
 import { validateBrowserActions } from '@/domain/models/app/automations/actions/browser/browser-action-validation'
-import { validateDelayLimits } from '@/domain/models/app/automations/actions/delay/delay-limits-validation'
-import { validateRecordAggregates } from '@/domain/models/app/automations/actions/record/aggregate-validation'
-import { validateRecordEventLoops } from '@/domain/models/app/automations/record-loop-validation'
 import { reportRetiredActionOperators } from '@/domain/models/app/automations/retired-operator-validation'
-import { validatePreviewOptionPaths } from '@/domain/models/app/design/preview-option-validation'
 import { collectSupersededDesignNotices } from '@/domain/models/app/design/superseded-notices'
-import { validateDocumentOutputBuckets } from '@/domain/models/app/document-output-validation'
 import { undeclaredEnvReferenceRefusals } from '@/domain/models/app/env-reference-validation'
-import { validateGrantActions } from '@/domain/models/app/grant-action-validation'
 import { collectEngineKeyNotices } from '@/domain/models/app/languages/engine-key-prefix-validation'
 import { canReportEveryDecodeMistake } from '@/domain/models/app/pages/component-nesting-depth-service'
-import { validateComponentFieldReferences } from '@/domain/models/app/pages/components/component-field-references'
-import { validateComponentSemantics } from '@/domain/models/app/pages/components/component-types/component-semantic-validation'
-import { validateComponentXorRules } from '@/domain/models/app/pages/components/component-types/component-xor-rules'
-import { validateCalendarColorFields } from '@/domain/models/app/pages/components/component-types/data/calendar/calendar-color-field-validation'
-import { validateCardSlotComponents } from '@/domain/models/app/pages/components/component-types/data/card-slot-validation'
-import { validateAggregateSeries } from '@/domain/models/app/pages/components/component-types/data/chart/aggregate-series-validation'
-import {
-  validateDataTableFieldReferences,
-  validateRowColorFields,
-} from '@/domain/models/app/pages/components/component-types/data/table/schema'
-import { validateDrawerRelatedReferences } from '@/domain/models/app/pages/components/component-types/overlays/drawer-related-validation'
-import { validateRelativeDateFilters } from '@/domain/models/app/pages/components/relative-date-filter'
-import { validateDataSourceRefreshModes } from '@/domain/models/app/pages/data-source-refresh-validation'
-import { validateDataSourceViewReferences } from '@/domain/models/app/pages/data-source-view-validation'
-import { validateGraphTablesSources } from '@/domain/models/app/pages/graph-tables-source-validation'
-import { validateTableNameReferences } from '@/domain/models/app/pages/table-name-references'
 import {
   authoredTableIds,
   type AuthoredTableIds,
 } from '@/domain/models/app/tables/authored-table-ids-service'
 import { collectImplicitFieldIdNotices } from '@/domain/models/app/tables/implicit-field-id-validation'
+import type { ConfigFinding } from '@/domain/kernel/config-parsing/decode-report-format'
 import type { App } from '@/domain/models/app'
-import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
 
 /**
  * Options every entry point may pass.
@@ -310,51 +286,12 @@ const refusalFromDecoderMessage = (lines: readonly string[]): Refusal => ({
  *
  * THE UNKNOWN-FIELD-TYPE SWEEP DELIBERATELY DOES NOT RUN HERE. It stays in
  * `validate.ts` — see `runPostDecodeChecks` there for the reason.
+ *
+ * The rules themselves, their order and which of the two configs each reads
+ * are one data array: `APP_SEMANTIC_CHECKS` (`app-semantic-checks.ts`).
  */
-const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[] => {
-  return [
-    ...validateComputedFieldForeignKeys(decoded),
-    ...validateDataTableFieldReferences(normalized),
-    // The table NAME, wherever it is bound. Ordered before the field sweep
-    // because it is the verdict that sweep DEFERS to: a component whose table
-    // does not resolve is skipped there, so until this ran the deferral pointed
-    // at a rule that only ever visited a `table`. See `table-name-references.ts`.
-    ...validateTableNameReferences(normalized),
-    // `dataSource.view` and `refreshMode` where they cannot apply; graph/matrix table sources.
-    ...validateDataSourceViewReferences(normalized),
-    ...validateDataSourceRefreshModes(normalized),
-    ...validateGraphTablesSources(normalized),
-    ...validateComponentFieldReferences(normalized),
-    ...validateRowColorFields(normalized),
-    // A calendar's colour names one option, never a multi-select (its module).
-    ...validateCalendarColorFields(normalized),
-    // A drawer's `related` sections need `tables[]`, which no drawer schema node sees.
-    ...validateDrawerRelatedReferences(normalized),
-    // Card slots hold record components; the other component-type rules gathered.
-    ...validateCardSlotComponents(normalized),
-    ...validateComponentSemantics(normalized),
-    ...validateAggregateSeries(normalized), // one `series` styles an aggregated chart
-    ...validateRelativeDateFilters(normalized), // a relative-date value is a grammar token
-    ...validateRecordEventLoops(normalized), // a record automation re-firing its own trigger
-    ...validateApprovalTimeouts(normalized), // an approval `timeout` must decide its outcome
-    ...validateDelayLimits(normalized), // over-long delays (`delay-limits-validation.ts`)
-    ...validateRecordAggregates(normalized), // a figure over a missing or non-number field
-    ...validateAssetReferences(normalized), // `{ asset }` paths; `attachTo` into its field's bucket
-    ...validateDocumentOutputBuckets(decoded),
-    ...validateGrantActions(decoded), // a literal grant table or role the app does not declare
-    // Mutually-exclusive component keys. Here rather than in the schema
-    // because `buildComponentUnion` has no per-branch refinement hook, so a
-    // rule relating an INJECTED key (`children`) to a declared one cannot be
-    // written there at all. See `component-xor-rules.ts`.
-    ...validateComponentXorRules(normalized),
-    // A preview's option PATH, against the options its subject type actually
-    // publishes. Here rather than beside the subject's TYPE check inside
-    // `AppSchema` because the option universe comes from a domain service that
-    // introspects the component schemas, and a schema module may not import
-    // machinery built over it. See `preview-option-validation.ts`.
-    ...validatePreviewOptionPaths(normalized),
-  ]
-}
+const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[] =>
+  runAppSemanticChecks(decoded, normalized)
 
 /** The AppSchema decode, under the options explained inside {@link decodeAppConfigObject}. */
 const decodeApp = (errors: 'first' | 'all') =>

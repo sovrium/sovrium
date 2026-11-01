@@ -30,13 +30,17 @@
  */
 
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
+import { withUnholdableValuesRefused } from './filter-value-fit-service'
 import {
   mayReadRelatedField,
   toManyLinksRefusedTo,
   type RelatedReader,
 } from './related-field-read-service'
+import { relatedReaderFor } from './row-read-admission-service'
 import { deriveFieldLinkTableName } from './table-derived-name-validation'
+import { readFilterOf } from './user-list-field-service'
 import type { App } from '@/domain/models/app'
+import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 
 /** The operator a rewritten condition carries; its `field` is the relationship. */
 export const LINKED_RECORDS_OPERATOR = 'matchesLinkedRecords'
@@ -189,4 +193,42 @@ export function withLinkedRecordsConditions<T>(
     return rewriteLeaf(record, { app, reader, table }) ?? node
   }
   return rewrite(filter) as T
+}
+
+/** A page filter's operator under the records API's name, for the operators it reads through links. */
+const PAGE_OPERATOR_NAMES: Readonly<Record<string, string>> = {
+  eq: 'equals',
+  neq: 'notEquals',
+  in: 'in',
+  contains: 'contains',
+  startsWith: 'startsWith',
+}
+
+/**
+ * A page's `dataSource.filter` as its server-drawn read compiles it: each
+ * literal read through its field's type and `contains` on a list of people as
+ * membership (`readFilterOf`), and every condition on a many-to-many field read
+ * through its links exactly as the records API reads it — the page's `eq` and
+ * `neq` being the API's `equals` and `notEquals`. A value its column cannot
+ * hold matches nothing (`withUnholdableValuesRefused`). `session` is the page's
+ * visitor, judged as every related value of the page judges her
+ * (`relatedReaderFor`). Every other condition is returned as it came.
+ */
+export const pageReadFilterOf = <
+  F extends { readonly field: string; readonly operator: string; readonly value?: unknown },
+>(
+  filter: readonly F[] | undefined,
+  context: { readonly app: App; readonly tableName: string; readonly session?: SessionInfo }
+): readonly F[] => {
+  const { app, tableName, session } = context
+  const table = app.tables?.find((candidate) => candidate.name === tableName)
+  const reader = relatedReaderFor(session)
+  const held = filter?.map((leaf) => withUnholdableValuesRefused(leaf, app, tableName))
+  return readFilterOf(held, table?.fields).map((leaf) => {
+    const operator = PAGE_OPERATOR_NAMES[leaf.operator]
+    if (operator === undefined) return leaf
+    const asked = { ...leaf, operator }
+    const read = withLinkedRecordsConditions(asked, { app, tableName, reader })
+    return read === asked ? leaf : read
+  })
 }

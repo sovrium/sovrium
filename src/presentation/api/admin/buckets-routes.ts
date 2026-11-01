@@ -26,24 +26,24 @@
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { BUCKETS_READ_OPERATIONS } from '@/application/use-cases/admin/admin-read-registry'
-import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { resolveUploadBucket } from '@/application/use-cases/buckets/resolve-bucket'
 import { checkUploadFile } from '@/application/use-cases/buckets/upload-policy'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { bucketFileUploadResponseSchema } from '@/domain/models/api/admin/buckets/upload'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { bucketIdForName, declaredBucketNames } from '@/domain/models/app/buckets/bucket-identity'
 import { logError } from '@/infrastructure/logging/logger'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
 import { buildUploadStorageKey } from '@/infrastructure/storage/upload-key'
-import { emitAuditEvent } from '@/presentation/api/admin/audit-events'
+import { emitAuditEventAs } from '@/presentation/api/admin/audit-events'
 import { chainAdminReadRoutes } from '@/presentation/api/admin/read-operation-routes'
+import { acceptsUploadBody } from '@/presentation/api/middleware/request-body-limit'
 import { notFound, payloadTooLarge } from '@/presentation/api/runtime/auth-helpers'
 import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
+import { readMultipartFile } from '@/presentation/api/runtime/multipart-file'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { rejectUpload } from '@/presentation/api/runtime/upload-rejection'
 import type { App } from '@/domain/models/app'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
@@ -88,10 +88,9 @@ const adminErrorBody = (message: string, code: string) => ({ success: false, mes
 async function handleUploadBucketFile(c: Context, app: App): Promise<Response> {
   const bucket = c.req.param('bucketName')
   if (!isExposedBucket(app, bucket)) return notFound(c, 'Not found')
-  // Parse the multipart body and assert the `file` part is a binary File.
-  const body = await c.req.parseBody()
-  const { file } = body
-  if (!file || !(file instanceof File)) {
+  // The multipart body's `file` part, a binary File or nothing.
+  const file = await readMultipartFile(c, 'file')
+  if (file === undefined) {
     return c.json({ success: false, message: 'No file provided', code: 'BAD_REQUEST' }, 400)
   }
 
@@ -135,49 +134,63 @@ async function persistAdminUpload(c: Context, file: File, bucket: string): Promi
     return yield* storage.getMetadata(key, bucket)
   })
 
-  const result = await runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))
-  if (result._tag === 'Failure') {
-    const { cause } = result.failure as { readonly cause?: unknown }
-    const message = cause instanceof Error ? cause.message : String(cause)
-    logError('[admin] bucket upload failed', result.failure, requestLogAttributes(c))
-    return c.json(
-      { success: false, message: `Upload failed: ${message}`, code: 'STORAGE_ERROR' },
-      500
-    )
-  }
-
-  const meta = result.success
-  const parsed = decodeSafe(bucketFileUploadResponseSchema)({
-    success: true,
-    file: {
-      key: meta.key,
-      filename: file.name,
-      size: meta.size,
-      mimeType: meta.contentType,
-      createdAt: meta.lastModified,
-    },
-  })
-  if (!parsed.success) {
-    logError('[admin] bucket upload response validation failed', parsed.error)
-    return c.json(
-      { success: false, message: 'Failed to build upload response', code: 'INTERNAL_ERROR' },
-      500
-    )
-  }
-
-  // Emit one audit entry (canonical resource.type 'bucket' — derived by the
-  // emit use-case from the ACTION_CATALOG entry for BUCKET_FILE_UPLOADED).
-  const actor = await runDomainPromise(c, resolveActor(session.userId))
-  await emitAuditEvent({
-    action: AUDIT_ACTIONS.BUCKET_FILE_UPLOADED,
-    actor,
-    resourceId: bucketIdForName(bucket),
-    severity: 'info',
-    result: 'success',
-  })
-
-  return c.json(parsed.data, 201)
+  return runHandlerEffect(c, answerFailures(c, answerAdminUpload(c, program, { file, bucket })))
 }
+
+/** What the file list says of a stored object, read off its catalog row. */
+const listedFile = (meta: {
+  readonly key: string
+  readonly size: number
+  readonly contentType: string
+  readonly lastModified: string
+}) => ({
+  key: meta.key,
+  size: meta.size,
+  mimeType: meta.contentType,
+  createdAt: meta.lastModified,
+})
+
+/** Answer the stored upload through its contract, then write its one audit entry. */
+const answerAdminUpload = <E extends object, R>(
+  c: Context,
+  program: Effect.Effect<Parameters<typeof listedFile>[0], E, R>,
+  upload: { readonly file: File; readonly bucket: string }
+) =>
+  Effect.gen(function* () {
+    const session = (c as ContextWithSession).var.session!
+    const result = yield* Effect.result(program)
+    if (result._tag === 'Failure') {
+      const { cause } = result.failure as { readonly cause?: unknown }
+      const message = cause instanceof Error ? cause.message : String(cause)
+      logError('[admin] bucket upload failed', result.failure, requestLogAttributes(c))
+      return c.json(
+        { success: false, message: `Upload failed: ${message}`, code: 'STORAGE_ERROR' },
+        500
+      )
+    }
+
+    const meta = result.success
+    const response = yield* respondWith(
+      c,
+      Effect.succeed({
+        success: true,
+        file: { ...listedFile(meta), filename: upload.file.name },
+      }),
+      bucketFileUploadResponseSchema,
+      201
+    )
+    if (!response.ok) return response
+
+    // Emit one audit entry (canonical resource.type 'bucket' — derived by the
+    // emit use-case from the ACTION_CATALOG entry for BUCKET_FILE_UPLOADED).
+    yield* emitAuditEventAs(session.userId, {
+      action: AUDIT_ACTIONS.BUCKET_FILE_UPLOADED,
+      resourceId: bucketIdForName(upload.bucket),
+      severity: 'info',
+      result: 'success',
+    })
+    return response
+  })
 
 /**
  * Chain the admin/buckets routes onto a Hono app.
@@ -193,8 +206,8 @@ async function persistAdminUpload(c: Context, file: File, bucket: string): Promi
  * never shadows — nor is shadowed by — a GET.
  */
 export function chainAdminBucketsRoutes<T extends Hono>(honoApp: T, app: App): T {
-  return chainAdminReadRoutes(honoApp, () => app, BUCKETS_READ_OPERATIONS).post(
+  return chainAdminReadRoutes(honoApp, app, BUCKETS_READ_OPERATIONS).post(
     '/api/admin/buckets/:bucketName/files',
-    (c) => handleUploadBucketFile(c, app)
+    acceptsUploadBody((c: Context) => handleUploadBucketFile(c, app))
   ) as T
 }

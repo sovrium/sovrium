@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { TYPESET_CSS } from '@/infrastructure/css/generated-css-assets'
+import { TYPESET_CSS } from '@/infrastructure/css/generated-css-assets.generated'
 
 /**
  * Typeset: how rendered prose reads — the body of a markdown page, the
@@ -15,7 +15,7 @@ import { TYPESET_CSS } from '@/infrastructure/css/generated-css-assets'
  *
  *  1. **shadcn/ui's `typeset.css`, unchanged.** Vendored byte for byte at
  *     `src/presentation/design/typeset/typeset.css` and embedded through
- *     `generated-css-assets.ts`, which `bun run build:css-assets` refuses to
+ *     `generated-css-assets.generated.ts`, which `bun run build:css-assets` refuses to
  *     write unless the copy equals the registry snapshot. It sits in
  *     `@layer components` behind `:where()`, so any utility on an element wins
  *     over it, and it leaves every element carrying a `data-slot` (a component:

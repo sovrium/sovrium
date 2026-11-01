@@ -13,6 +13,7 @@ import { validateLanguageSubdirectory } from '@/domain/models/app/languages/lang
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
 import { renderWithCache, type PageRequestContext } from './page-render-pipeline'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
+import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 
 /**
  * The answer for `/{lang}/rest` once no page declares that address as written:
@@ -36,7 +37,7 @@ export async function answerLanguageRemainder(
   request: PageRequestContext,
   urlLanguage: string
 ): Promise<Response> {
-  const { app, renderNotFoundPage } = config
+  const { app } = config
   const remainder = c.req.path.replace(`/${urlLanguage}`, '') || '/'
   const served =
     validateLanguageSubdirectory(app, remainder) === undefined
@@ -52,5 +53,21 @@ export async function answerLanguageRemainder(
       ? toSafeRedirectPath(`${twin.path}${new URL(c.req.url).search}`)
       : undefined
   if (target !== undefined) return c.redirect(target, 301)
-  return c.html(await renderNotFoundPage(app, urlLanguage, requestedPath(c.req.url)), 404)
+  return answerNotFound(config, c, urlLanguage, request.session)
 }
+
+/**
+ * The `404` for an address no page claims: the app's not-found page, in
+ * `language`, drawn for the reader's `session` exactly as `/404` itself is, so
+ * a block shown only when signed in or to a role appears for her there too.
+ */
+export const answerNotFound = async (
+  config: HonoAppConfig,
+  c: Context,
+  language: string | undefined,
+  session: SessionInfo | undefined
+): Promise<Response> =>
+  c.html(
+    await config.renderNotFoundPage(config.app, language, requestedPath(c.req.url), session),
+    404
+  )

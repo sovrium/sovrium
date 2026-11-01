@@ -6,124 +6,30 @@
  */
 
 import { mkdir, writeFile } from 'node:fs/promises'
-import { basename, dirname, join } from 'node:path'
-import { Effect } from 'effect'
+import { basename, join } from 'node:path'
 import { ENV_EXAMPLE_CONTENT } from '@/cli/commands/env-example-template'
-import { assertNotABundleUrl } from '@/cli/commands/init-from-bundle-source'
+import { printCodeNotice } from '@/cli/commands/init/code-notice'
+import { generateClaudeMd, scaffoldDefault } from '@/cli/commands/init/default-scaffold'
+import { assertNotABundleUrl } from '@/cli/commands/init/from-bundle-source'
+import { isWebFacingTemplate, scaffoldFromTemplate } from '@/cli/commands/init/from-template'
+import { assertForkableUrl, type ForkedConfig } from '@/cli/commands/init/from-url'
 import {
-  assertForkableUrl,
-  fetchForkedConfig,
-  type ForkedConfig,
-} from '@/cli/commands/init-from-url'
-import { writeForkedConfig } from '@/cli/commands/init-from-url-provenance'
-import { initGitRepository } from '@/cli/commands/init-git'
+  assertFromUrlAlone,
+  fetchPinnedConfig,
+  inspectFromUrl,
+} from '@/cli/commands/init/from-url-inspect'
+import { writeForkedConfig } from '@/cli/commands/init/from-url-provenance'
+import { initGitRepository } from '@/cli/commands/init/git'
 import {
   isRemoteTemplateRef,
   scaffoldFromRemoteTemplate,
-} from '@/cli/commands/init-remote-template'
-import { CLAUDE_MD_BODY, PUBLIC_README_BODY } from '@/cli/commands/init-scaffold-content'
-import {
-  isScaffoldedTemplateFile,
-  writeRenderedTemplateWrappers,
-} from '@/cli/commands/init-template-scaffold'
+} from '@/cli/commands/init/remote-template'
+import { PUBLIC_README_BODY } from '@/cli/commands/init/scaffold-content'
 import { writeSkillsForScaffold } from '@/cli/commands/skills-files'
-import { isHeadlessEntry, readEmbeddedTemplateCatalog } from '@/cli/commands/templates-catalog'
-import { writeConfigTypesFiles } from '@/cli/commands/types'
-import { embeddedTemplateDir } from '@/infrastructure/assets/embedded-static-assets'
-import { printDocument, printFailure, printStderr } from '@/infrastructure/logging/cli-output'
-import type { ForkTarget } from '@/cli/commands/init-from-url-format'
-import type { TemplateCatalog } from '@/cli/commands/templates-catalog'
-
-/**
- * The bundled templates, read from the catalogue the binary embeds.
- *
- * Each template is a directory under `src/templates/<template>/`, named after its
- * slug one-to-one (business jobs such as `crm`, `intranet`, with no aliases
- * for older names — the templates are pre-1.0 content, not API). Init copies
- * the template's config, `seed/` and `public/` into the target and renders its
- * `CLAUDE.md` and `.env.example` from its `template.yaml`
- * (`init-template-scaffold.ts`). The agent skills are not part of any
- * template: they come from the binary (`writeSkillsForScaffold`), added beside
- * the tree without overwriting.
- *
- * The slugs and their `headless` flags come from the SAME reader
- * `sovrium templates` prints from, so the list a developer is shown and the
- * names this command accepts cannot disagree. A catalogue that does not
- * decode is a build defect and exits 1.
- */
-const templateCatalog = (): TemplateCatalog => {
-  const outcome = Effect.runSync(Effect.result(readEmbeddedTemplateCatalog))
-  if (outcome._tag === 'Failure') {
-    printStderr(`Error: ${outcome.failure.message}`)
-    process.exit(1)
-  }
-  return outcome.success
-}
-
-/** The template directory a bundled name resolves to, or `undefined` for an unknown name. */
-const templateDirOf = (templateName: string): string | undefined =>
-  Object.hasOwn(templateCatalog(), templateName) ? templateName : undefined
-
-/**
- * Templates that ship with a user-facing front-end and benefit from a
- * pre-scaffolded `public/` directory next to `app.yaml`: every template the
- * catalogue does not mark headless (the API and MCP templates, where a blank
- * public/ would just be noise). The default no-template `init` (no positional
- * template arg) also scaffolds `public/` so the convention is discoverable
- * from the very first run.
- */
-const isWebFacingCatalogTemplate = (template: string): boolean => {
-  const entry = templateCatalog()[template]
-  return entry !== undefined && !isHeadlessEntry(entry)
-}
-
-/**
- * Sanitize a directory name into a valid npm package name for use in app.yaml.
- * Converts to lowercase, replaces invalid characters with hyphens,
- * strips leading dots/underscores/hyphens, and falls back to 'my-app'.
- */
-const sanitizeAppName = (dirName: string): string => {
-  const sanitized = dirName
-    .toLowerCase()
-    .replace(/[^a-z0-9-._~]/g, '-')
-    .replace(/^[._-]+/, '')
-    .replace(/-+/g, '-')
-    .replace(/-$/, '')
-  return sanitized.length > 0 ? sanitized : 'my-app'
-}
-
-/**
- * Generate default app.yaml content using the directory name as the app name
- */
-const generateDefaultAppYaml = (appName: string): string =>
-  [`name: ${sanitizeAppName(appName)}`, `description: A Sovrium application`, ''].join('\n')
-
-/**
- * Generate the default `app.ts` for `sovrium init --typescript`.
- *
- * The import is TYPE-ONLY and the object is checked with `satisfies` — never a
- * `defineConfig()` value import. The binary leaves bare-package specifiers
- * unresolved, so a value import would type-check and then fail at boot, whereas
- * `import type` is erased at transpile time and never resolved at all. That is
- * why the emitted declaration exports no runtime value either.
- *
- * `satisfies` over an `AppConfig` annotation: it validates the literal against
- * the type WITHOUT widening it, so the export keeps its precise shape and a
- * misspelled property is still an excess-property error.
- *
- * `sanitizeAppName` restricts the name to `[a-z0-9-._~]`, so no quote escaping
- * is required in the emitted single-quoted string.
- */
-const generateDefaultAppTs = (appName: string): string =>
-  [
-    "import type { AppConfig } from 'sovrium'",
-    '',
-    'export default {',
-    `  name: '${sanitizeAppName(appName)}',`,
-    "  description: 'A Sovrium application',",
-    '} satisfies AppConfig',
-    '',
-  ].join('\n')
+import { defineFlags, flag } from '@/cli/runtime/flag-schema'
+import { refuseCommand, stopCommand, withFlagsAsync } from '@/cli/runtime/run-command'
+import { printDocument } from '@/infrastructure/logging/cli-output'
+import type { ForkTarget } from '@/cli/commands/init/from-url-format'
 
 /**
  * Generate default `.gitignore` content for a sovrium project.
@@ -209,215 +115,44 @@ const writeEnvExampleIfMissing = async (targetDir: string): Promise<boolean> => 
   return true
 }
 
-/**
- * Generate `CLAUDE.md` content for a scaffolded sovrium project (title + body).
- */
-const generateClaudeMd = (appName: string): string => `# ${appName}\n\n${CLAUDE_MD_BODY}`
-
-/**
- * Write scaffold files (the config file + CLAUDE.md) to the target directory.
- *
- * `configFilename` is `app.yaml` by default and `app.ts` under `--typescript`.
- * Exactly ONE of them is written: `DEFAULT_CONFIG_FILENAMES` resolves
- * `app.yaml` before `app.ts`, so scaffolding both would leave the typed config
- * permanently shadowed — edited by its author and never read by the runtime.
- */
-const writeScaffoldFiles = async (
-  targetDir: string,
-  configFilename: string,
-  configContent: string
-): Promise<string> => {
-  const targetPath = join(targetDir, configFilename)
-  const appName = basename(targetDir)
-  await writeFile(targetPath, configContent)
-  await writeFile(join(targetDir, 'CLAUDE.md'), generateClaudeMd(appName))
-  return targetPath
-}
-
-/**
- * Resolve and validate a template name, returning its directory under `src/templates/`.
- *
- * Exits with code 1 (and a list of available templates) on an unknown name,
- * and on a known name whose embedded template directory turns out to be empty
- * — the latter is an asset-pipeline bug (the manifest claims this template
- * exists but no files were embedded), not a user error, but still fatal.
- */
-const resolveTemplate = (templateName: string): string => {
-  const entry = templateDirOf(templateName)
-  if (entry === undefined) {
-    printStderr(
-      `Error: Unknown template "${templateName}" — does not exist\n\nAvailable templates: ` +
-        Object.keys(templateCatalog()).join(', ')
-    )
-    process.exit(1)
-  }
-
-  const tree = embeddedTemplateDir(entry)
-  if (Object.keys(tree).length === 0) {
-    printStderr(`Error: Template directory has no embedded files: ${entry}`)
-    process.exit(1)
-  }
-
-  return entry
-}
-
-/**
- * Copy a single embedded template file into the target, preserving its relative
- * subpath.
- *
- * Additive — a pre-existing file is preserved verbatim and NOT clobbered
- * (mirrors `.gitignore` / `.env.example` / `public/` rules: `init` never
- * overwrites a file it does not own). The lone exception is `app.yaml`, which
- * `init` does own: when `clobber` is set (because `--force` was passed) it is
- * overwritten; otherwise an existing `app.yaml` already exits upstream in
- * `assertNoConflict`. Returns whether bytes were written (skipped files report
- * `false` so the caller's count reflects what actually landed).
- *
- * `Bun.file(embeddedPath)` works for both dev paths and `$bunfs/...` paths in
- * the compiled binary, so this writes the same bytes the manifest embedded.
- * Intermediate directories are created on demand.
- */
-const writeOneTreeFile = async (
-  srcEmbeddedPath: string,
-  destAbsPath: string,
-  clobber: boolean
-): Promise<boolean> => {
-  if (!clobber && (await Bun.file(destAbsPath).exists())) return false
-  await mkdir(dirname(destAbsPath), { recursive: true })
-  await Bun.write(destAbsPath, Bun.file(srcEmbeddedPath))
-  return true
-}
-
-const copyTemplateTree = async (
-  templateName: string,
-  targetDir: string,
-  forceFlag: boolean
-): Promise<readonly string[]> => {
-  const tree = embeddedTemplateDir(templateName)
-  const relPaths = Object.keys(tree).filter(isScaffoldedTemplateFile).toSorted()
-  // `app.yaml` is the only file `init` owns — `--force` clobbers just it; every
-  // other tree file (including `public/README.md`) is additive.
-  const written = await Promise.all(
-    relPaths.map((relPath) => {
-      const clobber = forceFlag && relPath === 'app.yaml'
-      return writeOneTreeFile(tree[relPath]!, join(targetDir, relPath), clobber)
-    })
-  )
-  const copied = relPaths.filter((_, i) => written[i] === true)
-  const rendered = await writeRenderedTemplateWrappers(
-    templateName,
-    tree,
-    targetDir,
-    templateCatalog()[templateName]
-  )
-  return [...copied, ...rendered]
-}
-
-/**
- * Handle the 'init' command - scaffold a new project from a template or defaults
- */
+/** What `index.ts` hands `handleInitCommand` from the parsed command line. */
 export interface InitCommandOptions {
   readonly templateName?: string
   readonly outputDir?: string
   readonly positionalDir?: string
   readonly forceFlag?: boolean
   readonly appName?: string
-  /**
-   * `--typescript` — scaffold a typed `app.ts` (plus `sovrium.d.ts` and
-   * `tsconfig.json`) instead of `app.yaml`. Mutually exclusive with
-   * `--template`: a template ships its own config, so honouring both would mean
-   * silently discarding one of the two things the operator asked for.
-   */
+  /** `--typescript` — a typed `app.ts` instead of `app.yaml`; refused beside `--template`. */
   readonly typescript?: boolean
   /**
    * `--git` — initialise a repository and land one commit over the scaffold.
    *
    * Runs LAST, after the support files, so the `.gitignore` written alongside
-   * them is already in place when the commit is staged. See `init-git.ts`.
+   * them is already in place when the commit is staged. See `init/git.ts`.
    */
   readonly gitInit?: boolean
   /**
    * `--from-url <https://…>` — fork one published config document into the
-   * project instead of generating a starter one. See `init-from-url.ts`.
+   * project (`init/from-url.ts`); `--inspect` reports it and writes nothing,
+   * `--expect-sha256` refuses any other bytes (`init/from-url-inspect.ts`).
    */
   readonly fromUrl?: string
-}
-
-/**
- * Scaffold from a `--template <name>`: the template's config, `seed/` and
- * `public/`, plus the `CLAUDE.md` and `.env.example` rendered from its
- * `template.yaml` (see `init-template-scaffold.ts`). Never the manifest, the
- * published repository's README and licence, or a host's deploy manifest.
- */
-const scaffoldFromTemplate = async (
-  templateName: string,
-  targetDir: string,
-  forceFlag: boolean
-): Promise<readonly string[]> => {
-  const template = resolveTemplate(templateName)
-  const relPaths = await copyTemplateTree(template, targetDir, forceFlag)
-  return relPaths.map((relPath) => join(targetDir, relPath))
-}
-
-/**
- * The no-template scaffold: a config file and CLAUDE.md — and,
- * under `--typescript`, the two files that make the typed config check.
- *
- * `sovrium.d.ts` + `tsconfig.json` are written here rather than left to a
- * follow-up `sovrium types` so the scaffolded directory type-checks and
- * validates on the first try. Emitting `app.ts` alone would hand the author a
- * config whose very first line — `import type { AppConfig } from 'sovrium'` —
- * is an unresolved-module error.
- */
-const scaffoldDefault = async (
-  targetDir: string,
-  appName: string | undefined,
-  typescript: boolean
-): Promise<readonly string[]> => {
-  const resolvedName = appName || basename(targetDir)
-  const createdPath = typescript
-    ? await writeScaffoldFiles(targetDir, 'app.ts', generateDefaultAppTs(resolvedName))
-    : await writeScaffoldFiles(targetDir, 'app.yaml', generateDefaultAppYaml(resolvedName))
-
-  const typesFiles = typescript ? await writeConfigTypesFiles(targetDir) : undefined
-  const typesPaths = typesFiles
-    ? [typesFiles.declarationPath, ...(typesFiles.tsconfigWritten ? [typesFiles.tsconfigPath] : [])]
-    : []
-
-  return [createdPath, ...typesPaths]
+  readonly inspect?: boolean
+  readonly expectSha256?: string
+  /** `--allow-code` — create a remote template that contains code. See `init/code-notice.ts`. */
+  readonly allowCode?: boolean
 }
 
 const assertNoConflict = async (targetPath: string, forceFlag: boolean): Promise<void> => {
   if (forceFlag) return
   const exists = await Bun.file(targetPath).exists()
   if (!exists) return
-  printStderr(`Error: ${targetPath} already exists (use --force to overwrite)`)
-  process.exit(1)
+  return stopCommand(1, `Error: ${targetPath} already exists (use --force to overwrite)`)
 }
 
 /** The config filename known before any fetch; a fork whose path names no format has none yet. */
 const knownConfigName = (forkTarget: ForkTarget | undefined, typescript: boolean) =>
   forkTarget ? forkTarget.filename : configFilenameFor(typescript)
-
-/**
- * Run the one scaffold strategy the invocation selected, and report what it
- * created so the caller can render a single document.
- *
- * The remote path returns nothing: it lives in `init-remote-template.ts` and
- * prints its own summary line before this banner, as stream narration.
- */
-/**
- * Whether this scaffold should grow a `public/`.
- *
- * Resolves the alias to its template name first, so legacy aliases (`landing`)
- * still qualify. Unknown names already exit upstream in `resolveTemplate`, so
- * the lookup here is safe. A bare `init` is always web-facing.
- */
-const isWebFacingTemplate = (templateName: string | undefined): boolean => {
-  if (templateName === undefined) return true
-  const template = templateDirOf(templateName)
-  return template !== undefined && isWebFacingCatalogTemplate(template)
-}
 
 /**
  * The forked-config scaffold: the published bytes verbatim, its provenance,
@@ -431,10 +166,18 @@ const scaffoldFromUrl = async (
   targetDir: string
 ): Promise<readonly string[]> => {
   const written = await writeForkedConfig(forked, targetDir)
+  printCodeNotice(forked.code, 'This project contains code — read it before you start it.')
   await writeFile(join(targetDir, 'CLAUDE.md'), generateClaudeMd(basename(targetDir)))
   return [...written, join(targetDir, 'CLAUDE.md')]
 }
 
+/**
+ * Run the one scaffold strategy the invocation selected, and report what it
+ * created so the caller can render a single document.
+ *
+ * The remote path returns nothing: it lives in `init/remote-template.ts` and
+ * prints its own summary line before this banner, as stream narration.
+ */
 const scaffoldTree = async (params: {
   readonly templateName: string | undefined
   readonly targetDir: string
@@ -442,13 +185,14 @@ const scaffoldTree = async (params: {
   readonly appName: string | undefined
   readonly typescript: boolean
   readonly forked: ForkedConfig | undefined
+  readonly allowCode: boolean
 }): Promise<readonly string[]> => {
-  const { templateName, targetDir, forceFlag, appName, typescript, forked } = params
+  const { templateName, targetDir, forceFlag, appName, typescript, forked, allowCode } = params
   if (forked) return scaffoldFromUrl(forked, targetDir)
   if (templateName && isRemoteTemplateRef(templateName)) {
     // Remote-shaped refs (`owner/repo`, `gh:…`, GitHub URLs, optional #ref)
     // fetch from GitHub; bare names stay embedded-only (offline).
-    await scaffoldFromRemoteTemplate(templateName, targetDir, forceFlag)
+    await scaffoldFromRemoteTemplate(templateName, targetDir, { forceFlag, allowCode })
     return []
   }
   if (templateName) return scaffoldFromTemplate(templateName, targetDir, forceFlag)
@@ -464,35 +208,9 @@ const scaffoldTree = async (params: {
  * success for a flag that did nothing. Refusing is the only answer that does
  * not silently discard part of the request.
  */
-/**
- * Refuse `--from-url` alongside a flag that would decide the same file.
- *
- * `--template` ships its own config and `--typescript` generates one, so
- * either would have to be silently discarded for the fork to land. Refusing is
- * the only answer that does not throw away half of what was asked for.
- */
-const assertFromUrlAlone = (
-  fromUrl: string | undefined,
-  templateName: string | undefined,
-  typescript: boolean
-): void => {
-  if (fromUrl === undefined) return
-  const conflicting = templateName !== undefined ? '--template' : typescript ? '--typescript' : ''
-  if (conflicting === '') return
-  printFailure({
-    headline: `Cannot combine --from-url with ${conflicting}.`,
-    detail: [
-      'Both decide what the project config is, and only one of them can win —',
-      'so honouring either would mean silently discarding the other.',
-    ],
-    guidance: `Pick one: fork the published config with --from-url, or scaffold with ${conflicting}.`,
-  })
-  process.exit(1)
-}
-
 const assertFlagsCompatible = (templateName: string | undefined, typescript: boolean): void => {
   if (!typescript || templateName === undefined) return
-  printFailure({
+  return refuseCommand({
     headline: 'Cannot combine --typescript with --template.',
     detail: [
       `The "${templateName}" template ships its own app.yaml, which would shadow a`,
@@ -503,7 +221,6 @@ const assertFlagsCompatible = (templateName: string | undefined, typescript: boo
       `  sovrium init --template ${templateName}\n` +
       '  sovrium types',
   })
-  process.exit(1)
 }
 
 /**
@@ -514,7 +231,13 @@ const assertFlagsCompatible = (templateName: string | undefined, typescript: boo
  */
 const configFilenameFor = (typescript: boolean): string => (typescript ? 'app.ts' : 'app.yaml')
 
-export const handleInitCommand = async (options: InitCommandOptions = {}): Promise<void> => {
+/** `sovrium init`: `--from-url … --inspect` writes nothing; every other form scaffolds a project. */
+export const handleInitCommand = async (options: InitCommandOptions = {}): Promise<void> =>
+  options.inspect === true && options.fromUrl !== undefined
+    ? inspectFromUrl({ ...options, fromUrl: options.fromUrl })
+    : scaffoldProject(options)
+
+const scaffoldProject = async (options: InitCommandOptions): Promise<void> => {
   const { templateName, outputDir, positionalDir, appName } = options
   // `=== true` rather than a destructuring default: a default counts as a
   // branch against this function's complexity budget, and it is already at it.
@@ -542,7 +265,7 @@ export const handleInitCommand = async (options: InitCommandOptions = {}): Promi
   // that has to be right.
   const forked =
     options.fromUrl && forkTarget
-      ? await fetchForkedConfig(options.fromUrl, forkTarget.format)
+      ? await fetchPinnedConfig(options.fromUrl, forkTarget.format, options.expectSha256)
       : undefined
   if (forked) await assertNoConflict(join(targetDir, forked.filename), forceFlag)
 
@@ -555,6 +278,7 @@ export const handleInitCommand = async (options: InitCommandOptions = {}): Promi
     appName,
     typescript,
     forked,
+    allowCode: options.allowCode === true,
   })
 
   // Scaffold the additive support files (`.gitignore`, `.env.example`,
@@ -626,3 +350,32 @@ export const scaffoldSupportFiles = async (
     ...skillsCreated,
   ]
 }
+
+/** The flags `sovrium init` reads beyond the shared ones. */
+export const initFlags = defineFlags({
+  typescript: flag.switch('--typescript'),
+  gitInit: flag.switch('--git'),
+  fromUrl: flag.value('--from-url'),
+  fromBundle: flag.value('--from-bundle'),
+  expectSha256: flag.value('--expect-sha256'),
+  inspect: flag.switch('--inspect'),
+  withDemoData: flag.switch('--with-demo-data'),
+  allowCode: flag.switch('--allow-code'),
+})
+
+/** `sovrium init`, as the dispatcher runs it: `--from-bundle` opens a bundle, anything else scaffolds. */
+export const initCommand = withFlagsAsync(initFlags, async ({ flags, ...args }) =>
+  flags.fromBundle !== undefined
+    ? (await import('@/cli/commands/init/from-bundle')).handleInitFromBundle({
+        ...args,
+        ...flags,
+        source: flags.fromBundle,
+        targetDir: args.configFile ?? args.outputPath,
+      })
+    : handleInitCommand({
+        ...args,
+        ...flags,
+        outputDir: args.outputPath,
+        positionalDir: args.configFile,
+      })
+)

@@ -32,7 +32,7 @@ import {
  */
 
 /** lucide `copy`, then `check` once copied — inline for the same reason. */
-function CopyGlyph({ copied }: { readonly copied: boolean }): ReactElement {
+export function CopyGlyph({ copied }: { readonly copied: boolean }): ReactElement {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

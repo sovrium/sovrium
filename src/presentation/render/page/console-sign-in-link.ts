@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 
 /** What the console's way back to signing in is drawn with. */
 export interface ConsoleSignInLink {
@@ -49,7 +49,7 @@ export function withConsoleSignInLink(html: string, link: ConsoleSignInLink): st
   const anchor =
     `<p class="fixed inset-x-0 bottom-0 py-6 text-center text-sm">` +
     `<a id="${LINK_ID}" class="${WAY_CLASS}" ` +
-    `href="${escapeHtml(link.loginPath)}">${escapeHtml(link.label)}</a></p>`
+    `href="${escapeHtmlAttribute(link.loginPath)}">${escapeHtmlAttribute(link.label)}</a></p>`
   const script =
     `<script>(function(){var a=document.getElementById(${scriptString(LINK_ID)});` +
     `if(a)a.setAttribute("href",${scriptString(link.loginPath)}+"?next="+` +
@@ -93,9 +93,9 @@ export function withConsoleSignedInWays(html: string, ways: ConsoleSignedInWays)
   const block =
     `<p class="fixed inset-x-0 bottom-0 flex items-center justify-center gap-6 py-6 text-sm">` +
     `<a class="${WAY_CLASS}" href="/">` +
-    `${escapeHtml(ways.toAppLabel)}</a>` +
+    `${escapeHtmlAttribute(ways.toAppLabel)}</a>` +
     `<button type="button" id="${SIGN_OUT_ID}" class="${WAY_CLASS}">` +
-    `${escapeHtml(ways.signOutLabel)}</button></p>` +
+    `${escapeHtmlAttribute(ways.signOutLabel)}</button></p>` +
     `<script>(function(){var b=document.getElementById(${scriptString(SIGN_OUT_ID)});` +
     `if(b)b.addEventListener("click",function(){fetch("/api/auth/sign-out",{method:"POST",` +
     `headers:{"Content-Type":"application/json"},body:"{}"}).finally(function(){location.reload()})})})()</script>`

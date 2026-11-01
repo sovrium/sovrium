@@ -8,9 +8,9 @@
 /**
  * The FRAME of a `code` block — shadcn/ui's Code Block: the `<figure>` with its
  * header, content and footer — lifted out of `code-block-component.tsx`, which
- * owns the `<pre>` branches, together with the frame precedence. The frame and its bar are the two elements an author's
- * `classes` reach by name: `frame` on the `<figure>`, `caption` on the
- * `<figcaption>`.
+ * owns the `<pre>` branches, together with the frame precedence. An author's
+ * `classes` reach three elements by name: `frame` on the `<figure>`, `caption`
+ * on the `<figcaption>`, and `copy` on the copy button (framed or not).
  */
 
 import { cloneElement } from 'react'
@@ -27,7 +27,12 @@ import {
   computeCodeBlockFooterClasses,
   computeCodeBlockTitleClasses,
 } from '../../design/code-block-line-classes'
+import type { ComponentPartName } from '@/domain/models/app/design/component-parts'
 import type { ReactElement, ReactNode } from 'react'
+
+/** The parts of a `code` block an author's `classes` name, from the part registry. */
+type CodePart = Exclude<ComponentPartName<'code'>, 'root'>
+type CodeParts = Readonly<Partial<Record<CodePart, string>>>
 
 /** Chrome drawn around the block. Mirrors `CodeFrameSchema`. */
 export type CodeFrame = 'none' | 'file' | 'terminal'
@@ -110,7 +115,7 @@ interface FrameInput {
   readonly size: CodeBlockSize
   readonly variant: CodeBlockVariant
   /** The author's part classes: `frame` on the `<figure>`, `caption` on its bar. */
-  readonly parts?: Readonly<Record<string, string>>
+  readonly parts?: CodeParts | undefined
 }
 
 /**
@@ -136,12 +141,12 @@ export function renderFramedBlock(input: FrameInput): ReactElement {
       data-code-frame={frame}
       data-code-copy-scope="true"
       aria-label={frame === 'file' ? filename : terminalLabel}
-      className={cn(computeCodeBlockClasses(), parts?.['frame'])}
+      className={cn(computeCodeBlockClasses(), parts?.frame)}
     >
       {renderFrameHeader(frame, filename ?? '', terminalLabel, {
         copyButton,
         copyStatus,
-        captionPart: parts?.['caption'],
+        captionPart: parts?.caption,
       })}
       {cloneElement(codePre, { 'data-slot': 'code-block-content' } as Record<string, unknown>)}
       {output !== undefined && (
@@ -212,12 +217,15 @@ export function resolveCodeFrame(input: {
 
 /**
  * The copy control in its two halves — the button, and the status region that
- * announces the copy — or neither when the author turned copying off.
+ * announces the copy — or neither when the author turned copying off. The
+ * author's `copy` part goes on the button only: the status region stays
+ * `sr-only` whatever the part says.
  */
 export function copyParts(
   enabled: boolean,
   copyLabel: string,
-  copiedLabel: string
+  copiedLabel: string,
+  parts?: CodeParts | undefined
 ): { readonly copyButton: ReactNode; readonly copyStatus: ReactNode } {
   if (!enabled) return { copyButton: undefined, copyStatus: undefined }
   return {
@@ -225,6 +233,7 @@ export function copyParts(
       <CodeCopyButton
         copyLabel={copyLabel}
         copiedLabel={copiedLabel}
+        className={parts?.copy}
       />
     ),
     copyStatus: <CodeCopyStatus />,

@@ -32,9 +32,9 @@
  */
 
 import { parsePositiveIntEnv } from '@/domain/models/process-env/positive-int-env'
-import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
 import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
+import { rateLimitedResponse } from '@/presentation/api/runtime/rate-limit-response'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 

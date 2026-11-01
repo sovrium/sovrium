@@ -50,6 +50,14 @@ import { catalogSpecimenComponent, ownNodeOf } from './catalog-specimens'
 import { schemaOptionTree } from './schema-option-tree'
 import type { Component } from '@/domain/models/app/pages/components'
 
+/**
+ * A specimen with one option written into it. The catalogue's specimens are
+ * hand-authored components rather than decoded config, and a path write keeps
+ * every key but the one it sets, so this code answers for the copy's shape —
+ * the same stance the specimen tables take.
+ */
+const specimenOf = (value: unknown): Component => value as Component
+
 /** The three scalar shapes an option's value may take. */
 export type PreviewOptionValue = string | number | boolean
 
@@ -218,5 +226,5 @@ export const catalogSpecimenWithOption = (
   const base = catalogSpecimenComponent(type)
   if (base === undefined || !isPlainRecord(base)) return base
   const drawn = ownNodeOf(base, type) ?? base
-  return setAtPath(drawn, option.split('.'), coercePreviewValue(type, option, value)) as Component
+  return specimenOf(setAtPath(drawn, option.split('.'), coercePreviewValue(type, option, value)))
 }

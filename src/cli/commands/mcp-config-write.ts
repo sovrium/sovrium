@@ -50,8 +50,8 @@
 import { createHash } from 'node:crypto'
 import { rename, writeFile } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
-import { CONFIG_TOOL_INVALID_PARAMS } from '@/application/use-cases/config/config-mcp-tools'
-import { messageAsConfigFinding } from '@/domain/models/app/app-excess-property-report'
+import { CONFIG_TOOL_INVALID_PARAMS } from '@/application/use-cases/config/config-mcp-tool-call'
+import { messageAsConfigFinding } from '@/domain/kernel/config-parsing/decode-report-format'
 import { findIntroducedDestructiveTables } from '@/domain/models/app/tables/destructive-change-validation'
 import {
   IMPLICIT_FIELD_ID_TOKEN,
@@ -76,7 +76,7 @@ import type {
   ConfigToolOutcome,
   ConfigWriteOperations,
   ConfigWriteRequest,
-} from '@/application/use-cases/config/config-mcp-tools'
+} from '@/application/use-cases/config/config-mcp-tool-call'
 import type { App } from '@/domain/models/app'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 
@@ -417,7 +417,7 @@ const writeConfigFile = async (
       // different question with a different answer.
       //
       // It names `seq` and `lastReload`, and deliberately NOT `configHash`.
-      // `resolveConfigAnchor` (`src/cli/commands/utils.ts`) hashes the config's
+      // `resolveConfigAnchor` (`src/cli/commands/reload-server.ts`) hashes the config's
       // ROOT FILE alone, so an edit to a `$ref` partial — the case this surface
       // mostly serves — leaves that hash identical, and a hint pointing at it
       // would send an AI to poll a value that cannot move.

@@ -134,6 +134,7 @@ export default {
   // the record's own identifier, and the derived trail prints an unlabelled
   // segment verbatim — which is precisely what should name the document.
   'admin.crumb.decisions': 'Decisions',
+  'admin.crumb.footprint': 'Footprint',
 
   // ── Document titles ─────────────────────────────────────────────────────
   //

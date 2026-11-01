@@ -209,6 +209,13 @@ const withStepWindow = (
   ),
 })
 
+/** What a step's action reads of its run: the `$env` values, the process environment, the template engine. */
+const runEnvironmentOf = (ctx: StepContext) => ({
+  envLookup: ctx.envLookup,
+  env: ctx.processEnv,
+  templates: ctx.templates,
+})
+
 /** Run one action and fold its outcome, untimed: {@link executeStep} brackets it. */
 const dispatchStep = (
   acc: RunAccumulator,
@@ -242,8 +249,7 @@ const dispatchStep = (
       rawAction,
       authoredProps: authored as Readonly<Record<string, unknown>>,
       ...(final ? { propsFinal: true as const } : {}),
-      envLookup: ctx.envLookup,
-      templates: ctx.templates,
+      ...runEnvironmentOf(ctx),
       // The 0-indexed position of this action: the count of steps already
       // recorded (after a resumed segment's first index) equals the index of
       // the action about to run. The approval handler records it.

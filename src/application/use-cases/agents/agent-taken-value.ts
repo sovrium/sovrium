@@ -20,7 +20,8 @@
 import { Effect } from 'effect'
 import { buildSyntheticSession } from '@/application/use-cases/automations/build-guest-session'
 import { uniqueConflictAnswerProgram } from '@/application/use-cases/tables/unique-conflict-answer-program'
-import { callerLinkReader, runReadAccess } from '../automations/action-handlers/record-caller-gate'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
+import { callerLinkReader, runReadAccess } from '../automations/action-handlers/record/caller-gate'
 import type { AutomationContext } from '../automations/action-handlers'
 import type { StepRequirements } from '../automations/run/types'
 import type { App, Table } from '@/domain/models/app'
@@ -38,7 +39,7 @@ const takenCreateOf = (input: {
   if (refusedWrite.column === undefined) return undefined
   const fields = props['fields'] ?? props['data']
   if (typeof fields !== 'object' || fields === null) return undefined
-  const table = app.tables?.find((candidate) => candidate.name === props['table'])
+  const table = findTableByName(app.tables, props['table'])
   return table === undefined
     ? undefined
     : { table, fields: fields as Readonly<Record<string, unknown>> }

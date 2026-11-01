@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import { identifyRequester } from './requester-identity'
+import { startInTrackedBackground } from './tracked-background'
 import { triggerRecordEventAutomations, type TriggerRecordEventInput } from './trigger-record-event'
 
 /**
@@ -60,15 +60,9 @@ export const shareRequesterLookups = Effect.fn('automations.share-requester-look
 export const startRecordEventAutomationsInBackground = (
   inputs: readonly TriggerRecordEventInput[]
 ) =>
-  AutomationFiberBridge.use((bridge) =>
-    Effect.asVoid(
-      Effect.forkDetach(
-        bridge.trackBackground(
-          Effect.flatMap(shareRequesterLookups(inputs), (shared) =>
-            Effect.forEach(shared, triggerRecordEventAutomations, { discard: true })
-          )
-        )
-      )
+  startInTrackedBackground(
+    Effect.flatMap(shareRequesterLookups(inputs), (shared) =>
+      Effect.forEach(shared, triggerRecordEventAutomations, { discard: true })
     )
   ).pipe(
     Effect.withSpan('automations.start-record-event-automations-in-background', {

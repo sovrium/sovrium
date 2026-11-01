@@ -23,7 +23,7 @@
  * closed.
  */
 
-import { Context, Effect } from 'effect'
+import { Context, Effect, Ref } from 'effect'
 import type { RunWrittenFiles } from './run-written-files'
 
 /** A record attachment a step read: the record, and the field it holds the file in. */
@@ -53,14 +53,14 @@ export const inputCarriesRunBytes = (
 /** The tally a step's readers report to. */
 export interface StepFileInputTally {
   readonly active: boolean
-  readonly note: (input: StepFileInput) => void
-  readonly inputs: () => readonly StepFileInput[]
+  readonly note: (input: StepFileInput) => Effect.Effect<void>
+  readonly inputs: Effect.Effect<readonly StepFileInput[]>
 }
 
 const IDLE_TALLY: StepFileInputTally = {
   active: false,
-  note: () => undefined,
-  inputs: () => [],
+  note: () => Effect.void,
+  inputs: Effect.succeed([]),
 }
 
 /** The tally in scope; idle outside a step. */
@@ -72,7 +72,7 @@ export const StepFileInputs = Context.Reference<StepFileInputTally>('sovrium/Ste
 export const noteStepFileInput = (input: StepFileInput): Effect.Effect<void> =>
   Effect.gen(function* () {
     const tally = yield* StepFileInputs
-    yield* Effect.sync(() => tally.note(input))
+    yield* tally.note(input)
   }).pipe(Effect.withSpan('automations.note-step-file-input'))
 
 /** The files the step read so far, and whether it runs inside a tally at all. */
@@ -81,7 +81,7 @@ export const stepFileInputs: Effect.Effect<{
   readonly inputs: readonly StepFileInput[]
 }> = Effect.gen(function* () {
   const tally = yield* StepFileInputs
-  return { active: tally.active, inputs: tally.inputs() }
+  return { active: tally.active, inputs: yield* tally.inputs }
 }).pipe(Effect.withSpan('automations.step-file-inputs'))
 
 /**
@@ -102,18 +102,17 @@ export const tallyStepFileInputs = <A, E, R>(
 ): Effect.Effect<A, E, R> =>
   Effect.gen(function* () {
     const outer = yield* StepFileInputs
-    // The tally's own list: the readers append to it while the step runs.
-    // eslint-disable-next-line functional/prefer-immutable-types -- see above
-    const read: StepFileInput[] = []
+    // The tally's own list: each reader's note replaces it while the step runs.
+    const read = yield* Ref.make<readonly StepFileInput[]>([])
     const tally: StepFileInputTally = {
       active: true,
-      note: (input) => {
-        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, no-restricted-syntax -- see `read`
-        read.push(input)
-        // The outer step read it too.
-        return outer.note(input)
-      },
-      inputs: () => [...read],
+      // The outer step read it too.
+      note: (input) =>
+        Effect.andThen(
+          Ref.update(read, (inputs) => [...inputs, input]),
+          outer.note(input)
+        ),
+      inputs: Ref.get(read),
     }
     return yield* step.pipe(Effect.provideService(StepFileInputs, tally))
   }).pipe(Effect.withSpan('automations.tally-step-file-inputs'))

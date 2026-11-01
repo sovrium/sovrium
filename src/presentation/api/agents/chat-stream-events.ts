@@ -14,6 +14,7 @@
 
 import { Deferred, Effect, Exit } from 'effect'
 import { ASK_USER_TOOL_NAME } from '@/domain/models/app/agents/ask-user-service'
+import { hasCodeRoleClasses } from '@/domain/models/app/design/code-block-service'
 import { chatCallerKey } from '@/presentation/api/agents/chat-conversation-store'
 import { turnCitations } from '@/presentation/api/agents/chat-knowledge-citations'
 import {
@@ -155,6 +156,8 @@ interface TurnEncoderMeta {
   readonly passages: ReadonlyArray<KnowledgePassage>
   /** The fields the person reading may read, which narrow each call's `input`. */
   readonly readerColumns: ReaderColumns
+  /** Whether the design declares `code`, which adds each token's syntax role as a class. */
+  readonly roleClasses: boolean
 }
 
 /**
@@ -171,6 +174,7 @@ export const turnMeta = (input: {
   ids: { question: crypto.randomUUID(), answer: crypto.randomUUID() },
   passages: input.passages ?? [],
   readerColumns: turnReaderColumns(input.spec),
+  roleClasses: hasCodeRoleClasses(input.spec.app?.design),
 })
 
 /** The `done` event: the ids, the stop reason, the final rendering, citations and usage. */
@@ -228,7 +232,7 @@ export const createTurnEncoder = (
     if (!snapshot)
       return Effect.succeed({ kind: 'data', event: 'content', payload: { text: delta } })
     snapshotAt = now
-    return Effect.map(renderChatAnswerHtml(answer), (html) => ({
+    return Effect.map(renderChatAnswerHtml(answer, { roleClasses: meta.roleClasses }), (html) => ({
       kind: 'data',
       event: 'content',
       payload: { text: delta, html },
@@ -237,7 +241,7 @@ export const createTurnEncoder = (
   const done = (
     event: Extract<WireEvent, { readonly type: 'done' }>
   ): Effect.Effect<EncodedChunk> =>
-    Effect.map(renderChatAnswerHtml(answer), (html) =>
+    Effect.map(renderChatAnswerHtml(answer, { roleClasses: meta.roleClasses }), (html) =>
       doneChunk({ meta, answer, html, awaitingInput, event })
     )
   return (event) => {
@@ -312,10 +316,14 @@ export const holdChatTurn = (approvalId: string, turn: HeldChatTurn): void =>
   rememberHeld(heldTurns, approvalId, turn)
 
 /**
- * Take the turn `approvalId` paused, for its own person only. Anyone else finds
+ * Whether `approvalId` paused a turn of this person's. Anyone else finds
  * nothing, and the turn stays held for her (S1: the approval does not exist
  * for them).
  */
+export const holdsChatTurn = (approvalId: string, userId: string): boolean =>
+  heldTurns.get(approvalId)?.userId === userId
+
+/** Take the turn `approvalId` paused (see {@link holdsChatTurn}), removing it. */
 export const takeHeldChatTurn = (approvalId: string, userId: string): HeldChatTurn | undefined => {
   const held = heldTurns.get(approvalId)
   if (held === undefined || held.userId !== userId) return undefined

@@ -6,7 +6,7 @@
  */
 
 import { computeFieldDescriptionClasses } from '@/presentation/design/field-default-classes'
-import { fieldDescriptionId } from '@/presentation/design/field-display'
+import { fieldDescriptionId, fieldLockReasonId } from '@/presentation/design/field-display'
 import { type FieldDef } from './field-def'
 import type { ReactElement } from 'react'
 
@@ -28,6 +28,23 @@ export function FieldHelpText({ field }: { readonly field: FieldDef }): ReactEle
       className={HELP_TEXT_CLASS}
     >
       {field.description}
+    </small>
+  )
+}
+
+/**
+ * Why a field is drawn disabled: the message of the lock rule holding it on its
+ * record, which its control names in `aria-describedby`.
+ */
+export function LockReason({ field }: { readonly field: FieldDef }): ReactElement | undefined {
+  if (field.lockReason === undefined) return undefined
+  return (
+    <small
+      id={fieldLockReasonId(field.name)}
+      data-slot="field-description"
+      className={HELP_TEXT_CLASS}
+    >
+      {field.lockReason}
     </small>
   )
 }

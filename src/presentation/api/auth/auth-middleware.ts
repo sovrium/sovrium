@@ -15,10 +15,15 @@ import { cors } from 'hono/cors'
 import { admitsToAdminApi, type AdminDoorSession } from '@/domain/models/app/auth/passkeys-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { logError } from '@/infrastructure/logging/logger'
-import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
-import { isLoopbackOrigin, isTransportRelaxed } from '@/infrastructure/process/security-posture'
+import {
+  isLoopbackOrigin,
+  isTransportRelaxed,
+  resolveCanonicalOrigin,
+  resolveCorsOrigins,
+} from '@/infrastructure/process/security-posture'
 import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { rateLimitedResponse } from '@/presentation/api/runtime/rate-limit-response'
 import {
   isRateLimitExceeded,
   recordRateLimitRequest,
@@ -154,7 +159,17 @@ export const applyAdminRoleCheckMiddleware = (
   app: App
 ): Readonly<Hono> => {
   return honoApp.use('/api/auth/admin/*', async (c, next) => {
-    if (PUBLIC_ADMIN_PATHS.has(c.req.path) || ADMIN_ROLE_CHECK_EXEMPT_PATHS.has(c.req.path)) {
+    if (PUBLIC_ADMIN_PATHS.has(c.req.path)) {
+      await next()
+      return
+    }
+    // An API key never reaches the admin plane — not Better Auth's account
+    // management, not the invitations Sovrium serves here — whoever owns it:
+    // those acts need an administrator signed in. Same 404 as any refusal (S1).
+    if ((c.req.header('x-api-key') ?? '') !== '') {
+      return notFound(c, 'Not Found')
+    }
+    if (ADMIN_ROLE_CHECK_EXEMPT_PATHS.has(c.req.path)) {
       await next()
       return
     }
@@ -233,22 +248,6 @@ export const applyAuthRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<
 }
 
 /**
- * Resolve the app's canonical origin (scheme + host + port) from `BASE_URL`,
- * mirroring `createAuthInstance` (auth.ts:580). Returns `undefined` when
- * `BASE_URL` is unset or unparseable so callers can fall back to the
- * loopback-reflection path.
- */
-const resolveCanonicalOrigin = (): string | undefined => {
-  const baseUrl = process.env['BASE_URL']
-  if (baseUrl === undefined || baseUrl === '') return undefined
-  try {
-    return new URL(baseUrl).origin
-  } catch {
-    return undefined
-  }
-}
-
-/**
  * Setup CORS middleware for Better Auth endpoints (Finding #6 remediation).
  *
  * The previous implementation reflected ANY `Origin` back in
@@ -258,6 +257,7 @@ const resolveCanonicalOrigin = (): string | undefined => {
  *   • the app's own canonical origin (derived from `BASE_URL`) is allowed;
  *   • loopback origins are reflected only when the transport posture is RELAXED
  *     (loopback bind / master opt-out), preserving local cross-port DX;
+ *   • the origins `SOVRIUM_CORS_ORIGINS` lists are allowed;
  *   • any other (foreign) origin gets NO `Access-Control-Allow-Origin` echo —
  *     the Hono `origin` callback returns `null` so the header is omitted.
  *
@@ -287,7 +287,10 @@ export function setupAuthMiddleware(honoApp: Readonly<Hono>, app?: App): Readonl
         // 2. Localhost is reflected ONLY on a relaxed transport posture
         //    (loopback bind or master opt-out) — local cross-port dev DX.
         if (isTransportRelaxed() && isLoopbackOrigin(origin)) return origin
-        // 3. Any other origin is foreign — deny (do not echo the origin).
+        // 3. An origin the operator lists in SOVRIUM_CORS_ORIGINS: a front-end
+        //    on another origin signs people in before it reads their records.
+        if (resolveCorsOrigins().includes(origin)) return origin
+        // 4. Any other origin is foreign — deny (do not echo the origin).
         return ''
       },
       allowHeaders: ['Content-Type', 'Authorization'],

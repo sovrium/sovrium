@@ -6,10 +6,12 @@
  */
 
 import { Effect, Layer } from 'effect'
-import { AuthError } from '../../errors/auth-error'
+import { makeAuthHookPolicies } from '@/infrastructure/server/auth-hook-policies'
 import { createAuthInstance } from './auth'
+import { AuthError } from './auth-error'
 import { Auth } from './auth-service'
 import type { Auth as AuthConfig } from '@/domain/models/app/auth'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 // Re-export AuthError for convenience
 export { AuthError }
@@ -35,8 +37,16 @@ export { Auth }
  * @param authConfig - Optional auth configuration from app schema
  * @returns Layer providing Auth service with the specified configuration
  */
-export const createAuthLayer = (authConfig?: AuthConfig): Layer.Layer<Auth> => {
-  const authInstance = createAuthInstance(authConfig)
+export const createAuthLayer = (
+  authConfig: AuthConfig | undefined,
+  database: DatabaseService
+): Layer.Layer<Auth> => {
+  // No request reaches this instance's hooks with the server's services, so
+  // its policies bind the repositories they read, over the same database.
+  const authInstance = createAuthInstance(authConfig, {
+    policies: makeAuthHookPolicies(database),
+    database,
+  })
 
   return Layer.succeed(
     Auth,

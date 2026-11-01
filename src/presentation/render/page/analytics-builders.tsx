@@ -7,6 +7,7 @@
 
 import { type ReactElement } from 'react'
 import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
+import { ANALYTICS_PURPOSE_ID } from '@/domain/models/app/consent/consent-version-service'
 import { renderScriptTag } from '@/presentation/render/scripts/script-renderers'
 import type { Analytics } from '@/domain/models/app/pages/meta'
 
@@ -38,7 +39,8 @@ export function buildDnsPrefetchLink(
 export function buildExternalScripts(
   provider: Analytics['providers'][number],
   providerIndex: number,
-  hidden: boolean
+  hidden: boolean,
+  consent?: string
 ): readonly ReactElement[] {
   if (!provider.scripts || provider.scripts.length === 0) return []
 
@@ -50,6 +52,7 @@ export function buildExternalScripts(
       dataTestId: `analytics-${provider.name}`,
       reactKey: `script-${providerIndex}-${scriptIndex}`,
       hidden,
+      consent,
     })
   )
 }
@@ -69,7 +72,8 @@ export function buildExternalScripts(
 export function buildInitScript(
   provider: Analytics['providers'][number],
   providerIndex: number,
-  hidden: boolean
+  hidden: boolean,
+  consent?: string
 ): ReactElement | undefined {
   if (!provider.initScript) return undefined
 
@@ -78,8 +82,9 @@ export function buildInitScript(
   return (
     <script
       key={`init-${providerIndex}`}
+      {...(consent !== undefined && { type: 'text/plain', 'data-consent': consent })}
       data-testid={`analytics-${provider.name}`}
-      // eslint-disable-next-line sovrium/require-sanitized-html -- operator-authored code from the validated app config, rendered verbatim by design: the config author is trusted, and sanitizing would strip the script
+      // eslint-disable-next-line sovrium/require-sanitized-html -- operator-authored code from the validated app config, rendered verbatim by design: the config author is trusted, and sanitizing would strip the script; no page reference is substituted into it (withAuthoredMetaCode)
       dangerouslySetInnerHTML={{
         __html: provider.initScript,
       }}
@@ -158,19 +163,23 @@ export function buildConfigScript(
 }
 
 /**
- * Build all elements for a single analytics provider
+ * Build all elements for a single analytics provider. A provider held for the
+ * `analytics` purpose keeps its tags inert until the visitor accepts, and drops
+ * its DNS hint: that is a request to the provider's host too.
  */
 export function buildProviderElements(
   provider: Analytics['providers'][number],
-  providerIndex: number
+  providerIndex: number,
+  heldForConsent = false
 ): readonly ReactElement[] {
   const isEnabled = provider.enabled !== false
   const hidden = !isEnabled
+  const consent = heldForConsent ? ANALYTICS_PURPOSE_ID : undefined
 
   return [
-    buildDnsPrefetchLink(provider, providerIndex, hidden),
-    ...buildExternalScripts(provider, providerIndex, hidden),
-    buildInitScript(provider, providerIndex, hidden),
+    heldForConsent ? undefined : buildDnsPrefetchLink(provider, providerIndex, hidden),
+    ...buildExternalScripts(provider, providerIndex, hidden, consent),
+    buildInitScript(provider, providerIndex, hidden, consent),
     buildMarkerScript(provider, providerIndex, hidden),
     buildConfigScript(provider, providerIndex, hidden),
   ].filter((el): el is ReactElement => el !== undefined)

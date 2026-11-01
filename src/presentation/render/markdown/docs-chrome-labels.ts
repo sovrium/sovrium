@@ -44,6 +44,10 @@ export interface DocsChromeLabels {
   readonly lastUpdated: string
   /** Name of the button that opens the documentation navigation below `lg`. */
   readonly menu: string
+  /** Opens the name of a wide table's scroll region, before its column headers. */
+  readonly table: string
+  /** Placeholder and accessible name of the docs search field in the sidebar (`nav.search`). */
+  readonly searchDocs: string
 }
 
 const EN: DocsChromeLabels = {
@@ -57,6 +61,8 @@ const EN: DocsChromeLabels = {
   reportAnIssue: 'Report an issue',
   lastUpdated: 'Last updated',
   menu: 'Menu',
+  table: 'Table',
+  searchDocs: 'Search the docs',
 }
 
 const FR: DocsChromeLabels = {
@@ -70,6 +76,8 @@ const FR: DocsChromeLabels = {
   reportAnIssue: 'Signaler un problème',
   lastUpdated: 'Dernière mise à jour',
   menu: 'Menu',
+  table: 'Tableau',
+  searchDocs: 'Rechercher dans la documentation',
 }
 
 /**

@@ -6,8 +6,8 @@
  */
 
 import { Schema } from 'effect'
-import { isoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { isoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * `manifest.json` of a deployable bundle — the archive `sovrium bundle` writes

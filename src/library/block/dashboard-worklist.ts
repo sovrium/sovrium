@@ -5,19 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  asComponent,
-  DATA_NOTE,
-  param,
-  stringParam,
-  THEME_NOTE,
-} from '@/library/manifest/block-kit'
+import { asComponent, DATA_NOTE, param, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
 import {
   activityList,
   dashboardHeading,
   dashboardPage,
   dashboardPanel,
-} from '@/library/manifest/dashboard-block-kit'
+} from '@/library/kit/dashboard-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 type Node = Readonly<Record<string, unknown>>

@@ -18,6 +18,10 @@
  *
  * ─── ONE CONTRACT ON BOTH SIDES ────────────────────────────────────────────
  *
+ * A `collection` page expands one too (`page-collection-resolver.ts`), and so
+ * does a component bound by `{ table, mode: 'single' }` against its OWN record
+ * ({@link substituteBoundRecord}): all three read their record on the server.
+ *
  * The two expansions resolve the same tokens in the same places — a copy's
  * `content`, its string children and its `data-*` props — against the same
  * scopes (the server adds the typed keys below, which the drawer receives
@@ -73,11 +77,40 @@ import {
   RECORD_NAMESPACE,
   printableRecordFields,
   repeatElementScalars,
+  substituteRecordVars,
   substituteScopedVars,
+  withRecordText,
   withScopesText,
 } from '@/domain/models/app/pages/substitute-record-vars'
-import { substituteScopesInContent, withPlainTextPin } from './record-substitution'
-import { filterChildrenForElement } from './record-visibility'
+import {
+  decodeStoredJsonColumns,
+  type StoredJsonTable,
+} from '@/domain/models/app/tables/stored-json-service'
+import {
+  componentField,
+  entryAsComponent,
+  mapComponentChildren,
+  rewriteComponent,
+  withoutComponentKey,
+  type ComponentEntry,
+  type RenderProps,
+} from './component-rewrite'
+import {
+  componentEntryLists,
+  walkComponentSlots,
+  type ComponentListEntry,
+} from './component-slot-walk'
+import {
+  substituteRecordInComponent,
+  substituteScopesInContent,
+  withPlainTextPin,
+} from './record-substitution'
+import {
+  filterChildrenForElement,
+  filterChildrenForRecord,
+  labelsFollowingElement,
+  labelsFollowingRecord,
+} from './record-visibility'
 import type { Component } from '@/domain/models/app/pages/components'
 
 type Fields = Readonly<Record<string, unknown>>
@@ -101,6 +134,24 @@ export const pageRecordScope = (record: Fields): RecordScope => ({
   raw: { [RECORD_NAMESPACE]: record },
   nearest: record,
 })
+
+/** The tables a collection page's record is read from, as the record text context holds them. */
+export type StoredTables = readonly (StoredJsonTable & { readonly name: string })[] | undefined
+
+/**
+ * The scope a `collection` page's record starts from: a `repeat` iterates its
+ * list or `json` columns as their structure, which SQLite hands back as TEXT
+ * (PostgreSQL already as a list). What `$record.` prints is left as it was.
+ */
+export function collectionRecordScope(
+  record: Fields,
+  tables: StoredTables,
+  tableName: string
+): RecordScope {
+  const table = tables?.find((candidate) => candidate.name === tableName)
+  const stored = decodeStoredJsonColumns(table, record)
+  return { ...pageRecordScope(record), raw: { [RECORD_NAMESPACE]: stored }, nearest: stored }
+}
 
 /** The scope one copy of a repeat resolves against. */
 function elementScope(scope: RecordScope, as: string | undefined, element: unknown): RecordScope {
@@ -183,7 +234,7 @@ const TEXT_KEYS: ReadonlySet<string> = new Set(['title', 'description', 'label']
 const ADDRESS_KEYS: ReadonlySet<string> = new Set(['href', 'src', 'alt'])
 
 /** A copy's props: `data-*` and address strings resolve, every other prop is left as written. */
-function propsInScope(props: Component['props'], scope: RecordScope): Component['props'] {
+function propsInScope(props: RenderProps | undefined, scope: RecordScope): RenderProps | undefined {
   if (props === undefined) return props
   return Object.fromEntries(
     Object.entries(props).map(([key, value]) => [
@@ -196,7 +247,7 @@ function propsInScope(props: Component['props'], scope: RecordScope): Component[
 }
 
 /** A copy's own typed keys: its sentences as text, its addresses as the stored value. */
-function typedKeysInScope(node: Component, scope: RecordScope): Partial<Component> {
+function typedKeysInScope(node: Component, scope: RecordScope): RenderProps {
   const text = withScopesText(scope.printable)
   return Object.fromEntries(
     Object.entries(node).flatMap(([key, value]) => {
@@ -205,7 +256,7 @@ function typedKeysInScope(node: Component, scope: RecordScope): Partial<Componen
       if (ADDRESS_KEYS.has(key)) return [[key, substituteScopedVars(value, scope.printable)]]
       return []
     })
-  ) as Partial<Component>
+  )
 }
 
 /**
@@ -236,37 +287,33 @@ function itemInScope(item: unknown, scope: RecordScope): unknown {
 }
 
 /** A copy's `description-list` pairs, resolved; nothing for any other node. */
-function itemsInScope(node: Component, scope: RecordScope): Partial<Component> {
-  const { items } = node as { readonly items?: unknown }
-  if (node.type !== 'description-list' || !Array.isArray(items)) return {}
-  return { items: items.map((item: unknown) => itemInScope(item, scope)) } as Partial<Component>
+function itemsInScope(node: Component, scope: RecordScope): RenderProps {
+  if (node.type !== 'description-list' || !Array.isArray(node.items)) return {}
+  return { items: node.items.map((item: unknown) => itemInScope(item, scope)) }
 }
 
 /** One template node, resolved against one copy's scope. */
-function nodeInScope(node: Component | string, scope: RecordScope): Component | string {
-  if (typeof node === 'string') return substituteScopedVars(node, withScopesText(scope.printable))
+function nodeInScope(entry: ComponentEntry, scope: RecordScope): ComponentEntry {
+  if (typeof entry === 'string') return substituteScopedVars(entry, withScopesText(scope.printable))
+  const node = entryAsComponent(entry)
   const json = node.type === 'code' ? loneTokenJson(node.content, scope) : undefined
-  const resolved = substituteScopesInContent(node.content, scope.printable)
-  const own: Component = {
-    ...node,
+  const resolved = substituteScopesInContent(componentField(node, 'content'), scope.printable)
+  const own = rewriteComponent(node, {
     ...typedKeysInScope(node, scope),
     ...itemsInScope(node, scope),
     props: withPlainTextPin(propsInScope(node.props, scope), resolved.forcePlainText),
     content: json ?? resolved.content,
-  }
-  return isRepeating(own)
-    ? expandRepeat(own, scope)
-    : {
-        ...own,
-        children: filterChildrenForElement(node.children ?? [], scope.nearest).map(
-          (child: Component | string) => nodeInScope(child, scope)
-        ),
-      }
+  })
+  if (isRepeating(own)) return expandRepeat(own, scope)
+  const walked = mapComponentChildren(own, (children) =>
+    filterChildrenForElement(children, scope.nearest).map((child) => nodeInScope(child, scope))
+  )
+  return rewriteComponent(walked, labelsFollowingElement(own, own.children ?? [], scope.nearest))
 }
 
 /** Does this component declare a `repeat`? */
 export const isRepeating = (component: Component): boolean =>
-  isFields((component as { readonly repeat?: unknown }).repeat)
+  isFields(componentField(component, 'repeat'))
 
 /**
  * Replace a repeating container's children with one copy of them per element of
@@ -277,17 +324,68 @@ export const isRepeating = (component: Component): boolean =>
  * `:empty` rule can style the empty state.
  */
 export function expandRepeat(component: Component, scope: RecordScope): Component {
-  const { repeat, ...rest } = component as Component & {
-    readonly repeat: { readonly record: string; readonly as?: string }
-  }
-  const source = isFields(scope.nearest) ? scope.nearest[repeat.record] : undefined
+  const repeat = componentField(component, 'repeat')
+  const source =
+    repeat !== undefined && isFields(scope.nearest) ? scope.nearest[repeat.record] : undefined
   const template = component.children ?? []
   const copies = Array.isArray(source)
     ? source.flatMap((element) =>
-        filterChildrenForElement(template, element).map((child: Component | string) =>
-          nodeInScope(child, elementScope(scope, repeat.as, element))
+        filterChildrenForElement(template, element).map((child) =>
+          nodeInScope(child, elementScope(scope, repeat?.as, element))
         )
       )
     : []
-  return { ...rest, children: copies } as Component
+  return rewriteComponent(withoutComponentKey(component, 'repeat'), { children: copies })
+}
+
+/** Does a `repeat` sit on this node or under it, short of a node with a binding of its own? */
+function holdsRepeat(node: Component, bound: boolean): boolean {
+  if (isRepeating(node)) return true
+  if (!bound && componentField(node, 'dataSource') !== undefined) return false
+  return componentEntryLists(node).some((entries) =>
+    entries.some(
+      (child) => typeof child !== 'string' && holdsRepeat(entryAsComponent(child), false)
+    )
+  )
+}
+
+/**
+ * A component bound by `{ table, mode: 'single' }`, substituted with its OWN
+ * record — the page's, if it has one, is out of reach — and every `repeat` on
+ * it or under it expanded against that record, as on a page bound to one.
+ *
+ * A subtree holding no repeat is substituted exactly as before. Otherwise the
+ * path down to each repeat is walked one node at a time, so a copy is never
+ * scanned for `$record.` a second time: its values are already text (S2).
+ * Below a node reading records of its own, a repeat is that node's business.
+ */
+export function substituteBoundRecord(
+  component: Component,
+  record: Record<string, unknown>,
+  tableName: string,
+  bound = true
+): Component {
+  if (!holdsRepeat(component, bound))
+    return substituteRecordInComponent(component, record, tableName)
+  // Every list is cleared first and walked below: left in, a repeat in it would never expand.
+  const own = substituteRecordInComponent(
+    rewriteComponent(component, { ...walkComponentSlots(component, () => []), children: [] }),
+    record,
+    tableName
+  )
+  const walk = (entries: readonly ComponentListEntry[]): readonly ComponentListEntry[] =>
+    filterChildrenForRecord(entries, record).map((child) =>
+      typeof child === 'string'
+        ? substituteRecordVars(child, withRecordText(record))
+        : substituteBoundRecord(entryAsComponent(child), record, tableName, false)
+    )
+  const lists = walkComponentSlots(component, walk)
+  const { children = [] } = component
+  return isRepeating(component)
+    ? expandRepeat(rewriteComponent(own, { ...lists, children }), pageRecordScope(record))
+    : rewriteComponent(own, {
+        ...lists,
+        children: walk(children),
+        ...labelsFollowingRecord(own, children, record),
+      })
 }

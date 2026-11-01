@@ -21,6 +21,7 @@ import { resolveInterpreterString } from '@/domain/models/app/languages/translat
 import { createdByFieldNames } from '@/domain/models/app/tables/authorship-fields'
 import { NOT_LOGGED_CREATOR_OPERATOR } from '@/domain/models/app/tables/read-state-service'
 import { logError } from '@/infrastructure/logging/logger'
+import { synthesizedComponent, tableBindingOf } from './component-rewrite'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -77,9 +78,10 @@ function pinnedParentOf(
   app: App,
   which: (field: LooseField) => boolean
 ): ReadStateParent | undefined {
-  const tableName = component.dataSource?.table
+  const binding = tableBindingOf(component)
+  const tableName = binding?.table
   const table = app.tables?.find((candidate) => candidate.name === tableName)
-  const filters = (component.dataSource?.filter ?? []) as readonly LooseFilter[]
+  const filters: readonly LooseFilter[] = binding?.filter ?? []
   const links = ((table?.fields ?? []) as readonly LooseField[]).filter(
     (field) =>
       field.type === 'relationship' &&
@@ -215,7 +217,7 @@ export function unreadMarker(reader: BoundRowsReader): Component {
     live: true,
     content: resolveInterpreterString('conversation.new', locale, reader.app.languages),
   }
-  return marker as Component
+  return synthesizedComponent(marker)
 }
 
 /**

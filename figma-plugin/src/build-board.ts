@@ -33,7 +33,7 @@ import {
   type FigmaPageDocument,
   type FigmaPageNode,
 } from '@/domain/models/api/admin/design-system/adapter-figma-pages'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import type { FigmaPort, PortFrame, PortSceneNode, PortVariable, PortWritable } from './figma-port'
 import {
   AUTO_LAYOUT_FIELDS,

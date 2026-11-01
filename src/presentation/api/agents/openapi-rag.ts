@@ -6,9 +6,15 @@
  */
 
 import { Schema } from 'effect'
-import { ragRebuildRequestSchema, ragRebuildResponseSchema } from '@/domain/models/api/ai/rag'
+import {
+  agentKnowledgeConfigResponseSchema,
+  ragConfigResponseSchema,
+  ragRebuildRequestSchema,
+  ragRebuildResponseSchema,
+  ragStatusResponseSchema,
+} from '@/domain/models/api/ai/rag'
 import { ragSearchRequestSchema, ragSearchResponseSchema } from '@/domain/models/api/ai/search'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   effectJsonBody,
   effectJsonResponse,
@@ -30,7 +36,7 @@ export const ragGroup: StaticGroupSpec = {
       description: 'Returns the resolved retrieval-augmented generation configuration.',
       operationIdBase: 'getRagConfig',
       responses: {
-        200: effectJsonResponse(Schema.Unknown, 'Resolved RAG configuration'),
+        200: effectJsonResponse(ragConfigResponseSchema, 'Resolved RAG configuration'),
         401: errorResponse('Not authenticated'),
       },
     },
@@ -41,7 +47,7 @@ export const ragGroup: StaticGroupSpec = {
       description: 'Returns the indexed knowledge documents and their paths.',
       operationIdBase: 'getRagStatus',
       responses: {
-        200: effectJsonResponse(Schema.Unknown, 'RAG index status'),
+        200: effectJsonResponse(ragStatusResponseSchema, 'RAG index status'),
         401: errorResponse('Not authenticated'),
       },
     },
@@ -88,7 +94,10 @@ export const ragGroup: StaticGroupSpec = {
         'path'
       ),
       responses: {
-        200: effectJsonResponse(Schema.Unknown, 'Agent knowledge configuration'),
+        200: effectJsonResponse(
+          agentKnowledgeConfigResponseSchema,
+          'Agent knowledge configuration'
+        ),
         404: errorResponse(
           'Agent not declared in the app schema, or the caller lacks permission to invoke it'
         ),

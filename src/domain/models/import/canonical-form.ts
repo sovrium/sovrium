@@ -11,7 +11,7 @@
  * Typeform, Jotform, Google Forms, Tally, Fillout and Microsoft Forms each get
  * a pure adapter into this shape; an Airtable form view reaches it through the
  * Airtable adapter. ONE mapper then turns it into a `forms[]` entry, through
- * the committed question table (`form-question-mappings.ts`):
+ * the committed question table (`form/question-mappings.ts`):
  *
  * - questions → form fields, bound to the columns of a generated
  *   `<form>_responses` table (an Airtable form view binds to its own table);

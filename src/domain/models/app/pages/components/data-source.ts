@@ -252,7 +252,7 @@ export const PaginationStyleSchema = Schema.Literals(['numbered', 'loadMore', 'i
   {
     title: 'Pagination Style',
     description:
-      "How the reader reaches the records past the first page. `numbered` draws page controls. `loadMore` appends the next page when the reader presses Load more. `infinite` appends it as the reader scrolls to the end of the records — TanStack's infinite query driven by scrolling — keeping a focusable Load more control for the keyboard and announcing how many records are loaded.",
+      "How the reader reaches the records past the first page. `numbered` draws page controls. `loadMore` appends the next page when the reader presses Load more. `infinite` appends it as the reader scrolls to the end of the records (TanStack's infinite query driven by scrolling), keeping a focusable Load more control for the keyboard and announcing how many records are loaded.",
     defaultNote: 'numbered',
   }
 )
@@ -271,7 +271,7 @@ export const PaginationSchema = Schema.Struct({
   /** Number of records per page */
   pageSize: Schema.Finite.pipe(
     Schema.annotate({
-      description: `Number of records per page, at most ${MAX_PAGE_SIZE} — the rows per page the records API serves`,
+      description: `Number of records per page, at most ${MAX_PAGE_SIZE}, the rows per page the records API serves`,
       examples: [10, 20, 50],
     }),
     Schema.check(Schema.isInt(), Schema.isGreaterThan(0), isWithinPageWindow('pageSize'))
@@ -663,7 +663,7 @@ export const DataSourceSchema = Schema.Struct({
   searchEngine: Schema.optional(
     SearchEngineSchema.annotate({
       description:
-        "Search backend for this data source (default: 'client'). 'fts' ships only the first `limit` rows and answers each query from the database, over the fields the records endpoint's `q` searches — searchFields does not narrow it; 'trigram' and 'hybrid' search as 'client' does.",
+        "Search backend for this data source (default: 'client'). 'fts' ships only the first `limit` rows and answers each query from the database, over the fields the records endpoint's `q` searches, and searchFields does not narrow it; 'trigram' and 'hybrid' search as 'client' does.",
     })
   ),
   /** Fields to search across (search mode only) */

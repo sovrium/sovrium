@@ -64,6 +64,11 @@ export const CLICK_ENDPOINT = '/api/analytics/click'
  * rather than bubble so a handler calling `stopPropagation()` cannot silently
  * remove a link from the report.
  *
+ * The delegate asks `K()` before it sends, the stored-choice reader the page-view
+ * tracker declares (`trackerConsentReader`), so an outgoing click from a visitor
+ * who turned measuring off is never reported. It is therefore only valid as the
+ * epilogue of `buildPageViewTracker`, which is the one place it is emitted.
+ *
  * @returns A JavaScript statement list, for embedding inside an existing IIFE.
  */
 export function generateClickDelegateScript(): string {
@@ -77,6 +82,7 @@ var w=new URL(a.getAttribute("href"),location.href);
 if(w.protocol!=="http:"&&w.protocol!=="https:")return;
 if(w.pathname==="/l"||w.pathname.indexOf("/l/")===0)return;
 if(w.host===location.host)return;
+if(K())return;
 var q=JSON.stringify({href:w.href,hostname:w.hostname,pagePath:location.pathname});
 if(navigator.sendBeacon){navigator.sendBeacon(C,new Blob([q],{type:"application/json"}))}
 }catch(e){}

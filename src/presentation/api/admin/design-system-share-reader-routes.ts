@@ -55,31 +55,33 @@
  * the last place a write should be reachable.
  */
 
-import { buildDesignSystem } from '@/application/use-cases/admin/design-system'
-import { sharedDesignSystemBundle } from '@/application/use-cases/admin/design-system-bundle-read-operations'
-import { renderDesignSystemMarkdown } from '@/application/use-cases/admin/design-system-markdown'
-import { resolveDesignSystemShare } from '@/application/use-cases/admin/design-system-share'
+import { Effect } from 'effect'
+import { sharedDesignSystemBundle } from '@/application/use-cases/design/bundle-read-operations'
+import { resolveDesignSystemShare } from '@/application/use-cases/design/share'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import { designSystemDocumentSchema } from '@/domain/models/api/admin/design-system'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { renderDesignSystemMarkdown } from '@/domain/models/app/design/design-system-markdown-service'
+import { buildDesignSystem } from '@/domain/models/app/design/design-system-service'
+import { logError } from '@/infrastructure/logging/logger'
 import { zipResponseHeaders } from '@/presentation/api/admin/design-system-bundle-routes'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import { answerNotFound, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import { renderDesignSystemShareDocument } from '../../render/page/design-system-share-document'
-import type { DesignSystemShareRepository } from '@/application/ports/repositories/design-system/design-system-share-repository'
 import type { App } from '@/domain/models/app'
-import type { Effect } from 'effect'
 import type { Context, Hono } from 'hono'
 
 /**
- * Run a share program to a `Result`, never throwing into the Hono handler.
- *
- * Reads `DesignSystemShareRepository` off the request's domain services rather
- * than building a layer here (standing rule E1). A local
- * `Layer.provide(DesignSystemShareRepositoryLive, DatabaseLive)` would be
- * constructed on EVERY request; the port is in the app layer, so it is
- * resolved once at boot and this function only discharges the requirement.
+ * A failure read as a miss: the 404 IS the security property here, since a 500
+ * that a valid token does not produce would be an oracle. The cause is logged on
+ * the way past (E6).
  */
-const runReader = <A, E>(c: Context, program: Effect.Effect<A, E, DesignSystemShareRepository>) =>
-  runOnRequest(c, program)
+const withoutOracle = <A, E, R>(what: string, program: Effect.Effect<A, E, R>) =>
+  program.pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError(`[design-system-share] ${what} failed`, cause))
+    ),
+    // effect-swallow: stated above, the failure answers as a miss.
+    Effect.orElseSucceed((): A | undefined => undefined)
+  )
 
 /** The suffix that asks a share link for its bundle zip. */
 const ZIP_SUFFIX = '.zip'
@@ -90,14 +92,15 @@ const ZIP_SUFFIX = '.zip'
  * systems. A build failure is the same 404 as a miss, for the oracle reason
  * the lookup gives.
  */
-const answerSharedZip = async (c: Context, app: App): Promise<Response> => {
-  const built = await runOnRequest(c, sharedDesignSystemBundle(app))
-  if (built._tag === 'Failure') return c.notFound()
-  return c.body(built.success.slice().buffer, 200, {
-    ...zipResponseHeaders(app.name),
-    'X-Robots-Tag': 'noindex, nofollow',
+const answerSharedZip = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const built = yield* withoutOracle('bundle build', sharedDesignSystemBundle(app))
+    if (built === undefined) return yield* answerNotFound(c)
+    return c.body(built.slice().buffer, 200, {
+      ...zipResponseHeaders(app.name),
+      'X-Robots-Tag': 'noindex, nofollow',
+    })
   })
-}
 
 /**
  * The palette the share document paints itself with.
@@ -135,41 +138,49 @@ const shareDocumentColors = (
  * @returns The Hono app with the share reader chained.
  */
 export function setupDesignSystemShareRoutes(honoApp: Readonly<Hono>, app: App): Readonly<Hono> {
-  return honoApp.get('/s/design-system/:token', async (c) => {
-    // `{token}.zip` is the same share's bundle download ([internal ref] A11): one
-    // route, so the zip resolves the share exactly as the page does and dies
-    // with it on revocation.
-    const param = c.req.param('token')
-    const wantsZip = param.endsWith(ZIP_SUFFIX)
-    const token = wantsZip ? param.slice(0, -ZIP_SUFFIX.length) : param
+  return honoApp.get('/s/design-system/:token', (c) =>
+    runHandlerEffect(
+      c,
+      Effect.gen(function* () {
+        // `{token}.zip` is the same share's bundle download ([internal ref] A11): one
+        // route, so the zip resolves the share exactly as the page does and dies
+        // with it on revocation.
+        const param = c.req.param('token')
+        const wantsZip = param.endsWith(ZIP_SUFFIX)
+        const token = wantsZip ? param.slice(0, -ZIP_SUFFIX.length) : param
 
-    const resolved = await runReader(c, resolveDesignSystemShare(app.name, token))
-    // A database failure is answered exactly like a miss. The alternative — a
-    // 500 that a valid token does not produce — would turn the reader into an
-    // oracle for whether a guessed token exists.
-    if (resolved._tag === 'Failure' || resolved.success === undefined) return c.notFound()
-    if (wantsZip) return answerSharedZip(c, app)
+        const resolved = yield* withoutOracle(
+          'share lookup',
+          resolveDesignSystemShare(app.name, token)
+        )
+        // A database failure is answered exactly like a miss. The alternative — a
+        // 500 that a valid token does not produce — would turn the reader into an
+        // oracle for whether a guessed token exists.
+        if (resolved === undefined) return yield* answerNotFound(c)
+        if (wantsZip) return yield* answerSharedZip(c, app)
 
-    // The A2 projection, validated before serialising. The contract is
-    // `.strict()` throughout precisely so a field smuggled into the payload is
-    // refused here rather than published to a stranger.
-    const parsed = decodeSafe(designSystemDocumentSchema)(buildDesignSystem(app))
-    const parsedDark = decodeSafe(designSystemDocumentSchema)(buildDesignSystem(app, 'dark'))
-    if (!parsed.success || !parsedDark.success) return c.notFound()
+        // The A2 projection, validated before serialising. The contract is
+        // `.strict()` throughout precisely so a field smuggled into the payload is
+        // refused here rather than published to a stranger.
+        const parsed = decodeSafe(designSystemDocumentSchema)(buildDesignSystem(app))
+        const parsedDark = decodeSafe(designSystemDocumentSchema)(buildDesignSystem(app, 'dark'))
+        if (!parsed.success || !parsedDark.success) return yield* answerNotFound(c)
 
-    const markdown = renderDesignSystemMarkdown(parsed.data, parsedDark.data, app.name)
-    return c.html(
-      renderDesignSystemShareDocument(markdown, app.name, shareDocumentColors(app)),
-      200,
-      {
-        // Never a shared cache: the document is reachable only with the token,
-        // and a proxy holding it would keep serving a design system whose link
-        // the operator has already revoked.
-        'Cache-Control': 'no-store',
-        // Unlisted means unlisted. The sitemap never sees this route, and this
-        // header covers the crawler that reached it some other way.
-        'X-Robots-Tag': 'noindex, nofollow',
-      }
+        const markdown = renderDesignSystemMarkdown(parsed.data, parsedDark.data, app.name)
+        return c.html(
+          renderDesignSystemShareDocument(markdown, app.name, shareDocumentColors(app)),
+          200,
+          {
+            // Never a shared cache: the document is reachable only with the token,
+            // and a proxy holding it would keep serving a design system whose link
+            // the operator has already revoked.
+            'Cache-Control': 'no-store',
+            // Unlisted means unlisted. The sitemap never sees this route, and this
+            // header covers the crawler that reached it some other way.
+            'X-Robots-Tag': 'noindex, nofollow',
+          }
+        )
+      })
     )
-  })
+  )
 }

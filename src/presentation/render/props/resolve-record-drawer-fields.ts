@@ -6,7 +6,7 @@
  */
 
 import { declaredFieldDescription, declaredFieldLabel } from '@/presentation/design/field-display'
-import { readColumnOptions } from '@/presentation/render/forms/form-field-resolver'
+import { readColumnOptions } from '@/presentation/render/forms/form-table-field'
 import { resolveOptionBadgePaints, type OptionBadgePaints } from './option-badge-paints'
 import { resolveValueCurrency } from './resolve-chart-field-context'
 import {

@@ -30,8 +30,8 @@ import {
 } from './related-field-read-service'
 import type { App } from '@/domain/models/app'
 
-/** The roles a lookup is judged for: built-in and custom, admin-equivalent ones left out. */
-const judgedRoles = (app: App): readonly string[] =>
+/** The roles a derived value is judged for: built-in and custom, admin-equivalent ones left out. */
+export const judgedRoles = (app: App): readonly string[] =>
   app.auth === undefined
     ? []
     : [...new Set([...BUILT_IN_ROLES, ...(app.auth.roles ?? []).map((role) => role.name)])]

@@ -6,15 +6,14 @@
  */
 
 import { desc, eq, sql } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { emailSuppressions as suppressionsPg } from '@/infrastructure/database/drizzle/schema/email-deliverability'
 import { emailSuppressions as suppressionsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/email-deliverability'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { deleteVerificationRows } from './account-purge-verification'
-import { executeRaw } from './sql/dialect-execute'
-import { systemTableRef } from './sql/dialect-sql'
 import type { EmailSuppressionEntry } from '@/application/ports/repositories/automations/email-deliverability-repository'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import type { PortableDb } from '@/infrastructure/database'
+import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The mailing-list suppressions of one address, for the GDPR export and
@@ -24,6 +23,7 @@ import type { DrizzleTransaction } from '@/infrastructure/database'
 
 /** The suppressions of an address, newest first (the export's `emailSuppressions`). */
 export const readEmailSuppressions = async (
+  db: PortableDb,
   email: string
 ): Promise<readonly EmailSuppressionEntry[]> => {
   const suppressions = resolveDialectSchema(suppressionsPg, suppressionsSqlite)
@@ -48,13 +48,14 @@ export const readEmailSuppressions = async (
  * the person is no longer remembered as having left a list.
  */
 export async function deleteEmailSuppressionsOf(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   email: string | undefined
 ): Promise<void> {
   if (email === undefined || email === '') return
-  await executeRaw(
+  await executeRawOn(
+    dialect.kind,
     tx,
-    sql`DELETE FROM ${systemTableRef('email_suppressions')} WHERE address = ${email.toLowerCase()}`
+    sql`DELETE FROM ${dialect.sql.systemTableRef('email_suppressions')} WHERE address = ${email.toLowerCase()}`
   )
 }
 
@@ -64,10 +65,10 @@ export async function deleteEmailSuppressionsOf(
  * `deleteVerificationRows`), then her address's mailing-list suppressions.
  */
 export async function deleteAddressKeyedRows(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string,
   email: string | undefined
 ): Promise<void> {
-  await deleteVerificationRows(tx, userId, email)
-  await deleteEmailSuppressionsOf(tx, email)
+  await deleteVerificationRows({ tx, dialect }, userId, email)
+  await deleteEmailSuppressionsOf({ tx, dialect }, email)
 }

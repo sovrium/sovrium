@@ -6,7 +6,6 @@
  */
 
 import { and, asc, count, desc, eq, lt } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AiMemoryDatabaseError,
   AiMemoryRepository,
@@ -16,7 +15,6 @@ import {
   nextInstant,
   type BranchNode,
 } from '@/domain/models/app/agents/conversation-branch-service'
-import { db } from '@/infrastructure/database'
 import {
   elicitationOf,
   partsOf,
@@ -24,6 +22,10 @@ import {
   toToolCalls,
 } from '@/infrastructure/database/ai-message-codec'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   aiConversations as aiConversationsPg,
   aiMessages as aiMessagesPg,
@@ -41,6 +43,7 @@ import type {
   AiMessagePart,
 } from '@/application/ports/repositories/ai/ai-memory-repository'
 import type { StoredToolCall } from '@/domain/models/app/agents/stored-tool-call-service'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const aiConversations = resolveDialectSchema(aiConversationsPg, aiConversationsSqlite)
 const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
@@ -76,12 +79,15 @@ const deriveTitle = (firstMessage: string): string => {
  * On every call the conversation's `updatedAt` is bumped so the retention
  * sweep and the most-recently-updated ordering both observe live activity.
  */
-const ensureConversation = async (input: {
-  readonly userId: string
-  readonly sessionId: string
-  readonly firstMessage: string
-  readonly agentName: string | undefined
-}): Promise<string> => {
+const ensureConversation = async (
+  db: PortableDb,
+  input: {
+    readonly userId: string
+    readonly sessionId: string
+    readonly firstMessage: string
+    readonly agentName: string | undefined
+  }
+): Promise<string> => {
   const existing = await db
     .select({ id: aiConversations.id })
     .from(aiConversations)
@@ -117,6 +123,7 @@ const ensureConversation = async (input: {
  * `undefined` when she owns none by that id.
  */
 const ownedConversation = async (
+  db: PortableDb,
   userId: string,
   sessionId: string
 ): Promise<{ readonly id: string; readonly agentName: string | null } | undefined> =>
@@ -128,7 +135,10 @@ const ownedConversation = async (
     .then((rows) => rows[0])
 
 /** Every message of one conversation, every branch, oldest first. */
-const messagesOf = async (conversationId: string): Promise<ReadonlyArray<AiMemoryMessage>> =>
+const messagesOf = async (
+  db: PortableDb,
+  conversationId: string
+): Promise<ReadonlyArray<AiMemoryMessage>> =>
   db
     .select({
       id: aiMessages.id,
@@ -158,6 +168,7 @@ const messagesOf = async (conversationId: string): Promise<ReadonlyArray<AiMemor
  * every message back.
  */
 const branchNodesOf = async (
+  db: PortableDb,
   conversationId: string
 ): Promise<ReadonlyArray<BranchNode & { readonly role: string }>> =>
   db
@@ -198,6 +209,7 @@ interface ChainMessage {
  * new sibling is the newest of its siblings, which is what makes it current.
  */
 const insertChain = async (
+  db: PortableDb,
   conversationId: string,
   write: {
     readonly parentId: string | null
@@ -227,6 +239,146 @@ const insertChain = async (
   return ids
 }
 
+const members: MembersOverDatabase<typeof AiMemoryRepository> = {
+  recordTurn:
+    (db) =>
+    ({
+      userId,
+      sessionId,
+      userMessage,
+      assistantReply,
+      agentName,
+      model,
+      assistantElicitation,
+      assistantToolCalls,
+      parentId,
+      ids,
+      userParts,
+    }) =>
+      wrap(async (): Promise<void> => {
+        const conversationId = await ensureConversation(db, {
+          userId,
+          sessionId,
+          firstMessage: userMessage,
+          agentName,
+        })
+        // A new turn continues the branch it was asked on: below the message it
+        // names when that message is an ANSWER of this thread (never another
+        // thread's, and never a question, which would chain two questions), else
+        // the thread's CURRENT branch.
+        const existing = await branchNodesOf(db, conversationId)
+        const named = existing.find((node) => node.id === parentId && node.role === 'assistant')
+        await insertChain(db, conversationId, {
+          parentId: named?.id ?? currentLeaf(existing)?.id ?? null,
+          chain: [
+            { id: ids?.question, role: 'user', content: userMessage, parts: userParts },
+            {
+              id: ids?.answer,
+              role: 'assistant',
+              content: assistantReply,
+              model,
+              elicitation: assistantElicitation,
+              toolCalls: assistantToolCalls,
+            },
+          ],
+          existing,
+        })
+      }),
+
+  getThread:
+    (db) =>
+    ({ userId, sessionId }) =>
+      wrap(async (): Promise<AiMemoryThread | undefined> => {
+        const conversation = await ownedConversation(db, userId, sessionId)
+        if (conversation === undefined) return undefined
+        return {
+          agentName: conversation.agentName,
+          messages: await messagesOf(db, conversation.id),
+        }
+      }),
+
+  appendBranch:
+    (db) =>
+    ({ userId, sessionId, parentId, messages }) =>
+      wrap(async (): Promise<ReadonlyArray<string>> => {
+        const conversation = await ownedConversation(db, userId, sessionId)
+        if (conversation === undefined) return []
+        const ids = await insertChain(db, conversation.id, {
+          parentId,
+          chain: messages,
+          existing: await branchNodesOf(db, conversation.id),
+        })
+        await db
+          .update(aiConversations)
+          .set({ updatedAt: onDevTimeline() })
+          .where(eq(aiConversations.id, conversation.id))
+        return ids
+      }),
+
+  listConversations:
+    (db) =>
+    ({ userId, agentName, limit, offset }) =>
+      wrap(async () => {
+        const scope = and(
+          eq(aiConversations.userId, userId),
+          agentName === undefined ? undefined : eq(aiConversations.agentName, agentName)
+        )
+        const page = db
+          .select({
+            id: aiConversations.id,
+            sessionId: aiConversations.sessionId,
+            title: aiConversations.title,
+            agentName: aiConversations.agentName,
+            createdAt: aiConversations.createdAt,
+            updatedAt: aiConversations.updatedAt,
+          })
+          .from(aiConversations)
+          .where(scope)
+          .orderBy(desc(aiConversations.updatedAt), desc(aiConversations.id))
+          .limit(limit)
+          .offset(offset)
+        // One after the other: a request path on the shared pool.
+        const conversations = await page
+        const totals = await db.select({ total: count() }).from(aiConversations).where(scope)
+        return { conversations, total: Number(totals[0]?.total ?? 0) }
+      }),
+
+  deleteConversation:
+    (db) =>
+    ({ userId, sessionId }) =>
+      wrap(() =>
+        db
+          .delete(aiConversations)
+          .where(and(eq(aiConversations.userId, userId), eq(aiConversations.sessionId, sessionId)))
+          .returning({ id: aiConversations.id })
+          .then((removed) => removed.length > 0)
+      ),
+
+  listExpired:
+    (db) =>
+    ({ userId, maxAgeDays }) =>
+      wrap(async () => {
+        const cutoff = new Date(onDevTimeline().getTime() - maxAgeDays * 24 * 60 * 60 * 1000)
+        const expired = await db
+          .select({ sessionId: aiConversations.sessionId })
+          .from(aiConversations)
+          .where(and(eq(aiConversations.userId, userId), lt(aiConversations.updatedAt, cutoff)))
+        return expired.flatMap((row) => (row.sessionId === null ? [] : [row.sessionId]))
+      }),
+
+  purgeExpired:
+    (db) =>
+    ({ userId, maxAgeDays }) =>
+      wrap(async () => {
+        const cutoff = new Date(onDevTimeline().getTime() - maxAgeDays * 24 * 60 * 60 * 1000)
+        const removed = await db
+          .delete(aiConversations)
+          .where(and(eq(aiConversations.userId, userId), lt(aiConversations.updatedAt, cutoff)))
+          .returning({ id: aiConversations.id })
+        return removed.length
+      }),
+}
+
 /**
  * AI Memory Repository Implementation (Drizzle).
  *
@@ -234,125 +386,4 @@ const insertChain = async (
  * `ai_messages.conversation_id` has `ON DELETE CASCADE`, so deleting a
  * conversation removes all its messages without an explicit message delete.
  */
-export const AiMemoryRepositoryLive = Layer.succeed(AiMemoryRepository, {
-  recordTurn: ({
-    userId,
-    sessionId,
-    userMessage,
-    assistantReply,
-    agentName,
-    model,
-    assistantElicitation,
-    assistantToolCalls,
-    parentId,
-    ids,
-    userParts,
-  }) =>
-    wrap(async (): Promise<void> => {
-      const conversationId = await ensureConversation({
-        userId,
-        sessionId,
-        firstMessage: userMessage,
-        agentName,
-      })
-      // A new turn continues the branch it was asked on: below the message it
-      // names when that message is an ANSWER of this thread (never another
-      // thread's, and never a question, which would chain two questions), else
-      // the thread's CURRENT branch.
-      const existing = await branchNodesOf(conversationId)
-      const named = existing.find((node) => node.id === parentId && node.role === 'assistant')
-      await insertChain(conversationId, {
-        parentId: named?.id ?? currentLeaf(existing)?.id ?? null,
-        chain: [
-          { id: ids?.question, role: 'user', content: userMessage, parts: userParts },
-          {
-            id: ids?.answer,
-            role: 'assistant',
-            content: assistantReply,
-            model,
-            elicitation: assistantElicitation,
-            toolCalls: assistantToolCalls,
-          },
-        ],
-        existing,
-      })
-    }),
-
-  getThread: ({ userId, sessionId }) =>
-    wrap(async (): Promise<AiMemoryThread | undefined> => {
-      const conversation = await ownedConversation(userId, sessionId)
-      if (conversation === undefined) return undefined
-      return { agentName: conversation.agentName, messages: await messagesOf(conversation.id) }
-    }),
-
-  appendBranch: ({ userId, sessionId, parentId, messages }) =>
-    wrap(async (): Promise<ReadonlyArray<string>> => {
-      const conversation = await ownedConversation(userId, sessionId)
-      if (conversation === undefined) return []
-      const ids = await insertChain(conversation.id, {
-        parentId,
-        chain: messages,
-        existing: await branchNodesOf(conversation.id),
-      })
-      await db
-        .update(aiConversations)
-        .set({ updatedAt: onDevTimeline() })
-        .where(eq(aiConversations.id, conversation.id))
-      return ids
-    }),
-
-  listConversations: ({ userId, agentName, limit, offset }) =>
-    wrap(async () => {
-      const scope = and(
-        eq(aiConversations.userId, userId),
-        agentName === undefined ? undefined : eq(aiConversations.agentName, agentName)
-      )
-      const page = db
-        .select({
-          id: aiConversations.id,
-          sessionId: aiConversations.sessionId,
-          title: aiConversations.title,
-          agentName: aiConversations.agentName,
-          createdAt: aiConversations.createdAt,
-          updatedAt: aiConversations.updatedAt,
-        })
-        .from(aiConversations)
-        .where(scope)
-        .orderBy(desc(aiConversations.updatedAt), desc(aiConversations.id))
-        .limit(limit)
-        .offset(offset)
-      // One after the other: a request path on the shared pool.
-      const conversations = await page
-      const totals = await db.select({ total: count() }).from(aiConversations).where(scope)
-      return { conversations, total: Number(totals[0]?.total ?? 0) }
-    }),
-
-  deleteConversation: ({ userId, sessionId }) =>
-    wrap(() =>
-      db
-        .delete(aiConversations)
-        .where(and(eq(aiConversations.userId, userId), eq(aiConversations.sessionId, sessionId)))
-        .returning({ id: aiConversations.id })
-        .then((removed) => removed.length > 0)
-    ),
-
-  listExpired: ({ userId, maxAgeDays }) =>
-    wrap(async () => {
-      const cutoff = new Date(onDevTimeline().getTime() - maxAgeDays * 24 * 60 * 60 * 1000)
-      const expired = await db
-        .select({ sessionId: aiConversations.sessionId })
-        .from(aiConversations)
-        .where(and(eq(aiConversations.userId, userId), lt(aiConversations.updatedAt, cutoff)))
-      return expired.flatMap((row) => (row.sessionId === null ? [] : [row.sessionId]))
-    }),
-
-  purgeExpired: ({ userId, maxAgeDays }) =>
-    wrap(async () => {
-      const cutoff = new Date(onDevTimeline().getTime() - maxAgeDays * 24 * 60 * 60 * 1000)
-      const removed = await db
-        .delete(aiConversations)
-        .where(and(eq(aiConversations.userId, userId), lt(aiConversations.updatedAt, cutoff)))
-        .returning({ id: aiConversations.id })
-      return removed.length
-    }),
-})
+export const AiMemoryRepositoryLive = layerOverDatabase(AiMemoryRepository, members)

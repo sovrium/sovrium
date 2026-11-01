@@ -84,7 +84,7 @@ export const AvatarSizeSchema = Schema.Literals(['sm', 'default', 'lg']).annotat
 export const AvatarStatusSchema = Schema.Literals(['online', 'away', 'busy', 'offline']).annotate({
   title: 'Presence',
   description:
-    'Presence dot drawn on the lower-right corner. Omit to draw no dot at all — `offline` draws a muted dot, which is not the same statement as saying nothing.',
+    'Presence dot drawn on the lower-right corner. Omit to draw no dot at all: `offline` draws a muted dot, which is not the same statement as saying nothing.',
 })
 
 /** One member of a group stack. */
@@ -136,7 +136,7 @@ export const avatarFields = {
       Schema.annotate({
         title: 'Image',
         description:
-          'Picture to draw. Falls back to `initials`, then to initials derived from `label`, then to an empty disc — so a null photo column renders a readable avatar rather than a broken image.',
+          'Picture to draw. Falls back to `initials`, then to initials derived from `label`, then to an empty disc, so a null photo column renders a readable avatar rather than a broken image.',
         examples: ['/uploads/ada.avif', '$record.photo'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -163,7 +163,7 @@ export const avatarFields = {
       Schema.annotate({
         title: 'Initials',
         description:
-          'Letters to draw when there is no picture. Derived from `label` when omitted — the first letter of each of its first two words.',
+          'Letters to draw when there is no picture. Derived from `label` when omitted: the first letter of each of its first two words.',
         examples: ['AL'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -175,7 +175,7 @@ export const avatarFields = {
       Schema.annotate({
         title: 'Name',
         description:
-          'Who or what this avatar stands for. Becomes the accessible name, the source of derived initials, and — on a group — the name of the stack as a whole.',
+          'Who or what this avatar stands for. Becomes the accessible name, the source of derived initials, and, on a group, the name of the stack as a whole.',
         examples: ['Ada Lovelace', '$record.owner'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -192,7 +192,7 @@ export const avatarFields = {
     Schema.Literals(['circle', 'square']).annotate({
       title: 'Shape',
       description:
-        'Corner shape. `circle` (default) for people, `square` for a record or an organisation — the same box, rounded to the design radius rather than fully.',
+        'Corner shape. `circle` (default) for people, `square` for a record or an organisation: the same box, rounded to the design radius rather than fully.',
     })
   ),
   status: Schema.optional(AvatarStatusSchema),
@@ -209,7 +209,7 @@ export const avatarFields = {
       .annotate({
         title: 'Group',
         description:
-          'Members of an overlapping stack. Present ⇒ this is a group: `src`, `initials`, `alt` and `status` are read per item instead of from the component, and `label` names the stack. At least one member — `items: []` says "this is a group" and then names nobody, which draws an empty box no reader can interpret.',
+          'Members of an overlapping stack. Present ⇒ this is a group: `src`, `initials`, `alt` and `status` are read per item instead of from the component, and `label` names the stack. At least one member: `items: []` says "this is a group" and then names nobody, which draws an empty box no reader can interpret.',
         examples: [[{ label: 'Ada Lovelace' }, { label: 'Grace Hopper' }]],
       })
   ),

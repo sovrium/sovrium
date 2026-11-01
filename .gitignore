@@ -120,3 +120,5 @@ desktop/src-tauri/target/
 desktop/src-tauri/gen/
 desktop/src-tauri/sovrium-*
 src/skills/*/evals/results/
+**/skills/impeccable/scripts/bin/
+**/.impeccable/live/

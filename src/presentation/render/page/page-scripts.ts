@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolvePrivacySignals } from '@/domain/models/app/analytics/privacy-signals-service'
 import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
+import type { PageConsent } from './analytics-beacon-script'
+import type { PrivacySignalSettings } from '@/domain/models/app/analytics/privacy-signals-service'
 import type { Components } from '@/domain/models/app/components'
 import type { Page } from '@/domain/models/app/pages'
 
@@ -20,6 +23,8 @@ export type ExternalScript = {
   readonly module?: boolean
   readonly integrity?: string
   readonly crossorigin?: 'anonymous' | 'use-credentials'
+  /** A declared purpose: the script waits until the visitor accepts it. */
+  readonly consent?: string
 }
 
 /**
@@ -29,6 +34,8 @@ export type InlineScript = {
   readonly code: string
   readonly position?: 'head' | 'body-start' | 'body-end'
   readonly async?: boolean
+  /** A declared purpose: the script waits until the visitor accepts it. */
+  readonly consent?: string
 }
 
 /**
@@ -51,6 +58,21 @@ export type GroupedScripts = {
    * A page with no sidebar carries none of that script.
    */
   readonly revealsSidebarCurrent: boolean
+  /**
+   * The page draws a `toc`, directly or through a referenced template, so the
+   * body-end enhancer that marks the link to the section being read ships with
+   * it. A page with no outline carries none of that script.
+   */
+  readonly spiesToc: boolean
+  /**
+   * The privacy signals the app honours, present only when the page draws a
+   * `consent-choice`, directly or through a referenced template: the body-end
+   * consent runtime ships with it and reads them. A page with no such control
+   * carries none of that script.
+   */
+  readonly consentChoice: PrivacySignalSettings | undefined
+  /** The app's `consent` block: the page draws the banner and holds what it gates. */
+  readonly consent: PageConsent | undefined
 }
 
 /**
@@ -73,11 +95,14 @@ function dedupeBySrc(scripts: ReadonlyArray<ExternalScript>): ReadonlyArray<Exte
  *
  * @param page - Page configuration containing scripts
  * @param components - The app's component templates, which a page may reference
+ * @param privacySignals - The privacy signals the app's analytics honours, at
+ *   their documented defaults when omitted
  * @returns Scripts grouped by position
  */
 export function groupScriptsByPosition(
   page: Page,
-  components?: Components
+  components?: Components,
+  privacySignals?: PrivacySignalSettings & { readonly consent?: PageConsent }
 ): Readonly<GroupedScripts> {
   // `scripts.external` is an ALIAS of `scripts.externalScripts` — the two keys
   // name ONE list, not two independent ones. Merge them and drop any src the
@@ -110,5 +135,14 @@ export function groupScriptsByPosition(
       components,
       (item) => item['type'] === 'sidebar'
     ),
+    spiesToc: someComponentInTree(page.components, components, (item) => item['type'] === 'toc'),
+    consentChoice: someComponentInTree(
+      page.components,
+      components,
+      (item) => item['type'] === 'consent-choice'
+    )
+      ? (privacySignals ?? resolvePrivacySignals(undefined))
+      : undefined,
+    consent: privacySignals?.consent,
   }
 }

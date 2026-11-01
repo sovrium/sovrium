@@ -7,7 +7,8 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { getFlagPathValue, getFlagValue } from '@/cli/runtime/flag-vocabulary'
+import { defineFlags, flag, type FlagsOf } from '@/cli/runtime/flag-schema'
+import { stopCommand, withFlagsAsync } from '@/cli/runtime/run-command'
 import { isRecord, type Raw } from '@/domain/kernel/config-parsing/plain-object'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { writeStdout } from './document-output'
@@ -41,10 +42,7 @@ const FORMAT_BY_EXTENSION: Readonly<Record<string, PreviewFormat>> = {
   xlsx: 'xlsx',
 }
 
-const fail = (message: string): never => {
-  printStderr(`Error: ${message}`)
-  process.exit(1)
-}
+const fail = (message: string): never => stopCommand(1, `Error: ${message}`)
 
 /** Parse a data file's text as YAML (by its extension) or JSON. */
 const parseData = (text: string, path: string): Raw => {
@@ -128,25 +126,37 @@ const assetPathOf = (argv: readonly string[]): string | undefined => {
   return argv.find((arg, index) => index > 0 && !arg.startsWith('-') && !values.has(index))
 }
 
-export const handleRenderCommand = async (argv: readonly string[]): Promise<void> => {
+/** The flags `sovrium render` reads. */
+export const renderFlags = defineFlags({
+  out: flag.path('--out'),
+  config: flag.path('--config'),
+  data: flag.path('--data'),
+  locale: flag.value('--locale'),
+  email: flag.switch('--email'),
+})
+
+const render = async (
+  argv: readonly string[],
+  flags: FlagsOf<typeof renderFlags>
+): Promise<void> => {
   const assetPath = assetPathOf(argv)
   if (assetPath === undefined) {
     return fail('render needs the path of a template asset: sovrium render <asset> [--out <file>]')
   }
-  const out = getFlagPathValue(argv, '--out')
+  const { out } = flags
   const format = formatOf(out)
-  const config = getFlagPathValue(argv, '--config')
+  const { config } = flags
   const configFile = resolve(config ?? (await discoverConfig()))
   const { app, store } = await loadProject(configFile)
-  const data = await valuesFor(app, assetPath, getFlagPathValue(argv, '--data'), store)
+  const data = await valuesFor(app, assetPath, flags.data, store)
   const { runTemplatePreview } = await import('@/infrastructure/server/template-preview-runtime')
-  const locale = getFlagValue(argv, '--locale')
+  const { locale } = flags
   const rendered = await runTemplatePreview(
     {
       app,
       path: assetPath,
       data,
-      email: argv.includes('--email'),
+      email: flags.email,
       format,
       ...(locale === undefined ? {} : { locale }),
     },
@@ -162,3 +172,8 @@ export const handleRenderCommand = async (argv: readonly string[]): Promise<void
   await mkdir(dirname(resolve(out)), { recursive: true })
   await writeFile(out, preview.kind === 'text' ? preview.text : preview.bytes)
 }
+
+/** Handle `sovrium render <asset>`. */
+export const handleRenderCommand = withFlagsAsync(renderFlags, ({ argv, flags }) =>
+  render(argv, flags)
+)

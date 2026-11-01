@@ -63,7 +63,7 @@ export const AuthActionSchema = Schema.Struct({
     'unlinkAccount',
   ]).annotate({
     description:
-      'What the action performs: the authentication operation under `type: auth`, or the HTTP verb under `type: fetch` (default GET). The account methods act on the signed-in reader’s own sessions, passkeys, API keys and two-step verification — `regenerateBackupCodes` replaces the reader’s recovery codes with a new set, shown once, after her password; `setRole`, `resendInvitation` and `revokeInvitation` need the administer-accounts capability. `linkAccount` connects the signed-in reader’s account to the sign-in provider named by `provider` (sending the browser through it and back), `unlinkAccount` disconnects it; disconnecting the reader’s only way in is refused.',
+      'What the action performs: the authentication operation under `type: auth`, or the HTTP verb under `type: fetch` (default GET). The account methods act on the signed-in reader’s own sessions, passkeys, API keys and two-step verification. `regenerateBackupCodes` replaces the reader’s recovery codes with a new set, shown once, after her password; `setRole`, `resendInvitation` and `revokeInvitation` need the administer-accounts capability. `linkAccount` connects the signed-in reader’s account to the sign-in provider named by `provider` (sending the browser through it and back), `unlinkAccount` disconnects it; disconnecting the reader’s only way in is refused.',
   }),
   /** Auth strategy */
   strategy: Schema.optional(
@@ -95,7 +95,7 @@ export const AuthActionSchema = Schema.Struct({
     Schema.String.pipe(
       Schema.annotate({
         description:
-          'Id of the one session, passkey, API key, member or invitation an item-level method acts on — usually $record.id from the row the action sits in. An id the reader may not act on answers as if it did not exist.',
+          'Id of the one session, passkey, API key, member or invitation an item-level method acts on, usually $record.id from the row the action sits in. An id the reader may not act on answers as if it did not exist.',
         examples: ['$record.id'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -235,8 +235,9 @@ export const AuthActionSchema = Schema.Struct({
       Schema.Struct({
         /** Field name to target (must match a rendered auth field, e.g. `email`) */
         name: Schema.String.annotate({
-          description: 'Name of the auth field to override (e.g. email, password)',
-          examples: ['email', 'password'],
+          description:
+            "Name of the auth field to override (e.g. email, password). On a sign-up form, `name` adds a required input for the person's name, drawn where it is listed; without it the account is named after its address.",
+          examples: ['email', 'password', 'name'],
         }),
         /** Visible label override. Supports $t:key translation references. */
         label: Schema.optional(
@@ -255,7 +256,7 @@ export const AuthActionSchema = Schema.Struct({
       })
     ).annotate({
       description:
-        'Per-field label/placeholder overrides for the form this action embeds. Targets fields by name. Additive — the default fields are used when omitted.',
+        'Per-field label/placeholder overrides for the form this action embeds. Targets fields by name. Additive: the default fields are used when omitted.',
     })
   ),
   onSuccess: Schema.optional(ActionResponseSchema),
@@ -309,6 +310,84 @@ export const AuthActionSchema = Schema.Struct({
     }).annotate({
       description:
         'Where a `login` form sends an account that still owes its two-step code, instead of staying on the page with a message. The code page’s own `onSuccess.navigate` applies after the code, else this form’s. Inert on every other method.',
+    })
+  ),
+  /**
+   * What a `login` form says when the email and password do not match: a title,
+   * then the next step. Without it, the form shows the engine's one-line banner.
+   *
+   * The next step depends on whether this instance can send mail, which the
+   * config does not know and the server does: `description` and the
+   * `recovery` link are used where a reset mail can leave, and
+   * `descriptionWithoutMail` where it cannot (and no link is drawn, since a
+   * link to a form that sends nothing is a dead end). Where `description`
+   * already contains the `recovery.label` words, those words become the link;
+   * otherwise the link follows the line.
+   *
+   * @example
+   * ```yaml
+   * action:
+   *   type: auth
+   *   method: login
+   *   strategy: email
+   *   credentialError:
+   *     title: Email or password didn’t match.
+   *     description: Check both, or reset your password.
+   *     descriptionWithoutMail: Check both, or ask an administrator to reset your password.
+   *     recovery: { label: Reset password, href: /forgot-password }
+   * ```
+   */
+  credentialError: Schema.optional(
+    Schema.Struct({
+      title: Schema.String.annotate({
+        description:
+          'First line of the refusal: the failure, stated without saying which of the two was wrong. Supports $t:key.',
+        examples: ['Email or password didn’t match.'],
+      }).check(Schema.isMinLength(1)),
+      description: Schema.optional(
+        Schema.String.annotate({
+          description:
+            'Second line, on an instance that can send mail: the next step. Supports $t:key.',
+          examples: ['Check both, or reset your password.'],
+        })
+      ),
+      descriptionWithoutMail: Schema.optional(
+        Schema.String.annotate({
+          description:
+            'Second line on an instance that cannot send mail, where no reset link can help: who can reset the password instead. Falls back to description when omitted. Supports $t:key.',
+          examples: ['Check both, or ask an administrator to reset your password.'],
+        })
+      ),
+      recovery: Schema.optional(
+        Schema.Struct({
+          label: Schema.String.annotate({
+            description: 'Text of the recovery link. Supports $t:key.',
+            examples: ['Reset password'],
+          }).check(Schema.isMinLength(1)),
+          href: Schema.String.pipe(
+            Schema.annotate({
+              description:
+                'Path of the page that requests a reset mail. An app-relative path: it starts with a single / and carries no host, query or fragment.',
+              examples: ['/forgot-password', '/_admin/forgot-password'],
+            }),
+            Schema.check(
+              Schema.makeFilter((value) =>
+                LOGIN_PAGE_PATTERN.test(value)
+                  ? true
+                  : `credentialError.recovery.href ${JSON.stringify(value)} must be a path on this app: it starts with a single / and carries no host, query, fragment or whitespace (e.g. "/forgot-password").`
+              ),
+              Schema.isPattern(LOGIN_PAGE_PATTERN)
+            )
+          ),
+        }).annotate({
+          description:
+            'Link to the password-reset request, drawn only on an instance that can send mail. When description already contains the label’s words, those words become the link; otherwise the link follows the second line.',
+        })
+      ),
+    }).annotate({
+      description:
+        'What a login form shows when the email and password do not match: a title, then the next step. description and the recovery link apply where this instance can send mail, descriptionWithoutMail where it cannot. Absent, the form shows its built-in one-line message. Inert on every method but login.',
+      defaultNote: 'absent: the built-in one-line sign-in error',
     })
   ),
 }).annotate({
@@ -438,7 +517,7 @@ export const CrudActionSchema = Schema.Struct({
       })
     ).annotate({
       description:
-        'Per-field label/placeholder overrides for the form this action embeds. Targets fields by name. Additive — the default fields are used when omitted.',
+        'Per-field label/placeholder overrides for the form this action embeds. Targets fields by name. Additive: the default fields are used when omitted.',
     })
   ),
   /**
@@ -560,7 +639,7 @@ export const AutomationActionSchema = Schema.Struct({
   inputData: Schema.optional(
     Schema.Record(Schema.String, Schema.Unknown).annotate({
       description:
-        'Key-value pairs passed to the automation as input. Supports $variable references.',
+        'Key-value pairs passed to the automation as input. Supports $variable references. On a form, leave it out to send what the form fields hold.',
     })
   ),
   /** Whether to wait for completion before triggering response */

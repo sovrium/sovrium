@@ -8,6 +8,7 @@
 import { createHash } from 'node:crypto'
 import { Effect } from 'effect'
 import { StorageError, storageObjectTooLarge } from '@/application/ports/services/storage-service'
+import { attemptStorage, type DriverCall } from './storage-attempt'
 import type { StoredObjectHash } from '@/application/ports/services/storage-service'
 
 /** The bytes read so far, in a buffer grown by doubling and never past the cap. */
@@ -102,9 +103,9 @@ export const readStreamWithin = async (
 export const boundedDownload = (
   key: string,
   maxBytes: number,
-  read: () => Promise<Uint8Array | undefined>
+  read: DriverCall<Uint8Array | undefined>
 ): Effect.Effect<Uint8Array, StorageError> =>
-  Effect.tryPromise({ try: read, catch: (cause: unknown) => new StorageError({ cause }) }).pipe(
+  attemptStorage(read).pipe(
     Effect.filterOrFail(
       (bytes): bytes is Uint8Array => bytes !== undefined,
       () => new StorageError({ cause: storageObjectTooLarge(key, maxBytes) })

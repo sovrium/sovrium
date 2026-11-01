@@ -10,6 +10,10 @@
  * config plus the three resolved runtime populations onto the nodes and edges
  * of one access graph.
  *
+ * This module holds what the two halves share: the node-id vocabulary, the
+ * grant-source fold and the resource targets read off the config. The nodes
+ * are `organisation-graph-nodes.ts`, the edges `organisation-graph-edges.ts`.
+ *
  * Split from `organisation-graph.ts` because the two halves fail differently.
  * Everything here is total — it reads values that are already in hand and
  * cannot throw, cannot hang and needs no service — while its caller owns the
@@ -42,11 +46,7 @@ import {
   isOpenToEveryone,
   requiresOnlyASession,
 } from '@/domain/models/app/auth/permission-evaluation'
-import { BUILT_IN_ROLES, BUILT_IN_ROLE_LEVELS } from '@/domain/models/app/auth/roles/role'
-import type { OrganizationTeamMembershipRecord } from '@/application/ports/repositories/auth/organization-team-repository'
 import type { DirectoryUserRow } from '@/application/ports/repositories/tables/users-directory-repository'
-import type { ProjectedNode } from '@/application/use-cases/admin/organisation-graph-denormalisation'
-import type { AdminOrganisationGraphEdge } from '@/domain/models/api/admin/organisation/graph'
 import type { App } from '@/domain/models/app'
 import type { PermissionValue } from '@/domain/models/app/auth/permissions'
 
@@ -60,8 +60,8 @@ import type { PermissionValue } from '@/domain/models/app/auth/permissions'
  */
 export const OPEN_NODE_ID = 'open'
 
-const ROLE_NODE_PREFIX = 'role:'
-const TEAM_NODE_PREFIX = 'team:'
+export const ROLE_NODE_PREFIX = 'role:'
+export const TEAM_NODE_PREFIX = 'team:'
 
 export const roleNodeId = (name: string): string => `${ROLE_NODE_PREFIX}${name}`
 export const teamNodeId = (name: string): string => `${TEAM_NODE_PREFIX}${name}`
@@ -79,12 +79,13 @@ export const teamNodeId = (name: string): string => `${TEAM_NODE_PREFIX}${name}`
 export const tableNodeId = (name: string): string => `table:${name}`
 
 export const personNodeId = (userId: string): string => `person:${userId}`
-const agentNodeId = (name: string): string => `agent:${name}`
-const agentResourceNodeId = (name: string): string => `agent-resource:${name}`
-const automationNodeId = (name: string): string => `automation:${name}`
-const stepNodeId = (automation: string, index: number): string => `step:${automation}:${index}`
+export const agentNodeId = (name: string): string => `agent:${name}`
+export const agentResourceNodeId = (name: string): string => `agent-resource:${name}`
+export const automationNodeId = (name: string): string => `automation:${name}`
+export const stepNodeId = (automation: string, index: number): string =>
+  `step:${automation}:${index}`
 
-const edgeId = (kind: string, from: string, to: string): string => `${kind}:${from}->${to}`
+export const edgeId = (kind: string, from: string, to: string): string => `${kind}:${from}->${to}`
 
 /**
  * The fallback role for an account whose `auth.user.role` column is NULL or
@@ -109,7 +110,7 @@ export const unique = (values: readonly string[]): readonly string[] => [...new 
 // ─── Grant sources ──────────────────────────────────────────────────────────
 
 /** Where a grant comes FROM: a named role, a named team, or the open rung. */
-interface GrantSource {
+export interface GrantSource {
   readonly kind: 'role' | 'team' | 'open'
   /** The role or team name; empty for the open rung, which names nobody. */
   readonly name: string
@@ -118,7 +119,7 @@ interface GrantSource {
 const OPEN_GRANT_SOURCE: GrantSource = { kind: 'open', name: '' }
 
 /** The node a grant source is drawn as. */
-const grantSourceNodeId = (source: GrantSource): string => {
+export const grantSourceNodeId = (source: GrantSource): string => {
   if (source.kind === 'open') return OPEN_NODE_ID
   return source.kind === 'role' ? roleNodeId(source.name) : teamNodeId(source.name)
 }
@@ -133,7 +134,7 @@ const GROUP_REFERENCE_PREFIX = 'group:'
  * reading that does not invent a grant the operator never wrote, and a drawn
  * edge is a claim that somebody can reach something.
  */
-const grantSourcesOf = (permission: PermissionValue | undefined): readonly GrantSource[] => {
+export const grantSourcesOf = (permission: PermissionValue | undefined): readonly GrantSource[] => {
   if (permission === undefined) return []
   // Both open rungs collapse to the one `open` node: `viaOpenRung` is about
   // "no named principal stands behind this", which `authenticated` shares.
@@ -181,8 +182,8 @@ type AppTable = NonNullable<App['tables']>[number]
 type AppPage = NonNullable<App['pages']>[number]
 type AppForm = NonNullable<App['forms']>[number]
 type AppBucket = NonNullable<App['buckets']>[number]
-type AppAgent = NonNullable<App['agents']>[number]
-type AppAutomation = NonNullable<App['automations']>[number]
+export type AppAgent = NonNullable<App['agents']>[number]
+export type AppAutomation = NonNullable<App['automations']>[number]
 
 const tableTarget = (table: AppTable): ResourceTarget => {
   // Destructured rather than read as `table.permissions.delete`: the Drizzle
@@ -275,316 +276,12 @@ export const resourceTargets = (app: App): readonly ResourceTarget[] => [
   ...(app.buckets ?? []).map(bucketTarget),
 ]
 
-/** The drawable node for one resource target. */
-export const resourceNodes = (targets: readonly ResourceTarget[]): readonly ProjectedNode[] =>
-  targets.map((target) => ({
-    id: target.nodeId,
-    kind: target.kind,
-    label: target.label,
-    family: target.family,
-  }))
-
-// ─── Edges ──────────────────────────────────────────────────────────────────
-
-/** Fold every operation grant on one resource into ONE edge per grant source. */
-const grantEdgesFor = (target: ResourceTarget): readonly AdminOrganisationGraphEdge[] => {
-  const pairs = target.grants.flatMap((grant) =>
-    grantSourcesOf(grant.permission).map((source) => ({ source, op: grant.op }))
-  )
-  const sources = pairs.reduce<readonly GrantSource[]>(
-    (acc, pair) =>
-      acc.some((known) => grantSourceNodeId(known) === grantSourceNodeId(pair.source))
-        ? acc
-        : [...acc, pair.source],
-    []
-  )
-  return sources.flatMap((source) => {
-    const from = grantSourceNodeId(source)
-    const ops = OP_ORDER.filter((op) =>
-      pairs.some((pair) => pair.op === op && grantSourceNodeId(pair.source) === from)
-    ).join('')
-    // An edge with no letters claims a permission nobody declared, so it is not
-    // drawn at all — which is also what keeps `ops` present on exactly the
-    // `grant` edges.
-    if (ops.length === 0) return []
-    return [
-      {
-        id: edgeId('grant', from, target.nodeId),
-        from,
-        to: target.nodeId,
-        kind: 'grant' as const,
-        ops,
-        ...(source.kind === 'open' ? { viaOpenRung: true } : {}),
-      },
-    ]
-  })
-}
-
-export const grantEdges = (
-  targets: readonly ResourceTarget[]
-): readonly AdminOrganisationGraphEdge[] => targets.flatMap(grantEdgesFor)
-
-/** `trigger` edges from whoever may invoke a thing to the thing itself. */
-const triggerEdgesFor = (
-  permission: PermissionValue | undefined,
-  targetNodeId: string
-): readonly AdminOrganisationGraphEdge[] =>
-  grantSourcesOf(permission).map((source) => ({
-    id: edgeId('trigger', grantSourceNodeId(source), targetNodeId),
-    from: grantSourceNodeId(source),
-    to: targetNodeId,
-    kind: 'trigger' as const,
-  }))
-
 // ─── Principals ─────────────────────────────────────────────────────────────
 
 /** The role an account acts under, with the platform default filled in. */
-const principalRole = (row: DirectoryUserRow): string =>
+export const principalRole = (row: DirectoryUserRow): string =>
   typeof row.role === 'string' && row.role.length > 0 ? row.role : DEFAULT_PRINCIPAL_ROLE
 
 /** The display name an account is drawn by — never its address (S4). */
 export const principalLabel = (row: DirectoryUserRow): string =>
   typeof row.name === 'string' && row.name.trim().length > 0 ? row.name : UNNAMED_PRINCIPAL_LABEL
-
-export const personNodes = (rows: readonly DirectoryUserRow[]): readonly ProjectedNode[] =>
-  rows.map((row) => ({
-    id: personNodeId(row.id),
-    kind: 'person' as const,
-    label: principalLabel(row),
-    detail: principalRole(row),
-  }))
-
-export const personEdges = (
-  rows: readonly DirectoryUserRow[],
-  memberships: readonly OrganizationTeamMembershipRecord[]
-): readonly AdminOrganisationGraphEdge[] => [
-  ...rows.map((row) => ({
-    id: edgeId('member', personNodeId(row.id), roleNodeId(principalRole(row))),
-    from: personNodeId(row.id),
-    to: roleNodeId(principalRole(row)),
-    kind: 'member' as const,
-  })),
-  ...memberships.map((membership) => ({
-    id: edgeId('member', personNodeId(membership.userId), teamNodeId(membership.teamName)),
-    from: personNodeId(membership.userId),
-    to: teamNodeId(membership.teamName),
-    kind: 'member' as const,
-  })),
-]
-
-// ─── Vocabulary closure ─────────────────────────────────────────────────────
-
-/** Every name an edge endpoint carries under one node-id prefix. */
-const namesReferencedBy = (
-  edges: readonly AdminOrganisationGraphEdge[],
-  prefix: string
-): readonly string[] =>
-  edges
-    .flatMap((edge) => [edge.from, edge.to])
-    .filter((id) => id.startsWith(prefix))
-    .map((id) => id.slice(prefix.length))
-
-/**
- * Every role name the graph must be able to draw.
- *
- * The union of the built-in ladder, the app's declared roles, every role named
- * in a grant or an escalation, and every role an account actually holds. The
- * last two are what keep the graph referential.
- */
-const roleNamesOf = (
-  app: App,
-  principals: readonly DirectoryUserRow[],
-  edges: readonly AdminOrganisationGraphEdge[]
-): readonly string[] =>
-  unique([
-    ...BUILT_IN_ROLES,
-    ...(app.auth?.roles ?? []).map((role) => role.name),
-    ...(app.agents ?? []).map((agent) => agent.role),
-    ...principals.map(principalRole),
-    ...namesReferencedBy(edges, ROLE_NODE_PREFIX),
-  ])
-
-/** Every team name the graph must be able to draw — same closure, same reason. */
-const teamNamesOf = (
-  app: App,
-  memberships: readonly OrganizationTeamMembershipRecord[],
-  edges: readonly AdminOrganisationGraphEdge[]
-): readonly string[] =>
-  unique([
-    ...(app.auth?.groups ?? []).map((group) => group.name),
-    ...memberships.map((membership) => membership.teamName),
-    ...namesReferencedBy(edges, TEAM_NODE_PREFIX),
-  ])
-
-/**
- * A role's rung on the ladder, when it has one the Matrix can sort by.
- *
- * Emitted only for a whole, non-negative level: the wire contract's `level` is
- * an `Int >= 0`, and a role declared at `12.5` must leave the key absent rather
- * than fail the response gate for everybody.
- */
-const roleLevel = (app: App, name: string): number | undefined => {
-  const declared = (app.auth?.roles ?? []).find((role) => role.name === name)?.level
-  const level = declared ?? BUILT_IN_ROLE_LEVELS[name]
-  return level !== undefined && Number.isInteger(level) && level >= 0 ? level : undefined
-}
-
-export const roleNodes = (
-  app: App,
-  principals: readonly DirectoryUserRow[],
-  edges: readonly AdminOrganisationGraphEdge[]
-): readonly ProjectedNode[] =>
-  roleNamesOf(app, principals, edges).map((name) => {
-    const level = roleLevel(app, name)
-    return {
-      id: roleNodeId(name),
-      kind: 'role' as const,
-      label: name,
-      ...(level === undefined ? {} : { level }),
-    }
-  })
-
-export const teamNodes = (
-  app: App,
-  memberships: readonly OrganizationTeamMembershipRecord[],
-  edges: readonly AdminOrganisationGraphEdge[]
-): readonly ProjectedNode[] =>
-  teamNamesOf(app, memberships, edges).map((name) => {
-    const members = memberships.filter((membership) => membership.teamName === name).length
-    return {
-      id: teamNodeId(name),
-      kind: 'team' as const,
-      label: name,
-      // Omitted at zero rather than rendered as "0 members": `detail` may never
-      // be the empty string, so absence has exactly one spelling and a count
-      // that is not there is not a count of nothing.
-      ...(members === 0 ? {} : { detail: members === 1 ? '1 member' : `${members} members` }),
-    }
-  })
-
-/**
- * The `open` node, drawn only when something actually reaches through it.
- *
- * An instance whose every grant names a role or a team has no open rung, and a
- * node with no edges on it would invite the operator to look for a path that
- * does not exist.
- */
-export const openNodes = (
-  edges: readonly AdminOrganisationGraphEdge[]
-): readonly ProjectedNode[] =>
-  edges.some((edge) => edge.from === OPEN_NODE_ID)
-    ? [
-        {
-          id: OPEN_NODE_ID,
-          kind: 'open' as const,
-          label: 'Everyone',
-          detail: 'Reached without naming anybody in particular',
-        },
-      ]
-    : []
-
-// ─── Agents ─────────────────────────────────────────────────────────────────
-
-/**
- * An agent is TWO nodes, and collapsing them would draw a self-loop where the
- * truth is a grant: `agent` is the principal that acts, `agent-resource` is the
- * same agent seen as a thing that can be invoked.
- */
-export const agentNodes = (agents: readonly AppAgent[]): readonly ProjectedNode[] =>
-  agents.flatMap((agent) => [
-    { id: agentNodeId(agent.name), kind: 'agent' as const, label: agent.name, detail: agent.role },
-    {
-      id: agentResourceNodeId(agent.name),
-      kind: 'agent-resource' as const,
-      label: agent.name,
-      family: 'agents' as const,
-      state: agent.enabled === false ? ('disabled' as const) : ('active' as const),
-    },
-  ])
-
-/** The escalation an agent's approval workflow declares, when it declares one. */
-const escalationEdges = (agent: AppAgent): readonly AdminOrganisationGraphEdge[] => {
-  const escalation = agent.approval?.escalation
-  if (escalation === undefined) return []
-  return [
-    {
-      id: edgeId('escalation', agentNodeId(agent.name), roleNodeId(escalation.to)),
-      from: agentNodeId(agent.name),
-      to: roleNodeId(escalation.to),
-      kind: 'escalation' as const,
-    },
-  ]
-}
-
-export const agentEdges = (agents: readonly AppAgent[]): readonly AdminOrganisationGraphEdge[] =>
-  agents.flatMap((agent) => [
-    {
-      id: edgeId('member', agentNodeId(agent.name), roleNodeId(agent.role)),
-      from: agentNodeId(agent.name),
-      to: roleNodeId(agent.role),
-      kind: 'member' as const,
-    },
-    ...triggerEdgesFor(agent.permissions?.trigger, agentResourceNodeId(agent.name)),
-    ...escalationEdges(agent),
-  ])
-
-// ─── Automations ────────────────────────────────────────────────────────────
-
-/**
- * A lane's operational state, on a read that actually saw the pause ledger.
- *
- * `active` is emitted explicitly rather than left absent, because "this
- * automation is running" and "this read could not tell" must not share a
- * spelling — which is exactly why the caller omits the key entirely when the
- * ledger was unreadable.
- */
-const automationState = (
-  automation: AppAutomation,
-  paused: ReadonlySet<string>
-): 'active' | 'paused' | 'disabled' => {
-  if (paused.has(automation.name)) return 'paused'
-  return automation.enabled === false ? 'disabled' : 'active'
-}
-
-/**
- * An automation lane and its stations.
- *
- * `paused` is `undefined` when the pause ledger could not be read, and the node
- * then ships with NO `state` key at all: emitting `active` would assert that
- * nothing is paused on the strength of a read that failed.
- */
-export const automationNodes = (
-  automations: readonly AppAutomation[],
-  paused: ReadonlySet<string> | undefined
-): readonly ProjectedNode[] =>
-  automations.flatMap((automation) => [
-    {
-      id: automationNodeId(automation.name),
-      kind: 'automation' as const,
-      label: automation.name,
-      ...(automation.label === undefined ? {} : { detail: automation.label }),
-      ...(paused === undefined ? {} : { state: automationState(automation, paused) }),
-    },
-    ...automation.actions.map((action, index) => ({
-      id: stepNodeId(automation.name, index),
-      kind: 'step' as const,
-      label: action.name,
-    })),
-  ])
-
-/** The lane and its stations: automation -> step 1 -> step 2 -> ... */
-const stepEdgesFor = (automation: AppAutomation): readonly AdminOrganisationGraphEdge[] =>
-  automation.actions.map((_action, index) => {
-    const from =
-      index === 0 ? automationNodeId(automation.name) : stepNodeId(automation.name, index - 1)
-    const to = stepNodeId(automation.name, index)
-    return { id: edgeId('step', from, to), from, to, kind: 'step' as const }
-  })
-
-export const automationEdges = (
-  automations: readonly AppAutomation[]
-): readonly AdminOrganisationGraphEdge[] =>
-  automations.flatMap((automation) => [
-    ...stepEdgesFor(automation),
-    ...triggerEdgesFor(automation.permissions?.trigger, automationNodeId(automation.name)),
-  ])

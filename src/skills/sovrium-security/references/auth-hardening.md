@@ -16,25 +16,24 @@ Manual: `sovrium docs auth/auth-overview`, `sovrium docs auth/auth-strategies`, 
 
 ## Who may create an account
 
-`auth.allowSignUp` defaults to `true`: anyone can self-register through every strategy the app enables. That is right for a public product and wrong for an internal tool, a customer portal or anything invited-only.
+`auth.allowSignUp` defaults to `false`: nobody self-registers unless the config writes `true`. Open sign-up is right for a public product and wrong for an internal tool, a customer portal or anything invited-only.
 
 ```yaml
 auth:
-  allowSignUp: false
   strategies:
     - type: emailAndPassword
   invitationTokenExpiry: 7d
 ```
 
-- `false` closes every public door (email and password, magic link, email one-time codes, social providers, and SSO providers that do not set their own `allowSignUp`). Admins can still create users, and invitations still work.
+- Closed (omitted or `false`) shuts every public door (email and password, magic link, email one-time codes, social providers, and SSO providers that do not set their own `allowSignUp`). Admins can still create users, and invitations still work.
 - Every self-registered account gets `defaultRole` (`member` unless you set another). A table or bucket that grants `authenticated`, or that role by name, is therefore open to anyone who fills the sign-up form. Sovrium allows it on purpose (an open community is a real design) and says so at every boot in a `⚠ Open sign-up` line listing each reachable table, bucket and operation. Read that line on the deploy target.
 - An invitation token defaults to 72 hours and is single-use.
 
-**Decide**: who is the audience? Public product, keep sign-up and verify email. Anyone else, `allowSignUp: false` plus invitations, the admin create-user API, or an SSO provider.
+**Decide**: who is the audience? Public product, `allowSignUp: true` and verify email. Anyone else, leave it closed and onboard with invitations, the admin create-user API, or an SSO provider.
 
 ## Email verification
 
-`requireEmailVerification` on the `emailAndPassword` strategy defaults to `false`. With it on, sign-up creates the account but sign-in is refused until the emailed link is followed: it separates "anyone with a mailbox" from "anyone who can type an address".
+`requireEmailVerification` on the `emailAndPassword` strategy defaults to `true` when the app also declares an `oauth` strategy or an `auth.sso` provider, and to `false` otherwise; a written value wins. With it on, sign-up creates the account but sign-in is refused until the emailed link is followed: it separates "anyone with a mailbox" from "anyone who can type an address".
 
 It needs SMTP. With no SMTP configured, the app boots with email disabled, the message is never sent, and nobody who signs up can ever sign in. Check it on the deploy target. `autoSignIn` (default `true`) is moot once verification is required.
 
@@ -54,7 +53,7 @@ It needs SMTP. With no SMTP configured, the app boots with email disabled, the m
 
 - `auth.sso` declares OpenID Connect or SAML providers in config only. The client secret is an `$env.NAME` reference; a literal is refused.
 - `domains` lists the email domains a provider is authoritative for. An existing account on one of them is linked on its first SSO sign-in; an address on any other domain is never linked by email alone. Over OpenID Connect the provider must assert the address is verified. List only domains the provider really owns.
-- A provider with no `domains` links nothing, but while sign-up is open any account it vouches for can create one. For a provider anyone can hold an account at, set that provider's `allowSignUp: false`.
+- A provider with no `domains` links nothing, but while sign-up is open for it any account it vouches for can create one. For a provider anyone can hold an account at, set that provider's `allowSignUp: false`.
 - `roleMapping` gives a role from a claim at every sign-in; only an entry written in `map` grants a role. Map only claims the provider controls.
 - `auth.scim` provisions users and groups; its bearer token is an `$env.NAME`, and any other token answers `404`.
 

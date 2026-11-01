@@ -278,7 +278,7 @@ const resolveMetricsExport = (
  * set-but-malformed gate value (bad DSN, out-of-range sample rate, non-positive
  * metric interval); every unset gate resolves to off.
  */
-export const parseTelemetryConfig = (env: EnvRecord = process.env): TelemetryConfig => {
+export const parseTelemetryConfig = (env: EnvRecord): TelemetryConfig => {
   const environment = resolveEnvironment(env)
   const errorReporting = resolveErrorReporting(env, environment)
   const performance = resolvePerformance(env, errorReporting !== undefined)

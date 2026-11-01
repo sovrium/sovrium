@@ -30,7 +30,6 @@ import {
   uniqueConflictAnswerProgram,
   type UniqueConflictReader,
 } from '@/application/use-cases/tables/unique-conflict-answer-program'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
 import { sanitizeError } from '@/presentation/api/runtime/error-sanitizer'
@@ -76,12 +75,13 @@ export interface McpConflictScope {
   readonly caller: McpCaller
   readonly authority: CallerAuthority
   readonly table: Table
+  readonly domainContext: DomainContext
 }
 
 /** The caller as a unique conflict judges her: her table read, and her row-level read rule. */
 async function conflictReaderOf(scope: McpConflictScope): Promise<UniqueConflictReader> {
-  const { app, caller, authority, table } = scope
-  const ctx = await resolveUserContextOrUndefined(caller.userId, authority, table, app)
+  const { app, authority, table } = scope
+  const ctx = await resolveUserContextOrUndefined(scope)
   const ruled = table.rowLevelPermissions?.read?.when !== undefined && ctx?.isUnrestricted !== true
   return {
     role: authority.role,
@@ -141,8 +141,6 @@ export async function runMcpRecordCreate(input: McpRecordWrite): Promise<McpTool
     ...{ session: input.session, app: input.app, tableName: input.tableName },
     ...{ fields: input.fields, userRole: input.userRole, userGroups: input.userGroups },
     linkReader: input.linkReader,
-    isSqlite: isSqliteRuntime(),
-    processEnv: process.env,
   })
   return answerRecordWrite(input, program, (record) => input.formatSuccess({ ...record }))
 }
@@ -157,8 +155,6 @@ export async function runMcpRecordUpdate(
     requester: recordWriteRequester(input.session.userId, input.userRole),
     userGroups: input.userGroups,
     linkReader: input.linkReader,
-    isSqlite: isSqliteRuntime(),
-    processEnv: process.env,
     forgetDerivedVariants: evictTransformCacheForKey,
   })
   return answerRecordWrite(input, program, (updated) =>
@@ -168,14 +164,15 @@ export async function runMcpRecordUpdate(
 
 /** One MCP delete — to the trash, as the records API's DELETE — answered as a tool result. */
 export async function runMcpRecordDelete(
-  input: McpWriteScope & { readonly recordId: string; readonly userRole: string }
+  input: McpWriteScope &
+    Pick<McpRecordWrite, 'userRole' | 'userGroups'> & { readonly recordId: string }
 ): Promise<McpToolResult> {
   const program = deleteRecordWithSideEffects({
     ...{ session: input.session, app: input.app, tableName: input.tableName },
     recordId: input.recordId,
     requester: recordWriteRequester(input.session.userId, input.userRole),
+    userGroups: input.userGroups,
     mode: 'soft',
-    processEnv: process.env,
     forgetDerivedVariants: evictTransformCacheForKey,
   })
   const outcome = await runOnDomain(input.domainContext, Effect.result(program))

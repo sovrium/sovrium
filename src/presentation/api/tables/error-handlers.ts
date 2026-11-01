@@ -6,7 +6,7 @@
  */
 
 import { conflict } from '@/presentation/api/runtime/auth-helpers'
-import { sanitizeError, getStatusCode } from '@/presentation/api/runtime/error-sanitizer'
+import { sanitizeError, statusOf } from '@/presentation/api/runtime/error-sanitizer'
 import type { Context } from 'hono'
 
 /**
@@ -25,7 +25,7 @@ export function handleRouteError(c: Context, error: unknown): Response {
   // middleware was not mounted (e.g. an isolated test harness).
   const requestId = (c.get('requestId') as string | undefined) ?? crypto.randomUUID()
   const sanitized = sanitizeError(error, requestId)
-  const statusCode = getStatusCode(sanitized.code)
+  const statusCode = statusOf(sanitized)
 
   return c.json(
     {
@@ -39,6 +39,7 @@ export function handleRouteError(c: Context, error: unknown): Response {
       // this handler and `runEffect`'s answer the same question the same way —
       // a client should not get a narrower error because of which seam caught it.
       ...(sanitized.field ? { field: sanitized.field } : {}),
+      ...(sanitized.rule ? { rule: sanitized.rule } : {}),
       ...(sanitized.errors ? { errors: sanitized.errors } : {}),
       // An internal error names its request, as `runEffect`'s answer does.
       ...(sanitized.code === 'INTERNAL_ERROR' ? { requestId } : {}),

@@ -5,9 +5,23 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { formatFieldForDisplay } from './display-formatter'
-import type { TransformedRecord } from './record-transformer'
+import { formatFieldForDisplay } from '@/domain/models/app/tables/display-formatter-service'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
+import type { ProcessEnvShape } from '@/application/ports/services/process-env'
 import type { App } from '@/domain/models/app'
+import type { TransformedRecord } from '@/domain/models/app/tables/record-transformer-service'
+
+/**
+ * The operator timezone a `format=display` read renders its dates in, read off
+ * the environment the caller took from the `ProcessEnv` port — present only on
+ * a display read, the one shape that formats a date. Spread into the
+ * transform options (and handed to {@link toDisplayFields}).
+ */
+export const displayZoneOf = (
+  format: 'display' | undefined,
+  env: ProcessEnvShape
+): { readonly operatorTimezone?: string } =>
+  format === 'display' ? { operatorTimezone: parseSovriumTimezone(env).zoneId } : {}
 
 /**
  * Collapse the single-record read's fields to FLAT display strings.
@@ -23,12 +37,14 @@ import type { App } from '@/domain/models/app'
  * instead. Passing the override to only one of them made the rendered clock
  * depend on which branch a field happened to take.
  */
-export const toDisplayFields = (
+const toDisplayFields = (
   fields: Readonly<TransformedRecord['fields']>,
   config: {
     readonly app: App
     readonly tableName: string
     readonly timezone?: string | undefined
+    /** The operator timezone (`SOVRIUM_TIMEZONE`), read by the caller. */
+    readonly operatorTimezone: string
   }
 ): Readonly<TransformedRecord['fields']> =>
   Object.fromEntries(
@@ -44,8 +60,31 @@ export const toDisplayFields = (
           app: config.app,
           tableName: config.tableName,
           timezoneOverride: config.timezone,
+          operatorTimezone: config.operatorTimezone,
         })
         return [key, formatted ? formatted.displayValue : value]
       }
     )
   )
+
+/**
+ * The single-record read's fields as its reader receives them: flattened to
+ * display strings ({@link toDisplayFields}) on a `format=display` read, in the
+ * operator timezone read off `env`; untouched otherwise.
+ */
+export const displayedFieldsOf = (
+  fields: Readonly<TransformedRecord['fields']>,
+  config: {
+    readonly app: App
+    readonly tableName: string
+    readonly format?: 'display' | undefined
+    readonly timezone?: string | undefined
+    readonly env: ProcessEnvShape
+  }
+): Readonly<TransformedRecord['fields']> =>
+  config.format === 'display'
+    ? toDisplayFields(fields, {
+        ...config,
+        operatorTimezone: parseSovriumTimezone(config.env).zoneId,
+      })
+    : fields

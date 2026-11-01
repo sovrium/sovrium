@@ -58,19 +58,20 @@ const wireRole = (role: string): ConversationMessage['role'] =>
  * Project `branch` onto the wire, reading each message's siblings from `tree`
  * (the whole conversation), and naming each upload a message's parts hold
  * from `uploads` (the caller's own). An Effect because an answer's rendering
- * highlights its code, which is asynchronous.
+ * highlights its code, which is asynchronous; `highlight` says how.
  */
 export const toWireMessages = (
   tree: ReadonlyArray<AiMemoryMessage>,
   branch: ReadonlyArray<AiMemoryMessage>,
-  uploads: ReadonlyMap<string, UploadDescription> = new Map()
+  uploads: ReadonlyMap<string, UploadDescription> = new Map(),
+  highlight: Parameters<typeof renderChatAnswerHtml>[1] = {}
 ): Effect.Effect<ReadonlyArray<ConversationMessage>> => {
   const siblingsOf = siblingsLookup(tree)
   return Effect.forEach(branch, (message) => {
     const siblings = siblingsOf(message)
     const role = wireRole(message.role)
     const rendered =
-      role === 'assistant' ? renderChatAnswerHtml(message.content) : Effect.succeed('')
+      role === 'assistant' ? renderChatAnswerHtml(message.content, highlight) : Effect.succeed('')
     return Effect.map(rendered, (html): ConversationMessage => ({
       id: message.id,
       role,

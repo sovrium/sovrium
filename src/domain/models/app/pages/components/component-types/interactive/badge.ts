@@ -26,14 +26,14 @@ export const BadgeTypeLiteral = Schema.Literal('badge')
 export const BadgeModeSchema = Schema.Literals(['status', 'contrast']).annotate({
   title: 'Badge Mode',
   description:
-    "Specialized rendering mode: 'status' (a status indicator — coloured dot plus label) or 'contrast' (the WCAG ratio between two colours, and the verdict on it)",
+    "Specialized rendering mode: 'status' (a status indicator: coloured dot plus label) or 'contrast' (the WCAG ratio between two colours, and the verdict on it)",
 })
 
 /** The two WCAG levels a design token is meaningfully held to. */
 export const ContrastThresholdSchema = Schema.Literals(['AA', 'AAA']).annotate({
   title: 'Contrast Threshold',
   description:
-    "WCAG level to grade against at normal body-text size: 'AA' (4.5:1, the default) or 'AAA' (7:1). The lenient large-text bars are not offered — a token is used at whatever size an author reaches for.",
+    "WCAG level to grade against at normal body-text size: 'AA' (4.5:1, the default) or 'AAA' (7:1). The lenient large-text bars are not offered, since a token is used at whatever size an author reaches for.",
 })
 
 /**
@@ -91,7 +91,7 @@ export const badgeFields = {
       Schema.annotate({
         title: 'Foreground',
         description:
-          'The ink being measured under variant: contrast — a token name such as `--foreground` or a literal colour (hex, `rgb()`, `oklch()`, `white`, `black`)',
+          'The ink being measured under variant: contrast. A token name such as `--foreground` or a literal colour (hex, `rgb()`, `oklch()`, `white`, `black`)',
         examples: ['--foreground', '#6b7f5e'],
       }),
       Schema.check(Schema.isMinLength(1))

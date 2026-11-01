@@ -63,6 +63,12 @@ import {
   isComponentReferenceNode,
 } from '@/presentation/render/resolve/component-reference'
 import {
+  componentField,
+  entryAsComponent,
+  rewriteComponent,
+  type ComponentEntry,
+} from '@/presentation/render/resolve/component-rewrite'
+import {
   fillTemplateSlot,
   placementChildrenOf,
   placementSlotsOf,
@@ -75,7 +81,7 @@ import type {
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
-type Item = Component | SimpleComponentReference | ComponentReference | string
+type Item = ComponentEntry
 
 /** Expand one reference, or hand it back when it cannot be expanded. */
 function expandReference(
@@ -89,7 +95,7 @@ function expandReference(
   if (template === undefined) return item
   const resolved = resolveComponent(refName, templates, vars)
   if (resolved === undefined) return item
-  const expanded = expandNode(resolved.component, templates, new Set([...path, refName]))
+  const expanded = expandComponent(resolved.component, templates, new Set([...path, refName]))
   // The slotted components are the PAGE's: expanded on the placement's own
   // path (not the template's), never given the template's vars.
   const slotted = expandItems(placementChildrenOf(item) as readonly Item[], templates, path)
@@ -102,15 +108,14 @@ function expandReference(
   const filled = fillTemplateSlot(expanded, slotted, named)
   // A page export's node id names the PLACEMENT, so the expanded root carries it.
   const exportNodeId = exportNodeIdOf(item)
-  return {
-    ...(filled as Component),
+  return rewriteComponent(filled, {
     [EXPANDED_REFERENCE_KEY]: {
       name: resolved.name,
       vars,
       ...(template.render === 'transparent' && { transparent: true }),
     },
     ...(exportNodeId !== undefined && { [EXPORT_NODE_ID_KEY]: exportNodeId }),
-  } as Component
+  })
 }
 
 /** Expand a node and, recursively, every reference among its `children`. */
@@ -119,26 +124,41 @@ function expandNode(item: Item, templates: Components, path: ReadonlySet<string>
   if (isComponentReferenceNode(item)) {
     return expandReference(item as SimpleComponentReference | ComponentReference, templates, path)
   }
-  return expandResponsiveChildren(expandOwnChildren(item, templates, path), templates, path)
+  return expandComponent(entryAsComponent(item), templates, path)
+}
+
+/** Expand every reference among a component's own and its breakpoints' `children`. */
+function expandComponent(
+  component: Component,
+  templates: Components,
+  path: ReadonlySet<string>
+): Component {
+  return expandResponsiveChildren(expandOwnChildren(component, templates, path), templates, path)
 }
 
 /** Expand the references among a node's own `children`. */
-function expandOwnChildren(item: object, templates: Components, path: ReadonlySet<string>): object {
-  const { children } = item as { readonly children?: unknown }
-  if (!Array.isArray(children) || children.length === 0) return item
-  const expandedChildren = expandItems(children as readonly Item[], templates, path)
-  return expandedChildren === children ? item : { ...item, children: expandedChildren }
+function expandOwnChildren(
+  component: Component,
+  templates: Components,
+  path: ReadonlySet<string>
+): Component {
+  const { children } = component
+  if (!Array.isArray(children) || children.length === 0) return component
+  const expandedChildren = expandItems(children, templates, path)
+  return expandedChildren === children
+    ? component
+    : rewriteComponent(component, { children: expandedChildren })
 }
 
 /** Expand the references among every `responsive.<bp>.children`. */
 function expandResponsiveChildren(
-  item: object,
+  component: Component,
   templates: Components,
   path: ReadonlySet<string>
-): Item {
-  const { responsive } = item as { readonly responsive?: unknown }
-  if (typeof responsive !== 'object' || responsive === null) return item as Item
-  const entries = Object.entries(responsive as Record<string, unknown>)
+): Component {
+  const responsive = componentField(component, 'responsive')
+  if (typeof responsive !== 'object' || responsive === null) return component
+  const entries: readonly (readonly [string, unknown])[] = Object.entries(responsive)
   const expanded = entries.map(([, variant]) => {
     const { children } = (variant ?? {}) as { readonly children?: unknown }
     if (!Array.isArray(children) || children.length === 0) return variant
@@ -147,9 +167,9 @@ function expandResponsiveChildren(
       ? variant
       : { ...(variant as Record<string, unknown>), children: expandedChildren }
   })
-  if (expanded.every((variant, i) => variant === entries[i]?.[1])) return item as Item
+  if (expanded.every((variant, i) => variant === entries[i]?.[1])) return component
   const next = Object.fromEntries(entries.map(([breakpoint], i) => [breakpoint, expanded[i]]))
-  return { ...item, responsive: next } as Component
+  return rewriteComponent(component, { responsive: next })
 }
 
 /** Identity-preserving map: an unchanged list comes back by reference. */

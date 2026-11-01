@@ -11,7 +11,7 @@
  * Every in-process rate limiter in the codebase needs the identical
  * timestamp-array + retry-after math: the auth/admin/tables/activity limiters
  * (`route-setup/auth-route-utils.ts`), the AI chat limiter
- * (`presentation/api/routes/ai/chat-rate-limit.ts`), the per-agent limiters
+ * (`infrastructure/ai/agents/chat-rate-limit.ts`), the per-agent limiters
  * (`agents/agent-rate-limit.ts`, `agents/agent-limits.ts`), the webhook
  * limiter (`automations/webhook-rate-limit.ts`), the command-search limiter, the MCP dual-window limiter
  * (`route-setup/mcp/rate-limit.ts`), the form anti-spam limiter
@@ -122,6 +122,12 @@ export interface SlidingWindowLimiter {
    * form, for a caller that wants to sweep on its own schedule.
    */
   readonly prune: (windowMs: number, now?: number) => number
+  /**
+   * Forget one key's history, as if it had never made a request. For a budget
+   * that a success settles (a right code clears the wrong ones counted before
+   * it), never for one that must hold whatever the outcome.
+   */
+  readonly forget: (key: string) => void
   /** How many keys currently hold history. */
   readonly size: () => number
   /** Drop all recorded history. For test harnesses and audit hooks. */
@@ -269,6 +275,7 @@ export const createSlidingWindowLimiter = (): SlidingWindowLimiter => {
       return { limited: false, retryAfter: 0, count: record(key, config, at).length }
     },
     prune: (windowMs, now) => pruneStaleKeys(state, windowMs, now ?? Date.now()),
+    forget: (key) => state.delete(key),
     size: () => state.size,
     clear: () => state.clear(),
   })

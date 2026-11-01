@@ -17,7 +17,8 @@
  * - `SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS` — how many days the history of an
  *   ENDED run is kept. Once a day, every run that ended and was created more
  *   than that many days ago is deleted with its steps; a run still queued,
- *   running or waiting is never deleted. Unset keeps every run.
+ *   running or waiting is never deleted. Unset is 90 days; `36500` keeps
+ *   runs for a century, which is as close to forever as it goes.
  *
  * ─── WHY AN ENV VAR AND NOT A CONFIG KEY ───────────────────────────────────
  *
@@ -27,8 +28,10 @@
  * history a host keeps is the same kind of fact: disk and compliance, not app
  * behaviour.
  *
- * Unset keeps every run on purpose: a default window would start deleting
- * history the first night after an upgrade.
+ * Unset is ninety days, deliberately bounded: a public webhook can start a
+ * run per call, and history that grows for ever is a disk anyone can fill.
+ * The upgrade guide says so, since the first night after an upgrade deletes
+ * the runs older than that.
  *
  * ─── WHY A BAD VALUE THROWS ────────────────────────────────────────────────
  *
@@ -67,7 +70,7 @@ const readTimeoutMs = (raw: string): number | undefined => {
  *   of milliseconds between 1000 and 3600000.
  */
 export const parseSovriumAutomationDefaultTimeoutMs = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): number => {
   const raw = env[SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS_VAR]?.trim() ?? ''
   if (raw === '') return DEFAULT_AUTOMATION_RUN_TIMEOUT_MS
@@ -88,13 +91,16 @@ export const parseSovriumAutomationDefaultTimeoutMs = (
  * must not fail because an environment passed to it later is malformed.
  */
 export const resolveAutomationDefaultTimeoutMs = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): number =>
   readTimeoutMs(env[SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS_VAR]?.trim() ?? '') ??
   DEFAULT_AUTOMATION_RUN_TIMEOUT_MS
 
 /** The run-history retention variable's name. */
 export const SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS_VAR = 'SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS'
+
+/** The run-history window when the variable is unset, in days. */
+export const DEFAULT_RUN_RETENTION_DAYS = 90
 
 /** The accepted range of the run-history window, in days. */
 const MIN_RUN_RETENTION_DAYS = 1
@@ -110,7 +116,8 @@ const readRetentionDays = (raw: string): number | undefined => {
 
 /**
  * Resolve `SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS`. Unset, empty or
- * whitespace-only is `undefined`: every run is kept.
+ * whitespace-only is {@link DEFAULT_RUN_RETENTION_DAYS}: run history is
+ * bounded unless the operator widens it.
  *
  * @param env - the environment to read (defaults to the process environment).
  * @throws Error naming the variable and the value when it is not a whole number
@@ -118,10 +125,10 @@ const readRetentionDays = (raw: string): number | undefined => {
  * @public
  */
 export const parseSovriumAutomationRunRetentionDays = (
-  env: Readonly<Record<string, string | undefined>> = process.env
-): number | undefined => {
+  env: Readonly<Record<string, string | undefined>>
+): number => {
   const raw = env[SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS_VAR]?.trim() ?? ''
-  if (raw === '') return undefined
+  if (raw === '') return DEFAULT_RUN_RETENTION_DAYS
   const value = readRetentionDays(raw)
   if (value === undefined) {
     // eslint-disable-next-line functional/no-throw-statements -- a boot-time refusal: the caller turns it into a startup failure before the port binds.

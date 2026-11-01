@@ -57,7 +57,7 @@ export const AiActionProviderSchema = Schema.optional(
       identifier: 'AiActionProvider',
       title: 'AI Action Provider (advisory)',
       description:
-        'Advisory only — records which LLM provider this action was written for. The provider actually used is resolved from the AI_PROVIDER environment variable; this value does not override it.',
+        'Advisory only: records which LLM provider this action was written for. The provider actually used is resolved from the AI_PROVIDER environment variable; this value does not override it.',
     })
   )
 )

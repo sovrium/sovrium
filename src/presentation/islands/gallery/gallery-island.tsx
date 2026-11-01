@@ -7,6 +7,7 @@
 
 import { useState } from 'react'
 import { useRecordSelectionToggle } from '../hooks/use-lazy-shared-filter-publisher'
+import { ViewEmpty, ViewError, ViewMissing } from '../parts/view-states'
 import { withWeekdayDates, type WeekdayFields } from '../parts/weekday-dates'
 import { hasDataBinding } from '../runtime/data-binding'
 import { isRefusedRead } from '../runtime/records-api'
@@ -16,7 +17,7 @@ import { GalleryClassesContext, GallerySelectionContext } from './gallery-classe
 import { GalleryContinuation } from './gallery-continuation'
 import { GalleryPager } from './gallery-pager'
 import { computePaginationView, type PaginationConfig } from './gallery-pagination'
-import { GalleryEmpty, GalleryError, GalleryLoading, GalleryMissingTable } from './gallery-states'
+import { GalleryLoading } from './gallery-skeleton'
 import { useGalleryRecords } from './use-gallery-records'
 import { useViewerRows, type GalleryViewerRowsStamp } from './use-gallery-viewer-rows'
 import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
@@ -148,6 +149,17 @@ function GalleryContent({
   )
 }
 
+/** The gallery's shared view states, and its English for them. */
+const STATES = {
+  of: 'gallery',
+  words: {
+    'gallery.loadFailed': 'Failed to load gallery records: {error}',
+    'gallery.missingTable': 'Gallery is missing required {setting} configuration.',
+    'gallery.empty': 'No records yet.',
+    'gallery.emptyHint': 'Records added to this table will appear here.',
+  },
+} as const
+
 /**
  * A failed read. A read the visitor may not make settles exactly as an empty
  * one: the gallery has nothing of that table to show, and a loading skeleton or
@@ -163,9 +175,9 @@ function GalleryFailure({
   readonly strings: GalleryIslandProps['uiStrings']
 }): ReactElement {
   return isRefusedRead(error) ? (
-    <GalleryEmpty {...{ message: emptyMessage, strings }} />
+    <ViewEmpty {...{ ...STATES, message: emptyMessage, strings }} />
   ) : (
-    <GalleryError {...{ error, strings }} />
+    <ViewError {...{ ...STATES, error, strings }} />
   )
 }
 
@@ -188,13 +200,22 @@ export default function GalleryIsland({
   const own = useViewerRows(viewerRows)
 
   // A binding is required: either a DB table or a system read endpoint.
-  if (!hasDataBinding(dataSource)) return <GalleryMissingTable strings={uiStrings} />
+  if (!hasDataBinding(dataSource))
+    return (
+      <ViewMissing
+        sentence="gallery.missingTable"
+        setting="dataSource.table"
+        hint
+        words={STATES.words}
+        strings={uiStrings}
+      />
+    )
   if (isLoading) return <GalleryLoading strings={uiStrings} />
   if (isError) return <GalleryFailure {...{ error, emptyMessage, strings: uiStrings }} />
 
   const records = own.join(withWeekdayDates(data?.records ?? [], weekdays))
   if (records.length === 0)
-    return <GalleryEmpty {...{ message: emptyMessage, strings: uiStrings }} />
+    return <ViewEmpty {...{ ...STATES, message: emptyMessage, strings: uiStrings }} />
 
   return (
     <GalleryClassesContext.Provider value={galleryClasses}>

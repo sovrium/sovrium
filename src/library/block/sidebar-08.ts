@@ -5,14 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent } from '@/library/manifest/block-kit'
-import { defineLibraryEntry } from '@/library/manifest/define'
-import {
-  brandRow,
-  crumbs,
-  placeholderContent,
-  userRow,
-} from '@/library/manifest/navigation-block-kit'
+import { asComponent } from '@/library/kit/block-kit'
+import { brandRow, crumbs, placeholderContent, userRow } from '@/library/kit/navigation-block-kit'
 import {
   platformGroup,
   projectsGroup,
@@ -22,7 +16,8 @@ import {
   shellInset,
   shellLayout,
   shellSidebar,
-} from '@/library/manifest/sidebar-shell-block-kit'
+} from '@/library/kit/sidebar-shell-block-kit'
+import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** shadcn/ui's `sidebar-08`, composed in config. */
 export const entry = defineLibraryEntry({

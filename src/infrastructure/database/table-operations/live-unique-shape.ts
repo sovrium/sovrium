@@ -38,7 +38,6 @@ import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { TRANSLATABLE_FIELD_TYPES } from '@/domain/models/app/tables/translatable-field-service'
 import { languageUniqueTargetOf } from '@/domain/models/app/tables/translatable-unique-service'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logDebug } from '@/infrastructure/logging/logger'
 import { getPhysicalTableName } from '../lookup/lookup-view-generators'
 import { applyUniqueDefaults } from '../schema/apply-schema-defaults'
@@ -226,7 +225,7 @@ export const readUniqueShapeDrift = (
   table: Table,
   physicalTableName: string = getPhysicalTableName(table)
 ): Effect.Effect<UniqueShapeDrift, SQLExecutionError> =>
-  executeSQL(tx, isSqliteRuntime() ? SQLITE_TABLE : POSTGRES_TABLE, [physicalTableName]).pipe(
+  executeSQL(tx, tx.dialect === 'sqlite' ? SQLITE_TABLE : POSTGRES_TABLE, [physicalTableName]).pipe(
     Effect.map((rows) => uniqueShapeDrift(table, rows as readonly LiveUniqueIndex[]))
   )
 

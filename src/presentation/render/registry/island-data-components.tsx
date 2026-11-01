@@ -26,6 +26,7 @@ import { islandChartComponent } from './island-chart-component'
 import { KanbanSkeleton } from './island-kanban-skeleton'
 import { islandKpiComponent } from './island-kpi-component'
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
+import { overlayLoadingLabel } from './overlay-loading-label'
 import { RowExpandDrawerHost } from './row-expand-drawer-host'
 import { islandFallback, renderKanbanSpecimen, specimenEmpty } from './specimen-island-states'
 import { renderTableSpecimen, staticTableComponent } from './static-table-component'
@@ -377,7 +378,10 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
     return (
       <>
         {grid}
-        <RowExpandDrawerHost props={expandDrawer} />
+        <RowExpandDrawerHost
+          props={expandDrawer}
+          loadingLabel={overlayLoadingLabel({ currentLang, languages })}
+        />
       </>
     )
   },

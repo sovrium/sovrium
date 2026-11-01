@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Data, Effect } from 'effect'
 import { loadPausedAutomationNames } from '@/application/use-cases/automations/paused-automation-names'
 import { runWebhookAutomation } from '@/application/use-cases/automations/run-automation'
 import {
@@ -31,9 +31,13 @@ import {
   runInIngestScope,
 } from '@/infrastructure/logging/ingest-request-scope'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
-import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import {
+  answerFailures,
+  runHandlerEffect,
+  toErrorResponse,
+} from '@/presentation/api/runtime/run-effect'
 import {
   ingestBodyLimitBytes,
   readIngestBody,
@@ -55,6 +59,7 @@ import type {
 } from '@/application/use-cases/automations/find-ingest-project'
 import type { TriggerData } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { App } from '@/domain/models/app'
+import type { DomainServices } from '@/infrastructure/logging/request-effect'
 import type { Context } from 'hono'
 
 /**
@@ -113,7 +118,7 @@ const sourceOf = (receiver: TelemetryReceiver): IngestProjectSource | undefined 
  * The receivers whose sender holds `key` (and, for Sentry, matches the path
  * segment). Receivers sharing one key table are looked up once.
  */
-const acceptReceivers = async (
+const acceptReceivers = (
   c: Context,
   app: App,
   input: {
@@ -121,18 +126,45 @@ const acceptReceivers = async (
     readonly key: string
     readonly segment: string | undefined
   }
-): Promise<Gate<readonly AcceptedReceiver[]> | { readonly refused: 'unknown' | 'mismatch' }> => {
-  const lookups = new Map<string, ReturnType<typeof resolveWebhookProject>>()
-  const resolved = await Promise.all(
-    input.receivers.map(async (receiver) => {
+) => Effect.map(lookupReceivers(app, input), (resolved) => acceptedOf(c, input.segment, resolved))
+
+/** Each receiver with its sender's lookup; receivers sharing one key table share one lookup. */
+const lookupReceivers = (
+  app: App,
+  input: { readonly receivers: readonly TelemetryReceiver[]; readonly key: string }
+) =>
+  Effect.gen(function* () {
+    const sources = new Map(
+      input.receivers.flatMap((receiver) => {
+        const source = sourceOf(receiver)
+        return source === undefined ? [] : [[JSON.stringify(source), source] as const]
+      })
+    )
+    const lookups = new Map(
+      yield* Effect.forEach(
+        [...sources],
+        ([id, source]) =>
+          Effect.map(
+            resolveWebhookProject(app, source, input.key),
+            (lookup) => [id, lookup] as const
+          ),
+        { concurrency: 'unbounded' }
+      )
+    )
+    return input.receivers.map((receiver) => {
       const source = sourceOf(receiver)
-      if (source === undefined) return { receiver, lookup: undefined }
-      const id = JSON.stringify(source)
-      const pending = lookups.get(id) ?? resolveWebhookProject(c, app, source, input.key)
-      lookups.set(id, pending)
-      return { receiver, source, lookup: await pending }
+      return source === undefined
+        ? { receiver, lookup: undefined }
+        : { receiver, source, lookup: lookups.get(JSON.stringify(source)) }
     })
-  )
+  })
+
+/** The gate's verdict on what the lookups found. */
+const acceptedOf = (
+  c: Context,
+  segment: string | undefined,
+  resolved: Effect.Success<ReturnType<typeof lookupReceivers>>
+): Gate<readonly AcceptedReceiver[]> | { readonly refused: 'unknown' | 'mismatch' } => {
   const failed = resolved.find((entry) => entry.lookup?.status === 'failed')
   if (failed?.lookup?.status === 'failed') {
     return { response: toErrorResponse(c, failed.lookup.failure) }
@@ -140,7 +172,7 @@ const acceptReceivers = async (
   const accepted = resolved.flatMap(({ receiver, source, lookup }) =>
     lookup?.status === 'found' &&
     source !== undefined &&
-    (input.segment === undefined || projectMatchesPath(lookup.project, source, input.segment))
+    (segment === undefined || projectMatchesPath(lookup.project, source, segment))
       ? [{ ...receiver, project: lookup.project, source }]
       : []
   )
@@ -175,7 +207,7 @@ const keyKnown = (app: App, receivers: readonly TelemetryReceiver[], key: string
  * looked up and refused, if at all, with the plain 401; any other key from an
  * address past its refusal budget is answered 429 without a lookup.
  */
-const keyGate = async (
+const keyGate = (
   c: Context,
   app: App,
   input: {
@@ -183,30 +215,32 @@ const keyGate = async (
     readonly key: string | undefined
     readonly segment: string | undefined
   }
-): Promise<Gate<readonly AcceptedReceiver[]>> => {
-  const { key } = input
-  if (key === undefined) return { response: refuse(c, app) }
-  const known = keyKnown(app, input.receivers, key)
-  if (!known) {
-    const spent = refusalBudgetSpent(app, getRequestRateLimitKey(c))
-    if (spent.limited) return { response: webhookRateLimited(c, spent.retryAfter) }
-  }
-  const accepted = await acceptReceivers(c, app, { ...input, key })
-  if (!('refused' in accepted)) return accepted
-  return {
-    response: accepted.refused === 'unknown' && !known ? refuse(c, app) : webhookUnauthorized(c),
-  }
-}
+) =>
+  Effect.gen(function* (): Effect.fn.Return<
+    Gate<readonly AcceptedReceiver[]>,
+    never,
+    DomainServices
+  > {
+    const { key } = input
+    if (key === undefined) return { response: refuse(c, app) }
+    const known = keyKnown(app, input.receivers, key)
+    if (!known) {
+      const spent = refusalBudgetSpent(app, getRequestRateLimitKey(c))
+      if (spent.limited) return { response: webhookRateLimited(c, spent.retryAfter) }
+    }
+    const accepted = yield* acceptReceivers(c, app, { ...input, key })
+    if (!('refused' in accepted)) return accepted
+    return {
+      response: accepted.refused === 'unknown' && !known ? refuse(c, app) : webhookUnauthorized(c),
+    }
+  })
 
 /** Gate 3: the accepted receivers whose automation is not paused (none: 404). */
-const unpausedGate = async (
-  c: Context,
-  accepted: readonly AcceptedReceiver[]
-): Promise<Gate<readonly AcceptedReceiver[]>> => {
-  const pausedNames = await runDomainPromise(c, loadPausedAutomationNames)
-  const running = accepted.filter((receiver) => !pausedNames.has(receiver.automation))
-  return running.length === 0 ? { response: webhookNotFound(c) } : { pass: running }
-}
+const unpausedGate = (c: Context, accepted: readonly AcceptedReceiver[]) =>
+  Effect.map(loadPausedAutomationNames, (pausedNames): Gate<readonly AcceptedReceiver[]> => {
+    const running = accepted.filter((receiver) => !pausedNames.has(receiver.automation))
+    return running.length === 0 ? { response: webhookNotFound(c) } : { pass: running }
+  })
 
 /** The sender's budget, counted once for the request against the strictest receiver's. */
 const budgetGate = (
@@ -225,6 +259,11 @@ const budgetGate = (
   return limit.limited ? webhookRateLimited(c, limit.retryAfter) : undefined
 }
 
+/** The request's body could not be read at all. */
+class IngestBodyReadError extends Data.TaggedError('IngestBodyReadError')<{
+  readonly cause: unknown
+}> {}
+
 const BODY_REFUSALS: Readonly<Record<IngestBodyRefusal, (c: Context) => Response>> = {
   'unsupported-encoding': ingestUnsupportedEncoding,
   'too-large': ingestTooLarge,
@@ -232,10 +271,15 @@ const BODY_REFUSALS: Readonly<Record<IngestBodyRefusal, (c: Context) => Response
 }
 
 /** The decoded body once its encoding and both of its sizes are accepted, or the refusal. */
-const readBody = async (c: Context): Promise<Gate<Uint8Array>> => {
-  const body = await readIngestBody(c.req.raw, ingestBodyLimitBytes())
-  return 'refusal' in body ? { response: BODY_REFUSALS[body.refusal](c) } : { pass: body.bytes }
-}
+const readBody = (c: Context) =>
+  Effect.map(
+    Effect.tryPromise({
+      try: () => readIngestBody(c.req.raw, ingestBodyLimitBytes()),
+      catch: (cause) => new IngestBodyReadError({ cause }),
+    }),
+    (body): Gate<Uint8Array> =>
+      'refusal' in body ? { response: BODY_REFUSALS[body.refusal](c) } : { pass: body.bytes }
+  )
 
 /**
  * Start one run, after the answer and outside the ingest scope: it is an
@@ -246,7 +290,6 @@ const dispatchRun = (c: Context, app: App, receiver: AcceptedReceiver, body: unk
   const program = runWebhookAutomation({
     name: receiver.automation,
     app,
-    processEnv: process.env,
     triggerData,
   })
   outsideIngestScope(() => {
@@ -262,7 +305,7 @@ const dispatchRun = (c: Context, app: App, receiver: AcceptedReceiver, body: unk
 }
 
 /** Gates 1–5 shared by both protocols; answers the accepted receivers and the body. */
-const runIngestGates = async (
+const runIngestGates = (
   c: Context,
   app: App,
   input: {
@@ -270,56 +313,62 @@ const runIngestGates = async (
     readonly key: string | undefined
     readonly segment: string | undefined
   }
-): Promise<Gate<{ readonly accepted: readonly AcceptedReceiver[]; readonly body: Uint8Array }>> => {
-  const receivers = telemetryReceivers(app.automations, input.protocol, new Set())
-  if (receivers.length === 0) return { response: webhookNotFound(c) }
-  const keyed = await keyGate(c, app, { receivers, key: input.key, segment: input.segment })
-  if ('response' in keyed) return keyed
-  const accepted = await unpausedGate(c, keyed.pass)
-  if ('response' in accepted) return accepted
-  const limited = budgetGate(c, app, input.protocol, accepted.pass)
-  if (limited !== undefined) return { response: limited }
-  const body = await readBody(c)
-  if ('response' in body) return body
-  return { pass: { accepted: accepted.pass, body: body.pass } }
-}
+) =>
+  Effect.gen(function* () {
+    const receivers = telemetryReceivers(app.automations, input.protocol, new Set())
+    if (receivers.length === 0) return { response: webhookNotFound(c) }
+    const keyed = yield* keyGate(c, app, { receivers, key: input.key, segment: input.segment })
+    if ('response' in keyed) return keyed
+    const accepted = yield* unpausedGate(c, keyed.pass)
+    if ('response' in accepted) return accepted
+    const limited = budgetGate(c, app, input.protocol, accepted.pass)
+    if (limited !== undefined) return { response: limited }
+    const body = yield* readBody(c)
+    if ('response' in body) return body
+    return { pass: { accepted: accepted.pass, body: body.pass } }
+  })
 
 /** Serve one ingest request, marked and inside the ingest scope. */
-const serveIngest = (c: Context, serve: () => Promise<Response>): Promise<Response> => {
+const serveIngest = <E>(
+  c: Context,
+  serve: Effect.Effect<Response, E, DomainServices>
+): Promise<Response> => {
   markIngestRequest(c.req.raw)
-  return runInIngestScope(async () => {
-    try {
-      return await serve()
-    } catch (error) {
-      return toErrorResponse(c, error)
-    }
-  })
+  // `/v1/logs` and the envelope path answer a machine, whatever happens: no error page.
+  return runInIngestScope(() =>
+    runHandlerEffect(c, answerFailures(c, serve)).catch((error: unknown) =>
+      toErrorResponse(c, error)
+    )
+  )
 }
 
 /** `POST /api/<project>/envelope/` — a Sentry envelope, one run per item and receiver. */
 export const handleSentryEnvelope = (c: Context, app: App): Promise<Response> =>
-  serveIngest(c, async () => {
-    const gate = await runIngestGates(c, app, {
-      protocol: 'sentry',
-      key: sentryKeyOf({
-        sentryAuthHeader: c.req.header('x-sentry-auth'),
-        authorizationHeader: c.req.header('authorization'),
-        queryKey: c.req.query('sentry_key'),
-      }),
-      segment: c.req.param('project') ?? '',
+  serveIngest(
+    c,
+    Effect.gen(function* () {
+      const gate = yield* runIngestGates(c, app, {
+        protocol: 'sentry',
+        key: sentryKeyOf({
+          sentryAuthHeader: c.req.header('x-sentry-auth'),
+          authorizationHeader: c.req.header('authorization'),
+          queryKey: c.req.query('sentry_key'),
+        }),
+        segment: c.req.param('project') ?? '',
+      })
+      if ('response' in gate) return gate.response
+      const envelope = parseSentryEnvelope(gate.pass.body)
+      if (envelope === undefined) return ingestMalformed(c)
+      const now = Date.now()
+      envelope.items.forEach((item) => {
+        const data = normaliseSentryItem(item, now)
+        gate.pass.accepted
+          .filter((receiver) => receivesItemKind(receiver.trigger, item.kind))
+          .forEach((receiver) => dispatchRun(c, app, receiver, data))
+      })
+      return c.json({}, 200)
     })
-    if ('response' in gate) return gate.response
-    const envelope = parseSentryEnvelope(gate.pass.body)
-    if (envelope === undefined) return ingestMalformed(c)
-    const now = Date.now()
-    envelope.items.forEach((item) => {
-      const data = normaliseSentryItem(item, now)
-      gate.pass.accepted
-        .filter((receiver) => receivesItemKind(receiver.trigger, item.kind))
-        .forEach((receiver) => dispatchRun(c, app, receiver, data))
-    })
-    return c.json({}, 200)
-  })
+  )
 
 const parseJsonBytes = (bytes: Uint8Array): unknown => {
   try {
@@ -331,16 +380,19 @@ const parseJsonBytes = (bytes: Uint8Array): unknown => {
 
 /** `POST /v1/logs` — an OTLP/HTTP JSON logs request, one run per receiver. */
 export const handleOtlpLogs = (c: Context, app: App): Promise<Response> =>
-  serveIngest(c, async () => {
-    const gate = await runIngestGates(c, app, {
-      protocol: 'otlp-logs',
-      key: bearerKeyOf(c.req.header('authorization')),
-      segment: undefined,
+  serveIngest(
+    c,
+    Effect.gen(function* () {
+      const gate = yield* runIngestGates(c, app, {
+        protocol: 'otlp-logs',
+        key: bearerKeyOf(c.req.header('authorization')),
+        segment: undefined,
+      })
+      if ('response' in gate) return gate.response
+      const request = decodeOtlpLogsRequest(parseJsonBytes(gate.pass.body))
+      if (request === undefined) return ingestMalformed(c)
+      const data = normaliseOtlpLogs(request, Date.now())
+      gate.pass.accepted.forEach((receiver) => dispatchRun(c, app, receiver, data))
+      return c.json({}, 200)
     })
-    if ('response' in gate) return gate.response
-    const request = decodeOtlpLogsRequest(parseJsonBytes(gate.pass.body))
-    if (request === undefined) return ingestMalformed(c)
-    const data = normaliseOtlpLogs(request, Date.now())
-    gate.pass.accepted.forEach((receiver) => dispatchRun(c, app, receiver, data))
-    return c.json({}, 200)
-  })
+  )

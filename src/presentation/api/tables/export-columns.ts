@@ -5,14 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { countsWithheldFrom } from '@/application/use-cases/tables/link-count-narrowing'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
 import { relatedValuesRefusedTo } from '@/domain/models/app/tables/lookup-link-service'
 import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App, Table } from '@/domain/models/app'
-import type { Context } from 'hono'
 
 /**
  * The columns of `tableName` the records API leaves out of the caller's read
@@ -72,17 +71,16 @@ const exportColumns = (
  * their columns are left out as any value she may not read is, even named in
  * `fields=`.
  */
-export const readerExportColumns = async (
-  c: Context,
-  app: App,
-  table: Table | undefined,
-  reader: LinkReader
-): Promise<ReturnType<typeof exportColumns>> => {
+export const readerExportColumns = (app: App, table: Table | undefined, reader: LinkReader) => {
   const columns = exportColumns(app, table, reader.role, reader.groups ?? [])
-  const counts = await runDomainPromise(c, countsWithheldFrom(app, table?.name ?? '', reader))
-  if (counts.size === 0) return columns
-  return {
-    withheld: new Set([...columns.withheld, ...counts]),
-    tableFieldNames: columns.tableFieldNames.filter((name) => !counts.has(name)),
-  }
+  return Effect.map(
+    countsWithheldFrom(app, table?.name ?? '', reader),
+    (counts): ReturnType<typeof exportColumns> =>
+      counts.size === 0
+        ? columns
+        : {
+            withheld: new Set([...columns.withheld, ...counts]),
+            tableFieldNames: columns.tableFieldNames.filter((name) => !counts.has(name)),
+          }
+  )
 }

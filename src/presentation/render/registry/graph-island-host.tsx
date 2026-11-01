@@ -29,8 +29,8 @@
 
 import { GraphTwin } from '@/presentation/render/registry/graph-twin'
 import type { Component } from '@/domain/models/app/pages/components'
-import type { GraphView } from '@/presentation/render/resolve/graph-projection'
 import type { GraphResolvedComponent } from '@/presentation/render/resolve/graph-resolver'
+import type { GraphView } from '@/presentation/render/resolve/graph-view'
 import type { ReactElement } from 'react'
 
 /** The declaration the graph renderer reads off the component, beside its drawing. */

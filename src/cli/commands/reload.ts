@@ -5,11 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console } from 'effect'
-import { printFailure, printStderr } from '@/infrastructure/logging/cli-output'
+import { refuseCommand, stopCommand } from '@/cli/runtime/run-command'
+import { printLine } from '@/infrastructure/logging/cli-output'
 import { isProcessRunning, readLockFile } from '@/infrastructure/server/lock-file'
 import { readStatusDocument } from '@/infrastructure/server/status-file'
-import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
+import type { ConfigFinding } from '@/domain/kernel/config-parsing/decode-report-format'
 import type { ServerStatusDocument } from '@/infrastructure/server/status-file'
 
 /**
@@ -84,7 +84,7 @@ const successLine = (status: ServerStatusDocument): string => {
 const report = (status: ServerStatusDocument): void => {
   const record = status.lastReload
   if (record?.outcome === 'success') {
-    Effect.runSync(Console.log(successLine(status)))
+    printLine(successLine(status))
     return
   }
   const headline =
@@ -93,46 +93,46 @@ const report = (status: ServerStatusDocument): void => {
       : record?.outcome === 'rolled-back'
         ? 'The new configuration did not boot, so the server went back to the previous one.'
         : 'The new configuration did not boot, and the previous one did not either: the server is down.'
-  printFailure({ headline, detail: findingLines(record?.findings ?? []), guidance: GUIDANCE })
-  process.exit(1)
+  return refuseCommand({
+    headline,
+    detail: findingLines(record?.findings ?? []),
+    guidance: GUIDANCE,
+  })
 }
 
 /** Handle `sovrium reload`: signal the running server and print what it did. */
 export const handleReloadCommand = async (): Promise<void> => {
   const lockData = await readLockFile()
   if (!lockData) {
-    printStderr('Error: No server is running (lock file not found)')
-    process.exit(1)
+    return stopCommand(1, 'Error: No server is running (lock file not found)')
   }
 
   if (!isProcessRunning(lockData.pid)) {
-    printStderr('Error: Server is not running')
-    process.exit(1)
+    return stopCommand(1, 'Error: Server is not running')
   }
 
   if (!lockData.configPath) {
-    printStderr(
+    return stopCommand(
+      1,
       'Error: The running server was not started from a config file, so there is nothing to reload.'
     )
-    process.exit(1)
   }
 
   const before = await readStatusDocument()
   try {
     process.kill(lockData.pid, 'SIGUSR1')
   } catch {
-    printStderr('Error: Failed to send reload signal')
-    process.exit(1)
+    return stopCommand(1, 'Error: Failed to send reload signal')
   }
 
   const verdict = await awaitVerdict(lockData.pid, before, Date.now() + VERDICT_TIMEOUT_MS)
   if (verdict === undefined) {
-    printStderr(
+    return stopCommand(
+      1,
       isProcessRunning(lockData.pid)
         ? `Error: The server did not confirm the reload within ${String(VERDICT_TIMEOUT_MS / 1000)} s (PID ${String(lockData.pid)}).`
         : `Error: The server stopped before it confirmed the reload (PID ${String(lockData.pid)}).`
     )
-    process.exit(1)
   }
   report(verdict)
 }

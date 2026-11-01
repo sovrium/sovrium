@@ -19,11 +19,12 @@
 
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { computeHostedFormLayoutClasses } from '@/presentation/design/form-layout-classes'
-import { FormFieldElement, type PrefillValue } from './form-field-elements'
+import { FormFieldElement } from './form-field-elements'
 import { stepItems, type resolveAllFields } from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
 import { IdempotencyKeyInput } from './form-idempotency-key'
 import { RequiredLegend } from './form-required-legend'
+import { type PrefillValue } from './form-resolved-field'
 import { resolveStepNavLabels, type StepNavLabels } from './form-step-nav-labels'
 import type { FormLayoutKeys } from './form-layout-keys'
 import type { SaveForLaterLabels } from './form-save-for-later-labels'

@@ -1,6 +1,6 @@
 # Scripts
 
-> A page's `scripts` block — external dependencies, inline snippets, client-side feature flags and config data — plus the sandboxed `customHTML` component.
+> A page's `scripts` block (external dependencies, inline snippets, client-side feature flags and config data), plus the sandboxed `customHTML` component.
 
 Sovrium pages are server-rendered, then progressively enhanced. Most interactivity needs no JavaScript from you; the Interactions article covers the declarative half. When you do need your own, this is where it is declared.
 
@@ -59,7 +59,7 @@ pages:
 
 ## `customHTML`
 
-Embed raw HTML — inline or from a file — in a sandboxed context that can read the design's CSS custom properties but cannot reach the parent page's JavaScript. `content` holds an inline HTML string; `htmlSrc` names a file relative to the project root and takes precedence over `content`. An `htmlSrc` that cannot be read renders a clear error in place rather than failing the page.
+Embed raw HTML, inline or from a file, in a sandboxed context that can read the design's CSS custom properties but cannot reach the parent page's JavaScript. `content` holds an inline HTML string; `htmlSrc` names a file relative to the project root and takes precedence over `content`. An `htmlSrc` that cannot be read renders a clear error in place rather than failing the page.
 
 ```yaml
 pages:

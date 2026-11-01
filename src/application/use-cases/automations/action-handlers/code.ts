@@ -255,12 +255,18 @@ const converse = (worker: Readonly<Worker>, session: WorkerSession): Effect.Effe
  * The worker's options: the step's code and data context travel as its
  * `workerData` (structured clone), never as a message — Bun's `Worker` takes
  * the option though its typings do not name it.
+ *
+ * `env` is the thread's `process.env`: only the variables the config declares,
+ * the values `context.env` holds. Without it the thread starts with a copy of
+ * the server's whole environment — its database address and secrets — which
+ * code reaching past its context could read.
  */
 const workerOptions = (
   session: WorkerSession
 ): Readonly<Bun.WorkerOptions & { readonly workerData: CodeStepStart }> => ({
   smol: true,
   ref: false,
+  env: { ...session.data.env },
   workerData: { source: session.source, data: session.data },
 })
 

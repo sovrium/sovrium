@@ -1,6 +1,6 @@
 # Form Conditional Logic
 
-> Showing or requiring a field based on what the submitter has entered — one condition shape shared by two rules.
+> Showing or requiring a field based on what the submitter has entered: one condition shape shared by two rules.
 
 `visibleWhen` and `requiredWhen` share the same condition shape, so learning one teaches both.
 
@@ -34,7 +34,7 @@ Each rule lives on the common field base, so it applies to any input-bearing kin
 
 <!-- sovrium:options VisibleWhenConditionSchema -->
 
-A simple condition names a `field`, an `operator` and — for most operators — a `value`. `empty` and `notEmpty` ignore the value; `in` and `notIn` take an array; everything else takes a scalar.
+A simple condition names a `field`, an `operator` and, for most operators, a `value`. `empty` and `notEmpty` ignore the value; `in` and `notIn` take an array; everything else takes a scalar.
 
 ```yaml
 fields:

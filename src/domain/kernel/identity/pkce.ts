@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash } from 'node:crypto'
 
 /**
  * PKCE (RFC 7636) helpers for the OAuth2 Authorization Code flow.
@@ -28,7 +28,15 @@ import { createHash, randomBytes } from 'node:crypto'
 const base64url = (buffer: Buffer): string =>
   buffer.toString('base64').replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
 
-export const generateCodeVerifier = (): string => base64url(randomBytes(32))
+/**
+ * A source of cryptographically secure random bytes — `node:crypto`'s
+ * `randomBytes` at every caller. Supplied rather than imported so the kernel
+ * stays deterministic for a given input and the entropy source is the
+ * caller's explicit choice.
+ */
+export type RandomBytes = (size: number) => Buffer
+
+export const generateCodeVerifier = (randomBytes: RandomBytes): string => base64url(randomBytes(32))
 
 export const computeCodeChallenge = (verifier: string, method: 'S256' | 'plain'): string => {
   if (method === 'plain') return verifier
@@ -40,4 +48,4 @@ export const computeCodeChallenge = (verifier: string, method: 'S256' | 'plain')
  * authorize URL. 32 bytes of entropy, base64url-encoded. The provider
  * echoes this back on /callback for replay-protection / state-binding.
  */
-export const generateOAuthState = (): string => base64url(randomBytes(32))
+export const generateOAuthState = (randomBytes: RandomBytes): string => base64url(randomBytes(32))

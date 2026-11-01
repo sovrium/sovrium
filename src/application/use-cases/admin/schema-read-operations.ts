@@ -27,13 +27,13 @@ import {
   type AdminReadDecode,
   type AdminReadOperation,
 } from '@/application/use-cases/admin/admin-read-operation'
-import { componentTypeDetail } from '@/application/use-cases/admin/design-system-component-detail'
-import { componentTypeOptions } from '@/application/use-cases/admin/design-system-component-options'
+import { componentTypeDetail } from '@/application/use-cases/design/component-detail'
+import { componentTypeOptions } from '@/application/use-cases/design/component-options'
 import {
   componentTypeCategories,
   listComponentTypes,
   listFieldTypes,
-} from '@/application/use-cases/admin/design-system-schema'
+} from '@/application/use-cases/design/schema'
 import { parseOptionalCap } from '@/domain/kernel/format/query-cap-parsers'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {

@@ -22,6 +22,7 @@
 
 import { Effect } from 'effect'
 import { AdminAgentConversationsRepository } from '@/application/ports/repositories/agents/admin-agent-conversations-repository'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   adminReadPathParams,
   answerWithSchema,
@@ -194,9 +195,13 @@ const agentTools = (app: App, name: string): ReadonlyArray<string> => {
 }
 
 /** The model an agent answers with: its own, else the host's `AI_MODEL`, else none. */
-const agentModel = (app: App, name: string): string | null => {
+const agentModel = (
+  app: App,
+  name: string,
+  env: Readonly<Record<string, string | undefined>>
+): string | null => {
   const declared = app.agents?.find((candidate) => candidate.name === name)?.model
-  const host = process.env['AI_MODEL']?.trim()
+  const host = env['AI_MODEL']?.trim()
   return declared ?? (host === undefined || host === '' ? null : host)
 }
 
@@ -243,7 +248,7 @@ const agentRead = defineAdminRead<string>({
         name,
         label: agentLabelOf(name, language),
         isSystem: isSystemAgentName(name),
-        model: agentModel(app, name),
+        model: agentModel(app, name, yield* ProcessEnv),
         tools,
         toolLabels: tools.map((tool) => toolLabelOf(tool, language)),
         conversationCount,

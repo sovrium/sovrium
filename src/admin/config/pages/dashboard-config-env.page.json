@@ -321,7 +321,11 @@
                 ],
                 "emptyMessage": "$t:admin.env.empty",
                 "noMatchMessage": "$t:admin.env.noMatch",
-                "viewOptions": "toolbar"
+                "viewOptions": "toolbar",
+                "countLabel": {
+                  "one": "$t:admin.count.variables.one",
+                  "other": "$t:admin.count.variables.other"
+                }
               }
             },
             {

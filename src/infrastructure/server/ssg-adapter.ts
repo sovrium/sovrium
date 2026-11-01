@@ -10,6 +10,7 @@ import { Effect, Data } from 'effect'
 import { toSSG } from 'hono/bun'
 import { defaultExtensionMap } from 'hono/ssg'
 import { islandFilesReachedBy } from '@/infrastructure/server/route-setup/island-assets'
+import type { HttpApp } from '@/application/ports/contracts/http-app'
 import type { Hono } from 'hono'
 
 /**
@@ -154,7 +155,9 @@ async function writeReachedIslandFiles(
  * @returns Effect with output directory and generated files
  */
 export const generateStaticSite = (
-  app: Hono | Readonly<Hono>,
+  // The port names only `fetch` (`HttpApp`); every app reaching it is the Hono
+  // app `ServerFactory.buildRenderApp` built, which the two casts below restore.
+  app: HttpApp,
   options: Readonly<SSGOptions>
 ): Effect.Effect<
   { readonly outputDir: string; readonly files: readonly string[] },
@@ -164,10 +167,11 @@ export const generateStaticSite = (
   Effect.tryPromise({
     try: async () => {
       const outputDir = options.outputDir || './static'
+      const hono = app as Hono
 
       // Register explicit page paths for SSG discovery
       if (options.pagePaths && options.pagePaths.length > 0) {
-        registerPagePaths(app as Hono, options.pagePaths)
+        registerPagePaths(hono, options.pagePaths)
       }
 
       // The pages the configuration declares, already filtered for access by
@@ -176,7 +180,7 @@ export const generateStaticSite = (
       const declaredPages = new Set(options.pagePaths ?? [])
 
       // Use Hono's toSSG to generate static files
-      const result = await toSSG(app as Hono, {
+      const result = await toSSG(hono, {
         dir: outputDir,
         extensionMap: SSG_EXTENSION_MAP,
         beforeRequestHook: (req) => {
@@ -198,7 +202,7 @@ export const generateStaticSite = (
       )
       const normalizedFiles = [
         ...pageFiles,
-        ...(await writeReachedIslandFiles(app, outputDir, pageFiles)),
+        ...(await writeReachedIslandFiles(hono, outputDir, pageFiles)),
       ]
 
       // Return output directory and generated files from toSSG

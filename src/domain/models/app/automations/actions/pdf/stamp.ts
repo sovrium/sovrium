@@ -114,7 +114,7 @@ export const PdfStampActionSchema = Schema.Struct({
   })
     .annotate({
       description:
-        'The PDF, the mark — `text`, `image` (a file reference: a logo or a signature picture) or `pageNumbers` — where it goes (`position` or `at`), how it is drawn, the pages it goes on, and where the result is written.',
+        'The PDF, the mark (`text`, `image` as a file reference such as a logo or a signature picture, or `pageNumbers`), where it goes (`position` or `at`), how it is drawn, the pages it goes on, and where the result is written.',
     })
     .pipe(
       Schema.check(

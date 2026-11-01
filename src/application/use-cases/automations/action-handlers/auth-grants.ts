@@ -52,8 +52,8 @@ import {
   validateUserAccessInput,
 } from '@/domain/models/app/tables/user-access-validation'
 import { logError } from '@/infrastructure/logging/logger'
-import { callerRefusal, updatesOf } from './record-caller-gate'
-import { READ_REFUSAL, starterReadsRecord } from './record-read-scope'
+import { callerRefusal, updatesOf } from './record/caller-gate'
+import { READ_REFUSAL, starterReadsRecord } from './record/read-scope'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { OrganizationTeamRepository } from '@/application/ports/repositories/auth/organization-team-repository'

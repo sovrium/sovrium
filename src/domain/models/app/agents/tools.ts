@@ -111,7 +111,7 @@ export const AgentBrowserCapabilitiesSchema = Schema.Struct({
       Schema.annotate({
         defaultNote: 'none: every browser the agent opens starts signed out',
         description:
-          'Stored browser sessions the agent may start from — the sign-ins a `browser/run` keeps. The agent never receives a password: a session is how it reaches pages behind a sign-in. Any other session name is refused.',
+          'Stored browser sessions the agent may start from: the sign-ins a `browser/run` keeps. The agent never receives a password: a session is how it reaches pages behind a sign-in. Any other session name is refused.',
       })
     )
   ),

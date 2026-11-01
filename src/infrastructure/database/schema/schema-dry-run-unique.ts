@@ -41,7 +41,9 @@ export const withUniquePlan = (params: {
       const relation = change.relation ?? table.name
       const lines = [
         ...uniquePlanLines({ physicalTableName: relation, columns: plan.columns }),
-        ...plan.languageIndexes.map((index) => languageUniqueIndexStatement(relation, index)),
+        ...plan.languageIndexes.map((index) =>
+          languageUniqueIndexStatement(relation, index, tx.dialect)
+        ),
       ]
       return {
         ...change,

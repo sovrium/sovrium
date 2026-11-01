@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { applyActiveSectionVariant } from '@/domain/models/app/design'
+import { cn } from '@/presentation/design/class-merge'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   computeTocItemIndentClasses,
@@ -26,8 +28,12 @@ import type { ReactElement } from 'react'
  * attaches the collected `TocHeading[]` to this component as a render-time
  * `tocHeadings` field (sibling of `props`). This renderer reads that field and
  * emits a `<nav>` of `<a href="#id">` links — one per heading, in document
- * order — so native browser anchor scrolling drives navigation without any
- * client-side JavaScript.
+ * order — so native browser anchor scrolling drives navigation. As the reader
+ * scrolls, a small inline scroll-spy (shipped in the body-end enhancer, only on
+ * a page that draws a `toc`; no island) marks the link to the section being read
+ * `data-active="true"`. The `linkActive` part (from `design.components.toc` and
+ * the instance's `classes`) styles that link: its classes are prefixed with the
+ * `data-[active=true]:` variant and merged after the default link classes.
  *
  * The anatomy is the "On this page" column of shadcn/ui's documentation:
  * `toc` on the `<nav>`, `toc-list` on the list, `toc-link` on every link with
@@ -57,6 +63,10 @@ export const tocComponent: ComponentRenderer = (config: ComponentDispatchConfig)
   const userClassName = restProps['className'] as string | undefined
   const stickyClasses = sticky ? 'sticky top-0 self-start' : ''
   const className = resolveClasses(stickyClasses, userClassName)
+  const linkClassName = cn(
+    computeTocLinkClasses(),
+    applyActiveSectionVariant(config.designStyles?.parts['linkActive'])
+  )
 
   // Strip className from rest so we don't double-set it, and the internal
   // data-source markers so they never reach the `<nav>`.
@@ -86,7 +96,7 @@ export const tocComponent: ComponentRenderer = (config: ComponentDispatchConfig)
               href={`#${heading.id}`}
               data-slot="toc-link"
               data-depth={heading.level}
-              className={computeTocLinkClasses()}
+              className={linkClassName}
             >
               {heading.text}
             </a>

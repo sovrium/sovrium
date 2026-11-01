@@ -6,11 +6,11 @@
  */
 
 import { Schema } from 'effect'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   healthCheckResponseSchema,
   healthProbeResponseSchema,
-} from '@/domain/models/api/health/health'
+} from '@/domain/models/api/server/health'
 import { effectJsonResponse } from '@/presentation/api/openapi/route-fragments'
 import { type StaticGroupSpec } from '../openapi/route-spec'
 

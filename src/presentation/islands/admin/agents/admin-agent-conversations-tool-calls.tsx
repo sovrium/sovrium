@@ -18,6 +18,7 @@
  */
 
 import { type ReactElement, useCallback, useState } from 'react'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { conversationCaptions, recordedCallParts } from './admin-agent-conversations-captions'
 
 /**
@@ -40,9 +41,6 @@ interface ToolCallView {
   /** Set for a call stored in the engine's shape, read as one sentence. */
   readonly recorded?: RecordedCall | undefined
 }
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** A JSON string parsed, anything else as it came. */
 const parsed = (value: unknown): unknown => {

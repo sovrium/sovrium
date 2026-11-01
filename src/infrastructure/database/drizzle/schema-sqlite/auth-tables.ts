@@ -46,12 +46,12 @@ export const users = authTable('user', {
   banExpires: integer('ban_expires', { mode: 'timestamp_ms' }),
   // Two-factor plugin fields
   twoFactorEnabled: integer('two_factor_enabled', { mode: 'boolean' }).default(false),
-  // GDPR account-erasure scheduling (Art. 17). When set, the account is
-  // scheduled for a hard delete at this timestamp; the purge scheduler
-  // physically removes the account once `scheduledErasureAt <= NOW()`.
-  // NULL means no erasure is pending. Column is intentionally camelCase-
-  // quoted to match the Better Auth naming convention used by callers.
+  // GDPR erasure (Art. 17): hard-deleted once `scheduledErasureAt <= NOW()`, NULL when none
+  // is pending. camelCase-quoted to match the Better Auth naming convention callers use.
   scheduledErasureAt: integer('scheduledErasureAt', { mode: 'timestamp_ms' }),
+  // Agents mirrored from `app.agents[]` (written on PostgreSQL only; kept in step with it).
+  type: text('type'),
+  deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
 })
 
 export const sessions = authTable(
@@ -182,7 +182,7 @@ export const members = authTable(
       .$defaultFn(() => new Date()),
   },
   (table) => [
-    index('member_organizationId_idx').on(table.organizationId),
+    uniqueIndex('member_organizationId_userId_uidx').on(table.organizationId, table.userId),
     index('member_userId_idx').on(table.userId),
   ]
 )
@@ -278,7 +278,7 @@ export const oauthClients = authTable(
     enableEndSession: integer('enable_end_session', { mode: 'boolean' }),
     subjectType: text('subject_type'),
     // pg `text[]` → SQLite JSON-encoded array
-    scopes: text('scopes', { mode: 'json' }),
+    scopes: text('scopes', { mode: 'json' }).$type<string[]>(),
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
     referenceId: text('reference_id'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
@@ -291,22 +291,22 @@ export const oauthClients = authTable(
     name: text('name'),
     uri: text('uri'),
     icon: text('icon'),
-    contacts: text('contacts', { mode: 'json' }),
+    contacts: text('contacts', { mode: 'json' }).$type<string[]>(),
     tos: text('tos'),
     policy: text('policy'),
     softwareId: text('software_id'),
     softwareVersion: text('software_version'),
     softwareStatement: text('software_statement'),
-    redirectUris: text('redirect_uris', { mode: 'json' }).notNull(),
-    postLogoutRedirectUris: text('post_logout_redirect_uris', { mode: 'json' }),
+    redirectUris: text('redirect_uris', { mode: 'json' }).$type<string[]>().notNull(),
+    postLogoutRedirectUris: text('post_logout_redirect_uris', { mode: 'json' }).$type<string[]>(),
     tokenEndpointAuthMethod: text('token_endpoint_auth_method'),
-    grantTypes: text('grant_types', { mode: 'json' }),
-    responseTypes: text('response_types', { mode: 'json' }),
+    grantTypes: text('grant_types', { mode: 'json' }).$type<string[]>(),
+    responseTypes: text('response_types', { mode: 'json' }).$type<string[]>(),
     public: integer('public', { mode: 'boolean' }),
     type: text('type'),
     requirePKCE: integer('require_pkce', { mode: 'boolean' }),
     clientDiscoveryId: text('client_discovery_id'),
-    clientCredentialsScopes: text('client_credentials_scopes', { mode: 'json' }),
+    clientCredentialsScopes: text('client_credentials_scopes', { mode: 'json' }).$type<string[]>(),
     backchannelLogoutUri: text('backchannel_logout_uri'),
     backchannelLogoutSessionRequired: integer('backchannel_logout_session_required', {
       mode: 'boolean',
@@ -334,12 +334,12 @@ export const oauthRefreshTokens = authTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     referenceId: text('reference_id'),
-    scopes: text('scopes', { mode: 'json' }).notNull(),
+    scopes: text('scopes', { mode: 'json' }).$type<string[]>().notNull(),
     revoked: integer('revoked', { mode: 'timestamp_ms' }),
     authTime: integer('auth_time', { mode: 'timestamp_ms' }),
     authorizationCodeId: text('authorization_code_id'),
-    resources: text('resources', { mode: 'json' }),
-    requestedUserInfoClaims: text('requested_user_info_claims', { mode: 'json' }),
+    resources: text('resources', { mode: 'json' }).$type<string[]>(),
+    requestedUserInfoClaims: text('requested_user_info_claims', { mode: 'json' }).$type<string[]>(),
     rotatedAt: integer('rotated_at', { mode: 'timestamp_ms' }),
     rotationReplayResponse: text('rotation_replay_response'),
     rotationReplayExpiresAt: integer('rotation_replay_expires_at', { mode: 'timestamp_ms' }),
@@ -367,10 +367,10 @@ export const oauthAccessTokens = authTable(
     refreshId: text('refresh_id').references(() => oauthRefreshTokens.id, { onDelete: 'cascade' }),
     userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
     referenceId: text('reference_id'),
-    scopes: text('scopes', { mode: 'json' }).notNull(),
+    scopes: text('scopes', { mode: 'json' }).$type<string[]>().notNull(),
     authorizationCodeId: text('authorization_code_id'),
-    resources: text('resources', { mode: 'json' }),
-    requestedUserInfoClaims: text('requested_user_info_claims', { mode: 'json' }),
+    resources: text('resources', { mode: 'json' }).$type<string[]>(),
+    requestedUserInfoClaims: text('requested_user_info_claims', { mode: 'json' }).$type<string[]>(),
     revoked: integer('revoked', { mode: 'timestamp_ms' }),
     confirmation: text('confirmation', { mode: 'json' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
@@ -396,9 +396,9 @@ export const oauthConsents = authTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     clientId: text('client_id').notNull(),
     referenceId: text('reference_id'),
-    scopes: text('scopes', { mode: 'json' }).notNull(),
-    resources: text('resources', { mode: 'json' }),
-    requestedUserInfoClaims: text('requested_user_info_claims', { mode: 'json' }),
+    scopes: text('scopes', { mode: 'json' }).$type<string[]>().notNull(),
+    resources: text('resources', { mode: 'json' }).$type<string[]>(),
+    requestedUserInfoClaims: text('requested_user_info_claims', { mode: 'json' }).$type<string[]>(),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .$defaultFn(() => new Date()),

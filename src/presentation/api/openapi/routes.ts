@@ -15,7 +15,7 @@ import {
   type ReadUserRole,
   type SessionReader,
 } from '@/presentation/api/runtime/caller-tier'
-import { resolveRequestBaseUrl } from '../../../domain/kernel/url/request-base-url'
+import { resolveRequestBaseUrl } from '../runtime/request-origin'
 import type { App } from '@/domain/models/app'
 // Type-only: the instance is built once in `createHonoApp` and passed in, so
 // this module never loads the Better Auth package.

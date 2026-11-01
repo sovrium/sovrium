@@ -6,21 +6,25 @@ Authenticating issues a session: an `httpOnly` cookie backed by a row in the aut
 
 ## Session lifetime is not schema
 
-Core session behaviour — lifetime, refresh window — is managed at the authentication-server level rather than in the app configuration. There is no session block to write.
+Core session behaviour (lifetime, refresh window) is managed at the authentication-server level rather than in the app configuration. There is no session block to write.
 
 | Concern                      | Lives in                                                       |
 | ---------------------------- | -------------------------------------------------------------- |
 | Session lifetime and refresh | The auth server's defaults, not exposed in the app schema      |
 | Signing and encryption       | `AUTH_SECRET`, or a value derived from the root key when unset |
-| Cookie security              | The bind address — see below. Not `NODE_ENV`                   |
+| Cookie security              | The bind address (see below). Not `NODE_ENV`                   |
 
 Changing the signing secret invalidates **every** active session and signs every user out. That happens when you rotate the secret, when you set one for the first time, and when the root key it derives from changes. Treat it as a credential and rotate deliberately.
 
 ### What decides whether the session cookie is `Secure`
 
-The address the app is reachable at, not an environment name. Bound to loopback, the cookie omits `Secure` and origin-checking is off, so `http://localhost` works while you develop. Bound to anything else — which the app reads from `BASE_URL`, then `SOVRIUM_BIND_HOST` — `Secure` is forced on and origin-checking is enforced.
+The address the app is reachable at, not an environment name. Bound to loopback, the cookie omits `Secure` and origin-checking is off, so `http://localhost` works while you develop. Bound to anything else (which the app reads from `BASE_URL`, then `SOVRIUM_BIND_HOST`), `Secure` is forced on and origin-checking is enforced.
 
 Two consequences follow, and both cut against the usual expectation. Setting `NODE_ENV=production` does not harden the session cookie, because nothing in this decision reads it. And the wildcard binds `0.0.0.0` and `::` are deliberately _not_ treated as loopback: they are every interface the machine has, which is the most exposed bind there is, so the ordinary container idiom keeps the hardened posture.
+
+## A session stays with the browser that opened it
+
+Sovrium records the browser a session was opened in and refuses the session's cookie when it arrives from another browser, a defence against a copied cookie. Version numbers are ignored, so a browser or system update keeps you signed in; a different browser, platform or device model does not. When a page refuses a session, it sends the reader to the sign-in page with the session cookies expired, and the sign-in page says the session ended. That sentence is the `auth.sessionEnded` word, which a translation renames under `sovrium.auth.sessionEnded`.
 
 ## Inspecting and ending a session
 
@@ -34,15 +38,17 @@ These endpoints mount automatically once authentication is configured.
 | `POST` | `/api/auth/revoke-session`        | Revokes one session by id                            |
 | `POST` | `/api/auth/revoke-other-sessions` | Revokes every session except the current one         |
 
-Three behaviours worth relying on:
+Five behaviours worth relying on:
 
 - `get-session` returns a **null body rather than an error** when unauthenticated or after sign-out, so a client can poll it to render auth state without treating the unauthenticated case as a failure.
 - `list-sessions` is session-isolated: a user only ever sees their own.
-- `sign-out` is **idempotent** — calling it without a session, or twice, still succeeds.
+- `sign-out` is **idempotent**: calling it without a session, or twice, still succeeds.
+- A **password reset signs the account out everywhere**. Once a reset link has set a new password, every session the account held is ended, on every device, including the one that asked for the link, so whoever had learned the old password loses the session they opened with it. Sign in again with the new password. The reset revokes the account's API keys too.
+- **Turning on two-step verification signs the account out everywhere else.** The session that turned it on stays signed in; every other session of the account ends, and its API keys are revoked, so nobody who held the account before it was protected keeps a way in.
 
 ## Active-scope sessions
 
-An app that scopes data per tenant uses an access junction, where one user can hold several access rows for the same table — a fractional finance director assigned to three client companies. The active-scope API lets that user pick which assignment is currently in context, persisted in a per-table cookie and resolved by `$currentUser.activeAssignment`.
+An app that scopes data per tenant uses an access junction, where one user can hold several access rows for the same table, such as a fractional finance director assigned to three client companies. The active-scope API lets that user pick which assignment is currently in context, persisted in a per-table cookie and resolved by `$currentUser.activeAssignment`.
 
 ```yaml
 auth:
@@ -66,7 +72,7 @@ A table slug outside `scopeTables` answers `404`.
 
 ### Why the cookie is safe to trust
 
-One cookie per scope table, `httpOnly` and `SameSite=Lax`, so it is not readable by client JavaScript. Unlike the session cookie above, this one takes its `Secure` attribute from `NODE_ENV=production` rather than from the bind address — so on a public deployment that does not set `NODE_ENV`, set it, or the two cookies on the same request disagree about whether the connection can be trusted.
+One cookie per scope table, `httpOnly` and `SameSite=Lax`, so it is not readable by client JavaScript. Unlike the session cookie above, this one takes its `Secure` attribute from `NODE_ENV=production` rather than from the bind address. So on a public deployment that does not set `NODE_ENV`, set it, or the two cookies on the same request disagree about whether the connection can be trusted.
 
 Beyond that, **every write and every read is re-validated server-side**. A write verifies the record is in the user's access rows before setting anything; a read re-checks the cookie against those rows when resolving the token, and discards a tampered, stale or now-revoked value in favour of the user's first accessible record.
 

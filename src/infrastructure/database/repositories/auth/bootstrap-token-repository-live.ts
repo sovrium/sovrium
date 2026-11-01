@@ -6,7 +6,7 @@
  */
 
 import { and, eq, gt, isNull } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   BootstrapTokenDatabaseError,
   BootstrapTokenRepository,
@@ -17,8 +17,11 @@ import {
   BootstrapTokenNotFoundError,
   type BootstrapToken,
 } from '@/domain/models/process-env'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { sovriumBootstrapTokens as sovriumBootstrapTokensPg } from '@/infrastructure/database/drizzle/schema/bootstrap-tokens'
 import { sovriumBootstrapTokens as sovriumBootstrapTokensSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/bootstrap-tokens'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -54,17 +57,19 @@ const decodeRow = (row: Readonly<Record<string, unknown>>): BootstrapToken => {
   }
 }
 
-export const BootstrapTokenRepositoryLive = Layer.succeed(BootstrapTokenRepository, {
-  create: ({ tokenHash, expiresAt }) =>
-    wrap(async () => {
-      const [row] = await db
-        .insert(sovriumBootstrapTokens)
-        .values({ tokenHash, expiresAt })
-        .returning()
-      return decodeRow((row ?? {}) as Record<string, unknown>)
-    }),
+const members: MembersOverDatabase<typeof BootstrapTokenRepository> = {
+  create:
+    (db) =>
+    ({ tokenHash, expiresAt }) =>
+      wrap(async () => {
+        const [row] = await db
+          .insert(sovriumBootstrapTokens)
+          .values({ tokenHash, expiresAt })
+          .returning()
+        return decodeRow((row ?? {}) as Record<string, unknown>)
+      }),
 
-  claim: (tokenHash: string) =>
+  claim: (db) => (tokenHash: string) =>
     Effect.gen(function* () {
       const now = new Date()
 
@@ -110,21 +115,24 @@ export const BootstrapTokenRepositoryLive = Layer.succeed(BootstrapTokenReposito
       return yield* new BootstrapTokenExpiredError({ expiresAt: row.expiresAt })
     }),
 
-  expireAll: wrap(() => {
-    const now = new Date()
-    return db
-      .update(sovriumBootstrapTokens)
-      .set({ expiresAt: now })
-      .where(
-        and(
-          isNull(sovriumBootstrapTokens.usedAt),
-          // Only touch rows that haven't already expired, to keep the
-          // operation idempotent and the audit clean.
-          gt(sovriumBootstrapTokens.expiresAt, now)
+  expireAll: (db) =>
+    wrap(() => {
+      const now = new Date()
+      return db
+        .update(sovriumBootstrapTokens)
+        .set({ expiresAt: now })
+        .where(
+          and(
+            isNull(sovriumBootstrapTokens.usedAt),
+            // Only touch rows that haven't already expired, to keep the
+            // operation idempotent and the audit clean.
+            gt(sovriumBootstrapTokens.expiresAt, now)
+          )
         )
-      )
-  }).pipe(Effect.asVoid),
+    }).pipe(Effect.asVoid),
 
   // eslint-disable-next-line drizzle/enforce-delete-with-where -- intentional: purgeAll deletes EVERY row by design (bootstrap window closed)
-  purgeAll: wrap(() => db.delete(sovriumBootstrapTokens)).pipe(Effect.asVoid),
-})
+  purgeAll: (db) => wrap(() => db.delete(sovriumBootstrapTokens)).pipe(Effect.asVoid),
+}
+
+export const BootstrapTokenRepositoryLive = layerOverDatabase(BootstrapTokenRepository, members)

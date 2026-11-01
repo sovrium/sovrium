@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Family 18 of the page decode rules — what an action's `onSuccess` and
  * `onError` may ask for, decided by WHERE the action sits.
@@ -55,10 +57,6 @@ const FORM_ONLY_KEYS = [
   'showSummary',
   'redirect',
 ] as const
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 /** The action of `entry` when it carries response slots, else `undefined`. */
 function responseAction(entry: unknown): Readonly<Record<string, unknown>> | undefined {

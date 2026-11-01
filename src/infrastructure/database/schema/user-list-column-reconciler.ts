@@ -42,21 +42,23 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { SchemaInitializationError } from '@/domain/errors/schema-initialization-error'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { db } from '@/infrastructure/database'
-import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { logInfo, logWarning } from '@/infrastructure/logging/logger'
+import { Database } from '../drizzle/layer'
 import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generators'
 import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialect-ddl'
-import { executeRaw } from '../sql/dialect-execute'
 import { executeSQL, getExistingColumns } from '../sql/sql-execution'
 import { tablesWithRecordLanguages } from '../sql/sql-translatable-columns'
 import { recreateTableWithDataEffect } from '../table-operations/migration-utils'
 import { buildGeneratorMaps } from './user-foreign-key-reconciler'
 import type { TransactionLike } from '../sql/sql-execution'
 import type { App, Table } from '@/domain/models/app'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** One `user` list column of one app table. */
 interface ListColumn {
@@ -92,11 +94,13 @@ const describe = (columns: readonly ListColumn[]): string =>
 
 /** The list columns whose live column is not yet an array. */
 const probePostgres = (
+  { client: db, dialect }: DatabaseService,
   columns: readonly ListColumn[]
 ): Effect.Effect<readonly ListColumn[], SchemaInitializationError> =>
   Effect.tryPromise({
     try: () =>
-      executeRaw(
+      executeRawOn(
+        dialect.kind,
         db,
         sql`SELECT table_name, column_name, data_type FROM information_schema.columns
             WHERE table_schema = 'public'`
@@ -122,11 +126,15 @@ const probePostgres = (
  * so the relation is never left half-converted. Keys are dropped by the name
  * the catalog holds, which survives a column rename.
  */
-const convertPostgres = (c: ListColumn): Effect.Effect<void, SchemaInitializationError> =>
+const convertPostgres = (
+  { client: db, dialect }: DatabaseService,
+  c: ListColumn
+): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
     const keys = yield* Effect.tryPromise({
       try: () =>
-        executeRaw(
+        executeRawOn(
+          dialect.kind,
           db,
           sql`SELECT con.conname AS name
               FROM pg_constraint con
@@ -144,7 +152,8 @@ const convertPostgres = (c: ListColumn): Effect.Effect<void, SchemaInitializatio
     const column = sql.identifier(c.column)
     yield* Effect.tryPromise({
       try: () =>
-        executeRaw(
+        executeRawOn(
+          dialect.kind,
           db,
           sql`ALTER TABLE ${sql.identifier(c.relation)} ${sql.join(drops, sql.raw(''))}ALTER COLUMN ${column} TYPE text[] USING CASE WHEN ${column} IS NULL OR ${column} = '' THEN NULL ELSE ARRAY[${column}] END`
         ),
@@ -153,7 +162,7 @@ const convertPostgres = (c: ListColumn): Effect.Effect<void, SchemaInitializatio
     // The one-account column carried a btree index for its key; a list has none.
     const index = `idx_${sanitizeTableName(c.table.name)}_${c.column}_fk`
     yield* Effect.tryPromise({
-      try: () => executeRaw(db, sql`DROP INDEX IF EXISTS ${sql.identifier(index)}`),
+      try: () => executeRawOn(dialect.kind, db, sql`DROP INDEX IF EXISTS ${sql.identifier(index)}`),
       catch: asSchemaError(`drop the key index of ${c.relation}.${c.column}`),
     })
   })
@@ -173,21 +182,25 @@ const UNWRAPPED = (column: string): string =>
 
 /** What each SQLite list column still needs; columns needing nothing are dropped. */
 const probeSqlite = (
+  { client: db, dialect }: DatabaseService,
   columns: readonly ListColumn[]
 ): Effect.Effect<readonly SqliteDrift[], SchemaInitializationError> =>
   Effect.forEach(columns, (c) =>
     Effect.tryPromise({
       try: async () => {
-        const present = await executeRaw(
+        const present = await executeRawOn(
+          dialect.kind,
           db,
           sql`SELECT 1 AS found FROM pragma_table_info(${c.relation}) WHERE name = ${c.column}`
         )
         if (present.length === 0) return []
-        const keys = await executeRaw(
+        const keys = await executeRawOn(
+          dialect.kind,
           db,
           sql`SELECT 1 AS found FROM pragma_foreign_key_list(${c.relation}) WHERE "from" = ${c.column}`
         )
-        const bare = await executeRaw(
+        const bare = await executeRawOn(
+          dialect.kind,
           db,
           // sql-literal: ddl -- the column is a config field name, quoted; nothing from a request
           sql`SELECT 1 AS found FROM ${sql.identifier(c.relation)} WHERE ${sql.raw(UNWRAPPED(c.column))} LIMIT 1`
@@ -247,15 +260,18 @@ const convertSqlite = (
  * stored as one account into a list column, keeping the stored account as a
  * one-person list. Never fails the boot (see the module docstring).
  */
-export const reconcileUserListColumns = (app: Readonly<App>): Effect.Effect<void, never> =>
+export const reconcileUserListColumns = (
+  app: Readonly<App>
+): Effect.Effect<void, never, Database> =>
   Effect.gen(function* () {
     const columns = collectListColumns(app)
     if (columns.length === 0) return
 
-    const config = parseDatabaseDialectConfig()
+    const { client, dialect } = yield* Database
+    const config = parseDatabaseDialectConfig(yield* ProcessEnv)
     const converted: readonly ListColumn[] =
       config.dialect === 'sqlite'
-        ? yield* probeSqlite(columns).pipe(
+        ? yield* probeSqlite({ client, dialect }, columns).pipe(
             Effect.tap((drifted) =>
               drifted.length === 0
                 ? Effect.void
@@ -263,8 +279,12 @@ export const reconcileUserListColumns = (app: Readonly<App>): Effect.Effect<void
             ),
             Effect.map((drifted) => drifted.map((drift) => drift.column))
           )
-        : yield* probePostgres(columns).pipe(
-            Effect.tap((drifted) => Effect.forEach(drifted, convertPostgres, { discard: true }))
+        : yield* probePostgres({ client, dialect }, columns).pipe(
+            Effect.tap((drifted) =>
+              Effect.forEach(drifted, (c) => convertPostgres({ client, dialect }, c), {
+                discard: true,
+              })
+            )
           )
     if (converted.length === 0) return
 

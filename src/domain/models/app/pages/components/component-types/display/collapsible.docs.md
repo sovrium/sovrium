@@ -1,6 +1,6 @@
 # Collapsible
 
-> The `collapsible` component — one region hidden behind a single trigger, shown or hidden in place, with no siblings to close.
+> The `collapsible` component: one region hidden behind a single trigger, shown or hidden in place, with no siblings to close.
 
 A `collapsible` keeps a region out of the way until the reader asks for it: advanced settings under a form, the notes of a release, the contacts behind a heading. Unlike an `accordion`, it stands alone: two collapsibles on a page open and close independently, and there is nothing to configure about which one wins. Reference: shadcn/ui Collapsible.
 

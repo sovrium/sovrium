@@ -6,6 +6,7 @@
  */
 
 import { resolveRecordColor } from '@/domain/kernel/color/record-color'
+import { lockedOnRecord } from '@/presentation/design/locks-verdict'
 import { placeInZone } from './calendar-zone'
 import type { TableRecord } from '../runtime/types'
 
@@ -43,6 +44,8 @@ export interface CalendarEvent {
    * without round-tripping back to the server for the underlying record.
    */
   readonly extendedProps?: TableRecord
+  /** `false` when a lock rule keeps the event's date fields from changing (`_locks`). */
+  readonly editable?: boolean
 }
 
 /**
@@ -184,7 +187,16 @@ export function recordsToCalendarEvents(
       const colorOverride = colorOverlayFor(readString(record, colorField), colorFieldColors)
 
       const base = end ? { id, title, start, end } : { id, title, start }
-      return { ...base, ...colorOverride, extendedProps: record }
+      // A lock rule holding a date the event is placed by keeps it on its day.
+      const locked = [dateField, endDateField].some(
+        (field) => field !== undefined && lockedOnRecord(record, field) !== undefined
+      )
+      return {
+        ...base,
+        ...colorOverride,
+        ...(locked && { editable: false }),
+        extendedProps: record,
+      }
     })
     .filter((event): event is CalendarEvent => event !== undefined)
 }

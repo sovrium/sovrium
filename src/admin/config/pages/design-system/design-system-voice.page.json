@@ -136,7 +136,7 @@
                                       "type": "text",
                                       "element": "span",
                                       "props": {
-                                        "className": "text-foreground-subtle w-6 shrink-0 font-mono text-[11px]",
+                                        "className": "text-foreground-subtle w-6 shrink-0 font-mono text-xs",
                                         "data-design-principle-ordinal": "true"
                                       },
                                       "content": "$record.ordinal"
@@ -213,7 +213,7 @@
                                       "type": "text",
                                       "element": "p",
                                       "props": {
-                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                       },
                                       "content": "$t:admin.common.addressAs"
                                     },
@@ -259,7 +259,7 @@
                                       "type": "text",
                                       "element": "p",
                                       "props": {
-                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                        "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                       },
                                       "content": "$t:admin.common.personality"
                                     },
@@ -314,7 +314,7 @@
                                           "type": "text",
                                           "element": "p",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                           },
                                           "content": "$t:admin.common.prefer"
                                         },
@@ -382,7 +382,7 @@
                                           "type": "text",
                                           "element": "p",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                           },
                                           "content": "$t:admin.ds.voice.avoid"
                                         },
@@ -629,7 +629,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                               },
                                               "content": "$record.label"
                                             },
@@ -794,7 +794,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                               },
                                               "content": "$record.label"
                                             },
@@ -849,7 +849,7 @@
                                           "type": "text",
                                           "element": "p",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                           },
                                           "content": "$t:admin.ds.notConfigured"
                                         },
@@ -865,7 +865,7 @@
                                           "type": "link",
                                           "props": {
                                             "href": "https://sovrium.com/en/docs/design",
-                                            "className": "border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline",
+                                            "className": "border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-xs font-medium no-underline",
                                             "data-design-kit-type": "link"
                                           },
                                           "content": "$t:admin.ds.declare design.voice.tone →"
@@ -967,7 +967,7 @@
                                           "type": "text",
                                           "element": "p",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                           },
                                           "content": "$t:admin.ds.voice.zoneAddress"
                                         },
@@ -1013,7 +1013,7 @@
                                           "type": "text",
                                           "element": "p",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                           },
                                           "content": "$t:admin.ds.voice.zonePrefers"
                                         },
@@ -1059,7 +1059,7 @@
                                           "type": "text",
                                           "element": "p",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                           },
                                           "content": "$t:admin.ds.voice.zoneAvoids"
                                         },
@@ -1105,7 +1105,7 @@
                                           "type": "text",
                                           "element": "p",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                           },
                                           "content": "$t:admin.ds.voice.zoneTone"
                                         },
@@ -1194,7 +1194,7 @@
                           "type": "text",
                           "element": "p",
                           "props": {
-                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                           },
                           "content": "$t:admin.ds.onThisPage"
                         }

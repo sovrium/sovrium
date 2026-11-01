@@ -8,9 +8,11 @@
 import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { ssoProviderForEmail } from '@/domain/models/app/auth/sso/sso-service'
-import { buildEnvLookup, resolveEnvInString } from '@/domain/models/app/env-reference-service'
+import { resolveEnvInString } from '@/domain/models/app/env-reference-service'
 import { loopbackRequestOrigin } from './loopback-origin'
 import { provisionRole } from './sso-account-hooks'
+import type { SsoPluginContext } from '../sso-origins'
+import type { AuthHookPolicies } from '@/application/ports/contracts/auth-hook-policies'
 import type { Auth } from '@/domain/models/app/auth'
 import type { SsoProvider } from '@/domain/models/app/auth/sso'
 import type * as SsoPackage from '@better-auth/sso'
@@ -43,22 +45,6 @@ const MANAGEMENT_ENDPOINTS = new Set([
   'requestDomainVerification',
   'verifyDomain',
 ])
-
-/** What the wrapper needs beyond `auth`: resolved `$env` values and where the app lives. */
-export interface SsoPluginContext {
-  readonly envLookup: Readonly<Record<string, string>>
-  /** `BASE_URL`, without a trailing slash. */
-  readonly baseURL: string
-}
-
-/** The SSO context of an app: its declared variables resolved, and its base address. */
-export const buildSsoContext = (
-  env: Parameters<typeof buildEnvLookup>[0],
-  baseURL: string
-): SsoPluginContext => ({
-  envLookup: buildEnvLookup(env, process.env),
-  baseURL: baseURL.replace(/\/+$/, ''),
-})
 
 const OIDC_DEFAULT_SCOPES = ['openid', 'email', 'profile'] as const
 
@@ -137,38 +123,6 @@ const toDefaultSso = (provider: SsoProvider, context: SsoPluginContext) => ({
     : { samlConfig: toSamlConfig(provider, context) }),
 })
 
-/** The origin of a URL, or `undefined` when it does not parse. */
-const originOf = (url: string | undefined): string | undefined => {
-  if (url === undefined || url === '') return undefined
-  try {
-    return new URL(url).origin
-  } catch {
-    return undefined
-  }
-}
-
-/**
- * The origins the server fetches from or is posted back from: every OIDC
- * issuer (discovery, keys, token, userinfo — an identity-provider client
- * refuses an untrusted origin as an SSRF guard) and every SAML sign-on URL.
- */
-export const ssoTrustedOrigins = (
-  authConfig: Auth | undefined,
-  envLookup: SsoPluginContext['envLookup']
-): readonly string[] =>
-  (authConfig?.sso ?? [])
-    .map((provider) =>
-      originOf(
-        resolveEnvInString(
-          provider.type === 'oidc'
-            ? (provider.oidc?.issuer ?? '')
-            : (provider.saml?.entryPoint ?? ''),
-          envLookup
-        )
-      )
-    )
-    .filter((origin): origin is string => origin !== undefined)
-
 /**
  * Before the sign-in starts: a provider id the config does not declare, or an
  * email no provider owns, answers 404 here — rather than reaching the plugin's
@@ -213,21 +167,6 @@ const returnsToThisApp = (body: unknown): boolean =>
   })
 
 /**
- * On the callback and the assertion consumer: an existing account is linked
- * on its first SSO sign-in even when its own address was never verified —
- * domain ownership is the authority here (the plugin only links on a provider
- * that owns the address's domain). Scoped to this request's context, so social
- * sign-in keeps Better Auth's default of requiring a verified local address.
- */
-const linkOnDomainAuthority = createAuthMiddleware(async () => ({
-  context: {
-    context: {
-      options: { account: { accountLinking: { requireLocalEmailVerified: false } } },
-    },
-  },
-}))
-
-/**
  * On a loopback request without `BASE_URL`, the base address of the SSO flow
  * is read from the request's own `Host` (see `loopbackRequestOrigin`): that is
  * where the browser is, and where the provider must send it back to keep the
@@ -256,14 +195,18 @@ const loadSsoPackage = (): typeof SsoPackage =>
   require('@better-auth/sso') as typeof SsoPackage
 
 /** Build the SSO plugin for the declared providers; `[]` when there are none. */
-export const buildSsoPlugin = (authConfig: Auth | undefined, context: SsoPluginContext) => {
+export const buildSsoPlugin = (
+  authConfig: Auth | undefined,
+  context: SsoPluginContext,
+  writeUserRole?: AuthHookPolicies['writeUserRole']
+) => {
   const providers = authConfig?.sso ?? []
   if (authConfig === undefined || providers.length === 0) return []
   const { sso } = loadSsoPackage()
   const plugin = sso({
     defaultSSO: providers.map((provider) => toDefaultSso(provider, context)),
     domainVerification: { enabled: true },
-    provisionUser: provisionRole(authConfig),
+    provisionUser: provisionRole(authConfig, writeUserRole),
     provisionUserOnEveryLogin: true,
     organizationProvisioning: { disabled: true },
     providersLimit: 0,
@@ -290,12 +233,6 @@ export const buildSsoPlugin = (authConfig: Auth | undefined, context: SsoPluginC
             matcher: (ctx: { readonly path?: string }) =>
               ctx.path === '/sign-in/sso' || (ctx.path ?? '').startsWith('/sso/'),
             handler: baseUrlFromLoopbackHost,
-          },
-          {
-            matcher: (ctx: { readonly path?: string }) =>
-              (ctx.path ?? '').startsWith('/sso/callback/') ||
-              (ctx.path ?? '').startsWith('/sso/saml2/sp/acs/'),
-            handler: linkOnDomainAuthority,
           },
         ],
       },

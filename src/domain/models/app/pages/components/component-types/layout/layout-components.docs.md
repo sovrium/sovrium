@@ -1,8 +1,8 @@
 # Layout Components
 
-> Structural page components — container, flex, grid, card and resizable. The sidebar has its own page.
+> Structural page components: container, flex, grid, card and resizable. The sidebar has its own page.
 
-Layout components arrange the page. They define the visual skeleton — centred containers, flex and grid tracks, cards, resizable panes — and host other components as `children`. Positioning is expressed as Tailwind classes in `props.className`: these components add structure, not styling opinions.
+Layout components arrange the page. They define the visual skeleton (centred containers, flex and grid tracks, cards, resizable panes) and host other components as `children`. Positioning is expressed as Tailwind classes in `props.className`: these components add structure, not styling opinions.
 
 ```yaml
 components:
@@ -23,11 +23,11 @@ components:
 
 ## `container`
 
-A generic block-level wrapper — the workhorse for constraining width, applying padding and grouping children. It is also the only layout component that accepts a `dataSource`, which makes it the usual way to bind a whole region to a record.
+A generic block-level wrapper, the workhorse for constraining width, applying padding and grouping children. It is also the only layout component that accepts a `dataSource`, which makes it the usual way to bind a whole region to a record.
 
 <!-- sovrium:options type:container depth=3 -->
 
-`element` chooses the rendered tag — `div` by default, or `section`, `main`, `aside`, `nav`, `header`, `footer`, `article`. `content` renders when there are no `children`. `repeat: { record: <field> }` renders `children` once per element of an array the bound record already carries; it is supported inside a record-bound drawer's `children` and on a page bound to one record, and refused anywhere else. `repeat.as` names the element, so `$<as>.<key>` reads it while `$record.<key>` keeps reading the bound record, and a second repeat may nest inside a named one.
+`element` chooses the rendered tag: `div` by default, or `section`, `main`, `aside`, `nav`, `header`, `footer`, `article`. A `section` is announced as a region landmark only when it has an accessible name: give it `aria-label` or `aria-labelledby` in `props`. An unnamed section is a plain grouping. `content` renders when there are no `children`. `repeat: { record: <field> }` renders `children` once per element of an array the bound record already carries; it is supported inside a record-bound drawer's `children`, on a page bound to one record (a `collection` page included), and on or inside a container bound with `{ table, mode: single }`, which iterates its own record; it is refused anywhere else. `repeat.as` names the element, so `$<as>.<key>` reads it while `$record.<key>` keeps reading the bound record, and a second repeat may nest inside a named one.
 
 ### The page opener
 
@@ -49,7 +49,7 @@ There is no dedicated banner type. A landing-page opener is a `container` carryi
 
 ## `flex`
 
-A flexbox container. Direction, gap, alignment and wrapping all come from `props.className` — `flex flex-col`, `gap-4`, `items-center`, `justify-between`. It declares no schema option of its own and accepts `children`, `props`, `responsive` and `visibility`.
+A flexbox container. Direction, gap, alignment and wrapping all come from `props.className`: `flex flex-col`, `gap-4`, `items-center`, `justify-between`. It declares no schema option of its own and accepts `children`, `props`, `responsive` and `visibility`.
 
 ## `grid`
 
@@ -67,9 +67,9 @@ When the column count is the thing changing across breakpoints, declare it inste
     - { type: card }
 ```
 
-`grid` declares no schema option either — both keys above live in the open `props` bag. Note that `props.responsive` and the top-level `responsive` module are two different things: the first maps a breakpoint to a **column count**, the second maps a breakpoint to a set of **prop overrides**, and both work on a `grid`.
+`grid` declares no schema option either: both keys above live in the open `props` bag. Note that `props.responsive` and the top-level `responsive` module are two different things: the first maps a breakpoint to a **column count**, the second maps a breakpoint to a set of **prop overrides**, and both work on a `grid`.
 
-**`responsive-grid` was merged into `grid`.** It is no longer a component type and there is no alias — a config still declaring `type: responsive-grid` is refused at startup with a message pointing here. The two declared exactly the same fields and `grid` already resolved column counts per breakpoint, so the migration is renaming the `type` and changing nothing else.
+**`responsive-grid` was merged into `grid`.** It is no longer a component type and there is no alias: a config still declaring `type: responsive-grid` is refused at startup with a message pointing here. The two declared exactly the same fields and `grid` already resolved column counts per breakpoint, so the migration is renaming the `type` and changing nothing else.
 
 ## `card`
 
@@ -90,14 +90,14 @@ A card can also be laid out on shadcn/ui's anatomy: `title` and `description` fi
 
 <!-- sovrium:options type:card -->
 
-### `variant` — two cards that do one extra job
+### `variant`: two cards that do one extra job
 
 Omit `variant` and you get the ordinary raised card. Each of the two named modes is a card that also does one specific thing, and each was its own component type until they were folded in here.
 
-| `variant`  | What it adds                                                                          |
-| ---------- | ------------------------------------------------------------------------------------- |
-| `specimen` | A stage around the children, so a drawn component and its caption read as one unit.   |
-| `scoped`   | A design boundary — the card emits the scope marker and holds its children inside it. |
+| `variant`  | What it adds                                                                         |
+| ---------- | ------------------------------------------------------------------------------------ |
+| `specimen` | A stage around the children, so a drawn component and its caption read as one unit.  |
+| `scoped`   | A design boundary: the card emits the scope marker and holds its children inside it. |
 
 `variant` is the card's rendering **mode**, not its paint. That is why omitting it leaves an ordinary card rather than an unstyled one, and it is the same axis `badge` carries: a mode changes what a component draws, where a style changes how the same drawing is painted. Keys belonging to one mode are **inert** under the others rather than refused.
 
@@ -109,7 +109,7 @@ components:
   - { type: bubble, align: end, content: 'On its way.' }
 ```
 
-**`speech-bubble` is now `bubble`.** There is no alias — a config still declaring it is refused at startup with a message naming `bubble`. `content` and `children` carry over unchanged; `side: left` becomes `align: start` and `side: right` becomes `align: end`.
+**`speech-bubble` is now `bubble`.** There is no alias: a config still declaring it is refused at startup with a message naming `bubble`. `content` and `children` carry over unchanged; `side: left` becomes `align: start` and `side: right` becomes `align: end`.
 
 `variant: specimen` wraps the children in a stage element, so the drawing is one addressable thing next to whatever caption sits beside it. Anything in `props` passes through untouched, which is how a style-guide page marks up what is being shown without the engine needing to know.
 
@@ -121,4 +121,4 @@ Two resizable regions separated by a draggable handle. Reference: shadcn/ui Resi
 
 <!-- sovrium:options type:resizable -->
 
-`orientation` is `horizontal` — side by side — by default, or `vertical` for stacked. `defaultRatio` is the fraction of the container the first pane starts at, between 0 and 1, defaulting to `0.5`. `minSize` and `maxSize` bound how far the first pane may be dragged, in pixels.
+`orientation` is `horizontal` (side by side) by default, or `vertical` for stacked. `defaultRatio` is the fraction of the container the first pane starts at, between 0 and 1, defaulting to `0.5`. `minSize` and `maxSize` bound how far the first pane may be dragged, in pixels.

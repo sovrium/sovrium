@@ -20,6 +20,7 @@
  * import cannot read is reported by the mapper, never bent into a key.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { alphaHexByte, printNumber, remToPx } from '../adapter-units'
 
 /** A provider format, as `--from` names it. */
@@ -89,10 +90,6 @@ export const adapterOk = (value: CanonicalImport): AdapterResult => ({ ok: true,
 
 type JsonObject = Readonly<Record<string, unknown>>
 
-/** Whether `value` is a plain JSON object. */
-export const isObject = (value: unknown): value is JsonObject =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 /** `JSON.parse` that answers `undefined` instead of throwing. */
 export const parseJson = (text: string): unknown => {
   try {
@@ -121,7 +118,7 @@ export const mergeTrees = (base: JsonObject, next: JsonObject): JsonObject =>
     ...Object.entries(next).map(([key, value]) => {
       const previous = ownValue(base, key)
       const merged =
-        isObject(previous) && isObject(value) && !isLeafObject(value) && !isLeafObject(previous)
+        isRecord(previous) && isRecord(value) && !isLeafObject(value) && !isLeafObject(previous)
           ? mergeTrees(previous, value)
           : value
       return [key, merged] as const
@@ -153,7 +150,7 @@ export const flattenTree = (
 ): readonly CanonicalToken[] => {
   const groupType = stringOrUndefined(ownValue(tree, typeKey(form))) ?? inheritedType
   return Object.entries(tree).flatMap(([key, child]): readonly CanonicalToken[] => {
-    if (key.startsWith('$') || !isObject(child)) return []
+    if (key.startsWith('$') || !isRecord(child)) return []
     const childPath = [...path, key]
     if (hasOwnKey(child, valueKey(form))) {
       const type = stringOrUndefined(ownValue(child, typeKey(form))) ?? groupType
@@ -163,7 +160,7 @@ export const flattenTree = (
           path: childPath,
           type,
           value: child[valueKey(form)],
-          ...(isObject(extensions) && { extensions }),
+          ...(isRecord(extensions) && { extensions }),
         },
       ]
     }
@@ -174,7 +171,7 @@ export const flattenTree = (
 /** Whether any object of a tree carries a key, at any depth. */
 export const treeHasKey = (value: unknown, predicate: (key: string) => boolean): boolean => {
   if (Array.isArray(value)) return value.some((item) => treeHasKey(item, predicate))
-  if (!isObject(value)) return false
+  if (!isRecord(value)) return false
   return Object.entries(value).some(
     ([key, child]) => predicate(key) || treeHasKey(child, predicate)
   )
@@ -182,13 +179,13 @@ export const treeHasKey = (value: unknown, predicate: (key: string) => boolean):
 
 /** Whether a tree holds at least one legacy `value` leaf and no DTCG `$value`. */
 export const isLegacyTree = (value: unknown): boolean =>
-  isObject(value) &&
+  isRecord(value) &&
   !treeHasKey(value, (key) => key === '$value') &&
   flattenTree(value, 'legacy').some((token) => token.type !== undefined)
 
 /** Whether a tree holds at least one DTCG `$value` leaf. */
 export const isDtcgTree = (value: unknown): boolean =>
-  isObject(value) && flattenTree(value, 'dtcg').length > 0
+  isRecord(value) && flattenTree(value, 'dtcg').length > 0
 
 /** `{a.b.c}` as a whole value. */
 const WHOLE_ALIAS = /^\{([^{}]+)\}$/
@@ -218,7 +215,7 @@ const resolveValue = (value: unknown, index: TokenIndex, depth: number): unknown
       ? undefined
       : items
   }
-  if (!isObject(value)) return value
+  if (!isRecord(value)) return value
   const entries = Object.entries(value)
     .filter(([, child]) => child !== undefined)
     .map(([key, child]) => [key, resolveValue(child, index, depth)] as const)
@@ -374,7 +371,7 @@ const functionalColor = (
  */
 export const parseColor = (value: unknown): string | undefined => {
   if (typeof value === 'string') return colorFromString(value)
-  return isObject(value) ? colorFromObject(value) : undefined
+  return isRecord(value) ? colorFromObject(value) : undefined
 }
 
 /** A length: its number and unit. */
@@ -391,7 +388,7 @@ const LENGTH = /^(-?(?:\d+\.?\d*|\.\d+))([a-z%]*)$/i
  * without one — or `undefined` to refuse a bare number.
  */
 export const parseLength = (value: unknown, unitless?: string): Length | undefined => {
-  if (isObject(value)) return lengthFromObject(value)
+  if (isRecord(value)) return lengthFromObject(value)
   if (typeof value === 'number') {
     return unitless === undefined ? undefined : { value, unit: unitless }
   }

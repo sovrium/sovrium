@@ -8,11 +8,12 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { reportCommittedRows } from '@/application/ports/services/record-change-feed'
-import { UniqueConstraintViolationError } from '@/domain/errors'
-import { NotFoundError, DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { BusinessRuleViolationError, UniqueConstraintViolationError } from '@/domain/errors'
+import { NotFoundError, DatabaseError, type PortableTx } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { findRestoreUniqueConflict } from '../mutation-helpers/restore-unique-conflict'
+import { judgeRestoreInTransaction } from '../mutation-helpers/rule-judgement'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import {
   passthroughError,
@@ -22,7 +23,10 @@ import {
 } from '../statement/error-handling'
 import { tableIdentifier } from '../statement/validation'
 import { BATCH_FANOUT_CONCURRENCY, insertedRowChanges } from './batch-helpers'
+import type { InTransactionRuleJudge } from '@/application/ports/repositories/tables/in-transaction-rule-judge'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect, TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Validate records exist and filter to only soft-deleted ones
@@ -40,7 +44,7 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
  * caller's ordering.
  */
 const validateAndFilterRecordsForRestore = (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<readonly string[], PassthroughError | NotFoundError> =>
@@ -59,7 +63,8 @@ const validateAndFilterRecordsForRestore = (
       // handled below.
       Effect.tryPromise({
         try: async () => {
-          const checkResult = await executeRaw(
+          const checkResult = await executeRawOn(
+            dialect.kind,
             tx,
             sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
           )
@@ -95,11 +100,11 @@ const validateAndFilterRecordsForRestore = (
  * Returns array of record IDs that are actually soft-deleted
  */
 function validateAndFilterRecordsWithEffect(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<readonly string[], DatabaseError | NotFoundError> {
-  return validateAndFilterRecordsForRestore(tx, tableIdent, recordIds).pipe(
+  return validateAndFilterRecordsForRestore({ tx, dialect }, tableIdent, recordIds).pipe(
     Effect.mapError((error) => {
       // Pass the typed absence through UNWRAPPED. Re-wrapping it in a
       // `Validation failed: …` string is what forced `handleBatchRestoreError`
@@ -122,7 +127,7 @@ function validateAndFilterRecordsWithEffect(
  * Execute restore query using parameterized IN clause
  */
 function executeRestoreQuery(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   tableName: string,
   recordIds: readonly string[]
@@ -133,7 +138,8 @@ function executeRestoreQuery(
         recordIds.map((id) => sql`${id}`),
         sql.raw(', ')
       )
-      const result = await executeRaw(
+      const result = await executeRawOn(
+        dialect.kind,
         tx,
         sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id IN (${idParams}) RETURNING *`
       )
@@ -147,12 +153,13 @@ function executeRestoreQuery(
  * Fail with the unique field a restore of `recordIds` would duplicate, if any.
  */
 const refuseUniqueConflict = (
-  tx: Readonly<DrizzleTransaction>,
+  tx: Readonly<PortableTx>,
+  dialect: Dialect,
   tableName: string,
   recordIds: readonly string[]
 ): Effect.Effect<void, DatabaseError | UniqueConstraintViolationError> =>
   Effect.tryPromise({
-    try: () => findRestoreUniqueConflict(tx, tableName, recordIds),
+    try: () => findRestoreUniqueConflict(tx, dialect, tableName, recordIds),
     catch: (error) => new DatabaseError(`Failed to restore records in ${tableName}`, error),
   }).pipe(
     Effect.flatMap((field) =>
@@ -169,15 +176,37 @@ const refuseUniqueConflict = (
   )
 
 /**
+ * The table's business rules, judged on every record of the batch as this
+ * transaction reads it in the trash, as it will stand restored
+ * (`rule-judgement.ts`) — before any is restored. A refusal fails the whole batch.
+ */
+const judgedRestore = (
+  on: TransactionOn,
+  tableName: string,
+  recordIds: readonly string[],
+  judge: InTransactionRuleJudge | undefined
+): Effect.Effect<void, BusinessRuleViolationError | DatabaseError> =>
+  judge === undefined
+    ? Effect.void
+    : Effect.tryPromise({
+        try: () => judgeRestoreInTransaction(on, tableName, recordIds, judge),
+        catch: (error) =>
+          error instanceof BusinessRuleViolationError
+            ? error
+            : new DatabaseError(`Failed to read the records of a restore in ${tableName}`, error),
+      })
+
+/**
  * Log restore activities for all restored records
  */
 function logRestoreActivities(
+  db: PortableDb,
   session: Readonly<Session>,
   tableName: string,
   restoredRecords: readonly Record<string, unknown>[]
 ): Effect.Effect<void, never> {
   return Effect.forEach(restoredRecords, (record) =>
-    logActivity({
+    logActivity(db, {
       session,
       tableName,
       action: 'restore',
@@ -198,53 +227,73 @@ function logRestoreActivities(
  * @param session - Better Auth session
  * @param tableName - Name of the table
  * @param recordIds - Array of record IDs to restore
+ * @param options - the table's business rules, judged inside the transaction
  * @returns Effect resolving to number of restored records or error
  */
-export function batchRestoreRecords(
-  session: Readonly<Session>,
-  tableName: string,
-  recordIds: readonly string[]
-): Effect.Effect<number, DatabaseError | NotFoundError | UniqueConstraintViolationError> {
-  return Effect.gen(function* () {
-    // A restored row comes back into view: announced (and owed) as an insert.
-    const restoredRecords = yield* withOutboxTransaction(insertedRowChanges(tableName))(
-      (tx) =>
-        Effect.gen(function* () {
-          const tableIdent = tableIdentifier(tableName)
+export const batchRestoreRecords =
+  (db: PortableDb, dialect: Dialect) =>
+  (
+    session: Readonly<Session>,
+    tableName: string,
+    recordIds: readonly string[],
+    options: { readonly judge?: InTransactionRuleJudge | undefined } = {}
+  ): Effect.Effect<
+    number,
+    DatabaseError | NotFoundError | UniqueConstraintViolationError | BusinessRuleViolationError
+  > => {
+    return Effect.gen(function* () {
+      // A restored row comes back into view: announced (and owed) as an insert.
+      const restoredRecords = yield* withOutboxTransaction(
+        { client: db, dialect },
+        insertedRowChanges(tableName)
+      )(
+        (tx) =>
+          Effect.gen(function* () {
+            const tableIdent = tableIdentifier(tableName)
 
-          // Validate and filter to only soft-deleted records
-          const deletedRecordIds = yield* validateAndFilterRecordsWithEffect(
-            tx,
-            tableIdent,
-            recordIds
-          )
+            // The rules first, behind each record's lock: a refusal restores none.
+            yield* judgedRestore({ tx, dialect }, tableName, recordIds, options.judge)
 
-          // If no records to restore, return empty array
-          if (deletedRecordIds.length === 0) {
-            return [] as readonly Record<string, unknown>[]
-          }
+            // Validate and filter to only soft-deleted records
+            const deletedRecordIds = yield* validateAndFilterRecordsWithEffect(
+              { tx, dialect },
+              tableIdent,
+              recordIds
+            )
 
-          // A batch that would duplicate a unique value — with a live record, or
-          // between two of its own records — is refused whole, before any write.
-          yield* refuseUniqueConflict(tx, tableName, deletedRecordIds)
+            // If no records to restore, return empty array
+            if (deletedRecordIds.length === 0) {
+              return [] as readonly Record<string, unknown>[]
+            }
 
-          // Restore only the filtered soft-deleted records
-          return yield* executeRestoreQuery(tx, tableIdent, tableName, deletedRecordIds)
-        }),
-      // `withTransaction` re-throws the squashed cause rather than a
-      // FiberFailure, so a `NotFoundError` raised during validation arrives
-      // here with its identity intact. Preserve it: `wrapDatabaseError` would
-      // otherwise flatten it back into a `DatabaseError` and the route
-      // would be reduced to substring-matching prose again.
-      (error) =>
-        error instanceof NotFoundError || error instanceof UniqueConstraintViolationError
-          ? error
-          : wrapDatabaseError(`Failed to restore records in ${tableName}`)(error)
-    )
+            // A batch that would duplicate a unique value — with a live record, or
+            // between two of its own records — is refused whole, before any write.
+            yield* refuseUniqueConflict(tx, dialect, tableName, deletedRecordIds)
 
-    yield* logRestoreActivities(session, tableName, restoredRecords)
-    yield* reportCommittedRows(insertedRowChanges(tableName)(restoredRecords))
+            // Restore only the filtered soft-deleted records
+            return yield* executeRestoreQuery(
+              { tx, dialect },
+              tableIdent,
+              tableName,
+              deletedRecordIds
+            )
+          }),
+        // `withTransaction` re-throws the squashed cause rather than a
+        // FiberFailure, so a `NotFoundError` raised during validation arrives
+        // here with its identity intact. Preserve it: `wrapDatabaseError` would
+        // otherwise flatten it back into a `DatabaseError` and the route
+        // would be reduced to substring-matching prose again.
+        (error) =>
+          error instanceof NotFoundError ||
+          error instanceof UniqueConstraintViolationError ||
+          error instanceof BusinessRuleViolationError
+            ? error
+            : wrapDatabaseError(`Failed to restore records in ${tableName}`)(error)
+      )
 
-    return restoredRecords.length
-  })
-}
+      yield* logRestoreActivities(db, session, tableName, restoredRecords)
+      yield* reportCommittedRows(insertedRowChanges(tableName)(restoredRecords))
+
+      return restoredRecords.length
+    })
+  }

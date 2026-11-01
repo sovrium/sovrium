@@ -108,21 +108,21 @@ export const swatchFields = {
     Schema.Literals(['literal', 'cascade']).annotate({
       title: 'Token Source',
       description:
-        'Where the drawn colour comes from. `literal` (default) resolves the token once at render — the only thing that works for a `design.ramps` step, which has no custom property. `cascade` paints from the live CSS variable, so the swatch follows a colour-scheme switch.',
+        'Where the drawn colour comes from. `literal` (default) resolves the token once at render, the only thing that works for a `design.ramps` step, which has no custom property. `cascade` paints from the live CSS variable, so the swatch follows a colour-scheme switch.',
       examples: ['cascade'],
     })
   ),
   /** Print the resolved value in hexadecimal. Read under the colour variant. */
   showHex: Schema.optional(
     Schema.Boolean.annotate({
-      description: 'Print the resolved value as hex — the notation a design tool takes',
+      description: 'Print the resolved value as hex, the notation a design tool takes',
     })
   ),
   /** Print the resolved value in `oklch()`. Read under the colour variant. */
   showOklch: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        'Print the resolved value as `oklch()` — the notation whose first number is the lightness, so a ramp reads as a ladder',
+        'Print the resolved value as `oklch()`, the notation whose first number is the lightness, so a ramp reads as a ladder',
     })
   ),
   /** The token this one is designed to sit against. Read under the colour variant. */
@@ -137,7 +137,7 @@ export const swatchFields = {
   showValue: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        'Print the resolved `cubic-bezier(...)` beside the plot — the form an author copies into a stylesheet',
+        'Print the resolved `cubic-bezier(...)` beside the plot, the form an author copies into a stylesheet',
     })
   ),
   /**

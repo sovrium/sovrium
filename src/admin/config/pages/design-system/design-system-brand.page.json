@@ -227,7 +227,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                               },
                                               "content": "src · light"
                                             },
@@ -254,7 +254,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle font-mono text-[11px]"
+                                                "className": "text-foreground-subtle font-mono text-xs"
                                               },
                                               "content": "$record.configPath"
                                             }
@@ -278,7 +278,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                               },
                                               "content": "srcDark · dark"
                                             },
@@ -305,7 +305,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle font-mono text-[11px]"
+                                                "className": "text-foreground-subtle font-mono text-xs"
                                               },
                                               "content": "$record.configPath"
                                             }
@@ -340,7 +340,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -354,7 +354,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -368,7 +368,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -481,7 +481,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                               },
                                               "visibility": {
                                                 "record": {
@@ -540,7 +540,7 @@
                                           "type": "text",
                                           "element": "p",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                           },
                                           "content": "$t:admin.ds.notConfigured"
                                         },
@@ -556,7 +556,7 @@
                                           "type": "link",
                                           "props": {
                                             "href": "https://sovrium.com/en/docs/design",
-                                            "className": "border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline",
+                                            "className": "border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-xs font-medium no-underline",
                                             "data-design-kit-type": "link"
                                           },
                                           "content": "$t:admin.ds.declare design.logo →"
@@ -602,7 +602,7 @@
                                               "type": "text",
                                               "element": "span",
                                               "props": {
-                                                "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                                "className": "text-foreground-subtle max-w-sm text-xs leading-relaxed"
                                               },
                                               "content": "$t:admin.ds.brand.clearSpaceNote"
                                             }
@@ -647,7 +647,7 @@
                                                   "type": "text",
                                                   "element": "span",
                                                   "props": {
-                                                    "className": "text-foreground-subtle text-[11px]"
+                                                    "className": "text-foreground-subtle text-xs"
                                                   },
                                                   "content": "$t:admin.ds.brand.ownGround"
                                                 }
@@ -684,7 +684,7 @@
                                                   "type": "text",
                                                   "element": "span",
                                                   "props": {
-                                                    "className": "text-error-fg text-[11px]"
+                                                    "className": "text-error-fg text-xs"
                                                   },
                                                   "content": "$t:admin.ds.brand.never"
                                                 }
@@ -882,7 +882,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                               },
                                               "content": "$t:admin.ds.notConfigured"
                                             },
@@ -898,7 +898,7 @@
                                               "type": "link",
                                               "props": {
                                                 "href": "https://sovrium.com/en/docs/design-components",
-                                                "className": "border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline",
+                                                "className": "border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-xs font-medium no-underline",
                                                 "data-design-kit-type": "link"
                                               },
                                               "content": "$t:admin.ds.declare design.colorRoles →"
@@ -961,7 +961,7 @@
                                           "type": "text",
                                           "element": "p",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                           },
                                           "content": "$t:admin.common.prefer"
                                         },
@@ -1029,7 +1029,7 @@
                                           "type": "text",
                                           "element": "p",
                                           "props": {
-                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                           },
                                           "content": "$t:admin.ds.brand.neverLabel"
                                         },
@@ -1147,7 +1147,7 @@
                                                       "type": "text",
                                                       "element": "span",
                                                       "props": {
-                                                        "className": "text-foreground-subtle font-mono text-[11px]"
+                                                        "className": "text-foreground-subtle font-mono text-xs"
                                                       },
                                                       "content": "$t:admin.ds.brand.runningApp"
                                                     }
@@ -1157,7 +1157,7 @@
                                                   "type": "text",
                                                   "element": "span",
                                                   "props": {
-                                                    "className": "text-foreground-subtle text-[11px]"
+                                                    "className": "text-foreground-subtle text-xs"
                                                   },
                                                   "content": "$t:admin.ds.brand.imageryDo"
                                                 }
@@ -1184,7 +1184,7 @@
                                                       "type": "text",
                                                       "element": "span",
                                                       "props": {
-                                                        "className": "text-foreground-subtle font-mono text-[11px]"
+                                                        "className": "text-foreground-subtle font-mono text-xs"
                                                       },
                                                       "content": "$t:admin.ds.brand.bezel"
                                                     }
@@ -1194,7 +1194,7 @@
                                                   "type": "text",
                                                   "element": "span",
                                                   "props": {
-                                                    "className": "text-error-fg text-[11px]"
+                                                    "className": "text-error-fg text-xs"
                                                   },
                                                   "content": "$t:admin.ds.brand.imageryDont"
                                                 }
@@ -1231,7 +1231,7 @@
                                               "type": "text",
                                               "element": "p",
                                               "props": {
-                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                                "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                                               },
                                               "content": "$t:admin.ds.notConfigured"
                                             },
@@ -1247,7 +1247,7 @@
                                               "type": "link",
                                               "props": {
                                                 "href": "https://sovrium.com/en/docs/design-components",
-                                                "className": "border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline",
+                                                "className": "border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-xs font-medium no-underline",
                                                 "data-design-kit-type": "link"
                                               },
                                               "content": "$t:admin.ds.declare design.imagery →"
@@ -1408,7 +1408,7 @@
                           "type": "text",
                           "element": "p",
                           "props": {
-                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                           },
                           "content": "$t:admin.ds.onThisPage"
                         }

@@ -16,17 +16,10 @@ import { defineArticle, defineSection } from './define'
 /**
  * Guides: integrations — the section manifest.
  *
- * Wiring Sovrium to the services you run. Every one of these is an environment
- * decision rather than a config one — the database, the object store, the mail
- * transport, the model — which is why none of them is a property article and
- * all of them are guides.
- *
- * THE TWO MCP GUIDES ARE NOT DUPLICATES. `connect-claude-mcp` exposes a
- * DEPLOYED app's data over HTTP, and needs an auth block, an API key and a
- * running server. `connect-desktop-ai` points a client at a LOCAL project
- * folder over a pipe, with no deployment, no credential and a different tool
- * set — the four read-only config tools. Merging them would mean one article
- * whose every paragraph has to say which of the two it is talking about.
+ * Why these are guides and why the two MCP guides are not duplicates:
+ * `[internal ref]`, § `the four guides-* sections`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const section = defineSection({
   slug: 'guides-integrations',

@@ -69,7 +69,7 @@ export const McpEnvSchema = Schema.Struct({
     BooleanFromString.pipe(
       Schema.annotate({
         description:
-          'Master switch — server only mounts the /mcp route when true (MCP_ENABLED). Default: false.',
+          'Master switch: the server only mounts the /mcp route when true (MCP_ENABLED). Default: false.',
       })
     )
   ),
@@ -203,7 +203,7 @@ export const resolveMcpEnv = (parsed: McpEnvConfig): ResolvedMcpEnvConfig => ({
  *
  * @public
  */
-export const parseMcpConfigWrite = (env: NodeJS.ProcessEnv = process.env): boolean =>
+export const parseMcpConfigWrite = (env: Readonly<Record<string, string | undefined>>): boolean =>
   TRUTHY_ENV_VALUES.has(env.MCP_CONFIG_WRITE ?? '')
 
 /**
@@ -291,7 +291,9 @@ export const validateMcpEnv = (
 // Parse from process.env
 // ---------------------------------------------------------------------------
 
-export const parseMcpEnvConfig = (env: NodeJS.ProcessEnv = process.env): McpEnvConfig =>
+export const parseMcpEnvConfig = (
+  env: Readonly<Record<string, string | undefined>>
+): McpEnvConfig =>
   Schema.decodeUnknownSync(McpEnvSchema)({
     enabled: env.MCP_ENABLED,
     transport: env.MCP_TRANSPORT,

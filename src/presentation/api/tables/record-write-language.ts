@@ -222,11 +222,10 @@ const writeContextOf = (c: Context, app: App, kind: WriteKind): WriteContext | u
  * refuses, which the route answers itself — passes through untouched.
  */
 export const writesRecordLanguage =
-  (resolveApp: () => App) =>
+  (app: App) =>
   async (c: Context, next: Next): Promise<Response | void> => {
     const route = writeRouteOf(c.req.method, c.req.path)
     if (route === undefined) return next()
-    const app = resolveApp()
     const ctx = writeContextOf(c, app, route.kind)
     if (ctx === undefined) return next()
     const decoded = await validateRequest(c, route.schema)

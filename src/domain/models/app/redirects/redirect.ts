@@ -70,7 +70,7 @@ const RedirectFromSchema = Schema.String.pipe(
 const RedirectToSchema = Schema.String.pipe(
   Schema.annotate({
     description:
-      "Redirect target — a root-relative path (e.g. '/', '/records/:table?tab=access') or an absolute http(s) URL. A ':name' declared in 'from' is replaced by the segment it captured, in the path or the query. A path target inherits the request's language prefix; an absolute URL is used verbatim.",
+      "Redirect target: a root-relative path (e.g. '/', '/records/:table?tab=access') or an absolute http(s) URL. A ':name' declared in 'from' is replaced by the segment it captured, in the path or the query. A path target inherits the request's language prefix; an absolute URL is used verbatim.",
   }),
   Schema.check(
     Schema.isPattern(/^(?:\/(?!\/)[^\s#]*|https?:\/\/[^\s]+)$/, {

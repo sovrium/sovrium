@@ -11,6 +11,7 @@ import { fetchCandidatePage } from '../record-candidates'
 import { useCandidateSearch } from '../use-candidate-search'
 import { readLinkedIds, writeLinkedIds } from './record-picker-value'
 import { useLinkedLabels } from './use-linked-labels'
+import { usePickerKeyboard, type PickerKeyboard } from './use-picker-keyboard'
 import type { FieldDef } from './field-def'
 import type { CandidateSearch } from '../use-candidate-search'
 
@@ -45,6 +46,10 @@ export interface RecordPicker {
   readonly toggle: (id: string) => void
   /** Drop one link, from a chip's remove button. */
   readonly remove: (id: string) => void
+  /** The suggestion the arrow keys have highlighted, or -1. */
+  readonly highlight: number
+  /** The combobox keys: the arrows move the highlight, Enter picks it, Escape closes. */
+  readonly onKeyDown: PickerKeyboard['onKeyDown']
 }
 
 /**
@@ -80,6 +85,26 @@ function useRelatedSearch(
   return useCandidateSearch(fetchCandidates, `${relatedTable ?? ''}:${displayField ?? ''}`)
 }
 
+/**
+ * Pick or unpick a candidate. Single-valued: one pick answers the question, so
+ * the search resets and the popup closes rather than inviting a second choice
+ * that would silently replace the first.
+ */
+function pickerToggle(args: {
+  readonly allowMultiple: boolean
+  readonly linkedIds: readonly string[]
+  readonly commit: (ids: readonly string[]) => void
+  readonly search: CandidateSearch
+  readonly setOpen: (open: boolean) => void
+}): (id: string) => void {
+  return (id) => {
+    if (args.allowMultiple) return args.commit(togglingIn(args.linkedIds, id))
+    args.commit([id])
+    args.search.setTerm('')
+    args.setOpen(false)
+  }
+}
+
 export function useRecordPicker(args: {
   readonly field: FieldDef
   readonly value: string
@@ -102,6 +127,8 @@ export function useRecordPicker(args: {
 
   const commit = (ids: readonly string[]): void =>
     onChange(field.name, writeLinkedIds(ids, allowMultiple))
+  const toggle = pickerToggle({ allowMultiple, linkedIds, commit, search, setOpen })
+  const keyboard = usePickerKeyboard({ open, setOpen, candidates: search.candidates, pick: toggle })
 
   return {
     linkedIds,
@@ -122,17 +149,12 @@ export function useRecordPicker(args: {
     closePopup: () => setOpen(false),
     setTerm: (term) => {
       search.setTerm(term)
+      keyboard.resetHighlight()
       setOpen(true)
     },
-    toggle: (id) => {
-      if (allowMultiple) return commit(togglingIn(linkedIds, id))
-      // Single-valued: one pick answers the question, so the search resets and
-      // the popup closes rather than inviting a second choice that would
-      // silently replace the first.
-      commit([id])
-      search.setTerm('')
-      setOpen(false)
-    },
+    toggle,
     remove: (id) => commit(linkedIds.filter((entry) => entry !== id)),
+    highlight: keyboard.highlight,
+    onKeyDown: keyboard.onKeyDown,
   }
 }

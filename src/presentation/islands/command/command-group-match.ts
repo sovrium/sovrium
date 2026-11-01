@@ -7,7 +7,7 @@
 
 /**
  * How typing narrows the authored command groups where the list's own filter
- * is off (search mode): an item is kept when its label or its group's name
+ * is off (search mode): an item is kept when its label, caption or group's name
  * holds every typed word, and an item reading `$query` always is.
  */
 
@@ -39,9 +39,10 @@ export const itemForQuery = (
 /** Whether an item reads the typed words back (`$query`), and so matches any of them. */
 const readsQuery = (item: AuthoredCommandItem): boolean => item.label.search(QUERY_TERM) !== -1
 
-/** Whether typing keeps an item: its label or its group's name holds every typed word. */
+/** Whether typing keeps an item: its label, caption or group's name holds every typed word. */
 export const keptByQuery = (item: AuthoredCommandItem, group: string, query: string): boolean =>
-  readsQuery(item) || actionMatchesQuery(`${item.label} ${group}`, query.trim())
+  readsQuery(item) ||
+  actionMatchesQuery(`${item.label} ${item.description ?? ''} ${group}`, query.trim())
 
 /**
  * Whether the typed words find an authored item on their own merits: one that

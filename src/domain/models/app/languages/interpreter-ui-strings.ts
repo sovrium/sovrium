@@ -6,6 +6,7 @@
  */
 
 import { COMPONENT_UI_STRINGS } from './interpreter-ui-strings-components'
+import { EMAIL_UI_STRINGS } from './interpreter-ui-strings-email'
 import { FILTER_BAR_UI_STRINGS } from './interpreter-ui-strings-filter-bar'
 
 /**
@@ -136,6 +137,8 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   // ---- Data table: pager ----
   'datatable.pagination.range': { en: '{from}–{to} of {total}', fr: '{from}–{to} sur {total}' },
   'datatable.pagination.empty': { en: 'No results', fr: 'Aucun résultat' },
+  /** The count line of a grid whose rows fit on one page; none is drawn at one row. */
+  'datatable.pagination.rows': { en: '{count} rows', fr: '{count} lignes' },
   'datatable.pagination.page': { en: 'Page {page} of {count}', fr: 'Page {page} sur {count}' },
   'datatable.pagination.previous': { en: 'Previous', fr: 'Précédent' },
   'datatable.pagination.previousLabel': { en: 'Previous page', fr: 'Page précédente' },
@@ -189,7 +192,7 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'field.loading': { en: 'Loading field...', fr: 'Chargement du champ…' },
 
   // ---- Error and missing-configuration states of a data component ----
-  /** `{error}` is a failed read's cause; `{setting}` a missing binding, drawn as code. */
+  /** `{error}` is a failed read's reason (`component.readFailure.*`); `{setting}` a missing binding, drawn as code. */
   'component.refreshToRetry': {
     en: 'Refresh the page to try again.',
     fr: 'Actualisez la page pour réessayer.',
@@ -197,6 +200,27 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'component.configHint': {
     en: 'Add it to this component in your app config, then redeploy.',
     fr: 'Ajoutez-la à ce composant dans la configuration de l’application, puis redéployez.',
+  },
+  /** Why a read failed, from its status alone: what fills a `<component>.loadFailed` `{error}`. */
+  'component.readFailure.rateLimited': {
+    en: 'too many requests, wait a moment',
+    fr: 'trop de requêtes, patientez un instant',
+  },
+  'component.readFailure.notFound': {
+    en: 'this data is not available to you',
+    fr: 'ces données ne vous sont pas accessibles',
+  },
+  'component.readFailure.sessionEnded': {
+    en: 'your session has ended, sign in again',
+    fr: 'votre session a pris fin, reconnectez-vous',
+  },
+  'component.readFailure.refused': {
+    en: 'the server did not accept the requested filter or sort',
+    fr: 'le serveur n’a pas accepté le filtre ou le tri demandé',
+  },
+  'component.readFailure.unavailable': {
+    en: 'the server could not answer',
+    fr: 'le serveur n’a pas pu répondre',
   },
   'kpi.loadFailed': {
     en: 'Failed to load KPI records: {error}',
@@ -284,6 +308,20 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'action.running': { en: 'Running…', fr: 'Exécution…' },
   'form.required': { en: 'This field is required', fr: 'Ce champ est obligatoire' },
   'form.requiredNamed': { en: '{label} is required', fr: 'Le champ {label} est obligatoire' },
+  /** An address the browser or the server refuses as malformed, naming the field. */
+  'form.invalidEmailNamed': {
+    en: '{label} must be a valid email address',
+    fr: 'Le champ {label} doit contenir une adresse e-mail valide',
+  },
+  'form.invalidUrlNamed': {
+    en: '{label} must be a valid URL',
+    fr: 'Le champ {label} doit contenir une URL valide',
+  },
+  /** A value another record already holds, told to a submitter who may read it. */
+  'form.takenNamed': {
+    en: '{label} is already in use',
+    fr: 'Le champ {label} contient une valeur déjà utilisée',
+  },
   /** The legend above a form with a required field, explaining the asterisk. */
   'form.requiredLegend': {
     en: 'Fields marked * are required',
@@ -556,96 +594,7 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'auth.pending.verifyTwoFactor': { en: 'Verifying…', fr: 'Vérification…' },
 
   // ---- Default auth emails (no `auth.emailTemplates` entry) ----
-  // Read in the recipient's stored language, else the app's default language,
-  // else English. `{app}` is the app's name.
-  'email.greeting': { en: 'Hi {name},', fr: 'Bonjour {name},' },
-  'email.greetingAnonymous': { en: 'Hi,', fr: 'Bonjour,' },
-  'email.greetingThere': { en: 'Hi there,', fr: 'Bonjour,' },
-  'email.linkFallback': {
-    en: "If the button doesn't work, copy and paste this link into your browser:",
-    fr: 'Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :',
-  },
-  'email.linkExpires': {
-    en: 'This link will expire in {expiry}.',
-    fr: 'Ce lien expire dans {expiry}.',
-  },
-  'email.expiry.minutes10': { en: '10 minutes', fr: '10 minutes' },
-  'email.expiry.hour1': { en: '1 hour', fr: '1 heure' },
-  'email.expiry.hours24': { en: '24 hours', fr: '24 heures' },
-  'email.requestedNotice': {
-    en: "This email was sent by {app}. If you didn't request this, please ignore this email.",
-    fr: 'Cet e-mail a été envoyé par {app}. Si vous n’êtes pas à l’origine de cette demande, ignorez-le.',
-  },
-  'email.resetPassword.subject': {
-    en: 'Reset your {app} password',
-    fr: 'Réinitialisez votre mot de passe {app}',
-  },
-  'email.resetPassword.intro': {
-    en: 'We received a request to reset your password for your {app} account.',
-    fr: 'Nous avons reçu une demande de réinitialisation du mot de passe de votre compte {app}.',
-  },
-  'email.resetPassword.cta': {
-    en: 'Click the button below to reset your password:',
-    fr: 'Cliquez sur le bouton ci-dessous pour réinitialiser votre mot de passe :',
-  },
-  'email.resetPassword.button': { en: 'Reset Password', fr: 'Réinitialiser le mot de passe' },
-  'email.resetPassword.textCta': {
-    en: 'Reset your password by visiting this link:',
-    fr: 'Réinitialisez votre mot de passe en ouvrant ce lien :',
-  },
-  'email.resetPassword.ignore': {
-    en: "If you didn't request a password reset, you can safely ignore this email.",
-    fr: 'Si vous n’avez pas demandé de réinitialisation, ignorez cet e-mail.',
-  },
-  'email.verification.subject': {
-    en: 'Verify your {app} email address',
-    fr: 'Confirmez votre adresse e-mail {app}',
-  },
-  'email.verification.intro': {
-    en: 'Welcome to {app}! Please verify your email address to complete your registration.',
-    fr: 'Bienvenue sur {app} ! Confirmez votre adresse e-mail pour terminer votre inscription.',
-  },
-  'email.verification.cta': {
-    en: 'Click the button below to verify your email:',
-    fr: 'Cliquez sur le bouton ci-dessous pour confirmer votre adresse :',
-  },
-  'email.verification.button': { en: 'Verify Email', fr: 'Confirmer l’adresse' },
-  'email.verification.textCta': {
-    en: 'Verify your email by visiting this link:',
-    fr: 'Confirmez votre adresse en ouvrant ce lien :',
-  },
-  'email.verification.ignore': {
-    en: "If you didn't create an account with {app}, you can safely ignore this email.",
-    fr: 'Si vous n’avez pas créé de compte sur {app}, ignorez cet e-mail.',
-  },
-  'email.magicLink.subject': { en: 'Sign in to {app}', fr: 'Connexion à {app}' },
-  'email.magicLink.body': {
-    en: 'Click here to sign in to {app}:',
-    fr: 'Cliquez ici pour vous connecter à {app} :',
-  },
-  'email.magicLink.button': { en: 'Sign In', fr: 'Se connecter' },
-  'email.invitation.subject': {
-    en: 'You are invited to join {app}',
-    fr: 'Invitation à rejoindre {app}',
-  },
-  'email.invitation.invited': {
-    en: '{inviter} invited you to join {app}.',
-    fr: '{inviter} vous invite à rejoindre {app}.',
-  },
-  /** The HTML part's call to action; `{link}` is the link, drawn around `email.invitation.here`. */
-  'email.invitation.htmlCta': {
-    en: 'Click {link} to set your password and accept the invitation.',
-    fr: 'Choisissez votre mot de passe et {link}.',
-  },
-  'email.invitation.here': { en: 'here', fr: 'acceptez l’invitation' },
-  'email.invitation.textCta': {
-    en: 'Click the link below to set your password and accept the invitation:',
-    fr: 'Ouvrez le lien ci-dessous pour choisir votre mot de passe et accepter l’invitation :',
-  },
-  'email.invitation.singleUse': {
-    en: 'This link is single-use.',
-    fr: 'Ce lien ne fonctionne qu’une fois.',
-  },
+  ...EMAIL_UI_STRINGS,
 
   // ---- Two-step enrolment: the scan screen and the recovery codes ----
   'twoFactor.qrTitle': {
@@ -693,6 +642,45 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'breadcrumb.more': { en: 'More', fr: 'Plus' },
   /** A `theme-toggle`'s accessible name (and text) when the author declares no `label`. */
   'theme.toggle': { en: 'Toggle theme', fr: 'Changer de thème' },
+  /**
+   * A `consent-choice` for `analytics`, when the author declares no text: the
+   * toggle's name, its status while measured, while turned off, while a
+   * browser privacy signal keeps it off, and its message without JavaScript.
+   */
+  'consent.analytics.label': { en: 'Measure my visits', fr: 'Mesurer mes visites' },
+  'consent.analytics.granted': {
+    en: 'Your visits to this site are measured.',
+    fr: 'Vos visites sur ce site sont mesurées.',
+  },
+  'consent.analytics.denied': {
+    en: 'Your visits to this site are not measured.',
+    fr: 'Vos visites sur ce site ne sont pas mesurées.',
+  },
+  'consent.analytics.signal': {
+    en: 'Your browser asks sites not to measure visits, so this site does not.',
+    fr: 'Votre navigateur demande aux sites de ne pas mesurer les visites, ce site ne les mesure donc pas.',
+  },
+  'consent.analytics.noScript': {
+    en: 'JavaScript is off in this browser, so your visits are not measured.',
+    fr: 'JavaScript est désactivé dans ce navigateur, vos visites ne sont donc pas mesurées.',
+  },
+  /** A `consent-choice` for any other purpose, when the author declares no status text. */
+  'consent.purpose.granted': { en: 'On.', fr: 'Activé.' },
+  'consent.purpose.denied': { en: 'Off.', fr: 'Désactivé.' },
+  /** The consent banner's own text. */
+  'consent.banner.title': { en: 'Your privacy choices', fr: 'Vos choix de confidentialité' },
+  'consent.banner.description': {
+    en: 'This site asks before it turns on the services below. If you refuse, they stay off. You can change your mind at any time.',
+    fr: "Ce site vous demande votre accord avant d'activer les services ci-dessous. Si vous refusez, ils restent désactivés. Vous pouvez changer d'avis à tout moment.",
+  },
+  'consent.banner.policyLink': {
+    en: 'Read the privacy policy',
+    fr: 'Lire la politique de confidentialité',
+  },
+  'consent.banner.refuseAll': { en: 'Refuse all', fr: 'Tout refuser' },
+  'consent.banner.acceptAll': { en: 'Accept all', fr: 'Tout accepter' },
+  'consent.banner.saveChoices': { en: 'Save my choices', fr: 'Enregistrer mes choix' },
+  'consent.banner.saved': { en: 'Your choice is saved.', fr: 'Votre choix est enregistré.' },
 
   // ---- Command palette: the create-record dialog ----
   /** The dialog's heading and accessible name. */

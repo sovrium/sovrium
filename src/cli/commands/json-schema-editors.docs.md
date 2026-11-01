@@ -1,6 +1,6 @@
 # Editor Setup
 
-> Pointing an editor at the JSON Schema gives a config file autocomplete, hover documentation and errors underlined as you type — the same structural checks the validator runs, minus the trip to a terminal.
+> Pointing an editor at the JSON Schema gives a config file autocomplete, hover documentation and errors underlined as you type: the same structural checks the validator runs, minus the trip to a terminal.
 
 ## VS Code
 
@@ -22,7 +22,7 @@ Point it at a locally generated file instead to work offline, or to pin the exac
 name: my-app
 ```
 
-Generate that file with `sovrium schema --output app.schema.json` and commit it. Regenerate it whenever you upgrade the binary — a stale schema file is worse than none, because the squiggles it draws are confident and wrong.
+Generate that file with `sovrium schema --output app.schema.json` and commit it. Regenerate it whenever you upgrade the binary. A stale schema file is worse than none, because the squiggles it draws are confident and wrong.
 
 ### Mapping it in settings
 
@@ -44,7 +44,7 @@ Better when several files across a workspace share the schema.
 
 ### A partial file holding one section
 
-A file pulled in with `$ref` holds the value of one top-level key — `tables.yaml` is the `tables` array — and the whole-config schema would flag every line of it. `sovrium schema --output schemas/app.json` also writes `schemas/app/<key>.json`, one schema per top-level key; point the partial at the one for its key:
+A file pulled in with `$ref` holds the value of one top-level key (`tables.yaml` is the `tables` array), and the whole-config schema would flag every line of it. `sovrium schema --output schemas/app.json` also writes `schemas/app/<key>.json`, one schema per top-level key; point the partial at the one for its key:
 
 ```yaml
 # yaml-language-server: $schema=./schemas/app/tables.json
@@ -54,7 +54,7 @@ A file pulled in with `$ref` holds the value of one top-level key — `tables.ya
     - { id: 1, name: name, type: single-line-text }
 ```
 
-The per-key files reference a shared `schemas/app/_defs.json` by relative path, so keep the `schemas/` folder together. A partial holding a single element — one table out of the array — matches none of them.
+The per-key files reference a shared `schemas/app/_defs.json` by relative path, so keep the `schemas/` folder together. A partial holding a single element (one table out of the array) matches none of them.
 
 ## JetBrains IDEs
 
@@ -66,6 +66,6 @@ Open **Settings → Languages & Frameworks → Schemas and DTDs → JSON Schema 
 
 Editor validation is **structural**. It catches a misspelled property, a value of the wrong type, an enum member that does not exist.
 
-It does not catch cross-section mistakes — an automation naming a table that was never declared, a `$ref` pointing at a missing file — because those need the whole app resolved first, and an editor is looking at one file. Run `sovrium validate` for that, and run it in CI. Green squiggles are a fast first pass, not the gate.
+It does not catch cross-section mistakes, such as an automation naming a table that was never declared or a `$ref` pointing at a missing file, because those need the whole app resolved first, and an editor is looking at one file. Run `sovrium validate` for that, and run it in CI. Green squiggles are a fast first pass, not the gate.
 
 **Authoring in TypeScript instead needs no schema mapping at all.** Running `sovrium types` writes a declaration that gives the editor the same information through the type system, and the two approaches are alternatives rather than layers.

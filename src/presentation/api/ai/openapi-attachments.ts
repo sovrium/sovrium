@@ -10,7 +10,7 @@ import {
   chatAttachmentUploadQuerySchema,
   chatAttachmentUploadResponseSchema,
 } from '@/domain/models/api/ai/chat'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   effectJsonResponse,
   effectParameters,

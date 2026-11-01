@@ -89,6 +89,9 @@ export const normalizeDataType = (dataType: string): string => {
  *
  * Falls back to the field-type mapping when the map has no entry for the
  * related table (unknown parent), preserving the historical INTEGER default.
+ *
+ * The expectation is spoken in PostgreSQL's vocabulary, like the field-type
+ * mapping beside it: the type comparisons it feeds run on PostgreSQL only.
  */
 const resolveExpectedColumnType = (
   field: Fields[number],
@@ -100,7 +103,7 @@ const resolveExpectedColumnType = (
         'relatedTable' in field &&
         typeof field.relatedTable === 'string' &&
         tablePrimaryKeyTypes?.has(field.relatedTable) === true
-      ? resolvePrimaryKeyColumnType(tablePrimaryKeyTypes.get(field.relatedTable))
+      ? resolvePrimaryKeyColumnType(tablePrimaryKeyTypes.get(field.relatedTable), 'postgres')
       : mapFieldTypeToPostgres(field)
 
 /**

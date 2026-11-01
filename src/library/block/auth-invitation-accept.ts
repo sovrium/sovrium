@@ -11,8 +11,8 @@ import {
   authHeading,
   authPage,
   footerLink,
-} from '@/library/manifest/auth-block-kit'
-import { asComponent, param, stringParam, THEME_NOTE } from '@/library/manifest/block-kit'
+} from '@/library/kit/auth-block-kit'
+import { asComponent, param, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 type Node = Readonly<Record<string, unknown>>

@@ -21,14 +21,14 @@
  */
 
 import { Effect } from 'effect'
-import { BuildFormDetail, BuildFormsList } from '@/application/use-cases/admin/forms-overview'
+import { buildFormDetail, buildFormsList } from '@/application/use-cases/admin/forms-overview'
 import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import { formatDayRelativeTime } from '@/domain/kernel/format/day-relative-time'
 import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { readableName } from '@/domain/models/app/auth/readable-name-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { recordTitleOf } from '@/domain/models/app/tables/record-title-service'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 import type { AdminReadRequest } from '@/application/use-cases/admin/admin-read-operation'
 import type { FormsListInput } from '@/application/use-cases/admin/forms-overview'
@@ -72,8 +72,7 @@ export const submissionsResultSummary = (total: number, language: ConsoleLanguag
 
 /** The form's questions, in order, that can name a submission, typed as the title rule reads them. */
 const titleCandidates = (app: App, form: Form) => {
-  const columns =
-    app.tables?.find((table) => table.name === form.submitTo?.table)?.fields ?? undefined
+  const columns = findTableByName(app.tables, form.submitTo?.table)?.fields ?? undefined
   return form.fields.flatMap((field) => {
     if (field.kind === 'standalone') {
       const type = STANDALONE_TITLE_TYPES[field.inputType]
@@ -85,7 +84,11 @@ const titleCandidates = (app: App, form: Form) => {
   })
 }
 
-/** A submission's name for people — see the module header for what each read may reveal. */
+/**
+ * A submission's name for people — see the module header for what each read may
+ * reveal. An unnamed one reads as its moment, on the operator's wall clock
+ * (`operatorTimezone`, read by the caller).
+ */
 export const submissionLabelOf = (
   app: App,
   submission: {
@@ -93,7 +96,8 @@ export const submissionLabelOf = (
     readonly submittedAt: string
     readonly body?: Readonly<Record<string, unknown>>
   },
-  language: ConsoleLanguage
+  language: ConsoleLanguage,
+  operatorTimezone: string
 ): string => {
   const form = app.forms?.find((candidate) => candidate.name === submission.formName)
   const named =
@@ -107,7 +111,7 @@ export const submissionLabelOf = (
   const when = formatDayRelativeTime(
     submission.submittedAt,
     usableLocale(locale),
-    resolveOperatorTimezone(),
+    operatorTimezone,
     onDevTimeline()
   )
   return `${SUBMISSION_WORDS[language].word} · ${when}`
@@ -149,7 +153,7 @@ export const readFormsList = Effect.fn('admin.forms.read-forms-list')(function* 
   input: FormsListInput,
   caller: AdminReadRequest
 ) {
-  const outcome = yield* BuildFormsList(app, input)
+  const outcome = yield* buildFormsList(app, input)
   if (outcome._tag !== 'Ok') return outcome
   const language = yield* resolveOperatorLanguage(caller)
   const items = outcome.body.items.map((item) => labelled(app, item, language))
@@ -162,7 +166,7 @@ export const readFormDetail = Effect.fn('admin.forms.read-form-detail')(function
   formName: string,
   caller: AdminReadRequest
 ) {
-  const outcome = yield* BuildFormDetail(app, formName)
+  const outcome = yield* buildFormDetail(app, formName)
   if (outcome._tag !== 'Ok') return outcome
   const language = yield* resolveOperatorLanguage(caller)
   return { _tag: 'Ok', body: labelled(app, outcome.body, language) } as const

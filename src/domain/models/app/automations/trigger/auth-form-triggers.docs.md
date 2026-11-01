@@ -1,6 +1,6 @@
 # Auth & Form Triggers
 
-> The two triggers a person starts by using your app — authenticating, or submitting a form.
+> The two triggers a person starts by using your app: authenticating, or submitting a form.
 
 Both are the usual entry point for onboarding, notification and CRM-sync workflows.
 
@@ -35,25 +35,25 @@ automations:
 | `emailVerified`      | The address becomes verified                                                                                           | The account is updated later                                                                   |
 | `invitationAccepted` | An invited person sets their password through their invitation link                                                    | The link is invalid, expired, revoked or already used; the invitation is only sent             |
 
-A first sign-in that also creates the account — a first magic link, a first single sign-on — fires both `signUp` and `signIn`.
+A first sign-in that also creates the account (a first magic link, a first single sign-on) fires both `signUp` and `signIn`.
 
 Every event hands its actions `{{trigger.data.event}}` and `{{trigger.data.user.*}}` (`id`, `email`, `name`, `role`, …). It never hands them a session, a link token or a password: the run history keeps the trigger data, and reading a run must not let anyone sign in as the person it names.
 
-`events` is the trigger's **only** narrowing property. There is no way to restrict an auth trigger to a role, a domain or an OAuth provider in the trigger itself — do that in the first action, with a filter gate.
+`events` is the trigger's **only** narrowing property. There is no way to restrict an auth trigger to a role, a domain or an OAuth provider in the trigger itself. Do that in the first action, with a filter gate.
 
 ### Accepting an invitation
 
 Sending an invitation creates the account, so `signUp` fires then, not when the person accepts. Accepting fires up to three events, always in this order:
 
-1. `emailVerified`, when the acceptance verifies an address that was not verified yet — following the link proves the person reads that mailbox;
+1. `emailVerified`, when the acceptance verifies an address that was not verified yet, since following the link proves the person reads that mailbox;
 2. `invitationAccepted`, once per invitation;
 3. `signIn`, when the acceptance opens their session.
 
-To onboard invited people, listen to `invitationAccepted` alone: `signIn` fires again at every later sign-in. Besides `{{trigger.data.user.*}}`, it hands its actions `{{trigger.data.role}}` (the role the account holds), `{{trigger.data.invitedBy.*}}` (`id`, `email`, `name` of whoever sent the invitation — empty when no sender was recorded) and `{{trigger.data.invitationCreatedAt}}` (when the invitation was sent).
+To onboard invited people, listen to `invitationAccepted` alone: `signIn` fires again at every later sign-in. Besides `{{trigger.data.user.*}}`, it hands its actions `{{trigger.data.role}}` (the role the account holds), `{{trigger.data.invitedBy.*}}` (`id`, `email`, `name` of whoever sent the invitation, empty when no sender was recorded) and `{{trigger.data.invitationCreatedAt}}` (when the invitation was sent).
 
 ### `signUp` and `emailVerified` are not interchangeable
 
-Under `requireEmailVerification: true`, `signUp` fires for an account that cannot yet sign in. If a welcome message should only reach a real, reachable mailbox, trigger on `emailVerified` instead — otherwise the first thing a mistyped address produces is a bounce.
+Under `requireEmailVerification: true`, `signUp` fires for an account that cannot yet sign in. If a welcome message should only reach a real, reachable mailbox, trigger on `emailVerified` instead. Otherwise the first thing a mistyped address produces is a bounce.
 
 ## Form trigger
 
@@ -85,7 +85,7 @@ It is a form **name**, not a page path. A form reachable from several pages ther
 
 Submitted values arrive at `{{trigger.data.<field>}}`, keyed by form field name.
 
-When the person who submits is signed in, the run knows who asked: `{{trigger.user.id}}`, `{{trigger.user.role}}`, `{{trigger.user.email}}` and `{{trigger.user.name}}`, the same shape a record trigger and a session webhook hand their runs, whether the form writes a table or only stores its submissions (`submitTo: { storeSubmission: true }`). A visitor who has not signed in has no `trigger.user`: each of the four reads empty. The submitted values cannot set it — a field named `user` lands under `{{trigger.data.*}}`.
+When the person who submits is signed in, the run knows who asked: `{{trigger.user.id}}`, `{{trigger.user.role}}`, `{{trigger.user.email}}` and `{{trigger.user.name}}`, the same shape a record trigger and a session webhook hand their runs, whether the form writes a table or only stores its submissions (`submitTo: { storeSubmission: true }`). A visitor who has not signed in has no `trigger.user`: each of the four reads empty. The submitted values cannot set it: a field named `user` lands under `{{trigger.data.*}}`.
 
 ```yaml
 automations:

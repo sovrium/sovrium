@@ -21,6 +21,7 @@
  */
 
 import { zonedWallClockInstant } from '@/domain/kernel/time/zoned-calendar'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -31,9 +32,10 @@ import type { Form } from '@/domain/models/app/forms'
  */
 export const boundDatetimeZones = (
   app: Readonly<App>,
-  form: Readonly<Form>
+  form: Readonly<Form>,
+  env: Readonly<Record<string, string | undefined>>
 ): ReadonlyMap<string, string> => {
-  const table = app.tables?.find((candidate) => candidate.name === form.submitTo.table)
+  const table = findTableByName(app.tables, form.submitTo.table)
   if (table === undefined) return new Map()
   const zones = new Map(
     (table.fields ?? [])
@@ -44,7 +46,7 @@ export const boundDatetimeZones = (
       })
   )
   if (zones.size === 0) return new Map()
-  const appZone = parseSovriumTimezone().zoneId
+  const appZone = parseSovriumTimezone(env).zoneId
   return new Map(
     form.fields.flatMap((field) =>
       field.kind === 'table-field' && zones.has(field.column)

@@ -50,13 +50,19 @@ import {
   type DateTokenResult,
 } from '@/domain/kernel/format/date-tokens'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
+import { isDebugNamespaceOn } from '@/domain/models/process-env/logging'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { dropOptions, optionalStr, toStr } from './helper-coercion'
 
 // ─── failure surfacing ───────────────────────────────────────────────────
 
-const isTemplateDebug = (): boolean => process.env['DEBUG']?.includes('sovrium:templates') === true
+/**
+ * Whether `DEBUG=sovrium:templates` asks for template failures to be logged.
+ * Read when a failure happens, so the switch takes effect without a restart;
+ * the template engine and its helpers all ask here.
+ */
+export const isTemplateDebug = (): boolean => isDebugNamespaceOn(process.env, 'sovrium:templates')
 
 /**
  * Unwrap a `DateTokenResult`, falling back to `fallback` on failure. The
@@ -81,7 +87,7 @@ const orElse = <A>(result: DateTokenResult<A>, fallback: A, context: string): A 
  * (`SOVRIUM_TIMEZONE`, UTC when unset), read at each call so it follows the
  * server's environment rather than whatever it was when this module loaded.
  */
-const defaultTimezone = (): string => resolveOperatorTimezone()
+const defaultTimezone = (): string => resolveOperatorTimezone(process.env)
 
 /**
  * Read a helper argument as an instant. Accepts an ISO string, an epoch
@@ -100,7 +106,7 @@ export const toInstant = (value: unknown): Readonly<Date> | undefined => {
 }
 
 /** Current instant — the single clock read shared by `now` / `today`. */
-export const isoNow = (): string => serverNow().toISOString()
+export const isoNow = (): string => serverNow(process.env).toISOString()
 
 // ─── format ──────────────────────────────────────────────────────────────
 

@@ -37,24 +37,33 @@
 
 import { Effect } from 'effect'
 import { resumeAnsweredTurn } from '@/application/use-cases/agents/agent-elicitation-resume'
-import { elicitationAnswerSchema } from '@/domain/models/api/ai/chat'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { rememberChatTurn } from '@/application/use-cases/agents/chat-turn/durable-memory'
+import { forwardChatTurnStream } from '@/application/use-cases/agents/chat-turn/stream-chat-turn'
+import {
+  chatElicitationCancelledResponseSchema,
+  elicitationAnswerSchema,
+} from '@/domain/models/api/ai/chat'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import {
   checkElicitationContent,
   elicitationResultText,
   type ElicitationAnswer,
 } from '@/domain/models/app/agents/ask-user-service'
-import { logError } from '@/infrastructure/logging/logger'
-import { requireDomainContext } from '@/infrastructure/logging/request-effect'
-import { persistChatTurnDurably } from '@/presentation/api/agents/chat-durable-memory'
 import {
   closeChatElicitation,
   findChatElicitation,
   type HeldChatElicitation,
 } from '@/presentation/api/agents/chat-elicitations'
-import { buildStreamResponse } from '@/presentation/api/agents/chat-stream'
+import { withChatTurnReads } from '@/presentation/api/agents/chat-reader-rows'
+import { respondWithTurnStream } from '@/presentation/api/agents/chat-stream'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import {
+  respondWith,
+  runHandlerEffect,
+  runHandlerStream,
+  type HandlerAnswer,
+} from '@/presentation/api/runtime/run-effect'
 import { validateRequest } from '@/presentation/api/runtime/validate-request'
 import type { Context, Hono, TypedResponse } from 'hono'
 
@@ -85,75 +94,73 @@ const readAnswer = (
  * agent's own question; for a server's, the server's result for the tool call,
  * once the answer was relayed to it and the call finished.
  */
-const questionResult = (
-  held: HeldChatElicitation,
-  answer: ElicitationAnswer
-): Promise<string> | string => {
+const questionResult = (held: HeldChatElicitation, answer: ElicitationAnswer) => {
   const { relay } = held.elicitation
-  return relay === undefined ? elicitationResultText(answer) : Effect.runPromise(relay(answer))
+  return relay === undefined ? Effect.succeed(elicitationResultText(answer)) : relay(answer)
 }
 
 /** Stream the rest of the paused turn, the answer as its question's result. */
-const streamAnsweredTurn = async (
+const streamAnsweredTurn = (
   c: Context,
-  held: HeldChatElicitation,
-  answer: ElicitationAnswer
-): Promise<Response> => {
-  const { continuation } = held.elicitation
-  if (continuation === undefined) return notFound(c, NOT_FOUND)
-  const result = await questionResult(held, answer)
-  return buildStreamResponse(c, {
-    services: requireDomainContext(c),
-    message: held.message,
-    sessionId: held.sessionId,
-    userId: held.userId,
-    spec: held.spec,
-    agentName: held.agentName,
-    passages: held.passages,
-    parentId: held.parentId,
-    events: resumeAnsweredTurn({
-      continuation,
-      answer: result,
-      spec: held.spec,
-    }),
+  handle: HandlerAnswer,
+  input: { readonly held: HeldChatElicitation; readonly answer: ElicitationAnswer }
+) =>
+  Effect.gen(function* () {
+    const { held } = input
+    const { continuation } = held.elicitation
+    if (continuation === undefined) return notFound(c, NOT_FOUND)
+    const result = yield* questionResult(held, input.answer)
+    return yield* respondWithTurnStream(c, handle, held, (wire) =>
+      forwardChatTurnStream(
+        {
+          ...held,
+          // The answered turn is saved as it always was: without the question's parts.
+          userParts: undefined,
+          resumed: resumeAnsweredTurn({ continuation, answer: result, spec: held.spec }),
+        },
+        wire
+      )
+    )
   })
-}
 
 /**
  * A dismissed question: the turn does NOT resume — no model call — and is
  * saved as it stood, the person's message and the agent's question, marked
  * cancelled. A server's question is answered `cancel` first, so its tool call
  * completes; its result is not handed to anyone. The person's next message
- * carries the conversation on.
+ * carries the conversation on. The save is best-effort, like every chat save:
+ * the question is closed either way.
  */
-const cancelledTurn = async (c: Context, held: HeldChatElicitation): Promise<Response> => {
-  await questionResult(held, { action: 'cancel' })
-  await persistChatTurnDurably(requireDomainContext(c), {
-    userId: held.userId,
-    sessionId: held.sessionId,
-    userMessage: held.message,
-    assistantReply: '',
-    ...(held.agentName !== undefined && { agentName: held.agentName }),
-    parentId: held.parentId,
-    assistantElicitation: {
-      message: held.elicitation.message,
-      state: 'cancelled',
-      ...(held.elicitation.server !== undefined && { server: held.elicitation.server }),
-    },
-  }).catch((error: unknown) => {
-    // Best-effort, like every chat save: the question is closed either way.
-    logError('[chat-elicitation] saving a cancelled turn failed', error)
+const cancelledTurn = (c: Context, held: HeldChatElicitation) =>
+  Effect.gen(function* () {
+    yield* questionResult(held, { action: 'cancel' })
+    yield* rememberChatTurn({
+      userId: held.userId,
+      sessionId: held.sessionId,
+      userMessage: held.message,
+      assistantReply: '',
+      ...(held.agentName !== undefined && { agentName: held.agentName }),
+      parentId: held.parentId,
+      assistantElicitation: {
+        message: held.elicitation.message,
+        state: 'cancelled',
+        ...(held.elicitation.server !== undefined && { server: held.elicitation.server }),
+      },
+    })
+    return yield* respondWith(
+      c,
+      Effect.succeed({ status: 'cancelled', elicitationId: held.elicitation.id }),
+      chatElicitationCancelledResponseSchema
+    )
   })
-  return c.json({ status: 'cancelled', elicitationId: held.elicitation.id }, 200)
-}
 
 /** A cancel closes the paused turn where it stood; any other answer resumes it. */
-const respond = (
-  c: Context,
-  held: HeldChatElicitation,
-  answer: ElicitationAnswer
-): Promise<Response> | Response =>
-  answer.action === 'cancel' ? cancelledTurn(c, held) : streamAnsweredTurn(c, held, answer)
+const respond = (c: Context, held: HeldChatElicitation, answer: ElicitationAnswer) =>
+  answer.action === 'cancel'
+    ? runHandlerEffect(c, cancelledTurn(c, held))
+    : runHandlerStream(c, (handle) =>
+        withChatTurnReads(streamAnsweredTurn(c, handle, { held, answer }))
+      )
 
 const handleChatElicitation = async (c: Context): Promise<Response | TypedResponse<unknown>> => {
   const userId = getSessionContext(c)?.userId

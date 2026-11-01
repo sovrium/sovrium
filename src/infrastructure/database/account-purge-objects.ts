@@ -11,17 +11,45 @@
  * the blob store, removed after the commit (`account-purge.ts` runs the rest).
  */
 
-import { eq } from 'drizzle-orm'
-import { Effect } from 'effect'
+import { eq, sql } from 'drizzle-orm'
+import { Effect, Layer } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { AVATAR_BUCKET_NAME, avatarStorageKeyFromUrl } from '@/domain/models/app/auth/avatar-url'
-import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import { Database, type DatabaseService } from '@/infrastructure/database/drizzle/layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { closeUserConnections, SESSION_ENDED } from '@/infrastructure/realtime/connection-counter'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import { executeRawOn } from './sql/dialect-execute'
+import { withPromiseTransaction } from './transaction'
+import type { PortableTx } from '@/infrastructure/database'
+
+// The erasure's storage step runs with no runtime in hand (it is called as a
+// promise), so its catalog is read through the database the erasure runs on.
+const erasureStorageLive = (database: DatabaseService) =>
+  Layer.provide(StorageServiceLive, Layer.succeed(Database, database))
+
+/**
+ * The user's stored `auth.user.image`, read BEFORE the erasure transaction runs.
+ *
+ * The purge deletes the row, so this value is unrecoverable afterwards. Since
+ * every upload road records its uploader, the catalog names a NEW avatar as
+ * hers like any other file (its key comes back from the census sweep); this
+ * column remains the only handle on an avatar uploaded before it did, whose
+ * catalog row carries no uploader.
+ */
+export async function readStoredAvatarImage(
+  { client: db, dialect }: DatabaseService,
+  userId: string
+): Promise<string | null> {
+  const rows = (await executeRawOn(
+    dialect.kind,
+    db,
+    sql`SELECT image FROM ${dialect.sql.authTableRef('user')} WHERE id = ${userId}`
+  )) as readonly { image: string | null }[]
+  return rows[0]?.image ?? null
+}
 
 /**
  * Delete the erased user's avatar object from the blob store.
@@ -42,6 +70,7 @@ import type { DrizzleTransaction } from '@/infrastructure/database'
  * object and is skipped.
  */
 export async function removeErasedAvatarObject(
+  database: DatabaseService,
   userId: string,
   image: string | null
 ): Promise<void> {
@@ -53,7 +82,7 @@ export async function removeErasedAvatarObject(
     // Bracket notation dodges a `drizzle/enforce-delete-with-where` false
     // positive on the storage port's `delete` — same workaround as `buckets.ts`.
     yield* storage['delete'](key, AVATAR_BUCKET_NAME)
-  }).pipe(Effect.provide(StorageServiceLive), Effect.result)
+  }).pipe(Effect.provide(erasureStorageLive(database)), Effect.result)
 
   const result = await Effect.runPromise(program)
   if (result._tag === 'Failure') {
@@ -79,7 +108,11 @@ export async function removeErasedAvatarObject(
  * sweep goes on. Every key's cached transforms are evicted either way, because
  * the download path answers from that cache before it reaches storage.
  */
-export async function removeErasedObjects(userId: string, keys: readonly string[]): Promise<void> {
+export async function removeErasedObjects(
+  database: DatabaseService,
+  userId: string,
+  keys: readonly string[]
+): Promise<void> {
   if (keys.length === 0) return
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
@@ -99,7 +132,7 @@ export async function removeErasedObjects(userId: string, keys: readonly string[
         ),
       { discard: true }
     )
-  }).pipe(Effect.provide(StorageServiceLive), Effect.result)
+  }).pipe(Effect.provide(erasureStorageLive(database)), Effect.result)
 
   const result = await Effect.runPromise(program)
   if (result._tag === 'Failure') {
@@ -120,7 +153,7 @@ export async function removeErasedObjects(userId: string, keys: readonly string[
  * bytes, unreachable, after an Art. 17 erasure.
  */
 export async function deleteCatalogRows(
-  tx: Readonly<DrizzleTransaction>,
+  tx: Readonly<PortableTx>,
   userId: string
 ): Promise<readonly string[]> {
   const files = fileStorageMetadataTable()
@@ -134,17 +167,24 @@ export async function deleteCatalogRows(
 /**
  * The two edges of an erasure a test needs to hold: the transaction the rows
  * are deleted in, and the post-commit port that removes the bytes. Live, they
- * are `db.transaction` and {@link removeErasedObjects}.
+ * are the one transaction door (`withPromiseTransaction`, whose body's own
+ * rejection — the last-admin rail's refusal among them — comes back verbatim)
+ * and {@link removeErasedObjects}, both on the database the erasure runs on,
+ * which the seams carry.
  */
 export interface ErasureSeams {
-  readonly inTransaction: <T>(body: (tx: DrizzleTransaction) => Promise<T>) => Promise<T>
+  /** The database the erasure reads the account from and stores its catalog in. */
+  readonly database: DatabaseService
+  readonly inTransaction: <T>(body: (tx: Readonly<PortableTx>) => Promise<T>) => Promise<T>
   readonly removeObjects: (userId: string, keys: readonly string[]) => Promise<void>
 }
 
-export const LIVE_ERASURE_SEAMS: ErasureSeams = {
-  inTransaction: (body) => db.transaction(body),
-  removeObjects: removeErasedObjects,
-}
+export const liveErasureSeams = (database: DatabaseService): ErasureSeams => ({
+  database,
+  inTransaction: (body) =>
+    Effect.runPromise(withPromiseTransaction(database.client, body, (cause) => cause)),
+  removeObjects: (userId, keys) => removeErasedObjects(database, userId, keys),
+})
 
 /**
  * What follows a committed erasure. The account's live realtime connections
@@ -169,5 +209,5 @@ export async function settleCommittedErasure(
   // before carries no uploader and is still reached through the profile column
   // alone.
   if (avatarKey === undefined || held.objectKeys.includes(avatarKey)) return
-  await removeErasedAvatarObject(userId, held.image)
+  await removeErasedAvatarObject(seams.database, userId, held.image)
 }

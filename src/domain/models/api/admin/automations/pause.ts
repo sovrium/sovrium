@@ -26,8 +26,8 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * The operator-visible state of one automation.
@@ -87,7 +87,7 @@ const automationCatalogTriggerSchema = Schema.Struct({
   }),
   label: Schema.String.annotate({
     description:
-      "What the trigger reads as, in the operator's console language — the same words a run it started reads as in the history (`triggerLabel`): `Schedule · daily 06:00`, `Quotes · status → Signed`, `Form · Quote request`, and for an entry its author named, that name after the description (`Manual · on-demand`). Display text only; `name` stays what a filter takes.",
+      "What the trigger reads as, in the operator's console language: the same words a run it started reads as in the history (`triggerLabel`): `Schedule · daily 06:00`, `Quotes · status → Signed`, `Form · Quote request`, and for an entry its author named, that name after the description (`Manual · on-demand`). Display text only; `name` stays what a filter takes.",
   }),
 }).annotate({ identifier: 'AutomationCatalogTrigger' })
 
@@ -108,11 +108,11 @@ export type AutomationCatalogTrigger = typeof automationCatalogTriggerSchema.Typ
  */
 export const automationCatalogItemSchema = Schema.Struct({
   name: Schema.String.annotate({
-    description: 'The config automation name (kebab-case) — the stable identity',
+    description: 'The config automation name (kebab-case), the stable identity',
   }),
   label: Schema.String.annotate({
     description:
-      'What a person reads for the automation: its declared `label`, else its `name` made readable — hyphens and underscores read as spaces, a camelCase boundary as a space, the first letter capitalised (`weekly-digest` reads `Weekly digest`). Always present. Display text only; filters and addresses use `name`.',
+      'What a person reads for the automation: its declared `label`, else its `name` made readable: hyphens and underscores read as spaces, a camelCase boundary as a space, the first letter capitalised (`weekly-digest` reads `Weekly digest`). Always present. Display text only; filters and addresses use `name`.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   trigger: Schema.String.annotate({
     description:
@@ -141,7 +141,7 @@ export const automationCatalogItemSchema = Schema.Struct({
     Schema.NullOr(
       Schema.String.annotate({
         description:
-          "The pause as one reading in the operator's console language — who, then when, on the operator's clock: `Camille Martin · Oct 9, 10:12`, or `System · Oct 13, 16:40` for a pause the platform set itself after repeated failures. Null unless state is paused. Display text only.",
+          "The pause as one reading in the operator's console language: who, then when, on the operator's clock: `Camille Martin · Oct 9, 10:12`, or `System · Oct 13, 16:40` for a pause the platform set itself after repeated failures. Null unless state is paused. Display text only.",
       })
     )
   ),
@@ -202,8 +202,9 @@ export type AutomationPauseParams = typeof automationPauseParamsSchema.Type
 /**
  * `POST /api/admin/automations/:name/{pause,resume}` success response.
  *
- * Echoes the resulting state so the console can reconcile without a second
- * round-trip, though the shipped surface refetches the grid instead.
+ * The automation's whole catalog row in its resulting state, so the console can
+ * reconcile without a second round-trip, though the shipped surface refetches
+ * the grid instead.
  *
  * STATUS CODES (the whole contract):
  *   - `200` — state changed, OR was already in the requested state. Pause and
@@ -217,15 +218,7 @@ export type AutomationPauseParams = typeof automationPauseParamsSchema.Type
  *     automation's behaviour, so the request cannot be honoured. 409 says
  *     precisely that: understood, addressed to a real resource, incoherent
  *     with its current state.
+ *
+ * @public
  */
-export const automationPauseResponseSchema = Schema.Struct({
-  name: Schema.String.annotate({ description: 'The config automation name' }),
-  state: automationOperationalStateSchema,
-  pausedBy: optionalField(
-    Schema.NullOr(Schema.String.annotate({ description: 'Absent unless state is paused' }))
-  ),
-  pausedAt: optionalField(looseIsoDateTime({ description: 'Absent unless state is paused' })),
-}).annotate({ identifier: 'AutomationPauseResponse' })
-
-/** @public */
-export type AutomationPauseResponse = typeof automationPauseResponseSchema.Type
+export type AutomationPauseResponse = AutomationCatalogItem

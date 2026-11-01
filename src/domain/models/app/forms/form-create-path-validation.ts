@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { objectNodes } from '@/domain/kernel/config-parsing/config-node-walk'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The page `form` never creates a table row on its own.
  *
@@ -50,16 +53,6 @@ interface AppForFormCreatePaths {
 
 type Node = Readonly<Record<string, unknown>>
 
-const isRecord = (value: unknown): value is Node =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-/** Every object node reachable from `value`, depth first. */
-export const walk = (value: unknown): readonly Node[] => {
-  if (Array.isArray(value)) return value.flatMap(walk)
-  if (!isRecord(value)) return []
-  return [value, ...Object.values(value).flatMap(walk)]
-}
-
 const isCrudCreate = (action: unknown): boolean =>
   isRecord(action) && action['type'] === 'crud' && action['operation'] === 'create'
 
@@ -95,12 +88,12 @@ export const collectFormCreatePathViolations = (app: AppForFormCreatePaths): rea
   const onPages = (app.pages ?? []).flatMap((page, index) => {
     if (!isRecord(page)) return []
     const where = `pages[${index}] '${nameOf(page, 'unnamed')}'`
-    return [...walk(page['components']), ...walk(page['layout'])].flatMap((node) =>
+    return [...objectNodes(page['components']), ...objectNodes(page['layout'])].flatMap((node) =>
       nodeViolations(node, where)
     )
   })
   const inTemplates = (app.components ?? []).flatMap((template, index) =>
-    walk(template).flatMap((node) =>
+    objectNodes(template).flatMap((node) =>
       nodeViolations(node, `components[${index}] '${nameOf(template, 'unnamed')}'`)
     )
   )

@@ -56,3 +56,13 @@ export const toRecordsApiFilterParam = (
   }))
   return JSON.stringify({ and: conditions })
 }
+
+/**
+ * The page operator a records-API operator spells, or `undefined` for none: the
+ * inverse of {@link toRecordsApiOperator}. A search at call time rather than an
+ * inverted table, so the islands that import this module carry no second table.
+ */
+export const fromRecordsApiOperator = (operator: string): DataFilter['operator'] | undefined =>
+  (Object.keys(API_OPERATORS) as readonly DataFilter['operator'][]).find(
+    (page) => API_OPERATORS[page] === operator
+  )

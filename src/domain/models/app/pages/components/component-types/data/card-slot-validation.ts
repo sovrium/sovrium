@@ -28,12 +28,10 @@
  */
 
 import { Schema } from 'effect'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { qrCodeFields } from '../content/qr-code'
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Component types that read their own records — never allowed in a card slot. */
 const DATA_COMPONENT_TYPES: ReadonlySet<string> = new Set([

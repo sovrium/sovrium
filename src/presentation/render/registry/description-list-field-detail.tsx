@@ -66,7 +66,7 @@ function formatDate(value: unknown, lang: string, withTime: boolean): string {
     month: 'short',
     year: 'numeric',
     ...(withTime
-      ? { hour: '2-digit', minute: '2-digit', timeZone: parseSovriumTimezone().zoneId }
+      ? { hour: '2-digit', minute: '2-digit', timeZone: parseSovriumTimezone(process.env).zoneId }
       : { timeZone: 'UTC' }),
   }).format(instant)
 }

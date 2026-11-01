@@ -6,6 +6,7 @@
  */
 
 import { CONTROL_ID_KEY } from '@/domain/models/app/pages/record-control-service'
+import { componentFields, keyOf, type RenderProps } from './component-rewrite'
 import type { Component } from '@/domain/models/app/pages/components'
 
 type Row = Readonly<Record<string, unknown>>
@@ -21,14 +22,14 @@ type Row = Readonly<Record<string, unknown>>
  */
 export const withControlRecord = (
   component: Component,
-  props: Component['props'],
+  props: RenderProps | undefined,
   record: Row
-): Component['props'] => {
-  if (typeof (component as Row)[CONTROL_ID_KEY] !== 'string') return props
-  if ((props as Row | undefined)?.['_record'] !== undefined) return props
+): RenderProps | undefined => {
+  if (typeof componentFields(component)[CONTROL_ID_KEY] !== 'string') return props
+  if (keyOf(props, '_record') !== undefined) return props
   const disabled = record['_disabled']
   return {
     ...(props ?? {}),
     _record: { id: record['id'], ...(Array.isArray(disabled) ? { _disabled: disabled } : {}) },
-  } as Component['props']
+  }
 }

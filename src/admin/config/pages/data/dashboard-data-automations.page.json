@@ -348,6 +348,30 @@
                           "text": "$t:admin.automations.runs.filter.showRoutine"
                         }
                       ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "submission-filter-row",
+                      "element": "div",
+                      "props": {
+                        "className": "flex items-center has-[input:placeholder-shown]:hidden",
+                        "data-testid": "runs-submission-filter"
+                      },
+                      "children": [
+                        {
+                          "type": "search-input",
+                          "placeholder": "$t:admin.automations.runs.filter.submission",
+                          "props": {
+                            "className": "h-8 w-full sm:w-[220px] font-mono",
+                            "aria-label": "$t:admin.automations.runs.filter.submission"
+                          },
+                          "publishes": {
+                            "bindTo": "automation-runs-filter",
+                            "param": "submissionId",
+                            "url": true
+                          }
+                        }
+                      ]
                     }
                   ]
                 },
@@ -372,7 +396,8 @@
                             "status",
                             "from",
                             "to",
-                            "routine"
+                            "routine",
+                            "submissionId"
                           ]
                         },
                         "refreshMode": "poll",
@@ -548,7 +573,11 @@
                       "type": "navigate",
                       "path": "/runs/$record.id"
                     },
-                    "viewOptions": "toolbar"
+                    "viewOptions": "toolbar",
+                    "countLabel": {
+                      "one": "$t:admin.count.runs.one",
+                      "other": "$t:admin.count.runs.other"
+                    }
                   }
                 }
               ]
@@ -672,7 +701,11 @@
                       }
                     ],
                     "emptyMessage": "$t:admin.automations.catalog.empty",
-                    "viewOptions": "toolbar"
+                    "viewOptions": "toolbar",
+                    "countLabel": {
+                      "one": "$t:admin.count.automations.one",
+                      "other": "$t:admin.count.automations.other"
+                    }
                   }
                 }
               ]

@@ -11,6 +11,7 @@
  * TOP LEVEL for `code-block-component.tsx`.
  */
 
+import { computeCodeBlockContentClasses } from '@/presentation/design/code-block-default-classes'
 import { CODE_BLOCK_WRAP_CLASSES } from '@/presentation/design/code-block-line-classes'
 import type { CodeBlockSize, CodeBlockVariant } from './code-block-frame'
 import type { CodeBlockLineOptions } from '@/presentation/render/elements/code-block-lines'
@@ -45,12 +46,16 @@ export function readLook(component: Record<string, unknown>): {
   }
 }
 
-/** The scrolling `<pre>`'s wrap hook and classes, the same in both branches. */
+/**
+ * The scrolling `<pre>`'s wrap hook and classes, the same in both branches: the
+ * content behaviour (focus ring, trailing-edge fade) always, the wrap on demand.
+ */
 export function wrapOf(lines: CodeBlockLineOptions): {
   readonly attr: 'true' | undefined
-  readonly classes: string | undefined
+  readonly classes: string
 } {
+  const content = computeCodeBlockContentClasses()
   return lines.wrap === true
-    ? { attr: 'true', classes: CODE_BLOCK_WRAP_CLASSES }
-    : { attr: undefined, classes: undefined }
+    ? { attr: 'true', classes: `${content} ${CODE_BLOCK_WRAP_CLASSES}` }
+    : { attr: undefined, classes: content }
 }

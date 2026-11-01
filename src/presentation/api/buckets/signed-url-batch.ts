@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import {
   constraintRefusalMessage,
   constraintsForSign,
@@ -14,6 +15,7 @@ import {
   resolveSignBucket,
 } from '@/application/use-cases/buckets/signed-url-minting'
 import { checkBucketUploadPath } from '@/application/use-cases/buckets/upload-policy'
+import { signedUrlBatchResponseSchema } from '@/domain/models/api/buckets/files'
 import { fileExists } from '@/presentation/api/buckets/signed-download'
 import {
   buildSignedUrl,
@@ -22,6 +24,12 @@ import {
 } from '@/presentation/api/buckets/signed-urls'
 import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
+import type { StorageService } from '@/application/ports/services/storage-service'
 import type { UploadConstraints } from '@/application/use-cases/buckets/signed-upload-constraints'
 import type { App } from '@/domain/models/app'
 import type { Bucket } from '@/domain/models/app/buckets'
@@ -95,27 +103,35 @@ export function createHandleBatchSign(app: App) {
     }
 
     const { files } = (await c.req.json().catch(() => ({}))) as { readonly files?: unknown }
-    const refusal = await refuseUnlessSignable(c, app, bucket, batchOperations(files))
-    if (refusal) return refusal
+    return runHandlerEffect(
+      c,
+      answerFailures(
+        c,
+        Effect.gen(function* () {
+          const refusal = yield* refuseUnlessSignable(c, app, bucket, batchOperations(files))
+          if (refusal) return refusal
 
-    if (!Array.isArray(files)) {
-      return c.json(storageErrorBody('Missing files array', 'BAD_REQUEST'), 400)
-    }
-    if (files.length > MAX_BATCH_SIZE) {
-      return c.json(
-        storageErrorBody(
-          `Batch size ${files.length} exceeds the ${MAX_BATCH_SIZE}-file limit`,
-          'BAD_REQUEST'
-        ),
-        400
+          if (!Array.isArray(files)) {
+            return c.json(storageErrorBody('Missing files array', 'BAD_REQUEST'), 400)
+          }
+          if (files.length > MAX_BATCH_SIZE) {
+            return c.json(
+              storageErrorBody(
+                `Batch size ${files.length} exceeds the ${MAX_BATCH_SIZE}-file limit`,
+                'BAD_REQUEST'
+              ),
+              400
+            )
+          }
+
+          const results = yield* signBatchEntries(c, bucket, files as readonly BatchFileRequest[])
+          if (typeof results === 'string') {
+            return c.json(storageErrorBody(results, 'BAD_REQUEST'), 400)
+          }
+          return yield* respondWith(c, Effect.succeed({ results }), signedUrlBatchResponseSchema)
+        })
       )
-    }
-
-    const results = await signBatchEntries(c, bucket, files as readonly BatchFileRequest[])
-    if (typeof results === 'string') {
-      return c.json(storageErrorBody(results, 'BAD_REQUEST'), 400)
-    }
-    return c.json({ results })
+    )
   }
 }
 
@@ -144,18 +160,15 @@ function pathOf(entry: unknown): string | undefined {
  * an out-of-range `expiresIn` or `maxSize`: the whole request is then
  * rejected and nothing is signed.
  */
-async function signBatchEntries(
-  c: Context,
-  bucketConfig: Bucket,
-  files: readonly BatchFileRequest[]
-): Promise<readonly BatchResult[] | string> {
-  if (files.some((file) => pathOf(file) === undefined)) return 'Missing path'
+function signBatchEntries(c: Context, bucketConfig: Bucket, files: readonly BatchFileRequest[]) {
+  const refused = (message: string) => Effect.succeed<readonly BatchResult[] | string>(message)
+  if (files.some((file) => pathOf(file) === undefined)) return refused('Missing path')
   // An upload entry names the key it creates, so it is held to the explicit-path rules.
   const pathRejection = files
     .filter((file) => operationOf(file) === 'upload')
     .map((file) => checkBucketUploadPath(bucketConfig, pathOf(file) as string))
     .find((rejection) => rejection !== undefined)
-  if (pathRejection) return pathRejection.message
+  if (pathRejection) return refused(pathRejection.message)
   const bucket = bucketConfig.name
   const signer = { bucket: bucketConfig, uploadedBy: getSessionContext(c)?.userId }
   const resolved: readonly ResolvedBatchEntry[] = files.map((file) => {
@@ -168,33 +181,36 @@ async function signBatchEntries(
     }
   })
   if (resolved.some((entry) => entry.expiresInSeconds === undefined)) {
-    return 'Invalid expiresIn value'
+    return refused('Invalid expiresIn value')
   }
   // The first refusal in the order the single form checks them: a malformed
   // `maxSize` before a type the bucket does not accept.
   const refusal = (['invalid', 'type-not-allowed'] as const).find((reason) =>
     resolved.some((entry) => entry.constraints === reason)
   )
-  if (refusal !== undefined) return constraintRefusalMessage(refusal)
+  if (refusal !== undefined) return refused(constraintRefusalMessage(refusal))
 
-  return Promise.all(
-    resolved.map(async ({ path, operation, expiresInSeconds, constraints }) => {
-      // Download entries must reference an existing file; upload entries must not.
-      if (operation === 'download' && !(await fileExists(c, path, bucket))) {
-        return { path, error: 'not_found' } as const
-      }
-      if (operation === 'upload' && (await objectStoredAt(c, path, bucket))) {
-        return { path, error: 'conflict' } as const
-      }
-      const { signedUrl, expiresAt } = buildSignedUrl({
-        c,
-        bucket,
-        path,
-        operation,
-        expiresInSeconds: expiresInSeconds as number,
-        constraints: constraints as UploadConstraints | undefined,
-      })
-      return { path, signedUrl, expiresAt }
-    })
+  return Effect.forEach(
+    resolved,
+    ({ path, operation, expiresInSeconds, constraints }) =>
+      Effect.gen(function* (): Effect.fn.Return<BatchResult, never, StorageService> {
+        // Download entries must reference an existing file; upload entries must not.
+        if (operation === 'download' && !(yield* fileExists(path, bucket))) {
+          return { path, error: 'not_found' }
+        }
+        if (operation === 'upload' && (yield* objectStoredAt(path, bucket))) {
+          return { path, error: 'conflict' }
+        }
+        const { signedUrl, expiresAt } = buildSignedUrl({
+          c,
+          bucket,
+          path,
+          operation,
+          expiresInSeconds: expiresInSeconds as number,
+          constraints: constraints as UploadConstraints | undefined,
+        })
+        return { path, signedUrl, expiresAt }
+      }),
+    { concurrency: 'unbounded' }
   )
 }

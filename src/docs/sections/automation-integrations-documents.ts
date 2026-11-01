@@ -60,7 +60,7 @@ export const documentActionArticles: readonly DocArticle[] = [
     slug: 'automation-pdf-actions',
     title: 'PDF Actions',
     description:
-      'Merge, split and rearrange PDFs you already have, mark them with a watermark, a stamp or page numbers, fill their forms, read what they hold, or make one from pictures — all with no external engine.',
+      'Merge, split and reorder PDFs, add a watermark, stamp or page numbers, fill their forms, read what they hold, or build one from images, with no outside engine.',
     keywords: [
       'sovrium',
       'automation pdf action',

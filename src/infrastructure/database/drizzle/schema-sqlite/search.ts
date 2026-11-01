@@ -22,7 +22,7 @@ import { systemTable } from './table-helpers'
  * Search Indexes Table
  *
  * Tracks FTS/trigram index state per table per field.
- * Used by the search service to manage full-text search index metadata.
+ * Nothing in the engine reads or writes it; kept only until a migration drops it.
  * @public Live schema, reached only by drizzle-kit through the string path in
  * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
  * TS importer because no dialect-branching caller needs the SQLite object yet.

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { lockedOnRecord } from '@/presentation/design/locks-verdict'
 import type { DrawerChoice } from './record-drawer-choices'
 import type { RecordButtonConfig } from '../runtime/record-button'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
@@ -143,4 +144,13 @@ export function isStructured(field: RecordDrawerField): boolean {
  */
 export function readsAsValue(field: RecordDrawerField): boolean {
   return field.readOnly === true && !field.button && !isStructured(field)
+}
+
+/**
+ * {@link readsAsValue}, or a field a lock rule holds on `record` (its `_locks`):
+ * drawn as its value, the drawer's lock notice saying why.
+ */
+export function readsAsValueOn(field: RecordDrawerField, record: RawRecord): boolean {
+  if (readsAsValue(field)) return true
+  return !field.button && lockedOnRecord(record, field.name) !== undefined
 }

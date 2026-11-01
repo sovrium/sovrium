@@ -76,7 +76,7 @@ export async function applyAccountPreferenceGuards(
  * decodes the preset to learn them.
  */
 const mountedConsoleLanguages = (admin: App['admin'] | undefined): Languages | undefined =>
-  parseSovriumAdmin() === 'off' || admin === false ? undefined : ADMIN_PRESET_LANGUAGES
+  parseSovriumAdmin(process.env) === 'off' || admin === false ? undefined : ADMIN_PRESET_LANGUAGES
 
 /**
  * The vocabulary the language guard accepts for this app: its own declared

@@ -7,10 +7,15 @@
 
 /** What a bucket WRITE (upload / delete) falls back to, and how it is refused. */
 
+import { Effect } from 'effect'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { servesNoAuthVisitor } from '@/domain/models/app/auth/anonymous-grant-service'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import {
   permitsBucketFileDelete,
   type BucketFileCaller,
 } from '@/domain/models/app/buckets/bucket-file-access-validation'
+import { isSystemBucketName } from '@/domain/models/app/buckets/bucket-identity'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
@@ -18,41 +23,64 @@ import type { Bucket } from '@/domain/models/app/buckets'
 import type { Context } from 'hono'
 
 /**
- * The gate an UPLOAD falls back to when the bucket declares no
- * permission for it: a session is required.
+ * The gate an UPLOAD falls back to when the bucket declares no permission for
+ * it.
  *
- * `public: true` governs READS only — it grants nothing on `POST`/`DELETE`
- * The one exception is an app with no `auth` block at all: there
- * is no session system to gate against, so a public bucket (including the
- * built-in `system` bucket, which resolves to `public: !app.auth`) stays anonymously
- * writable. That carve-out is what keeps page-component file-upload forms
- * working on a no-auth app; it is bounded on purpose, and a DECLARED bucket
- * without `public: true` stays unwritable there (the bucket-permission enforcement rule,
- * a buckets perm spec pins both halves).
+ * - A private bucket: any signed-in caller.
+ * - A `public: true` bucket: an administrator only (the built-in `admin` or the
+ *   app's top role), on every app. A file anyone can download should not be one
+ *   anyone can place, so `public: true` never widens a write; it narrows the
+ *   undeclared one. On an app with no `auth` block nobody can sign in, so such
+ *   a bucket takes no upload until it declares one.
+ * - The built-in `system` bucket, which nobody declares and which resolves to
+ *   `public: !app.auth`: a visitor of an app with no `auth` block may place a
+ *   NEW file there (that is where a page's file-upload form puts its
+ *   attachment), any signed-in caller otherwise. It is not a bucket an author
+ *   opened to the world, so the public rule above does not reach it. Placing
+ *   a file at a key that already holds one is an overwrite, which no visitor
+ *   may make there (`refuseUnlessOwnerOrAdmin`).
  *
- * The way out of the asymmetry is the same explicit lever an auth-enabled app
- * uses: `permissions: { upload: 'all' }`.
+ * The way out is the explicit lever: `permissions: { upload: 'authenticated' }`,
+ * or `'all'`, on the bucket. The caller's role is read only on the one branch
+ * that needs it, so a private or declared bucket costs no extra query.
  */
-export function defaultWriteGrant(
-  app: App,
-  bucket: Bucket,
-  session: UserSession | undefined
-): boolean {
-  if (bucket.public && !app.auth) return true
-  return session !== undefined
+export function defaultWriteGrant(app: App, bucket: Bucket, session: UserSession | undefined) {
+  if (isSystemBucketName(bucket.name)) {
+    return Effect.succeed(
+      (bucket.public === true && servesNoAuthVisitor(app)) || session !== undefined
+    )
+  }
+  if (session === undefined) return Effect.succeed(false)
+  if (bucket.public !== true || bucket.permissions?.upload !== undefined) {
+    return Effect.succeed(true)
+  }
+  return Effect.map(getUserRole(session.userId, app), (role) => isAdminEquivalent(role, app))
 }
 
 /**
  * The delete rung of a bucket file: the domain's own decision
  * (`permitsBucketFileDelete`), so the files API and an automation's
  * `file/delete` cannot drift apart. `caller` is `undefined` with no session.
+ * Answers the refusal, or nothing when the delete may proceed.
+ *
+ * On an app with no `auth` block nobody can sign in, so a visitor deletes only
+ * from a bucket that declares `delete: 'all'`, and the 401 of {@link denyWrite}
+ * would ask her for something she cannot do and mark the key as worth asking
+ * about: she gets the unknown key's 404 instead, body for body, as a delete of
+ * a key the bucket never held answers.
  */
-export function deleteGrant(
-  app: App,
-  bucket: Bucket,
-  caller: BucketFileCaller | undefined
-): boolean {
-  return permitsBucketFileDelete(bucket, caller, { app })
+export function deleteRefusal(
+  c: Context,
+  input: {
+    readonly app: App
+    readonly bucket: Bucket
+    readonly caller: BucketFileCaller | undefined
+    readonly session: UserSession | undefined
+  }
+): Response | undefined {
+  const { app, bucket, caller, session } = input
+  if (permitsBucketFileDelete(bucket, caller, { app })) return undefined
+  return servesNoAuthVisitor(app) ? notFound(c, 'File not found') : denyWrite(c, session)
 }
 
 /**

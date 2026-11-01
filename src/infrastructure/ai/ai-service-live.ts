@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Layer, Option, Stream } from 'effect'
+import { Effect, Layer, Option, Scope, Stream } from 'effect'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import {
   AiService,
@@ -13,6 +13,7 @@ import {
   type ChatInput,
   type EmbedInput,
 } from '@/application/ports/services/ai-service'
+import { ProcessEnv, type ProcessEnvShape } from '@/application/ports/services/process-env'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { readRecordedIn } from '@/application/ports/services/stored-file-read'
 import {
@@ -20,6 +21,7 @@ import {
   resolveOllamaBaseUrl,
 } from '@/domain/models/process-env/ai/ai-eco-routing'
 import {
+  defaultModelForProvider,
   resolveBaseUrl,
   type SupportedAiProvider,
 } from '@/domain/models/process-env/ai/ai-providers'
@@ -41,6 +43,12 @@ import {
   languageModelChatStream,
   type ProviderCall,
 } from './language-model-chat'
+import {
+  makeLanguageModelContexts,
+  onModel,
+  streamOnModel,
+  type LanguageModelContexts,
+} from './language-model-contexts'
 import { makeOllamaLanguageModel, OllamaCallConfig } from './ollama-language-model'
 import { getCachedOllamaReachable } from './ollama-reachability'
 import { openAiCompatCall, openAiCompatLanguageModelLayer } from './openai-compat-model'
@@ -75,6 +83,11 @@ const missingCredentialsError = (): AiConfigError =>
     message: 'AI_BASE_URL and AI_API_KEY must both be set to call the AI provider.',
   })
 
+const missingModelError = (provider: SupportedAiProvider): AiConfigError =>
+  new AiConfigError({
+    message: `AI_MODEL must be set to call the ${provider} provider: it has no default model.`,
+  })
+
 /**
  * Default LLM temperature applied when neither the per-request input nor the
  * `AI_TEMPERATURE` env var specifies one. Matches the `AI_TEMPERATURE`
@@ -103,7 +116,9 @@ const ollamaCall =
     }
   }
 
-const notConfiguredStub = (): ReturnType<typeof AiService.of> =>
+const notConfiguredStub = (
+  config: ReturnType<typeof parseAiEnvConfig>
+): ReturnType<typeof AiService.of> =>
   // No-op stub: every chat()/chatStream() fails with a clear "not configured"
   // error. The stream variant fails on its error channel rather than throwing
   // synchronously so consumers can map it uniformly with the live-stream path.
@@ -111,7 +126,7 @@ const notConfiguredStub = (): ReturnType<typeof AiService.of> =>
     chat: (_input: ChatInput) => Effect.fail(notConfiguredError()),
     chatStream: (_input: ChatInput) => Stream.fail(notConfiguredError()),
     embed: (_input: EmbedInput) => Effect.fail(notConfiguredError()),
-    embeddingModel: () => process.env.AI_EMBEDDING_MODEL?.trim() || DEFAULT_CLOUD_EMBEDDING_MODEL,
+    embeddingModel: () => config.embeddingModel ?? DEFAULT_CLOUD_EMBEDDING_MODEL,
     isConfigured: () => false,
   })
 
@@ -123,38 +138,40 @@ const notConfiguredStub = (): ReturnType<typeof AiService.of> =>
  */
 const makeOllamaAdapter = (
   ollamaBaseUrl: string,
-  config: ReturnType<typeof parseAiEnvConfig>
+  config: ReturnType<typeof parseAiEnvConfig>,
+  models: LanguageModelContexts
 ): ReturnType<typeof AiService.of> => {
   const defaultModel = config.model ?? 'llama3.1'
-  const modelLayer = Layer.effect(
-    LanguageModel.LanguageModel,
-    makeOllamaLanguageModel({
-      baseUrl: ollamaBaseUrl,
-      apiKey: config.apiKey,
-      defaultModel,
-      defaultTemperature: config.temperature ?? DEFAULT_TEMPERATURE,
-    })
-  ).pipe(Layer.provide(boundedHttpClientLayer()))
+  const connection = {
+    baseUrl: ollamaBaseUrl,
+    apiKey: config.apiKey,
+    defaultModel,
+    defaultTemperature: config.temperature ?? DEFAULT_TEMPERATURE,
+  }
+  // Built once per connection for the AI layer's lifetime, not per call.
+  const model = models(`ollama:${JSON.stringify(connection)}`, () =>
+    Layer.effect(LanguageModel.LanguageModel, makeOllamaLanguageModel(connection)).pipe(
+      Layer.provide(boundedHttpClientLayer())
+    )
+  )
   const scopeCall = ollamaCall(config.temperature)
-  const embeddingModel = process.env.AI_EMBEDDING_MODEL?.trim() || DEFAULT_OLLAMA_EMBEDDING_MODEL
+  const embeddingModel = config.embeddingModel ?? DEFAULT_OLLAMA_EMBEDDING_MODEL
   return AiService.of({
     // Instrument the shared chat seam: `ai.request` child span + duration/count
     // metrics, labeled by the resolved provider (`ollama`), the request's model,
     // and the operation (`chat`) — never prompt text / user ids.
     chat: (input: ChatInput) => {
-      const model = input.model ?? defaultModel
+      const name = input.model ?? defaultModel
       return traceAiRequest(
         'ollama',
-        model,
+        name,
         'chat',
-        languageModelChat(input, model, scopeCall(input, model)).pipe(Effect.provide(modelLayer))
+        onModel(model, languageModelChat(input, name, scopeCall(input, name)))
       )
     },
     chatStream: (input: ChatInput) => {
-      const model = input.model ?? defaultModel
-      return languageModelChatStream(input, model, scopeCall(input, model)).pipe(
-        Stream.provide(modelLayer)
-      )
+      const name = input.model ?? defaultModel
+      return streamOnModel(model, languageModelChatStream(input, name, scopeCall(input, name)))
     },
     embed: (input: EmbedInput) =>
       embedOllama({ baseUrl: ollamaBaseUrl, apiKey: config.apiKey, model: embeddingModel }, input),
@@ -168,25 +185,40 @@ const makeOllamaAdapter = (
  * `${AI_BASE_URL}/chat/completions` behaviour. Credentials are validated
  * lazily on first call so configuration-shape specs can assert on a missing
  * `AI_BASE_URL`/`AI_API_KEY` without the layer crashing at construction.
+ *
+ * The model is `AI_MODEL`, else the provider's recommended default — the same
+ * table `/api/health` reports as the active model. A provider without one
+ * (`openai-compatible`) is refused at boot when `AI_MODEL` is unset; a call
+ * that reaches this adapter anyway fails with that reason rather than sending
+ * a model name the endpoint does not serve.
  */
 const makeCloudAdapter = (
   config: ReturnType<typeof parseAiEnvConfig>,
-  provider: SupportedAiProvider
+  env: ProcessEnvShape,
+  provider: SupportedAiProvider,
+  models: LanguageModelContexts
 ): ReturnType<typeof AiService.of> => {
   const { apiKey } = config
   // The same resolver `/api/health` reads, so the reported endpoint and the one
   // calls reach cannot diverge (Mistral's public API is its default).
-  const baseUrl = resolveBaseUrl(provider, process.env)
-  const defaultModel = config.model ?? 'mock-model'
+  const baseUrl = resolveBaseUrl(provider, env)
+  const defaultModel = config.model ?? defaultModelForProvider(provider)
   const scopeCall = openAiCompatCall({
     temperature: config.temperature ?? DEFAULT_TEMPERATURE,
     maxTokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
   })
+  // Every call below names its model explicitly, so the layer's own default is
+  // never what reaches the wire. Built once per connection, not per call.
   const modelLayer =
     baseUrl === undefined || apiKey === undefined
       ? undefined
-      : openAiCompatLanguageModelLayer({ baseUrl, apiKey, defaultModel })
-  const embeddingModel = process.env.AI_EMBEDDING_MODEL?.trim() || DEFAULT_CLOUD_EMBEDDING_MODEL
+      : models(`${provider}:${JSON.stringify({ baseUrl, apiKey, defaultModel })}`, () =>
+          openAiCompatLanguageModelLayer({ baseUrl, apiKey, defaultModel: defaultModel ?? '' })
+        )
+  // Why a call cannot be made: no credentials first, then no model to name.
+  const refusalFor = (): AiConfigError =>
+    modelLayer === undefined ? missingCredentialsError() : missingModelError(provider)
+  const embeddingModel = config.embeddingModel ?? DEFAULT_CLOUD_EMBEDDING_MODEL
   return AiService.of({
     // Instrument the shared chat seam: `ai.request` child span + duration/count
     // metrics, labeled by the resolved cloud provider, the request's model, and
@@ -195,22 +227,18 @@ const makeCloudAdapter = (
       const model = input.model ?? defaultModel
       return traceAiRequest(
         provider,
-        model,
+        model ?? '',
         'chat',
-        modelLayer === undefined
-          ? Effect.fail(missingCredentialsError())
-          : languageModelChat(input, model, scopeCall(input, model)).pipe(
-              Effect.provide(modelLayer)
-            )
+        modelLayer === undefined || model === undefined
+          ? Effect.fail(refusalFor())
+          : onModel(modelLayer, languageModelChat(input, model, scopeCall(input, model)))
       )
     },
     chatStream: (input: ChatInput) => {
       const model = input.model ?? defaultModel
-      return modelLayer === undefined
-        ? Stream.fail(missingCredentialsError())
-        : languageModelChatStream(input, model, scopeCall(input, model)).pipe(
-            Stream.provide(modelLayer)
-          )
+      return modelLayer === undefined || model === undefined
+        ? Stream.fail(refusalFor())
+        : streamOnModel(modelLayer, languageModelChatStream(input, model, scopeCall(input, model)))
     },
     embed: (input: EmbedInput) =>
       baseUrl === undefined
@@ -230,17 +258,18 @@ type AiAdapter = ReturnType<typeof AiService.of>
  */
 const adapterFor = (
   config: ReturnType<typeof parseAiEnvConfig>,
-  ollamaBaseUrl: string | undefined,
-  routing: ReturnType<typeof resolveAiEcoRouting>
+  where: { readonly env: ProcessEnvShape; readonly ollamaBaseUrl: string | undefined },
+  routing: ReturnType<typeof resolveAiEcoRouting>,
+  models: LanguageModelContexts
 ): AiAdapter => {
   // AI disabled: neither AI_PROVIDER (cloud) nor a usable Ollama endpoint.
-  if (routing.resolvedProvider === undefined) return notConfiguredStub()
-  if (routing.resolvedProvider === 'ollama' && ollamaBaseUrl !== undefined) {
-    return makeOllamaAdapter(ollamaBaseUrl, config)
+  if (routing.resolvedProvider === undefined) return notConfiguredStub(config)
+  if (routing.resolvedProvider === 'ollama' && where.ollamaBaseUrl !== undefined) {
+    return makeOllamaAdapter(where.ollamaBaseUrl, config, models)
   }
   // `resolvedProvider` is a non-undefined `SupportedAiProvider` here (the
   // AI-disabled case returned above) — carry it as the seam's `provider` label.
-  return makeCloudAdapter(config, routing.resolvedProvider)
+  return makeCloudAdapter(config, where.env, routing.resolvedProvider, models)
 }
 
 /**
@@ -264,8 +293,11 @@ const adapterFor = (
 export const AiServiceLive = Layer.effect(
   AiService,
   Effect.gen(function* () {
-    const config = parseAiEnvConfig()
-    const ollamaBaseUrl = resolveOllamaBaseUrl(process.env)
+    const env = yield* ProcessEnv
+    const config = parseAiEnvConfig(env)
+    const ollamaBaseUrl = resolveOllamaBaseUrl(env)
+    // Each connection's language model, built once into THIS layer's scope.
+    const models = makeLanguageModelContexts(yield* Layer.makeMemoMap, yield* Scope.Scope)
     // The bucket reader a turn's file references resolve through, when the
     // layer that built this one provided storage (`app-layer.ts`); without it a
     // turn carrying a file fails closed (`attachment-parts.ts`).
@@ -288,8 +320,8 @@ export const AiServiceLive = Layer.effect(
     const routed = Effect.map(
       Effect.promise(() => getCachedOllamaReachable(ollamaBaseUrl)),
       (reachable) => {
-        const routing = resolveAiEcoRouting(process.env, reachable)
-        return { routing, adapter: adapterFor(config, ollamaBaseUrl, routing) }
+        const routing = resolveAiEcoRouting(env, reachable)
+        return { routing, adapter: adapterFor(config, { env, ollamaBaseUrl }, routing, models) }
       }
     )
 
@@ -297,7 +329,7 @@ export const AiServiceLive = Layer.effect(
     const prepared = (input: ChatInput) =>
       Effect.flatMap(routed, ({ routing, adapter }) =>
         Effect.map(
-          prepareAttachments(input, routing, read, resolveAttachmentTextLimits(process.env)),
+          prepareAttachments(input, routing, read, resolveAttachmentTextLimits(env)),
           (ready) => ({ adapter, ready })
         )
       )
@@ -318,8 +350,9 @@ export const AiServiceLive = Layer.effect(
      */
     const configuredAdapter = adapterFor(
       config,
-      ollamaBaseUrl,
-      resolveAiEcoRouting(process.env, true)
+      { env, ollamaBaseUrl },
+      resolveAiEcoRouting(env, true),
+      models
     )
 
     return AiService.of({

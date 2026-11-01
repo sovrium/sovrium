@@ -1,6 +1,6 @@
 # Drawer
 
-> The `drawer` component — a drawer: a panel that rises from the bottom edge and is dragged down to dismiss.
+> The `drawer` component is a drawer: a panel that rises from the bottom edge and is dragged down to dismiss.
 
 On a phone, filters, a short form or the details of a row belong in a panel that comes up from the bottom of the screen, where the thumb already is. A `drawer` is that panel: opened by a trigger, dragged by its handle, resting at the heights you declare, and swiped away toward its edge. Reference: shadcn/ui Drawer.
 

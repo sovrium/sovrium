@@ -8,15 +8,15 @@
 import { sql, and, eq, ne, or, gt, inArray, isNull } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { DatabaseError } from '@/infrastructure/database'
-import { db } from '@/infrastructure/database/drizzle'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { commentReadState as commentReadStatePg } from '@/infrastructure/database/drizzle/schema/comment-read-state'
 import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { commentReadState as commentReadStateSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/comment-read-state'
 import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
 import { wrapDatabaseError } from '../statement/error-handling'
-import { castToInt } from './aggregation-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 const commentReadState = resolveDialectSchema(commentReadStatePg, commentReadStateSqlite)
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
@@ -32,11 +32,14 @@ const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqli
  * written through Drizzle's typed `timestamp` / `timestamp_ms` column (NOT a
  * raw `sql` bind), which sidesteps the bun:sqlite Date→NULL coercion gotcha.
  */
-export function markRecordCommentsRead(config: {
-  readonly session: Readonly<Session>
-  readonly tableKey: string
-  readonly recordId: string
-}): Effect.Effect<void, DatabaseError> {
+export function markRecordCommentsRead(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly tableKey: string
+    readonly recordId: string
+  }
+): Effect.Effect<void, DatabaseError> {
   const { session, tableKey, recordId } = config
   const now = new Date()
   return Effect.tryPromise({
@@ -80,11 +83,15 @@ export function markRecordCommentsRead(config: {
  * it an unrelated table's comments would inflate the badge. See
  * `activeCommentsByRecordId`.
  */
-export function getUnreadCommentCount(config: {
-  readonly session: Readonly<Session>
-  readonly tableKeys: readonly string[]
-  readonly recordId: string
-}): Effect.Effect<number, DatabaseError> {
+export function getUnreadCommentCount(
+  db: PortableDb,
+  dialect: Dialect,
+  config: {
+    readonly session: Readonly<Session>
+    readonly tableKeys: readonly string[]
+    readonly recordId: string
+  }
+): Effect.Effect<number, DatabaseError> {
   const { session, tableKeys, recordId } = config
   const { userId } = session
   const watermark = db
@@ -100,7 +107,7 @@ export function getUnreadCommentCount(config: {
   return Effect.tryPromise<Array<{ count: number }>, DatabaseError>({
     try: () =>
       db
-        .select({ count: castToInt(sql`COUNT(*)`) })
+        .select({ count: dialect.sql.castToInt(sql`COUNT(*)`) })
         .from(recordComments)
         .where(
           and(

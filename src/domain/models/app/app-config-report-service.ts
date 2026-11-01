@@ -37,8 +37,9 @@
  *   `--json` channel carries every finding, because its reader is a program.
  */
 
-import { attributeSourcePath, formatDecodeReport } from './app-excess-property-report'
-import type { DecodeFinding } from './app-excess-property-report'
+import { formatDecodeReport } from '@/domain/kernel/config-parsing/decode-report-format'
+import { attributeSourcePath } from '@/domain/kernel/config-parsing/decode-source-attribution'
+import type { DecodeFinding } from '@/domain/kernel/config-parsing/decode-findings'
 
 /** The most problems the prose report lists before it summarises the rest. @public */
 export const REPORT_CEILING = 50

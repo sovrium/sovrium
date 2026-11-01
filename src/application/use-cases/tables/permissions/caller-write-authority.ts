@@ -14,11 +14,12 @@
  * actions must answer to the same rules the person would meet on the records
  * API: the table's grant for the operation (and for reading it — a row the
  * caller cannot read is not disclosed), the row-level rules on the row as it
- * stands and as it would be written, and the field write audiences. The pure
- * decisions live in the domain (`row-level-write-decision-service`,
- * `field-write-permission-service`, `permission-evaluator-service`); this
- * program only gathers what they read — the caller's role, groups, `user_access`
- * roles and assignments, and the stored row — through the repository ports.
+ * stands and as it would be written, and the field write audiences. The grant
+ * and the row rules are the records API's own verb verdicts
+ * (`authorize-record-verbs`); the field audiences are the domain's
+ * (`field-write-permission-service`). This program gathers what they read — the
+ * caller's role, groups, `user_access` roles and assignments — through the
+ * repository ports, and asks them.
  *
  * It DECLARES its requirements (standing rule E1): the run that calls it
  * already holds the automation runtime's services.
@@ -26,7 +27,6 @@
 
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import {
   getUserAccessRoles,
   getUserGroups,
@@ -34,26 +34,20 @@ import {
 } from '@/application/use-cases/tables/user-groups'
 import { GUEST_USER_ID, isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { SIGNED_OUT_VISITOR_ROLE } from '@/domain/models/app/auth/permission-evaluation'
-import {
-  hasCreatePermissionForRoles,
-  hasDeletePermissionForRoles,
-  hasReadPermissionForRoles,
-  hasUpdatePermissionForRoles,
-} from '@/domain/models/app/auth/permission-evaluator-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { toGrantingRole } from '@/domain/models/app/auth/roles/granting-role-service'
 import { createOpensToEveryone } from '@/domain/models/app/auth/visitor-create-grant-service'
 import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
-import {
-  createAllowed,
-  existingRowWriteAllowed,
-} from '@/domain/models/app/tables/row-level-write-decision-service'
-import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { createAllowed } from '@/domain/models/app/tables/row-level-write-decision-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { rowsReaderMayNotList } from '../row-read-admission'
+import { authorizeCreate, authorizeDelete, authorizeUpdate } from './authorize-record-verbs'
 import { loadCurrentUserContext, rowRuleScopeOf } from './row-level-enforcement'
+import type { AuthorizationCaller } from './authorization-caller'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
 
@@ -169,76 +163,71 @@ export const loadSessionIdentity = (
   ).pipe(Effect.withSpan('tables.load-session-identity'))
 
 /**
- * The table-level grant for the operation, behind the grant to read the table
- * at all. A visitor who is not signed in creates only in a table whose create
- * is open to everyone, and never updates or deletes — the records API's rule.
+ * A visitor who is not signed in creates only in a table whose create is open
+ * to everyone, inside its `create.when` and the field write audiences, and
+ * never updates or deletes — the records API's rule. She has no effective
+ * roles a verdict could judge, so her answer is the table's own.
  */
-const passesTableGrant = (
+const visitorMayWrite = (
   app: App,
   table: Table,
-  op: CallerWriteRequest['op'],
+  request: CallerWriteRequest,
   identity: CallerIdentity
-): boolean => {
-  const roles = identity.effectiveRoles
-  if (identity.role === SIGNED_OUT_VISITOR_ROLE) {
-    return op === 'create' && createOpensToEveryone(table, app.tables ?? [])
-  }
-  if (op === 'create') return hasCreatePermissionForRoles(table, roles, app)
-  if (!hasReadPermissionForRoles(table, roles, app)) return false
-  return op === 'update'
-    ? hasUpdatePermissionForRoles(table, roles, app)
-    : hasDeletePermissionForRoles(table, roles, app)
+): boolean =>
+  request.op === 'create' &&
+  createOpensToEveryone(table, app.tables ?? []) &&
+  createAllowed(table, request.fields, identity.ctx) &&
+  forbiddenWriteFields(app, table.name, identity, request.fields).length === 0
+
+/** The fields of the request the caller may not write: a create's fields, an update's change. */
+const forbiddenFieldsOf = (
+  app: App,
+  table: Table,
+  request: CallerWriteRequest,
+  identity: CallerIdentity
+): readonly string[] => {
+  if (request.op === 'delete') return []
+  const proposed = request.op === 'create' ? request.fields : request.change
+  return forbiddenWriteFields(app, table.name, identity, proposed)
 }
 
-/** The stored row an update or delete targets, read unscoped so the rules can judge it. */
-const fetchRow = (
-  session: Readonly<UserSession>,
-  tableName: string,
-  recordId: string
-): Effect.Effect<Readonly<Record<string, unknown>> | undefined, never, TableRepository> =>
-  Effect.gen(function* () {
-    const repo = yield* TableRepository
-    const row = yield* repo.getRecord(session, tableName, recordId).pipe(
-      // effect-swallow: a row that cannot be read is refused as a missing one — the write it guards never happens.
-      Effect.orElseSucceed(() => undefined)
-    )
-    return row ?? undefined
-  })
-
-/** Whether the row-level rules and field audiences admit the request. */
-const passesRowAndFieldRules = (input: {
+/**
+ * Whether a named caller may perform the request: the verb's verdict — the
+ * table's grant for it (behind the grant to read the table, for an update or a
+ * delete), the row-level rules on the stored row and on the row as written —
+ * then the field write audiences on what she proposes.
+ */
+const namedCallerMayWrite = (input: {
   readonly app: App
   readonly table: Table
   readonly request: CallerWriteRequest
   readonly identity: CallerIdentity
   readonly session: Readonly<UserSession>
-}): Effect.Effect<boolean, never, TableRepository> =>
-  Effect.gen(function* () {
-    const { app, table, request, identity, session } = input
-    const rlp = table.rowLevelPermissions
-    if (request.op === 'create') {
-      return (
-        createAllowed(table, request.fields, identity.ctx) &&
-        forbiddenWriteFields(app, table.name, identity, request.fields).length === 0
-      )
-    }
-    const stored = yield* fetchRow(session, table.name, request.recordId)
-    if (stored === undefined) return false
-    // Judged as the records API reads the row (SQLite `1`/`0` read as booleans).
-    const existing = readStoredValues(table, stored)
-    if (request.op === 'delete') {
-      return existingRowWriteAllowed({ rlp, op: 'delete', existing, ctx: identity.ctx })
-    }
-    return (
-      existingRowWriteAllowed({
-        rlp,
-        op: 'write',
-        existing,
-        change: request.change,
-        ctx: identity.ctx,
-      }) && forbiddenWriteFields(app, table.name, identity, request.change).length === 0
-    )
-  })
+}): Effect.Effect<boolean, never, TableRepository> => {
+  const { app, table, request, identity, session } = input
+  const caller: AuthorizationCaller = {
+    current: identity.ctx,
+    effectiveRoles: identity.effectiveRoles,
+    allTables: app,
+    signedOut: false,
+  }
+  const target = { kind: 'record', session, tableName: table.name } as const
+  const verdict =
+    request.op === 'create'
+      ? authorizeCreate(table, caller, [request.fields])
+      : request.op === 'update'
+        ? authorizeUpdate(table, caller, {
+            ...target,
+            recordId: request.recordId,
+            change: request.change,
+          })
+        : authorizeDelete(table, caller, { ...target, recordId: request.recordId })
+  return Effect.map(
+    verdict,
+    (judged) =>
+      judged._tag === 'Allowed' && forbiddenFieldsOf(app, table, request, identity).length === 0
+  )
+}
 
 /**
  * Whether the caller the session names may perform each of `requests` — all on
@@ -259,7 +248,7 @@ export const authorizeCallerWrites = (
 ): Effect.Effect<readonly boolean[], never, Requirements> =>
   Effect.gen(function* () {
     const refuseAll = requests.map(() => false)
-    const table = app.tables?.find((t) => t.name === tableName)
+    const table = findTableByName(app.tables, tableName)
     if (table === undefined) return refuseAll
     const identity = yield* loadSessionIdentity(app, session.userId, table)
     if (identity === undefined) return refuseAll
@@ -270,13 +259,12 @@ export const authorizeCallerWrites = (
     const unlisted = new Set(yield* rowsReaderMayNotList(app, tableName, reader, stored))
     const listed = (request: CallerWriteRequest): boolean =>
       request.op === 'create' || !unlisted.has(request.recordId)
-    return yield* Effect.forEach(requests, (request) =>
-      request.tableName === tableName &&
-      passesTableGrant(app, table, request.op, identity) &&
-      listed(request)
-        ? passesRowAndFieldRules({ app, table, request, identity, session })
-        : Effect.succeed(false)
-    )
+    return yield* Effect.forEach(requests, (request) => {
+      if (request.tableName !== tableName || !listed(request)) return Effect.succeed(false)
+      return identity.role === SIGNED_OUT_VISITOR_ROLE
+        ? Effect.succeed(visitorMayWrite(app, table, request, identity))
+        : namedCallerMayWrite({ app, table, request, identity, session })
+    })
   }).pipe(
     Effect.withSpan('tables.authorize-caller-writes', {
       attributes: { 'table.name': tableName, 'write.count': requests.length },

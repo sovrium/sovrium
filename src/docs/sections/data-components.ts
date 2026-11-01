@@ -47,7 +47,7 @@ export const section = defineSection({
       slug: 'data-components',
       title: 'Tables & Filter Bars',
       description:
-        'The data grid — columns, selection, bulk actions, grouping and summaries — plus the filter-bar that narrows it and everything else listening on the same channel.',
+        'The data grid, with columns, selection, bulk actions, grouping and summaries, plus the filter-bar that narrows it and everything listening on the same channel.',
       keywords: ['sovrium', 'data table', 'columns', 'selection', 'bulkActions', 'summary'],
       order: 3400,
       sidebarLabel: 'Tables & Filters',
@@ -85,7 +85,7 @@ export const section = defineSection({
       slug: 'data-components-grid-editing',
       title: 'Working in the Grid',
       description:
-        'What a table with editable columns does without being configured — the cell cursor, ranges and the fill handle, the trailing row that creates records, and live refresh.',
+        'What a table with editable columns does unconfigured: the cell cursor, ranges and the fill handle, the trailing row that creates records, and live refresh.',
       keywords: [
         'sovrium',
         'data table',
@@ -347,7 +347,7 @@ export const section = defineSection({
       slug: 'data-components-endpoint-forms',
       title: 'Endpoint Forms',
       description:
-        "A form that posts its fields to a URL you name — submit button, switch, star and help-text controls, required and length rules, and prefilling from the caller's session.",
+        "A form that posts its fields to a URL you name: submit, switch, star and help-text controls, required and length rules, and prefill from the caller's session.",
       keywords: ['sovrium', 'form', 'endpoint', 'required', 'minLength', 'defaultValue'],
       order: 3418,
       sidebarLabel: 'Endpoint Forms',

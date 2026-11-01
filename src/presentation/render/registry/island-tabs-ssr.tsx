@@ -6,6 +6,7 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { idSourceForLabel, localizeChildLabel, slugifyLabel } from './island-child-label'
 import {
   exportedListAttributes,
@@ -61,10 +62,16 @@ export function buildTabsItems(
       // INDEX-ALIGNED entry of the parent's `children` (PG-04 record-detail
       // composition, a form or data-table embedded inside tabs). The alignment
       // is what `panels.length === children.length` is refused for.
+      //
+      // `content` is an HTML channel (every consumer injects it as markup), and
+      // a `body` string is TEXT: it may carry a value a visitor chose (a route
+      // segment, a query value, a record field), so it is escaped here, once,
+      // for the served panel, the inert ones, a fetched one and an export
+      // alike. Only a child component's rendered markup is HTML.
       const childRendered = renderedChildren[index]
       const renderedBody =
         panel.body !== undefined
-          ? panel.body
+          ? escapeHtmlAttribute(panel.body)
           : childRendered
             ? renderToStaticMarkup(childRendered)
             : ''
@@ -135,35 +142,33 @@ export function resolveAddressedPanel(
  * That panel is already in the document as markup a reader and a crawler can
  * see; serialising it a second time into `data-island-props` bought the island
  * nothing and cost the response a whole extra copy of the page's largest panel,
- * HTML- and JSON-escaped (a pages tabs spec — measured at 116 629 B of a
- * 266 588 B response on its own fixture, and roughly +66 000 B per address on
- * the operator console's organisation page).
+ * HTML- and JSON-escaped.
  *
  * The island reads that panel back out of the document instead: the host opts
  * into the pre-mount `ssrHtml` capture in `island-client.tsx`, which runs before
  * `createRoot` discards the server-rendered subtree.
  *
- * ## `lazy`: when EVERY panel's markup is dropped
+ * ## `all`: when EVERY panel's markup is dropped
  *
- * On a tab set the author made an ADDRESS — `defaultTab` bound to a declared
- * `page.query` property — the unaddressed panels are dropped too, and the
- * island asks the server for one when the reader opens it
- * A reader of one lens then pays for one lens instead
- * of for all of them; on the operator console's five-lens organisation page the
- * props blob was 74 512 B, 49 531 B of it a Map nobody had opened.
+ * On a served page every panel's markup leaves the props. On a tab set the
+ * author made an ADDRESS (`defaultTab` bound to a declared `page.query`
+ * property) the unopened panels are not in the response at all, and the island
+ * asks the server for one when the reader opens it. On any other tab set they
+ * travel in the host as inert `<template>` elements the same capture reads
+ * back, so switching stays instant and offline-safe while each panel is paid
+ * for once, as markup rather than escaped inside an attribute.
  *
- * Otherwise every OTHER panel keeps its `content`, because nothing else on the
- * page carries it — and switching stays instant and offline-safe, which is what
- * a tab set that is not an address should be.
+ * Only a page export keeps the other panels' `content`: it mounts no island,
+ * and its hidden panels are drawn from these items.
  */
 export function stripAddressedPanelContent<T extends { readonly id: string }>(
   items: readonly T[],
   addressedId: string | undefined,
-  lazy = false
+  all = false
 ): ReadonlyArray<T | Omit<T, 'content'>> {
-  if (addressedId === undefined && !lazy) return items
+  if (addressedId === undefined && !all) return items
   return items.map((item) => {
-    if (!lazy && item.id !== addressedId) return item
+    if (!all && item.id !== addressedId) return item
     const { content: _dropped, ...rest } = item as T & { readonly content?: string }
     return rest
   })

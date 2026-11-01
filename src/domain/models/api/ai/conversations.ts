@@ -6,9 +6,9 @@
  */
 
 import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { chatActionSchema, chatCitationsSchema } from '@/domain/models/api/ai/chat'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 // ---------------------------------------------------------------------------
 // Conversation summary schema
@@ -214,6 +214,14 @@ export const conversationTurnResponseSchema = Schema.Struct({
   messages: Schema.Array(conversationMessageSchema).annotate({
     description: 'The current branch, which ends with the new answer',
   }),
+})
+
+/** `DELETE /api/ai/conversations/:sessionId`. */
+export const conversationDeletedResponseSchema = Schema.Struct({
+  deleted: Schema.Boolean.annotate({
+    description: 'Whether the conversation was deleted',
+  }),
+  sessionId: Schema.String.annotate({ description: 'Conversation session identifier' }),
 })
 
 // ---------------------------------------------------------------------------

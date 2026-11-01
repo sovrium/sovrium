@@ -5,13 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
+import { magicLinkExpirationMinutes } from '@/domain/models/app/auth/magic-link-lifetime-service'
 import {
   buildInvitationDefaultEmail,
   buildMagicLinkDefaultEmail,
+  withTokenOnce,
 } from '../../email/auth-link-emails'
 import { sendEmail } from '../../email/email-service'
 import { recipientEmailWords, type EmailWords } from '../../email/email-words'
+import { substituteHtmlVariables, substituteVariables } from '../../email/template-variables'
 import {
   accountDeletionEmail,
   passwordResetEmail,
@@ -19,6 +22,7 @@ import {
   resolveBrand,
 } from '../../email/templates'
 import { logError } from '../../logging'
+import { createTwoFactorLockoutHandler } from './two-factor-lockout-email-handler'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
 import type { Languages } from '@/domain/models/app/languages'
 
@@ -34,70 +38,7 @@ type WordsFor = (stored?: string | null) => EmailWords
 
 const ENGLISH: WordsFor = () => recipientEmailWords(undefined)
 
-/** Every value a custom template can name. */
-type SubstitutionContext = Readonly<{
-  name?: string
-  url?: string
-  email: string
-  otp?: string
-  codes?: string
-  organizationName?: string
-  inviterName?: string
-  appName?: string
-}>
-
-type VariableName = keyof SubstitutionContext
-
-/** What a variable reads as when the email type supplies no value for it. */
-const VARIABLE_FALLBACKS: Readonly<Record<VariableName, string>> = {
-  name: 'there',
-  url: '',
-  email: '',
-  otp: '',
-  codes: '',
-  organizationName: 'the organization',
-  inviterName: 'Someone',
-  appName: resolveBrand(undefined),
-}
-
-const VARIABLE_PATTERN = /\$(name|url|email|otp|codes|organizationName|inviterName|appName)\b/g
-
-/**
- * Substitute `$variable` references in a template string.
- *
- * ONE pass with a replacer function, for two reasons a chain of
- * `.replace(re, value)` calls gets wrong: a replacement STRING interprets
- * `$&`, `` $` `` and `$'` (so a user named `$&` duplicated template text), and a
- * later step re-scanned what an earlier one inserted (so a name containing
- * `$url` became the link). Here each value is inserted exactly as it is and is
- * never read again.
- *
- * Supported variables: $name, $url, $email, $otp, $codes, $organizationName,
- * $inviterName, $appName.
- */
-export const substituteVariables = (template: string, context: SubstitutionContext): string =>
-  template.replace(
-    VARIABLE_PATTERN,
-    (_match, variable: VariableName) => context[variable] ?? VARIABLE_FALLBACKS[variable]
-  )
-
-/**
- * Substitute variables into the HTML part of a template.
- *
- * Every value is HTML-escaped (quotes included, so `$url` is safe inside an
- * `href="…"` attribute): a user's name, an inviter's name or an organisation
- * name are user-controlled text and must never become markup in someone's
- * mailbox. The subject and the text part keep the raw values. Same single
- * pass as {@link substituteVariables}, so an escaped value is never re-read.
- */
-export const substituteHtmlVariables = (template: string, context: SubstitutionContext): string =>
-  template.replace(VARIABLE_PATTERN, (_match, variable: VariableName) =>
-    escapeHtml(context[variable] ?? VARIABLE_FALLBACKS[variable])
-  )
-
-/**
- * Email handler configuration for the factory
- */
+/** Email handler configuration for the factory */
 type EmailHandlerConfig = Readonly<{
   /** Email type for logging (e.g., 'password reset', 'verification') */
   emailType: string
@@ -191,7 +132,7 @@ const createPasswordResetEmailHandler = (
     {
       emailType: 'password reset',
       wordsFor,
-      buildUrl: (url, token) => `${url}?token=${token}`,
+      buildUrl: withTokenOnce,
       getDefaultTemplate: ({ userName, actionUrl, words }) =>
         passwordResetEmail({ appName, userName, resetUrl: actionUrl, expiresIn: '1 hour', words }),
     },
@@ -213,8 +154,7 @@ const createVerificationEmailHandler = (
     {
       emailType: 'verification',
       wordsFor,
-      // Better Auth sometimes includes token in URL already
-      buildUrl: (url, token) => (url.includes('token=') ? url : `${url}?token=${token}`),
+      buildUrl: withTokenOnce,
       getDefaultTemplate: ({ userName, actionUrl, words }) =>
         emailVerificationEmail({
           appName,
@@ -236,15 +176,21 @@ const createMagicLinkEmailHandler = (
   customTemplate: AuthEmailTemplate | undefined,
   appName: string | undefined,
   send: SendAuthEmail,
-  wordsFor: WordsFor
+  reader: Readonly<{ wordsFor: WordsFor; expiresInMinutes: number }>
 ) =>
   createEmailHandler(
     {
       emailType: 'magic link',
-      wordsFor,
-      buildUrl: (url, token) => `${url}?token=${token}`,
+      wordsFor: reader.wordsFor,
+      buildUrl: withTokenOnce,
       getDefaultTemplate: ({ userName, actionUrl, words }) =>
-        buildMagicLinkDefaultEmail({ userName, actionUrl, appName, words }),
+        buildMagicLinkDefaultEmail({
+          userName,
+          actionUrl,
+          appName,
+          words,
+          expiresInMinutes: reader.expiresInMinutes,
+        }),
     },
     customTemplate,
     appName,
@@ -324,7 +270,7 @@ const createEmailOtpHandler = (
         to: email,
         fromName: appName,
         subject: `Your ${resolveBrand(appName)} verification code`,
-        html: `<p>Your ${escapeHtml(resolveBrand(appName))} verification code is: <strong>${escapeHtml(otp)}</strong></p><p>This code will expire in 5 minutes.</p>`,
+        html: `<p>Your ${escapeHtmlAttribute(resolveBrand(appName))} verification code is: <strong>${escapeHtmlAttribute(otp)}</strong></p><p>This code will expire in 5 minutes.</p>`,
         text: `Your ${resolveBrand(appName)} verification code is: ${otp}\n\nThis code will expire in 5 minutes.`,
       })
     } catch (error) {
@@ -375,7 +321,7 @@ const createTwoFactorBackupCodesHandler = (
         to: email,
         fromName: appName,
         subject: `Your ${resolveBrand(appName)} backup codes`,
-        html: `<p>Your ${escapeHtml(resolveBrand(appName))} two-factor authentication backup codes:</p><p><strong>${escapeHtml(formattedCodes)}</strong></p><p>Save these codes in a safe place. Each code can only be used once.</p>`,
+        html: `<p>Your ${escapeHtmlAttribute(resolveBrand(appName))} two-factor authentication backup codes:</p><p><strong>${escapeHtmlAttribute(formattedCodes)}</strong></p><p>Save these codes in a safe place. Each code can only be used once.</p>`,
         text: `Your ${resolveBrand(appName)} two-factor authentication backup codes:\n\n${formattedCodes}\n\nSave these codes in a safe place. Each code can only be used once.`,
       })
     } catch (error) {
@@ -490,6 +436,7 @@ export const createEmailHandlers = (
   const templates: NonNullable<Auth['emailTemplates']> = authConfig?.emailTemplates ?? {}
   // The reset, verification, magic-link and invitation defaults speak the reader's language.
   const wordsFor: WordsFor = (stored) => recipientEmailWords(languages, stored)
+  const magicLinkReader = { wordsFor, expiresInMinutes: magicLinkExpirationMinutes(authConfig) }
 
   return {
     passwordReset: createPasswordResetEmailHandler(
@@ -499,7 +446,7 @@ export const createEmailHandlers = (
       wordsFor
     ),
     verification: createVerificationEmailHandler(templates.verification, appName, send, wordsFor),
-    magicLink: createMagicLinkEmailHandler(templates.magicLink, appName, send, wordsFor),
+    magicLink: createMagicLinkEmailHandler(templates.magicLink, appName, send, magicLinkReader),
     welcome: createWelcomeEmailHandler(templates.welcome, appName, send),
     emailOtp: createEmailOtpHandler(templates.emailOtp, appName, send),
     twoFactorBackupCodes: createTwoFactorBackupCodesHandler(
@@ -509,5 +456,6 @@ export const createEmailHandlers = (
     ),
     accountDeletion: createAccountDeletionHandler(templates.accountDeletion, appName, send),
     invitation: createInvitationEmailHandler(templates.invitation, appName, send, wordsFor),
+    twoFactorLockout: createTwoFactorLockoutHandler(appName, send, wordsFor),
   }
 }

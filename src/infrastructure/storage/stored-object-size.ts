@@ -7,13 +7,14 @@
 
 import { Effect } from 'effect'
 import { StorageError, storageObjectNotFound } from '@/application/ports/services/storage-service'
-import { assertCanonicalS3Key } from './s3-adapter'
+import { canonicalS3Key } from './s3-adapter'
 import {
   S3_METADATA_TIMEOUT_MS,
   passThrough,
   retryIdempotentS3,
   s3Deadline,
 } from './s3-call-policy'
+import { attemptStorage, type DriverCall } from './storage-attempt'
 
 /**
  * `StorageService.statObject` — the size of an object as the OBJECT STORE
@@ -32,12 +33,9 @@ import {
  */
 export const storedObjectSize = (
   key: string,
-  read: () => Promise<number | undefined>
+  read: DriverCall<number | undefined>
 ): Effect.Effect<{ readonly size: number }, StorageError> =>
-  Effect.tryPromise({
-    try: read,
-    catch: (cause: unknown) => new StorageError({ cause }),
-  }).pipe(
+  attemptStorage(read).pipe(
     Effect.flatMap((size) => {
       if (size === undefined) {
         return Effect.fail(new StorageError({ cause: storageObjectNotFound(key) }))
@@ -62,21 +60,21 @@ export const s3StoredSize = (
   client: Bun.S3Client,
   bucket: string,
   key: string
-): Promise<number | undefined> => {
-  assertCanonicalS3Key(key)
-  return Effect.runPromise(
-    retryIdempotentS3(
-      Effect.timeoutOrElse(
-        // @effect-diagnostics-next-line unknownInEffectCatch:off -- see `passThrough`: this adapter's contract is that the peer's own rejection reaches the Promise boundary verbatim
-        Effect.tryPromise({ try: () => client.file(key, { bucket }).stat(), catch: passThrough }),
-        s3Deadline('stat', S3_METADATA_TIMEOUT_MS)
+): Effect.Effect<number | undefined, unknown> =>
+  canonicalS3Key(key).pipe(
+    Effect.andThen(
+      retryIdempotentS3(
+        Effect.timeoutOrElse(
+          // @effect-diagnostics-next-line unknownInEffectCatch:off -- see `passThrough`: this adapter's contract is that the peer's own rejection reaches the caller verbatim
+          Effect.tryPromise({ try: () => client.file(key, { bucket }).stat(), catch: passThrough }),
+          s3Deadline('stat', S3_METADATA_TIMEOUT_MS)
+        )
+      ).pipe(
+        Effect.map((stats): { readonly size?: number } => stats),
+        Effect.catchIf(isNoSuchKey, (): Effect.Effect<{ readonly size?: number }> =>
+          Effect.succeed({})
+        ),
+        Effect.map((stats) => stats.size)
       )
-    ).pipe(
-      Effect.map((stats): { readonly size?: number } => stats),
-      Effect.catchIf(isNoSuchKey, (): Effect.Effect<{ readonly size?: number }> =>
-        Effect.succeed({})
-      ),
-      Effect.map((stats) => stats.size)
     )
   )
-}

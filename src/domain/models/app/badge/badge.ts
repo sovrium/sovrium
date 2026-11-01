@@ -47,7 +47,7 @@ const BadgePlacementSchema = Schema.Literals(['floating', 'footer']).pipe(
   Schema.annotate({
     title: 'Badge Placement',
     description:
-      "Where the badge sits: 'floating' (the default) pins it to the bottom-right corner of the window, over the page; 'footer' renders it as a static line in a footer after the page content, so it never covers anything — on a page laid out as a window-high shell whose inset scrolls on its own, at the end of that inset.",
+      "Where the badge sits: 'floating' (the default) pins it to the bottom-right corner of the window, over the page; 'footer' renders it as a static line in a footer after the page content, so it never covers anything. On a page laid out as a window-high shell whose inset scrolls on its own, that line closes the inset.",
     examples: ['floating', 'footer'],
   })
 )
@@ -66,7 +66,7 @@ export const BadgeSchema = Schema.Union([Schema.Boolean, BadgeOptionsSchema]).pi
   Schema.annotate({
     title: 'Built with Sovrium Badge',
     description:
-      'Controls the "Built with Sovrium" badge shown on every page. Shown by default (omitted or true); set to false to remove it — removal is free forever, one config line, never license-gated. Use the object form, { placement }, to move it into a footer line instead of floating it bottom-right.',
+      'Controls the "Built with Sovrium" badge shown on every page. Shown by default (omitted or true); set to false to remove it. Removal is free forever, one config line, never license-gated. Use the object form, { placement }, to move it into a footer line instead of floating it bottom-right.',
     examples: [true, false, { placement: 'footer' }],
   })
 )

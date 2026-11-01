@@ -85,7 +85,8 @@ export const AnalyticsProviderSchema = Schema.Struct({
   ),
   initScript: Schema.optional(
     Schema.String.annotate({
-      description: 'Inline JavaScript to initialize the analytics',
+      description:
+        'Inline JavaScript to initialize the analytics, sent exactly as written: a page reference in it, such as `$record.title`, is not filled.',
     })
   ),
   dnsPrefetch: Schema.optional(

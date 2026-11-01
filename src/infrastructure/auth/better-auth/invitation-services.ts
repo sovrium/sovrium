@@ -5,21 +5,25 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
+import { Invitations } from '@/application/ports/services/invitations'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   deleteCredentialAccountForUser,
+  findUserByEmail,
+  findUserById,
+  insertCredentialAccount,
+  markUserEmailVerified,
+  userHasCredentialPassword,
+} from './invitation-account-queries'
+import {
   deleteInvitationToken,
   deletePendingInvitationsForUser,
   findInvitationById,
   findInvitationToken,
-  findUserByEmail,
-  findUserById,
-  insertCredentialAccount,
   insertInvitationToken,
   listPendingInvitations,
-  markUserEmailVerified,
   refreshInvitationExpiry,
-  userHasCredentialPassword,
 } from './invitation-queries'
 import { inheritScopeAssignments } from './invitation-scope-queries'
 import type { createAuthInstance } from './auth'
@@ -29,26 +33,35 @@ import type {
   InvitationServices,
   InvitationStore,
 } from '@/application/ports/contracts/invitation-services'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
 
-/** {@link InvitationStore} over the invitation and account queries. */
-export const invitationStore: InvitationStore = {
-  insertInvitationToken,
-  findInvitationToken,
-  findInvitationById,
-  refreshInvitationExpiry,
-  deleteInvitationToken,
-  deletePendingInvitationsForUser,
-  listPendingInvitations,
-  findUserByEmail,
-  findUserById,
-  userHasCredentialPassword,
-  insertCredentialAccount,
-  markUserEmailVerified,
-  deleteCredentialAccountForUser,
-  inheritScopeAssignments,
-}
+/**
+ * {@link InvitationStore} over the invitation and account queries, run through
+ * `client` — the client the auth instance's adapter writes through.
+ */
+export const invitationStoreOver = (
+  client: PortableDb,
+  dialect: DatabaseDialect
+): InvitationStore => ({
+  insertInvitationToken: (...args) => insertInvitationToken(client, ...args),
+  findInvitationToken: (...args) => findInvitationToken(client, ...args),
+  findInvitationById: (...args) => findInvitationById(client, ...args),
+  refreshInvitationExpiry: (...args) => refreshInvitationExpiry(client, ...args),
+  deleteInvitationToken: (...args) => deleteInvitationToken(client, ...args),
+  deletePendingInvitationsForUser: (...args) => deletePendingInvitationsForUser(client, ...args),
+  listPendingInvitations: () => listPendingInvitations(client),
+  findUserByEmail: (...args) => findUserByEmail(client, ...args),
+  findUserById: (...args) => findUserById(client, ...args),
+  userHasCredentialPassword: (...args) => userHasCredentialPassword(client, ...args),
+  insertCredentialAccount: (...args) => insertCredentialAccount(client, ...args),
+  markUserEmailVerified: (...args) => markUserEmailVerified(client, ...args),
+  deleteCredentialAccountForUser: (...args) => deleteCredentialAccountForUser(client, ...args),
+  inheritScopeAssignments: (...args) => inheritScopeAssignments({ db: client, dialect }, ...args),
+})
 
 /**
  * The engine's account creation over one Better Auth API: the role is widened
@@ -96,25 +109,34 @@ const createInvitationAuthEngine = (authInstance: AuthInstance): InvitationAuthE
  * `hookContext` reaches the app's auth automations, which an acceptance starts
  * (`emailVerified`, `invitationAccepted`); absent, it starts none.
  */
+/** What the composition hands the invitation services. */
+export interface InvitationWiring {
+  /** The database the invitation store reads and writes. */
+  readonly database: DatabaseService
+  readonly linkPages?: () => NonNullable<InvitationServices['linkPages']>
+  readonly hookContext?: AuthHookContext
+}
+
 export function createInvitationServices(
   authInstance: AuthInstance,
-  linkPages?: () => NonNullable<InvitationServices['linkPages']>,
-  hookContext?: AuthHookContext
+  wiring: InvitationWiring
 ): InvitationServices
 export function createInvitationServices(
   authInstance: AuthInstance | undefined,
-  linkPages?: () => NonNullable<InvitationServices['linkPages']>,
-  hookContext?: AuthHookContext
+  wiring: InvitationWiring
 ): InvitationServices | undefined
 export function createInvitationServices(
   authInstance: AuthInstance | undefined,
-  linkPages?: () => NonNullable<InvitationServices['linkPages']>,
-  hookContext?: AuthHookContext
+  { database: { client, dialect }, linkPages, hookContext }: InvitationWiring
 ): InvitationServices | undefined {
   if (authInstance === undefined) return undefined
   const services: InvitationServices = {
-    store: invitationStore,
+    store: invitationStoreOver(client, dialect.kind),
     engine: createInvitationAuthEngine(authInstance),
+    // The composition seam for a Promise-shaped caller: the program runs on
+    // this very bundle, read at call time so the `linkPages` getter below is
+    // part of it.
+    run: (program) => Effect.runPromise(Effect.provideService(program, Invitations, services)),
     ...(hookContext === undefined
       ? {}
       : {

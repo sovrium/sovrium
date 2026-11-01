@@ -15,6 +15,7 @@ import {
   isSingleExpression,
 } from './encoded-template'
 import { registerHelpers } from './handlebars-helpers'
+import { isTemplateDebug } from './helper-dates'
 import { encodeValue, TemplateRefusal, type ValueEncoding } from './helper-encoding'
 
 /**
@@ -123,7 +124,7 @@ export const TRACKED_ARGUMENTS = { trackIds: true } as Parameters<typeof Handleb
 const compileAuthored = (template: string, encoding?: ValueEncoding): Compiled => {
   const ast = engine.parse(template)
   if ((ast.body as ReadonlyArray<TemplateNode>).some(hasPatternFromData)) {
-    if (process.env['DEBUG']?.includes('sovrium:templates')) {
+    if (isTemplateDebug()) {
       logError(
         '[templates] compile refused',
         new Error('regex/matchAll pattern must be a quoted string in the template'),
@@ -154,7 +155,7 @@ const getCompiled = (template: string, encoding?: ValueEncoding): Compiled => {
     try {
       return compileAuthored(template, encoding)
     } catch (error) {
-      if (process.env['DEBUG']?.includes('sovrium:templates')) {
+      if (isTemplateDebug()) {
         logError('[templates] compile failed', error, { template })
       }
       return FAILED_COMPILE
@@ -207,7 +208,7 @@ export const renderTemplate = (
     // crashing the action. This branch is rare given our helpers are
     // intentionally total — but defensive against custom helpers added
     // later that may throw.
-    if (process.env['DEBUG']?.includes('sovrium:templates')) {
+    if (isTemplateDebug()) {
       logError('[templates] render failed', error, { template })
     }
     return template
@@ -248,7 +249,7 @@ export const renderTemplateFor = (
     return Result.succeed(rendered)
   } catch (error) {
     if (error instanceof TemplateRefusal) return Result.fail(error.message)
-    if (process.env['DEBUG']?.includes('sovrium:templates')) {
+    if (isTemplateDebug()) {
       logError('[templates] render failed', error, { template, encoding })
     }
     return Result.succeed(template)

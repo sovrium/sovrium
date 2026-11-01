@@ -20,12 +20,9 @@
 // and the body:
 // the block lists static terms, a console card lists rows its page reads.
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consoleFactsCard = {
+export const consoleFactsCard: TemplateEncoded = {
   name: 'console-facts-card',
   type: 'card',
   render: 'transparent',
@@ -39,4 +36,4 @@ export const consoleFactsCard = {
     'data-testid': '$dataTestid',
   },
   children: '$children',
-} as unknown as Template
+}

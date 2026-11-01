@@ -1,6 +1,6 @@
 # Views
 
-> Declared ways of looking at a table — declarative filters, sorts, grouping and column selection, or a raw SQL query.
+> Declared ways of looking at a table: declarative filters, sorts, grouping and column selection, or a raw SQL query.
 
 A view is a named configuration of how a table's records are filtered, sorted, grouped and projected. Views live under a table's `views` array and are part of the config: they are never created or saved by a reader. The records API and the operator console can be asked for one by name, and every data component on a page can show one.
 
@@ -19,7 +19,7 @@ Filter, sort, group and choose columns without writing SQL.
 ```yaml
 views:
   - id: active_high_priority
-    name: Active — High Priority
+    name: Active, high priority
     isDefault: true
     filters:
       and:
@@ -35,7 +35,7 @@ views:
 
 A filter is either one condition or a boolean group combining conditions with `and` or `or`, and the groups nest.
 
-`isEmpty` and `isNotEmpty` take no `value` and follow the one rule every surface shares: a field is empty when it is NULL, an empty text, an empty list or an empty object — so a multi-select with nothing picked and a JSON field holding `{}` are empty, on PostgreSQL and SQLite alike. Nothing else is: `0`, `false`, a blank space, `{"a": null}` and `[null]` are values. The same rule applies to the `filters` of a lookup, rollup or count field.
+`isEmpty` and `isNotEmpty` take no `value` and follow the one rule every surface shares: a field is empty when it is NULL, an empty text, an empty list or an empty object, so a multi-select with nothing picked and a JSON field holding `{}` are empty, on PostgreSQL and SQLite alike. Nothing else is: `0`, `false`, a blank space, `{"a": null}` and `[null]` are values. The same rule applies to the `filters` of a lookup, rollup or count field.
 
 A `value` compared with a checkbox is read as yes or no, on PostgreSQL and SQLite alike: `true`, `1`, `"true"`, `"1"` and `"t"` mean ticked, `false`, `0`, `"false"`, `"0"` and `"f"` unticked, alone or inside a group. A lookup, rollup or count reads the checkbox of its related table the same way. Prefer `true` and `false`.
 
@@ -74,7 +74,7 @@ views:
 
 ## Showing a view on a page
 
-Every data component that reads a table — `table`, `kanban`, `event-calendar`, `gallery`, `list`, `chart`, `kpi` — binds either to one of the table's views or directly to the table, through `dataSource`:
+Every data component that reads a table (`table`, `kanban`, `event-calendar`, `gallery`, `list`, `chart`, `kpi`) binds either to one of the table's views or directly to the table, through `dataSource`:
 
 ```yaml
 tables:
@@ -100,11 +100,11 @@ pages:
         dateField: due_date
 ```
 
-Bound to a view, a component reads the records the view returns: the view's filters, sorts, grouping and `fields` apply on the server. The view owns them, so the binding may not repeat them — a `filter`, `sort` or `fields` beside `view` is refused when the config loads, with a message naming the view. The component keeps what says how it draws the records: a grid's columns, a board's `kanbanGroupBy`, a calendar's `dateField`, a gallery's card fields, a chart's axes. A board, a calendar and a grid of the same view are three components, each with its own binding.
+Bound to a view, a component reads the records the view returns: the view's filters, sorts, grouping and `fields` apply on the server. The view owns them, so the binding may not repeat them: a `filter`, `sort` or `fields` beside `view` is refused when the config loads, with a message naming the view. The component keeps what says how it draws the records: a grid's columns, a board's `kanbanGroupBy`, a calendar's `dateField`, a gallery's card fields, a chart's axes. A board, a calendar and a grid of the same view are three components, each with its own binding.
 
 Bound directly to a table, a component may narrow it with its own `dataSource.filter` and `dataSource.sort`.
 
-A reader's search, filter and sort — from the controls composed above a grid, or a column header — narrow what she sees for that visit only. They are stored nowhere, and a reload shows the component as configured.
+A reader's search, filter and sort (from the controls composed above a grid, or a column header) narrow what she sees for that visit only. They are stored nowhere, and a reload shows the component as configured.
 
 ## SQL mode
 
@@ -123,17 +123,17 @@ views:
 
 A materialized view is a cache, and a cache has an age. `refreshOnMigration` ties its refresh to a moment that already exists rather than inventing a schedule, which is why there is no interval to configure.
 
-**`materialized` is a PostgreSQL feature, and on SQLite it degrades rather than failing.** SQLite has no materialized-view object at all, so the view is created as a plain one and the refresh becomes a no-op — there is nothing to refresh when the view is always live. The declaration is accepted on both engines and the reads are observationally the same; what you lose on SQLite is the caching, not the view. Note too that the example's `date_trunc` is Postgres-only SQL: a raw `query` is passed to the database as you wrote it, so a view meant to run on both engines has to be written in SQL both of them accept.
+**`materialized` is a PostgreSQL feature, and on SQLite it degrades rather than failing.** SQLite has no materialized-view object at all, so the view is created as a plain one and the refresh becomes a no-op: there is nothing to refresh when the view is always live. The declaration is accepted on both engines and the reads are observationally the same; what you lose on SQLite is the caching, not the view. Note too that the example's `date_trunc` is Postgres-only SQL: a raw `query` is passed to the database as you wrote it, so a view meant to run on both engines has to be written in SQL both of them accept.
 
 ## Exactly one default
 
-Marking a view `isDefault: true` decides what a consumer gets when it asks for the table without naming a view — a grid with a view switcher opens on it. A view that groups by a field its `fields` leaves out still serves that field, so its groups have their values; the grid draws no column for it. The single-default rule and the uniqueness of view ids are both checked when the configuration is decoded, so two defaults stop the boot rather than making the answer depend on array order.
+Marking a view `isDefault: true` decides what a consumer gets when it asks for the table without naming a view: a grid with a view switcher opens on it. A view that groups by a field its `fields` leaves out still serves that field, so its groups have their values; the grid draws no column for it. The single-default rule and the uniqueness of view ids are both checked when the configuration is decoded, so two defaults stop the boot rather than making the answer depend on array order.
 
 ## Who may see a view
 
 <!-- sovrium:options ViewPermissionsSchema -->
 
-A view's `read` grant decides which signed-in roles may use it — `'all'`, `'authenticated'`, or a list of roles and `group:<name>` entries, a group entry admitting the members of that group on the view list, the definition, its records and `?view=` alike; it is checked instead of the table's, not after it, so a view may open a table to roles the table refuses — what it serves still passes the reader's field grants and the table's row-level rule. A view with no `permissions` block has no grant of its own: it inherits the table's `read`, answering exactly the callers the table's records answer, and anyone else gets the same `404` as for a view that does not exist. `permissions: { public: true }` is the one shape meant to open a view past the session: visitors with no account can read its definition and its records, served only the columns its `fields` names (minus any the reader's field grants withhold), filtered and sorted on the server. The list of a table's views (`GET /api/tables/:t/views`) answers exactly the callers the table's records answer — anyone else gets the same `404` as for a table that does not exist — and names only the views the caller may open. It stays private, writes stay on the table's permissions, a public view must declare `fields`, and a table with `rowLevelPermissions` cannot have one.
+A view's `read` grant decides which signed-in roles may use it: `'all'`, `'authenticated'`, or a list of roles and `group:<name>` entries, a group entry admitting the members of that group on the view list, the definition, its records and `?view=` alike; it is checked instead of the table's, not after it, so a view may open a table to roles the table refuses. What it serves still passes the reader's field grants and the table's row-level rule. A view with no `permissions` block has no grant of its own: it inherits the table's `read`, answering exactly the callers the table's records answer, and anyone else gets the same `404` as for a view that does not exist. `permissions: { public: true }` is the one shape meant to open a view past the session: visitors with no account can read its definition and its records, served only the columns its `fields` names (minus any the reader's field grants withhold), filtered and sorted on the server. The list of a table's views (`GET /api/tables/:t/views`) answers exactly the callers the table's records answer (anyone else gets the same `404` as for a table that does not exist), and names only the views the caller may open. It stays private, writes stay on the table's permissions, and a public view must declare `fields`. On a table with `rowLevelPermissions`, a public view reads its rows through the rule, for a visitor as for anyone: a rule that names no `$currentUser` (`status = published`) keeps for her the rows it keeps for everyone, a rule that names `$currentUser` keeps none, and a row the rule hides is absent from the records, their count and every group a component draws.
 
 ```yaml
 tables:
@@ -159,8 +159,8 @@ tables:
         permissions: { public: true }
 ```
 
-A visitor reads `GET /api/tables/campaigns/views/open_campaigns/records` and gets the enabled campaigns with their name, status and deadline — never `owner_email`. A `filter` they add only narrows the view's own, and a filter or sort on a column the view does not list is refused. Only `true` opens a view to a visitor: `read: 'all'` still means every signed-in role, a view with no permissions block means whoever the table's `read` admits, and a visitor asking for either gets the same answer as for a view that does not exist.
+A visitor reads `GET /api/tables/campaigns/views/open_campaigns/records` and gets the enabled campaigns with their name, status and deadline, never `owner_email`. A `filter` they add only narrows the view's own, and a filter or sort on a column the view does not list is refused. Only `true` opens a view to a visitor: `read: 'all'` still means every signed-in role, a view with no permissions block means whoever the table's `read` admits, and a visitor asking for either gets the same answer as for a view that does not exist.
 
 A view's own conditions keep narrowing the rows it serves even when they name a field the reader may not read, on `GET /api/tables/:t/views/:v/records` and `?view=` alike: they are the author's fixed values, not the reader's query, and the field itself is still never served or named to that reader.
 
-The definition a view serves — `GET /api/tables/:t/views/:v` and each entry of the view list — names only what its reader may read. Its `fields`, filter conditions, `sorts` and `groupBy` keep the fields the reader's field grants admit and drop the rest, so neither the name of a hidden field nor a value filtered on it reaches that reader; a view whose filter or sort rests entirely on hidden fields is still listed, without those entries. A filter on a column the reader may read is published as written even when the view's `fields` leaves that column out, as `disabled` does above: it is the author's own constant, not a record's value. This holds for a visitor reading a public view as for any signed-in role.
+The definition a view serves (`GET /api/tables/:t/views/:v` and each entry of the view list) names only what its reader may read. Its `fields`, filter conditions, `sorts` and `groupBy` keep the fields the reader's field grants admit and drop the rest, so neither the name of a hidden field nor a value filtered on it reaches that reader; a view whose filter or sort rests entirely on hidden fields is still listed, without those entries. A filter on a column the reader may read is published as written even when the view's `fields` leaves that column out, as `disabled` does above: it is the author's own constant, not a record's value. This holds for a visitor reading a public view as for any signed-in role.

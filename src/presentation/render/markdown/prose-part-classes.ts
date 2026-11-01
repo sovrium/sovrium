@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeHtmlDoubleQuotedAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { cn } from '@/presentation/design/class-merge'
+import type { PartClassMap, ProsePart } from '@/domain/models/app/design/component-parts'
 
 /**
  * The prose parts of rendered markdown, each as the opening tags it names.
@@ -14,7 +16,7 @@ import { cn } from '@/presentation/design/class-merge'
  * callouts), already sanitised, so its tag shapes are known: these patterns
  * read that output, never author HTML.
  */
-const PART_TAGS: Readonly<Record<string, RegExp>> = {
+export const PART_TAGS: Readonly<Record<ProsePart, RegExp>> = {
   heading1: /<h1(?=[\s>])[^>]*>/g,
   heading2: /<h2(?=[\s>])[^>]*>/g,
   heading3: /<h3(?=[\s>])[^>]*>/g,
@@ -30,6 +32,7 @@ const PART_TAGS: Readonly<Record<string, RegExp>> = {
   inlineCode: /(?<!<pre[^>]*>)<code(?=[\s>])[^>]*>/g,
   codeFrame: /<figure(?=[\s>])[^>]*data-code-frame[^>]*>/g,
   codeCaption: /<figcaption(?=[\s>])[^>]*>/g,
+  codeCopy: /<button(?=[\s>])[^>]*data-slot="code-block-copy-button"[^>]*>/g,
   // The paragraph right under the page title.
   lead: /(?<=<\/h1>\s*)<p(?=[\s>])[^>]*>/g,
   callout: /<div(?=[\s>])[^>]*data-component="alert"[^>]*>/g,
@@ -55,10 +58,6 @@ const withClasses = (tag: string, classes: string): string => {
   return `${marked.slice(0, end)} class="${classes}"${marked.slice(end)}`
 }
 
-/** Escape the characters an HTML attribute value cannot hold. */
-const escapeAttribute = (value: string): string =>
-  value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;')
-
 /**
  * Rendered markdown with the author's prose part classes on the elements they
  * name — `paragraph` on every `<p>`, `inlineCode` on inline `<code>`, a
@@ -68,14 +67,16 @@ const escapeAttribute = (value: string): string =>
  * @param html - Sanitised HTML the engine rendered from markdown.
  * @param parts - Classes by part name (`design.components` / `classes`, states folded in).
  */
-export const applyProsePartClasses = (
-  html: string,
-  parts: Readonly<Record<string, string>> | undefined
-): string => {
+export const applyProsePartClasses = (html: string, parts: PartClassMap | undefined): string => {
   if (parts === undefined) return html
-  return Object.entries(PART_TAGS).reduce((current, [part, pattern]) => {
-    const classes = parts[part]
-    if (classes === undefined || classes.trim() === '') return current
-    return current.replace(pattern, (tag) => withClasses(tag, escapeAttribute(classes)))
-  }, html)
+  return (Object.entries(PART_TAGS) as ReadonlyArray<readonly [ProsePart, RegExp]>).reduce(
+    (current, [part, pattern]) => {
+      const classes = parts[part]
+      if (classes === undefined || classes.trim() === '') return current
+      return current.replace(pattern, (tag) =>
+        withClasses(tag, escapeHtmlDoubleQuotedAttribute(classes))
+      )
+    },
+    html
+  )
 }

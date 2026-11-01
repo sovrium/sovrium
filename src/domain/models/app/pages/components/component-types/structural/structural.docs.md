@@ -1,6 +1,6 @@
 # Dividers & Spacers
 
-> The two structural components that carry no content — separator draws a rule, optionally labelled, and spacer reserves vertical whitespace.
+> The two structural components that carry no content: separator draws a rule, optionally labelled, and spacer reserves vertical whitespace.
 
 `separator` and `spacer` are the only components with nothing of their own to show. They exist to separate what is around them: one draws a line, the other reserves space. Neither takes `content`, `dataSource`, `responsive`, `visibility` or `i18n`.
 
@@ -26,7 +26,7 @@ A rule between sections, prestyled with the design's border tone. Reference: sha
 
 `orientation: vertical` runs the rule up and down between the items of a row, stretched to the row's height, as in a footer's `Privacy | Terms | Status`; it announces itself as a vertical separator. `horizontal` is the default.
 
-`style` is applied as an inline `border-style` rather than as a class, so it is unaffected by the token cascade. Any value other than `dashed` or `dotted` falls back to `solid` — a typo produces a plain rule, not an error.
+`style` is applied as an inline `border-style` rather than as a class, so it is unaffected by the token cascade. Any value other than `dashed` or `dotted` falls back to `solid`, so a typo produces a plain rule, not an error.
 
 ### Labelled dividers
 
@@ -36,21 +36,21 @@ Supplying `label` changes the markup. Instead of a bare `<hr>`, the separator be
 - { type: separator, label: 'Or continue with' }
 ```
 
-The label renders in the muted foreground tone, so a labelled separator reads as passive chrome rather than as a heading. Because the accessible name comes from `aria-label`, assistive technology announces the separator once — it does not read the visible text a second time.
+The label renders in the muted foreground tone, so a labelled separator reads as passive chrome rather than as a heading. Because the accessible name comes from `aria-label`, assistive technology announces the separator once. It does not read the visible text a second time.
 
 ## `spacer`
 
 Vertical whitespace, sized from a preset. Renders an `aria-hidden` element, so it adds rhythm without adding anything to the accessibility tree.
 
-| `props.size` | Height   | Typical use                           |
-| ------------ | -------- | ------------------------------------- |
-| `sm`         | `0.5rem` | Between tightly related rows.         |
-| `md`         | `1.5rem` | The default — between sibling blocks. |
-| `lg`         | `3rem`   | Between subsections.                  |
-| `xl`         | `5rem`   | Between major page sections.          |
+| `props.size` | Height   | Typical use                          |
+| ------------ | -------- | ------------------------------------ |
+| `sm`         | `0.5rem` | Between tightly related rows.        |
+| `md`         | `1.5rem` | The default, between sibling blocks. |
+| `lg`         | `3rem`   | Between subsections.                 |
+| `xl`         | `5rem`   | Between major page sections.         |
 
 An unrecognised `size` falls back to `md`. A `props.className` you supply is appended after the height class, so `className: 'h-40'` overrides the preset outright.
 
-**Prefer padding on the parent where you can.** A `spacer` is the right tool when the gap belongs between two siblings and neither owns it — a form section break, a landing-page rhythm beat. When one block owns the gap, put it on that block's `className` instead; there is less markup and it survives reordering.
+**Prefer padding on the parent where you can.** A `spacer` is the right tool when the gap belongs between two siblings and neither owns it: a form section break, a landing-page rhythm beat. When one block owns the gap, put it on that block's `className` instead; there is less markup and it survives reordering.
 
 It holds nothing and paints nothing: it is space, and nothing else. Reference: no shadcn counterpart (shadcn/ui spaces sections with the parent's gap).

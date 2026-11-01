@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { applyActiveSectionVariant } from '@/domain/models/app/design'
 import { cn } from '@/presentation/design/class-merge'
 import { DOCS_TOC_FRAME_CLASSES } from './docs-frame'
 import type { DocsChromeLabels } from './docs-chrome-labels'
@@ -22,12 +23,21 @@ const tocIndentClass = (level: number): string => {
   return 'pl-6'
 }
 
+/**
+ * A TOC link at rest, and its default look while the scroll-spy marks it as the
+ * section being read (`data-active="true"`). Utilities, not a style sheet, so
+ * the `tocLinkActive` part merges over them.
+ */
+const TOC_LINK_CLASS =
+  'hover:border-border-strong text-muted-foreground hover:text-foreground -ml-px block border-l border-transparent pl-3 transition-colors duration-150 data-[active=true]:border-border-strong data-[active=true]:text-foreground data-[active=true]:font-medium'
+
 export const renderToc = (
   markdown: ResolvedMarkdownPage,
   labels: DocsChromeLabels
 ): Readonly<ReactElement> | undefined => {
   if (markdown.tocHeadings === undefined || markdown.tocHeadings.length === 0) return undefined
   const sidebar = markdown.tocPosition === 'sidebar'
+  const linkClass = cn(TOC_LINK_CLASS, applyActiveSectionVariant(markdown.parts?.['tocLinkActive']))
   return (
     <nav
       data-component="markdown-toc"
@@ -55,7 +65,7 @@ export const renderToc = (
             <a
               href={`#${heading.id}`}
               data-toc-link={heading.id}
-              className="sv-toc-link hover:border-border-strong text-muted-foreground hover:text-foreground -ml-px block border-l border-transparent pl-3 transition-colors duration-150"
+              className={linkClass}
             >
               {heading.text}
             </a>

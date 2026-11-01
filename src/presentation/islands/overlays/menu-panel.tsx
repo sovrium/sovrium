@@ -8,6 +8,7 @@
 import { Menu } from '@base-ui/react/menu'
 import { useCallback, type ReactElement, type ReactNode, type RefObject } from 'react'
 import { authClient } from '@/presentation/islands/runtime/auth-client'
+import { followAddress } from '@/presentation/islands/runtime/follow-address'
 import { modalPortalContainer } from '@/presentation/islands/runtime/modal-portal-container'
 import {
   computeMenuItemClasses,
@@ -33,12 +34,18 @@ import type { MenuItem, MenuSurface } from './menu-item-types'
  * `Menu.Root` at the trigger.
  */
 
-/** Sign out, then return to `redirectTo` regardless of the sign-out outcome. */
+/**
+ * Sign out, then go to `redirectTo` regardless of the sign-out outcome. The
+ * address comes from config, so it is followed only when it is a safe web
+ * address (`followAddress`); anything else lands on the home page instead.
+ */
 async function performLogout(redirectTo: string): Promise<void> {
   try {
     await authClient.signOut()
+    // Forget this browser's language choice: the next person reads the default
+    localStorage.removeItem('sovrium_language')
   } finally {
-    window.location.assign(redirectTo)
+    if (!followAddress(redirectTo)) window.location.assign('/')
   }
 }
 

@@ -13,7 +13,7 @@
 
 import { inviteeAppLanding } from '@/domain/models/app/auth/invitee-landing-service'
 import { logError } from '@/infrastructure/logging/logger'
-import type { AcceptInvitationSuccess } from '@/application/use-cases/auth/admin-invitation'
+import type { AcceptInvitationSuccess } from '@/application/use-cases/auth/accept-invitation'
 import type { Auth } from '@/domain/models/app/auth'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 

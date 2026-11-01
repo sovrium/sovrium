@@ -73,7 +73,7 @@
  */
 
 import { Schema, Struct } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * The `$extensions` namespace key.
@@ -107,7 +107,7 @@ export const dtcgColorValueSchema = Schema.Struct({
   ),
   hex: optionalField(
     Schema.String.annotate({
-      description: 'Hex fallback — populated verbatim when the authored value was hexadecimal',
+      description: 'Hex fallback, populated verbatim when the authored value was hexadecimal',
     }).pipe(Schema.check(Schema.isPattern(/^#[0-9a-fA-F]{6}$/)))
   ),
 }).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgColorValue' })
@@ -140,16 +140,81 @@ export const dtcgColorTokenSchema = Schema.Struct({
   ...withDescription,
 }).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgColorToken' })
 
+/**
+ * A colour token whose value is an ALIAS of a token of the `color` group,
+ * spelt the DTCG way: `{color.<name>}`.
+ *
+ * An alias rather than a copied colour because a code role names a colour
+ * TOKEN, never a literal: the dark document layers its own `color` group over
+ * the light one, and the same `{color.clay}` resolves to clay's dark value
+ * there, exactly as the running app paints it. A copied value would freeze the
+ * light colour into both modes.
+ */
+export const dtcgColorAliasTokenSchema = Schema.Struct({
+  $type: Schema.Literal('color'),
+  $value: Schema.String.annotate({
+    description: 'A reference to a token of the `color` group, `{color.<name>}`',
+    examples: ['{color.clay}'],
+  }).check(Schema.isPattern(/^\{color\.[^{}]+\}$/)),
+  ...withDescription,
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgColorAliasToken' })
+
+/**
+ * The code-block roles `design.code.tokens` colours, each the alias of the
+ * colour token that paints it. Only a role the design colours appears: a role
+ * left out keeps the default `github-light` / `github-dark` colour, which is
+ * not a token of this app.
+ */
+export const codeRoleTokensSchema = Schema.Struct({
+  comment: optionalField(dtcgColorAliasTokenSchema),
+  keyword: optionalField(dtcgColorAliasTokenSchema),
+  string: optionalField(dtcgColorAliasTokenSchema),
+  constant: optionalField(dtcgColorAliasTokenSchema),
+  function: optionalField(dtcgColorAliasTokenSchema),
+  tag: optionalField(dtcgColorAliasTokenSchema),
+  variable: optionalField(dtcgColorAliasTokenSchema),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'CodeRoleTokens' })
+
+/**
+ * Who chose one step of a ladder the document merges over the platform's.
+ *
+ * Radius, spacing, breakpoints and durations are exported as the ladder the
+ * app SHIPS, the platform's steps under the ones the config declares. A bare
+ * merge cannot tell a reader which steps were decided, so each such token says
+ * so under the Sovrium extension key, the way the shadow ramp already does.
+ * Optional: a token document from an older build carries none, and a token
+ * outside a merged ladder has no provenance to report.
+ */
+const tokenProvenanceExtensionSchema = Schema.Struct({
+  [SOVRIUM_EXTENSION_KEY]: Schema.Struct({
+    provenance: Schema.Literals(['declared', 'inherited']).annotate({
+      description:
+        '`declared` when the config wrote this step, `inherited` when the platform supplied it',
+    }),
+  }).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'TokenProvenance' }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'TokenProvenanceExtension',
+  description: 'Whether this step was declared in the config or inherited from the platform',
+})
+
+const withProvenance = {
+  $extensions: optionalField(tokenProvenanceExtensionSchema),
+}
+
 export const dtcgDimensionTokenSchema = Schema.Struct({
   $type: Schema.Literal('dimension'),
   $value: dtcgDimensionValueSchema,
   ...withDescription,
+  ...withProvenance,
 }).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgDimensionToken' })
 
 export const dtcgDurationTokenSchema = Schema.Struct({
   $type: Schema.Literal('duration'),
   $value: dtcgDurationValueSchema,
   ...withDescription,
+  ...withProvenance,
 }).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgDurationToken' })
 
 /**
@@ -171,13 +236,13 @@ export const dtcgDurationTokenSchema = Schema.Struct({
  */
 export const dtcgCubicBezierValueSchema = Schema.Tuple([
   Schema.Finite.annotate({
-    description: 'P1x — bounded; an x ordinate outside 0..1 is not a curve',
+    description: 'P1x, bounded: an x ordinate outside 0..1 is not a curve',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))),
-  Schema.Finite.annotate({ description: 'P1y — unbounded; an overshoot past 1 is a real easing' }),
-  Schema.Finite.annotate({ description: 'P2x — bounded, as P1x' }).pipe(
+  Schema.Finite.annotate({ description: 'P1y, unbounded: an overshoot past 1 is a real easing' }),
+  Schema.Finite.annotate({ description: 'P2x, bounded as P1x' }).pipe(
     Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
   ),
-  Schema.Finite.annotate({ description: 'P2y — unbounded, as P1y' }),
+  Schema.Finite.annotate({ description: 'P2y, unbounded as P1y' }),
 ]).annotate({ description: 'The four control-point ratios of a cubic-bezier, in DTCG order' })
 
 export const dtcgCubicBezierTokenSchema = Schema.Struct({
@@ -231,7 +296,7 @@ export const dtcgTypographyValueSchema = Schema.Struct({
   ),
   lineHeight: optionalField(
     Schema.Finite.annotate({
-      description: 'Leading as a UNITLESS RATIO — DTCG types this as a number, not a dimension',
+      description: 'Leading as a UNITLESS RATIO. DTCG types this as a number, not a dimension',
     })
   ),
 }).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgTypographyValue' })
@@ -431,7 +496,7 @@ export const catalogueEntrySchema = Schema.Struct({
   }),
   variants: optionalField(
     Schema.Array(Schema.String).annotate({
-      description: 'The variant axis, where the type declares one — absent, never empty',
+      description: 'The variant axis, where the type declares one; absent, never empty',
     })
   ),
   /**
@@ -451,6 +516,20 @@ export const sovriumDesignExtensionSchema = Schema.Struct({
   logo: optionalField(logoGuidanceSchema),
   imagery: optionalField(imageryGuidanceSchema),
   voice: optionalField(voiceGuidanceSchema),
+  /**
+   * The language `voice.pronoun` and each zone's `voice.pronoun` are written
+   * in: the app's default language, carried only when the app declares more
+   * than one, the one case where a bare pronoun is half true. It sits here
+   * rather than inside the pronoun because `voice` mirrors `design.voice`, and
+   * here rather than in the renderers because the brief is a projection of this
+   * document alone: the share reader has no config to read a language from.
+   */
+  voiceLanguage: optionalField(
+    Schema.String.annotate({
+      description:
+        'The default language `voice.pronoun` is written in, present when the app declares several languages',
+    })
+  ),
   colorRoles: optionalField(Schema.Record(Schema.String, colorRoleGuidanceSchema)),
   components: optionalField(Schema.Record(Schema.String, componentGuidanceSchema)),
   /** The zone map — which route family is which register. See {@link designZoneGuidanceSchema}. */
@@ -529,7 +608,7 @@ export const designSystemDocumentSchema = Schema.Struct({
     description: 'Font families',
   }),
   typography: Schema.Record(Schema.String, dtcgTypographyTokenSchema).annotate({
-    description: 'The type scale — one composite token per declared step, in ladder order',
+    description: 'The type scale: one composite token per declared step, in ladder order',
   }),
   duration: Schema.Record(Schema.String, dtcgDurationTokenSchema).annotate({
     description: 'Animation durations',
@@ -559,6 +638,20 @@ export const designSystemDocumentSchema = Schema.Struct({
   easing: optionalField(
     Schema.Record(Schema.String, dtcgCubicBezierTokenSchema).annotate({
       description: 'Easing curves, as DTCG cubicBezier tokens',
+    })
+  ),
+  /**
+   * The colour of each code-block syntax role, from `design.code.tokens`.
+   *
+   * Present only when the design colours at least one role, so an app that
+   * declares no `design.code` exports the document it always has, byte for
+   * byte. The same aliases sit in both mode documents; the mode is decided by
+   * which `color` group they resolve against.
+   */
+  code: optionalField(
+    codeRoleTokensSchema.annotate({
+      description:
+        'Code-block syntax roles, each an alias of the colour token that paints it; present only when `design.code.tokens` colours a role',
     })
   ),
   $extensions: designSystemExtensionsSchema,

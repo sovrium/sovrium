@@ -7,7 +7,6 @@
 
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { executeSQL, executeSQLStatements } from '../sql/sql-execution'
 import type { SQLExecutionError, TransactionLike } from '../sql/sql-execution'
 
@@ -55,9 +54,10 @@ export const retireRenamedTableCompanions = (
         ? undefined
         : `${lead}${pair[1]}${name.slice(lead.length + pair[0].length)}`
     }
-    const statements = isSqliteRuntime()
-      ? yield* sqliteCompanionStatements(tx, relation, renamed)
-      : yield* postgresCompanionStatements(tx, relation, renamed)
+    const statements =
+      tx.dialect === 'sqlite'
+        ? yield* sqliteCompanionStatements(tx, relation, renamed)
+        : yield* postgresCompanionStatements(tx, relation, renamed)
     yield* executeSQLStatements(tx, statements)
   })
 

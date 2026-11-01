@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Data, Effect } from 'effect'
 import type { Context } from 'hono'
 
 /**
@@ -21,3 +22,15 @@ export const readMultipartFile = async (c: Context, field: string): Promise<File
   const part = body?.[field]
   return part instanceof File ? part : undefined
 }
+
+/** A file part of the request could not be read to its end. */
+class UploadedFileReadError extends Data.TaggedError('UploadedFileReadError')<{
+  readonly cause: unknown
+}> {}
+
+/** The whole of an uploaded file. */
+export const readUploadedBytes = (file: File) =>
+  Effect.tryPromise({
+    try: async () => new Uint8Array(await file.arrayBuffer()),
+    catch: (cause) => new UploadedFileReadError({ cause }),
+  })

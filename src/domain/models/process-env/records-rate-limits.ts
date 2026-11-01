@@ -57,16 +57,16 @@ const parseBudget = (env: Env, name: string, fallback: number): number => {
  *   number of requests above zero.
  */
 export const parseRecordsRateLimits = (
-  env: Env = process.env
+  env: Env
 ): { readonly writes: number; readonly reads: number } => ({
   writes: parseBudget(env, RATE_LIMIT_WRITES_VAR, DEFAULT_RATE_LIMIT_WRITES),
   reads: parseBudget(env, RATE_LIMIT_READS_VAR, DEFAULT_RATE_LIMIT_READS),
 })
 
 /** The write budget for a request already being served; never throws (the boot refused a bad value). */
-export const resolveRateLimitWrites = (env: Env = process.env): number =>
+export const resolveRateLimitWrites = (env: Env): number =>
   parsePositiveIntEnv(env[RATE_LIMIT_WRITES_VAR]) ?? DEFAULT_RATE_LIMIT_WRITES
 
 /** The signed-in read ceiling for a request already being served; never throws. */
-export const resolveRateLimitReads = (env: Env = process.env): number =>
+export const resolveRateLimitReads = (env: Env): number =>
   parsePositiveIntEnv(env[RATE_LIMIT_READS_VAR]) ?? DEFAULT_RATE_LIMIT_READS

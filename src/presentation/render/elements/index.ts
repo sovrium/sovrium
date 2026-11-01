@@ -26,7 +26,13 @@ export {
 export type { ElementProps, HTMLElementConfig, StatusBadgeConfig } from './html-element-renderer'
 
 // Text content renderers
-export { renderParagraph, renderCode, renderPre, renderBlockquote } from './text-content-renderers'
+export {
+  renderParagraph,
+  renderCode,
+  renderPre,
+  renderBlockquote,
+  renderKbd,
+} from './text-content-renderers'
 
 // Media renderers
 export {
@@ -34,6 +40,7 @@ export {
   renderAvatar,
   renderThumbnail,
   renderHeroImage,
+  renderInlineDrawing,
   renderVideo,
   renderAudio,
   renderIframe,

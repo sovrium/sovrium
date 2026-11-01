@@ -19,11 +19,11 @@ import type {
   SSGGenerationError,
   StaticSiteGenerator as StaticSiteGeneratorService,
 } from '@/application/ports/services/static-site-generator'
+import type { AuthConfigRequiredForUserFields } from '@/domain/errors/auth-config-required-error'
+import type { SchemaInitializationError } from '@/domain/errors/schema-initialization-error'
+import type { ServerCreationError } from '@/domain/errors/server-creation-error'
+import type { TransformPresetError } from '@/domain/errors/transform-preset-error'
 import type { App } from '@/domain/models/app'
-import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
-import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
-import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
-import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 
 // Service types extracted from Context.Tag
 type ServerFactory = ServerFactoryService['Service']

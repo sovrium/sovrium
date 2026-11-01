@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isLoopbackHost, isSmtpPlaintextAllowed } from '@/infrastructure/process/security-posture'
 import type { EmailConfig } from './nodemailer'
 
 /**
@@ -33,6 +34,8 @@ export interface EmailConfigResult {
  * - SMTP_SECURE: Use SSL/TLS (default: false for port 587, true for port 465)
  * - SMTP_USER: SMTP authentication username
  * - SMTP_PASS: SMTP authentication password
+ * - SMTP_ALLOW_PLAINTEXT: `1`/`true` lets a remote server without STARTTLS
+ *   receive the account and the message in clear text
  *
  * The sender (`SMTP_FROM` / `SMTP_FROM_NAME`) is NOT part of this config: it is
  * resolved per message by `getDefaultFrom`, which also knows the sending app's
@@ -61,6 +64,20 @@ const getEnvBoolean = (key: string, defaultValue: boolean): boolean => {
 }
 
 /**
+ * Whether a connection must upgrade with STARTTLS before the account or the
+ * message is sent.
+ *
+ * Without it, nodemailer upgrades only when the server's greeting OFFERS
+ * STARTTLS — so anyone on the path who strips that one line from the greeting
+ * receives `AUTH` and the message in clear text. Required unless the
+ * connection is TLS from the first byte, the SMTP host is loopback (a mail
+ * catcher on the same machine; `0.0.0.0` is not loopback), or the operator set
+ * `SMTP_ALLOW_PLAINTEXT` for a relay on a network they control.
+ */
+const requiresStartTls = (host: string, secure: boolean): boolean =>
+  !secure && !isLoopbackHost(host) && !isSmtpPlaintextAllowed(process.env)
+
+/**
  * Get email configuration from environment variables.
  *
  * When `SMTP_HOST` is set, returns the resolved SMTP config with
@@ -76,12 +93,14 @@ export const getEmailConfigFromEffect = (): EmailConfigResult => {
   // Use real SMTP when host is configured
   if (host) {
     const port = getEnvNumber('SMTP_PORT', 587)
+    const secure = getEnvBoolean('SMTP_SECURE', false) || port === 465
     return {
       configured: true,
       config: {
         host,
         port,
-        secure: getEnvBoolean('SMTP_SECURE', false) || port === 465,
+        secure,
+        requireTLS: requiresStartTls(host, secure),
         auth: {
           user: getEnvString('SMTP_USER', ''),
           pass: getEnvString('SMTP_PASS', ''),

@@ -8,31 +8,31 @@
 /**
  * API Schema Exports
  *
- * This module exports all Zod schemas used for API response validation
- * and OpenAPI documentation generation.
+ * This module exports the Effect Schema wire contracts used for API response
+ * validation and OpenAPI documentation generation.
  *
- * Schema Organization (by API route domain):
- * - combinators: Pagination, timestamps, error responses (cross-cutting)
- * - account: Account self-service & GDPR endpoints (export, deletion)
+ * Organization: every child directory is a canonical slug, and a route group
+ * whose URL segment is not a slug lives inside the slug it folds into.
+ * - (root files): the shared envelope — pagination, timestamps, error
+ *   responses, the search term, schema defaults
  * - activity: Activity log endpoints
  * - ai: AI chat, MCP, memory, RAG endpoints
  * - analytics: Page analytics endpoints
- * - auth: Authentication and authorization endpoints
- * - automations: Automation run endpoints
+ * - auth: Authentication, account self-service & GDPR, SCIM 2.0 provisioning
+ * - automations: Automation runs, the caller's notifications and preferences
  * - buckets: Public bucket file endpoints
  * - connections: Connection authorization and per-user roster endpoints
- * - health: Health check endpoint
- * - notifications: The caller's notifications and notification preferences
  * - realtime: WebSocket/SSE real-time subscription endpoints
- * - scim: SCIM 2.0 provisioning endpoints
+ * - search: What the ⌘K palette of an app finds: pages and readable records
+ * - server: Health check endpoints
  * - tables: Table, record, comment, view, search, webhook endpoints
  */
 
-// Cross-cutting schemas
-export * from './combinators'
-
-// Account self-service & GDPR schemas (export, deletion)
-export * from './account'
+// The shared envelope
+export * from './common'
+export * from './cursor-pagination'
+export * from './error'
+export * from './search-term'
 
 // Activity log schemas
 export * from './activity'
@@ -43,10 +43,10 @@ export * from './ai'
 // Analytics schemas
 export * from './analytics'
 
-// Authentication schemas
+// Authentication, account self-service & GDPR, and SCIM 2.0 provisioning schemas
 export * from './auth'
 
-// Automation schemas
+// Automation schemas, and the caller's own notifications and notification preferences
 export * from './automations'
 
 // Public bucket file schemas
@@ -55,23 +55,14 @@ export * from './buckets'
 // Connection schemas
 export * from './connections'
 
-// Health check schemas
-export * from './health'
-
-// The caller's own notifications and notification preferences
-export * from './notifications'
-
 // Real-time subscription schemas
 export * from './realtime'
 
 // What the ⌘K palette of an app finds: pages and readable records
-export * from './command-search'
+export * from './search'
 
-// SCIM 2.0 provisioning schemas
-export * from './scim'
+// Health check schemas
+export * from './server'
 
 // Table, record, comment, view, search, and webhook schemas
 export * from './tables'
-
-// The people a user field resolves to, with their presence facts
-export * from './users'

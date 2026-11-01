@@ -33,13 +33,14 @@
  * its drawn size, not a layout the page sets, so it is never read back.
  */
 
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import {
   MAX_JSON_NESTING,
   nestsDeeperThan,
 } from '@/domain/kernel/config-parsing/json-nesting-depth'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { FIGMA_PAGE_DOCUMENT_FORMAT } from '@/domain/models/api/admin/design-system/adapter-figma-pages'
 import { pageExportStampSchema } from '@/domain/models/api/admin/design-system/page-design-tree'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { parseJson, type ImportSource } from '../import/canonical-tokens-service'
 import { COUNTER_AXIS_OF_ALIGN, PRIMARY_AXIS_OF_JUSTIFY } from './figma-pages-layout'
 import { readFigmaPageDocument, type FigmaPageReading } from './figma-pages-parse'
@@ -89,9 +90,6 @@ type Json = Readonly<Record<string, unknown>>
 
 /** How deep a board's frames may nest before the file is refused. */
 const MAX_DEPTH = 64
-
-const isRecord = (value: unknown): value is Json =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const stringOf = (value: unknown): string | undefined =>
   typeof value === 'string' ? value : undefined

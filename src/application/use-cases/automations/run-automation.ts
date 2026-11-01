@@ -22,6 +22,8 @@ import {
   type AutomationDatabaseError,
 } from '@/application/ports/repositories/automations/automation-repository'
 import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
+import { AutomationScheduler } from '@/application/ports/services/automation-scheduler'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { TemplateEngine } from '@/application/ports/services/template-engine'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { webhookStartsByHand } from '@/domain/models/app/automations/run-starter-service'
@@ -36,24 +38,16 @@ import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
 import { notifyPlatformFailure } from './notify-platform-failure'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import { resolveRunTimeoutMs, runActionsWithTimeout } from './run/action-loop'
+import { enqueueAndAdmit, type Admission } from './run/admission'
 import { buildAutomationInvoker } from './run/automation-call-invoker'
 import { finaliseOnAbandon } from './run/defect-finaliser'
 import { dispatchFailureHandlers } from './run/failure-dispatch'
-import { finalisePausableRun, markRunRunning, persistQueuedRun } from './run/run-persistence'
+import { finalisePausableRun } from './run/run-persistence'
 import { buildRunResult } from './run/run-result'
 import { withPriorTolerated } from './run/run-status'
-import {
-  acquireSlot,
-  isCancelled,
-  registerCancellation,
-  releaseSlot,
-  resolveConcurrencyLimit,
-  unregisterCancellation,
-} from './run/scheduler'
 import { unlessStarterGone } from './run/starter-standing'
 import { buildStepContext, withRunLedgers } from './run/step-context'
 import {
-  cryptoRandomId,
   toResolvedRetry,
   type ExecuteAutomationRunInput,
   type RunAccumulator,
@@ -103,7 +97,6 @@ export type ExecuteAutomationRunRequirements = RunRequirements
 export interface RunWebhookAutomationOptions {
   readonly name: string
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /**
    * Trigger payload visible to actions through `{{trigger.data.X}}`. Defaults
    * to an empty object — actions that reference webhook fields will see
@@ -221,45 +214,6 @@ export const resolveAutomationId = (
   }).pipe(Effect.withSpan('automations.resolve-automation-id'))
 
 /**
- * Execute the action list for a previously-resolved automation, persist the
- * run + step rows to DB.
- *
- * This is the shared loop used by every entry point (webhook, manual,
- * record-event, etc.) so the persistence and dispatch contract is identical
- * regardless of how the automation was triggered.
- */
-/**
- * Phase 1+2 of the scheduler-wrapped run loop: persist the row as
- * `'queued'`, surface the runId to any waiting caller, then park on the
- * per-automation FIFO semaphore until a slot frees. On admit, promote
- * the row to `'running'` and stamp its `startedAt` with the admission instant.
- * Returns the runId and that instant: the run's duration and its timeout both
- * count from admission, so the wait for a slot is never part of either.
- */
-const enqueueAndAdmit = (
-  input: ExecuteAutomationRunInput
-): Effect.Effect<{ readonly runId: string; readonly admittedAt: Date }, never, RunRequirements> =>
-  Effect.gen(function* () {
-    const { name, automation, processEnv } = input
-    // The run's id, actor, hand-start marker and relay, all read off the input.
-    const persistedQueuedId = yield* persistQueuedRun(input)
-    const runId = persistedQueuedId ?? cryptoRandomId()
-    // The controller is read back by the cancel endpoint, not threaded here.
-    // eslint-disable-next-line functional/no-expression-statements -- void-style call: the controller is read back via signalCancellation(runId), not threaded directly
-    registerCancellation(runId)
-    if (input.onPersisted !== undefined) {
-      const cb = input.onPersisted
-      cb(runId)
-    }
-    const limit = resolveConcurrencyLimit(automation, processEnv)
-    // effect-promise: total -- `acquireSlot` either resolves immediately or returns a promise that is only ever settled by `resolve`; it has no rejection path, and a queued automation waits rather than failing.
-    yield* Effect.promise(() => acquireSlot(name, limit))
-    const admittedAt = new Date()
-    yield* markRunRunning(runId, admittedAt)
-    return { runId, admittedAt }
-  })
-
-/**
  * Phase 4+5: finalise the run row + step rows, append to the in-memory
  * history store, then release the scheduler slot + clear cancellation
  * state. If the run was cancelled mid-flight, override the terminal
@@ -277,13 +231,14 @@ const finaliseAndRelease = (input: {
   readonly run: ExecuteAutomationRunInput
   /** Set once the row is finalised, so the abandon guard does not finalise it again. */
   readonly finalised: Ref.Ref<boolean>
+  readonly admission: Admission
 }): Effect.Effect<
   { readonly observedRunId: string; readonly effectiveState: RunAccumulator },
   never,
   RunRequirements
 > =>
   Effect.gen(function* () {
-    const cancelled = isCancelled(input.runId)
+    const cancelled = yield* (yield* AutomationScheduler).isCancelled(input.runId)
     const effectiveState: RunAccumulator = cancelled
       ? {
           ...input.finalState,
@@ -308,11 +263,20 @@ const finaliseAndRelease = (input: {
     })
     yield* Ref.set(input.finalised, true)
     const observedRunId = finalisedId ?? input.runId
-    releaseSlot(input.name)
-    unregisterCancellation(input.runId)
+    // Given back before the failure fan-out: a failure handler may run this same automation.
+    yield* input.admission.releaseSlot
+    yield* input.admission.unregisterCancellation
     return { observedRunId, effectiveState }
   })
 
+/**
+ * Execute the action list for a previously-resolved automation, persist the
+ * run + step rows to DB.
+ *
+ * This is the shared loop used by every entry point (webhook, manual,
+ * record-event, etc.) so the persistence and dispatch contract is identical
+ * regardless of how the automation was triggered.
+ */
 export const executeAutomationRun = (
   input: ExecuteAutomationRunInput
 ): Effect.Effect<RunAutomationResult, never, RunRequirements> =>
@@ -322,12 +286,14 @@ export const executeAutomationRun = (
   traceAutomationRun(
     input.name,
     Effect.gen(function* () {
-      const { runId, admittedAt } = yield* enqueueAndAdmit(input)
+      const admission = yield* enqueueAndAdmit(input)
+      const { runId, admittedAt } = admission
       const finalised = yield* Ref.make(false)
       // From admission on, the run holds a slot, a canceller and a `running`
-      // row: the guard hands all three back if the run exits any way but
-      // through `finaliseAndRelease` (a defect, an interruption).
-      return yield* finaliseOnAbandon(runAdmitted(input, { runId, admittedAt, finalised }), {
+      // row. The run's scope gives the first two back however it exits; the
+      // guard closes the row if it exits any way but through
+      // `finaliseAndRelease` (a defect, an interruption).
+      return yield* finaliseOnAbandon(runAdmitted(input, { admission, finalised }), {
         name: input.name,
         automationId: input.automationId,
         runId,
@@ -338,7 +304,7 @@ export const executeAutomationRun = (
         ...(input.startedAsGuest === true ? { startedAsGuest: true } : {}),
         finalised,
       })
-    })
+    }).pipe(Effect.scoped)
   ).pipe(Effect.withSpan('automations.execute-automation-run'))
 
 /**
@@ -348,22 +314,21 @@ export const executeAutomationRun = (
  */
 const runAdmitted = (
   started: ExecuteAutomationRunInput,
-  admission: {
-    readonly runId: string
-    readonly admittedAt: Date
-    readonly finalised: Ref.Ref<boolean>
-  }
+  admitted: { readonly admission: Admission; readonly finalised: Ref.Ref<boolean> }
 ): Effect.Effect<RunAutomationResult, never, RunRequirements> =>
   Effect.gen(function* () {
     const input = withRunLedgers(started) // its ledgers, stored with it if it pauses
-    const { name, automation, automationId, app, processEnv, triggerData } = input
-    const { runId, admittedAt, finalised } = admission
+    const { name, automation, automationId, app, triggerData } = input
+    const { admission, finalised } = admitted
+    const { runId, admittedAt } = admission
     const rawActions = expandAutomationActions(app, automation)
     const skipActionNames = input.skipActionNames ?? new Set<string>()
     // Built after the queued row lands (`runId`); services captured from THIS fiber.
     const services = yield* Effect.context<RunRequirements>()
     const runProgram = (yield* AutomationFiberBridge).promiseRunner(services)
-    const ctx = buildStepContext({ ...input, runId, runProgram, templates: yield* TemplateEngine })
+    const processEnv = yield* ProcessEnv
+    const templates = yield* TemplateEngine
+    const ctx = buildStepContext({ ...input, runId, runProgram, templates, processEnv })
     const steps = runActionsWithTimeout(rawActions, ctx, {
       timeoutMs: resolveRunTimeoutMs(automation, processEnv),
       skipActionNames,
@@ -385,10 +350,10 @@ const runAdmitted = (
       userId: input.userId,
       run: input,
       finalised,
+      admission,
     })
     yield* dispatchPostRunFailureEffects({
       app,
-      processEnv,
       automation,
       trigger: input.trigger,
       name,
@@ -426,7 +391,6 @@ const boundAutomationInvoker = buildAutomationInvoker({
  */
 export const dispatchPostRunFailureEffects = (input: {
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly automation: NonNullable<App['automations']>[number]
   /** The trigger entry that started the run: a failure handler's own run never cascades. */
   readonly trigger: Trigger
@@ -464,7 +428,6 @@ export const dispatchPostRunFailureEffects = (input: {
 /** Dispatch the user-configured `automation-failure` handlers for a failed run. */
 const cascadeToFailureHandlers = (input: {
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly automation: NonNullable<App['automations']>[number]
   readonly trigger: Trigger
   readonly name: string
@@ -474,11 +437,10 @@ const cascadeToFailureHandlers = (input: {
   readonly finishedAtDate: Date
 }): Effect.Effect<void, never, RunRequirements> =>
   Effect.gen(function* () {
-    const { app, processEnv, automation, name, runId, finalState } = input
+    const { app, automation, name, runId, finalState } = input
     yield* dispatchFailureHandlers(
       {
         app,
-        processEnv,
         failedAutomationName: name,
         failedTriggerType: input.trigger.type,
         runId,
@@ -508,7 +470,6 @@ const cascadeToFailureHandlers = (input: {
 export const runWebhookAutomation = ({
   name,
   app,
-  processEnv,
   triggerData = {},
   handlers = defaultActionHandlers,
   userId,
@@ -532,7 +493,6 @@ export const runWebhookAutomation = ({
       trigger,
       automationId,
       app,
-      processEnv,
       triggerData,
       handlers,
       userId,

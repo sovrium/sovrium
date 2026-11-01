@@ -19,6 +19,7 @@
  * is read and none can be.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import type { App } from '@/domain/models/app'
 
 /** One variable of a template, as the props table lists it. */
@@ -37,9 +38,6 @@ export interface ComponentSampleProp {
  * (a lookup such as `$t:nav.home`). The lookahead is the template substitutor's.
  */
 const VARIABLE = /\$([a-zA-Z][a-zA-Z0-9]*)(?![a-zA-Z0-9_.:])/g
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every variable a string reads, in order. */
 const variablesIn = (text: string): readonly string[] =>

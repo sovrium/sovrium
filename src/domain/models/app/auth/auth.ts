@@ -74,7 +74,7 @@ export const getEnabledStrategies = (auth: Auth | undefined): readonly StrategyT
  * environment variables, not in this schema. See .env.example for details.
  *
  * Structure:
- * - allowSignUp: Boolean controlling self-registration (optional, defaults to true)
+ * - allowSignUp: Boolean controlling self-registration (optional, defaults to false)
  * - strategies: Array of authentication strategy objects (at least one, unless auth.sso declares a provider)
  * - roles: Custom role definitions with hierarchy (optional)
  * - defaultRole: Role assigned to new users (optional, defaults to 'member')
@@ -86,9 +86,9 @@ export const getEnabledStrategies = (auth: Auth | undefined): readonly StrategyT
  * // Minimal
  * { strategies: [{ type: 'emailAndPassword' }] }
  *
- * // Disable self-registration (admin-only user creation)
+ * // Open self-registration (closed unless set)
  * {
- *   allowSignUp: false,
+ *   allowSignUp: true,
  *   strategies: [{ type: 'emailAndPassword' }],
  * }
  *
@@ -120,17 +120,19 @@ export const LOGIN_PAGE_PATTERN = /^\/(?![/\\])[^\s?#\\]*$/
  *
  * Controls whether users can self-register or only admins can create accounts.
  *
- * - `true` (default): Anyone can sign up via enabled authentication strategies
- * - `false`: Self-registration is disabled; only admins can create users
- *   via `POST /api/auth/admin/create-user`
+ * - `true`: Anyone can sign up via enabled authentication strategies
+ * - `false` or omitted (default): Self-registration is closed; accounts come from
+ *   an admin (`POST /api/auth/admin/create-user`), an invitation, or the
+ *   `AUTH_ADMIN_*` bootstrap
  *
- * Maps directly to Better Auth's `disableSignUp` option (inverted: allowSignUp=false → disableSignUp=true).
+ * Maps to Better Auth's `disableSignUp` option: only an explicit `true` opens it.
  */
 export const AllowSignUpSchema = Schema.Boolean.pipe(
   Schema.annotate({
     title: 'Allow Sign-Up',
     description:
-      'Controls user self-registration. true allows anyone to sign up. false restricts user creation to admins.',
+      'Whether a stranger may create an account through the enabled sign-in ways. true opens self-registration. Omitted or false, it is closed: accounts come from an admin, an invitation, or the first-admin environment variables.',
+    defaultNote: 'false',
     examples: [true, false],
   })
 )
@@ -643,7 +645,7 @@ export const AuthSchema = Schema.Struct({
     examples: [
       { strategies: [{ type: 'emailAndPassword' as const }] },
       {
-        allowSignUp: false,
+        allowSignUp: true,
         strategies: [{ type: 'emailAndPassword' as const }],
       },
       {

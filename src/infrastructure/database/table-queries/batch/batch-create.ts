@@ -23,7 +23,9 @@ import {
 import type { BatchCreateLink } from '@/application/ports/repositories/tables/batch-repository'
 import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-import type { DrizzleTransaction, ValidationError } from '@/infrastructure/database'
+import type { ValidationError } from '@/infrastructure/database'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect, TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /** Message used for BOTH the per-record and the whole-transaction failure wrap. */
 const batchCreateFailure = (tableName: string): string =>
@@ -49,7 +51,7 @@ const batchCreateFailure = (tableName: string): string =>
  * wrapped twice.
  */
 const injectAuthorshipForBatch = (
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   tableName: string,
   userId: string | undefined,
   recordsData: readonly Record<string, unknown>[]
@@ -58,7 +60,7 @@ const injectAuthorshipForBatch = (
     recordsData,
     (fields) =>
       Effect.tryPromise({
-        try: () => injectCreateAuthorship(fields, userId, tx, tableName),
+        try: () => injectCreateAuthorship(fields, userId, on, tableName),
         catch: wrapDatabaseErrorWithValidation(batchCreateFailure(tableName)),
       }),
     { concurrency: BATCH_FANOUT_CONCURRENCY }
@@ -69,13 +71,14 @@ const injectAuthorshipForBatch = (
  * and report it to the change stream.
  */
 function settleCreatedRecords(
+  db: PortableDb,
   session: Readonly<Session>,
   tableName: string,
   createdRecords: readonly Record<string, unknown>[]
 ): Effect.Effect<void> {
   return Effect.gen(function* () {
     yield* Effect.forEach(createdRecords, (record) =>
-      logActivity({
+      logActivity(db, {
         session,
         tableName,
         action: 'create',
@@ -96,7 +99,7 @@ function settleCreatedRecords(
  * batch back rather than leaving its records unlinked.
  */
 const linkCreatedRecord = (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   record: Readonly<Record<string, unknown>>,
   links: readonly BatchCreateLink[]
@@ -105,11 +108,14 @@ const linkCreatedRecord = (
     ? Effect.void
     : Effect.tryPromise({
         try: () =>
-          writeManyToManyLinksInTransaction(tx, {
-            sourceTable: tableName,
-            sourceId: record['id'] as string | number,
-            links,
-          }),
+          writeManyToManyLinksInTransaction(
+            { tx, dialect },
+            {
+              sourceTable: tableName,
+              sourceId: record['id'] as string | number,
+              links,
+            }
+          ),
         catch: wrapDatabaseError(`Failed to link many-to-many records for ${tableName}`),
       }).pipe(Effect.asVoid)
 
@@ -124,65 +130,65 @@ const linkCreatedRecord = (
  * @param recordsData - Array of field objects to insert
  * @returns Effect resolving to array of created records
  */
-export function batchCreateRecords(
-  session: Readonly<Session>,
-  tableName: string,
-  recordsData: readonly Record<string, unknown>[],
-  written: {
-    readonly links?: readonly (readonly BatchCreateLink[])[] | undefined
-    readonly accounts?: readonly AccountReference[]
-  } = {}
-): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> {
-  return Effect.gen(function* () {
-    const onFailure = wrapDatabaseErrorWithValidation(batchCreateFailure(tableName))
-    const createdRecords = yield* withOutboxTransaction(insertedRowChanges(tableName))(
-      (tx) =>
-        Effect.gen(function* () {
-          if (recordsData.length === 0) {
-            return yield* Effect.fail(
-              new DatabaseError('Cannot create batch with no records', undefined)
-            )
-          }
-          yield* confirmBatchAccounts(tx, written.accounts)
+export const batchCreateRecords =
+  (db: PortableDb, dialect: Dialect) =>
+  (
+    session: Readonly<Session>,
+    tableName: string,
+    recordsData: readonly Record<string, unknown>[],
+    written: {
+      readonly links?: readonly (readonly BatchCreateLink[])[] | undefined
+      readonly accounts?: readonly AccountReference[]
+    } = {}
+  ): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> =>
+    Effect.gen(function* () {
+      const onFailure = wrapDatabaseErrorWithValidation(batchCreateFailure(tableName))
+      const createdRecords = yield* withOutboxTransaction(
+        { client: db, dialect },
+        insertedRowChanges(tableName)
+      )(
+        (tx) =>
+          Effect.gen(function* () {
+            if (recordsData.length === 0) {
+              return yield* Effect.fail(
+                new DatabaseError('Cannot create batch with no records', undefined)
+              )
+            }
+            yield* confirmBatchAccounts(tx, dialect, written.accounts)
 
-          // Inject authorship metadata for each record — bounded fan-out, see
-          // `injectAuthorshipForBatch`.
-          const recordsWithAuthorship = yield* injectAuthorshipForBatch(
-            tx,
-            tableName,
-            session.userId,
-            recordsData
-          )
+            // Inject authorship metadata for each record — bounded fan-out, see
+            // `injectAuthorshipForBatch`.
+            const on = { tx, dialect }
+            const rows = yield* injectAuthorshipForBatch(on, tableName, session.userId, recordsData)
 
-          // Resolve the encoding for every array-shaped column ONCE for the
-          // whole batch. The records all land in the same table, so a single
-          // introspection round-trip over the union of array column names
-          // answers each record's question — and the lookup short-circuits to
-          // `{}` when the batch is scalar-only (the common case) or the engine
-          // is SQLite (no native array type).
-          const arrayColumnTypes = yield* Effect.tryPromise({
-            try: () => resolveArrayColumnTypes(tx, tableName, recordsWithAuthorship),
-            catch: onFailure,
-          })
+            // Resolve the encoding for every array-shaped column ONCE for the
+            // whole batch. The records all land in the same table, so a single
+            // introspection round-trip over the union of array column names
+            // answers each record's question — and the lookup short-circuits to
+            // `{}` when the batch is scalar-only (the common case) or the engine
+            // is SQLite (no native array type).
+            const arrayColumnTypes = yield* Effect.tryPromise({
+              try: () => resolveArrayColumnTypes(on, tableName, rows),
+              catch: onFailure,
+            })
 
-          // Sequential (Effect.forEach's default): one record at a time inside
-          // the transaction, collected in order.
-          const created = yield* Effect.forEach(recordsWithAuthorship, (fields, index) =>
-            createSingleRecordInBatch(tx, tableName, fields, arrayColumnTypes).pipe(
-              Effect.tap((record) =>
-                record === undefined
-                  ? Effect.void
-                  : linkCreatedRecord(tx, tableName, record, written.links?.[index] ?? [])
+            // Sequential (Effect.forEach's default): one record at a time inside
+            // the transaction, collected in order.
+            const created = yield* Effect.forEach(rows, (fields, index) =>
+              createSingleRecordInBatch(on, tableName, fields, arrayColumnTypes).pipe(
+                Effect.tap((record) =>
+                  record === undefined
+                    ? Effect.void
+                    : linkCreatedRecord(on, tableName, record, written.links?.[index] ?? [])
+                )
               )
             )
-          )
-          return created.filter((record) => record !== undefined)
-        }),
-      onFailure
-    )
+            return created.filter((record) => record !== undefined)
+          }),
+        onFailure
+      )
 
-    yield* settleCreatedRecords(session, tableName, createdRecords)
+      yield* settleCreatedRecords(db, session, tableName, createdRecords)
 
-    return createdRecords
-  })
-}
+      return createdRecords
+    })

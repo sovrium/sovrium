@@ -42,7 +42,8 @@ export function PercentCell({ value, fieldOptions }: CellProps): React.ReactNode
   return formatRecordText(
     value,
     { format: 'percent', ...(precision === undefined ? {} : { precision }) },
-    localeOf(fieldOptions)
+    localeOf(fieldOptions),
+    new Date()
   )
 }
 

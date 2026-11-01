@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  bucketKeyStart,
+  bucketStartsBetween,
+} from '@/domain/models/app/pages/components/component-types/data/chart/fill-bucket-service'
 import { type AggregateFunction, reduceAggregate } from '../runtime/aggregate-functions'
 import { readDisplayText } from '../runtime/record-display-label'
 import { resolveSeriesColor } from './chart-config'
@@ -158,37 +162,23 @@ export function aggregateRecords(
   return foldPastLimit(orderCategories(filled, config.order, options, ordering), buckets, config)
 }
 
-/** The length of the intervals a window can be stepped through. */
-const FILL_STEPS: Readonly<Partial<Record<DateInterval, number>>> = {
-  minute: 60_000,
-  hour: 3_600_000,
-  day: 86_400_000,
-}
-
-/** A UTC day bucket's key, or an hour's or a minute's first instant, at `time`. */
-const keyAt = (time: number, interval: DateInterval): string =>
-  interval === 'day' ? new Date(time).toISOString().slice(0, 10) : new Date(time).toISOString()
-
 /**
  * With `fillEmpty`, every bucket of the window holding no record, at 0: the
  * window the server resolved, else the first to the last bucket holding data.
- * Only the fixed-length intervals step; any other draws what it holds.
+ * A month, a quarter and a year step by the calendar, never by a fixed length.
  */
 function emptyBuckets(
   held: readonly string[],
   config: ChartAggregateConfig
 ): readonly AggregatedDatum[] {
   const { interval } = config
-  const step = interval === undefined ? undefined : FILL_STEPS[interval]
-  if (config.fillEmpty !== true || interval === undefined || step === undefined) return []
-  const times = held.map((key) => Date.parse(key)).filter((time) => Number.isFinite(time))
+  if (config.fillEmpty !== true || interval === undefined) return []
+  const times = held.map(bucketKeyStart).filter((time) => Number.isFinite(time))
   const from = config.fillWindow ? Date.parse(config.fillWindow.from) : Math.min(...times)
   const to = config.fillWindow ? Date.parse(config.fillWindow.to) : Math.max(...times)
-  if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return []
   const present = new Set(held)
-  return Array.from({ length: Math.floor((to - from) / step) + 1 }, (_, index) =>
-    keyAt(from + index * step, interval)
-  )
+  return bucketStartsBetween(from, to, interval)
+    .map((time) => bucketDate(new Date(time).toISOString(), interval))
     .filter((key) => !present.has(key))
     .map((key) => ({ key, value: 0 }))
 }

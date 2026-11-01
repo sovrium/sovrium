@@ -1,6 +1,6 @@
 # Agents Overview
 
-> An autonomous actor that operates as a virtual user — bound to a role, working from an explicit allowlist, and auditable like a person.
+> An autonomous actor that operates as a virtual user: bound to a role, working from an explicit allowlist, and auditable like a person.
 
 An agent binds to an auth role, works from an explicit allowlist of tables and actions, and can be gated by human approval, run on a schedule, and bounded by resource limits. Agents live in the top-level `agents` array.
 
@@ -24,7 +24,7 @@ agents:
 
 ## An agent is a user
 
-Each one is materialised at runtime as a user row of type `agent`, with a synthetic address. That is not bookkeeping — it is the whole security design.
+Each one is materialised at runtime as a user row of type `agent`, with a synthetic address. That is not bookkeeping. It is the whole security design.
 
 - The agent **inherits every table and field permission of its role**, exactly as a human would. There is no separate AI permission system to keep in sync, and no way for an agent to exceed a role you have already reasoned about.
 - Agents **cannot authenticate**. No sign-in endpoint accepts them: not a password, not a magic link, not a code. The identity exists to be authorised, never to be logged into.
@@ -87,21 +87,21 @@ A skill costs the agent almost nothing until it needs it. From its first request
 
 From a chat component, over the API at `POST /api/agents/{name}/chat`, on its own schedule, and from an automation's agent action.
 
-In a streamed chat, an agent can also ask the person it is talking to a short question and wait for the answer — a choice, a date, a yes or no — with its built-in `ask_user` tool (see [AI Chat](/en/docs/ai-chat#when-the-agent-asks-a-question)). It is offered only where someone can answer: never on a schedule or in an automation.
+In a streamed chat, an agent can also ask the person it is talking to a short question and wait for the answer (a choice, a date, a yes or no) with its built-in `ask_user` tool (see [AI Chat](/en/docs/ai-chat#when-the-agent-asks-a-question)). It is offered only where someone can answer: never on a schedule or in an automation.
 
-Every one of those except the schedule is a **caller**, and every caller passes the agent's trigger grant first — as does every endpoint that reads an agent back, since its definition includes the prompts and the allowlist. The agent's own cron is deliberately outside that grant: a timer is not a caller.
+Every one of those except the schedule is a **caller**, and every caller passes the agent's trigger grant first, as does every endpoint that reads an agent back, since its definition includes the prompts and the allowlist. The agent's own cron is deliberately outside that grant: a timer is not a caller.
 
-Because each agent is a distinct virtual user with its own role and allowlist, several can coexist at different privilege levels — a read-only analyst beside a write-capable triage agent — without either inheriting the other's reach.
+Because each agent is a distinct virtual user with its own role and allowlist, several can coexist at different privilege levels (a read-only analyst beside a write-capable triage agent) without either inheriting the other's reach.
 
 ### An agent never shows you more than you may read
 
-The agent's role is a ceiling, not a grant to whoever talks to it. When a signed-in person chats with a declared agent, the agent's record tools — looking records up and counting them — read the **intersection** of the agent's reach and hers:
+The agent's role is a ceiling, not a grant to whoever talks to it. When a signed-in person chats with a declared agent, the agent's record tools, which look records up and count them, read the **intersection** of the agent's reach and hers:
 
 - **Rows** must pass both the agent's and her row-level read rules, and a row in the trash is never read.
 - **Fields** are the ones both may read. The tools advertise only those columns; asking to see another one simply leaves it out of the answer.
-- **Filtering or sorting** on a field outside that set is refused, and the refusal reads the same whatever value was asked for — so a filter cannot reveal what a field she may not read contains.
+- **Filtering or sorting** on a field outside that set is refused, and the refusal reads the same whatever value was asked for, so a filter cannot reveal what a field she may not read contains.
 
-The agent's prompt is narrowed the same way. It describes to the model one line per table, with that table's fields: when a person is chatting, those are only the tables its tools read for her and only the fields both may read, so a table she may not read, a table whose records list admits her no row, and a field she may not read are named nowhere in what the model is sent. A run with no caller — a schedule, an automation — has no one to narrow it to, and keeps the agent's own description. The actions it is offered are described the same way: each names only the allowlisted tables she may use it on herself.
+The agent's prompt is narrowed the same way. It describes to the model one line per table, with that table's fields: when a person is chatting, those are only the tables its tools read for her and only the fields both may read, so a table she may not read, a table whose records list admits her no row, and a field she may not read are named nowhere in what the model is sent. A run with no caller, such as a schedule or an automation, has no one to narrow it to, and keeps the agent's own description. The actions it is offered are described the same way: each names only the allowlisted tables she may use it on herself.
 
 An admin-role agent is therefore safe to open to members: each member gets the answer her own permissions allow, and only a caller whose own access covers the agent's gets its full reach.
 
@@ -109,16 +109,16 @@ The same holds for the actions an agent takes in a chat. A record action runs on
 
 A visitor signed in to nothing, using an agent whose trigger grant is `all`, is narrowed the same way to what the records API serves a signed-out visitor: only the tables whose `read` is `all`, only the fields she may read there, and only live rows. The agent takes no record or `auth` action for her. An admin-role agent open to everyone therefore answers staff with its full reach and a visitor with the public part of it. The agent's own schedule has no caller, so a scheduled run reads with the agent's declared reach.
 
-Every conversation belongs to the account that held it, and is deleted with that account. The admin list of an agent's conversations, `GET /api/admin/agents/<name>/conversations`, names that person on each row as `userId` and `userName` — the display name, never the email — and `?userId=` narrows the list to the conversations one person held, together with the date window and `?q=`.
+Every conversation belongs to the account that held it, and is deleted with that account. The admin list of an agent's conversations, `GET /api/admin/agents/<name>/conversations`, names that person on each row as `userId` and `userName` (the display name, never the email), and `?userId=` narrows the list to the conversations one person held, together with the date window and `?q=`.
 
 ## The built-in System Agent
 
-Every app has one agent it never declares: `system`. It exists as soon as a provider is configured, even in an app that declares no agents, no AI fields and no AI actions — so an operator who sets `AI_PROVIDER` gets an assistant with nothing else to write.
+Every app has one agent it never declares: `system`. It exists as soon as a provider is configured, even in an app that declares no agents, no AI fields and no AI actions, so an operator who sets `AI_PROVIDER` gets an assistant with nothing else to write.
 
-- **It knows the app.** Its prompt is built from the app itself — its name, its description and the tables it declares — so there is nothing to author and nothing to keep in step.
+- **It knows the app.** Its prompt is built from the app itself (its name, its description and the tables it declares), so there is nothing to author and nothing to keep in step.
 - **It only reads.** Its tools look up and count records; it cannot create, change or delete anything, and it never reads or edits the configuration. A reply asking for a change is answered without making one.
 - **It reads as you.** Each turn is scoped to the signed-in person's own table and field permissions, so it never shows a caller a row or a column they could not open themselves.
-- **It is reached like any agent** — `POST /api/agents/system/chat`, or a chat component whose `agent` is `system` — and the operator console's Welcome page talks to it by default. Its conversations are the ones no declared agent claimed.
+- **It is reached like any agent**, through `POST /api/agents/system/chat` or a chat component whose `agent` is `system`, and the operator console's Welcome page talks to it by default. Its conversations are the ones no declared agent claimed.
 
 Because the name belongs to this agent, an `agents` entry called `system` fails validation. To give an assistant write access, its own prompt or a narrower allowlist, declare an agent of your own.
 

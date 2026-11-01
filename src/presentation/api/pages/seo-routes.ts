@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
 import {
   generateLlmsFullTxtContent,
@@ -16,10 +17,9 @@ import {
   generateSitemapContent,
 } from '@/application/use-cases/server/sitemap-content'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
-import {
-  resolveRequestBaseUrl,
-  trustedForwarding,
-} from '../../../domain/kernel/url/request-base-url'
+import { runHandlerEffect } from '@/presentation/api/runtime/run-effect'
+import { trustedForwarding } from '../../../domain/kernel/url/request-base-url'
+import { readRequestOriginSettings, resolveRequestBaseUrl } from '../runtime/request-origin'
 import { queryMasksReader } from './caller-table-reader'
 import type { FetchSitemapRecords } from '@/application/ports/services/page-renderer'
 import type { HreflangConfig } from '@/application/use-cases/server/static-content-generators'
@@ -70,10 +70,10 @@ const buildLanguageOptions = (
  * trimmed so callers can append `${path}` safely.
  */
 const resolveLlmsBaseUrl = (header: (name: string) => string | undefined): string => {
-  const fromEnv = Bun.env.BASE_URL
-  if (fromEnv) return fromEnv.replace(/\/$/, '')
+  const { baseUrl, trustedProxyHops } = readRequestOriginSettings()
+  if (baseUrl) return baseUrl.replace(/\/$/, '')
 
-  const forwarded = trustedForwarding(header)
+  const forwarded = trustedForwarding(header, trustedProxyHops)
   if (forwarded.host) {
     return `${forwarded.proto ?? 'https'}://${forwarded.host}`.replace(/\/$/, '')
   }
@@ -93,25 +93,26 @@ const isLlmsEnabled = (app: App): boolean => {
 }
 
 /** Serve the llmstxt.org index for one locale (or every page when `undefined`). */
-const respondWithLlmsIndex = async (
-  c: Context,
-  app: App,
-  language: string | undefined
-): Promise<Response> => {
-  const baseUrl = resolveLlmsBaseUrl((name) => c.req.header(name))
-  const body = await runDomainPromise(c, generateLlmsTxtContent(app, baseUrl, language))
-  return c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
-}
+const respondWithLlmsIndex = (c: Context, app: App, language: string | undefined) =>
+  runHandlerEffect(
+    c,
+    Effect.orDie(
+      generateLlmsTxtContent(
+        app,
+        resolveLlmsBaseUrl((name) => c.req.header(name)),
+        language
+      )
+    ).pipe(Effect.map((body) => c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8' })))
+  )
 
 /** Serve the concatenated bodies for one locale (or every page when `undefined`). */
-const respondWithLlmsFull = async (
-  c: Context,
-  app: App,
-  language: string | undefined
-): Promise<Response> => {
-  const body = await runDomainPromise(c, generateLlmsFullTxtContent(app, language))
-  return c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
-}
+const respondWithLlmsFull = (c: Context, app: App, language: string | undefined) =>
+  runHandlerEffect(
+    c,
+    Effect.orDie(generateLlmsFullTxtContent(app, language)).pipe(
+      Effect.map((body) => c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8' }))
+    )
+  )
 
 /** How long a computed sitemap document is served before it is rebuilt. */
 const SITEMAP_CACHE_TTL_MS = 60_000
@@ -122,6 +123,23 @@ const SITEMAP_CACHE_TTL_MS = 60_000
  * grow when an unusual number of origins appear.
  */
 const SITEMAP_CACHE_MAX_ENTRIES = 32
+
+/**
+ * The caching headers of a document that names the request's own host.
+ *
+ * With `BASE_URL` set, robots.txt and the sitemap name that one origin and any
+ * cache may keep them. Without it they name whichever host the request was
+ * addressed to, so a shared cache must not keep one and serve it to a request
+ * for another host: `no-store`, and `Vary: Host` for a cache that ignores it.
+ */
+const hostNamingHeaders = (): Readonly<Record<string, string>> =>
+  Bun.env.BASE_URL ? {} : { 'Cache-Control': 'no-store', Vary: 'Host' }
+
+/** The headers of a sitemap document. */
+const xmlHeaders = (): Readonly<Record<string, string>> => ({
+  'Content-Type': 'application/xml; charset=utf-8',
+  ...hostNamingHeaders(),
+})
 
 /**
  * A per-app memo of computed sitemap documents, keyed by origin and child
@@ -176,14 +194,13 @@ const setupSitemapRoutes = (
     return { ...sitemapOptions, readMasks }
   }
   const cached = createSitemapCache()
-  const xmlHeaders = { 'Content-Type': 'application/xml; charset=utf-8' }
   return honoApp
     .get('/sitemap.xml', async (c) => {
       const baseUrl = resolveRequestBaseUrl(c)
       const xml = await cached(`${baseUrl}#0`, () =>
         runDomainPromise(c, generateSitemapContent(pages, baseUrl, withMasks(c)))
       )
-      return c.body(xml ?? '', 200, xmlHeaders)
+      return c.body(xml ?? '', 200, xmlHeaders())
     })
     .get('/:file{sitemap-[0-9]+\\.xml}', async (c) => {
       const index = Number(/\d+/.exec(c.req.param('file'))?.[0] ?? '0')
@@ -191,7 +208,7 @@ const setupSitemapRoutes = (
       const xml = await cached(`${baseUrl}#${String(index)}`, () =>
         runDomainPromise(c, generateSitemapChildContent(pages, baseUrl, index, withMasks(c)))
       )
-      return xml === undefined ? c.notFound() : c.body(xml, 200, xmlHeaders)
+      return xml === undefined ? c.notFound() : c.body(xml, 200, xmlHeaders())
     })
 }
 
@@ -233,6 +250,7 @@ export function setupSeoRoutes(
     const body = generateRobotsContent(pages, baseUrl, true)
     return c.body(body, 200, {
       'Content-Type': 'text/plain; charset=utf-8',
+      ...hostNamingHeaders(),
     })
   })
 

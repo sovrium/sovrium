@@ -17,15 +17,23 @@ import {
   FormRateLimitedError,
   FormSubmissionLimitError,
 } from '@/application/use-cases/forms/submit-form'
+import { isBusinessRuleViolationError } from '@/domain/errors/business-rule-violation-error'
 import { DatabaseError } from '@/domain/errors/database-error'
 import { UniqueConstraintViolationError } from '@/domain/errors/unique-constraint-violation-error'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
+import { submissionResponseSchema } from '@/domain/models/api/forms/submissions'
+import { FORM_ANSWERED_PARAM } from '@/domain/models/app/forms/submission-ledger-service'
 import { logError } from '@/infrastructure/logging/logger'
 import {
+  FormStorageQuotaError,
+  FormUndeclaredFileError,
   FormUploadError,
   FormUploadRefusedError,
 } from '@/presentation/api/forms/file-upload-admission'
 import { FieldValidationError } from '@/presentation/api/middleware/validation'
+import { storageErrorBody } from '@/presentation/api/runtime/auth-helpers'
+import { shapedJson } from '@/presentation/api/runtime/run-effect'
 import {
   formClosed,
   formHoneypotTripped,
@@ -61,13 +69,7 @@ import type { Context } from 'hono'
  * theme and i18n systems once an inline-create error UX needs more polish.
  */
 function renderSubmissionErrorHtml(message: string, statusLabel: string): string {
-  const safe = message.replace(/[&<>"']/g, (ch) => {
-    if (ch === '&') return '&amp;'
-    if (ch === '<') return '&lt;'
-    if (ch === '>') return '&gt;'
-    if (ch === '"') return '&quot;'
-    return '&#39;'
-  })
+  const safe = escapeHtmlAttribute(message)
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${statusLabel}</title></head><body><main class="form-error" data-status="${statusLabel}"><p>${safe}</p></main></body></html>`
 }
 
@@ -117,19 +119,44 @@ export function respondParentMissing(c: Context, isJsonClient: boolean): Respons
  * Render a validation 400 (form-level required, column-level required, or
  * other field-rule rejection). All three shapes share the same response
  * envelope so client-side UIs can consume one path.
+ *
+ * A `sentence` reason already names the field by its label, so the top-level
+ * message is the reason itself: the column name never reaches the page.
  */
 function respondValidation400(
   c: Context,
   isJsonClient: boolean,
   fieldName: string,
-  message: string
+  reason: string | { readonly sentence: string }
 ): Response {
-  const fullMessage = fieldName ? `${fieldName} ${message}`.trim() : message
+  const message = typeof reason === 'string' ? reason : reason.sentence
+  const fullMessage =
+    fieldName && typeof reason === 'string' ? `${fieldName} ${message}`.trim() : message
   const fieldErrors = fieldName ? [{ name: fieldName, message }] : []
   if (isJsonClient) {
     return c.json({ error: 'validation_failed', message: fullMessage, fieldErrors }, 400)
   }
   return c.html(renderSubmissionErrorHtml(message, '400 — validation failed'), 400)
+}
+
+/**
+ * A write the bound table's business rules refused: a 400 whose message is the
+ * rule author's own sentence, with one field error per violation that names a
+ * field. Returns `undefined` for any other failure.
+ */
+function respondBusinessRule400(
+  c: Context,
+  isJsonClient: boolean,
+  failure: unknown
+): Response | undefined {
+  if (!isBusinessRuleViolationError(failure)) return undefined
+  const fieldErrors = failure.violations.flatMap((violation) =>
+    violation.field === undefined ? [] : [{ name: violation.field, message: violation.message }]
+  )
+  if (isJsonClient) {
+    return c.json({ error: 'validation_failed', message: failure.message, fieldErrors }, 400)
+  }
+  return c.html(renderSubmissionErrorHtml(failure.message, '400 — validation failed'), 400)
 }
 
 /**
@@ -179,7 +206,9 @@ function respondFieldValidation400(
   }
   // Server-side format validation (email).
   if (failure instanceof FormFieldFormatError) {
-    return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
+    return respondValidation400(c, isJsonClient, failure.fieldName, {
+      sentence: failure.message,
+    })
   }
   // FK violation on user-typed (or any FK) column.
   if (failure instanceof FormFieldForeignKeyError) {
@@ -187,12 +216,32 @@ function respondFieldValidation400(
   }
   // A unique / CHECK / NOT NULL refusal attributed to one submitted field.
   if (failure instanceof FormFieldConstraintError) {
-    return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
+    return respondValidation400(c, isJsonClient, failure.fieldName, {
+      sentence: failure.message,
+    })
   }
   if (failure instanceof FieldValidationError) {
     return respondValidation400(c, isJsonClient, failure.field ?? '', failure.message)
   }
   return undefined
+}
+
+/**
+ * A submission refused whole: a file under a name that takes none is a 400 whose
+ * one fixed message names no field, so the posted name is never echoed; files
+ * past `STORAGE_MAX_TOTAL_SIZE` are the bucket endpoint's 507, without figures.
+ */
+function respondSubmissionUploadRefusal(
+  c: Context,
+  isJsonClient: boolean,
+  failure: unknown
+): Response | undefined {
+  if (failure instanceof FormUndeclaredFileError) {
+    return respondValidation400(c, isJsonClient, '', failure.message)
+  }
+  if (!(failure instanceof FormStorageQuotaError)) return undefined
+  if (isJsonClient) return c.json(storageErrorBody(failure.message, 'QUOTA_EXCEEDED'), 507)
+  return c.html(renderSubmissionErrorHtml(failure.message, '507 — storage full'), 507)
 }
 
 /**
@@ -209,6 +258,8 @@ function respondUploadFailure(
   isJsonClient: boolean,
   failure: unknown
 ): Response | undefined {
+  const wholeRefusal = respondSubmissionUploadRefusal(c, isJsonClient, failure)
+  if (wholeRefusal !== undefined) return wholeRefusal
   if (failure instanceof FormUploadRefusedError) {
     if (failure.reason === 'type') {
       return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
@@ -254,7 +305,9 @@ export function respondSubmissionFailure(
   // rejections produce structured 400/403 bodies callers key on.
   const structured = respondAvailability403(c, failure)
   if (structured !== undefined) return structured
-  const fieldError = respondFieldValidation400(c, isJsonClient, failure)
+  const fieldError =
+    respondFieldValidation400(c, isJsonClient, failure) ??
+    respondBusinessRule400(c, isJsonClient, failure)
   if (fieldError !== undefined) return fieldError
   const uploadFailure = respondUploadFailure(c, isJsonClient, failure)
   if (uploadFailure !== undefined) return uploadFailure
@@ -289,20 +342,41 @@ export function respondSubmissionSuccess(
     readonly record: Readonly<Record<string, unknown>>
     /** The private edit link, for a form that declares . */
     readonly editUrl?: string
+    /** The form a native post answers with its success page, drawn back on its page. */
+    readonly answeredForm?: string | undefined
   }
 ): Response {
   if (isJsonClient) {
-    return c.json(
+    return shapedJson(
+      c,
       {
         submissionId: result.submissionId,
         linkedRecordId: result.linkedRecordId,
         record: result.record,
         ...(result.editUrl === undefined ? {} : { editUrl: result.editUrl }),
       },
+      submissionResponseSchema,
       201
     )
   }
-  return c.redirect(resolveSubmitRedirectTarget(c), 303)
+  return c.redirect(answeredPageTarget(resolveSubmitRedirectTarget(c), result.answeredForm), 303)
+}
+
+/** The form a native post answers with its success page drawn back on its page, if it does. */
+export const answeredFormOf = (
+  form: Readonly<{ readonly name: string; readonly onSuccess?: { readonly type: string } }>
+): string | undefined => (form.onSuccess?.type === 'successPage' ? form.name : undefined)
+
+/**
+ * The address a native post goes back to: its page, carrying the answered
+ * marker when the form answers with a success page, so the page draws that
+ * success page in the form's place. Kept a same-origin path.
+ */
+function answeredPageTarget(target: string, answeredForm: string | undefined): string {
+  if (answeredForm === undefined) return target
+  const url = new URL(target, 'http://page.invalid')
+  url.searchParams.set(FORM_ANSWERED_PARAM, answeredForm)
+  return toSafeRedirectPath(`${url.pathname}${url.search}`) ?? target
 }
 
 /**

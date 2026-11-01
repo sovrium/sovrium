@@ -7,21 +7,25 @@
 
 import { Effect } from 'effect'
 import { AgentApprovalStore } from '@/application/ports/services/agent-approval-store'
-import { GetActivityById } from '@/application/use-cases/activity/programs'
 import {
   type ActivityLogOutput,
-  ListActivityLogs,
-} from '@/application/use-cases/list-activity-logs'
+  listActivityLogs,
+} from '@/application/use-cases/activity/list-activity-logs'
+import { getActivityById } from '@/application/use-cases/activity/programs'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
+  getActivityLogResponseSchema,
+  listActivityLogsResponseSchema,
+} from '@/domain/models/api/activity/activity'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import { enrichUserRole } from '@/presentation/api/middleware/table'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+  toErrorResponse,
+} from '@/presentation/api/runtime/run-effect'
 import {
   activityAdmission,
   admitsActivityEntry,
@@ -52,46 +56,54 @@ function activityNotFound(c: Context) {
  * An entry the caller may not read through the records API answers exactly as
  * one that does not exist; one she may read shows only her readable fields.
  */
-async function handleGetActivityById(c: Context, app: App) {
-  const activityId = c.req.param('activityId')!
-
-  const program = provideDomain(c, GetActivityById(activityId))
-
-  const result = await runRequestEffect(c, program.pipe(Effect.result))
-
-  if (result._tag === 'Failure') {
-    const error = result.failure
-
-    if (error._tag === 'InvalidActivityIdError') {
-      return c.json(
-        { success: false, message: 'Invalid activity ID format', code: 'BAD_REQUEST' },
-        400
-      )
-    }
-
-    if (error._tag === 'ActivityNotFoundError') {
-      return activityNotFound(c)
-    }
-
-    // Anything else is the server's own failure: the canonical envelope logs
-    // it with its cause and answers with the request id it can be reported by.
-    return toErrorResponse(c, error)
-  }
-
-  const activity = result.success
-  // The caller's rows are read once, for the admission and the projection alike.
-  const rows = readerIsAdmin(c, app) ? undefined : await entryReaderRows(c, app, activity.tableName)
-  if (!(await admitsActivityEntry(c, app, activity, rows))) return activityNotFound(c)
-
-  return c.json(
-    {
-      ...activity,
-      changes: await projectActivityChanges(c, app, activity, rows),
-      user: projectActivityActor(c, app, activity.user),
-    },
-    200
-  )
+function handleGetActivityById(c: Context, app: App) {
+  return runHandlerEffect(c, answerFailures(c, activityByIdResponse(c, app)))
 }
+
+/** Read, gate and answer one activity entry, as one program. */
+const activityByIdResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const activityId = c.req.param('activityId')!
+
+    const result = yield* Effect.result(getActivityById(activityId))
+
+    if (result._tag === 'Failure') {
+      const error = result.failure
+
+      if (error._tag === 'InvalidActivityIdError') {
+        return c.json(
+          { success: false, message: 'Invalid activity ID format', code: 'BAD_REQUEST' },
+          400
+        )
+      }
+
+      if (error._tag === 'ActivityNotFoundError') {
+        return activityNotFound(c)
+      }
+
+      // Anything else is the server's own failure: the canonical envelope logs
+      // it with its cause and answers with the request id it can be reported by.
+      return toErrorResponse(c, error)
+    }
+
+    const activity = result.success
+    // The caller's rows are read once, for the admission and the projection alike.
+    const rows = readerIsAdmin(c, app)
+      ? undefined
+      : yield* entryReaderRows(c, app, activity.tableName)
+    if (!(yield* admitsActivityEntry(c, app, activity, rows))) return activityNotFound(c)
+
+    return yield* respondWith(
+      c,
+      Effect.succeed({
+        ...activity,
+        createdAt: activity.createdAt.toISOString(),
+        changes: yield* projectActivityChanges(c, app, activity, rows),
+        user: projectActivityActor(c, app, activity.user),
+      }),
+      getActivityLogResponseSchema
+    )
+  })
 
 /**
  * Valid activity action types
@@ -120,16 +132,14 @@ function parseActionFilter(
  * can filter by any userId; any other caller only by her own.
  * Returns true if authorized, false if forbidden.
  */
-async function isAuthorizedForUserIdFilter(
-  c: Context,
+const isAuthorizedForUserIdFilter = (
   app: App,
   sessionUserId: string,
   userIdFilter: string | undefined
-): Promise<boolean> {
-  if (userIdFilter === undefined) return true
-  if (userIdFilter === sessionUserId) return true
-  const role = await runDomainPromise(c, getUserRole(sessionUserId))
-  return isAdminEquivalent(role, app)
+) => {
+  if (userIdFilter === undefined) return Effect.succeed(true)
+  if (userIdFilter === sessionUserId) return Effect.succeed(true)
+  return Effect.map(getUserRole(sessionUserId), (role) => isAdminEquivalent(role, app))
 }
 
 /**
@@ -166,60 +176,54 @@ interface ListActivityValidationError {
  *
  * Returns error response object if invalid, or undefined if valid.
  */
-async function validateListActivityRequest(
-  c: Context,
-  app: App,
-  sessionUserId: string
-): Promise<ListActivityValidationError | undefined> {
-  const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))
-  if (params === undefined) {
-    return {
-      status: 400,
-      body: { success: false, message: 'Invalid pagination parameters', code: 'BAD_REQUEST' },
+const validateListActivityRequest = (c: Context, app: App, sessionUserId: string) =>
+  Effect.gen(function* () {
+    const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))
+    if (params === undefined) {
+      const invalid: ListActivityValidationError = {
+        status: 400,
+        body: { success: false, message: 'Invalid pagination parameters', code: 'BAD_REQUEST' },
+      }
+      return invalid
     }
-  }
 
-  const { action } = parseQueryFilters(c)
-  if (action === null) {
-    return {
-      status: 400,
-      body: { success: false, message: 'Invalid action filter', code: 'BAD_REQUEST' },
+    const { action } = parseQueryFilters(c)
+    if (action === null) {
+      const invalid: ListActivityValidationError = {
+        status: 400,
+        body: { success: false, message: 'Invalid action filter', code: 'BAD_REQUEST' },
+      }
+      return invalid
     }
-  }
 
-  const userIdFilter = c.req.query('userId')
-  const authorized = await isAuthorizedForUserIdFilter(c, app, sessionUserId, userIdFilter)
-  if (!authorized) {
-    return {
-      status: 404,
-      body: {
-        success: false,
-        error: 'Not Found',
-        message: 'Not found',
-        code: 'NOT_FOUND',
-      },
+    const userIdFilter = c.req.query('userId')
+    const authorized = yield* isAuthorizedForUserIdFilter(app, sessionUserId, userIdFilter)
+    if (!authorized) {
+      const refused: ListActivityValidationError = {
+        status: 404,
+        body: {
+          success: false,
+          error: 'Not Found',
+          message: 'Not found',
+          code: 'NOT_FOUND',
+        },
+      }
+      return refused
     }
-  }
 
-  return undefined
-}
+    return undefined
+  })
 
 /**
  * Run the list query, or answer its failure as the canonical error envelope.
  */
-async function listActivityPage(
-  c: Context,
-  query: ActivityLogPageQuery
-): Promise<
-  { readonly activities: readonly ActivityLogOutput[]; readonly total: number } | Response
-> {
-  const result = await runRequestEffect(
-    c,
-    provideDomain(c, ListActivityLogs(query)).pipe(Effect.result)
-  )
-  if (result._tag === 'Success') return result.success
-  return toErrorResponse(c, result.failure)
-}
+const listActivityPage = (c: Context, query: ActivityLogPageQuery) =>
+  Effect.match(listActivityLogs(query), {
+    onFailure: (failure) => toErrorResponse(c, failure),
+    onSuccess: (
+      page
+    ): { readonly activities: readonly ActivityLogOutput[]; readonly total: number } => page,
+  })
 
 /**
  * Handle GET /api/activity - List activity logs with pagination
@@ -229,49 +233,55 @@ async function handleListActivityLogs(c: Context, app: App) {
   if (!session) {
     return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
-
-  const validationError = await validateListActivityRequest(c, app, session.userId)
-  if (validationError !== undefined) {
-    return c.json(validationError.body, validationError.status as 400 | 403)
-  }
-
-  const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))!
-  const { tableName, action, userId, startDate } = parseQueryFilters(c)
-
-  // Only the entries of records the caller may read through the records API:
-  // each table's gate resolved once, the rows judged, paged and counted in the
-  // database, so the total counts what she is shown. A `startDate` that is no
-  // date matches no entry.
-  const page =
-    startDate !== undefined && isNaN(startDate.getTime())
-      ? { activities: [], total: 0 }
-      : await listActivityPage(c, {
-          admission: await activityAdmission(c, app, tableName),
-          filters: { tableName, action: action ?? undefined, userId, since: startDate },
-          offset: (params.page - 1) * params.pageSize,
-          limit: params.pageSize,
-        })
-  if (page instanceof Response) return page
-
-  // `entries` carries the AI agent-approval decision log (approval.approved /
-  // approval.rejected) alongside the CRUD `activities`. It is additive — the
-  // existing `{ activities, pagination }` contract is preserved for the
-  // activity-monitoring specs while approval specs read `entries`. A
-  // non-admin reads only the entries the audience rule admits, and another
-  // user's email in them stays on admin surfaces.
-  const feed = await runDomainPromise(
-    c,
-    Effect.flatMap(Effect.service(AgentApprovalStore), (store) => store.activity)
-  )
-  const audience = await filterAudienceEntries(c, app, feed)
-  return c.json(
-    {
-      ...buildPaginatedResponse(c, app, page, params),
-      entries: audience.map((entry) => projectEntryActor(c, app, toWireEntry(entry))),
-    },
-    200
-  )
+  return runHandlerEffect(c, answerFailures(c, listActivityResponse(c, app, session.userId)))
 }
+
+/** Gate, read and answer the activity list, as one program. */
+const listActivityResponse = (c: Context, app: App, sessionUserId: string) =>
+  Effect.gen(function* () {
+    const validationError = yield* validateListActivityRequest(c, app, sessionUserId)
+    if (validationError !== undefined) {
+      return c.json(validationError.body, validationError.status as 400 | 403)
+    }
+
+    const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))!
+    const { tableName, action, userId, startDate } = parseQueryFilters(c)
+
+    // Only the entries of records the caller may read through the records API:
+    // each table's gate resolved once, the rows judged, paged and counted in the
+    // database, so the total counts what she is shown. A `startDate` that is no
+    // date matches no entry.
+    const page =
+      startDate !== undefined && isNaN(startDate.getTime())
+        ? { activities: [], total: 0 }
+        : yield* listActivityPage(c, {
+            admission: yield* activityAdmission(c, app, tableName),
+            filters: { tableName, action: action ?? undefined, userId, since: startDate },
+            offset: (params.page - 1) * params.pageSize,
+            limit: params.pageSize,
+          })
+    if (page instanceof Response) return page
+
+    // `entries` carries the AI agent-approval decision log (approval.approved /
+    // approval.rejected) alongside the CRUD `activities`. It is additive — the
+    // existing `{ activities, pagination }` contract is preserved for the
+    // activity-monitoring specs while approval specs read `entries`. A
+    // non-admin reads only the entries the audience rule admits, and another
+    // user's email in them stays on admin surfaces.
+    const feed = yield* Effect.flatMap(
+      Effect.service(AgentApprovalStore),
+      (store) => store.activity
+    )
+    const audience = yield* filterAudienceEntries(c, app, feed)
+    return yield* respondWith(
+      c,
+      Effect.succeed({
+        ...buildPaginatedResponse(c, app, page, params),
+        entries: audience.map((entry) => projectEntryActor(c, app, toWireEntry(entry))),
+      }),
+      listActivityLogsResponseSchema
+    )
+  })
 
 /**
  * Chain activity routes onto a Hono app
@@ -284,15 +294,10 @@ async function handleListActivityLogs(c: Context, app: App) {
  * decide what of the feed she reads.
  *
  * @param honoApp - Hono instance to chain routes onto
- * @param resolveApp - The live app, whose tables and permissions gate the feed
- * @returns Hono app with activity routes chained
+ * @param app - The app, whose tables and permissions gate the feed
  */
-export function chainActivityRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
-  return honoApp
-    .get('/api/activity/:activityId', enrichUserRole(resolveApp), (c) =>
-      handleGetActivityById(c, resolveApp())
-    )
-    .get('/api/activity', enrichUserRole(resolveApp), (c) =>
-      handleListActivityLogs(c, resolveApp())
-    ) as T
+export function chainActivityRoutes(honoApp: Hono, app: App): void {
+  honoApp
+    .get('/api/activity/:activityId', enrichUserRole(app), (c) => handleGetActivityById(c, app))
+    .get('/api/activity', enrichUserRole(app), (c) => handleListActivityLogs(c, app))
 }

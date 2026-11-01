@@ -19,6 +19,7 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
+import { embeddedFilePaths } from './embedded-file-path'
 import {
   BRAND_MARK_FILES as RAW_BRAND_MARKS,
   DESIGN_SYSTEM_SAMPLE_FILES as RAW_SAMPLES,
@@ -45,10 +46,10 @@ interface MigrationSet {
 }
 
 // `with { type: 'file' }` imports return a path string at runtime, but TS types
-// them as the imported module's content (JSON/config shape). Cast through
-// `unknown` to recover the true runtime type.
+// them as the imported module's content; `embeddedFilePaths` checks the one map
+// whose type says otherwise (the generated module is `@ts-nocheck`).
 const MIGRATIONS = RAW_MIGRATIONS as Readonly<Record<EmbeddedDialect, MigrationSet>>
-const TEMPLATES = RAW_TEMPLATES as unknown as Readonly<Record<string, string>>
+const TEMPLATES = embeddedFilePaths(RAW_TEMPLATES)
 const SAMPLES = RAW_SAMPLES as Readonly<Record<string, string>>
 const BRAND_MARKS = RAW_BRAND_MARKS as Readonly<Record<string, string>>
 

@@ -16,13 +16,15 @@
  * Persistence runs through the `recordAiActivity` application use-case (over
  * the `AiActivityLogRepository` port) — the presentation layer holds no DDL
  * and no raw SQL. Every write is best-effort: a DB failure is swallowed via
- * `Effect.either` so it can never break a chat turn or the agent runtime.
+ * `Effect.result` so it can never break a chat turn or the agent runtime.
  */
 
 import { Effect } from 'effect'
 import { recordAiActivity } from '@/application/use-cases/ai/record-ai-activity'
-import type { AiActivityLogRow } from '@/application/ports/repositories/ai/ai-activity-log-repository'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
+import type {
+  AiActivityLogRepository,
+  AiActivityLogRow,
+} from '@/application/ports/repositories/ai/ai-activity-log-repository'
 
 /** A single chat-interaction entry to persist to `system.ai_activity_logs`. */
 export interface ChatActivityLogEntry {
@@ -41,23 +43,19 @@ export interface ChatActivityLogEntry {
  * `agents/agent-activity-log.ts`, and the chat-flow routes that record
  * automation / mutation / tool-call rows directly.
  */
-export const recordActivityLogRow = async (
-  services: DomainContext,
+export const recordActivityLogRow = (
   row: AiActivityLogRow
-): Promise<void> =>
-  Effect.runPromise(
-    Effect.provide(recordAiActivity(row).pipe(Effect.result, Effect.asVoid), services)
-  )
+): Effect.Effect<void, never, AiActivityLogRepository> =>
+  recordAiActivity(row).pipe(Effect.result, Effect.asVoid)
 
 /**
  * Record a chat interaction in the activity log. Best-effort — a persistence
  * failure is swallowed so the chat turn is unaffected.
  */
-export const recordChatActivity = async (
-  services: DomainContext,
+export const recordChatActivity = (
   entry: ChatActivityLogEntry
-): Promise<void> =>
-  recordActivityLogRow(services, {
+): Effect.Effect<void, never, AiActivityLogRepository> =>
+  recordActivityLogRow({
     actorType: 'user',
     actorName: entry.actorName,
     action: entry.action,

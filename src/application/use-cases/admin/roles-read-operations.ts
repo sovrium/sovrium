@@ -38,6 +38,7 @@ import {
   ADMIN_TIER_ROLE_NAMES,
   assignableRoleNames,
   BUILT_IN_ROLES,
+  isAdminTier,
 } from '@/domain/models/app/auth/roles'
 import type { App } from '@/domain/models/app'
 
@@ -62,7 +63,7 @@ const rolesList = defineAdminRead<undefined>({
   tool: {
     suffix: 'roles_list',
     description:
-      'The role names this app may assign — the built-ins, the admin-tier names and every declared role — sorted by name, each with its declared description (null when none), as GET /api/admin/roles answers them (admin-only, read-only).',
+      'The role names this app may assign — the built-ins, the admin-tier names and every declared role — sorted by name, each with its declared description (null when none) and whether its holders can open the operator console, as GET /api/admin/roles answers them (admin-only, read-only).',
     inputSchema: { type: 'object', properties: {} },
   },
   openapi: {
@@ -70,7 +71,8 @@ const rolesList = defineAdminRead<undefined>({
     description:
       'Every role name this app may assign, sorted by name: the built-ins, the admin-tier ' +
       'names and every role declared in `auth.roles`, each with the description its ' +
-      '`auth.roles` entry declares (null when none). A projection of configuration — it ' +
+      '`auth.roles` entry declares (null when none), and whether its holders can open the ' +
+      'operator console (`consoleAccess`). A projection of configuration — it ' +
       'says nothing about who holds which role. Admin only.',
     operationIdBase: 'listAdminRoles',
     responseSchema: adminRolesResponseSchema,
@@ -90,6 +92,9 @@ const rolesList = defineAdminRead<undefined>({
           name,
           label: labels.role(name),
           description: roleDescription(app, name),
+          // The same predicate the console's own guard admits on, so the
+          // filter's two sides and the door can never disagree.
+          consoleAccess: isAdminTier(name, app),
         })),
         total: names.length,
       })

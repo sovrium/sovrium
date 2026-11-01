@@ -16,6 +16,7 @@ import {
   computeKanbanCardStripeClasses,
   computeKanbanDragGhostClasses,
 } from '@/presentation/design/kanban-default-classes'
+import { lockedOnRecord } from '@/presentation/design/locks-verdict'
 import {
   resolveCardActivation,
   resolveCardColors,
@@ -181,6 +182,8 @@ interface CardWrapperProps {
   readonly dragAttributes: DraggableAttributes | undefined
   readonly dragListeners: DraggableSyntheticListeners | undefined
   readonly draggableEnabled: boolean
+  /** A lock rule keeps the card from moving on a board whose cards otherwise drag. */
+  readonly locked: boolean
   readonly clickable: boolean
   readonly dataColor: string | undefined
   readonly cardColors: OptionChipColors | undefined
@@ -209,6 +212,7 @@ function CardWrapper({
   dragAttributes,
   dragListeners,
   draggableEnabled,
+  locked,
   clickable,
   dataColor,
   cardColors,
@@ -241,6 +245,7 @@ function CardWrapper({
       data-color={dataColor}
       data-clickable={clickable ? 'true' : undefined}
       draggable={draggableEnabled || undefined}
+      aria-disabled={locked || undefined}
       onDragStart={onDragStart}
       style={style}
       onClick={onClick}
@@ -296,7 +301,11 @@ export function KanbanCardView({
   readonly card?: KanbanCard
 }): ReactElement {
   const format = useKanbanFormat()
-  const draggableEnabled = format.draggableEnabled === true
+  // A lock rule holding a field a drop writes keeps the card where it is.
+  const locked =
+    format.draggableEnabled === true &&
+    format.laneFields?.some((field) => field && lockedOnRecord(record, field)) === true
+  const draggableEnabled = format.draggableEnabled === true && !locked
   const recordId = String(record['id'] ?? '')
   const sortable = useSortable({ id: recordId, disabled: !draggableEnabled })
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortable
@@ -322,6 +331,7 @@ export function KanbanCardView({
       dragAttributes={dragAttributes}
       dragListeners={dragListeners}
       draggableEnabled={draggableEnabled}
+      locked={locked}
       clickable={activate !== undefined}
       dataColor={dataColor}
       cardColors={cardColors}

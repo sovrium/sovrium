@@ -7,10 +7,11 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { db, type DatabaseError } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { wrapDatabaseError } from '../statement/error-handling'
 import { tableIdentifier, validateColumnName } from '../statement/validation'
+import type { DatabaseError } from '@/infrastructure/database'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** One `one-to-many` field to resolve: the related table and its key back here. */
 export interface OneToManyFieldRequest {
@@ -41,6 +42,7 @@ const READ_FIELD_FANOUT_CONCURRENCY = 2
  * row is not a link any more and is left out.
  */
 const readFieldRows = (
+  { client: db, dialect }: DatabaseService,
   sourceIds: readonly (string | number)[],
   field: OneToManyFieldRequest
 ): Promise<ReadonlyArray<Record<string, unknown>>> => {
@@ -50,7 +52,8 @@ const readFieldRows = (
     sql.raw(', ')
   )
   const key = sql.identifier(field.reciprocalField)
-  return executeRaw(
+  return executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT id AS related_id, CAST(${key} AS TEXT) AS source_id FROM ${tableIdentifier(field.relatedTable)} WHERE CAST(${key} AS TEXT) IN (${ids}) AND ${sql.identifier('deleted_at')} IS NULL ORDER BY id`
   )
@@ -79,6 +82,7 @@ const foldFieldRows = (
  * "none" rather than "unknown".
  */
 export const readOneToMany = (
+  { client: db, dialect }: DatabaseService,
   input: ReadOneToManyInput
 ): Effect.Effect<OneToManyResult, DatabaseError> => {
   if (input.fields.length === 0 || input.sourceIds.length === 0) return Effect.succeed({})
@@ -88,7 +92,10 @@ export const readOneToMany = (
       Effect.tryPromise({
         try: async () => ({
           field,
-          byRecord: foldFieldRows(input.sourceIds, await readFieldRows(input.sourceIds, field)),
+          byRecord: foldFieldRows(
+            input.sourceIds,
+            await readFieldRows({ client: db, dialect }, input.sourceIds, field)
+          ),
         }),
         catch: wrapDatabaseError(`Failed to read one-to-many records of ${field.relatedTable}`),
       }),

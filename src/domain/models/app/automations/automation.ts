@@ -121,7 +121,7 @@ const automationTailFields = {
     Schema.Finite.pipe(
       Schema.annotate({
         description:
-          'Total automation timeout in ms (1000–3600000). Default: 900000 ms of active execution — queue wait and approval suspension are excluded; `SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS` changes the default',
+          'Total automation timeout in ms (1000–3600000). Default: 900000 ms of active execution (queue wait and approval suspension are excluded); `SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS` changes the default',
         defaultNote: '900000 (15 minutes), or SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS',
       }),
       Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 3_600_000 }))
@@ -177,7 +177,7 @@ const automationTailFields = {
         PermissionValueSchema.pipe(
           Schema.annotate({
             description:
-              "Who may start this automation by name, on any road — the trigger endpoint, the MCP tool and the AI chat: 'all', 'authenticated', or a role array. It narrows the manual trigger's requiredRole and never widens it.",
+              "Who may start this automation by name, on any road (the trigger endpoint, the MCP tool and the AI chat): 'all', 'authenticated', or a role array. It narrows the manual trigger's requiredRole and never widens it.",
           })
         )
       ),
@@ -222,7 +222,7 @@ const automationTailFields = {
 const automationAnnotations = {
   title: 'Automation',
   description:
-    'A workflow started by one trigger — or by any of a `triggers` list — that runs a sequence of actions. Data flows between steps via template variables.',
+    'A workflow started by one trigger (or by any of a `triggers` list) that runs a sequence of actions. Data flows between steps via template variables.',
 } as const
 
 /**

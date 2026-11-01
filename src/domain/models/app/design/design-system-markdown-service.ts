@@ -1,0 +1,541 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+/**
+ * The markdown projection of the design-system document — the one written for a
+ * MODEL rather than for a tool.
+ *
+ * The JSON export is a token document: precise, machine-shaped, and useless as
+ * prose. An agent handed only that can pick the right hex and still write
+ * off-brand copy, which is the exact gap `design.voice` was added to close. So
+ * this projection carries the rules an agent must OBEY — principles, voice,
+ * tone per moment, per-token usage — beside the values.
+ *
+ * ─── llms.txt SHAPE, NOT llms.txt SEMANTICS ─────────────────────────────────
+ *
+ * llms.txt specifies H2 sections containing FILE LISTS of URL links. This
+ * export is not a directory of things to fetch — it is the content itself,
+ * written to be pasted into a context window. It therefore takes the llms.txt
+ * SHAPE (a single H1, a blockquote summary, flat H2 sections, high density, no
+ * chrome) and deliberately not its link semantics.
+ *
+ * Flat H2s are load-bearing rather than stylistic: depth costs tokens without
+ * adding retrievability for a reader that sees the whole file at once.
+ *
+ * ─── A PROJECTION, NOT A SECOND GENERATOR ───────────────────────────────────
+ *
+ * Everything here reads the document `buildDesignSystem` returned. Nothing
+ * re-reads the app config. That is what makes it impossible for the markdown
+ * and the JSON to describe two different design systems.
+ */
+
+import { SOVRIUM_EXTENSION_KEY } from '@/domain/models/api/admin/design-system'
+import {
+  formatColorValue,
+  type DtcgColorValue,
+} from '@/domain/models/app/design/token-value-dtcg-service'
+import { codeRolesOf } from './design-system-code-roles-service'
+import {
+  formatMeasure,
+  formatOptionalMeasure,
+  renderSections,
+  table,
+  type Section,
+} from './design-system-markdown-table-service'
+import type { DesignSystemDocument } from '@/domain/models/api/admin/design-system'
+
+/** A colour cell, empty when the document carries no value for the token. */
+const colorCell = (value: DtcgColorValue | undefined): string =>
+  value === undefined ? '' : formatColorValue(value)
+
+/**
+ * The colour table: ONE row per role, its light and dark value side by side, so
+ * an agent picking a role reads both. The Dark cell is the dark document's
+ * (`buildDesignSystem(app, 'dark')`, the shared dark cascade): what `.dark` paints.
+ */
+const colorSection = (
+  document: Readonly<DesignSystemDocument>,
+  dark: Readonly<DesignSystemDocument>
+): Section => {
+  const roles = document.$extensions[SOVRIUM_EXTENSION_KEY].colorRoles ?? {}
+  const rows = Object.entries(document.color).map(([token, entry]) => [
+    token,
+    colorCell(entry.$value),
+    colorCell(dark.color[token]?.$value),
+    entry.$description ?? roles[token]?.usage ?? '',
+    roles[token]?.pairsWith ?? '',
+  ])
+  const note =
+    'The Light column is the default scheme; the Dark column is what the app paints under `.dark`.'
+  return {
+    title: 'Colour tokens',
+    lines:
+      rows.length === 0
+        ? []
+        : [note, '', ...table(['Token', 'Light', 'Dark', 'Usage', 'Pairs with'], rows)],
+  }
+}
+
+/**
+ * The code table: one row per syntax role `design.code.tokens` colours, the
+ * colour token it names, that token's light and dark value, and the class the
+ * highlighter puts on the role's spans. No rows, no section: a role left out
+ * keeps the default code colours, which are not this app's tokens.
+ */
+const codeSection = (
+  document: Readonly<DesignSystemDocument>,
+  dark: Readonly<DesignSystemDocument>
+): Section => {
+  const rows = codeRolesOf(document).map(({ role, token }) => [
+    role,
+    token,
+    colorCell(document.color[token]?.$value),
+    colorCell(dark.color[token]?.$value),
+    `\`tok-${role}\``,
+  ])
+  return {
+    title: 'Code tokens',
+    lines: rows.length === 0 ? [] : table(['Role', 'Token', 'Light', 'Dark', 'Class'], rows),
+  }
+}
+
+/** A measure token: a value, and who chose it when the ladder is merged over the platform's. */
+interface MeasureToken {
+  readonly $value: { readonly value: number; readonly unit: string }
+  readonly $extensions?: Readonly<
+    Record<string, { readonly provenance: 'declared' | 'inherited' } | undefined>
+  >
+}
+
+/**
+ * A dimension or duration table, each step saying who chose it.
+ *
+ * These ladders are merged over the platform's, as the elevation ramp is, so
+ * the table carries the same provenance column as Shadow: an agent handed ten
+ * radii with no provenance takes the platform's six for the app's own.
+ */
+const measureSection = (title: string, tokens: Readonly<Record<string, MeasureToken>>): Section => {
+  const rows = Object.entries(tokens).map(([name, token]) => [
+    name,
+    formatMeasure(token.$value),
+    token.$extensions?.[SOVRIUM_EXTENSION_KEY]?.provenance ?? 'inherited',
+  ])
+  return {
+    title,
+    lines:
+      rows.length === 0
+        ? []
+        : [
+            '`inherited` steps come from the platform; `declared` ones were chosen in this config.',
+            '',
+            ...table(['Token', 'Value', 'Provenance'], rows),
+          ],
+  }
+}
+
+/** The font stacks, each rendered in the order a browser would try them. */
+const fontSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const rows = Object.entries(document.font).map(([name, token]) => [
+    name,
+    typeof token.$value === 'string' ? token.$value : token.$value.join(', '),
+  ])
+  return { title: 'Font families', lines: rows.length === 0 ? [] : table(['Token', 'Stack'], rows) }
+}
+
+/** Principles, in the order the author ranked them. */
+const principlesSection = (document: Readonly<DesignSystemDocument>): Section => ({
+  title: 'Principles',
+  lines: (document.$extensions[SOVRIUM_EXTENSION_KEY].principles ?? []).map(
+    (principle) => `- ${principle}`
+  ),
+})
+
+/** A pronoun, with the language it speaks for when the document names one. */
+const pronounOf = (pronoun: string, language: string | undefined): string =>
+  language === undefined ? pronoun : `${pronoun} (${language})`
+
+/** Voice: how the app addresses its reader, and what it refuses to say. */
+const voiceSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const { voice, voiceLanguage } = document.$extensions[SOVRIUM_EXTENSION_KEY]
+  if (!voice) return { title: 'Voice', lines: [] }
+  return {
+    title: 'Voice',
+    lines: [
+      ...(voice.pronoun === undefined
+        ? []
+        : [`- Address the reader as: ${pronounOf(voice.pronoun, voiceLanguage)}`]),
+      ...(voice.personality?.length ? [`- Personality: ${voice.personality.join(', ')}`] : []),
+      ...(voice.prefer ?? []).map((rule) => `- Prefer: ${rule}`),
+      ...(voice.avoid ?? []).map((rule) => `- Avoid: ${rule}`),
+    ],
+  }
+}
+
+/** Tone per moment — the rules that decide how an empty state or an error reads. */
+const toneSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const tone = document.$extensions[SOVRIUM_EXTENSION_KEY].voice?.tone ?? {}
+  const rows = Object.entries(tone).flatMap(([moment, rule]) =>
+    rule === undefined ? [] : [[moment, rule]]
+  )
+  return {
+    title: 'Tone by moment',
+    lines: rows.length === 0 ? [] : table(['Moment', 'Rule'], rows),
+  }
+}
+
+/**
+ * The zone map — which route family reads in which register, and what it may
+ * spend there.
+ *
+ * ─── PARITY, NOT A NEW FEATURE ──────────────────────────────────────────────
+ *
+ * `projectGuidance` has emitted `zones` into `$extensions` since `design.zones`
+ * shipped, and `sovriumDesignExtensionSchema` types it. Only this projection
+ * had no rendering, so the two faces of ONE generator disagreed about what the
+ * app's design system IS — the single thing the single-generator design exists
+ * to make impossible.
+ *
+ * ─── THE OVERRIDES TRAVEL WITH THE ZONE ─────────────────────────────────────
+ *
+ * A zone map naming the patterns and dropping the per-field voice overrides
+ * would carry the routes and lose the only reason a writer looks a zone up. So
+ * the last column states each declared departure by FIELD — a declared field
+ * replaces, an omitted field inherits `design.voice`, and saying so is what
+ * keeps an agent from reading the blank as "this zone has no voice".
+ *
+ * The pattern is printed VERBATIM and never parsed: it is not necessarily a
+ * glob, and `apps/partner` declares the literal `everything else` as a
+ * catch-all.
+ */
+const zoneSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const { zones = [], voiceLanguage } = document.$extensions[SOVRIUM_EXTENSION_KEY]
+
+  /** One zone's declared voice departures, field by field. */
+  const overrides = (voice: Readonly<NonNullable<(typeof zones)[number]['voice']>>): string =>
+    [
+      ...(voice.pronoun === undefined
+        ? []
+        : [`pronoun: ${pronounOf(voice.pronoun, voiceLanguage)}`]),
+      ...(voice.prefer ?? []).map((line) => `prefer: ${line}`),
+      ...(voice.avoid ?? []).map((line) => `avoid: ${line}`),
+      ...Object.entries(voice.tone ?? {}).flatMap(([moment, rule]) =>
+        rule === undefined ? [] : [`tone.${moment}: ${rule}`]
+      ),
+    ].join('; ')
+
+  const rows = zones.map((zone) => [
+    zone.pattern,
+    zone.zone,
+    zone.voice === undefined ? 'inherits design.voice' : overrides(zone.voice),
+  ])
+
+  return {
+    title: 'Zones',
+    lines:
+      rows.length === 0
+        ? []
+        : [
+            'Each pattern governs a route family. A voice field declared here replaces the ' +
+              'same field of the app voice for those routes; an undeclared field inherits it.',
+            '',
+            ...table(['Pattern', 'Zone', 'Voice departures'], rows),
+          ],
+  }
+}
+
+/**
+ * The type scale, as a ladder read largest-first.
+ *
+ * A TABLE rather than prose, and ordered rather than sorted: the document's
+ * `typography` group is already emitted in ladder order by `buildDesignSystem`,
+ * and `Object.entries` preserves it. An alphabetised type scale (`body`,
+ * `caption`, `display`, `h1`…) is not a scale — it is a list of sizes with the
+ * relationship between them removed, which is the one thing the section exists
+ * to show.
+ *
+ * The `Utility` column is the part an agent acts on. Knowing `h1` is `3rem` is
+ * less useful than knowing that writing `text-h1` produces it, with the
+ * leading, weight and tracking attached.
+ */
+const typeScaleSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const unmappable = document.$extensions[SOVRIUM_EXTENSION_KEY].unmappable ?? {}
+
+  /**
+   * Tracking, from whichever of the two places the document put it.
+   *
+   * A step whose tracking was declared in `em` has NO `letterSpacing` member in
+   * its typography token — DTCG cannot carry the unit — and its raw value sits
+   * in `unmappable` instead. Reading only the token would print an empty
+   * Tracking cell for a step that is in fact tracked, which is a worse lie than
+   * omitting the column: the reader concludes the design has no tracking and
+   * writes a heading without it.
+   *
+   * This stays a pure projection of the document — the fallback reads
+   * `$extensions.unmappable`, not the app config — so the markdown still cannot
+   * disagree with the JSON.
+   */
+  const tracking = (
+    step: string,
+    value: { readonly value: number; readonly unit: string } | undefined
+  ): string =>
+    value === undefined
+      ? (unmappable[`design.typeScale.${step}.letterSpacing`] ?? '')
+      : formatMeasure(value)
+
+  const rows = Object.entries(document.typography).map(([step, token]) => [
+    step,
+    `text-${step}`,
+    formatOptionalMeasure(token.$value.fontSize),
+    token.$value.lineHeight === undefined ? '' : String(token.$value.lineHeight),
+    token.$value.fontWeight === undefined ? '' : String(token.$value.fontWeight),
+    tracking(step, token.$value.letterSpacing),
+    typeof token.$value.fontFamily === 'string'
+      ? token.$value.fontFamily
+      : (token.$value.fontFamily?.join(', ') ?? ''),
+  ])
+
+  return {
+    title: 'Type scale',
+    lines:
+      rows.length === 0
+        ? []
+        : [
+            'Each step emits `--text-{step}` and a matching `text-{step}` utility that carries its leading, weight and tracking.',
+            '',
+            ...table(['Step', 'Utility', 'Size', 'Leading', 'Weight', 'Tracking', 'Face'], rows),
+          ],
+  }
+}
+
+/**
+ * The mark and the rules for placing it.
+ *
+ * Prose, not a table: five of the six fields are sentences, and a two-column
+ * table of one-word keys against paragraph values reads worse than the
+ * paragraphs alone. The misuse rules get their own bullets because they are the
+ * half a reader is most likely to be looking for.
+ */
+const logoSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const { logo } = document.$extensions[SOVRIUM_EXTENSION_KEY]
+  if (!logo) return { title: 'Logo', lines: [] }
+
+  return {
+    title: 'Logo',
+    lines: [
+      `- Mark: \`${logo.src}\` (accessible name: "${logo.alt}")`,
+      ...(logo.srcDark === undefined
+        ? []
+        : [`- Dark mode: \`${logo.srcDark}\`, used when the interface is dark`]),
+      ...(logo.clearSpace === undefined ? [] : [`- Clear space: ${logo.clearSpace}`]),
+      ...(logo.minWidth === undefined ? [] : [`- Minimum width: ${logo.minWidth}`]),
+      ...(logo.misuse ?? []).map((rule) => `- Never: ${rule}`),
+    ],
+  }
+}
+
+/** Imagery and iconography — the register, the photography rules, the icon set. */
+const imagerySection = (document: Readonly<DesignSystemDocument>): Section => {
+  const { imagery } = document.$extensions[SOVRIUM_EXTENSION_KEY]
+  if (!imagery) return { title: 'Imagery', lines: [] }
+
+  return {
+    title: 'Imagery',
+    lines: [
+      ...(imagery.iconSet === undefined
+        ? []
+        : [
+            `- Icons: ${imagery.iconSet}. Every icon in the app comes from this set, and no other.`,
+          ]),
+      ...(imagery.principles ?? []).map((rule) => `- ${rule}`),
+      ...(imagery.photography ?? []).map((rule) => `- Photography: ${rule}`),
+      ...(imagery.patterns ?? []).map((rule) => `- Pattern: ${rule}`),
+    ],
+  }
+}
+
+/** Per-component usage: what each reusable component is for, and when not to reach for it. */
+const componentSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const components = document.$extensions[SOVRIUM_EXTENSION_KEY].components ?? {}
+  const rows = Object.entries(components).map(([name, guidance]) => [
+    name,
+    guidance.usage ?? '',
+    guidance.when ?? '',
+    guidance.dont ?? '',
+  ])
+  return {
+    title: 'Component usage',
+    lines: rows.length === 0 ? [] : table(['Component', 'Usage', 'When', 'Do not'], rows),
+  }
+}
+
+/**
+ * The declarations the renderer discards.
+ *
+ * Printed as prose rather than as a token table, because the point is that an
+ * agent must NOT treat these as values to use. Naming the reason is what lets
+ * the author delete the line instead of wondering why it does nothing.
+ */
+const inertSection = (document: Readonly<DesignSystemDocument>): Section => ({
+  title: 'Declared but not applied',
+  lines: (document.$extensions[SOVRIUM_EXTENSION_KEY].inert ?? []).flatMap((entry) => [
+    `- \`${entry.path}\` (declared \`${entry.declared}\`) is inert: ${entry.reason}`,
+  ]),
+})
+
+/**
+ * The elevation ramp, each step saying who chose it.
+ *
+ * The provenance column is the reason this is a table rather than a list. An
+ * agent handed five shadows and no provenance cannot tell the step the operator
+ * decided from the four the platform supplied, so it preserves defaults as
+ * though they were choices — which is the failure the document's own
+ * `provenance` field exists to prevent, and the brief has to carry it or the two
+ * projections describe different systems.
+ */
+const shadowSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const shadows = document.$extensions[SOVRIUM_EXTENSION_KEY].shadows ?? {}
+  const rows = Object.entries(shadows).map(([name, step]) => [name, step.value, step.provenance])
+  return {
+    title: 'Shadow',
+    lines:
+      rows.length === 0
+        ? []
+        : [
+            'The elevation this app ships. `inherited` steps come from the platform; ' +
+              '`declared` ones were chosen in this config.',
+            '',
+            ...table(['Step', 'Value', 'Provenance'], rows),
+          ],
+  }
+}
+
+/**
+ * The easing curves, as the four control points DTCG carries.
+ *
+ * Printed as the CSS form a reader recognises rather than as the raw array: the
+ * document carries `[0.4, 0, 0.2, 1]` for a tool, and this projection is for
+ * someone who will type `cubic-bezier(0.4, 0, 0.2, 1)` into a stylesheet.
+ */
+const motionSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const rows = Object.entries(document.easing ?? {}).map(([name, token]) => [
+    name,
+    `cubic-bezier(${token.$value.join(', ')})`,
+  ])
+  return { title: 'Motion', lines: rows.length === 0 ? [] : table(['Curve', 'Value'], rows) }
+}
+
+/**
+ * Every component type this build ships, and the ones that will render nothing.
+ *
+ * ─── THE REFUSALS ARE THE PART THAT CANNOT BE DERIVED ──────────────────────
+ *
+ * An agent can guess at a type list from a schema. It cannot guess that
+ * `tab-panel` is schema-accepted with no renderer behind it, so writing it
+ * yields a bare `div` and no error. That sentence exists in exactly two places —
+ * the console's kit and this document — and it is why the catalogue is worth its
+ * eighty-five rows.
+ */
+const catalogueSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const catalogue = document.$extensions[SOVRIUM_EXTENSION_KEY].catalogue ?? []
+  const rows = catalogue.map((entry) => [
+    entry.type,
+    entry.category,
+    (entry.variants ?? []).join(', '),
+    entry.excludedReason ?? '',
+  ])
+  return {
+    title: 'Catalogue',
+    lines:
+      rows.length === 0
+        ? []
+        : [
+            'Every component type this build ships. A row carrying a reason is NOT drawn: ' +
+              'write it and it renders nothing.',
+            '',
+            ...table(['Type', 'Category', 'Variants', 'Not drawn because'], rows),
+          ],
+  }
+}
+
+/**
+ * Values that ship but have no DTCG token form — shadows, `clamp()` steps.
+ * Distinct from the inert list: these
+ * DO take effect, so an agent should honour them; they simply have no typed
+ * home above.
+ */
+const unmappableSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const unmappable = document.$extensions[SOVRIUM_EXTENSION_KEY].unmappable ?? {}
+  const rows = Object.entries(unmappable).map(([path, raw]) => [path, raw])
+  return {
+    title: 'Values kept outside the token tree',
+    lines:
+      rows.length === 0
+        ? []
+        : [
+            'These are applied by the app but have no faithful DTCG form, so they are carried verbatim.',
+            '',
+            ...table(['Declaration', 'Value'], rows),
+          ],
+  }
+}
+
+/**
+ * Project the design-system document into an llms.txt-shaped agent brief.
+ *
+ * @param document - The light document `buildDesignSystem(app)` produced.
+ * @param darkDocument - The dark one, `buildDesignSystem(app, 'dark')`.
+ * @param appName - The app the document describes, for the mandatory H1.
+ * @returns Markdown, ending in a single trailing newline.
+ */
+export function renderDesignSystemMarkdown(
+  document: Readonly<DesignSystemDocument>,
+  darkDocument: Readonly<DesignSystemDocument>,
+  appName: string
+): string {
+  const summary =
+    `${document.$description} ` +
+    'Use these tokens and rules as written: they are this app’s, not your defaults. ' +
+    'Everything listed is what the running app emits; anything declared and discarded is named at the end.'
+
+  return [
+    `# ${appName} design system`,
+    '',
+    `> ${summary}`,
+    '',
+    ...renderSections([
+      principlesSection(document),
+      logoSection(document),
+      voiceSection(document),
+      toneSection(document),
+      zoneSection(document),
+      colorSection(document, darkDocument),
+      codeSection(document, darkDocument),
+      typeScaleSection(document),
+      measureSection('Spacing tokens', document.spacing),
+      measureSection('Radius tokens', document.radius),
+      measureSection('Breakpoint tokens', document.breakpoint),
+      fontSection(document),
+      measureSection('Duration tokens', document.duration),
+      // Motion sits with its duration sibling, and Shadow with the measures:
+      // both are token groups a reader looks up while writing a rule, not
+      // guidance they read once. The catalogue goes LAST of the three because
+      // it is eighty-five rows — placing it above the shadow ramp would push a
+      // five-row table below three screens of component names.
+      motionSection(document),
+      shadowSection(document),
+      imagerySection(document),
+      componentSection(document),
+      catalogueSection(document),
+      unmappableSection(document),
+      inertSection(document),
+    ]),
+  ]
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd()
+    .concat('\n')
+}

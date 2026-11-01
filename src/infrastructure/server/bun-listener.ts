@@ -15,17 +15,15 @@
 
 import { Effect } from 'effect'
 import { websocket } from 'hono/bun'
+import { ServerCreationError } from '@/domain/errors/server-creation-error'
+import { ServerStopError } from '@/domain/errors/server-stop-error'
 import { confineHost } from '@/domain/kernel/url/request-base-url'
-import { parsePositiveIntEnv } from '@/domain/models/process-env/positive-int-env'
 import { drainBackgroundRuns } from '@/infrastructure/automations/background-runs'
-import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
-import { ServerStopError } from '@/infrastructure/errors/server-stop-error'
 import { logDebug, logError, logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { disposeDomainRuntime } from '@/infrastructure/server/domain-runtime'
 import { trackRequest } from '@/infrastructure/server/idle-exit'
 import { isAddressInUse, portInUseRefusal } from '@/infrastructure/server/port-availability'
 import { shutdownTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
-import type { App } from '@/domain/models/app'
 import type { DomainRuntime } from '@/infrastructure/server/domain-runtime'
 import type { Hono } from 'hono'
 
@@ -253,47 +251,6 @@ const boundAddress = (
 const malformedHostResponse = (): Response =>
   new Response('Bad Request', { status: 400, headers: { 'Content-Type': 'text/plain' } })
 
-/** The upload limit when neither a bucket nor `STORAGE_MAX_FILE_SIZE` sets one (100 MiB). */
-const DEFAULT_UPLOAD_LIMIT_BYTES = 100 * 1024 * 1024
-
-/** The JSON API body limit when `API_BODY_LIMIT_BYTES` is unset (25 MiB). */
-const DEFAULT_API_BODY_LIMIT_BYTES = 25 * 1024 * 1024
-
-/** Room for a multipart envelope around the largest file the deployment accepts. */
-const MULTIPART_ENVELOPE_BYTES = 1024 * 1024
-
-/**
- * The largest request body the LISTENER accepts, before any route reads it.
- *
- * Bun buffers a request body up to `maxRequestBodySize` (128 MiB when unset)
- * whatever the route, so a route that reads its body before anything else —
- * sign-in, an anonymous form — made every client able to park that much memory
- * per request. The ceiling is derived from what the deployment can legitimately
- * receive: the largest file any bucket accepts (a bucket's own `maxFileSize`,
- * or the global `STORAGE_MAX_FILE_SIZE`, else 100 MiB, which the built-in
- * `system` bucket and every bucket without its own limit use) plus 1 MiB for the
- * multipart envelope, and never below the JSON API limit
- * (`API_BODY_LIMIT_BYTES`, 25 MiB by default). Anything larger is refused by
- * Bun with `413` before Hono sees it.
- *
- * Pure in `app` and `env`, so a `--watch` reload recomputes it from the new
- * config and a test can pin each case.
- */
-export const resolveMaxRequestBodySize = (
-  app: Readonly<Pick<App, 'buckets'>>,
-  env: Readonly<Record<string, string | undefined>> = process.env
-): number => {
-  const globalUploadLimit =
-    parsePositiveIntEnv(env['STORAGE_MAX_FILE_SIZE']) ?? DEFAULT_UPLOAD_LIMIT_BYTES
-  const largestUpload = Math.max(
-    globalUploadLimit,
-    ...(app.buckets ?? []).map((bucket) => bucket.maxFileSize ?? 0)
-  )
-  const apiBodyLimit =
-    parsePositiveIntEnv(env['API_BODY_LIMIT_BYTES']) ?? DEFAULT_API_BODY_LIMIT_BYTES
-  return Math.max(largestUpload + MULTIPART_ENVELOPE_BYTES, apiBodyLimit)
-}
-
 /**
  * Build the `Bun.serve` options for the Hono app.
  *
@@ -307,7 +264,7 @@ export const resolveMaxRequestBodySize = (
  * to Hono as the `env` so `upgradeWebSocket` (via `getBunServer(c)`) can
  * reach `server.upgrade()`.
  *
- * `maxRequestBodySize` is {@link resolveMaxRequestBodySize}: a body above it is
+ * `maxRequestBodySize` is `resolveMaxRequestBodySize` (`request-body-ceiling.ts`): a body above it is
  * refused with `413` by Bun itself.
  */
 export const buildBunServeOptions = (

@@ -10,11 +10,11 @@ Install it with one command:
 curl -fsSL https://sovrium.com/install | sh
 ```
 
-**Beta.** Sovrium is in active beta. New-feature work is prioritized around the needs of Sovrium Partner clients, so the roadmap follows real projects — which means APIs, the configuration format, and features can still change, and breaking changes may land before v1.0.
+**Beta.** Sovrium is in active beta. New-feature work is prioritized around the needs of Sovrium Partner clients, so the roadmap follows real projects. APIs, the configuration format and features can still change, and breaking changes may land before v1.0.
 
 ## What is Sovrium?
 
-Sovrium is a configuration-driven application platform. You describe your application in a YAML, JSON or TypeScript file — data models, authentication, pages, themes, analytics — and Sovrium turns it into a running, full-stack web application.
+Sovrium is a configuration-driven application platform. You describe your application (data models, authentication, pages, themes, analytics) in a YAML, JSON or TypeScript file, and Sovrium turns it into a running, full-stack web application.
 
 No boilerplate code, no framework setup, no build pipeline. Just one file that declares what your app should be.
 
@@ -60,9 +60,9 @@ Write a configuration file, run one command, and get a working application:
 
 Install Sovrium and build your first app in under five minutes.
 
-- **Installation** — install Sovrium locally or deploy it to a managed host.
-- **Quick Start** — build and run your first app from a single config file.
-- **Core Concepts** — the anatomy of a Sovrium app.
+- **Installation**: install Sovrium locally or deploy it to a managed host.
+- **Quick Start**: build and run your first app from a single config file.
+- **Core Concepts**: the anatomy of a Sovrium app.
 
 ## Explore the manual
 

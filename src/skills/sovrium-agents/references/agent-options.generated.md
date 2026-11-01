@@ -43,14 +43,14 @@ Every option of the app's own AI agents, and of the AI access a table or an auto
 | `sovrium docs config agents[].tools.browser` | object | The hosts and stored sessions an agent granted `browser.use` may reach. Required with `browser.use`, refused without it. |
 | `sovrium docs config agents[].tools.browser.allowedHosts` | array | Every host the browser may reach for this agent. A start address on another host is refused, and a request any page makes to another host is blocked, whatever a page tells the agent. |
 | `sovrium docs config agents[].tools.browser.allowedHosts[]` | string | A host name, optionally with a port: "app.example.com", "*.example.com" (any sub-domain, not the domain itself), "login.example.com:8443". Written out, never a template. |
-| `sovrium docs config agents[].tools.browser.sessions` | array | Stored browser sessions the agent may start from — the sign-ins a `browser/run` keeps. The agent never receives a password: a session is how it reaches pages behind a sign-in. Any other session name is refused. |
+| `sovrium docs config agents[].tools.browser.sessions` | array | Stored browser sessions the agent may start from: the sign-ins a `browser/run` keeps. The agent never receives a password: a session is how it reaches pages behind a sign-in. Any other session name is refused. |
 | `sovrium docs config agents[].tools.browser.sessions[]` | string | Name of a stored browser session the agent may use |
 | `sovrium docs config agents[].limits` | object | Rate limits, token budgets, and concurrency caps for an agent. All fields default to system values when omitted. |
 | `sovrium docs config agents[].limits.maxActionsPerMinute` | number | Maximum DB/email actions per minute |
 | `sovrium docs config agents[].limits.maxTokensPerDay` | number | Maximum LLM tokens consumed per 24h period, reset at midnight UTC |
 | `sovrium docs config agents[].limits.maxConcurrentTasks` | number | Maximum simultaneous task executions |
 | `sovrium docs config agents[].memory` | object | Memory configuration for an AI agent: knowledge retrieval and learned facts |
-| `sovrium docs config agents[].memory.knowledge` | object | RAG-based semantic retrieval from the configured knowledge sources. Vectors are stored by the active database — a pgvector column on PostgreSQL, a packed float blob on SQLite. |
+| `sovrium docs config agents[].memory.knowledge` | object | RAG-based semantic retrieval from the configured knowledge sources. Vectors are stored by the active database: a pgvector column on PostgreSQL, a packed float blob on SQLite. |
 | `sovrium docs config agents[].memory.knowledge.enabled` | boolean | Whether knowledge memory is enabled |
 | `sovrium docs config agents[].memory.knowledge.sources` | array | Knowledge source names to search (must reference configured knowledge bases) |
 | `sovrium docs config agents[].memory.knowledge.sources[]` | string | Knowledge source name |
@@ -61,9 +61,9 @@ Every option of the app's own AI agents, and of the AI access a table or an auto
 | `sovrium docs config agents[].memory.facts.maxFacts` | number | Maximum number of facts the agent can store |
 | `sovrium docs config agents[].memory.facts.namespace` | string | Namespace that isolates this agent's facts from every other agent's |
 | `sovrium docs config agents[].permissions` | object | RBAC integration model for AI agents. Agents are stored as auth.user records with type=agent and inherit role-based permissions. |
-| `sovrium docs config agents[].permissions.type` | enum | User type discriminator — always 'agent' for AI agents |
-| `sovrium docs config agents[].permissions.trigger` | enum \| array | Who can trigger this agent. 'all', 'authenticated', or role array ['admin', 'member']. |
-| `sovrium docs config agents[].permissions.trigger[]` | string | One role name that has access — a built-in role or one declared in `auth.roles`. |
+| `sovrium docs config agents[].permissions.type` | enum | User type discriminator, always 'agent' for AI agents |
+| `sovrium docs config agents[].permissions.trigger` | enum \| array | Who can trigger this agent: 'all', 'authenticated', a role list such as ['admin', 'member'], or 'none' for an agent only automations and its own schedule run. An admin passes any role list but not 'none'. An agent whose tools include `code.runTypescript` must declare 'none'. |
+| `sovrium docs config agents[].permissions.trigger[]` | string | One role name that has access: a built-in role or one declared in `auth.roles`. |
 | `sovrium docs config agents[].schedule` | object | Runs the agent on a recurring schedule, written as a cron expression in a named time zone. |
 | `sovrium docs config agents[].schedule.cron` | string | Standard 5-field cron expression |
 | `sovrium docs config agents[].schedule.timezone` | string | IANA timezone identifier (defaults to the operator timezone, SOVRIUM_TIMEZONE, UTC when unset) |
@@ -92,9 +92,9 @@ Every option of the app's own AI agents, and of the AI access a table or an auto
 | Option | Kind | What it does |
 | --- | --- | --- |
 | `sovrium docs config tables[].aiAccess` | boolean \| object | Per-entity declaration of MCP/AI exposure intent. Boolean shorthand (true = enabled with defaults) or rich config object. Schema author declares; operator activates via MCP_ENABLED env var. |
-| `sovrium docs config tables[].aiAccess.description` | string | Hand-written description shown to the AI client. Overrides auto-generated descriptions. The single biggest UX lever for steering AI behavior — explain when to use this tool, what context the AI needs, and any non-obvious constraints. |
-| `sovrium docs config tables[].aiAccess.operations` | array | Subset of CRUD operations to expose. Defaults to all 5 (read, list, create, update, delete) for tables. Automations and actions ignore this field — they expose a single invocation tool. |
-| `sovrium docs config tables[].aiAccess.operations[]` | enum | One CRUD operation to expose as a tool — `read` and `list` are the two reads, `create`, `update` and `delete` the three writes. |
+| `sovrium docs config tables[].aiAccess.description` | string | Hand-written description shown to the AI client. Overrides auto-generated descriptions. The single biggest UX lever for steering AI behavior: explain when to use this tool, what context the AI needs, and any non-obvious constraints. |
+| `sovrium docs config tables[].aiAccess.operations` | array | Subset of CRUD operations to expose. Defaults to all 5 (read, list, create, update, delete) for tables. Automations and actions ignore this field; they expose a single invocation tool. |
+| `sovrium docs config tables[].aiAccess.operations[]` | enum | One CRUD operation to expose as a tool: `read` and `list` are the two reads, `create`, `update` and `delete` the three writes. |
 | `sovrium docs config tables[].aiAccess.fieldExposure` | enum | Field exposure mode. Defaults to permissioned (only fields the connecting role can read/write per RBAC). |
 | `sovrium docs config tables[].aiAccess.whitelistFields` | array | Fields to expose when fieldExposure=whitelist. Required and must be non-empty when fieldExposure=whitelist; ignored otherwise. |
 | `sovrium docs config tables[].aiAccess.whitelistFields[]` | string | One field name to expose, spelled as the table declares it. |
@@ -110,9 +110,9 @@ Every option of the app's own AI agents, and of the AI access a table or an auto
 | Option | Kind | What it does |
 | --- | --- | --- |
 | `sovrium docs config automations[].aiAccess` | boolean \| object | Per-entity declaration of MCP/AI exposure intent. Boolean shorthand (true = enabled with defaults) or rich config object. Schema author declares; operator activates via MCP_ENABLED env var. |
-| `sovrium docs config automations[].aiAccess.description` | string | Hand-written description shown to the AI client. Overrides auto-generated descriptions. The single biggest UX lever for steering AI behavior — explain when to use this tool, what context the AI needs, and any non-obvious constraints. |
-| `sovrium docs config automations[].aiAccess.operations` | array | Subset of CRUD operations to expose. Defaults to all 5 (read, list, create, update, delete) for tables. Automations and actions ignore this field — they expose a single invocation tool. |
-| `sovrium docs config automations[].aiAccess.operations[]` | enum | One CRUD operation to expose as a tool — `read` and `list` are the two reads, `create`, `update` and `delete` the three writes. |
+| `sovrium docs config automations[].aiAccess.description` | string | Hand-written description shown to the AI client. Overrides auto-generated descriptions. The single biggest UX lever for steering AI behavior: explain when to use this tool, what context the AI needs, and any non-obvious constraints. |
+| `sovrium docs config automations[].aiAccess.operations` | array | Subset of CRUD operations to expose. Defaults to all 5 (read, list, create, update, delete) for tables. Automations and actions ignore this field; they expose a single invocation tool. |
+| `sovrium docs config automations[].aiAccess.operations[]` | enum | One CRUD operation to expose as a tool: `read` and `list` are the two reads, `create`, `update` and `delete` the three writes. |
 | `sovrium docs config automations[].aiAccess.fieldExposure` | enum | Field exposure mode. Defaults to permissioned (only fields the connecting role can read/write per RBAC). |
 | `sovrium docs config automations[].aiAccess.whitelistFields` | array | Fields to expose when fieldExposure=whitelist. Required and must be non-empty when fieldExposure=whitelist; ignored otherwise. |
 | `sovrium docs config automations[].aiAccess.whitelistFields[]` | string | One field name to expose, spelled as the table declares it. |

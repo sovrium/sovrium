@@ -152,7 +152,11 @@
                   "mode": "multiple"
                 },
                 "layout": "fill",
-                "viewOptions": "toolbar"
+                "viewOptions": "toolbar",
+                "countLabel": {
+                  "one": "$t:admin.count.records.one",
+                  "other": "$t:admin.count.records.other"
+                }
               }
             },
             {

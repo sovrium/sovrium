@@ -6,6 +6,8 @@
  */
 
 import { Chunk } from 'effect'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   parseHtmlElementTree,
   type HtmlElementNode,
@@ -17,7 +19,6 @@ import {
   type PageDesignTreeNode,
   type PageExportStamp,
 } from '@/domain/models/api/admin/design-system/page-design-tree'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import {
   parseJson,
   type ImportSource,
@@ -107,9 +108,6 @@ export interface ClaudeDesignCanvasParseOptions {
 
 const BOARD_SUFFIX = '.dc.html'
 const INDEX_NAME = 'canvas.json'
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const baseName = (path: string): string => path.slice(path.lastIndexOf('/') + 1)
 const folderOf = (path: string): string => path.slice(0, Math.max(0, path.lastIndexOf('/')))

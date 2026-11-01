@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { hasReadPermission } from '@/domain/models/app/auth/permission-evaluator-service'
+import { anonymousGrant } from '@/domain/models/app/auth/anonymous-grant-service'
 import { readerRowsOf } from './row-read-admission'
 import { tableReadAdmits, type TableCaller } from './table-operations'
 import type { LinkReader } from './linked-row-visibility'
@@ -30,8 +30,8 @@ function toListedTable(table: DeclaredTable) {
  * The tables whose records admit the caller (`GET /api/tables`).
  *
  * An app with no `auth` has no roles to gate the listing on: every visitor is
- * the guest, and the listing names exactly the tables whose records the guest
- * may read — the same rule the records route applies.
+ * the guest, and the listing names exactly the tables that open `read` to
+ * everyone (`anonymousGrant`) — the same rule the records route applies.
  *
  * With `auth`, no role is refused the listing as a whole: a viewer is named
  * the tables her records serve, and an empty list where none does. A table is
@@ -49,7 +49,7 @@ export function createListTablesProgram(
 ): Effect.Effect<readonly unknown[], never, DataSourceRepository> {
   const tables = app.tables ?? []
   if (app.auth === undefined) {
-    const readable = tables.filter((table) => hasReadPermission(table, caller.role, tables))
+    const readable = tables.filter((table) => anonymousGrant(table, 'read', app))
     return Effect.succeed(readable.map(toListedTable)).pipe(
       Effect.withSpan('tables.create-list-tables-program')
     )

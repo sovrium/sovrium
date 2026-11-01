@@ -6,14 +6,17 @@
  */
 
 import { and, eq, isNotNull, notInArray } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   CalendarFeedTokenDatabaseError,
   CalendarFeedTokenRepository,
   type CalendarFeedTokenRecord,
 } from '@/application/ports/repositories/tables/calendar-feed-token-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { calendarFeedTokens as calendarFeedTokensPg } from '@/infrastructure/database/drizzle/schema/calendar-feed-tokens'
 import { calendarFeedTokens as calendarFeedTokensSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/calendar-feed-tokens'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -39,24 +42,26 @@ const firstOf = (
   rows: readonly Readonly<Record<string, unknown>>[]
 ): CalendarFeedTokenRecord | undefined => (rows[0] === undefined ? undefined : decodeRow(rows[0]))
 
-export const CalendarFeedTokenRepositoryLive = Layer.succeed(CalendarFeedTokenRepository, {
-  replace: ({ userId, tableName, tokenDigest }) =>
-    wrap(async () => {
-      // One statement, so two mints racing leave one row and one live address.
-      const [row] = await db
-        .insert(calendarFeedTokens)
-        .values({ userId, tableName, tokenDigest, createdAt: new Date() })
-        .onConflictDoUpdate({
-          target: [calendarFeedTokens.userId, calendarFeedTokens.tableName],
-          set: { tokenDigest, createdAt: new Date() },
-        })
-        .returning()
-      return decodeRow(
-        (row ?? { userId, tableName, createdAt: new Date() }) as Record<string, unknown>
-      )
-    }),
+const members: MembersOverDatabase<typeof CalendarFeedTokenRepository> = {
+  replace:
+    (db) =>
+    ({ userId, tableName, tokenDigest }) =>
+      wrap(async () => {
+        // One statement, so two mints racing leave one row and one live address.
+        const [row] = await db
+          .insert(calendarFeedTokens)
+          .values({ userId, tableName, tokenDigest, createdAt: new Date() })
+          .onConflictDoUpdate({
+            target: [calendarFeedTokens.userId, calendarFeedTokens.tableName],
+            set: { tokenDigest, createdAt: new Date() },
+          })
+          .returning()
+        return decodeRow(
+          (row ?? { userId, tableName, createdAt: new Date() }) as Record<string, unknown>
+        )
+      }),
 
-  find: (userId, tableName) =>
+  find: (db) => (userId, tableName) =>
     wrap(() =>
       db
         .select()
@@ -67,7 +72,7 @@ export const CalendarFeedTokenRepositoryLive = Layer.succeed(CalendarFeedTokenRe
         .limit(1)
     ).pipe(Effect.map((rows) => firstOf(rows as readonly Record<string, unknown>[]))),
 
-  findByDigest: (tokenDigest) =>
+  findByDigest: (db) => (tokenDigest) =>
     wrap(() =>
       db
         .select()
@@ -76,7 +81,7 @@ export const CalendarFeedTokenRepositoryLive = Layer.succeed(CalendarFeedTokenRe
         .limit(1)
     ).pipe(Effect.map((rows) => firstOf(rows as readonly Record<string, unknown>[]))),
 
-  revoke: (userId, tableName) =>
+  revoke: (db) => (userId, tableName) =>
     wrap(() =>
       db
         .delete(calendarFeedTokens)
@@ -86,7 +91,7 @@ export const CalendarFeedTokenRepositoryLive = Layer.succeed(CalendarFeedTokenRe
         .returning()
     ).pipe(Effect.map((rows) => rows.length > 0)),
 
-  purgeTablesWithoutFeed: (keep) =>
+  purgeTablesWithoutFeed: (db) => (keep) =>
     wrap(() =>
       keep.size === 0
         ? // Every row: `table_name` is never null, so this names them all.
@@ -96,4 +101,9 @@ export const CalendarFeedTokenRepositoryLive = Layer.succeed(CalendarFeedTokenRe
             .where(notInArray(calendarFeedTokens.tableName, [...keep]))
             .returning()
     ).pipe(Effect.map((rows) => rows.length)),
-})
+}
+
+export const CalendarFeedTokenRepositoryLive = layerOverDatabase(
+  CalendarFeedTokenRepository,
+  members
+)

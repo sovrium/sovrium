@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Effect } from 'effect'
 import { StaticGenerationError } from '@/application/errors/static-generation-error'
+import { StaticOutputWriter } from '@/application/ports/services/static-output-writer'
 import { StaticSiteGenerator } from '@/application/ports/services/static-site-generator'
 import { composePublishedOrigin } from '@/domain/kernel/url/published-origin'
 import { logDebug } from '@/infrastructure/logging'
@@ -19,25 +19,18 @@ import { rewriteBasePathInHtml } from './static-url-rewriter'
 import * as translationReplacer from './translation-replacer'
 import type { GenerateStaticOptions } from './generate-static'
 import type { CollectionRecordIndex } from './sitemap-record-fan-out'
+import type { ServerFactory } from '@/application/ports/services/server-factory'
 import type { App } from '@/domain/models/app'
 
 // Re-export static modules for callers that previously used the import helpers
-export { fs, path, translationReplacer }
+export { path, translationReplacer }
 
 /**
- * Minimal filesystem interface for static generation
- *
- * Compatible with Node.js fs/promises, Bun's filesystem APIs, and test mocks.
- * Only includes methods actually used by static generation functions.
+ * The filesystem the static generation steps write through: the
+ * `StaticOutputWriter` port's service, handed to each step by value so a test
+ * can pass a fake one.
  */
-export interface FileSystemLike {
-  readonly mkdir: (
-    path: string,
-    options?: { readonly recursive?: boolean }
-  ) => Promise<string | undefined>
-  readonly writeFile: (path: string, data: string, encoding?: BufferEncoding) => Promise<void>
-  readonly readFile: (path: string, encoding: BufferEncoding) => Promise<string>
-}
+export type FileSystemLike = StaticOutputWriter['Service']
 
 /**
  * Minimal path module interface for static generation
@@ -53,7 +46,7 @@ export interface PathModuleLike {
  *
  * @param outputDir - Output directory path
  * @param css - Compiled CSS content
- * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ * @param fs - The static output writer (the `StaticOutputWriter` service)
  * @param versionedFileName - Optional content-versioned twin filename
  *   (`output-<hash8>.css`). Rendered HTML links the versioned URL, so the
  *   static export must ship that filename too — same bytes, hashed name.
@@ -67,33 +60,36 @@ export function writeCssFile(
   return Effect.gen(function* () {
     logDebug('Writing compiled CSS...')
 
-    yield* Effect.tryPromise({
-      try: () => fs.mkdir(`${outputDir}/assets`, { recursive: true }),
-      catch: (error) =>
-        new StaticGenerationError({
-          message: `Failed to create assets directory`,
-          cause: error,
-        }),
-    })
+    yield* fs.makeDirectory(`${outputDir}/assets`).pipe(
+      Effect.mapError(
+        ({ cause: error }) =>
+          new StaticGenerationError({
+            message: `Failed to create assets directory`,
+            cause: error,
+          })
+      )
+    )
 
-    yield* Effect.tryPromise({
-      try: () => fs.writeFile(`${outputDir}/assets/output.css`, css, 'utf-8'),
-      catch: (error) =>
-        new StaticGenerationError({
-          message: 'Failed to write CSS file',
-          cause: error,
-        }),
-    })
+    yield* fs.writeFile(`${outputDir}/assets/output.css`, css).pipe(
+      Effect.mapError(
+        ({ cause: error }) =>
+          new StaticGenerationError({
+            message: 'Failed to write CSS file',
+            cause: error,
+          })
+      )
+    )
 
     if (versionedFileName !== undefined) {
-      yield* Effect.tryPromise({
-        try: () => fs.writeFile(`${outputDir}/assets/${versionedFileName}`, css, 'utf-8'),
-        catch: (error) =>
-          new StaticGenerationError({
-            message: 'Failed to write versioned CSS file',
-            cause: error,
-          }),
-      })
+      yield* fs.writeFile(`${outputDir}/assets/${versionedFileName}`, css).pipe(
+        Effect.mapError(
+          ({ cause: error }) =>
+            new StaticGenerationError({
+              message: 'Failed to write versioned CSS file',
+              cause: error,
+            })
+        )
+      )
     }
 
     return 'assets/output.css'
@@ -111,14 +107,24 @@ export function writeCssFile(
  * that does not exist (e.g. a config file with no sibling `public/`), so the
  * copy step must degrade gracefully rather than abort the whole build.
  */
-const publicDirExists = (publicDir: string): Effect.Effect<boolean, never, never> =>
-  Effect.tryPromise({
-    try: () => fs.stat(publicDir).then((s) => s.isDirectory()),
-    catch: () => false as const,
-  }).pipe(
-    // effect-swallow: the `catch` above already turned the rejection into `false` — a missing `./public` is the documented no-op, not an error; this only moves that value out of the error channel.
-    Effect.orElseSucceed(() => false)
-  )
+const publicDirExists = (publicDir: string): Effect.Effect<boolean, never, StaticOutputWriter> =>
+  // A missing `./public` is the documented no-op, not an error: `isDirectory` answers `false`.
+  StaticOutputWriter.use((fs) => fs.isDirectory(publicDir))
+
+/**
+ * A factory whose render apps read the public directory, so a page drawn from a
+ * file of it is drawn in the static build as a running server draws it.
+ */
+export const renderingWithPublicDir = (
+  serverFactory: ServerFactory['Service'],
+  { publicDir }: Pick<GenerateStaticOptions, 'publicDir'>
+): ServerFactory['Service'] =>
+  publicDir === undefined
+    ? serverFactory
+    : {
+        ...serverFactory,
+        buildRenderApp: (config) => serverFactory.buildRenderApp({ ...config, publicDir }),
+      }
 
 /**
  * Copy static assets from public directory if provided.
@@ -148,7 +154,7 @@ export function copyPublicAssets(publicDir: string | undefined, outputDir: strin
  *
  * @param generatedFiles - List of generated file paths
  * @param outputDir - Output directory path
- * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ * @param fs - The static output writer (the `StaticOutputWriter` service)
  * @param path - Path module (Node.js path or Bun's equivalent)
  */
 export function formatHtmlFiles(
@@ -166,14 +172,15 @@ export function formatHtmlFiles(
       (file) =>
         Effect.gen(function* () {
           const filePath = file.startsWith('/') ? file : path.join(outputDir, file)
-          const content = yield* Effect.tryPromise({
-            try: () => fs.readFile(filePath, 'utf-8') as Promise<string>,
-            catch: (error) =>
-              new StaticGenerationError({
-                message: `Failed to read HTML file for formatting: ${file}`,
-                cause: error,
-              }),
-          })
+          const content = yield* fs.readFile(filePath).pipe(
+            Effect.mapError(
+              ({ cause: error }) =>
+                new StaticGenerationError({
+                  message: `Failed to read HTML file for formatting: ${file}`,
+                  cause: error,
+                })
+            )
+          )
           const formatted = yield* Effect.tryPromise({
             try: () => formatHtmlWithPrettier(content),
             catch: (error) =>
@@ -182,14 +189,15 @@ export function formatHtmlFiles(
                 cause: error,
               }),
           })
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(filePath, formatted, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: `Failed to write formatted HTML file: ${file}`,
-                cause: error,
-              }),
-          })
+          yield* fs.writeFile(filePath, formatted).pipe(
+            Effect.mapError(
+              ({ cause: error }) =>
+                new StaticGenerationError({
+                  message: `Failed to write formatted HTML file: ${file}`,
+                  cause: error,
+                })
+            )
+          )
         }),
       { concurrency: 'unbounded' }
     )
@@ -207,7 +215,7 @@ export function formatHtmlFiles(
  * @param config.generatedFiles - List of generated file paths
  * @param config.outputDir - Output directory path
  * @param config.options - Static generation options
- * @param config.fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ * @param config.fs - The static output writer (the `StaticOutputWriter` service)
  */
 export function applyHtmlOptimizations(config: {
   readonly generatedFiles: readonly string[]
@@ -276,14 +284,15 @@ const buildHreflangConfig = (
 
 /** Write one sitemap document into the output directory. */
 const writeSitemapDocument = (fs: FileSystemLike, outputDir: string, file: string, xml: string) =>
-  Effect.tryPromise({
-    try: () => fs.writeFile(`${outputDir}/${file}`, xml, 'utf-8'),
-    catch: (error) =>
-      new StaticGenerationError({
-        message: `Failed to write ${file}`,
-        cause: error,
-      }),
-  })
+  fs.writeFile(`${outputDir}/${file}`, xml).pipe(
+    Effect.mapError(
+      ({ cause: error }) =>
+        new StaticGenerationError({
+          message: `Failed to write ${file}`,
+          cause: error,
+        })
+    )
+  )
 
 /**
  * Generate sitemap.xml if enabled — plus `sitemap-1.xml`, `sitemap-2.xml`, …
@@ -345,7 +354,7 @@ export function generateSitemapFile(
  * @param app - Application configuration
  * @param outputDir - Output directory path
  * @param options - Static generation options
- * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ * @param fs - The static output writer (the `StaticOutputWriter` service)
  */
 export function generateRobotsFile(
   app: App,
@@ -363,14 +372,15 @@ export function generateRobotsFile(
             options.baseUrl || 'https://example.com',
             options.generateSitemap
           )
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(`${outputDir}/robots.txt`, robots, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: 'Failed to write robots.txt',
-                cause: error,
-              }),
-          })
+          yield* fs.writeFile(`${outputDir}/robots.txt`, robots).pipe(
+            Effect.mapError(
+              ({ cause: error }) =>
+                new StaticGenerationError({
+                  message: 'Failed to write robots.txt',
+                  cause: error,
+                })
+            )
+          )
           return ['robots.txt'] as const
         })
       : Effect.succeed([] as readonly string[])

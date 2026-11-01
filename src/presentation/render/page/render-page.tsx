@@ -32,11 +32,12 @@ import {
   resolveMarkdownPage,
 } from '@/presentation/render/markdown/markdown-page-resolver'
 import {
-  extractSessionTimeout,
+  extractBeaconSettings,
   shouldInjectAnalytics,
 } from '@/presentation/render/page/analytics-helpers'
 import { DefaultHomePage } from '@/presentation/render/page/default-home-page'
 import {
+  codeContentLanguageOf,
   resolveComponentsCodeHighlights,
   resolvePageCodeHighlights,
 } from '@/presentation/render/resolve/code-highlight-resolver'
@@ -315,12 +316,11 @@ async function renderDeclaredPage(
     servedBelowRoot({ path, urlLanguage, basePath })
   )
 
-  // Highlight every `code` block BEFORE `renderToString` (a `tabs` panel serialises it
-  // early), in the page language a content opening with a `$t:` key is read in.
-  const codeLanguage = {
-    lang: resolvePageLanguage(page, app.languages, detectedLanguage, urlLanguage).lang,
-    languages: app.languages,
-  }
+  // Highlight `code` blocks before `renderToString` (a `tabs` panel serialises early), in-language.
+  const codeLanguage = codeContentLanguageOf(
+    app,
+    resolvePageLanguage(page, app.languages, detectedLanguage, urlLanguage).lang
+  )
   const [
     resolvedSidebar,
     islandAssets,
@@ -409,12 +409,12 @@ export async function renderPage(
 
   if (shouldServeDefaultHomePage(app, path, options)) {
     const injectAnalytics = shouldInjectAnalytics(app.analytics, '/')
-    const defaultSessionTimeout = extractSessionTimeout(app.analytics)
+    const beaconSettings = extractBeaconSettings(app.analytics, app.consent, app.languages)
     const html = renderToString(
       <DefaultHomePage
         app={app}
         builtInAnalyticsEnabled={injectAnalytics}
-        builtInAnalyticsSessionTimeout={defaultSessionTimeout}
+        builtInAnalyticsSettings={beaconSettings}
       />
     )
     return `<!DOCTYPE html>\n${html}`

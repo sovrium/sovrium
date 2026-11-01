@@ -69,7 +69,8 @@ export const CustomElementSchema = Schema.Struct({
   ),
   content: Schema.optional(
     Schema.String.annotate({
-      description: 'Inner content for script or style elements',
+      description:
+        'Inner content for script or style elements, sent exactly as written: a page reference in it, such as `$record.title`, is not filled.',
     })
   ),
 }).annotate({

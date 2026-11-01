@@ -31,16 +31,21 @@
  * a refused caller can learn.
  */
 
+import { Data, Effect } from 'effect'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { resolveRequestBaseUrl } from '@/domain/kernel/url/request-base-url'
 import { canInviteRole, isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { resolveRequestBaseUrl } from '@/presentation/api/runtime/request-origin'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { Context } from 'hono'
 
 type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
+
+/** Better Auth did not answer whose session a request carries. */
+export class CallerSessionError extends Data.TaggedError('CallerSessionError')<{
+  readonly cause: unknown
+}> {}
 
 export interface SessionLike {
   readonly user: { readonly id: string; readonly name?: string }
@@ -62,11 +67,7 @@ export interface SessionLike {
  * their choosing, signed by this instance. The link names THIS instance, the
  * way every other address it prints does.
  */
-export const resolveBaseURL = (c: Context): string => {
-  const envUrl = process.env['BASE_URL']
-  if (envUrl) return envUrl.replace(/\/$/, '')
-  return resolveRequestBaseUrl(c)
-}
+export const resolveBaseURL = (c: Context): string => resolveRequestBaseUrl(c)
 
 /**
  * Resolve the admin caller's session and verify their role is admin-EQUIVALENT
@@ -90,17 +91,17 @@ export const resolveBaseURL = (c: Context): string => {
  * non-admin). Returns the authenticated session when successful so the handler
  * has access to the inviter's display name.
  */
-export const requireAdminCaller = async (
+export const requireAdminCaller = (
   authInstance: AuthInstance,
 
   c: Context,
   app: Readonly<App> | undefined
-): Promise<{ readonly session: SessionLike } | Response> => {
-  const caller = await resolveCaller(authInstance, c)
-  if (caller instanceof Response) return caller
-  if (!isAdminEquivalent(caller.role, app ?? {})) return denyNotFound(c)
-  return { session: caller.session }
-}
+) =>
+  Effect.map(resolveCaller(authInstance, c), (caller) => {
+    if (caller instanceof Response) return caller
+    if (!isAdminEquivalent(caller.role, app ?? {})) return denyNotFound(c)
+    return { session: caller.session }
+  })
 
 /**
  * The 404 every denial on this surface answers with — never 403.
@@ -120,24 +121,25 @@ const denyNotFound = (c: Context): Response => notFound(c, 'Not Found')
  * Extracted so both guards below share ONE authentication path. They differ only
  * in the authorization predicate they then apply.
  */
-const resolveCaller = async (
-  authInstance: AuthInstance,
+const resolveCaller = (authInstance: AuthInstance, c: Context) =>
+  Effect.gen(function* () {
+    const callerSession = (yield* Effect.tryPromise({
+      try: () => authInstance.api.getSession({ headers: c.req.raw.headers }),
+      catch: (cause) => new CallerSessionError({ cause }),
+    })) as SessionLike | null
 
-  c: Context
-): Promise<{ readonly session: SessionLike; readonly role: string } | Response> => {
-  const callerSession = (await authInstance.api.getSession({
-    headers: c.req.raw.headers,
-  })) as SessionLike | null
+    if (!callerSession) {
+      return c.json(
+        { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
+        401
+      )
+    }
 
-  if (!callerSession) {
-    return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
-  }
+    const role = yield* getUserRole(callerSession.session.userId)
+    if (role === undefined) return denyNotFound(c)
 
-  const role = await runDomainPromise(c, getUserRole(callerSession.session.userId))
-  if (role === undefined) return denyNotFound(c)
-
-  return { session: callerSession, role }
-}
+    return { session: callerSession, role }
+  })
 
 /**
  * The authorization gate for `POST /api/auth/admin/invite-user` specifically:
@@ -161,15 +163,15 @@ const resolveCaller = async (
  * needs it downstream: an inviter who is not admin-equivalent is a scoped
  * inviter, and their assignments are what the invitee inherits.
  */
-export const requireInviteCaller = async (
+export const requireInviteCaller = (
   authInstance: AuthInstance,
 
   c: Context,
   app: Readonly<App> | undefined,
   invitedRole: string | undefined
-): Promise<{ readonly session: SessionLike; readonly role: string } | Response> => {
-  const caller = await resolveCaller(authInstance, c)
-  if (caller instanceof Response) return caller
-  if (!canInviteRole(caller.role, invitedRole, app ?? {})) return denyNotFound(c)
-  return caller
-}
+) =>
+  Effect.map(resolveCaller(authInstance, c), (caller) => {
+    if (caller instanceof Response) return caller
+    if (!canInviteRole(caller.role, invitedRole, app ?? {})) return denyNotFound(c)
+    return caller
+  })

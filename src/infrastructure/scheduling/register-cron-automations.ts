@@ -39,7 +39,6 @@ interface CronCallbackInput {
   /** Which of them this job arms. */
   readonly index: number
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly services: Context.Context<CronRunServices>
   /** The automation's definition id, resolved once for all its entries ({@link definitionIdOnce}). */
   readonly automationId: ReturnType<typeof definitionIdOnce>
@@ -100,7 +99,6 @@ const runEntry = (input: CronCallbackInput): Effect.Effect<void, unknown> =>
   runCronAutomation({
     name: input.automation.name,
     app: input.app,
-    processEnv: input.processEnv,
     triggerName: input.schedules[input.index]?.name ?? 'cron',
     automationId: input.automationId,
   }).pipe(
@@ -124,7 +122,7 @@ const cronSchedulesOf = (automation: Automation): CronCallbackInput['schedules']
   triggersOfType(automation, 'cron').map((entry) => ({
     name: triggerEntryName(entry),
     expression: entry.expression,
-    timezone: entry.timezone ?? resolveOperatorTimezone(),
+    timezone: entry.timezone ?? resolveOperatorTimezone(process.env),
   }))
 
 /**
@@ -203,8 +201,7 @@ const scheduleOne = (
  * that is silent and wrong.
  */
 export const registerCronAutomations = (
-  app: App,
-  processEnv: Readonly<Record<string, string | undefined>>
+  app: App
 ): Effect.Effect<readonly string[], never, CronScheduler | CronRunServices> =>
   Effect.gen(function* () {
     // NOTE: `enabled !== false` only — no pause check. See the block comment
@@ -226,9 +223,7 @@ export const registerCronAutomations = (
       const automationId = definitionIdOnce(automation)
       return schedules.map((_, index) => ({ automation, schedules, index, automationId }))
     })
-    return yield* Effect.forEach(
-      jobs,
-      (job) => scheduleOne(scheduler, { ...job, app, processEnv, services }),
-      { concurrency: 1 }
-    )
+    return yield* Effect.forEach(jobs, (job) => scheduleOne(scheduler, { ...job, app, services }), {
+      concurrency: 1,
+    })
   })

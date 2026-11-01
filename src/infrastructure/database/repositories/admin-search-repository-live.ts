@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   AdminSearchRepository,
   AdminSearchDatabaseError,
@@ -15,10 +15,15 @@ import {
 } from '@/application/ports/repositories/admin-search-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
-import { db } from '@/infrastructure/database'
+import {
+  layerOverDatabase,
+  type DatabaseService,
+  type Dialect,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import { bestEffort } from '@/infrastructure/logging/best-effort'
 import {
   readConversations,
   readFiles,
@@ -28,6 +33,7 @@ import {
 } from './admin-search-fixed-sources'
 import { adminSearchContentTableRef, pruneAdminIndex, searchAdminIndex } from './admin-search-query'
 import { recordIndexKey } from './admin-search-record-key'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Admin Global Search Repository Implementation.
@@ -52,7 +58,8 @@ import { recordIndexKey } from './admin-search-record-key'
 const wrap = makeDbWrap((cause) => new AdminSearchDatabaseError({ cause }))
 
 /** Coerce an upsert row's `updatedAt` to the column's native form. */
-const updatedAtValue = (date: Date): number | Date => (isSqliteRuntime() ? date.getTime() : date)
+const updatedAtValue = (dialect: Dialect, date: Date): number | Date =>
+  dialect.kind === 'sqlite' ? date.getTime() : date
 
 // ─── Per-source readers (each resilient: a bad source yields []) ──────────────
 //
@@ -62,6 +69,7 @@ const updatedAtValue = (date: Date): number | Date => (isSqliteRuntime() ? date.
 
 /** Read one operator table's records into index rows (id + first text column label). */
 const readTableRecords = (
+  { client: db, dialect }: DatabaseService,
   displayName: string,
   textColumns: readonly string[]
 ): Promise<readonly AdminSearchUpsertRow[]> => {
@@ -74,13 +82,17 @@ const readTableRecords = (
           sql`, `
         )
       : sql`id`
-  return executeRaw(
-    db,
-    sql`SELECT id AS entity_id, COALESCE(${labelExpr}, CAST(id AS TEXT)) AS title
+  return bestEffort('[admin-search] search source unreadable', {
+    source: 'records',
+    table: displayName,
+  }).promise(
+    executeRawOn(
+      dialect.kind,
+      db,
+      sql`SELECT id AS entity_id, COALESCE(${labelExpr}, CAST(id AS TEXT)) AS title
         FROM ${sql.identifier(physical)}
         LIMIT 500`
-  )
-    .then((rows) =>
+    ).then((rows) =>
       rows.map((row): AdminSearchUpsertRow => ({
         type: 'record',
         entityId: recordIndexKey(displayName, String(row['entity_id'])),
@@ -89,16 +101,18 @@ const readTableRecords = (
         href: `/_admin/records/${displayName}?record=${encodeURIComponent(String(row['entity_id']))}`,
         updatedAt: new Date(),
       }))
-    )
-    .catch(() => [])
+    ),
+    []
+  )
 }
 
 /** Upsert one index row (idempotent on `(type, entity_id)`). */
-const upsertRow = (row: AdminSearchUpsertRow): Promise<unknown> =>
-  executeRaw(
+const upsertRow = (db: PortableDb, dialect: Dialect, row: AdminSearchUpsertRow): Promise<unknown> =>
+  executeRawOn(
+    dialect.kind,
     db,
-    sql`INSERT INTO ${adminSearchContentTableRef()} (type, entity_id, title, body, href, updated_at)
-        VALUES (${row.type}, ${row.entityId}, ${row.title}, ${row.body}, ${row.href}, ${updatedAtValue(row.updatedAt)})
+    sql`INSERT INTO ${adminSearchContentTableRef(dialect.kind)} (type, entity_id, title, body, href, updated_at)
+        VALUES (${row.type}, ${row.entityId}, ${row.title}, ${row.body}, ${row.href}, ${updatedAtValue(dialect, row.updatedAt)})
         ON CONFLICT (type, entity_id) DO UPDATE
           SET title = excluded.title,
               body = excluded.body,
@@ -124,14 +138,16 @@ const upsertRow = (row: AdminSearchUpsertRow): Promise<unknown> =>
  * safety argument: ten configured tables is an ordinary app and ten is the whole
  * pool.
  *
- * ERRORS: `readTableRecords` ends in `.catch(() => [])`, so a missing or
- * unreadable source degrades to an empty contribution and this fan-out never
- * fails. Bounding does not change that — `wrap` only sees a resolved promise.
+ * ERRORS: `readTableRecords` ends in `bestEffort(...).promise(..., [])`, so a
+ * missing or unreadable source is logged with its cause and degrades to an
+ * empty contribution, and this fan-out never fails. Bounding does not change
+ * that — `wrap` only sees a resolved promise.
  *
  * ORDER: `Effect.all` preserves array order exactly as `Promise.all` did, which
  * keeps the `.flat()` in `rebuildIndex` emitting rows in configured-table order.
  */
 const readAllTableRecords = (
+  { client: db, dialect }: DatabaseService,
   tables: ReadonlyArray<{
     readonly displayName: string
     readonly textColumns: readonly string[]
@@ -139,7 +155,8 @@ const readAllTableRecords = (
 ) =>
   Effect.forEach(
     tables,
-    (table) => wrap(() => readTableRecords(table.displayName, table.textColumns)),
+    (table) =>
+      wrap(() => readTableRecords({ client: db, dialect }, table.displayName, table.textColumns)),
     { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
   )
 
@@ -154,17 +171,22 @@ const readAllTableRecords = (
  * while the other two are at 2 would make 5 the rebuild's real peak and the
  * other two ceilings decorative.
  *
- * ERRORS / ORDER: as above — every reader ends in `.catch(() => [])`, and
+ * ERRORS / ORDER: as above — every reader ends in a logged `bestEffort`, and
  * `Effect.all` preserves the tuple positions the caller destructures.
  */
-const readFixedSources = (formTitles: Readonly<Record<string, string>>, now: Readonly<Date>) =>
+const readFixedSources = (
+  db: PortableDb,
+  dialect: Dialect,
+  formTitles: Readonly<Record<string, string>>,
+  now: Readonly<Date>
+) =>
   Effect.all(
     [
-      wrap(() => readSubmissions(formTitles, now)),
-      wrap(() => readRuns(now)),
-      wrap(() => readUsers(now)),
-      wrap(() => readFiles(now)),
-      wrap(() => readConversations(now)),
+      wrap(() => readSubmissions(db, dialect, formTitles, now)),
+      wrap(() => readRuns(db, dialect, now)),
+      wrap(() => readUsers(db, dialect, now)),
+      wrap(() => readFiles(db, dialect, now)),
+      wrap(() => readConversations(db, dialect, now)),
     ],
     { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
   )
@@ -214,57 +236,67 @@ const readFixedSources = (formTitles: Readonly<Record<string, string>>, now: Rea
  * the index is never empty after a rebuild — the newest row's `updated_at` IS
  * the freshness marker `indexStaleness` reads.
  */
-const upsertAllRows = (rows: readonly AdminSearchUpsertRow[]) =>
-  Effect.forEach(rows, (row) => wrap(() => upsertRow(row)), {
+const upsertAllRows = (db: PortableDb, dialect: Dialect, rows: readonly AdminSearchUpsertRow[]) =>
+  Effect.forEach(rows, (row) => wrap(() => upsertRow(db, dialect, row)), {
     concurrency: SHARED_POOL_FANOUT_CONCURRENCY,
   }).pipe(Effect.asVoid)
 
-/**
- * Admin Global Search Repository Live layer.
- */
-export const AdminSearchRepositoryLive = Layer.succeed(AdminSearchRepository, {
-  indexStaleness: wrap(async (): Promise<AdminSearchStaleness> => {
-    const rows = await executeRaw(
-      db,
-      sql`SELECT COUNT(*) AS row_count, MAX(updated_at) AS last_built
-            FROM ${adminSearchContentTableRef()}`
-    )
-    const row = rows[0] ?? {}
-    const count = toFiniteCount(row['row_count'])
-    const lastRaw = row['last_built']
-    const lastBuiltAt =
-      lastRaw === null || lastRaw === undefined
-        ? undefined
-        : lastRaw instanceof Date
-          ? lastRaw
-          : new Date(typeof lastRaw === 'number' ? lastRaw : Number(lastRaw) || String(lastRaw))
-    return { isEmpty: count === 0, lastBuiltAt }
-  }),
+const members: MembersOverDatabase<typeof AdminSearchRepository> = {
+  indexStaleness: (db, dialect) =>
+    wrap(async (): Promise<AdminSearchStaleness> => {
+      const rows = await executeRawOn(
+        dialect.kind,
+        db,
+        sql`SELECT COUNT(*) AS row_count, MAX(updated_at) AS last_built
+            FROM ${adminSearchContentTableRef(dialect.kind)}`
+      )
+      const row = rows[0] ?? {}
+      const count = toFiniteCount(row['row_count'])
+      const lastRaw = row['last_built']
+      const lastBuiltAt =
+        lastRaw === null || lastRaw === undefined
+          ? undefined
+          : lastRaw instanceof Date
+            ? lastRaw
+            : new Date(typeof lastRaw === 'number' ? lastRaw : Number(lastRaw) || String(lastRaw))
+      return { isEmpty: count === 0, lastBuiltAt }
+    }),
 
   // Three sequential stages, each a fan-out with a stated ceiling — see the
   // "Bounded rebuild fan-outs" section above. They run one after another, so the
   // rebuild's peak pool usage is the widest single stage, not their sum.
-  rebuildIndex: ({ tables, extraRows, formTitles, producedKinds, configKinds }) =>
-    Effect.gen(function* () {
-      const now = new Date()
-      const perTable = yield* readAllTableRecords(tables)
-      const [submissions, runs, users, files, conversations] = yield* readFixedSources(
-        formTitles,
-        now
-      )
-      const allRows = [
-        ...perTable.flat(),
-        ...submissions,
-        ...runs,
-        ...users,
-        ...files,
-        ...conversations,
-        ...extraRows,
-      ]
-      // On SQLite each INSERT/DELETE additionally fires the FTS5 sync triggers.
-      yield* upsertAllRows(allRows)
-      yield* wrap(() => pruneAdminIndex({ producedKinds, configKinds, configRows: extraRows }))
-    }),
+  rebuildIndex:
+    (db, dialect) =>
+    ({ tables, extraRows, formTitles, producedKinds, configKinds }) =>
+      Effect.gen(function* () {
+        const now = new Date()
+        const perTable = yield* readAllTableRecords({ client: db, dialect }, tables)
+        const [submissions, runs, users, files, conversations] = yield* readFixedSources(
+          db,
+          dialect,
+          formTitles,
+          now
+        )
+        const allRows = [
+          ...perTable.flat(),
+          ...submissions,
+          ...runs,
+          ...users,
+          ...files,
+          ...conversations,
+          ...extraRows,
+        ]
+        // On SQLite each INSERT/DELETE additionally fires the FTS5 sync triggers.
+        yield* upsertAllRows(db, dialect, allRows)
+        yield* wrap(() =>
+          pruneAdminIndex(db, dialect, { producedKinds, configKinds, configRows: extraRows })
+        )
+      }),
 
-  search: (query) => wrap(() => searchAdminIndex(query)),
-})
+  search: (db, dialect) => (query) => wrap(() => searchAdminIndex(db, dialect, query)),
+}
+
+/**
+ * Admin Global Search Repository Live layer.
+ */
+export const AdminSearchRepositoryLive = layerOverDatabase(AdminSearchRepository, members)

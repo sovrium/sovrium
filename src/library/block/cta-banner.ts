@@ -15,9 +15,9 @@ import {
   stringParam,
   when,
   wrap,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import type { BlockNode } from '@/library/manifest/block-kit'
+import type { BlockNode } from '@/library/kit/block-kit'
 
 const INVERSE_BUTTON =
   'inline-flex h-12 items-center justify-center whitespace-nowrap rounded-md border px-5 text-md font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-foreground)]'

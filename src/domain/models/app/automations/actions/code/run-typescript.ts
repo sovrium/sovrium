@@ -65,7 +65,7 @@ export const CodeRunTypescriptActionSchema = Schema.Struct({
     code: Schema.String.pipe(
       Schema.annotate({
         description:
-          'TypeScript source for a named `execute(context)` function — validated at server startup. Context provides: { inputData, actions, env, log, run }. In TS configs use String(function execute(context: CodeContext) { ... }) for IDE autocompletion.',
+          'TypeScript source for a named `execute(context)` function, validated at server startup. Context provides: { inputData, actions, env, log, run }. In TS configs use String(function execute(context: CodeContext) { ... }) for IDE autocompletion.',
       }),
       Schema.check(Schema.isMinLength(1))
     ),
@@ -98,7 +98,7 @@ export const CodeRunTypescriptActionSchema = Schema.Struct({
     identifier: 'CodeRunTypescriptAction',
     title: 'Code Run TypeScript Action',
     description:
-      'Execute a named execute(context) function with typed CodeContext including actions and structured logging — body is type-checked at server startup',
+      'Execute a named execute(context) function with typed CodeContext including actions and structured logging. The body is type-checked at server startup',
   })
 )
 

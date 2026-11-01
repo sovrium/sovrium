@@ -14,11 +14,8 @@ import {
   type PercentileFields,
   type PercentileFigures,
 } from '@/domain/models/app/tables/aggregate-percentile-service'
-import {
-  parseDatabaseDialectConfig,
-  type DatabaseDialect,
-} from '@/domain/models/process-env/database/database-dialect'
 import { validateColumnName } from '../statement/validation'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Continuous percentiles, computed by the database, the same figure on both
@@ -42,8 +39,6 @@ import { validateColumnName } from '../statement/validation'
  * literal is the percentage, from the closed list of five.
  */
 
-const currentDialect = (): DatabaseDialect => parseDatabaseDialectConfig().dialect
-
 const rankAlias = (field: string): string => `__sovrium_rank_${field}`
 const rankedAlias = (field: string): string => `__sovrium_ranked_${field}`
 const figureAlias = (percentile: AggregatePercentile, field: string): string =>
@@ -57,8 +52,8 @@ const figureAlias = (percentile: AggregatePercentile, field: string): string =>
 export function rankForPercentiles(
   from: Readonly<SQL>,
   aggregate: PercentileFields,
-  partitionBy: readonly Readonly<SQL>[] = [],
-  dialect: DatabaseDialect = currentDialect()
+  partitionBy: readonly Readonly<SQL>[],
+  dialect: DatabaseDialect
 ): Readonly<SQL> {
   const fields = percentileFieldsOf(aggregate)
   if (dialect !== 'sqlite' || fields.length === 0) return from
@@ -100,7 +95,7 @@ const postgresFigure = (field: string, percent: number): Readonly<SQL> =>
  */
 export function buildPercentileSelects(
   aggregate: PercentileFields,
-  dialect: DatabaseDialect = currentDialect()
+  dialect: DatabaseDialect
 ): readonly Readonly<SQL>[] {
   return AGGREGATE_PERCENTILES.flatMap((percentile) =>
     (aggregate[percentile] ?? []).map((field) => {

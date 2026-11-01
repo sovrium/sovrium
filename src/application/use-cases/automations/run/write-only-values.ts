@@ -24,6 +24,7 @@
  * table is masked too, the safe direction.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   writeOnlyColumnsOf,
   writeOnlyFieldNames,
@@ -31,15 +32,10 @@ import {
 import { redactSecretsInValue } from '../redact-secrets'
 import type { App } from '@/domain/models/app'
 
-type Json = Readonly<Record<string, unknown>>
-
-const isObject = (value: unknown): value is Json =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 /** The string values `row` holds at `names`, at its top level and under `fields`. */
 const valuesIn = (row: unknown, names: readonly string[]): readonly string[] => {
-  if (!isObject(row)) return []
-  const nested = isObject(row['fields']) ? row['fields'] : {}
+  if (!isRecord(row)) return []
+  const nested = isRecord(row['fields']) ? row['fields'] : {}
   return names.flatMap((name) =>
     [row[name], nested[name]].filter(
       (value): value is string => typeof value === 'string' && value !== ''
@@ -61,7 +57,7 @@ const stringsUnder = (
 ): readonly string[] => {
   if (depth > MAX_DEPTH) return []
   if (Array.isArray(value)) return value.flatMap((item) => stringsUnder(item, names, depth + 1))
-  if (!isObject(value)) return []
+  if (!isRecord(value)) return []
   return Object.entries(value).flatMap(([key, held]) =>
     names.has(key) && typeof held === 'string' && held !== ''
       ? [held]
@@ -80,7 +76,7 @@ export const writeOnlyValuesIn = (app: App, value: unknown): readonly string[] =
 
 /** The rows a record step's value names: a `record`, a `records` list, a `fields` map. */
 const rowsOf = (value: unknown): readonly unknown[] => {
-  if (!isObject(value)) return []
+  if (!isRecord(value)) return []
   const records = Array.isArray(value['records']) ? (value['records'] as readonly unknown[]) : []
   return [value, value['record'], ...records]
 }
@@ -115,9 +111,9 @@ export const maskValues = <T>(value: T, secrets: readonly string[]): T =>
 /** Every record step of an action tree (paths and loops included), by name, with its table. */
 const recordStepTables = (node: unknown): ReadonlyArray<readonly [string, string]> => {
   if (Array.isArray(node)) return node.flatMap(recordStepTables)
-  if (!isObject(node)) return []
+  if (!isRecord(node)) return []
   const { props } = node
-  const table = isObject(props) ? props['table'] : undefined
+  const table = isRecord(props) ? props['table'] : undefined
   const own =
     node['type'] === 'record' && typeof table === 'string' && typeof node['name'] === 'string'
       ? [[node['name'], table] as const]

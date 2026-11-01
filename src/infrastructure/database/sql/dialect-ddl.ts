@@ -6,9 +6,9 @@
  */
 
 import { Database as BunSqlite, type SQLQueryBindings } from 'bun:sqlite'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { applySqlitePragmas } from './sqlite-pragmas'
 import type { TransactionLike } from './sql-execution'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Dialect-aware DDL execution for the schema-initializer.
@@ -34,12 +34,8 @@ import type { TransactionLike } from './sql-execution'
  *     `TransactionLike` so `executeSQL(tx, …)` runs on SQLite.
  *   - {@link runSqliteSchemaTransaction} — run a unit of DDL work inside an
  *     explicit `BEGIN` / `COMMIT` / `ROLLBACK` transaction on SQLite.
- *   - {@link qualifiedSystemTable} — `system.<name>` on Postgres, the
- *     `system_<name>` flat-prefix table on SQLite (SQLite has no schemas).
- *   - {@link systemObjectExistsSql} — the catalog query for "does a `system`
- *     table exist", per dialect.
- *   - {@link nowSqlLiteral} — the "current timestamp" function for raw SQL
- *     strings (`NOW()` vs `CURRENT_TIMESTAMP`).
+ *   - the raw-SQL strings that differ by engine (system and auth table names,
+ *     the catalogue probe, clock literals, aggregations), for a named dialect.
  */
 
 /**
@@ -76,12 +72,12 @@ export const openSqliteDdlDatabase = (path: string): BunSqlite => {
  *   - A genuinely multi-statement string (rare — defensive only) is run via
  *     `exec()`, which returns no rows.
  *
- * The same `bun:sqlite` `Database` handle is used for every call, so when the
- * adapter is created inside a `BEGIN`/`COMMIT` block (see
- * {@link runSqliteSchemaTransaction}) every statement participates in that one
- * transaction.
+ * One `bun:sqlite` handle serves every call, so an adapter created inside a
+ * `BEGIN`/`COMMIT` block ({@link runSqliteSchemaTransaction}) runs every
+ * statement in that one transaction. Its `dialect` is `'sqlite'`.
  */
 export const sqliteTransactionLike = (client: Readonly<BunSqlite>): TransactionLike => ({
+  dialect: 'sqlite',
   unsafe: (sql: string, params?: readonly unknown[]): Promise<readonly unknown[]> => {
     try {
       // query() compiles one statement: its rows, or []. `$1`, `$2`… bind in order.
@@ -202,8 +198,8 @@ export const runSqliteSchemaTransaction = async (
  *
  * @param bareName - the unqualified table name (e.g. `schema_checksum`)
  */
-export const qualifiedSystemTable = (bareName: string): string =>
-  isSqliteRuntime() ? `system_${bareName}` : `system.${bareName}`
+export const qualifiedSystemTable = (dialect: DatabaseDialect, bareName: string): string =>
+  dialect === 'sqlite' ? `system_${bareName}` : `system.${bareName}`
 
 /**
  * Qualified table name for an `auth`-namespace table (Better Auth tables).
@@ -212,7 +208,7 @@ export const qualifiedSystemTable = (bareName: string): string =>
  * schema (`auth.user`, `auth.session`, …). SQLite has no schemas, so the
  * `schema-sqlite/` mirror prefixes the name instead (`auth_user`,
  * `auth_session`, …). This returns the dialect-correct reference for use
- * inside raw SQL strings — the raw-string counterpart of `authTableRef()` in
+ * inside raw SQL strings — the raw-string counterpart of `authTableRefOn()` in
  * `dialect-sql.ts` (which produces a Drizzle `sql.raw` fragment for the
  * records-CRUD layer).
  *
@@ -222,8 +218,8 @@ export const qualifiedSystemTable = (bareName: string): string =>
  *
  * @param bareName - the unqualified Better Auth table name (e.g. `user`)
  */
-export const qualifiedAuthTable = (bareName: string): string =>
-  isSqliteRuntime() ? `auth_${bareName}` : `auth.${bareName}`
+export const qualifiedAuthTable = (dialect: DatabaseDialect, bareName: string): string =>
+  dialect === 'sqlite' ? `auth_${bareName}` : `auth.${bareName}`
 
 /**
  * Catalog query that resolves to a single `exists` boolean column reporting
@@ -235,8 +231,8 @@ export const qualifiedAuthTable = (bareName: string): string =>
  *
  * @param bareName - the unqualified table name (e.g. `schema_checksum`)
  */
-export const systemObjectExistsSql = (bareName: string): string =>
-  isSqliteRuntime()
+export const systemObjectExistsSql = (dialect: DatabaseDialect, bareName: string): string =>
+  dialect === 'sqlite'
     ? `SELECT EXISTS (
         SELECT 1 FROM sqlite_master
         WHERE type = 'table' AND name = 'system_${bareName}'
@@ -268,15 +264,16 @@ export const SQLITE_ISO_NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')"
  *   — SQLite has no `NOW()` and stores timestamps as text, and the records API
  *   response schema requires strict ISO-8601.
  *
- * This is the raw-string-SQL counterpart of `nowExpr()` in `dialect-sql.ts`
+ * This is the raw-string-SQL counterpart of `dialect.sql.nowExpr()`
  * (which produces a Drizzle `sql` fragment for the records-CRUD layer).
  *
  * Use this for ISO-TEXT-storage timestamp columns (the dynamic-records
  * `created_at`/`updated_at` shape). For INTEGER `timestamp_ms` columns (the
  * `system_sovrium_bootstrap_tokens.created_at` shape on SQLite), use
- * {@link nowEpochMsSqlLiteral} instead.
+ * {@link nowEpochMsSqlLiteralOn} instead.
  */
-export const nowSqlLiteral = (): string => (isSqliteRuntime() ? SQLITE_ISO_NOW : 'NOW()')
+export const nowSqlLiteral = (dialect: DatabaseDialect): string =>
+  dialect === 'sqlite' ? SQLITE_ISO_NOW : 'NOW()'
 
 /**
  * The "current timestamp as epoch-milliseconds INTEGER" SQL expression.
@@ -290,25 +287,21 @@ export const nowSqlLiteral = (): string => (isSqliteRuntime() ? SQLITE_ISO_NOW :
  *   system-table mirrors such as `system_sovrium_bootstrap_tokens`. Using
  *   {@link nowSqlLiteral} here would write the ISO-8601 TEXT into an INTEGER
  *   column and break Drizzle's `timestamp_ms` decoder on read.
- *
- * This is the second of two "now()" raw-string helpers (the first being
- * {@link nowSqlLiteral}); pick the one that matches the destination column's
- * storage shape.
  */
-export const nowEpochMsSqlLiteral = (): string =>
-  isSqliteRuntime() ? "(CAST(strftime('%s','now') AS INTEGER) * 1000)" : 'NOW()'
+export const nowEpochMsSqlLiteralOn = (dialect: DatabaseDialect): string =>
+  dialect === 'sqlite' ? "(CAST(strftime('%s','now') AS INTEGER) * 1000)" : 'NOW()'
 
 /**
- * Cast a raw SQL expression to TEXT for the active dialect.
+ * Cast a raw SQL expression to TEXT on `dialect`.
  *
  * PG accepts the `::text` shorthand; SQLite uses `CAST(expr AS TEXT)` and
  * rejects `::text` with a parser error.
  */
-const castToText = (expr: string): string =>
-  isSqliteRuntime() ? `CAST(${expr} AS TEXT)` : `${expr}::TEXT`
+const castToText = (dialect: DatabaseDialect, expr: string): string =>
+  dialect === 'sqlite' ? `CAST(${expr} AS TEXT)` : `${expr}::TEXT`
 
 /**
- * String aggregation expression for the active dialect — the SQL idiom that
+ * String aggregation expression on `dialect` — the SQL idiom that
  * collapses a column from many rows into a single delimited text value.
  *
  * - PostgreSQL: `STRING_AGG(<expr>::TEXT, '<separator>' ORDER BY <orderBy>)`
@@ -333,21 +326,22 @@ const castToText = (expr: string): string =>
  * @param orderByExpression - optional ORDER BY expression for stable ordering
  */
 export const stringAggExpression = (
+  dialect: DatabaseDialect,
   expression: string,
   separator: string,
   orderByExpression?: string
 ): string => {
   const sortClause = orderByExpression ? ` ORDER BY ${orderByExpression}` : ''
-  if (isSqliteRuntime()) {
+  if (dialect === 'sqlite') {
     // SQLite: `group_concat(CAST(expr AS TEXT), ', ' ORDER BY x)`
-    return `group_concat(${castToText(expression)}, '${separator}'${sortClause})`
+    return `group_concat(${castToText(dialect, expression)}, '${separator}'${sortClause})`
   }
   // Postgres: `STRING_AGG(expr::TEXT, ', ' ORDER BY x)`
-  return `STRING_AGG(${castToText(expression)}, '${separator}'${sortClause})`
+  return `STRING_AGG(${castToText(dialect, expression)}, '${separator}'${sortClause})`
 }
 
 /**
- * Distinct-array aggregation for the active dialect — the SQL idiom that
+ * Distinct-array aggregation on `dialect` — the SQL idiom that
  * collapses a column from many rows into ONE array of its distinct values,
  * sorted for determinism. Backs the rollup `ARRAYUNIQUE` aggregation.
  *
@@ -375,9 +369,9 @@ export const stringAggExpression = (
  * The expression is interpolated unquoted; callers pass an already-validated
  * identifier reference (e.g. `alias.col`).
  */
-export const distinctArrayAggExpression = (expression: string): string => {
-  const castExpression = castToText(expression)
-  if (isSqliteRuntime()) {
+export const distinctArrayAggExpression = (dialect: DatabaseDialect, expr: string): string => {
+  const castExpression = castToText(dialect, expr)
+  if (dialect === 'sqlite') {
     return `json_group_array(DISTINCT ${castExpression} ORDER BY ${castExpression})`
   }
   return `ARRAY_AGG(DISTINCT ${castExpression} ORDER BY ${castExpression})`
@@ -392,7 +386,8 @@ export const distinctArrayAggExpression = (expression: string): string => {
  * distinct-array is) expressed at two points in the same `COALESCE`, and a
  * wrong SQLite half aborts schema init with `near "[]": syntax error`.
  */
-export const emptyArrayLiteral = (): string => (isSqliteRuntime() ? `'[]'` : `ARRAY[]::TEXT[]`)
+export const emptyArrayLiteral = (dialect: DatabaseDialect): string =>
+  dialect === 'sqlite' ? `'[]'` : `ARRAY[]::TEXT[]`
 
 /**
  * "This cell holds something" — the predicate behind the rollup `COUNTA`
@@ -422,5 +417,5 @@ export const emptyArrayLiteral = (): string => (isSqliteRuntime() ? `'[]'` : `AR
  * text columns — empty strings would start counting — changing answers that
  * were never part of the failure.
  */
-export const nonEmptyValuePredicate = (expression: string): string =>
-  `${expression} IS NOT NULL AND ${castToText(expression)} != ''`
+export const nonEmptyValuePredicate = (dialect: DatabaseDialect, expression: string): string =>
+  `${expression} IS NOT NULL AND ${castToText(dialect, expression)} != ''`

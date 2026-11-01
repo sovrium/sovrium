@@ -7,33 +7,14 @@
 
 import { sql } from 'drizzle-orm'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { getDb } from '@/infrastructure/database/drizzle/db-bun'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-
-/**
- * A single webhook delivery-log row, shaped for the API response.
- *
- * `status` is `success` / `failed` — the storage layer records exactly these
- * two values (see `table-webhook-dispatch.ts` `logDelivery`), so the wire
- * contract and the stored value coincide.
- */
-export interface DeliveryLogEntry {
-  readonly id: string
-  readonly webhookName: string
-  readonly tableName: string
-  readonly event: string
-  readonly url: string
-  readonly status: 'success' | 'failed'
-  readonly httpStatus: number | undefined
-  readonly attemptCount: number
-  readonly error: string | undefined
-  readonly responseBody: string | undefined
-  readonly duration: number
-  readonly requestedAt: string
-  readonly completedAt: string
-  readonly payload: unknown
-  readonly requestHeaders: unknown
-}
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import type {
+  DeliveryAddress,
+  DeliveryLogEntry,
+  ListDeliveriesOptions,
+  ListDeliveriesResult,
+} from '@/application/ports/services/webhook-delivery-log'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** Raw row shape returned by the `_webhook_deliveries` SELECT. */
 interface RawDeliveryRow {
@@ -106,24 +87,6 @@ export const rowsOf = <T>(result: unknown): ReadonlyArray<T> => {
   return wrapped ?? []
 }
 
-/** Options for {@link listDeliveries}. */
-export interface ListDeliveriesOptions {
-  readonly tableName: string
-  readonly webhookName: string
-  readonly limit: number
-  /** Cursor: only rows with `id` strictly less than this value are returned. */
-  readonly cursor: number | undefined
-  /** Optional `success`/`failed` status filter. */
-  readonly status: 'success' | 'failed' | undefined
-}
-
-/** Result of {@link listDeliveries} — a page plus paging metadata. */
-export interface ListDeliveriesResult {
-  readonly deliveries: ReadonlyArray<DeliveryLogEntry>
-  readonly totalCount: number
-  readonly nextCursor: string | undefined
-}
-
 /**
  * List delivery-log rows for a single table webhook, newest first.
  *
@@ -134,6 +97,7 @@ export interface ListDeliveriesResult {
  * @public
  */
 export const listDeliveries = async (
+  { client, dialect }: DatabaseService,
   options: ListDeliveriesOptions
 ): Promise<ListDeliveriesResult> => {
   const { tableName, webhookName, limit, cursor, status } = options
@@ -142,10 +106,11 @@ export const listDeliveries = async (
   const cursorClause = cursor === undefined ? sql`` : sql` AND id < ${cursor}`
   const statusClause = status === undefined ? sql`` : sql` AND status = ${status}`
 
-  // `executeRaw` runs `.execute()` on PostgreSQL and `.all()` on SQLite, which
+  // `executeRawOn` runs `.execute()` on PostgreSQL and `.all()` on SQLite, which
   // has no `.execute()`: the log reads on both engines, as `logDelivery` writes.
-  const pageResult = await executeRaw(
-    getDb(),
+  const pageResult = await executeRawOn(
+    dialect.kind,
+    client,
     sql`
     SELECT id, webhook_name, table_name, event, url, status, http_status,
            attempt_count, error, response_body, duration_ms,
@@ -162,8 +127,9 @@ export const listDeliveries = async (
   // COUNT(*) without the PG-only `::int` cast — both dialects return an
   // integer-typed value from COUNT(*) natively; the cast was a defensive
   // type-coercion that breaks SQLite's parser (`near "::"`).
-  const countResult = await executeRaw(
-    getDb(),
+  const countResult = await executeRawOn(
+    dialect.kind,
+    client,
     sql`
     SELECT COUNT(*) AS count
     FROM _webhook_deliveries
@@ -191,14 +157,13 @@ export const listDeliveries = async (
  *
  * @public
  */
-export const getDelivery = async (input: {
-  readonly tableName: string
-  readonly webhookName: string
-  readonly deliveryId: number
-}): Promise<DeliveryLogEntry | undefined> => {
-  const { tableName, webhookName, deliveryId } = input
-  const result = await executeRaw(
-    getDb(),
+export const getDelivery = async (
+  { client, dialect }: DatabaseService,
+  { tableName, webhookName, deliveryId }: DeliveryAddress
+): Promise<DeliveryLogEntry | undefined> => {
+  const result = await executeRawOn(
+    dialect.kind,
+    client,
     sql`
     SELECT id, webhook_name, table_name, event, url, status, http_status,
            attempt_count, error, response_body, duration_ms,
@@ -219,9 +184,13 @@ export const getDelivery = async (input: {
  * under the delivery's own `X-Sovrium-Delivery-Id`. `undefined` for a test send
  * and for a row written before the outbox existed.
  */
-export const getDeliveryOutboxId = async (logId: number): Promise<string | undefined> => {
-  const rows = await executeRaw(
-    getDb(),
+export const getDeliveryOutboxId = async (
+  { client, dialect }: DatabaseService,
+  logId: number
+): Promise<string | undefined> => {
+  const rows = await executeRawOn(
+    dialect.kind,
+    client,
     sql`SELECT delivery_id FROM _webhook_deliveries WHERE id = ${logId} LIMIT 1`
   )
   const value = rows[0]?.['delivery_id']

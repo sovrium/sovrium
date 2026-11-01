@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The load-time rules of `optionsFrom` on a choice control, which need the
  * app's tables and so cannot live on the schema node:
@@ -23,9 +25,6 @@
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The controls that take `optionsFrom`. */
 const CHOICE_CONTROLS: ReadonlySet<string> = new Set(['select', 'combobox', 'native-select'])

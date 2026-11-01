@@ -68,9 +68,71 @@
           "element": "div",
           "props": {
             "className": "flex min-h-10 flex-wrap items-center gap-2",
-            "data-testid": "admin-toolbar-row"
+            "data-testid": "admin-toolbar-row",
+            "role": "toolbar",
+            "aria-label": "$t:admin.common.gridControls"
           },
           "children": [
+            {
+              "component": "console-toolbar-search",
+              "key": "toolbar-search",
+              "vars": {
+                "ariaLabel": "$t:admin.auditLog.search",
+                "placeholder": "$t:admin.auditLog.search",
+                "publishes": {
+                  "bindTo": "audit-log-filter",
+                  "param": "q"
+                }
+              }
+            },
+            {
+              "type": "native-select",
+              "props": {
+                "id": "audit-log-actor-filter",
+                "label": "$t:admin.auditLog.filter.actor",
+                "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
+              },
+              "emptyOption": {
+                "label": "$t:admin.auditLog.filter.allActors"
+              },
+              "publishes": {
+                "bindTo": "audit-log-filter",
+                "param": "actorId"
+              },
+              "dataSource": {
+                "system": {
+                  "endpoint": "/api/admin/audit-log/facets",
+                  "rowsKey": "actors",
+                  "idKey": "id"
+                },
+                "valueKey": "id",
+                "labelKey": "label"
+              }
+            },
+            {
+              "type": "native-select",
+              "props": {
+                "id": "audit-log-action-filter",
+                "label": "$t:admin.auditLog.filter.action",
+                "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
+              },
+              "emptyOption": {
+                "label": "$t:admin.auditLog.filter.allActions"
+              },
+              "publishes": {
+                "bindTo": "audit-log-filter",
+                "param": "action"
+              },
+              "dataSource": {
+                "system": {
+                  "endpoint": "/api/admin/audit-log/facets",
+                  "rowsKey": "actions",
+                  "idKey": "action"
+                },
+                "valueKey": "action",
+                "labelKey": "action"
+              }
+            },
             {
               "type": "native-select",
               "props": {
@@ -180,6 +242,49 @@
                   "label": "$t:admin.auditLog.resource.designShare"
                 }
               ]
+            },
+            {
+              "type": "date-range-picker",
+              "props": {
+                "id": "audit-log-period-filter",
+                "className": "[&>div>span:first-child]:sr-only [&_button]:h-8! [&_button]:py-0! [&_button]:text-sm!"
+              },
+              "label": "$t:admin.auditLog.filter.period",
+              "placeholder": "$t:admin.auditLog.filter.anyTime",
+              "presets": ["today", "yesterday", "last-7-days", "this-month", "last-month"],
+              "publishes": {
+                "bindTo": "audit-log-filter",
+                "params": {
+                  "from": "from",
+                  "to": "to"
+                }
+              }
+            },
+            {
+              "type": "container",
+              "key": "reads-toggle-row",
+              "element": "div",
+              "props": {
+                "className": "flex items-center gap-2"
+              },
+              "children": [
+                {
+                  "type": "switch",
+                  "props": {
+                    "id": "audit-log-reads-toggle",
+                    "aria-label": "$t:admin.auditLog.filter.showReads"
+                  },
+                  "publishes": {
+                    "bindTo": "audit-log-filter",
+                    "param": "reads"
+                  }
+                },
+                {
+                  "type": "label",
+                  "for": "audit-log-reads-toggle",
+                  "text": "$t:admin.auditLog.filter.showReads"
+                }
+              ]
             }
           ]
         },
@@ -195,11 +300,21 @@
                 "rowsKey": "items",
                 "idKey": "id",
                 "query": {
-                  "limit": "200"
+                  "limit": "200",
+                  "reads": "false"
                 },
                 "bindTo": "audit-log-filter",
                 "sharedFilter": {
-                  "params": ["transport", "resourceType"]
+                  "params": [
+                    "q",
+                    "actorId",
+                    "action",
+                    "transport",
+                    "resourceType",
+                    "from",
+                    "to",
+                    "reads"
+                  ]
                 }
               }
             },
@@ -220,14 +335,67 @@
                 "field": "action",
                 "label": "$t:admin.auditLog.col.action",
                 "minWidth": 220,
-                "cellStyle": [
-                  {
-                    "when": {
-                      "isNotEmpty": true
-                    },
-                    "className": "font-mono text-xs"
-                  }
-                ]
+                "secondaryField": "action",
+                "valueLabels": {
+                  "account.deletion.scheduled": "$t:admin.auditLog.action.account.deletion.scheduled",
+                  "account.deletion.requested": "$t:admin.auditLog.action.account.deletion.requested",
+                  "account.deletion.deferred": "$t:admin.auditLog.action.account.deletion.deferred",
+                  "account.deletion.purged": "$t:admin.auditLog.action.account.deletion.purged",
+                  "config.version.queried": "$t:admin.auditLog.action.config.version.queried",
+                  "config.schema.queried": "$t:admin.auditLog.action.config.schema.queried",
+                  "config.env.queried": "$t:admin.auditLog.action.config.env.queried",
+                  "config.design.queried": "$t:admin.auditLog.action.config.design.queried",
+                  "table.overview.queried": "$t:admin.auditLog.action.table.overview.queried",
+                  "table.record.created": "$t:admin.auditLog.action.table.record.created",
+                  "table.record.updated": "$t:admin.auditLog.action.table.record.updated",
+                  "table.record.deleted": "$t:admin.auditLog.action.table.record.deleted",
+                  "table.record.button.invoked": "$t:admin.auditLog.action.table.record.button.invoked",
+                  "bucket.list.queried": "$t:admin.auditLog.action.bucket.list.queried",
+                  "bucket.overview.queried": "$t:admin.auditLog.action.bucket.overview.queried",
+                  "bucket.files.queried": "$t:admin.auditLog.action.bucket.files.queried",
+                  "bucket.file.uploaded": "$t:admin.auditLog.action.bucket.file.uploaded",
+                  "form.list.queried": "$t:admin.auditLog.action.form.list.queried",
+                  "form.detail.queried": "$t:admin.auditLog.action.form.detail.queried",
+                  "form.submission.list.queried": "$t:admin.auditLog.action.form.submission.list.queried",
+                  "form.submission.detail.queried": "$t:admin.auditLog.action.form.submission.detail.queried",
+                  "form.submission.bulk.queried": "$t:admin.auditLog.action.form.submission.bulk.queried",
+                  "form.submission.body.revealed": "$t:admin.auditLog.action.form.submission.body.revealed",
+                  "form.submission.bodies.revealed": "$t:admin.auditLog.action.form.submission.bodies.revealed",
+                  "form.analytics.queried": "$t:admin.auditLog.action.form.analytics.queried",
+                  "form.export.queried": "$t:admin.auditLog.action.form.export.queried",
+                  "user.overview.queried": "$t:admin.auditLog.action.user.overview.queried",
+                  "user.role.changed": "$t:admin.auditLog.action.user.role.changed",
+                  "user.impersonation.started": "$t:admin.auditLog.action.user.impersonation.started",
+                  "user.impersonation.stopped": "$t:admin.auditLog.action.user.impersonation.stopped",
+                  "user.banned": "$t:admin.auditLog.action.user.banned",
+                  "user.unbanned": "$t:admin.auditLog.action.user.unbanned",
+                  "user.password.set": "$t:admin.auditLog.action.user.password.set",
+                  "user.groups.changed": "$t:admin.auditLog.action.user.groups.changed",
+                  "scim.user.created": "$t:admin.auditLog.action.scim.user.created",
+                  "scim.user.updated": "$t:admin.auditLog.action.scim.user.updated",
+                  "scim.user.deactivated": "$t:admin.auditLog.action.scim.user.deactivated",
+                  "scim.user.reactivated": "$t:admin.auditLog.action.scim.user.reactivated",
+                  "scim.group.members.updated": "$t:admin.auditLog.action.scim.group.members.updated",
+                  "automation.overview.queried": "$t:admin.auditLog.action.automation.overview.queried",
+                  "automation.runs.list.queried": "$t:admin.auditLog.action.automation.runs.list.queried",
+                  "automation.runs.detail.queried": "$t:admin.auditLog.action.automation.runs.detail.queried",
+                  "automation.paused": "$t:admin.auditLog.action.automation.paused",
+                  "automation.resumed": "$t:admin.auditLog.action.automation.resumed",
+                  "automation.auto_paused": "$t:admin.auditLog.action.automation.auto_paused",
+                  "agent.conversation.list.queried": "$t:admin.auditLog.action.agent.conversation.list.queried",
+                  "agent.conversation.detail.queried": "$t:admin.auditLog.action.agent.conversation.detail.queried",
+                  "agent.list.queried": "$t:admin.auditLog.action.agent.list.queried",
+                  "agent.detail.queried": "$t:admin.auditLog.action.agent.detail.queried",
+                  "connection.list.queried": "$t:admin.auditLog.action.connection.list.queried",
+                  "connection.detail.queried": "$t:admin.auditLog.action.connection.detail.queried",
+                  "link.created": "$t:admin.auditLog.action.link.created",
+                  "link.updated": "$t:admin.auditLog.action.link.updated",
+                  "link.deleted": "$t:admin.auditLog.action.link.deleted",
+                  "link.disabled": "$t:admin.auditLog.action.link.disabled",
+                  "link.enabled": "$t:admin.auditLog.action.link.enabled",
+                  "design.share.created": "$t:admin.auditLog.action.design.share.created",
+                  "design.share.revoked": "$t:admin.auditLog.action.design.share.revoked"
+                }
               },
               {
                 "field": "resource.type",
@@ -249,6 +417,13 @@
                   "group": "$t:admin.auditLog.resource.group",
                   "design.share": "$t:admin.auditLog.resource.designShare"
                 }
+              },
+              {
+                "field": "resource.id",
+                "label": "$t:admin.auditLog.col.resourceId",
+                "minWidth": 140,
+                "format": "short-id",
+                "copyLabel": "$t:admin.auditLog.copyResourceId"
               },
               {
                 "field": "result",
@@ -293,7 +468,14 @@
               "action": "openSheet",
               "component": "admin-audit-log-entry"
             },
-            "viewOptions": "toolbar"
+            "viewOptions": "toolbar",
+            "selection": {
+              "mode": "multiple"
+            },
+            "countLabel": {
+              "one": "$t:admin.auditLog.count.one",
+              "other": "$t:admin.auditLog.count.other"
+            }
           }
         },
         {

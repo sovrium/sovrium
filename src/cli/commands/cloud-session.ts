@@ -32,13 +32,13 @@ import { chmod, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { Console, Data, Effect, Option, Schema } from 'effect'
+import { CliRefusal } from '@/cli/runtime/run-command'
 import { busyRetryDelayMs, isBusyStatus } from '@/domain/kernel/time/busy-retry-delay'
 import {
   isPrivateOutboundHost,
   validateOutboundUrl,
 } from '@/infrastructure/egress/validate-outbound-url'
 import { withFetchStallTimeout } from '@/infrastructure/egress/with-fetch-timeout'
-import { printFailure } from '@/infrastructure/logging/cli-output'
 import {
   isPrivateOutboundOptIn,
   validatePostureFlags,
@@ -52,16 +52,6 @@ const CREDENTIALS_FILE_MODE = 0o600
 
 /** Inactivity deadline of a small JSON call: no byte for this long and it is abandoned. */
 const REQUEST_STALL_MS = 15_000
-
-/**
- * A refusal the command prints and exits 1 on. `headline` names the constraint
- * and what did not happen; `guidance` the next action.
- */
-export class CliRefusal extends Data.TaggedError('CliRefusal')<{
-  readonly headline: string
-  readonly guidance: string
-  readonly detail?: readonly string[]
-}> {}
 
 /** The cloud did not answer: refused connection, DNS, TLS, or a stall. */
 class CloudUnreachable extends Data.TaggedError('CloudUnreachable')<{
@@ -386,15 +376,3 @@ export const readCloudRecord = <A>(options: {
 
 /** Print a line to stdout. */
 export const say = (line: string): Effect.Effect<void> => Console.log(line)
-
-/**
- * Run a command program at the CLI's edge: a refusal is printed in the CLI's
- * failure shape and ends the process with exit 1.
- */
-export const runCliProgram = async (program: Effect.Effect<void, CliRefusal>): Promise<void> => {
-  const result = await Effect.runPromise(Effect.result(program))
-  if (result._tag === 'Success') return
-  const { headline, guidance, detail } = result.failure
-  printFailure({ headline, guidance, ...(detail === undefined ? {} : { detail }) })
-  process.exit(1)
-}

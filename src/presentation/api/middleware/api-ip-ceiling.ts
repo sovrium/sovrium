@@ -50,11 +50,11 @@ import {
 } from '@/domain/models/app/automations/trigger/webhook-telemetry-service'
 import { resolveApiIpRateLimit } from '@/domain/models/process-env/api-ip-rate-limit'
 import { isIngestRequest, markIngestRequest } from '@/infrastructure/logging/ingest-request-scope'
-import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
 import { getRateLimitWindowMs } from '@/presentation/api/auth/auth-route-utils'
 import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import { carriesCredential } from '@/presentation/api/middleware/request-credential'
+import { rateLimitedResponse } from '@/presentation/api/runtime/rate-limit-response'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono, MiddlewareHandler, Next } from 'hono'
 
@@ -79,7 +79,7 @@ export const createApiIpCeilingMiddleware = (): MiddlewareHandler => {
     counted.add(c.req.raw)
     const { limited, retryAfter } = limiter.consume(getRequestRateLimitKey(c), {
       windowMs: getRateLimitWindowMs(),
-      maxRequests: resolveApiIpRateLimit(),
+      maxRequests: resolveApiIpRateLimit(process.env),
     })
     if (limited) return rateLimitedResponse(c, retryAfter)
     await next()

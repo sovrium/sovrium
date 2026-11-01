@@ -11,11 +11,14 @@ import {
   type UserAccessRow,
 } from '@/application/ports/repositories/auth/user-access-repository'
 import { changeUserAccessGrant } from '@/application/use-cases/tables/mint-user-access-grant'
-import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import { userAccessRecordSchema } from '@/domain/models/api/tables'
 import { isRecordKeyShaped } from '@/domain/models/app/tables/record-id-service'
 import { validateUserAccessChange } from '@/domain/models/app/tables/user-access-validation'
-import { runUserAccessProgram } from '@/infrastructure/layers/table-layer'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import {
   collectRoleNames,
   collectScopeTables,
@@ -50,27 +53,33 @@ const grantIdOf = (c: Context): string | undefined => {
 
 /** A grant in the record envelope every records route answers, through its wire contract (S4). */
 const respondGrant = (c: Context, row: Readonly<UserAccessRow>) =>
-  c.json(decodeOrThrow(userAccessRecordSchema)(toFieldsResponse(row)), 200)
+  respondWith(c, Effect.succeed(toFieldsResponse(row)), userAccessRecordSchema)
 
 /** GET /api/tables/user_access/records/:grantId — one grant, or 404. */
-export async function handleGetUserAccessRecord(c: Context, app: App): Promise<Response> {
-  const refused = await gateUserAccessAdmin(c, app)
-  if (refused) return refused
-  const id = grantIdOf(c)
-  if (id === undefined) return respondNotFound(c)
-
-  const result = await runUserAccessProgram(
-    Effect.gen(function* () {
-      const repo = yield* UserAccessRepository
-      return yield* repo.get(id)
-    })
-  )
-  if (result._tag === 'Failure') return respondServerError(c, result.failure.cause)
-  return Option.match(result.success, {
-    onNone: () => respondNotFound(c),
-    onSome: (row) => respondGrant(c, row),
-  })
+export function handleGetUserAccessRecord(c: Context, app: App): Promise<Response> {
+  return runHandlerEffect(c, answerFailures(c, getGrantResponse(c, app)))
 }
+
+/** Gate and answer one grant, as one program. */
+const getGrantResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const refused = yield* gateUserAccessAdmin(c, app)
+    if (refused) return refused
+    const id = grantIdOf(c)
+    if (id === undefined) return respondNotFound(c)
+
+    const result = yield* Effect.result(
+      Effect.gen(function* () {
+        const repo = yield* UserAccessRepository
+        return yield* repo.get(id)
+      })
+    )
+    if (result._tag === 'Failure') return respondServerError(c, result.failure.cause)
+    return yield* Option.match(result.success, {
+      onNone: () => Effect.succeed<Response>(respondNotFound(c)),
+      onSome: (row) => respondGrant(c, row),
+    })
+  })
 
 /**
  * PATCH /api/tables/user_access/records/:grantId
@@ -84,37 +93,43 @@ export async function handleGetUserAccessRecord(c: Context, app: App): Promise<R
  * repository closes its live subscriptions, which are judged again at the
  * handshake.
  */
-export async function handleUpdateUserAccessRecord(c: Context, app: App): Promise<Response> {
-  const refused = await gateUserAccessAdmin(c, app)
-  if (refused) return refused
-  const id = grantIdOf(c)
-  if (id === undefined) return respondNotFound(c)
-
-  const parsed = await parseJsonBody(c)
-  if (!parsed.success) return respondValidationError(c, 'Invalid JSON body')
-  const fields = extractFields(parsed.value)
-  const invalid = validateUserAccessChange(fields, {
-    scopeTables: collectScopeTables(app),
-    roleNames: collectRoleNames(app),
-  })
-  if (invalid) return respondValidationError(c, invalid.message, invalid.field)
-
-  const recordIds = fields['record_ids'] as readonly string[] | undefined
-  const result = await runUserAccessProgram(
-    changeUserAccessGrant(app, id, {
-      ...(recordIds === undefined ? {} : { recordIds }),
-      ...(fields['role'] === undefined ? {} : { role: fields['role'] as string }),
-    })
-  )
-  if (result._tag === 'Failure') return respondServerError(c, result.failure.cause)
-  if ('field' in result.success) {
-    return respondValidationError(c, result.success.message, result.success.field)
-  }
-  return Option.match(result.success, {
-    onNone: () => respondNotFound(c),
-    onSome: (row) => respondGrant(c, row),
-  })
+export function handleUpdateUserAccessRecord(c: Context, app: App): Promise<Response> {
+  return runHandlerEffect(c, answerFailures(c, updateGrantResponse(c, app)))
 }
+
+/** Gate, validate and change a grant, as one program. */
+const updateGrantResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const refused = yield* gateUserAccessAdmin(c, app)
+    if (refused) return refused
+    const id = grantIdOf(c)
+    if (id === undefined) return respondNotFound(c)
+
+    const parsed = yield* parseJsonBody(c)
+    if (!parsed.success) return respondValidationError(c, 'Invalid JSON body')
+    const fields = extractFields(parsed.value)
+    const invalid = validateUserAccessChange(fields, {
+      scopeTables: collectScopeTables(app),
+      roleNames: collectRoleNames(app),
+    })
+    if (invalid) return respondValidationError(c, invalid.message, invalid.field)
+
+    const recordIds = fields['record_ids'] as readonly string[] | undefined
+    const result = yield* Effect.result(
+      changeUserAccessGrant(app, id, {
+        ...(recordIds === undefined ? {} : { recordIds }),
+        ...(fields['role'] === undefined ? {} : { role: fields['role'] as string }),
+      })
+    )
+    if (result._tag === 'Failure') return respondServerError(c, result.failure.cause)
+    if ('field' in result.success) {
+      return respondValidationError(c, result.success.message, result.success.field)
+    }
+    return yield* Option.match(result.success, {
+      onNone: () => Effect.succeed<Response>(respondNotFound(c)),
+      onSome: (row) => respondGrant(c, row),
+    })
+  })
 
 /**
  * DELETE /api/tables/user_access/records/:grantId — revoke a grant (204).
@@ -122,21 +137,27 @@ export async function handleUpdateUserAccessRecord(c: Context, app: App): Promis
  * The row is erased, not soft-deleted: a revoked grant leaves nothing a later
  * query could resurrect.
  */
-export async function handleDeleteUserAccessRecord(c: Context, app: App): Promise<Response> {
-  const refused = await gateUserAccessAdmin(c, app)
-  if (refused) return refused
-  const id = grantIdOf(c)
-  if (id === undefined) return respondNotFound(c)
-
-  const result = await runUserAccessProgram(
-    Effect.gen(function* () {
-      const repo = yield* UserAccessRepository
-      return yield* repo.remove(id)
-    })
-  )
-  if (result._tag === 'Failure') return respondServerError(c, result.failure.cause)
-  return Option.match(result.success, {
-    onNone: () => respondNotFound(c),
-    onSome: () => c.body(null, 204),
-  })
+export function handleDeleteUserAccessRecord(c: Context, app: App): Promise<Response> {
+  return runHandlerEffect(c, answerFailures(c, deleteGrantResponse(c, app)))
 }
+
+/** Gate and revoke a grant, as one program. */
+const deleteGrantResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const refused = yield* gateUserAccessAdmin(c, app)
+    if (refused) return refused
+    const id = grantIdOf(c)
+    if (id === undefined) return respondNotFound(c)
+
+    const result = yield* Effect.result(
+      Effect.gen(function* () {
+        const repo = yield* UserAccessRepository
+        return yield* repo.remove(id)
+      })
+    )
+    if (result._tag === 'Failure') return respondServerError(c, result.failure.cause)
+    return Option.match(result.success, {
+      onNone: () => respondNotFound(c),
+      onSome: () => c.body(null, 204),
+    })
+  })

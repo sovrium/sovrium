@@ -31,6 +31,7 @@
  * `runPagePressedAutomation` use-case reads the pause and `enabled` flag.
  */
 
+import { Data, Effect } from 'effect'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { mayRunManualAutomation } from '@/domain/models/app/automations/manual-trigger-role-service'
 import { triggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
@@ -39,7 +40,6 @@ import {
   reachesUnjudgedBinding,
   type ManualAutomation,
 } from '@/domain/models/app/pages/page-automation-binding-service'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Context } from 'hono'
@@ -63,24 +63,38 @@ export interface PageActionAdmission {
   readonly reachesUnjudged: () => boolean
 }
 
+/** The router's session reader did not answer. */
+class PageSessionReadError extends Data.TaggedError('PageSessionReadError')<{
+  readonly cause: unknown
+}> {}
+
+/** The caller the page rule is judged on, through the router's own session reader. */
+const readPageSession = (c: Context, getSession: PageSessionResolver | undefined) =>
+  getSession === undefined
+    ? Effect.undefined
+    : Effect.tryPromise({
+        try: () => getSession(c.req.raw.headers),
+        catch: (cause) => new PageSessionReadError({ cause }),
+      })
+
 /** The admission when a page press may run automation `name`, `undefined` otherwise. */
-export const admitPageAction = async (
+export const admitPageAction = (
   c: Context,
   app: App,
   name: string,
   getSession: PageSessionResolver | undefined
-): Promise<PageActionAdmission | undefined> => {
-  const session = getSession === undefined ? undefined : await getSession(c.req.raw.headers)
-  const automation = pressablePageAutomation(app, name, session)
-  if (automation === undefined) return undefined
-  const admission = {
-    automation,
-    userId: session?.userId,
-    reachesUnjudged: () => reachesUnjudgedBinding(app, name, session),
-  }
-  if (triggerOfType(automation, 'manual')?.requiredRole === undefined) return admission
-  // The declared role is read for the same caller the page rule was judged on.
-  const role =
-    session === undefined ? undefined : await runDomainPromise(c, getUserRole(session.userId))
-  return mayRunManualAutomation(automation, app, role) ? admission : undefined
-}
+) =>
+  Effect.gen(function* () {
+    const session = yield* readPageSession(c, getSession)
+    const automation = pressablePageAutomation(app, name, session)
+    if (automation === undefined) return undefined
+    const admission: PageActionAdmission = {
+      automation,
+      userId: session?.userId,
+      reachesUnjudged: () => reachesUnjudgedBinding(app, name, session),
+    }
+    if (triggerOfType(automation, 'manual')?.requiredRole === undefined) return admission
+    // The declared role is read for the same caller the page rule was judged on.
+    const role = session === undefined ? undefined : yield* getUserRole(session.userId)
+    return mayRunManualAutomation(automation, app, role) ? admission : undefined
+  })

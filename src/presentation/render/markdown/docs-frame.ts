@@ -5,8 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { cn } from '@/presentation/design/class-merge'
 import { resolveComponentStyle } from '@/presentation/design/resolve-component-classes'
-import type { ComponentStyle } from '@/domain/models/app/design'
+import type { ComponentStyle, Design } from '@/domain/models/app/design'
+import type { ComponentPartName } from '@/domain/models/app/design/component-parts'
 import type { Markdown } from '@/domain/models/app/pages/markdown'
 import type { CSSProperties } from 'react'
 
@@ -17,22 +19,35 @@ export type DocsFrameMeasures = NonNullable<Markdown['frame']>
 export interface DocsFrame {
   readonly frame?: DocsFrameMeasures
   /** `markdown.classes` collapsed to one class list per part, states prefixed. */
-  readonly parts?: Readonly<Record<string, string>>
+  readonly parts?: Readonly<Partial<Record<ComponentPartName<'markdown'>, string>>>
 }
 
 /**
  * The frame fields of a resolved markdown page, from its `markdown` block.
  *
+ * The app's `design.components.markdown` is the type layer and the page's own
+ * `markdown.classes` the instance layer, so the page wins a conflict on its
+ * page alone.
+ *
  * @param markdown - The page's `markdown` block.
+ * @param design - The app's `design`, if any.
  */
-export const docsFrameOf = (markdown: Markdown): DocsFrame => {
+export const docsFrameOf = (markdown: Markdown, design?: Design): DocsFrame => {
   const resolution = resolveComponentStyle(
-    undefined,
+    design,
     'markdown',
     undefined,
     markdown.classes as ComponentStyle | undefined
   )
-  const parts = { ...resolution.parts, ...(resolution.root ? { root: resolution.root } : {}) }
+  // The two layers are appended per part; merging here lets the page's class
+  // beat the app's on a conflict (`text-[20px]` over `text-[26px]`) instead of
+  // leaving both on the element for the stylesheet's order to decide.
+  const parts = Object.fromEntries(
+    Object.entries({
+      ...resolution.parts,
+      ...(resolution.root ? { root: resolution.root } : {}),
+    }).map(([part, classes]) => [part, cn(classes)])
+  )
   return {
     ...(markdown.frame === undefined ? {} : { frame: markdown.frame }),
     ...(Object.keys(parts).length === 0 ? {} : { parts }),
@@ -71,11 +86,9 @@ export const DOCS_CONTENT_MEASURE_CLASSES = 'max-w-[var(--sv-docs-content-max-wi
 
 /**
  * `menuButton: header` — moves the phone's sections button to the start of the
- * page's first component (the element right before the docs layout) as the
- * page is parsed, so a sticky header carries it. The drawer still finds it by
- * the panel it controls.
+ * page's first component (the element right before the docs layout, or the
+ * header banner drawn before the main landmark) as the page is parsed, so a
+ * sticky header carries it. The drawer still finds it by the panel it controls.
  */
-export const LIFT_MENU_BUTTON_SCRIPT = {
-  __html:
-    "(function(){var f=document.currentScript&&document.currentScript.parentElement;var h=f&&f.previousElementSibling;var t=f&&f.querySelector('[data-sidebar-drawer-trigger]');if(h&&t){h.insertBefore(t,h.firstChild)}})()",
-}
+export const LIFT_MENU_BUTTON_SCRIPT =
+  "(function(){var f=document.currentScript&&document.currentScript.parentElement;var b=document.querySelector('[data-page-banner]');var h=f&&(f.previousElementSibling||(b&&b.lastElementChild));var t=f&&f.querySelector('[data-sidebar-drawer-trigger]');if(h&&t){h.insertBefore(t,h.firstChild)}})()"

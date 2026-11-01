@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Relative date tokens in a filter value.
  *
@@ -146,9 +148,6 @@ export const utcMinuteInstant = (instant: Readonly<Date>): string =>
   new Date(Math.floor(instant.getTime() / 60_000) * 60_000).toISOString()
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every string under a filter that claims to be a relative date. */
 function claimedTokens(filter: unknown): readonly string[] {

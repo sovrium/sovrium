@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { utilityOf } from '@/domain/models/app/pages/page-merge-layout-service'
+import { utilityOf } from '@/domain/models/app/pages/merge/layout-service'
 import { migratedLiteral } from './migrated-literal-tokens-service'
 import { RETOOL_CLASSIC_PAGE_MAPPINGS } from './retool-classic-page-mappings'
 import { stringAttribute, type RsxElement } from './retool-toolscript-read'

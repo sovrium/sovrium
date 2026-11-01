@@ -47,6 +47,7 @@ import { postgresClientOptions } from '@/infrastructure/database/sql/postgres-cl
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
 import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generators'
 import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialect-ddl'
+import { postgresTransactionLike, type TransactionLike } from '../sql/sql-execution'
 import {
   isSafeIdentifier,
   pgFtsIndexName,
@@ -59,7 +60,6 @@ import {
   sqliteFtsTableName,
   SQLITE_FTS_RECORD_ID_COLUMN,
 } from './command-search-fts-ddl'
-import type { TransactionLike } from '../sql/sql-execution'
 import type { Table } from '@/domain/models/app/tables'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 
@@ -338,7 +338,7 @@ export const reconcileCommandSearchIndexes = (
         const client = new SQL(postgresClientOptions(dialectConfig.databaseUrl, { max: 1 }))
         try {
           await client.begin(async (tx) => {
-            await reconcileAll(tx as TransactionLike, targets, 'postgres')
+            await reconcileAll(postgresTransactionLike(tx), targets, 'postgres')
           })
         } finally {
           await client.close()

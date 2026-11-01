@@ -6,6 +6,7 @@
  */
 
 import { Result, Schema } from 'effect'
+import { blankToUndefined } from '@/domain/kernel/config-parsing/blank-text'
 import { parseAiProviderPrecedence } from './ai-eco-routing'
 
 /**
@@ -138,11 +139,6 @@ export interface SpeechConfig {
 
 /** The tier vocabulary shared with the `quality` prop of every speech surface. */
 export type SpeechTier = 'fast' | 'accurate'
-
-const blankToUndefined = (value: string | undefined): string | undefined => {
-  const trimmed = value?.trim()
-  return trimmed === undefined || trimmed === '' ? undefined : trimmed
-}
 
 const describeInvalidEnv = (env: Readonly<Record<string, string | undefined>>): string => {
   const provider = blankToUndefined(env['STT_PROVIDER'])

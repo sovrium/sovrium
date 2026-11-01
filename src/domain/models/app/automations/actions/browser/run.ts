@@ -64,7 +64,7 @@ export const BrowserSelfHealSchema = Schema.Union([
 ]).pipe(
   Schema.annotate({
     description:
-      'When an element is not found, ask a model for another way of finding it from what the page shows. The step is retried once with the suggestion — only when it matches exactly one visible element of the right kind — and the run output lists it under `healed`. The config is never changed. Never applies to a click marked `irreversible`, to an `optional` step, to `assert`, `waitFor` or `dismiss`; a step opts out with `heal: false`. The model is reached the way every AI call is, local first unless the operator says otherwise; page text is sent to it as data, never as instructions, and no value typed from `$env` is ever sent.',
+      'When an element is not found, ask a model for another way of finding it from what the page shows. The step is retried once with the suggestion (only when it matches exactly one visible element of the right kind), and the run output lists it under `healed`. The config is never changed. Never applies to a click marked `irreversible`, to an `optional` step, to `assert`, `waitFor` or `dismiss`; a step opts out with `heal: false`. The model is reached the way every AI call is, local first unless the operator says otherwise; page text is sent to it as data, never as instructions, and no value typed from `$env` is ever sent.',
   })
 )
 

@@ -18,6 +18,7 @@
  */
 
 import { toCheckboxAnswer } from '@/domain/models/app/forms/form-checkbox-answer-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -29,7 +30,7 @@ export const boundCheckboxColumns = (
   app: Readonly<App>,
   form: Readonly<Form>
 ): ReadonlySet<string> => {
-  const table = app.tables?.find((candidate) => candidate.name === form.submitTo.table)
+  const table = findTableByName(app.tables, form.submitTo.table)
   if (table === undefined) return new Set()
   const checkboxColumns = new Set(
     (table.fields ?? []).filter((field) => field.type === 'checkbox').map((field) => field.name)

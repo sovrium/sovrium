@@ -39,17 +39,17 @@
  * `form-runtime-one-question.ts` for the inline runtime fragment.
  */
 
-import {
-  FormFieldElement,
-  prefillValueToString,
-  type PrefillValue,
-  type ResolvedFormField,
-} from './form-field-elements'
+import { FormFieldElement } from './form-field-elements'
 import { attachSectionsToNextField, type FieldWithSections } from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
 import { IdempotencyKeyInput } from './form-idempotency-key'
 import { DesignedRadioQuestion } from './form-one-question-radio'
 import { RequiredLegend } from './form-required-legend'
+import {
+  prefillValueToString,
+  type PrefillValue,
+  type ResolvedFormField,
+} from './form-resolved-field'
 
 interface OneQuestionBodyProps {
   readonly title: string

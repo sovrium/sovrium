@@ -29,7 +29,7 @@ export const TableIndexSchema = Schema.Struct({
   ),
   fields: Schema.Array(
     Schema.String.annotate({
-      description: 'One field the index covers. Position matters — see the array description.',
+      description: 'One field the index covers. Position matters: see the array description.',
     }).pipe(Schema.check(Schema.isMinLength(1, { message: 'This field is required' })))
   ).pipe(
     Schema.annotate({

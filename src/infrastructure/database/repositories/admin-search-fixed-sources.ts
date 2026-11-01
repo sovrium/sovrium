@@ -7,33 +7,25 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { stripStorageKeyUuidPrefix } from '@/domain/kernel/identity/storage-key'
-import { db } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import { bestEffort } from '@/infrastructure/logging/best-effort'
 import { notClaimed } from '@/infrastructure/storage/catalog-claim'
 import type { AdminSearchUpsertRow } from '@/application/ports/repositories/admin-search-repository'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The admin search index's five fixed sources — form submissions, automation
  * runs, users, files and agent conversations — each read into secret-free
  * index rows, dated by the moment its entity happened.
  *
- * Every reader is resilient: a missing or unreadable source table (an app with
- * no automations) yields no rows rather than aborting the rebuild. A title
+ * Every reader is resilient: a missing or unreadable source table yields no
+ * rows rather than aborting the rebuild, and is logged with its cause so a
+ * broken source never reads as "no results". A title
  * holds the entity's own name and never a word for its KIND: the index is
  * built once and read by operators in every language, so the kind travels as
  * `type` and is named at read time, in the reader's language.
  */
-
-/**
- * A raw SQL fragment naming a `system`-namespaced table for the active dialect:
- *   - Postgres: `system."<logical>"`
- *   - SQLite:   `system_<logical>`
- * Mirrors the `system_` table-prefix / `pgSchema('system')` divergence.
- */
-const systemTableRef = (logical: string): SQL =>
-  // sql-literal: identifier -- `logical` is one of this module's own system table names
-  isSqliteRuntime() ? sql.raw(`system_${logical}`) : sql.raw(`system."${logical}"`)
 
 /**
  * The moment a source row records — dialect-native (`Date` on PostgreSQL,
@@ -89,17 +81,20 @@ const momentOf = (raw: unknown, now: Readonly<Date>): Date => {
  * the one row wanted, and it is client-localized.
  */
 export const readSubmissions = (
+  db: PortableDb,
+  dialect: Dialect,
   formTitles: Readonly<Record<string, string>>,
   now: Readonly<Date>
 ): Promise<readonly AdminSearchUpsertRow[]> =>
-  executeRaw(
-    db,
-    sql`SELECT id AS entity_id, form_name, submitted_at
-        FROM ${systemTableRef('form_submissions')}
+  bestEffort('[admin-search] search source unreadable', { source: 'submissions' }).promise(
+    executeRawOn(
+      dialect.kind,
+      db,
+      sql`SELECT id AS entity_id, form_name, submitted_at
+        FROM ${dialect.sql.systemTableRef('form_submissions')}
         WHERE deleted_at IS NULL AND (status IS NULL OR status <> 'draft') -- a draft was never sent
         LIMIT 500`
-  )
-    .then((rows) =>
+    ).then((rows) =>
       rows.map((row): AdminSearchUpsertRow => {
         const entityId = String(row['entity_id'])
         const formName = typeof row['form_name'] === 'string' ? row['form_name'] : entityId
@@ -117,21 +112,27 @@ export const readSubmissions = (
           updatedAt: momentOf(row['submitted_at'], now),
         }
       })
-    )
-    .catch(() => [])
+    ),
+    []
+  )
 
 /** Read automation runs into index rows — never a run whose values were erased with an account. */
-export const readRuns = (now: Readonly<Date>): Promise<readonly AdminSearchUpsertRow[]> =>
-  executeRaw(
-    db,
-    sql`SELECT r.id AS entity_id, d.name AS automation_name, r.status AS status,
+export const readRuns = (
+  db: PortableDb,
+  dialect: Dialect,
+  now: Readonly<Date>
+): Promise<readonly AdminSearchUpsertRow[]> =>
+  bestEffort('[admin-search] search source unreadable', { source: 'runs' }).promise(
+    executeRawOn(
+      dialect.kind,
+      db,
+      sql`SELECT r.id AS entity_id, d.name AS automation_name, r.status AS status,
                COALESCE(r.error, '') AS error, COALESCE(r.started_at, r.created_at) AS started_at
-        FROM ${systemTableRef('automation_runs')} AS r
-        LEFT JOIN ${systemTableRef('automation_definitions')} AS d ON d.id = r.automation_id
+        FROM ${dialect.sql.systemTableRef('automation_runs')} AS r
+        LEFT JOIN ${dialect.sql.systemTableRef('automation_definitions')} AS d ON d.id = r.automation_id
         WHERE r.values_erased_at IS NULL
         LIMIT 500`
-  )
-    .then((rows) =>
+    ).then((rows) =>
       rows.map((row): AdminSearchUpsertRow => {
         const name =
           typeof row['automation_name'] === 'string'
@@ -148,17 +149,23 @@ export const readRuns = (now: Readonly<Date>): Promise<readonly AdminSearchUpser
           updatedAt: momentOf(row['started_at'], now),
         }
       })
-    )
-    .catch(() => [])
+    ),
+    []
+  )
 
 /** Read users into index rows (email + display name; never a password hash). */
-export const readUsers = (now: Readonly<Date>): Promise<readonly AdminSearchUpsertRow[]> => {
-  const userTable: SQL = isSqliteRuntime() ? sql.raw('auth_user') : sql.raw('auth."user"')
-  return executeRaw(
-    db,
-    sql`SELECT id AS entity_id, email, name, created_at FROM ${userTable} LIMIT 500`
-  )
-    .then((rows) =>
+export const readUsers = (
+  db: PortableDb,
+  dialect: Dialect,
+  now: Readonly<Date>
+): Promise<readonly AdminSearchUpsertRow[]> => {
+  const userTable: SQL = dialect.kind === 'sqlite' ? sql.raw('auth_user') : sql.raw('auth."user"')
+  return bestEffort('[admin-search] search source unreadable', { source: 'users' }).promise(
+    executeRawOn(
+      dialect.kind,
+      db,
+      sql`SELECT id AS entity_id, email, name, created_at FROM ${userTable} LIMIT 500`
+    ).then((rows) =>
       rows.map((row): AdminSearchUpsertRow => {
         const email = typeof row['email'] === 'string' ? row['email'] : ''
         const name = typeof row['name'] === 'string' ? row['name'] : ''
@@ -172,23 +179,29 @@ export const readUsers = (now: Readonly<Date>): Promise<readonly AdminSearchUpse
           updatedAt: momentOf(row['created_at'], now),
         }
       })
-    )
-    .catch(() => [])
+    ),
+    []
+  )
 }
 
 /**
  * Read file metadata into index rows (file name only) — the name the Files page
  * prints: the stored value carries a random `<uuid>-` prefix, stripped here.
  */
-export const readFiles = (now: Readonly<Date>): Promise<readonly AdminSearchUpsertRow[]> =>
-  executeRaw(
-    db,
-    sql`SELECT id AS entity_id, filename, created_at
-        FROM ${systemTableRef('file_storage_metadata')}
+export const readFiles = (
+  db: PortableDb,
+  dialect: Dialect,
+  now: Readonly<Date>
+): Promise<readonly AdminSearchUpsertRow[]> =>
+  bestEffort('[admin-search] search source unreadable', { source: 'files' }).promise(
+    executeRawOn(
+      dialect.kind,
+      db,
+      sql`SELECT id AS entity_id, filename, created_at
+        FROM ${dialect.sql.systemTableRef('file_storage_metadata')}
         WHERE ${notClaimed()}
         LIMIT 500`
-  )
-    .then((rows) =>
+    ).then((rows) =>
       rows.map((row): AdminSearchUpsertRow => {
         const filename =
           typeof row['filename'] === 'string'
@@ -208,19 +221,25 @@ export const readFiles = (now: Readonly<Date>): Promise<readonly AdminSearchUpse
           updatedAt: momentOf(row['created_at'], now),
         }
       })
-    )
-    .catch(() => [])
+    ),
+    []
+  )
 
 /** Read agent conversations into index rows (title/agent only). */
-export const readConversations = (now: Readonly<Date>): Promise<readonly AdminSearchUpsertRow[]> =>
-  executeRaw(
-    db,
-    sql`SELECT id AS entity_id, COALESCE(title, '') AS title, COALESCE(agent_name, '') AS agent_name,
+export const readConversations = (
+  db: PortableDb,
+  dialect: Dialect,
+  now: Readonly<Date>
+): Promise<readonly AdminSearchUpsertRow[]> =>
+  bestEffort('[admin-search] search source unreadable', { source: 'conversations' }).promise(
+    executeRawOn(
+      dialect.kind,
+      db,
+      sql`SELECT id AS entity_id, COALESCE(title, '') AS title, COALESCE(agent_name, '') AS agent_name,
                updated_at
-        FROM ${systemTableRef('ai_conversations')}
+        FROM ${dialect.sql.systemTableRef('ai_conversations')}
         LIMIT 500`
-  )
-    .then((rows) =>
+    ).then((rows) =>
       rows.map((row): AdminSearchUpsertRow => {
         const title =
           typeof row['title'] === 'string' && row['title'].length > 0
@@ -237,5 +256,6 @@ export const readConversations = (now: Readonly<Date>): Promise<readonly AdminSe
           updatedAt: momentOf(row['updated_at'], now),
         }
       })
-    )
-    .catch(() => [])
+    ),
+    []
+  )

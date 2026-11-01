@@ -18,13 +18,19 @@ import { INLINE_TOAST_POLICY_RUNTIME } from '../registry/inline-toast-policy-run
  * Each toast keeps the `data-form-toast="<form name>"` mark, so the field-error
  * pass can clear the form's last notice before the next submission.
  *
- * Assumes the surrounding IIFE provides `formName` and `removeIfPresent`;
+ * Assumes the surrounding IIFE provides `formName`, `removeIfPresent` and the
+ * `S` strings map;
  * provides `renderToast(message, variant)`.
  */
 export const FORM_RUNTIME_NOTICE_SCRIPT = `
 ${INLINE_TOAST_POLICY_RUNTIME}
   function renderToast(message, variant) {
     removeIfPresent(document.querySelector('[data-form-toast="' + formName + '"]'))
+    // A page with no toast container of its own gets one named in its language.
+    var region = ensureToastContainer()
+    if (S['toast.dismiss'] && !region.getAttribute('data-dismiss-label')) {
+      region.setAttribute('data-dismiss-label', S['toast.dismiss'])
+    }
     showToast(message, variant || 'success')
     var shown = document.querySelectorAll('[data-sonner-toaster] [data-toast]')
     var toast = shown[shown.length - 1]

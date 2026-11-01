@@ -5,10 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { markRecordCommentsReadProgram } from '@/application/use-cases/tables/comment-read-state-programs'
+import { successResponseSchema } from '@/domain/models/api/common'
 import { commentTableKeysOf } from '@/domain/models/app/tables/comment-address-service'
+import { findTableByIdOrName } from '@/domain/models/app/tables/table-lookup-service'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { notFoundResponse } from './comment-handler-shared'
 import { checkRecordReadGate } from './record-read-gate'
 import type { App } from '@/domain/models/app'
@@ -28,41 +35,47 @@ import type { Context } from 'hono'
  * for a missing/forbidden table, a read-denied role, or a record the caller
  * cannot access — never 403.
  */
-export async function handleMarkCommentsRead(c: Context, app: App) {
-  const { session } = getTableContext(c)
-  const tableId = c.req.param('tableId')!
-  const recordId = c.req.param('recordId')!
-
-  // Find table by ID OR name (validateTable middleware accepts both).
-  const table = app.tables?.find((t) => String(t.id) === String(tableId) || t.name === tableId)
-
-  // Feature is opt-in: without `comments.readTracking` the read-state table
-  // does not exist, so the endpoint is inert → 404 (S1: uniform not-found).
-  if (!table || table.comments?.readTracking !== true) {
-    return notFoundResponse(c)
-  }
-
-  // S1: the thread's read state answers to the same gates as a read of the
-  // record — table read grant (group-aware), then its row-level read rule —
-  // and every refusal is the missing-record 404 (anti-enumeration).
-  const gateError = await checkRecordReadGate(c, app, table, recordId)
-  if (gateError) return gateError
-
-  const result = await runOnRequest(
-    c,
-    // One watermark per table, whichever spelling the request used: the count reads every key.
-    markRecordCommentsReadProgram({
-      session,
-      tableKey: commentTableKeysOf(table)[0]!,
-      recordId,
-      tableName: table.name,
-    })
-  )
-
-  if (result._tag === 'Failure') {
-    // A missing/inaccessible record collapses to 404 (anti-enumeration).
-    return notFoundResponse(c)
-  }
-
-  return c.json({ success: true }, 200)
+export function handleMarkCommentsRead(c: Context, app: App) {
+  return runHandlerEffect(c, answerFailures(c, markCommentsReadResponse(c, app)))
 }
+
+/** Gate and record the read position, as one program. */
+const markCommentsReadResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const { session } = getTableContext(c)
+    const tableId = c.req.param('tableId')!
+    const recordId = c.req.param('recordId')!
+
+    // Find table by ID OR name (validateTable middleware accepts both).
+    const table = findTableByIdOrName(app.tables, tableId)
+
+    // Feature is opt-in: without `comments.readTracking` the read-state table
+    // does not exist, so the endpoint is inert → 404 (S1: uniform not-found).
+    if (!table || table.comments?.readTracking !== true) {
+      return notFoundResponse(c)
+    }
+
+    // S1: the thread's read state answers to the same gates as a read of the
+    // record — table read grant (group-aware), then its row-level read rule —
+    // and every refusal is the missing-record 404 (anti-enumeration).
+    const gateError = yield* checkRecordReadGate(c, app, table, recordId)
+    if (gateError) return gateError
+
+    // effect-swallow: a missing or inaccessible record collapses to the same 404 (S1).
+    const result = yield* Effect.result(
+      // One watermark per table, whichever spelling the request used: the count reads every key.
+      markRecordCommentsReadProgram({
+        session,
+        tableKey: commentTableKeysOf(table)[0]!,
+        recordId,
+        tableName: table.name,
+      })
+    )
+
+    if (result._tag === 'Failure') {
+      // A missing/inaccessible record collapses to 404 (anti-enumeration).
+      return notFoundResponse(c)
+    }
+
+    return yield* respondWith(c, Effect.succeed({ success: true }), successResponseSchema)
+  })

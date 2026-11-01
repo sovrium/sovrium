@@ -53,16 +53,18 @@ function plainChipText(
 ): string {
   switch (item.format) {
     case 'relative-date':
-      return formatCellValue(stored, 'relative-time', format.locale)
+      return formatCellValue(stored, 'relative-time', format.locale, { now: new Date() })
     case 'currency':
       return formatCellValue(stored, 'currency', format.locale, {
         currency: format.currencyOptionsFor(item.field),
         timeZone: resolvePageTimezone(),
+        now: new Date(),
       })
     // The grid's own `short-date`: this year's date without its year.
     case 'short-date':
       return formatCellValue(stored, 'short-date', format.locale, {
         timeZone: resolvePageTimezone(),
+        now: new Date(),
       })
     default:
       return String(label)
@@ -104,7 +106,7 @@ function renderBadgeItem(
 ): ReactNode {
   const text = format.recordText?.[field]
   return renderBadge(
-    text === undefined ? label : formatRecordText(stored, text, format.locale),
+    text === undefined ? label : formatRecordText(stored, text, format.locale, new Date()),
     format.fieldMeta?.[field]?.paints?.[String(stored)]
   )
 }

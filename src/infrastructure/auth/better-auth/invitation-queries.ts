@@ -6,17 +6,15 @@
  */
 
 import { and, eq, inArray, like } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
 import {
-  authAccountsTable,
   authUsersTable,
   authVerificationsTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import type {
   InvitationTokenRow,
-  InvitationUser,
   PendingInvitationRow,
 } from '@/application/ports/contracts/invitation-services'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Identifier prefix used for admin invitation verification rows.
@@ -104,13 +102,16 @@ const decodeInvitationValue = (value: string): InvitationValueEnvelope => {
  * - value:      the invited user's id, plus the inviter's id when known
  *               (see {@link InvitationValueEnvelope})
  */
-export async function insertInvitationToken(params: {
-  readonly id: string
-  readonly token: string
-  readonly userId: string
-  readonly expiresAt: Date
-  readonly invitedBy?: string | undefined
-}): Promise<void> {
+export async function insertInvitationToken(
+  db: PortableDb,
+  params: {
+    readonly id: string
+    readonly token: string
+    readonly userId: string
+    readonly expiresAt: Date
+    readonly invitedBy?: string | undefined
+  }
+): Promise<void> {
   const verifications = authVerificationsTable()
   await db.insert(verifications).values({
     id: params.id,
@@ -121,7 +122,10 @@ export async function insertInvitationToken(params: {
 }
 
 /** The invitation row of a token, or `undefined` (never issued, consumed, or deleted). */
-export async function findInvitationToken(token: string): Promise<InvitationTokenRow | undefined> {
+export async function findInvitationToken(
+  db: PortableDb,
+  token: string
+): Promise<InvitationTokenRow | undefined> {
   const verifications = authVerificationsTable()
   const rows = await db
     .select({
@@ -146,7 +150,11 @@ export async function findInvitationToken(token: string): Promise<InvitationToke
  * Used by resend: the same token is delivered again, so an invitation that was
  * about to lapse would otherwise arrive as a link that dies moments later.
  */
-export async function refreshInvitationExpiry(id: string, expiresAt: Date): Promise<void> {
+export async function refreshInvitationExpiry(
+  db: PortableDb,
+  id: string,
+  expiresAt: Date
+): Promise<void> {
   const verifications = authVerificationsTable()
   await db.update(verifications).set({ expiresAt }).where(eq(verifications.id, id))
 }
@@ -156,7 +164,7 @@ export async function refreshInvitationExpiry(id: string, expiresAt: Date): Prom
  * whether THIS call removed it. Two acceptances racing on one token both reach
  * the delete; only the one that sees a removed row has consumed the invitation.
  */
-export async function deleteInvitationToken(id: string): Promise<boolean> {
+export async function deleteInvitationToken(db: PortableDb, id: string): Promise<boolean> {
   const verifications = authVerificationsTable()
   const deleted = await db
     .delete(verifications)
@@ -171,7 +179,10 @@ export async function deleteInvitationToken(id: string): Promise<boolean> {
  * Used when re-issuing an invitation to the same email to ensure only one
  * token is ever live at a time.
  */
-export async function deletePendingInvitationsForUser(userId: string): Promise<void> {
+export async function deletePendingInvitationsForUser(
+  db: PortableDb,
+  userId: string
+): Promise<void> {
   const verifications = authVerificationsTable()
   // Matched in memory rather than with `eq(value, userId)`: `value` now carries
   // either a bare user id or the JSON envelope (see `encodeInvitationValue`), so
@@ -206,7 +217,9 @@ export async function deletePendingInvitationsForUser(userId: string): Promise<v
  * screenshots and browser history; the row `id` is what identifies an
  * invitation to everything above this layer.
  */
-export async function listPendingInvitations(): Promise<readonly PendingInvitationRow[]> {
+export async function listPendingInvitations(
+  db: PortableDb
+): Promise<readonly PendingInvitationRow[]> {
   const verifications = authVerificationsTable()
   const users = authUsersTable()
 
@@ -266,7 +279,10 @@ export async function listPendingInvitations(): Promise<readonly PendingInvitati
  * Look up one invitation row by its opaque row id — the identifier the operator
  * surfaces carry, as opposed to the token, which only the invitee ever holds.
  */
-export async function findInvitationById(id: string): Promise<InvitationTokenRow | undefined> {
+export async function findInvitationById(
+  db: PortableDb,
+  id: string
+): Promise<InvitationTokenRow | undefined> {
   const verifications = authVerificationsTable()
   const rows = await db
     .select({
@@ -296,120 +312,4 @@ export async function findInvitationById(id: string): Promise<InvitationTokenRow
     userId: decodeInvitationValue(row.value).userId,
     expiresAt: row.expiresAt,
   }
-}
-
-/**
- * Look up a Better Auth user by email (case-insensitive on the email column).
- *
- * Returns undefined if no user exists with that email. Better Auth lower-cases
- * emails on insert via the drizzle adapter, so an exact match is sufficient
- * provided callers have already lower-cased their query value.
- */
-export async function findUserByEmail(
-  email: string
-): Promise<{ readonly id: string; readonly email: string; readonly name: string } | undefined> {
-  const users = authUsersTable()
-  const normalizedEmail = email.toLowerCase()
-  const rows = await db
-    .select({ id: users.id, email: users.email, name: users.name })
-    .from(users)
-    .where(eq(users.email, normalizedEmail))
-    .limit(1)
-  return rows[0]
-}
-
-/**
- * Check whether a user has a credential account row with a non-null password.
- *
- * Used to detect "already onboarded" — an invitation cannot be issued to an
- * email that already has a usable password (the customer should reset their
- * password instead).
- */
-export async function userHasCredentialPassword(userId: string): Promise<boolean> {
-  const accounts = authAccountsTable()
-  const rows = await db
-    .select({ password: accounts.password })
-    .from(accounts)
-    .where(
-      // Keyed on `(userId, providerId)`, the identity Better Auth resolves
-      // credential accounts by. `issuer` is a retired column: Better Auth no
-      // longer writes it, so a predicate on it would miss every new row.
-      and(eq(accounts.userId, userId), eq(accounts.providerId, 'credential'))
-    )
-    .limit(1)
-  const row = rows[0]
-  return Boolean(row?.password)
-}
-
-/**
- * Insert a credential account row for an invited user once they accept.
- *
- * This mirrors what Better Auth does internally on first sign-up: link a
- * credential account with the scrypt-hashed password.
- */
-export async function insertCredentialAccount(params: {
-  readonly id: string
-  readonly userId: string
-  readonly hashedPassword: string
-}): Promise<void> {
-  const accounts = authAccountsTable()
-  await db.insert(accounts).values({
-    id: params.id,
-    accountId: params.userId,
-    providerId: 'credential',
-    // No `issuer`: Better Auth identifies accounts by `(providerId, accountId)`
-    // and leaves that retired column NULL on the rows it writes, so this row
-    // matches them.
-    userId: params.userId,
-    password: params.hashedPassword,
-  })
-}
-
-/**
- * Mark a user's email as verified — following the invitation link proves the
- * mailbox — and answer whether it was NOT verified before (the flip happened).
- */
-export async function markUserEmailVerified(userId: string): Promise<boolean> {
-  const users = authUsersTable()
-  const flipped = await db
-    .update(users)
-    .set({ emailVerified: true })
-    .where(and(eq(users.id, userId), eq(users.emailVerified, false)))
-    .returning({ id: users.id })
-  return flipped.length > 0
-}
-
-/**
- * Remove the credential account row Better Auth linked when its
- * admin.createUser API ran with our throwaway password. Without this the
- * bogus password would remain a usable login path until the customer
- * accepted the invitation.
- *
- * Idempotent — deletes 0 rows when the user has no credential account
- * (e.g. an OAuth-only user who was promoted via invitation).
- */
-export async function deleteCredentialAccountForUser(userId: string): Promise<void> {
-  const accounts = authAccountsTable()
-  // Matched on `providerId` only — never on the retired `issuer` column.
-  // Better Auth's `admin.createUser` writes the throwaway credential row with
-  // `issuer` NULL, so an `issuer` predicate would delete nothing: the accept
-  // flow would then insert a SECOND credential row, and sign-in, which rejects
-  // an ambiguous account key, would fail for the invited customer.
-  await db
-    .delete(accounts)
-    .where(and(eq(accounts.userId, userId), eq(accounts.providerId, 'credential')))
-}
-
-/**
- * Find a Better Auth user by id, as the accept flow reads it: `undefined` when
- * no account holds the id any more, removed between issuing and accepting (a rare race).
- */
-export async function findUserById(userId: string): Promise<InvitationUser | undefined> {
-  const users = authUsersTable()
-  const rows = await db
-    .select({ id: users.id, email: users.email, name: users.name, role: users.role })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
-  return rows[0]
 }

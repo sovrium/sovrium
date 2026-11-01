@@ -16,9 +16,10 @@ import { AdminAutomationsRepository } from '@/application/ports/repositories/aut
 import { AdminFormsRepository } from '@/application/ports/repositories/forms/admin-forms-repository'
 import { LinkRepository } from '@/application/ports/repositories/links/link-repository'
 import { UsersDirectoryRepository } from '@/application/ports/repositories/tables/users-directory-repository'
-import { BuildAutomationsCatalog } from '@/application/use-cases/admin/automations-catalog'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { buildAutomationsCatalog } from '@/application/use-cases/admin/automations-catalog'
 import { buildEnvVarStatuses } from '@/application/use-cases/admin/config/env-status'
-import { BuildConnectionsListFor } from '@/application/use-cases/admin/connections'
+import { buildConnectionsListFor } from '@/application/use-cases/admin/connections'
 import { projectInvitations } from '@/application/use-cases/auth/admin-invitation-lifecycle'
 import { buildCatalog } from '@/application/use-cases/links/catalog'
 import { configSlugs } from '@/application/use-cases/links/config-slugs'
@@ -26,6 +27,7 @@ import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { FINAL_FAILURE_RUN_STATUSES } from '@/domain/models/app/automations/automation-run-outcome-service'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
 import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { Logger } from '@/infrastructure/logging/logger'
 import { EMPTY_CELL, cellOf, formatWaited, measured, tallyCell, unread } from './attention-cells'
 import { automationLabelOf, formLabelOf, pausedSubjectOf } from './attention-subject-labels'
@@ -121,9 +123,12 @@ export const failedRunsBlock = (
  * "expiring secret" cell reusing this shape would have one, which is why the
  * rule is stated rather than left to the happy accident.
  */
-export const variablesUnsetCell = (app: App): Cell =>
+export const variablesUnsetCell = (
+  app: App,
+  env: Readonly<Record<string, string | undefined>>
+): Cell =>
   cellOf(
-    buildEnvVarStatuses(app, process.env)
+    buildEnvVarStatuses(app, env)
       .filter((status) => status.required && !status.isSet)
       .map((status) => status.key)
   )
@@ -154,7 +159,7 @@ export const tokensExpiredBlock = (
   ConnectionRepository | ConnectionTokenRepository | OAuthStateStore | Logger
 > =>
   degradeTo(
-    BuildConnectionsListFor(app.connections).pipe(
+    buildConnectionsListFor(app.connections).pipe(
       Effect.map((outcome) =>
         outcome._tag === 'Ok'
           ? cellOf(
@@ -255,10 +260,12 @@ export const automationStatesBlock = (
   app: App
 ): Effect.Effect<Sourced<AutomationStates>, never, AutomationPauseRepository | Logger> =>
   degradeTo(
-    BuildAutomationsCatalog(app, 'en').pipe(
-      Effect.map((catalog) => ({
+    Effect.all([buildAutomationsCatalog(app, 'en'), ProcessEnv]).pipe(
+      Effect.map(([catalog, env]) => ({
         paused: cellOf(
-          catalog.items.filter((item) => item.state === 'paused').map(pausedSubjectOf)
+          catalog.items
+            .filter((item) => item.state === 'paused')
+            .map((item) => pausedSubjectOf(item, parseSovriumTimezone(env).zoneId))
         ),
         disabled: catalog.items.filter((item) => item.state === 'disabled').length,
       }))
@@ -348,7 +355,8 @@ export const tableFieldsCount = (app: App): number =>
  * does not depend on what the app declares: it is `1` exactly when an AI
  * provider is configured, which is the one thing the agent needs to answer.
  */
-export const agentsSystemCount = (): number => (isAiProviderConfigured(process.env) ? 1 : 0)
+export const agentsSystemCount = (env: Readonly<Record<string, string | undefined>>): number =>
+  isAiProviderConfigured(env) ? 1 : 0
 
 /**
  * `bucketsSystem` / `bucketsS3` / `bucketsLocal` — the buckets the console
@@ -367,10 +375,11 @@ export const agentsSystemCount = (): number => (isAiProviderConfigured(process.e
  * what that console lists.
  */
 export const bucketSplit = (
-  app: App
+  app: App,
+  env: Readonly<Record<string, string | undefined>>
 ): { readonly system: number; readonly s3: number; readonly local: number } => {
   const declared = (app.buckets ?? []).length
-  const { provider } = parseStorageEnvConfig()
+  const { provider } = parseStorageEnvConfig(env)
   return {
     // The system bucket always exists: file storage always resolves to a backend.
     system: 1,

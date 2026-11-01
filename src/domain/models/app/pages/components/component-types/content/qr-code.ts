@@ -76,7 +76,7 @@ export const qrCodeFields = {
   link: Schema.optional(
     Schema.NonEmptyString.annotate({
       description:
-        "Slug of the short link to encode. Encodes the link's short URL with the QR marker, so scans are attributed separately from clicks. Not resolved at decode time — the link may be minted at runtime. Mutually exclusive with 'value'.",
+        "Slug of the short link to encode. Encodes the link's short URL with the QR marker, so scans are attributed separately from clicks. Not resolved at decode time, since the link may be minted at runtime. Mutually exclusive with 'value'.",
     })
   ),
   /**
@@ -98,7 +98,7 @@ export const qrCodeFields = {
   size: Schema.optional(
     Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))).annotate({
       description:
-        'Intrinsic pixel size of the symbol. Omit to let CSS size it — the SVG carries a viewBox either way.',
+        'Intrinsic pixel size of the symbol. Omit to let CSS size it: the SVG carries a viewBox either way.',
     })
   ),
   ecc: Schema.optional(QrCodeEccSchema),

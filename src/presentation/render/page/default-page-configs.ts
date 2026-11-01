@@ -37,6 +37,19 @@ function createVersionBadge(version: string): Component {
  * Creates app content components (version badge, heading, description)
  */
 function createHomePageContent(app: App): ReadonlyArray<Component | string> {
+  const description: ReadonlyArray<Component> = app.description
+    ? [
+        {
+          type: 'text',
+          element: 'p',
+          props: {
+            'data-testid': 'app-description',
+            className: 'text-2xl text-muted-foreground text-center',
+          },
+          content: app.description,
+        },
+      ]
+    : []
   return [
     ...(app.version ? [createVersionBadge(app.version)] : []),
     {
@@ -48,19 +61,7 @@ function createHomePageContent(app: App): ReadonlyArray<Component | string> {
       },
       content: displayNameOf(app),
     },
-    ...(app.description
-      ? [
-          {
-            type: 'text',
-            element: 'p',
-            props: {
-              'data-testid': 'app-description',
-              className: 'text-2xl text-muted-foreground text-center',
-            },
-            content: app.description,
-          },
-        ]
-      : []),
+    ...description,
   ]
 }
 

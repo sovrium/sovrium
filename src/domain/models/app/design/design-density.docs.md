@@ -1,6 +1,6 @@
 # Density
 
-> `design.density` is one ladder of three steps — compact, cozy, roomy — each fixing the row padding, field height, small-button height, gutter and dense-text size that rows, cells and chips are drawn from.
+> `design.density` is one ladder of three steps (compact, cozy, roomy), each fixing the row padding, field height, small-button height, gutter and dense-text size that rows, cells and chips are drawn from.
 
 How tight is a table row? Before this key the answer was `py-[5px]`, written into a handful of Sovrium's own recipes and nowhere an author could reach. Density was not a token; it was a literal that happened to be the same in several files.
 
@@ -14,7 +14,7 @@ design:
       roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
 ```
 
-The three steps are the shipped values, so copying the ladder alone changes nothing, which makes the block a useful starting point: edit one number and see exactly what it moves. The `default: cozy` line is the one that does move something — every page now runs one step looser than the `compact` it had before.
+The three steps are the shipped values, so copying the ladder alone changes nothing, which makes the block a useful starting point: edit one number and see exactly what it moves. The `default: cozy` line is the one that does move something: every page now runs one step looser than the `compact` it had before.
 
 <!-- sovrium:options DensitySchema depth=2 -->
 
@@ -24,11 +24,11 @@ The three steps are the shipped values, so copying the ladder alone changes noth
 
 Each one emits a custom property the recipes read: `--sv-density-row-y`, `-control-h`, `-button-h`, `-gap` and `-text`. These are Sovrium's extensions of shadcn/ui's variable set, which names no density of its own; the colours stay on shadcn's names (`--background`, `--primary`, `--border`, …).
 
-`controlH` and `buttonH` were one number until they were two, and the reason is worth a sentence. A field and a small button both sit on a line, but they are asked for different things: a field is a place to type, and wants room for a cursor, a descender and a comfortable target; a small button is a label with a box drawn round it, and wants to disappear into a toolbar. Under a single key you could not give the field room without inflating every button beside it. The shipped ladder puts them 8px apart at every step — fields 36 / 40 / 44, buttons 28 / 32 / 36 — and `roomy`'s field lands exactly on the 44px enhanced target.
+`controlH` and `buttonH` were one number until they were two, and the reason is worth a sentence. A field and a small button both sit on a line, but they are asked for different things: a field is a place to type, and wants room for a cursor, a descender and a comfortable target; a small button is a label with a box drawn round it, and wants to disappear into a toolbar. Under a single key you could not give the field room without inflating every button beside it. The shipped ladder puts them 8px apart at every step (fields 36 / 40 / 44, buttons 28 / 32 / 36), and `roomy`'s field lands exactly on the 44px enhanced target.
 
-Every value is a **number followed by `px` or `rem`**. Nothing else decodes — no percentage, no `clamp()`, no unitless number. A step is a fixed, quotable number, and a fluid value is a different feature wearing the same name.
+Every value is a **number followed by `px` or `rem`**. Nothing else decodes: no percentage, no `clamp()`, no unitless number. A step is a fixed, quotable number, and a fluid value is a different feature wearing the same name.
 
-**All five fields are required on every step, and all three steps are required.** The step names are a closed set: `cosy` where you meant `cozy` is refused at boot, naming the key. A ladder missing a rung is not a ladder — a surface would silently fall back to a step you did not intend, and nothing would say so.
+**All five fields are required on every step, and all three steps are required.** The step names are a closed set: `cosy` where you meant `cozy` is refused at boot, naming the key. A ladder missing a rung is not a ladder: a surface would silently fall back to a step you did not intend, and nothing would say so.
 
 ## Which step you get
 
@@ -46,21 +46,21 @@ Every value is a **number followed by `px` or `rem`**. Nothing else decodes — 
 }
 ```
 
-Anchoring `compact` at the root is deliberate. Its numbers **are** the literals the recipes used to hard-code, so an author who declares a ladder — even one copied verbatim from the block above — gets exactly what they had before. Anchoring `cozy` there instead would have silently loosened every existing table the moment anyone declared a density at all.
+Anchoring `compact` at the root is deliberate. Its numbers **are** the literals the recipes used to hard-code, so an author who declares a ladder, even one copied verbatim from the block above, gets exactly what they had before. Anchoring `cozy` there instead would have silently loosened every existing table the moment anyone declared a density at all.
 
 ## What moves today, and what does not
 
 Three of the five properties are read by shipped recipes, so declaring a ladder changes real rendered padding:
 
-- **`rowY`** — the header cells and body rows of a `table`, bound or static.
-- **`text`** — the small in-cell affordances: a JSON preview, an array chip, an inline code span, a colour code, a barcode caption, a geolocation pair.
-- **`gap`** — the gutter inside a badge, and the chrome that reuses the badge's layout.
+- **`rowY`**: the header cells and body rows of a `table`, bound or static.
+- **`text`**: the small in-cell affordances: a JSON preview, an array chip, an inline code span, a colour code, a barcode caption, a geolocation pair.
+- **`gap`**: the gutter inside a badge, and the chrome that reuses the badge's layout.
 
-**`controlH` and `buttonH` are emitted and read by nothing yet.** Both custom properties carry your values; no recipe consumes either. Declare them — the schema requires both — but do not expect a field or a button to change height because of them. It is written down here rather than left to be rediscovered as a bug.
+**`controlH` and `buttonH` are emitted and read by nothing yet.** Both custom properties carry your values; no recipe consumes either. Declare them, since the schema requires both, but do not expect a field or a button to change height because of them. It is written down here rather than left to be rediscovered as a bug.
 
 **Not the same as a grid's row height.** A `table` sets how tall its rows are with its own `rowHeight`; there is no density key on the grid, and a `toolbar` key is refused at load. `design.density` is the app-level ladder every surface is drawn from, a design decision by whoever wrote the config; `rowHeight` is one grid's choice inside it.
 
-## `byZone` — a step per zone
+## A step per zone with `byZone`
 
 `byZone` assigns a step to a zone, so a product surface can be tighter than a marketing one. It decodes and it is validated: a zone name `design.zones` does not declare is refused at boot, listing the zones that do exist.
 
@@ -83,7 +83,7 @@ A zone is found the way the zone map ranks its patterns: the most specific wins,
 
 ## `floors`
 
-Two numbers, and only those two values decode — a lower floor is refused, and so is a higher one. Declaring the key restates a guarantee the engine already holds; omitting it is identical in every respect. It exists so the numbers are readable in a config rather than only in source, and it is honest to say nothing reads the key back.
+Two numbers, and only those two values decode: a lower floor is refused, and so is a higher one. Declaring the key restates a guarantee the engine already holds; omitting it is identical in every respect. It exists so the numbers are readable in a config rather than only in source, and it is honest to say nothing reads the key back.
 
 ## What declaring one costs
 

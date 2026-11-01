@@ -28,6 +28,14 @@
  * other branches are preserved by reference.
  */
 
+import {
+  componentFields,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+  type ComponentEntry,
+  type ComponentNode,
+} from './component-rewrite'
 import type { Component } from '@/domain/models/app/pages/components'
 
 interface OpenDrawerOnRowClick {
@@ -37,8 +45,7 @@ interface OpenDrawerOnRowClick {
 
 function isOpenDrawerAction(value: unknown): value is OpenDrawerOnRowClick {
   if (typeof value !== 'object' || value === null) return false
-  const record = value as Record<string, unknown>
-  return record['action'] === 'openSheet' && typeof record['component'] === 'string'
+  return keyOf(value, 'action') === 'openSheet' && typeof keyOf(value, 'component') === 'string'
 }
 
 /**
@@ -47,21 +54,18 @@ function isOpenDrawerAction(value: unknown): value is OpenDrawerOnRowClick {
  * way is secondary on its page, and must not self-open on the page's
  * `?record=` deep link (see {@link tagDrawerIfDispatched}).
  */
-function collectRelatedRowTargets(component: Component | string): readonly string[] {
+function collectRelatedRowTargets(component: ComponentEntry): readonly string[] {
   if (typeof component === 'string') return []
-  const { type, related, children } = component as Record<string, unknown>
+  const { type, related, children } = componentFields(component)
   const own =
     type === 'sheet' && Array.isArray(related)
       ? related.flatMap((entry: unknown) => {
-          const onRowClick = (entry as Record<string, unknown> | null)?.['onRowClick']
+          const onRowClick = keyOf(entry, 'onRowClick')
           return isOpenDrawerAction(onRowClick) ? [onRowClick.component] : []
         })
       : []
   if (!Array.isArray(children)) return own
-  return [
-    ...own,
-    ...(children as readonly (Component | string)[]).flatMap(collectRelatedRowTargets),
-  ]
+  return [...own, ...children.flatMap(collectRelatedRowTargets)]
 }
 
 /**
@@ -70,7 +74,7 @@ function collectRelatedRowTargets(component: Component | string): readonly strin
  * takes, so its drawer starts closed the same way.
  */
 function cardClickTarget(card: unknown): readonly string[] {
-  const onClick = (card as Record<string, unknown> | null | undefined)?.['onClick']
+  const onClick = keyOf(card, 'onClick')
   return isOpenDrawerAction(onClick) ? [onClick.component] : []
 }
 
@@ -80,19 +84,19 @@ function cardClickTarget(card: unknown): readonly string[] {
  * the drawer a card click opens.
  */
 function dropHookTargets(drag: unknown): readonly string[] {
-  const onDrop = (drag as Record<string, unknown> | null | undefined)?.['onDrop']
+  const onDrop = keyOf(drag, 'onDrop')
   if (!Array.isArray(onDrop)) return []
   return onDrop.flatMap((hook: unknown) => {
-    const action = (hook as Record<string, unknown> | null)?.['action']
+    const action = keyOf(hook, 'action')
     return isOpenDrawerAction(action) ? [action.component] : []
   })
 }
 
 /** Recursively collect every drawer-id referenced by `onRowClick: { action: 'openSheet', component }` (or a board's `card.onClick`, a gallery's `galleryCard.onClick`) in the subtree rooted at `component`. */
-function collectIdsFromComponent(component: Component | string): readonly string[] {
+function collectIdsFromComponent(component: ComponentEntry): readonly string[] {
   if (typeof component === 'string') return []
   const { onRowClick, onSelect, onPinClick, card, galleryCard, drag, children } =
-    component as Record<string, unknown>
+    componentFields(component)
   // A tree's selection and a map's pin open a drawer with the same verb.
   const selfId = [
     ...[onRowClick, onSelect, onPinClick].flatMap((click) =>
@@ -103,12 +107,11 @@ function collectIdsFromComponent(component: Component | string): readonly string
     ...dropHookTargets(drag),
   ]
   if (!Array.isArray(children)) return selfId
-  const childIds = (children as readonly (Component | string)[]).flatMap(collectIdsFromComponent)
-  return [...selfId, ...childIds]
+  return [...selfId, ...children.flatMap(collectIdsFromComponent)]
 }
 
 /** Collect every drawer-id referenced by an `onRowClick: { action: 'openSheet', component }` somewhere in the tree. */
-function collectDispatchedDrawerIds(components: readonly Component[]): ReadonlySet<string> {
+function collectDispatchedDrawerIds(components: readonly ComponentEntry[]): ReadonlySet<string> {
   return new Set(components.flatMap(collectIdsFromComponent))
 }
 
@@ -128,43 +131,50 @@ interface DispatchTargets {
  * a contact drawer on a company's id shows the wrong record.
  */
 function tagDrawerIfDispatched(component: Component, targets: DispatchTargets): Component {
-  const { type, id, props } = component as Record<string, unknown>
+  const { type, id } = componentFields(component)
   if (type !== 'sheet' || typeof id !== 'string') return component
   const fromGrid = targets.grid.has(id)
   const fromRelatedRow = targets.relatedRow.has(id)
   if (!fromGrid && !fromRelatedRow) return component
-  const existingProps = (props as Record<string, unknown> | undefined) ?? {}
-  return {
-    ...component,
+  return rewriteComponent(component, {
     props: {
-      ...existingProps,
+      ...(component.props ?? {}),
       _openDrawerDispatchedById: id,
       ...(fromGrid ? {} : { _relatedRowTargetOnly: true }),
     },
-  } as Component
+  })
 }
 
 /** Recursively map components, tagging dispatched drawers and recursing into children. */
-function mapTree(components: readonly Component[], targets: DispatchTargets): Component[] {
-  return components.map((component) => {
-    const tagged = tagDrawerIfDispatched(component, targets)
-    const { children } = tagged as Record<string, unknown>
-    if (!Array.isArray(children)) return tagged
-    const mappedChildren = mapTree(children as readonly Component[], targets)
-    return { ...tagged, children: mappedChildren } as Component
-  })
+function mapTree(
+  components: readonly ComponentEntry[],
+  targets: DispatchTargets
+): readonly ComponentEntry[] {
+  return components.map((entry) =>
+    typeof entry === 'string' ? entry : mapNode(entryAsComponent(entry), targets)
+  )
+}
+
+/** One component, tagged when it is a dispatched drawer, with its children mapped. */
+function mapNode(component: Component, targets: DispatchTargets): Component {
+  const tagged = tagDrawerIfDispatched(component, targets)
+  const { children } = componentFields(tagged)
+  if (!Array.isArray(children)) return tagged
+  return rewriteComponent(tagged, { children: mapTree(children, targets) })
 }
 
 /**
  * Entry point — collect dispatched drawer ids in a single pre-pass, then walk
- * the tree once tagging any matching drawer. Returns a new array when at least
- * one drawer was tagged; otherwise returns the original reference unchanged.
+ * the tree once tagging any matching drawer. Takes a page's own entries, which
+ * may be unexpanded references; each is walked as a component, as every pass
+ * walks one.
  */
 export function resolveOpenDrawerDispatches(
-  components: readonly Component[]
+  components: readonly ComponentNode[]
 ): readonly Component[] {
-  const grid = collectDispatchedDrawerIds(components)
-  const relatedRow = new Set(components.flatMap(collectRelatedRowTargets))
-  if (grid.size === 0 && relatedRow.size === 0) return components
-  return mapTree(components, { grid, relatedRow })
+  const nodes = components.map(entryAsComponent)
+  const grid = collectDispatchedDrawerIds(nodes)
+  const relatedRow = new Set(nodes.flatMap(collectRelatedRowTargets))
+  if (grid.size === 0 && relatedRow.size === 0) return nodes
+  return nodes.map((component) => mapNode(component, { grid, relatedRow }))
 }

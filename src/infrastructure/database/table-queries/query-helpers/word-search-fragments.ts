@@ -13,7 +13,6 @@ import {
   WORD_SEARCH_OPERATOR,
   type WordSearchValue,
 } from '@/domain/models/app/tables/word-search-service'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import {
   SQLITE_FTS_RECORD_ID_COLUMN,
   sqliteFtsTableName,
@@ -25,6 +24,8 @@ import {
 } from '@/infrastructure/database/schema/word-search-ddl'
 import { generateSqlConditionFragment } from '../filter-operators'
 import { validateColumnName } from '../statement/validation'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 import type { SQL } from 'drizzle-orm'
 
 /**
@@ -56,25 +57,26 @@ export const isWordSearchLeaf = (node: unknown): node is WordSearchLeaf => {
   )
 }
 
-const isSqlite = (): boolean => parseDatabaseDialectConfig().dialect === 'sqlite'
-
 /** The FTS5 mirror a table's word search reads (SQLite). */
 const mirrorOf = (value: WordSearchValue): string =>
   sqliteFtsTableName(sanitizeTableName(value.table))
 
 /**
- * The WHERE condition of one word-search leaf: the rows whose field holds every
- * term. No term means no row. On SQLite a table without the full-text mirror
- * (no `id`) falls back to the substring search of that field.
+ * The WHERE condition of one word-search leaf on `dialect`: the rows whose
+ * field holds every term. No term means no row. On SQLite a table without the
+ * full-text mirror (no `id`) falls back to the substring search of that field.
  */
-export const wordSearchCondition = (leaf: WordSearchLeaf): Readonly<SQL> => {
+export const wordSearchConditionOn = (
+  dialect: DatabaseDialect,
+  leaf: WordSearchLeaf
+): Readonly<SQL> => {
   const { field, value } = leaf
-  if (isSqlite() && !value.mirrored) {
-    return generateSqlConditionFragment(field, 'contains', value.query)
+  if (dialect === 'sqlite' && !value.mirrored) {
+    return generateSqlConditionFragment(dialect, field, 'contains', value.query)
   }
   const terms = parseWordSearchQuery(value.query)
   if (terms.length === 0) return sql`(1 = 0)`
-  if (isSqlite()) {
+  if (dialect === 'sqlite') {
     const mirror = sql.identifier(mirrorOf(value))
     return sql`CAST(${sql.identifier('id')} AS TEXT) IN (
       SELECT ${sql.identifier(SQLITE_FTS_RECORD_ID_COLUMN)} FROM ${mirror}
@@ -134,11 +136,13 @@ const sqliteRelevance = (
 }
 
 /**
- * The relevance order of an unsorted word search — most relevant first (BM25
- * on SQLite, `ts_rank` on PostgreSQL), ties by `tieKeys` descending — or
- * `undefined` when the filter carries no word search with a word in it.
+ * The relevance order of an unsorted word search on `dialect` — most relevant
+ * first (BM25 on SQLite, `ts_rank` on PostgreSQL), ties by `tieKeys`
+ * descending — or `undefined` when the filter carries no word search with a
+ * word in it.
  */
 export const wordSearchRelevance = (
+  dialect: Dialect,
   filter: { readonly and?: readonly unknown[] } | undefined,
   tieKeys: readonly string[]
 ): WordSearchRelevance | undefined => {
@@ -149,7 +153,7 @@ export const wordSearchRelevance = (
   if (terms.length === 0) return undefined
   const fields = [...new Set(leaves.map((leaf) => leaf.field))]
   fields.forEach(validateColumnName)
-  if (isSqlite()) {
+  if (dialect.kind === 'sqlite') {
     if (!first.value.mirrored) return undefined
     return sqliteRelevance(first.value, toSqliteWordMatch(terms, fields), tieKeys)
   }

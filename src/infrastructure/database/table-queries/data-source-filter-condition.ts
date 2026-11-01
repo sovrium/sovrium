@@ -9,15 +9,10 @@ import { sql } from 'drizzle-orm'
 import { likePatternOf } from '@/domain/kernel/sql/like-pattern'
 import { LIKE_ESCAPE_CHARACTER } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
-import {
-  isNotLoggedCreatorValue,
-  NOT_LOGGED_CREATOR_OPERATOR,
-} from '@/domain/models/app/tables/read-state-service'
-import { LIST_MEMBER_OPERATOR } from '@/domain/models/app/tables/user-list-field-service'
 import { emptyValueCondition, nonEmptyValueCondition } from './filter-operators'
-import { notLoggedCreatorFragment } from './logged-creator-fragment'
-import { listMemberFragment } from './server-operator-fragment'
+import { serverOperatorFragment } from './server-operator-fragment'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 import type { SQL } from 'drizzle-orm'
 
 /**
@@ -105,28 +100,16 @@ const betweenCondition = (field: SqlIdentifier, value: unknown): Readonly<SQL> =
   return sql`${field} >= ${bindValue(low)} AND ${field} <= ${bindValue(high)}`
 }
 
-export function buildFilterCondition(filter: DataFilter): Readonly<SQL> {
-  const field = sql.identifier(sanitizeTableName(filter.field))
-  return serverOperatorCondition(filter, field) ?? valueCondition(field, filter)
-}
-
-/**
- * The operators the engine itself writes into a filter, never an author:
- * `undefined` for an author's operator.
- */
-function serverOperatorCondition(
-  filter: DataFilter,
-  field: SqlIdentifier
-): Readonly<SQL> | undefined {
-  const { operator, value } = filter
-  // `contains` on a list of people, rewritten by the read gate into membership.
-  if ((operator as string) === LIST_MEMBER_OPERATOR) return listMemberFragment(field, value)
-  // A row its reader did not create, as the activity log records it: a
-  // conversation's New marker on a table that declares no `created-by` field.
-  if ((operator as string) === NOT_LOGGED_CREATOR_OPERATOR && isNotLoggedCreatorValue(value)) {
-    return notLoggedCreatorFragment(sanitizeTableName(filter.field), value)
-  }
-  return undefined
+export function buildFilterCondition(dialect: DatabaseDialect, filter: DataFilter): Readonly<SQL> {
+  const name = sanitizeTableName(filter.field)
+  // The operators the engine itself writes into a filter, never an author —
+  // membership in a list of people, a condition read through a many-to-many
+  // field's links, a row its reader did not create — compiled as the records
+  // query compiles them (`server-operator-fragment.ts`).
+  return (
+    serverOperatorFragment(dialect, name, filter.operator, filter.value) ??
+    valueCondition(sql.identifier(name), filter)
+  )
 }
 
 /** An author's operator over `field`, every value a bound parameter. */

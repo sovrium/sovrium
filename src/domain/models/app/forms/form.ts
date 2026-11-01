@@ -113,7 +113,7 @@ export const FormSchema = Schema.Struct({
   labelPlacement: Schema.optional(
     Schema.Literals(['top', 'side']).annotate({
       description:
-        "Where each field's label sits: top (default, above the control) or side (label and help on the left, control on the right, one row per field — stacked again below the md breakpoint). The same key as on a page form.",
+        "Where each field's label sits: top (default, above the control) or side (label and help on the left, control on the right, one row per field, stacked again below the md breakpoint). The same key as on a page form.",
     })
   ),
   /**

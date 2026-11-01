@@ -17,6 +17,7 @@
  */
 
 import { DateTime, Option } from 'effect'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 
 /** Waits up to this long sleep inside the run; longer ones park it. */
 export const PARK_THRESHOLD_MS = 60_000
@@ -75,9 +76,6 @@ export const resolveUntilInstantMs = (until: string, zoneId: string): number | u
 }
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** A `delay/wait`, or a `delay/webhook` with a `timeout`: a step that may park its run. */
 const mayPark = (step: RawRecord): boolean => {

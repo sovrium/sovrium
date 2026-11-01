@@ -26,7 +26,15 @@
 
 import { resolveLandingPath } from '@/domain/models/app/pages/landing-resolver'
 import { isCapabilityMet, passwordResetRequestPath } from '@/domain/models/app/pages/page-requires'
+import { isOutgoingEmailConfigured } from '@/domain/models/process-env/email-transport'
 import { servingMountHref } from '@/presentation/render/resolve/auth-form-facts-stamp'
+import {
+  componentField,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+  type ComponentEntry,
+} from '@/presentation/render/resolve/component-rewrite'
 import { resolveFirstObjectRedirect } from '@/presentation/render/resolve/first-object-redirect-resolver'
 import { hideComponent } from './page-crud-gating'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
@@ -105,8 +113,8 @@ export function stripAuthActionsIfUnconfigured(
 
   return components.map((item) => {
     if ('component' in item || '$ref' in item) return item
-    const component = item as Component
-    if (component.action && 'type' in component.action && component.action.type === 'auth') {
+    const component = entryAsComponent(item)
+    if (keyOf(componentField(component, 'action'), 'type') === 'auth') {
       return hideComponent(component)
     }
     return component
@@ -118,19 +126,22 @@ const FIELDLESS_STRATEGIES: ReadonlySet<string> = new Set(['passkey', 'oauth', '
 
 /** Whether a node is a sign-in form whose email field a passkey can fill. */
 const isEmailSignIn = (component: Component): boolean => {
-  const action = component.action as
-    { readonly type?: string; readonly method?: string; readonly strategy?: string } | undefined
+  const action = componentField(component, 'action')
+  const strategy = keyOf(action, 'strategy')
   return (
-    action?.type === 'auth' &&
-    (action.method ?? 'login') === 'login' &&
-    !FIELDLESS_STRATEGIES.has(action.strategy ?? '')
+    keyOf(action, 'type') === 'auth' &&
+    (keyOf(action, 'method') ?? 'login') === 'login' &&
+    !FIELDLESS_STRATEGIES.has(typeof strategy === 'string' ? strategy : '')
   )
 }
 
-type ChildNode = NonNullable<Component['children']>[number]
-
-/** The address of the app's password-reset request page, under the mount serving it. */
+/**
+ * The address of the app's password-reset request page, under the mount serving
+ * it — only while this instance can send mail, the same check the sign-in
+ * refusal makes: a link to a reset page whose email never leaves is a dead end.
+ */
 function recoveryHrefOf(app: App): string | undefined {
+  if (!isOutgoingEmailConfigured(process.env)) return undefined
   const path = passwordResetRequestPath(app)
   return path === undefined ? undefined : servingMountHref(app, path)
 }
@@ -138,8 +149,8 @@ function recoveryHrefOf(app: App): string | undefined {
 /**
  * Marks every email sign-in form, at any depth, with what the app around it
  * offers: passkeys, so its email field asks the browser for passkey autofill
- * (`username webauthn`); a password-reset request page, so its Password label
- * row links there ("Forgot your password?"). The marks ride the action — the
+ * (`username webauthn`); a password-reset request page and outgoing mail, so
+ * its Password label row links there ("Forgot your password?"). The marks ride the action — the
  * auth-form renderer is the one reader — and an app offering neither gets its
  * tree back untouched.
  */
@@ -152,28 +163,21 @@ export function markSignInForms(components: Page['components'], app: App): Page[
     ...(recoveryHref !== undefined && { _recoveryHref: recoveryHref }),
   }
   const mark = (component: Component): Component => {
-    const children = component.children?.map((child: ChildNode) =>
+    const children = component.children?.map((child: ComponentEntry) =>
       typeof child === 'string' || 'component' in child || '$ref' in child
         ? child
-        : mark(child as Component)
+        : mark(entryAsComponent(child))
     )
     const marked = isEmailSignIn(component)
-      ? { ...component, action: { ...component.action, ...marks } }
+      ? rewriteComponent(component, {
+          action: { ...componentField(component, 'action'), ...marks },
+        })
       : component
-    return (children === undefined ? marked : { ...marked, children }) as Component
+    return children === undefined ? marked : rewriteComponent(marked, { children })
   }
   return components.map((item) =>
-    'component' in item || '$ref' in item ? item : mark(item as Component)
+    'component' in item || '$ref' in item ? item : mark(entryAsComponent(item))
   )
-}
-
-/**
- * OAuth action shape used for provider-checking
- */
-interface OAuthActionShape {
-  readonly type: string
-  readonly strategy?: string
-  readonly provider?: string
 }
 
 /**
@@ -193,14 +197,13 @@ export function stripUnconfiguredOAuthForms(
 
   return components.map((item) => {
     if ('component' in item || '$ref' in item) return item
-    const component = item as Component
-    if (!component.action || !('type' in component.action)) return component
-
-    const action = component.action as OAuthActionShape
-    if (action.type !== 'auth' || action.strategy !== 'oauth') return component
+    const component = entryAsComponent(item)
+    const action = componentField(component, 'action')
+    if (keyOf(action, 'type') !== 'auth' || keyOf(action, 'strategy') !== 'oauth') return component
 
     // If provider is not in configured providers, hide the component
-    if (!action.provider || !configuredProviders.includes(action.provider)) {
+    const provider = keyOf(action, 'provider')
+    if (typeof provider !== 'string' || !provider || !configuredProviders.includes(provider)) {
       return hideComponent(component)
     }
 
@@ -210,11 +213,12 @@ export function stripUnconfiguredOAuthForms(
 
 /**
  * Converts an AccessDecision into a denial result (redirect, error, or undefined for 404).
- * Returns false if the page is allowed (access granted).
+ * Returns false if the page is allowed (access granted). A denial's redirect is
+ * the access rule sending a signed-out visitor to sign in, and says so.
  */
 export function toAccessDeniedResult(decision: AccessDecision): PageRenderResult | false {
   if (decision.allowed) return false
-  if (decision.action === 'redirect') return { redirect: decision.url }
+  if (decision.action === 'redirect') return { redirect: decision.url, signIn: true }
   if (decision.action === 'error') return { error: decision.message }
   return undefined // 'not-found' → 404
 }

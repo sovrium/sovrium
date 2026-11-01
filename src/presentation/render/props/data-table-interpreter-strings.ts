@@ -40,6 +40,7 @@ const GRID_STRING_PREFIXES = [
   'picker.',
   'richText.',
   'form.requiredNamed',
+  'checkbox.',
 ]
 
 /**
@@ -58,16 +59,48 @@ const GRID_STRING_PREFIXES = [
  */
 export function dataTableInterpreterStrings(
   currentLang: string | undefined,
-  languages: Languages | undefined
+  languages: Languages | undefined,
+  authored: AuthoredGridWords = {}
 ) {
+  const overrides = resolveInterpreterStringOverrides(
+    [...GRID_STRING_PREFIXES, ...ROW_ACTION_PENDING_KEYS],
+    currentLang,
+    languages
+  )
+  const words = authoredGridStrings(authored)
   return {
     saveLabel: resolveInterpreterString('datatable.save', currentLang, languages),
     cancelLabel: resolveInterpreterString('datatable.cancel', currentLang, languages),
-    uiStrings: resolveInterpreterStringOverrides(
-      [...GRID_STRING_PREFIXES, ...ROW_ACTION_PENDING_KEYS],
-      currentLang,
-      languages
-    ),
+    uiStrings: words === undefined ? overrides : { ...overrides, ...words },
+  }
+}
+
+/** The grid words an author declares on the component itself. */
+interface AuthoredGridWords {
+  readonly countLabel?: { readonly one: string; readonly other: string }
+  readonly emptyDescription?: string
+}
+
+/**
+ * The author's own grid words, as the grid strings they replace: `countLabel`
+ * is the count line's noun in both numbers (and, declared, keeps the line at
+ * one row), `emptyDescription` the guidance line an empty grid draws under its
+ * empty message. They ride the grid strings because the controls that draw
+ * them already read those where they draw (their `$t:` tokens were resolved
+ * with the component's other fields). `undefined` when the author declared
+ * neither.
+ */
+function authoredGridStrings({
+  countLabel,
+  emptyDescription,
+}: AuthoredGridWords): Readonly<Record<string, string>> | undefined {
+  if (countLabel === undefined && emptyDescription === undefined) return undefined
+  return {
+    ...(countLabel !== undefined && {
+      'datatable.pagination.rowsOne': countLabel.one,
+      'datatable.pagination.rows': countLabel.other,
+    }),
+    ...(emptyDescription !== undefined && { 'datatable.emptyDescription': emptyDescription }),
   }
 }
 

@@ -9,6 +9,8 @@ import { AppSchema } from '@/domain/models/app'
 import appMetadataBody from '@/domain/models/app/app-metadata.docs.md' with { type: 'file' }
 import { AssetSchema } from '@/domain/models/app/assets'
 import assetsBody from '@/domain/models/app/assets/assets.docs.md' with { type: 'file' }
+import { BadgeSchema } from '@/domain/models/app/badge'
+import badgeBody from '@/domain/models/app/badge/badge.docs.md' with { type: 'file' }
 import { DecisionSchema } from '@/domain/models/app/decisions'
 import decisionsBody from '@/domain/models/app/decisions/decisions.docs.md' with { type: 'file' }
 import { InstallSchema } from '@/domain/models/app/install'
@@ -67,7 +69,6 @@ export const section = defineSection({
       documents: [AppSchema],
       stories: [
         'US-AUTOMATIONS-ENVIRONMENT-VARIABLES',
-        'US-PAGES-COMMAND-PALETTE',
         'US-PAGES-PAGE-COMPONENTS-002',
         'US-PAGES-PAGE-COMPONENTS-003',
       ],
@@ -76,7 +77,7 @@ export const section = defineSection({
       slug: 'app-metadata',
       title: 'App Metadata',
       description:
-        'The `name`, `displayName`, `version`, `description` and `badge` root properties — naming rules, the name people read, Semantic Versioning, and the "Built with Sovrium" badge with its one-line removal.',
+        'The `name`, `displayName`, `version`, `description` and `badge` root properties: naming rules, the name people read, Semantic Versioning, and the badge.',
       keywords: [
         'sovrium',
         'app metadata',
@@ -101,10 +102,30 @@ export const section = defineSection({
         'US-APP-SCHEMA-APP-METADATA-001',
         'US-APP-SCHEMA-APP-METADATA-002',
         'US-APP-SCHEMA-APP-METADATA-003',
-        'US-APP-SCHEMA-APP-METADATA-004',
         'US-LINKS-CLICK-EVENTS',
         'US-LINKS-ON-PAGE-CLICK-TRACKING',
       ],
+    }),
+    defineArticle({
+      slug: 'badge',
+      title: 'Built with Sovrium Badge',
+      description:
+        'The `badge` root property — the small "Built with Sovrium" link every page carries by default, where it sits, and the one line that removes it.',
+      keywords: [
+        'sovrium',
+        'badge',
+        'built with sovrium',
+        'remove badge',
+        'attribution',
+        'footer',
+        'placement',
+        'no telemetry',
+      ],
+      order: 9015,
+      sidebarLabel: 'Badge',
+      body: badgeBody,
+      documents: [BadgeSchema],
+      stories: ['US-APP-SCHEMA-APP-METADATA-004'],
     }),
     defineArticle({
       slug: 'languages',

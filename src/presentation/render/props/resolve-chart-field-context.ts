@@ -277,8 +277,8 @@ export function resolveFigureFieldContext(
 
 /**
  * {@link resolveFigureFieldContext} for a component known only by its type
- * literal. `Component` is still `any` (see `component.ts`); naming the branch
- * here is what makes a renamed chart or KPI key fail the typecheck above.
+ * literal: naming the branch here is what makes a renamed chart or KPI key fail
+ * the typecheck above.
  */
 export const resolveFigureInputsFor = (
   type: 'chart' | 'kpi',

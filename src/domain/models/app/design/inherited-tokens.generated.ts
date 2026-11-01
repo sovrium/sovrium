@@ -25,7 +25,7 @@ export const INHERITED_COLOR_TOKENS: Readonly<Record<string, string>> = {
   'foreground-disabled': 'oklch(0.71 0 0)',
   'foreground-inverse': 'oklch(0.985 0 0)',
   border: 'oklch(0.922 0 0)',
-  ring: 'oklch(0.708 0 0)',
+  ring: 'oklch(0.556 0 0)',
   primary: 'oklch(0.205 0 0)',
   'primary-hover': 'oklch(0.272 0 0)',
   'primary-active': 'oklch(0.14 0 0)',

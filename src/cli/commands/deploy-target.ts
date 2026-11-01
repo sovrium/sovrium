@@ -24,20 +24,15 @@
 
 import { resolve } from 'node:path'
 import { Effect, Option, Schema } from 'effect'
-import { declaredEnvOf } from '@/application/use-cases/env/validate-required-env-vars'
+import { declaredEnvOf } from '@/application/use-cases/config/validate-required-env-vars'
 import { confirmOrFail, isInteractive } from '@/cli/runtime/confirm-prompt'
-import { getFlagValue, getFlagValues } from '@/cli/runtime/flag-vocabulary'
+import { defineFlags, flag, type FlagsOf } from '@/cli/runtime/flag-schema'
+import { CliRefusal } from '@/cli/runtime/run-command'
 import { PLATFORM_ENV_NAME_PATTERN } from '@/domain/models/api/automations/cloud/app-env'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import { discoverConfigFile } from './app-prelude'
 import { lookUpAddress, refuseReserved } from './cloud-app-lookup'
-import {
-  CliRefusal,
-  callCloud,
-  describeUnreachable,
-  resolveCloudOrigin,
-  say,
-} from './cloud-session'
+import { callCloud, describeUnreachable, resolveCloudOrigin, say } from './cloud-session'
 import { preparePush, readEnvFile, sendPlan } from './env-push'
 import type { AddressLookup, ResolvedAddress } from './cloud-app-lookup'
 import type { SignedInCloud } from './cloud-sign-in'
@@ -267,18 +262,25 @@ export const awaitAddress = (
     return yield* pollAddress(origin, address, deploymentId, Date.now() + ADDRESS_WINDOW_MS)
   })
 
+/** The flags of `--env <file>`: the file, the names sent in plain text, and whether to overwrite. */
+export const envFileFlags = defineFlags({
+  env: flag.value('--env'),
+  plain: flag.values('--plain'),
+  overwrite: flag.switch('--overwrite'),
+})
+
 /**
  * `--env <file>`: set the variables the config declares from that file on the
  * app before anything is uploaded. Returns the names now set.
  */
 export const pushEnvFile = (
-  argv: readonly string[],
+  flags: FlagsOf<typeof envFileFlags>,
   cloud: SignedInCloud,
   target: DeployTarget,
   document: Readonly<Record<string, unknown>>
 ): Effect.Effect<readonly string[], CliRefusal> =>
   Effect.gen(function* () {
-    const file = getFlagValue(argv, '--env')
+    const file = flags.env
     if (file === undefined) return []
     const appId = target.app?.id
     if (appId === undefined) {
@@ -289,8 +291,8 @@ export const pushEnvFile = (
     }
     const entries = yield* readEnvFile(resolve(file))
     const declared = declaredEnvOf(document).map((entry) => entry.key)
-    const plan = yield* preparePush(entries, declared, getFlagValues(argv, '--plain'))
-    return yield* sendPlan(cloud, appId, plan, argv.includes('--overwrite'))
+    const plan = yield* preparePush(entries, declared, flags.plain)
+    return yield* sendPlan(cloud, appId, plan, flags.overwrite)
   })
 
 /** The config file this deploy reads: the one named, or the one in the current directory. */

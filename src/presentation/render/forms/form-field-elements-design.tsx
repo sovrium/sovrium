@@ -29,7 +29,7 @@ import {
 import { FIELD_LABEL_CLASS, FIELD_WRAPPER_CLASS, fieldWrapperAttributes } from './form-field-chrome'
 import { RequiredMark } from './form-field-elements-typed'
 import { HelpText } from './form-help-text'
-import type { ResolvedFormField } from './form-field-elements'
+import type { ResolvedFormField } from './form-resolved-field'
 import type { Form } from '@/domain/models/app/forms'
 import type { ReactElement, ReactNode } from 'react'
 

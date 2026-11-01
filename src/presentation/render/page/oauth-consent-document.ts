@@ -40,7 +40,7 @@
  * function straight from an unauthenticated-in-spirit registration payload.
  */
 
-import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
 
 /** What the screen needs to know about the client asking for authorization. */
@@ -102,7 +102,7 @@ const SCOPE_DESCRIPTIONS: Readonly<Record<string, string>> = {
 const scopeLine = (scope: string): string => {
   const description = SCOPE_DESCRIPTIONS[scope]
   const label = description === undefined ? scope : description
-  return `<li><span class="scope-label">${escapeHtml(label)}</span><code>${escapeHtml(scope)}</code></li>`
+  return `<li><span class="scope-label">${escapeHtmlAttribute(label)}</span><code>${escapeHtmlAttribute(scope)}</code></li>`
 }
 
 const documentStyles = (colors: OAuthConsentColors): string => {
@@ -161,12 +161,12 @@ export interface OAuthConsentColors {
 const renderIdentity = (client: OAuthConsentClient): string => {
   const origins = [...new Set(client.redirectUris.map(redirectOrigin))]
   const originMarkup = origins
-    .map((origin) => `<span class="origin">${escapeHtml(origin)}</span>`)
+    .map((origin) => `<span class="origin">${escapeHtmlAttribute(origin)}</span>`)
     .join('')
   const claimedName =
     client.name === undefined || client.name.length === 0
       ? ''
-      : `<p class="claimed">Calls itself “${escapeHtml(client.name)}”.</p>`
+      : `<p class="claimed">Calls itself “${escapeHtmlAttribute(client.name)}”.</p>`
   const badge = client.verified
     ? '<span class="badge badge-verified">Verified</span>'
     : '<span class="badge badge-unverified">Unverified</span>'
@@ -280,7 +280,7 @@ export const renderOAuthConsentDocument = (
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>${escapeHtml(`Authorize access — ${appName}`)}</title>
+<title>${escapeHtmlAttribute(`Authorize access — ${appName}`)}</title>
 <style>${documentStyles(colors)}</style>
 </head>
 <body>

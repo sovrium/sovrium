@@ -15,8 +15,8 @@ import {
   type XmlElement,
 } from './ooxml-tree'
 import type { DocxPartStage } from './docx-template'
-import type { ZipEntry } from '../action-handlers/file-zip'
-import type { ZipReadEntry } from '../action-handlers/file-zip-read'
+import type { ZipEntry } from '../action-handlers/file/zip'
+import type { ZipReadEntry } from '../action-handlers/file/zip-read'
 
 /**
  * `{{pageBreak}}` and `{{image}}` in a Word template.

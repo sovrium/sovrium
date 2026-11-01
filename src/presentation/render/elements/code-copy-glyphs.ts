@@ -41,6 +41,7 @@
  * stops being painted.
  */
 
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { computeCodeBlockCopyClasses } from '@/presentation/design/code-block-default-classes'
 
 /** Two overlapping sheets — the conventional "copy to clipboard" mark. */
@@ -76,24 +77,15 @@ export const CODE_COPY_STATUS_CLASSES = 'sr-only'
  */
 const CODE_COPY_GLYPHS_HTML = `<svg width="${GLYPH_SVG_ATTRS.width}" height="${GLYPH_SVG_ATTRS.height}" viewBox="${GLYPH_SVG_ATTRS.viewBox}" fill="${GLYPH_SVG_ATTRS.fill}" stroke="${GLYPH_SVG_ATTRS.stroke}" stroke-width="${GLYPH_SVG_ATTRS.strokeWidth}" stroke-linecap="${GLYPH_SVG_ATTRS.strokeLinecap}" stroke-linejoin="${GLYPH_SVG_ATTRS.strokeLinejoin}" aria-hidden="true"><g data-copy-glyph="copy"><rect x="${COPY_SHEET_RECT.x}" y="${COPY_SHEET_RECT.y}" width="${COPY_SHEET_RECT.width}" height="${COPY_SHEET_RECT.height}" rx="${COPY_SHEET_RECT.rx}"/><path d="${COPY_SHEET_PATH}"/></g><g data-copy-glyph="copied"><path d="${CHECK_PATH}"/></g></svg>`
 
-/** Escape a label for safe interpolation into an HTML attribute value. */
-const escapeAttr = (value: string): string =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-
 /**
  * The copy button + its live region as raw HTML (docs fence splice path).
  * Attribute-for-attribute identical to the React `CodeCopyButton` /
  * `CodeCopyStatus` in `code-copy-controls.tsx`.
  */
 export const renderCodeCopyButtonHtml = (copyLabel: string, copiedLabel: string): string =>
-  `<button type="button" data-slot="code-block-copy-button" data-variant="ghost" data-size="icon-xs" aria-label="${escapeAttr(copyLabel)}" title="${escapeAttr(
+  `<button type="button" data-slot="code-block-copy-button" data-variant="ghost" data-size="icon-xs" aria-label="${escapeHtmlAttribute(copyLabel)}" title="${escapeHtmlAttribute(
     copyLabel
-  )}" data-copy-code="true" data-copied-label="${escapeAttr(
+  )}" data-copy-code="true" data-copied-label="${escapeHtmlAttribute(
     copiedLabel
   )}" class="${CODE_COPY_BUTTON_CLASSES}">${CODE_COPY_GLYPHS_HTML}</button>`
 

@@ -29,6 +29,14 @@
 
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isComponentReferenceNode } from './component-reference'
+import {
+  componentField,
+  componentFields,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+  type ComponentNode,
+} from './component-rewrite'
 import { isDroppedWithheld, withheldComponent } from './withheld-component'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -59,10 +67,9 @@ const ADMIN_METHODS: ReadonlySet<string> = new Set([
 
 /** The `auth` method a form runs, if it runs one. */
 const authMethodOf = (component: Component): string | undefined => {
-  const { action } = component as {
-    readonly action?: { readonly type?: unknown; readonly method?: unknown }
-  }
-  return action?.type === 'auth' && typeof action.method === 'string' ? action.method : undefined
+  const action = componentField(component, 'action')
+  const method = keyOf(action, 'method')
+  return keyOf(action, 'type') === 'auth' && typeof method === 'string' ? method : undefined
 }
 
 /** Whether the reader may run an account method at all. */
@@ -77,8 +84,7 @@ export const accountListEndpoint = (list: string): string => `/api/account/lists
 
 /** Whether a bound `dataSource` reads the reader's own sessions list. */
 export const isAccountSessionsSource = (dataSource: unknown): boolean =>
-  (dataSource as { readonly system?: { readonly endpoint?: unknown } } | undefined)?.system
-    ?.endpoint === accountListEndpoint('sessions')
+  keyOf(keyOf(dataSource, 'system'), 'endpoint') === accountListEndpoint('sessions')
 
 /** Bind a component's `{ auth }` source to its scoped endpoint, or withhold it (and an account form). */
 export function bindAuthSource(
@@ -88,18 +94,16 @@ export function bindAuthSource(
 ): Component {
   const method = authMethodOf(component)
   if (method !== undefined && !mayRun(method, app, session)) return withheldComponent(component)
-  const source = component.dataSource as { readonly auth?: unknown } | undefined
-  const list = source?.auth
+  const list = keyOf(componentField(component, 'dataSource'), 'auth')
   if (typeof list !== 'string') return component
   const readable =
     session !== undefined && (!ADMIN_LISTS.has(list) || isAdminEquivalent(session.role, app))
   if (!readable) return withheldComponent(component)
-  return {
-    ...component,
+  return rewriteComponent(component, {
     dataSource: {
       system: { endpoint: accountListEndpoint(list), rowsKey: 'rows' },
-    } as Component['dataSource'],
-  }
+    },
+  })
 }
 
 /** One list of nodes, each bound; withheld nodes leave it. Unchanged lists come back by reference. */
@@ -120,14 +124,13 @@ function bindResponsive(
   session: SessionInfo | undefined
 ): Record<string, unknown> | undefined {
   if (typeof responsive !== 'object' || responsive === null) return undefined
-  const entries = Object.entries(responsive as Record<string, unknown>)
+  const entries: readonly (readonly [string, unknown])[] = Object.entries(responsive)
   const variants = entries.map(([, variant]) => {
-    const { children } = (variant ?? {}) as { readonly children?: unknown }
+    if (typeof variant !== 'object' || variant === null) return variant
+    const { children } = componentFields(variant)
     if (!Array.isArray(children)) return variant
     const bound = bindList(children, app, session)
-    return bound === children
-      ? variant
-      : { ...(variant as Record<string, unknown>), children: bound }
+    return bound === children ? variant : { ...variant, children: bound }
   })
   if (variants.every((variant, index) => variant === entries[index]?.[1])) return undefined
   return Object.fromEntries(entries.map(([breakpoint], index) => [breakpoint, variants[index]]))
@@ -140,17 +143,16 @@ const bindChildren = (children: unknown, app: App, session: SessionInfo | undefi
 /** One node and everything below it. A reference names a template and is left alone. */
 function bindNode(node: unknown, app: App, session: SessionInfo | undefined): unknown {
   if (typeof node !== 'object' || node === null || isComponentReferenceNode(node)) return node
-  const own = bindAuthSource(node as Component, app, session) as Record<string, unknown>
+  const own = bindAuthSource(entryAsComponent(node as ComponentNode), app, session)
   if (isDroppedWithheld(own)) return own
-  const { children, responsive } = own
+  const { children, responsive } = componentFields(own)
   const nextChildren = bindChildren(children, app, session)
   const nextResponsive = bindResponsive(responsive, app, session)
   if (own === node && nextChildren === children && nextResponsive === undefined) return node
-  return {
-    ...own,
+  return rewriteComponent(own, {
     ...(nextChildren === children ? {} : { children: nextChildren }),
     ...(nextResponsive === undefined ? {} : { responsive: nextResponsive }),
-  }
+  })
 }
 
 /**

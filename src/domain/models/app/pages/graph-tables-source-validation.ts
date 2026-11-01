@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Cross-config validation of the table source of a `graph` or `matrix`.
  *
@@ -25,9 +27,6 @@
  * Runs inside `decodeAppConfigObject`, so `validate`, `start` and `build`
  * reach the same verdict.
  */
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null
 
 /** What this rule reads of one declared table. */
 interface DeclaredTable {

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { appRegion, appTitle, span } from '@/library/manifest/app-block-kit'
+import { appRegion, appTitle, span } from '@/library/kit/app-block-kit'
 import {
   asComponent,
   flex,
@@ -15,7 +15,7 @@ import {
   stack,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 const meta = (iconName: string, label: string): Readonly<Record<string, unknown>> =>

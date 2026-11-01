@@ -87,9 +87,12 @@ export const permitsBucketFileRead = (
 /**
  * THE delete rung of a bucket file, as the files API judges it: whether
  * `caller` may delete a file of `bucket`. `public` confers no write: an
- * undeclared `delete` asks for a session, except on a public bucket of an app
- * without sign-in, where there is no session to ask for. The per-object rule
- * of an undeclared `delete` (only its uploader, or an admin) is
+ * undeclared `delete` asks for a session, on every app. On an app with no
+ * `auth` block there is no session to ask for, so an undeclared `delete`
+ * admits no visitor at all, and only a bucket that declares `delete: 'all'`
+ * lets one delete. The built-in `system` bucket never declares one (it adopts
+ * role lists only), so no visitor deletes a form attachment. The per-object
+ * rule of an undeclared `delete` (only its uploader, or an admin) is
  * `mayReplaceOrRemoveObject`'s, judged on top.
  */
 export const permitsBucketFileDelete = (
@@ -98,7 +101,6 @@ export const permitsBucketFileDelete = (
   input: { readonly app: App }
 ): boolean =>
   permitsBucketFileAction(bucket.permissions?.delete, caller, {
-    undeclaredGrant:
-      caller !== undefined || (bucket.public === true && input.app.auth === undefined),
+    undeclaredGrant: caller !== undefined,
     app: input.app,
   })

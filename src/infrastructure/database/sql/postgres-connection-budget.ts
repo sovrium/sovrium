@@ -42,7 +42,7 @@ export const reserveListenerConnections = (listeners: number): void => {
  */
 export const requestPoolSize = (): number => {
   const planned = planDatabaseConnections({
-    poolMax: resolveDatabasePoolMax(),
+    poolMax: resolveDatabasePoolMax(process.env),
     listeners: reservedListeners,
   })
   return planned.ok ? planned.plan.requestPool : 1

@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // The declared guidance, split into the two registers
@@ -98,12 +98,12 @@ export const guidanceRowSchema = Schema.Struct({
   kind: guidanceKindSchema,
   index: Schema.Int.annotate({
     description:
-      'This row’s position within its own kind, zero-based — the sequence a reader sees. Published because a config page has neither arithmetic nor a list counter, so a row template printing `01` or stamping an addressable ordinal cannot derive it; and a `components[x].guidance.usage` address carries no number to parse. Where `path` does carry one, the two agree.',
+      'This row’s position within its own kind, zero-based: the sequence a reader sees. Published because a config page has neither arithmetic nor a list counter, so a row template printing `01` or stamping an addressable ordinal cannot derive it; and a `components[x].guidance.usage` address carries no number to parse. Where `path` does carry one, the two agree.',
     examples: [0, 2],
   }),
   ordinal: Schema.String.annotate({
     description:
-      'The literal a page PRINTS beside this row: one-based and zero-padded to two digits. Published rather than derived because a config page has no arithmetic and no string operations — it cannot add one to `index`, and it cannot pad the result. `index` stays for a page that wants the number.',
+      'The literal a page PRINTS beside this row: one-based and zero-padded to two digits. Published rather than derived because a config page has no arithmetic and no string operations: it cannot add one to `index`, and it cannot pad the result. `index` stays for a page that wants the number.',
     examples: ['01', '12'],
   }),
   path: Schema.String.annotate({
@@ -122,7 +122,7 @@ export const guidanceRowSchema = Schema.Struct({
   reason: optionalField(
     Schema.String.annotate({
       description:
-        'Why, when the declared line said. Absent — never empty — when the line was one sentence.',
+        'Why, when the declared line said. Absent, never empty, when the line was one sentence.',
     })
   ),
   pairsWith: optionalField(
@@ -135,7 +135,7 @@ export const guidanceRowSchema = Schema.Struct({
   verdict: optionalField(
     Schema.Literals(['prefer', 'never']).annotate({
       description:
-        'Whether this rule asks for something or forbids it. IMAGERY rows only, where the two are drawn as separate columns and a page has no string test to tell them apart. Absent — never `prefer` by default — on every other kind, because a principle or a colour-role note is neither. The vocabulary is `prefer` / `never` because a page stamps the value VERBATIM into `data-design-imagery-verdict`, and that is what the shipped attribute already carries.',
+        'Whether this rule asks for something or forbids it. IMAGERY rows only, where the two are drawn as separate columns and a page has no string test to tell them apart. Absent, never `prefer` by default, on every other kind, because a principle or a colour-role note is neither. The vocabulary is `prefer` / `never` because a page stamps the value VERBATIM into `data-design-imagery-verdict`, and that is what the shipped attribute already carries.',
     })
   ),
 }).annotate({
@@ -193,7 +193,7 @@ export const guidanceQuerySchema = Schema.Struct({
   label: optionalField(
     Schema.String.annotate({
       description:
-        'Restrict to the sentences about one subject — a component name, a colour role, a tone moment, a zone. Matched exactly against the row’s own `label`. An unknown subject answers zero rows, never 404. Composes with `kind`.',
+        'Restrict to the sentences about one subject: a component name, a colour role, a tone moment, a zone. Matched exactly against the row’s own `label`. An unknown subject answers zero rows, never 404. Composes with `kind`.',
       examples: ['site-header', 'primary'],
     })
   ),

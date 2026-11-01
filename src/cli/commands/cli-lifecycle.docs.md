@@ -1,6 +1,6 @@
 # Lifecycle Commands
 
-> Run and control a server — `start`, `stop`, `restart` and `reload`, which applies an edited config to a running server — plus the lock file that ties the four together and the status file a running instance publishes about itself.
+> Run and control a server with `start`, `stop`, `restart` and `reload` (which applies an edited config to a running server), plus the lock file that ties the four together and the status file a running instance publishes about itself.
 
 `stop`, `restart` and `reload` all find the running process through a **lock file** the server writes at boot, recording its PID, port and config path. That is why none of them needs you to name the config again.
 
@@ -14,7 +14,7 @@ Start the server. This is the default command, so the `start` word is optional w
 
 ```bash
 sovrium start app.yaml          # explicit
-sovrium app.yaml                # implicit — identical
+sovrium app.yaml                # implicit, identical
 sovrium start app.yaml --watch  # reload on config change
 
 PORT=8080 sovrium start app.yaml
@@ -26,13 +26,13 @@ The port comes from `PORT` and defaults to `3000`, and the interface from `SOVRI
 13:19:04 Warning: [server] Port 3000 in use; using an OS-assigned port (see URL below).
 ```
 
-When the port was chosen on purpose — `PORT` set, `SOVRIUM_STRICT_PORT=1`, or running under systemd — a busy port refuses to start instead, exits `1` and changes nothing: a supervised server that quietly moved would leave its proxy pointing at nothing (**Env Vars: Hosting**). Starting while another instance holds the lock is refused too:
+When the port was chosen on purpose (`PORT` set, `SOVRIUM_STRICT_PORT=1`, or running under systemd), a busy port refuses to start instead, exits `1` and changes nothing: a supervised server that quietly moved would leave its proxy pointing at nothing (**Env Vars: Hosting**). Starting while another instance holds the lock is refused too:
 
 ```text
 Error: Server already running (PID: 12345, port: 3000)
 ```
 
-A lock left behind by a crashed process is detected — its PID no longer exists — and removed automatically, so this only blocks you when an instance really is running. An app that moved behind a new canonical origin keeps receiving requests on the old hostname; `SOVRIUM_REDIRECT_HOST` and `SOVRIUM_REDIRECT_HOST_TARGET` turn those into one path- and query-preserving `301`, described in **Env Vars: Core**.
+A lock left behind by a crashed process is detected (its PID no longer exists) and removed automatically, so this only blocks you when an instance really is running. An app that moved behind a new canonical origin keeps receiving requests on the old hostname; `SOVRIUM_REDIRECT_HOST` and `SOVRIUM_REDIRECT_HOST_TARGET` turn those into one path- and query-preserving `301`, described in **Env Vars: Core**.
 
 ## `sovrium stop`
 
@@ -60,7 +60,7 @@ Force it with 'kill -9 12345', then run 'sovrium stop' again to clear the lock.
 
 With no lock file at all it also exits `1`, and says to start one.
 
-On `SIGTERM` — or `Ctrl-C` in the foreground — the server finishes the requests already in flight, force-closes long-lived connections such as server-sent-event streams, and exits, normally in well under a second. `docker stop` and systemd therefore complete without falling back to `SIGKILL`. A second `Ctrl-C` skips the drain and exits immediately: the second signal is an order, not a repeat.
+On `SIGTERM` (or `Ctrl-C` in the foreground), the server finishes the requests already in flight, force-closes long-lived connections such as server-sent-event streams, and exits, normally in well under a second. `docker stop` and systemd therefore complete without falling back to `SIGKILL`. A second `Ctrl-C` skips the drain and exits immediately: the second signal is an order, not a repeat.
 
 ## `sovrium restart`
 
@@ -68,7 +68,7 @@ On `SIGTERM` — or `Ctrl-C` in the foreground — the server finishes the reque
 Usage: sovrium restart [config]
 ```
 
-Stop the running server, then relaunch it detached in the background. The config path is optional — without one, the path recorded in the lock file is reused.
+Stop the running server, then relaunch it detached in the background. The config path is optional: without one, the path recorded in the lock file is reused.
 
 ```bash
 sovrium restart          # same config as the running instance
@@ -77,7 +77,7 @@ sovrium restart app.yaml # swap in a different config
 
 Restart waits for the old process exactly as `stop` does, and **refuses to launch a replacement** if it is still alive after 5 seconds, so you never end up with two servers running side by side. The refusal is the same `did not exit within 5s` message, and the old server keeps running and keeps its lock.
 
-Restart relaunches the same program that is running — the installed binary starts the installed binary, wherever you run the command from — and hands the new server the environment `restart` itself runs in. A `PORT` set there is the port the new server binds; with `PORT` unset it binds a free port, and `restart` prints where it landed. It is a full process replacement, so connections are dropped. Prefer `reload` when the only thing that changed is the configuration.
+Restart relaunches the same program that is running (the installed binary starts the installed binary, wherever you run the command from) and hands the new server the environment `restart` itself runs in. A `PORT` set there is the port the new server binds; with `PORT` unset it binds a free port, and `restart` prints where it landed. It is a full process replacement, so connections are dropped. Prefer `reload` when the only thing that changed is the configuration.
 
 ## `sovrium reload`
 
@@ -85,7 +85,7 @@ Restart relaunches the same program that is running — the installed binary sta
 Usage: sovrium reload [options]
 ```
 
-Apply your edited configuration to a running server — started with or without `--watch` — exactly as `--watch` applies a save, and report what happened. It changes config, not code: a new Sovrium version still needs `restart`, or a redeploy.
+Apply your edited configuration to a running server (started with or without `--watch`) exactly as `--watch` applies a save, and report what happened. It changes config, not code: a new Sovrium version still needs `restart`, or a redeploy.
 
 ```console
 $ sovrium reload
@@ -94,17 +94,17 @@ $ sovrium reload
 Configuration reloaded — the server restarted on port 3000 in 1.4 s (automations changed); open connections were closed.
 ```
 
-The server re-reads the whole configuration — every `$ref` and every imported module — and compares it with the one it is running. **A change to pages, components, theme or copy is swapped in place**: open connections are kept and nothing stops answering, which is the zero-downtime case. **A change to `tables`, `automations`, `auth`, `agents`, `connections`, `env`, `analytics` or `buckets` restarts the server in place**: the new configuration is checked first, while the old one keeps serving; only then is the listener closed and opened again on the same port. Open connections are closed, and a request that arrives during the restart is refused for about as long as a boot takes.
+The server re-reads the whole configuration (every `$ref` and every imported module) and compares it with the one it is running. **A change to pages, components, theme or copy is swapped in place**: open connections are kept and nothing stops answering, which is the zero-downtime case. **A change to `tables`, `automations`, `auth`, `agents`, `connections`, `env`, `analytics` or `buckets` restarts the server in place**: the new configuration is checked first, while the old one keeps serving; only then is the listener closed and opened again on the same port. Open connections are closed, and a request that arrives during the restart is refused for about as long as a boot takes.
 
-`reload` returns once the server has published the outcome in the [status file](#the-status-file), and its message is that outcome. A configuration the server refuses changes nothing — the previous one keeps serving — and `reload` prints `Sovrium refused this configuration — nothing was reloaded.` with each problem and where it is, then exits `1`; the status file reads `rejected` for every other reader too. A restart whose new server cannot boot rolls back to the previous configuration, or says the server is down, and exits `1`. If the server does not confirm within 120 seconds, `reload` says so and exits `1`. `--message` is accepted for compatibility and recorded nowhere: Sovrium keeps no history of configuration versions.
+`reload` returns once the server has published the outcome in the [status file](#the-status-file), and its message is that outcome. A configuration the server refuses changes nothing (the previous one keeps serving), and `reload` prints `Sovrium refused this configuration — nothing was reloaded.` with each problem and where it is, then exits `1`; the status file reads `rejected` for every other reader too. A restart whose new server cannot boot rolls back to the previous configuration, or says the server is down, and exits `1`. If the server does not confirm within 120 seconds, `reload` says so and exits `1`. `--message` is accepted for compatibility and recorded nowhere: Sovrium keeps no history of configuration versions.
 
 ## The status file
 
-Every run writes `status.json` beside the lock file, describing what the instance is doing right now. The lock answers _is something running, and where_; the status file answers the question the lock cannot — **was my last edit taken?** — because a lock is rewritten identically whether a save landed or was thrown away.
+Every run writes `status.json` beside the lock file, describing what the instance is doing right now. The lock answers _is something running, and where_; the status file answers the question the lock cannot, **was my last edit taken?**, because a lock is rewritten identically whether a save landed or was thrown away.
 
 It exists for the readers that are not watching the terminal: a supervising shell or desktop window, a CI step, or the AI that just rewrote the config in another process.
 
-It sits in the same directory as the lock — `SOVRIUM_LOCK_DIR` when set, otherwise `SOVRIUM_DATA_DIR`, and `./.sovrium/` by default — so one variable moves both, and a reader that found one has found the other. Each write is atomic, a temp file then a rename, so a poller never observes a half-written document.
+It sits in the same directory as the lock (`SOVRIUM_LOCK_DIR` when set, otherwise `SOVRIUM_DATA_DIR`, and `./.sovrium/` by default), so one variable moves both, and a reader that found one has found the other. Each write is atomic, a temp file then a rename, so a poller never observes a half-written document.
 
 Just after boot:
 
@@ -120,37 +120,37 @@ Just after boot:
 }
 ```
 
-| Field        | Meaning                                                                                                                                                                              |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `seq`        | A counter incremented on every write. A successful save begins and ends at `serving`, so a poller comparing `state` alone sees no change — `seq` is what tells it something happened |
-| `state`      | `serving`, `rejected` or `down` — see below                                                                                                                                          |
-| `pid`        | The instance's process id, the same value the lock file carries, so a reader can check the process is alive before trusting `port`                                                   |
-| `port`       | The bound port. This is how a shell finds the app again after a restart-class reload rebinds it. Replaced by `socketPath` when the server listens on a Unix socket                   |
-| `configHash` | Exactly the value the server sends as the `X-Sovrium-Config` response header, so a page in a browser and the file on disk can be compared directly                                   |
-| `configPath` | Absolute path of the config root. Empty for an inline `APP_SCHEMA` config, which has no file                                                                                         |
-| `updatedAt`  | ISO 8601 instant of this write                                                                                                                                                       |
-| `lastReload` | Absent until the first save under `--watch` or the first `sovrium reload`; from then on it describes the most recent one                                                             |
+| Field        | Meaning                                                                                                                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `seq`        | A counter incremented on every write. A successful save begins and ends at `serving`, so a poller comparing `state` alone sees no change; `seq` is what tells it something happened |
+| `state`      | `serving`, `rejected` or `down`; see below                                                                                                                                          |
+| `pid`        | The instance's process id, the same value the lock file carries, so a reader can check the process is alive before trusting `port`                                                  |
+| `port`       | The bound port. This is how a shell finds the app again after a restart-class reload rebinds it. Replaced by `socketPath` when the server listens on a Unix socket                  |
+| `configHash` | Exactly the value the server sends as the `X-Sovrium-Config` response header, so a page in a browser and the file on disk can be compared directly                                  |
+| `configPath` | Absolute path of the config root. Empty for an inline `APP_SCHEMA` config, which has no file                                                                                        |
+| `updatedAt`  | ISO 8601 instant of this write                                                                                                                                                      |
+| `lastReload` | Absent until the first save under `--watch` or the first `sovrium reload`; from then on it describes the most recent one                                                            |
 
 ### `state` and `lastReload.outcome` answer different questions
 
-`state` says what the instance is doing **now**; `outcome` says what the last **save** did to it. The refused case is why both are needed: they read `rejected` and `kept` — the save failed, the server is fine and still serving the previous configuration. Nothing else a caller can observe says so, because the last-good server keeps answering `200` with a perfectly good page.
+`state` says what the instance is doing **now**; `outcome` says what the last **save** did to it. The refused case is why both are needed: they read `rejected` and `kept`: the save failed, the server is fine and still serving the previous configuration. Nothing else a caller can observe says so, because the last-good server keeps answering `200` with a perfectly good page.
 
 | `state`    | Meaning                                                                                      |
 | ---------- | -------------------------------------------------------------------------------------------- |
-| `serving`  | Serving, and the last save — if there was one — was applied                                  |
+| `serving`  | Serving, and the last save (if there was one) was applied                                    |
 | `rejected` | Serving, and the last save was refused. The configuration on disk is **not** the one running |
 | `down`     | Nothing is listening: a save failed, and the previous configuration would not boot either    |
 
-`lastReload` carries `at`, the instant the verdict was reached; `kind`, either `hot` or `restart`, absent when the save never got far enough to be classified; `reason`, on a successful restart, the top-level key whose change forced it; `durationMs`; `outcome`; `phase`, one of `load`, `preflight` or `boot`, present on a failure only; and `findings`, in the same shape `sovrium validate --json` publishes. `phase` says where the save stopped, and that decides who has to act: `load` is the config, `boot` is the new server failing after the old one was stopped, and `preflight` is the checks that run **before** anything is stopped — so it always reads `kept`.
+`lastReload` carries `at`, the instant the verdict was reached; `kind`, either `hot` or `restart`, absent when the save never got far enough to be classified; `reason`, on a successful restart, the top-level key whose change forced it; `durationMs`; `outcome`; `phase`, one of `load`, `preflight` or `boot`, present on a failure only; and `findings`, in the same shape `sovrium validate --json` publishes. `phase` says where the save stopped, and that decides who has to act: `load` is the config, `boot` is the new server failing after the old one was stopped, and `preflight` is the checks that run **before** anything is stopped, so it always reads `kept`.
 
 | `outcome`     | What happened to the listener                                                                   |
 | ------------- | ----------------------------------------------------------------------------------------------- |
 | `success`     | The save was applied                                                                            |
-| `kept`        | Nothing was stopped — the previous configuration is still serving                               |
+| `kept`        | Nothing was stopped: the previous configuration is still serving                                |
 | `rolled-back` | The server was stopped, the new configuration would not boot, and the previous one was restored |
 | `down`        | The rollback failed too. Nothing is listening                                                   |
 
-Two things end a save at `preflight`: a change the live database would reject, and a database the checks could not reach at all. The second is a refusal rather than a shrug, because whatever stops a read of the database would also stop the running configuration booting again; the port keeps serving and `findings` names the database error. And **`findings` never carries your config's values** — same shape `sovrium validate --json` publishes, under the same rule: the position, the complaint and the expected shape, plus a rejected value only where it is a name checked against a closed list. This file sits on disk for the life of the instance, in a directory `SOVRIUM_LOCK_DIR` may point anywhere, so a mistyped `env:` block leaves no credential there — the terminal still prints the value.
+Two things end a save at `preflight`: a change the live database would reject, and a database the checks could not reach at all. The second is a refusal rather than a shrug, because whatever stops a read of the database would also stop the running configuration booting again; the port keeps serving and `findings` names the database error. And **`findings` never carries your config's values**. It has the same shape `sovrium validate --json` publishes, under the same rule: the position, the complaint and the expected shape, plus a rejected value only where it is a name checked against a closed list. This file sits on disk for the life of the instance, in a directory `SOVRIUM_LOCK_DIR` may point anywhere, so a mistyped `env:` block leaves no credential there. The terminal still prints the value.
 
 A refused save, seen through the file. The server is still up on the same port, `configHash` still names the configuration that is actually running, and `findings` says what to fix:
 
@@ -181,19 +181,19 @@ A refused save, seen through the file. The server is still up on the same port, 
 
 ### It is removed on shutdown
 
-A clean stop unlinks the status file along with the lock, rather than leaving behind a record saying `stopped`. If the status file outlived the lock there would be a moment in which the lock says "no instance" and the status says `serving` — and a reader believes whichever was written last. An absent file is unambiguous and cannot go stale. To tell a clean stop from a crash, check whether `pid` is still alive, which a supervisor does anyway before trusting `port`.
+A clean stop unlinks the status file along with the lock, rather than leaving behind a record saying `stopped`. If the status file outlived the lock there would be a moment in which the lock says "no instance" and the status says `serving`, and a reader believes whichever was written last. An absent file is unambiguous and cannot go stale. To tell a clean stop from a crash, check whether `pid` is still alive, which a supervisor does anyway before trusting `port`.
 
 The write is best-effort by design. A read-only lock directory or a full disk costs you a warning in the log and nothing else: an instance that refused to serve because it could not describe itself would be strictly worse than one with no status file at all.
 
 ### What the browser shows when a save is refused under `--watch`
 
-A refused save changes nothing the page can observe — the previous version keeps serving, so it keeps rendering correctly. Under `--watch`, the dev server therefore pushes the refusal to every open tab over the live-reload connection the page already holds, and an overlay appears along the bottom of the window:
+A refused save changes nothing the page can observe: the previous version keeps serving, so it keeps rendering correctly. When the refusal is a `$ref` naming a file that does not exist yet, that file is watched from then on and the refusal says it reloads once it exists: creating it is the next save, with nothing else to touch. Under `--watch`, the dev server therefore pushes the refusal to every open tab over the live-reload connection the page already holds, and an overlay appears along the bottom of the window:
 
 ```text
 Sovrium refused this save. The previous version is still running.
 ```
 
-Under that headline, one block per finding: the message, the `path` it occurred at, the `sourceFile` when the config is split across `$ref` files, and the accepted values **in full**. Those are the things that let you — or the AI that made the edit — write the next one correctly.
+Under that headline, one block per finding: the message, the `path` it occurred at, the `sourceFile` when the config is split across `$ref` files, and the accepted values **in full**. Those are the things that let you (or the AI that made the edit) write the next one correctly.
 
 The overlay sits _over_ the running app rather than replacing it, because the app really is still running and still usable. There is no dismiss button: the next accepted save reloads the page, which clears it. Like the rest of live reload it exists in development only, so a production server serves neither the endpoint nor the script, and a `sovrium build` output contains neither.
 

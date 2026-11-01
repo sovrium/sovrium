@@ -118,7 +118,7 @@ export const records = defineSection({
       slug: 'records-filtering-sorting',
       title: 'Filtering, Sorting and Pagination',
       description:
-        'The list query grammar — every parameter the endpoint reads, the three that behave unlike their neighbours, and the two mistakes that return a wrong answer instead of an error.',
+        'The list query grammar: every parameter the endpoint reads, the three that behave unlike the rest, and two mistakes that return a wrong answer, not an error.',
       keywords: [
         'sovrium',
         'filter',
@@ -243,7 +243,7 @@ export const records = defineSection({
       slug: 'records-realtime',
       title: 'Real-Time Subscriptions',
       description:
-        'How a data-bound view stays current without a reload — the three refresh strategies, the endpoints behind them, and the message contract a programmatic client reads.',
+        'How a data-bound view stays current without a reload: the three refresh strategies, the endpoints behind them, and the messages a programmatic client reads.',
       keywords: [
         'sovrium',
         'realtime',
@@ -273,7 +273,7 @@ export const records = defineSection({
       slug: 'records-import-export',
       title: 'Records Import and Export',
       description:
-        'Moving bulk data in and out of a table three ways — a CSV wizard in the grid, an export endpoint, and spreadsheet clipboard — all of them ordinary record writes underneath.',
+        'Move bulk data in and out of a table three ways, a CSV wizard in the grid, an export endpoint and the spreadsheet clipboard, all ordinary record writes.',
       keywords: [
         'sovrium',
         'CSV import',
@@ -293,7 +293,7 @@ export const records = defineSection({
       slug: 'runtime-customization',
       title: 'Runtime Data Customization',
       description:
-        'What a reader can change about what she sees for the length of a visit, without a developer changing the config, and the boundary that stops it from widening access.',
+        'What a reader can change about what she sees for one visit, without a config change, and the boundary that stops it from widening her access.',
       keywords: ['sovrium', 'runtime filters', 'runtime sort', 'search', 'toolbar', 'export'],
       order: 2480,
       sidebarLabel: 'Runtime Customization',

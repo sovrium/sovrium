@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useEffect, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import {
   normalizeSidebarPath,
   sidebarEntryMatches,
@@ -68,6 +68,12 @@ export function useFetchedSidebarCurrent(
   const [address, setAddress] = useState<string | undefined>(undefined)
   const [current, setCurrent] = useState<string | undefined>(undefined)
 
+  // The authored entries this hook took the mark from. A sidebar swapped in with
+  // the content mounts before the address bar names its page, so its first pass
+  // may take the mark from the very entry the destination marked; the pass the
+  // navigation signal then runs gives it back.
+  const taken = useRef(new Set<HTMLAnchorElement>())
+
   useEffect(() => subscribeSidebarNavigation(() => setAddress(currentSidebarAddress())), [])
 
   useEffect(() => {
@@ -76,25 +82,31 @@ export function useFetchedSidebarCurrent(
     const live = address ?? currentSidebarAddress()
     const mine = longestMatch(entries, activeMatch, live)
     const authored = authoredEntries(element)
+    const matching = authored.filter((anchor) =>
+      sidebarEntryMatches(
+        anchor.getAttribute('href') ?? '',
+        anchor.getAttribute('data-active-match'),
+        live
+      )
+    )
     const authoredBest = Math.max(
       0,
-      ...authored
-        .filter((anchor) =>
-          sidebarEntryMatches(
-            anchor.getAttribute('href') ?? '',
-            anchor.getAttribute('data-active-match'),
-            live
-          )
-        )
-        .map((anchor) => specificity(anchor.getAttribute('href') ?? ''))
+      ...matching.map((anchor) => specificity(anchor.getAttribute('href') ?? ''))
     )
     if (mine === undefined || specificity(mine.href) <= authoredBest) {
+      matching.forEach((anchor) => {
+        if (taken.current.has(anchor)) setSidebarEntryMark(anchor, true)
+      })
+      taken.current.clear()
       setCurrent(undefined)
       return
     }
     authored
       .filter((anchor) => anchor.getAttribute('aria-current') === 'page')
-      .forEach((anchor) => setSidebarEntryMark(anchor, false))
+      .forEach((anchor) => {
+        taken.current.add(anchor)
+        setSidebarEntryMark(anchor, false)
+      })
     setCurrent(mine.href)
   }, [entries, activeMatch, address, host])
 

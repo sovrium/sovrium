@@ -30,13 +30,14 @@
  * A view that declares a grant is checked on it, not on the table's read —
  * that is what lets a public view serve a visitor from a private table. A view
  * that declares none inherits its table's read, the records route's own gate.
- * The route folds the table's row-level read rule into the query; a public
- * view on a table that declares one is refused when the config loads.
+ * The route folds the table's row-level read rule into the query, for a
+ * visitor on a public view as for a signed-in reader.
  */
 
 import { Effect } from 'effect'
 import { ForbiddenError } from '@/domain/errors'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { findTableByIdOrName } from '@/domain/models/app/tables/table-lookup-service'
 import {
   findViewByKey,
   mergeViewFilter,
@@ -122,6 +123,9 @@ const andFilters = (
   right: QueryFilter | undefined
 ): QueryFilter => ({ and: [...(left?.and ?? []), ...(right?.and ?? [])] })
 
+/** A reader who may read no row of the table is answered as if it did not exist. */
+const failTableNotFound = () => Effect.fail(new TableNotFoundError({ message: 'Table not found' }))
+
 /**
  * A ratio's two counts over every row the view returns, read by the aggregate
  * read's own counting (reader rows and related-text rules included); nothing
@@ -152,7 +156,7 @@ const readViewRatio = (
   }).pipe(
     Effect.map(({ ratio }) => (ratio === undefined ? {} : { ratio })),
     // A reader who may read no row of the table is answered as if it did not exist.
-    Effect.catchTag('NotFoundError', () => Effect.fail(new TableNotFoundError('Table not found'))),
+    Effect.catchTag('NotFoundError', failTableNotFound),
     Effect.withSpan('tables.read-view-ratio')
   )
 }
@@ -166,13 +170,11 @@ export function getViewRecordsProgram(config: ViewRecordsConfig): Effect.Effect<
 > {
   return Effect.gen(function* () {
     const { tableId, viewId, app, userRole, session } = config
-    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
-    if (!table) return yield* Effect.fail(new TableNotFoundError('Table not found'))
+    const table = findTableByIdOrName(app.tables, tableId)
+    if (!table) return yield* new TableNotFoundError({ message: 'Table not found' })
 
     const view = findViewByKey(table.views, viewId)
-    if (!view) {
-      return yield* Effect.fail(new TableNotFoundError('View not found'))
-    }
+    if (!view) return yield* new TableNotFoundError({ message: 'View not found' })
 
     if (!viewReadAdmits(app, table, view, callerOf(config))) {
       return yield* Effect.fail(
@@ -205,7 +207,7 @@ export function getViewRecordsProgram(config: ViewRecordsConfig): Effect.Effect<
       language: query.language,
     }).pipe(
       // A reader who may read no row of the table is answered as if it did not exist.
-      Effect.catchTag('NotFoundError', () => Effect.fail(new TableNotFoundError('Table not found')))
+      Effect.catchTag('NotFoundError', failTableNotFound)
     )
 
     const ratio = yield* readViewRatio(config, { tableName: table.name, filter })

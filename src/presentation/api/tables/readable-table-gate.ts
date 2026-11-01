@@ -13,7 +13,7 @@ import {
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { resolveGuardForTable } from './row-level-guard'
+import { guardForTable } from './row-level-guard'
 import { checkListReadGate } from './row-level-read-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
@@ -25,11 +25,11 @@ import type { Context, Next } from 'hono'
  * permissions and its views) and answer its read gate themselves.
  */
 export const refuseTableWithNoReaderRow =
-  (resolveApp: () => App) =>
+  (app: App) =>
   async (c: Context, next: Next): Promise<Response | void> => {
     const { session, tableName, userRole, userGroups } = getTableContext(c)
     const reader = { session, role: userRole, groups: userGroups }
-    const { admission } = await runDomainPromise(c, readerRowsOf(resolveApp(), tableName, reader))
+    const { admission } = await runDomainPromise(c, readerRowsOf(app, tableName, reader))
     if (admission.kind === 'no-row') return notFound(c)
     return next()
   }
@@ -43,16 +43,15 @@ export const refuseTableWithNoReaderRow =
  * may read passes on to the route, which asks both again for its answer.
  */
 export const refuseUnreadableTable =
-  (resolveApp: () => App) =>
+  (app: App) =>
   async (c: Context, next: Next): Promise<Response | void> => {
-    const app = resolveApp()
     const { session, tableName, userRole, userGroups } = getTableContext(c)
     const table = app.tables?.find((candidate) => candidate.name === tableName)
     const caller = { userRole, userGroups }
-    const guard = await resolveGuardForTable(c, session, caller, { table, app })
+    const guard = await runDomainPromise(c, guardForTable(session, caller, table, app))
     const gateError = checkListReadGate({ c, app, table, userRole, userGroups, guard })
     if (gateError) return gateError
-    return refuseTableWithNoReaderRow(resolveApp)(c, next)
+    return refuseTableWithNoReaderRow(app)(c, next)
   }
 
 /**

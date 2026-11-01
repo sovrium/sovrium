@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { componentField } from '@/presentation/render/resolve/component-rewrite'
 import { callerTableOf, updatableFieldsOf } from './caller-table-inputs'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -20,7 +21,8 @@ import type { Component } from '@/domain/models/app/pages/components'
  */
 export function timelineResizeFields(component: Component): readonly string[] | undefined {
   const props = (component.props ?? {}) as Readonly<Record<string, unknown>>
-  const binding = component.dataSource as { readonly table?: unknown } | undefined
+  const binding = componentField(component, 'dataSource') as
+    { readonly table?: unknown } | undefined
   if (props['resizable'] !== true || typeof binding?.table !== 'string') return undefined
   const dates = [props['startField'], props['endField']].filter(
     (field): field is string => typeof field === 'string' && field !== ''

@@ -5,15 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Context, Effect, Layer } from 'effect'
-import { Client } from 'pg'
-import { pinPostgresSslMode } from '@/domain/kernel/sql/postgres-ssl-mode'
+import { Context, Effect, Layer, type Scope } from 'effect'
+import { ProcessEnv, type ProcessEnvShape } from '@/application/ports/services/process-env'
 import { escapeSqlString, quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { filterAgentKnowledgeTables } from '@/domain/models/app/agents/rag-knowledge-access'
 import { partitionFieldsByReaders } from '@/domain/models/app/tables/field-readability-partition-service'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { runSyncDocumentsAtStartup } from '@/infrastructure/ai/document-sync'
+import { ragSyncLayerOver, type RagSyncServices } from '@/infrastructure/ai/embed-pipeline'
 import {
   buildKnowledgeBindings,
   embedKnowledgeRecord,
@@ -21,7 +21,13 @@ import {
   runSyncKnowledgeAtStartup,
 } from '@/infrastructure/ai/knowledge-sync'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
-import { isSqliteRuntime } from './unsupported-in-sqlite'
+import { Database, type DatabaseService } from './drizzle/layer'
+import {
+  makePgNotifyListenerLayer,
+  type PgNotifyListenerDriver,
+  type PgNotifyListenerStatus,
+  type PgNotifySubscription,
+} from './pg-notify-listener'
 import type { App } from '@/domain/models/app'
 import type { RagAgent } from '@/infrastructure/ai/rag-agent-input'
 
@@ -105,16 +111,8 @@ const buildTriggerSql = (table: string): readonly string[] => {
  */
 export class AiKnowledgeListener extends Context.Service<
   AiKnowledgeListener,
-  AiKnowledgeListenerStatus
+  PgNotifyListenerStatus
 >()('AiKnowledgeListener') {}
-
-/** What a built listener layer reports about itself. */
-export interface AiKnowledgeListenerStatus {
-  /** `true` only when a `pg` connection is open and `LISTEN` succeeded. */
-  readonly listening: boolean
-}
-
-const INERT: AiKnowledgeListenerStatus = { listening: false }
 
 /**
  * This app's RAG agents, with knowledge tables filtered by role and each
@@ -139,87 +137,13 @@ export const filterRagKnowledgeByRole = (app: App): ReadonlyArray<RagAgent> =>
   })
 
 /**
- * Open the connection, install the per-table triggers, and subscribe — or
- * resolve `undefined`.
- *
- * Never rejects: a knowledge listener that cannot connect means records stop
- * auto-embedding, not that the server fails to boot. Because this is the
- * acquire half of an `Effect.acquireRelease`, a rejection here would take the
- * whole layer build — and therefore the boot — down with it.
+ * The `pg` boundary, injectable so the acquire/release contract can be unit
+ * tested without `mock.module`. Nothing in production passes a driver.
  */
-const connect = async (
-  databaseUrl: string,
-  bindings: ReadonlyArray<KnowledgeTableBinding>,
-  handle: (raw: string) => void
-): Promise<Client | undefined> => {
-  const client = new Client({ connectionString: pinPostgresSslMode(databaseUrl) })
-  try {
-    await client.connect()
-
-    // Install AFTER-change triggers on every knowledge table.
-    //
-    // Every statement runs sequentially on the one connection. A pg `Client` is
-    // a single connection, NOT a pool: overlapping `query()` calls are silently
-    // queued in pg@8 (with a deprecation warning) and rejected outright in pg@9.
-    // Fanning the tables out concurrently therefore only ever looked parallel —
-    // the driver serialised them anyway — while putting the code on a path that
-    // breaks at the next major bump.
-    //
-    // `flatMap` preserves each table's own function → drop → create ordering,
-    // which is the ordering that actually matters.
-    await [...new Set(bindings.map((binding) => binding.table))]
-      .flatMap((table) => buildTriggerSql(table))
-      .reduce(
-        (chain, stmt) =>
-          chain.then(() =>
-            client.query(stmt).then(
-              () => undefined,
-              () => undefined
-            )
-          ),
-        Promise.resolve()
-      )
-
-    client.on('notification', (msg) => {
-      if (msg.channel !== CHANNEL || !msg.payload) return
-      handle(msg.payload)
-    })
-    client.on('error', () => {
-      // Recoverable on next restart — never crash on connection error.
-    })
-    await client.query(`LISTEN ${CHANNEL}`)
-    return client
-  } catch (error: unknown) {
-    logError('[ai-knowledge] listener failed to start', error)
-    await client.end().catch(() => undefined)
-    return undefined
-  }
-}
-
-/** `UNLISTEN` then close. Best-effort on both, and never rejects. */
-const disconnect = async (client: Client): Promise<void> => {
-  await client.query(`UNLISTEN ${CHANNEL}`).catch(() => undefined)
-  await client.end().catch(() => undefined)
-}
-
-/**
- * The `pg` boundary as one injectable pair — see the sibling in
- * `ai-compute-listener.ts` for why this is a parameter rather than a direct
- * call: it lets the acquire/release contract be unit-tested without
- * `mock.module`. Nothing in production passes anything but {@link liveDriver}.
- */
-export interface AiKnowledgeListenerDriver {
-  readonly open: (
-    databaseUrl: string,
-    bindings: ReadonlyArray<KnowledgeTableBinding>,
-    handle: (raw: string) => void
-  ) => Promise<Client | undefined>
-  readonly close: (client: Client) => Promise<void>
-}
-
-const liveDriver: AiKnowledgeListenerDriver = { open: connect, close: disconnect }
+export type AiKnowledgeListenerDriver = PgNotifyListenerDriver
 
 const handlePayload = async (
+  rag: RagSyncServices,
   bindings: ReadonlyArray<KnowledgeTableBinding>,
   raw: string
 ): Promise<void> => {
@@ -235,8 +159,8 @@ const handlePayload = async (
   //. Each element is
   // an AI-provider round trip plus an embedding write, and this is a
   // best-effort background embed nobody is waiting on, so a width of 1 costs
-  // latency that has no observer. Same `reduce` chain as the trigger DDL above,
-  // and for the same reason.
+  // latency that has no observer. Same `reduce` chain as the setup statements in
+  // `pg-notify-listener.ts`, and for the same reason.
   await matched.reduce(
     (chain, binding) =>
       chain.then(() =>
@@ -245,6 +169,7 @@ const handlePayload = async (
               agentName: binding.agentName,
               table: binding.table,
               recordId: payload.id,
+              rag,
             }).catch(() => undefined)
           : // INSERT or UPDATE — (re)embed the record.
             embedKnowledgeRecord({
@@ -254,6 +179,7 @@ const handlePayload = async (
               fieldGroups: binding.fieldGroups,
               filter: binding.filter,
               recordId: payload.id,
+              rag,
             }).catch(() => undefined)
       ),
     Promise.resolve<unknown>(undefined)
@@ -269,44 +195,66 @@ const handlePayload = async (
  *
  * `app` is optional so the layer is nameable from a runtime built without a
  * config (`createDomainRuntime(undefined)`): with no app there are no bindings
- * and the layer resolves inert.
+ * and the layer resolves inert. The embeddings go through the `Database` of the
+ * runtime holding the listener.
  */
 export const makeAiKnowledgeListenerLayer = (
   app: App | undefined,
-  driver: AiKnowledgeListenerDriver = liveDriver
-): Layer.Layer<AiKnowledgeListener> =>
-  Layer.effect(
-    AiKnowledgeListener,
-    Effect.gen(function* () {
-      if (app === undefined) return INERT
-      // SQLite has no PL/pgSQL triggers, `pg_notify`, or `LISTEN` — the
-      // auto-embed knowledge listener is a PostgreSQL-only feature (RAG search
-      // itself degrades to 501 requires-postgres).
-      const dialect = parseDatabaseDialectConfig()
-      if (dialect.dialect !== 'postgres' || !dialect.databaseUrl) {
-        logDebug('[ai-knowledge] listener disabled — requires PostgreSQL (SQLite runtime)')
-        return INERT
-      }
-      const bindings = buildKnowledgeBindings(filterRagKnowledgeByRole(app))
-      if (bindings.length === 0) return INERT
+  driver?: AiKnowledgeListenerDriver
+): Layer.Layer<AiKnowledgeListener, never, Database> =>
+  makePgNotifyListenerLayer(AiKnowledgeListener, {
+    channel: CHANNEL,
+    label: '[ai-knowledge]',
+    shouldListen: knowledgeSubscriptionOf(app),
+    onOpenFailure: (error) => logError('[ai-knowledge] listener failed to start', error),
+    ...(driver === undefined ? {} : { driver }),
+  })
 
-      const { databaseUrl } = dialect
-      const client = yield* Effect.acquireRelease(
-        // effect-promise: total -- `connect` catches its own rejections and resolves `undefined`; see its doc comment.
-        Effect.promise(() =>
-          driver.open(databaseUrl, bindings, (raw) => {
-            void handlePayload(bindings, raw).catch((error: unknown) => {
-              logError('[ai-knowledge] payload handler error', error)
-            })
-          })
+/**
+ * Does this app have any reason to listen? A PostgreSQL database and at least
+ * one agent bound to a knowledge table. The setup installs an AFTER-change
+ * trigger on every bound table, once each, in each table's own
+ * function → drop → create order.
+ */
+const knowledgeSubscriptionOf = (
+  app: App | undefined
+): Effect.Effect<PgNotifySubscription | undefined, never, Scope.Scope | Database> =>
+  Effect.flatMap(ProcessEnv, (env) => {
+    const bindings = knowledgeBindingsOf(app, env)
+    if (bindings === undefined) return Effect.undefined
+    // The RAG services, built ONCE for the listener's lifetime: each record
+    // the listener re-embeds is provided with them rather than rebuilding them.
+    return Effect.flatMap(Database, (database) => Layer.build(ragSyncLayerOver(database))).pipe(
+      Effect.map((rag): PgNotifySubscription => ({
+        databaseUrl: bindings.databaseUrl,
+        setupSql: [...new Set(bindings.bindings.map((binding) => binding.table))].flatMap((table) =>
+          buildTriggerSql(table)
         ),
-        // effect-promise: total -- `disconnect` swallows both cleanup rejections.
-        (open) => (open === undefined ? Effect.void : Effect.promise(() => driver.close(open)))
-      )
+        onPayload: (raw) => handlePayload(rag, bindings.bindings, raw),
+      }))
+    )
+  })
 
-      return client === undefined ? INERT : { listening: true }
-    })
-  )
+/** The bound knowledge tables and the database they live in, when the listener has any. */
+const knowledgeBindingsOf = (
+  app: App | undefined,
+  env: ProcessEnvShape
+):
+  | { readonly databaseUrl: string; readonly bindings: ReadonlyArray<KnowledgeTableBinding> }
+  | undefined => {
+  if (app === undefined) return undefined
+  // SQLite has no PL/pgSQL triggers, `pg_notify`, or `LISTEN` — the
+  // auto-embed knowledge listener is a PostgreSQL-only feature (RAG search
+  // itself degrades to 501 requires-postgres).
+  const dialect = parseDatabaseDialectConfig(env)
+  if (dialect.dialect !== 'postgres' || !dialect.databaseUrl) {
+    logDebug('[ai-knowledge] listener disabled — requires PostgreSQL (SQLite runtime)')
+    return undefined
+  }
+  const bindings = buildKnowledgeBindings(filterRagKnowledgeByRole(app))
+  if (bindings.length === 0) return undefined
+  return { databaseUrl: dialect.databaseUrl, bindings }
+}
 
 /**
  * Combined RAG startup runner — embeds the document knowledge in
@@ -327,7 +275,7 @@ export const makeAiKnowledgeListenerLayer = (
  *
  * `runSyncDocumentsAtStartup` is NOT one of them. It reads files from
  * `AI_KNOWLEDGE_DIR`, chunks them, embeds via the eco-routed `AiService`, and
- * persists through `RagSyncLayer` — which provides the dialect-gated
+ * persists through `ragSyncLayerOver` — which provides the dialect-gated
  * `AiEmbeddingRepositoryActive`, whose SQLite arm is pinned by
  * `[internal ref]`. Skipping it too left the shipped default
  * engine with an agent that retrieves from an index nothing ever wrote, and
@@ -335,16 +283,17 @@ export const makeAiKnowledgeListenerLayer = (
  * only ever true of the Postgres arm of a repository that has two.
  */
 export const runRagKnowledgeStartup = async (
+  database: DatabaseService,
   agents: ReadonlyArray<RagAgent> | undefined
 ): Promise<void> => {
-  await runSyncDocumentsAtStartup()
-  if (isSqliteRuntime()) {
+  await runSyncDocumentsAtStartup(database)
+  if (database.dialect.kind === 'sqlite') {
     logDebug(
       '[ai-rag] table-knowledge sync and change listener disabled — require PostgreSQL (SQLite runtime); document knowledge still embedded'
     )
     return
   }
-  await runSyncKnowledgeAtStartup({ agents })
+  await runSyncKnowledgeAtStartup({ agents, database })
 }
 
 const parsePayload = (raw: string): KnowledgePayload | undefined => {

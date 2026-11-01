@@ -10,8 +10,9 @@ import {
   EmailDeliverabilityRepository,
   type EmailSuppressionReason,
 } from '@/application/ports/repositories/automations/email-deliverability-repository'
+import { emailSuppressRunIssue } from '@/domain/models/app/automations/trigger/email-suppress-trigger-validation'
 import { actionAttributes, stringProp } from './shared'
-import type { ActionHandler } from './shared'
+import type { ActionHandler, ActionRunContext } from './shared'
 
 /** One address, nothing else: no list, no display name, no spaces. */
 const SINGLE_ADDRESS = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/
@@ -25,15 +26,30 @@ const ledgerFailure = (operation: string) => () =>
     error: `${operation} could not reach the suppression list`,
   })
 
+/** The trigger entry the run loop recorded as having started this run, if any. */
+const startedByOf = (
+  runContext: ActionRunContext | undefined
+): { readonly type: string; readonly name: string } | undefined => {
+  const startedBy = runContext?.triggerData['startedBy']
+  if (startedBy === null || typeof startedBy !== 'object') return undefined
+  const { type, name } = startedBy as { readonly type?: unknown; readonly name?: unknown }
+  return typeof type === 'string' && typeof name === 'string' ? { type, name } : undefined
+}
+
 /**
  * `email/suppress` — add an address to the suppression list, for one category
  * or (without `category`) every one. A `messageId` naming a message a bulk
  * send sent counts the bounce or complaint under its campaign. Only a signed
- * webhook may run it (`validate` refuses it behind an unsigned webhook or a
- * form).
+ * webhook may run it: `validate` refuses it behind an unsigned webhook or a
+ * form, and the step refuses itself the same way when such a trigger started
+ * the run, so a config that skipped validation cannot open it to a stranger.
  */
-export const handleEmailSuppress: ActionHandler = (action) =>
+export const handleEmailSuppress: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
+    const refused = emailSuppressRunIssue(app, automation.name, startedByOf(runContext))
+    if (refused !== undefined) {
+      return { status: 'failure', error: `email.suppress ${refused}` } as const
+    }
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const address = stringProp(props, 'address').trim()
     if (!SINGLE_ADDRESS.test(address)) {

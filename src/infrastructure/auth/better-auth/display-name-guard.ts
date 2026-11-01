@@ -39,6 +39,14 @@ const NAME_LOCATIONS: ReadonlyMap<string, readonly ('body' | 'data')[]> = new Ma
   ['/admin/update-user', ['data']],
 ])
 
+/**
+ * Whether this guard already cleaned the name a request on `path` carries.
+ * The creation guard (`account-creation-guard.ts`) skips those paths: the
+ * stripper decodes entities, so a second pass would remove as markup a `<b>`
+ * the person typed as text.
+ */
+export const stripsNameOn = (path: string): boolean => NAME_LOCATIONS.has(path)
+
 /** The object the name lives on — mutable, because the guard rewrites it in place. */
 type NameHolder = { name?: unknown }
 

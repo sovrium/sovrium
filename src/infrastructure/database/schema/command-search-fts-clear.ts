@@ -13,7 +13,6 @@
 
 import { Data, Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { logWarning } from '@/infrastructure/logging/logger'
 import { PG_FTS_INDEX_PREFIX_LIKE, SQLITE_FTS_PREFIX_LIKE } from './command-search-fts-ddl'
 import type { TransactionLike } from '../sql/sql-execution'
@@ -115,8 +114,7 @@ const clearSqlite = async (tx: TransactionLike): Promise<void> => {
  */
 export const dropCommandSearchFtsObjects = (tx: TransactionLike): Effect.Effect<void, never> =>
   Effect.tryPromise({
-    try: () =>
-      parseDatabaseDialectConfig().dialect === 'sqlite' ? clearSqlite(tx) : clearPostgres(tx),
+    try: () => (tx.dialect === 'sqlite' ? clearSqlite(tx) : clearPostgres(tx)),
     catch: (cause) => new CommandSearchFtsClearError({ cause }),
   }).pipe(
     Effect.catch((error) =>

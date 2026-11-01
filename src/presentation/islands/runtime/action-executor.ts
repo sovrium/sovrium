@@ -73,6 +73,7 @@ import {
   settleErrorStatus,
 } from './fetch-action-effects'
 import { substituteRecord } from './fetch-action-substitution'
+import { followAddress } from './follow-address'
 import { exitOutcome, type SuccessExit } from './success-exit'
 import type { FetchActionResult, ExecuteFetchActionOptions } from './fetch-action-effects'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
@@ -187,8 +188,9 @@ function readRedirectDestination(
  * distinct from `navigate` (which drives the browser STRAIGHT to a static
  * `url`). The client credentialed-fetches the authorize `url` (a server
  * endpoint that returns the provider consent URL as DATA in its JSON body),
- * reads that URL from the body at `redirectKey` (default `url`), then
- * `window.location.assign`es it so the provider's consent flow begins. The
+ * reads that URL from the body at `redirectKey` (default `url`), then follows
+ * it (`followAddress`, the safe-web-address check) so the provider's consent
+ * flow begins. The
  * action's `callbackPath` is the provider's registered redirect_uri (config
  * metadata only — no client navigation of its own). The url's `$record.<field>`
  * references are resolved against the injected row record exactly as every other
@@ -207,11 +209,12 @@ async function performOauth(
     const res = await fetch(url, buildRequestInit(action, options.record))
     const body = await res.json().catch(emptyBody)
     if (!res.ok) return { ok: false, status: res.status, body }
+    // The consent address is read off a response body, so it is followed only
+    // when it is a safe web address (an external `https` provider page is
+    // legitimate here); a refused one fails the action instead.
     const destination = readRedirectDestination(body, action.redirectKey)
-    if (destination !== undefined && typeof window !== 'undefined') {
-      window.location.assign(destination)
-    }
-    return { ok: destination !== undefined, status: res.status, body }
+    const followed = destination !== undefined && followAddress(destination)
+    return { ok: followed, status: res.status, body }
   } catch {
     return { ok: false, status: 0, body: undefined }
   }

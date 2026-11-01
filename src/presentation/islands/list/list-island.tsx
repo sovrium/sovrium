@@ -18,10 +18,11 @@ import { hasDataBinding } from '../runtime/data-binding'
 import { resolvePageLocale } from '../runtime/page-locale'
 import { ListContinuation } from './list-continuation'
 import { useListRowClick } from './list-row-click'
-import { ListError, ListLoading, ListMissing, type ListStrings } from './list-status'
+import { ListFailure, ListLoading, ListMissing } from './list-skeleton'
 import { useListRecords, type ListRecordsDataSource } from './use-list-records'
 import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
 import type { RecordGroupBy } from '../parts/grouped-records'
+import type { ViewStrings } from '../parts/view-states'
 import type { ReactElement } from 'react'
 
 interface ListIslandProps extends ListRowInputs {
@@ -73,7 +74,7 @@ const GroupedRecords = lazy(() => import('../parts/grouped-records'))
 
 /** A fetched record with the text its formatted fields print, in the page's language. */
 const withText = (record: Record<string, unknown>, inputs: ListRowInputs) =>
-  withRecordTextFields(record, inputs.recordText, resolvePageLocale())
+  withRecordTextFields(record, inputs.recordText, resolvePageLocale(), new Date())
 
 /**
  * The list's rows, or its empty message. One handler on the list answers a
@@ -144,7 +145,7 @@ function renderListStatus(input: {
   readonly isError: boolean
   readonly error: unknown
   readonly onRetry: () => void
-  readonly strings: ListStrings
+  readonly strings: ViewStrings
   readonly hideWhenEmpty: boolean | undefined
   readonly drawnCount: number
 }): ReactElement | null | undefined {
@@ -154,7 +155,7 @@ function renderListStatus(input: {
   if (input.isLoading) return <ListLoading strings={input.strings} />
   if (!input.isError) return undefined
   return (
-    <ListError
+    <ListFailure
       error={input.error}
       onRetry={input.onRetry}
       strings={input.strings}

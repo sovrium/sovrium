@@ -58,15 +58,20 @@
  * `degraded: true`.
  */
 
-import { Cause, Effect, Semaphore } from 'effect'
+import { Cause, Effect } from 'effect'
 import { AdminFormsRepository } from '@/application/ports/repositories/forms/admin-forms-repository'
 import { TablesOverviewRepository } from '@/application/ports/repositories/tables/tables-overview-repository'
+import { ProcessEnv, type ProcessEnvShape } from '@/application/ports/services/process-env'
 import { StorageService } from '@/application/ports/services/storage-service'
-import { BuildAutomationsOverview } from '@/application/use-cases/admin/automations-overview'
-import { BuildConnectionsList } from '@/application/use-cases/admin/connections'
+import { buildAutomationsOverview } from '@/application/use-cases/admin/automations-overview'
+import { buildConnectionsList } from '@/application/use-cases/admin/connections'
 import { withBlockTimeout } from '@/application/use-cases/admin/overview-block-timeout'
+import {
+  overviewBlockTimeoutMs,
+  overviewSemaphoreOf,
+} from '@/application/use-cases/admin/overview-budget'
 import { sumSubmissionCounts } from '@/application/use-cases/admin/overview-projections'
-import { BuildUsersOverview } from '@/application/use-cases/admin/users-overview'
+import { buildUsersOverview } from '@/application/use-cases/admin/users-overview'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { Logger } from '@/infrastructure/logging/logger'
 import type { AdminAutomationsRepository } from '@/application/ports/repositories/automations/admin-automations-repository'
@@ -176,51 +181,6 @@ const logBlockFailure =
     })
 
 /**
- * Per-block latency budget (milliseconds). Each of the six domain blocks is
- * wrapped in `withBlockTimeout(..., BLOCK_TIMEOUT_MS)`, so a slow-in-production
- * source degrades to its zero block instead of pushing the concurrent roll-up
- * past the Hono `API_TIMEOUT_MS` (30s) ceiling. The blocks run concurrently, so
- * 8s is comfortably under the outer ceiling while still letting a genuinely
- * slow-but-reachable source answer.
- *
- * Operator-overridable via the `ADMIN_OVERVIEW_BLOCK_TIMEOUT_MS` env var (a
- * deployment/latency concern, so an env var — never the app schema). A missing
- * or non-positive value falls back to the default.
- */
-const DEFAULT_BLOCK_TIMEOUT_MS = 8000
-const parseBlockTimeoutMs = (raw: string | undefined): number => {
-  const parsed = raw === undefined ? Number.NaN : Number(raw)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_BLOCK_TIMEOUT_MS
-}
-const BLOCK_TIMEOUT_MS = parseBlockTimeoutMs(process.env.ADMIN_OVERVIEW_BLOCK_TIMEOUT_MS)
-
-/**
- * How many overview roll-ups may run AT ONCE, process-wide.
- *
- * The per-request budget documented on `buildAdminOverview` (~8 peak
- * connections, under the `DATABASE_POOL_MAX` default of 10) is defeated by any
- * concurrency at all: a production incident logged three overview
- * requests within 8 ms (`07:50:35.591/.595/.599`), i.e. ~24 connections against
- * a ~10-connection pool. Every query queued behind the pool, nothing finished,
- * and all three failures landed together on the 30 s `API_TIMEOUT_MS` wall.
- *
- * A semaphore restores the invariant the budget assumed. Serializing is the
- * right trade for a dashboard tile: the per-block `withBlockTimeout` timers
- * start only AFTER a permit is acquired, so a queued request is never falsely
- * zeroed, and the worst case (wait one full roll-up, then run one) stays under
- * the outer ceiling. Operator-overridable via `ADMIN_OVERVIEW_MAX_CONCURRENT`
- * for deployments that provisioned a larger pool.
- */
-const DEFAULT_MAX_CONCURRENT_OVERVIEWS = 1
-const parseMaxConcurrent = (raw: string | undefined): number => {
-  const parsed = raw === undefined ? Number.NaN : Number(raw)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_CONCURRENT_OVERVIEWS
-}
-const overviewSemaphore = Semaphore.makeUnsafe(
-  parseMaxConcurrent(process.env.ADMIN_OVERVIEW_MAX_CONCURRENT)
-)
-
-/**
  * `records.total` — the live record count summed across every configured table.
  *
  * Uses the LEAN `countLiveRows` repository path: one `COUNT(*) WHERE deleted_at
@@ -252,7 +212,7 @@ const recordsBlock = (
 const usersBlock = (
   app: App
 ): Effect.Effect<AdminOverviewUsers, never, UsersOverviewRepository | Logger> =>
-  BuildUsersOverview(app, '24h').pipe(
+  buildUsersOverview(app, '24h').pipe(
     Effect.map((outcome) => ({
       total: outcome._tag === 'Ok' ? outcome.body.totals.users : 0,
     })),
@@ -273,7 +233,7 @@ const runsBlock = (
   never,
   AdminAutomationsRepository | AutomationRunRepository | Logger
 > =>
-  BuildAutomationsOverview(app, '24h').pipe(
+  buildAutomationsOverview(app, '24h').pipe(
     Effect.map((outcome) =>
       outcome._tag === 'Ok'
         ? { recent: outcome.body.totals.runs_24h, successRate: outcome.body.totals.success_rate }
@@ -341,7 +301,7 @@ const connectionsBlock = (): Effect.Effect<
   never,
   ConnectionRepository | ConnectionTokenRepository | OAuthStateStore | Logger
 > =>
-  BuildConnectionsList.pipe(
+  buildConnectionsList.pipe(
     Effect.map((outcome) => {
       if (outcome._tag !== 'Ok') return CONNECTIONS_ZERO
       const { connections } = outcome.body
@@ -376,7 +336,17 @@ const connectionsBlock = (): Effect.Effect<
 export const buildAdminOverview = (
   app: App
 ): Effect.Effect<AdminOverviewResponse, never, AdminOverviewServices> =>
-  Effect.gen(function* () {
+  ProcessEnv.pipe(
+    Effect.flatMap((env) => overviewRollUp(app, env)),
+    Effect.withSpan('admin.build-admin-overview')
+  )
+
+const overviewRollUp = (
+  app: App,
+  env: ProcessEnvShape
+): Effect.Effect<AdminOverviewResponse, never, AdminOverviewServices> => {
+  const blockTimeoutMs = overviewBlockTimeoutMs(env)
+  return Effect.gen(function* () {
     // Fixed-width fan-out: exactly six literal blocks, not data-dependent. The
     // `sovrium/no-unbounded-promise-fanout` rule exempts a fixed-width literal,
     // so this shape needs no suppression — exempt by RULE rather than by
@@ -386,14 +356,15 @@ export const buildAdminOverview = (
     // process-wide by `overviewSemaphore` below.
     const [records, submissions, runs, users, storage, connections] = yield* Effect.all(
       [
-        withBlockTimeout(recordsBlock(app), asDegraded(RECORDS_ZERO), BLOCK_TIMEOUT_MS),
-        withBlockTimeout(submissionsBlock(app), asDegraded(SUBMISSIONS_ZERO), BLOCK_TIMEOUT_MS),
-        withBlockTimeout(runsBlock(app), asDegraded(RUNS_ZERO), BLOCK_TIMEOUT_MS),
-        withBlockTimeout(usersBlock(app), asDegraded(USERS_ZERO), BLOCK_TIMEOUT_MS),
-        withBlockTimeout(storageBlock(), asDegraded(STORAGE_ZERO), BLOCK_TIMEOUT_MS),
-        withBlockTimeout(connectionsBlock(), asDegraded(CONNECTIONS_ZERO), BLOCK_TIMEOUT_MS),
+        withBlockTimeout(recordsBlock(app), asDegraded(RECORDS_ZERO), blockTimeoutMs),
+        withBlockTimeout(submissionsBlock(app), asDegraded(SUBMISSIONS_ZERO), blockTimeoutMs),
+        withBlockTimeout(runsBlock(app), asDegraded(RUNS_ZERO), blockTimeoutMs),
+        withBlockTimeout(usersBlock(app), asDegraded(USERS_ZERO), blockTimeoutMs),
+        withBlockTimeout(storageBlock(), asDegraded(STORAGE_ZERO), blockTimeoutMs),
+        withBlockTimeout(connectionsBlock(), asDegraded(CONNECTIONS_ZERO), blockTimeoutMs),
       ],
       { concurrency: 'unbounded' }
     )
     return { records, submissions, runs, users, storage, connections }
-  }).pipe(overviewSemaphore.withPermits(1), Effect.withSpan('admin.build-admin-overview'))
+  }).pipe(overviewSemaphoreOf(env).withPermits(1))
+}

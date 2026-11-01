@@ -63,6 +63,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { SchemaInitializationError } from '@/domain/errors/schema-initialization-error'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   TIMESTAMPTZ_MIGRATION_ENV_VAR,
@@ -72,13 +73,12 @@ import {
   isNonUtcConversionAcknowledged,
   isUtcTimeZoneName,
 } from '@/domain/models/process-env/database/timestamptz-migration'
-import { db } from '@/infrastructure/database'
-import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { logInfo, logWarning } from '@/infrastructure/logging/logger'
+import { Database } from './drizzle/layer'
 import { getBaseTableName, shouldUseView } from './lookup/lookup-view-generators'
-import { executeRaw } from './sql/dialect-execute'
-import { isSqliteRuntime } from './unsupported-in-sqlite'
 import type { App, Table } from '@/domain/models/app'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** Field types whose column records an instant and therefore wants a zone. */
 const DECLARED_TIMESTAMP_FIELD_TYPES: ReadonlySet<string> = new Set([
@@ -130,11 +130,13 @@ const asSchemaError = (operation: string) => (cause: unknown) =>
  * whose columns mirror the base table's type but cannot be ALTERed.
  */
 const probeDriftedColumns = (
+  { client: db, dialect }: DatabaseService,
   candidates: readonly TimestamptzCandidate[]
 ): Effect.Effect<readonly TimestamptzCandidate[], SchemaInitializationError> =>
   Effect.tryPromise({
     try: () =>
-      executeRaw(
+      executeRawOn(
+        dialect.kind,
         db,
         sql`SELECT c.table_name AS relation, c.column_name AS column_name
             FROM information_schema.columns c
@@ -187,15 +189,19 @@ const warnAboutDrift = (drifted: readonly TimestamptzCandidate[]): Effect.Effect
  * The reading comes from `current_setting('TimeZone')` on the SAME pool that
  * will run the ALTER, so it reports the zone that will actually govern the cast.
  */
-const preflightSessionTimeZone = (): Effect.Effect<void, SchemaInitializationError> =>
+const preflightSessionTimeZone = ({
+  client: db,
+  dialect,
+}: DatabaseService): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
     const rows = yield* Effect.tryPromise({
-      try: () => executeRaw(db, sql`SELECT current_setting('TimeZone') AS time_zone`),
+      try: () =>
+        executeRawOn(dialect.kind, db, sql`SELECT current_setting('TimeZone') AS time_zone`),
       catch: asSchemaError('read the session TimeZone'),
     })
     const timeZone = String(rows[0]?.['time_zone'] ?? '')
     if (isUtcTimeZoneName(timeZone)) return
-    if (isNonUtcConversionAcknowledged(parseTimestamptzMigrationEnvConfig())) return
+    if (isNonUtcConversionAcknowledged(parseTimestamptzMigrationEnvConfig(process.env))) return
 
     return yield* new SchemaInitializationError({
       message:
@@ -215,6 +221,7 @@ const preflightSessionTimeZone = (): Effect.Effect<void, SchemaInitializationErr
  * absence is the whole point; see the module docstring before adding one.
  */
 const convertDriftedColumns = (
+  { client: db, dialect }: DatabaseService,
   drifted: readonly TimestamptzCandidate[]
 ): Effect.Effect<void, SchemaInitializationError> =>
   Effect.forEach(
@@ -222,7 +229,8 @@ const convertDriftedColumns = (
     (candidate) =>
       Effect.tryPromise({
         try: () =>
-          executeRaw(
+          executeRawOn(
+            dialect.kind,
             db,
             sql`ALTER TABLE ${sql.identifier(candidate.relation)}
                 ALTER COLUMN ${sql.identifier(candidate.column)} TYPE TIMESTAMPTZ`
@@ -248,20 +256,21 @@ const convertDriftedColumns = (
  */
 export const reconcileTimestamptzColumns = (
   app: Readonly<App>
-): Effect.Effect<void, SchemaInitializationError> =>
+): Effect.Effect<void, SchemaInitializationError, Database> =>
   Effect.gen(function* () {
-    if (isSqliteRuntime()) return
+    const { client, dialect } = yield* Database
+    if (dialect.kind === 'sqlite') return
 
     const candidates = collectTimestamptzCandidates(app)
     if (candidates.length === 0) return
 
-    const drifted = yield* probeDriftedColumns(candidates)
+    const drifted = yield* probeDriftedColumns({ client, dialect }, candidates)
     if (drifted.length === 0) return
 
-    if (!isTimestamptzMigrationEnabled(parseTimestamptzMigrationEnvConfig())) {
+    if (!isTimestamptzMigrationEnabled(parseTimestamptzMigrationEnvConfig(process.env))) {
       return yield* warnAboutDrift(drifted)
     }
 
-    yield* preflightSessionTimeZone()
-    yield* convertDriftedColumns(drifted)
+    yield* preflightSessionTimeZone({ client, dialect })
+    yield* convertDriftedColumns({ client, dialect }, drifted)
   })

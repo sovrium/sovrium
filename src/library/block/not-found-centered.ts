@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { span } from '@/library/manifest/app-block-kit'
+import { span } from '@/library/kit/app-block-kit'
 import {
   actions,
   asComponent,
@@ -19,7 +19,7 @@ import {
   stringParam,
   THEME_NOTE,
   when,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** A centered not-found message with a way back. */

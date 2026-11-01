@@ -13,14 +13,14 @@ import {
 } from '@/application/use-cases/tables/table-operations'
 import { getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
+import { decodeOrThrow } from '@/domain/kernel/config-parsing/decode'
 import {
   getTableResponseSchema,
   getTablePermissionsResponseSchema,
 } from '@/domain/models/api/tables/tables'
-import { provideDomain, runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { listWebhooksResponseSchema } from '@/domain/models/api/tables/webhooks'
 import { getSessionContext, getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runEffect } from '@/presentation/api/runtime/run-effect'
+import { respondWith, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
 import { handleExportTableCsv } from './export-handlers'
 import { refuseTableWithNoReaderRow } from './readable-table-gate'
 import { resolveAccessRolesFor } from './row-level-guard'
@@ -39,21 +39,20 @@ import type { Context, Hono } from 'hono'
 // Note: This route doesn't have :tableId, so validateTable/enrichUserRole don't run.
 // With `auth`, requireAuth guarantees a session; without it no session is ever
 // mounted and every caller is the guest, as on the records routes.
-async function handleListTables(c: Context, app: App) {
+function handleListTables(c: Context, app: App) {
   const session = app.auth === undefined ? undefined : getSessionContext(c)
-  const [userRole, userGroups] =
-    session === undefined
-      ? ['guest', []]
-      : await Promise.all([
-          runDomainPromise(c, getUserRole(session.userId)),
-          runDomainPromise(c, getUserGroups(session.userId)),
-        ])
-  // The `user_access` roles the records route adds on a table with row-level
-  // rules, so the list names exactly the tables those records admit.
-  const accessRoles = await resolveAccessRolesFor(c, session, app.tables ?? [])
-
-  const reader = session === undefined ? undefined : { session, role: userRole, groups: userGroups }
   const program = Effect.gen(function* () {
+    const [userRole, userGroups]: readonly [string, readonly string[]] =
+      session === undefined
+        ? ['guest', []]
+        : yield* Effect.all([getUserRole(session.userId), getUserGroups(session.userId)], {
+            concurrency: 'unbounded',
+          })
+    // The `user_access` roles the records route adds on a table with row-level
+    // rules, so the list names exactly the tables those records admit.
+    const accessRoles = yield* resolveAccessRolesFor(session, app.tables ?? [])
+    const reader =
+      session === undefined ? undefined : { session, role: userRole, groups: userGroups }
     const result = yield* createListTablesProgram(
       { role: userRole, groups: userGroups, accessRoles },
       app,
@@ -62,23 +61,23 @@ async function handleListTables(c: Context, app: App) {
     return decodeOrThrow(Schema.Array(Schema.Unknown))(result)
   })
 
-  return runEffect(c, provideDomain(c, program))
+  return runHandlerEffect(c, respondWith(c, program))
 }
 
 // Handler for GET /api/tables/:tableId
-async function handleGetTable(c: Context, app: App) {
+function handleGetTable(c: Context, app: App) {
   // Session, tableId, and userRole are guaranteed by middleware chain
   const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
-  const caller = await resolveTableReadCaller(c, app, { session, tableName, userRole, userGroups })
 
   const program = Effect.gen(function* () {
+    const caller = yield* resolveTableReadCaller(app, { session, tableName, userRole, userGroups })
     const result = yield* createGetTableProgram(tableId, app, caller)
     const validated = decodeOrThrow(getTableResponseSchema)(result)
     // Return the table object directly (unwrapped) to match test expectations
     return validated.table
   })
 
-  return runEffect(c, program)
+  return runHandlerEffect(c, respondWith(c, program))
 }
 
 // Handler for GET /api/tables/:tableId/webhooks
@@ -96,53 +95,49 @@ function handleListWebhooks(c: Context, app: App) {
     events: webhook.events,
     enabled: webhook.enabled !== false,
   }))
-  return c.json({ webhooks }, 200)
+  return shapedJson(c, { webhooks }, listWebhooksResponseSchema)
 }
 
 // Handler for GET /api/tables/:tableId/permissions
-async function handleGetPermissions(c: Context, app: App) {
+function handleGetPermissions(c: Context, app: App) {
   // Session, tableId, and userRole are guaranteed by middleware chain. The
   // caller is resolved as the records route resolves her — assignment roles
   // included on a table with row-level rules — so the map admits whom they do.
   const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
-  const caller = await resolveTableReadCaller(c, app, { session, tableName, userRole, userGroups })
 
   const program = Effect.gen(function* () {
+    const caller = yield* resolveTableReadCaller(app, { session, tableName, userRole, userGroups })
     const result = yield* createGetPermissionsProgram(tableId, app, caller)
     return decodeOrThrow(getTablePermissionsResponseSchema)(result)
   })
 
-  return runEffect(c, program)
+  return runHandlerEffect(c, respondWith(c, program))
 }
 
-export function chainTableRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
+export function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
   return (
     honoApp
-      .get('/api/tables', (c) => handleListTables(c, resolveApp()))
-      .get('/api/tables/:tableId', refuseTableWithNoReaderRow(resolveApp), (c) =>
-        handleGetTable(c, resolveApp())
+      .get('/api/tables', (c) => handleListTables(c, app))
+      .get('/api/tables/:tableId', refuseTableWithNoReaderRow(app), (c) => handleGetTable(c, app))
+      .get('/api/tables/:tableId/permissions', refuseTableWithNoReaderRow(app), (c) =>
+        handleGetPermissions(c, app)
       )
-      .get('/api/tables/:tableId/permissions', refuseTableWithNoReaderRow(resolveApp), (c) =>
-        handleGetPermissions(c, resolveApp())
-      )
-      .get('/api/tables/:tableId/webhooks', (c) => handleListWebhooks(c, resolveApp()))
+      .get('/api/tables/:tableId/webhooks', (c) => handleListWebhooks(c, app))
       .get('/api/tables/:tableId/webhooks/:webhookName/deliveries', (c) =>
-        handleListDeliveries(c, resolveApp())
+        handleListDeliveries(c, app)
       )
       .get('/api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId', (c) =>
-        handleGetDelivery(c, resolveApp())
+        handleGetDelivery(c, app)
       )
       .post('/api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId/retry', (c) =>
-        handleRetryDelivery(c, resolveApp())
+        handleRetryDelivery(c, app)
       )
-      .post('/api/tables/:tableId/webhooks/:webhookName/test', (c) =>
-        handleTestWebhook(c, resolveApp())
-      )
+      .post('/api/tables/:tableId/webhooks/:webhookName/test', (c) => handleTestWebhook(c, app))
       // A table whose list admits the caller no row answers as a missing one
       // whatever the export asks — before its query, or a row rule matching
       // nothing, shapes an empty file.
-      .get('/api/tables/:tableId/export', refuseTableWithNoReaderRow(resolveApp), (c) =>
-        handleExportTableCsv(c, resolveApp())
+      .get('/api/tables/:tableId/export', refuseTableWithNoReaderRow(app), (c) =>
+        handleExportTableCsv(c, app)
       )
   )
 }

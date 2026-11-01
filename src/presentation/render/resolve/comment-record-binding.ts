@@ -6,6 +6,7 @@
  */
 
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import { entryAsComponent, rewriteComponent } from './component-rewrite'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -45,7 +46,7 @@ export function autoBindCommentComponents(
   const binding: CommentBinding = { table, recordId: String(id), record }
   return components.map((item) => {
     if ('component' in item || '$ref' in item) return item
-    return autoBindCommentInComponent(item as Component, binding)
+    return autoBindCommentInComponent(item, binding)
   })
 }
 
@@ -64,13 +65,11 @@ const resolvedReference = (value: unknown, record: CommentBinding['record']): un
 /** A `comments` component addressed to the page record; any other component unchanged. */
 function bindComment(component: Component, binding: CommentBinding): Component {
   if (component.type !== 'comments') return component
-  const own = component as Component & { readonly recordId?: unknown }
   const props = component.props ?? {}
   const explicit = typeof props.recordId === 'string'
-  return {
-    ...component,
-    ...(own.recordId !== undefined && {
-      recordId: resolvedReference(own.recordId, binding.record),
+  return rewriteComponent(component, {
+    ...(component.recordId !== undefined && {
+      recordId: resolvedReference(component.recordId, binding.record),
     }),
     props: {
       ...props,
@@ -79,16 +78,17 @@ function bindComment(component: Component, binding: CommentBinding): Component {
         : { table: binding.table }),
       recordId: explicit ? resolvedReference(props.recordId, binding.record) : binding.recordId,
     },
-  } as Component
+  })
 }
 
 function autoBindCommentInComponent(component: Component, binding: CommentBinding): Component {
   const bound = bindComment(component, binding)
   if (!bound.children || bound.children.length === 0) return bound
-  return {
-    ...bound,
-    children: bound.children.map((child: Component | string) =>
-      typeof child === 'string' ? child : autoBindCommentInComponent(child, binding)
+  return rewriteComponent(bound, {
+    children: bound.children.map((child) =>
+      typeof child === 'string'
+        ? child
+        : autoBindCommentInComponent(entryAsComponent(child), binding)
     ),
-  }
+  })
 }

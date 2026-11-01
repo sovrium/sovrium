@@ -20,7 +20,7 @@
  *    prompt rebuilt for her current role.
  */
 
-import { requireDomainContext } from '@/infrastructure/logging/request-effect'
+import { Effect } from 'effect'
 import { resolveDeclaredAgentTurnScope } from './agent-turn-scope'
 import { buildChatContextPrompt } from './chat-context-prompt'
 import { resolveUserPrincipal } from './chat-read-scope'
@@ -32,7 +32,7 @@ import type { Context } from 'hono'
  * The turn for `question` in the caller's conversation, or `undefined` when
  * the conversation's agent is no longer declared or she may no longer trigger it.
  */
-export const resolveConversationTurnInput = async (
+export const resolveConversationTurnInput = (
   c: Context,
   app: App,
   request: {
@@ -41,28 +41,29 @@ export const resolveConversationTurnInput = async (
     readonly question: string
     readonly agentName: string | null
   }
-): Promise<ChatTurnInput | undefined> => {
-  const turn = {
-    services: requireDomainContext(c),
-    message: request.question,
-    sessionId: request.sessionId,
-    actorName: request.userId,
-    app,
-  }
-  if (request.agentName === null) {
-    const { userRole, effectiveRoles, reader } = await resolveUserPrincipal(c)
-    const caller = { userRole, reader, services: turn.services }
-    const systemPrompt = await buildChatContextPrompt(app, caller, undefined)
-    return { ...turn, systemPrompt, userRole, effectiveRoles, reader }
-  }
-  const scope = await resolveDeclaredAgentTurnScope(c, app, request.agentName)
-  if (scope === undefined) return undefined
-  return {
-    ...turn,
-    systemPrompt: scope.binding.systemPrompt,
-    userRole: scope.userRole,
-    effectiveRoles: scope.effectiveRoles,
-    reader: scope.reader,
-    agent: scope.binding,
-  }
-}
+) =>
+  Effect.gen(function* () {
+    const turn = {
+      message: request.question,
+      sessionId: request.sessionId,
+      actorName: request.userId,
+      app,
+    }
+    if (request.agentName === null) {
+      const { userRole, effectiveRoles, reader } = yield* resolveUserPrincipal(c)
+      const systemPrompt = yield* buildChatContextPrompt(app, { userRole, reader }, undefined)
+      const generic: ChatTurnInput = { ...turn, systemPrompt, userRole, effectiveRoles, reader }
+      return generic
+    }
+    const scope = yield* resolveDeclaredAgentTurnScope(c, app, request.agentName)
+    if (scope === undefined) return undefined
+    const bound: ChatTurnInput = {
+      ...turn,
+      systemPrompt: scope.binding.systemPrompt,
+      userRole: scope.userRole,
+      effectiveRoles: scope.effectiveRoles,
+      reader: scope.reader,
+      agent: scope.binding,
+    }
+    return bound
+  })

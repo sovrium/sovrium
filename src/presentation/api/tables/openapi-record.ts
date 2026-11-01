@@ -5,13 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { Schema } from 'effect'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   aggregateRecordsQuerySchema,
   aggregateRecordsResponseSchema,
 } from '@/domain/models/api/tables/aggregate'
 import {
   createCommentResponseSchema,
+  discardedCommentResponseSchema,
   getCommentResponseSchema,
   getRecordHistoryResponseSchema,
   listCommentsResponseSchema,
@@ -33,8 +35,10 @@ import {
   createRecordResponseSchema,
   deleteRecordResponseSchema,
   getRecordResponseSchema,
+  emptyListRecordsResponseSchema,
   listRecordsResponseSchema,
   restoreRecordResponseSchema,
+  unchangedRecordResponseSchema,
   updateRecordResponseSchema,
 } from '@/domain/models/api/tables/tables'
 import {
@@ -64,7 +68,10 @@ const routes: readonly RouteSpec[] = [
     operationIdBase: 'listRecords',
     parameters: effectParameters(listRecordsQuerySchema, 'query'),
     responses: {
-      200: effectJsonResponse(listRecordsResponseSchema, 'List of records'),
+      200: effectJsonResponse(
+        Schema.Union([listRecordsResponseSchema, emptyListRecordsResponseSchema]),
+        'List of records'
+      ),
       401: errorResponse('Unauthorized'),
       404: errorResponse('Table not found'),
     },
@@ -126,7 +133,10 @@ const routes: readonly RouteSpec[] = [
 
     request: { body: effectJsonBody(updateRecordRequestSchema) },
     responses: {
-      200: effectJsonResponse(updateRecordResponseSchema, 'Record updated'),
+      200: effectJsonResponse(
+        Schema.Union([updateRecordResponseSchema, unchangedRecordResponseSchema]),
+        'Record updated. A body holding only system-protected fields writes nothing and answers the record as it stands, under `record`.'
+      ),
       400: errorResponse('Validation error'),
       401: errorResponse('Unauthorized'),
       404: errorResponse('Record not found'),
@@ -166,7 +176,10 @@ const routes: readonly RouteSpec[] = [
     operationIdBase: 'listTrashRecords',
     parameters: effectParameters(listRecordsQuerySchema, 'query'),
     responses: {
-      200: effectJsonResponse(listRecordsResponseSchema, 'List of deleted records'),
+      200: effectJsonResponse(
+        Schema.Union([listRecordsResponseSchema, emptyListRecordsResponseSchema]),
+        'List of deleted records'
+      ),
       401: errorResponse('Unauthorized'),
       404: errorResponse('Table not found'),
     },
@@ -206,6 +219,7 @@ const routes: readonly RouteSpec[] = [
     parameters: effectParameters(recordOnlyParamSchema, 'path'),
     request: { body: effectJsonBody(commentBodySchema) },
     responses: {
+      200: effectJsonResponse(discardedCommentResponseSchema, 'Caught by the spam trap: discarded'),
       201: effectJsonResponse(createCommentResponseSchema, 'Comment created'),
       400: errorResponse('Validation error'),
       401: errorResponse('Unauthorized'),

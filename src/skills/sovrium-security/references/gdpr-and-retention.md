@@ -9,7 +9,7 @@
 - What stays the operator's
 - Checks
 
-Manual: `sovrium docs operations/gdpr-privacy`, `sovrium docs operations/logs-and-personal-data`, `sovrium docs tables/table-retention`, `sovrium docs configuration/env-vars-ai`, `sovrium docs admin/analytics`.
+Manual: `sovrium docs operations/gdpr-privacy`, `sovrium docs operations/logs-and-personal-data`, `sovrium docs tables/table-retention`, `sovrium docs configuration/env-vars-ai`, `sovrium docs admin/analytics`, `sovrium docs guides-ops/analytics-and-consent`.
 
 ## The two self-service rights
 
@@ -31,7 +31,7 @@ Tell the operator, before launch, so the privacy notice is true:
 - `tables[].retention: { field, days }` deletes rows older than the window, for good, in a daily sweep; it starts no automation and writes no history. Use it on log-like and event tables.
 - `tables[].activityLog: false` keeps a machine-written table out of the activity log (no before and after values stored per change). Only where nobody will ask who changed a row.
 - `AI_MEMORY_MAX_AGE_DAYS` deletes a user's chat conversations, and the files sent in them, once idle that long. Unset, they are kept until she deletes them or her account is erased.
-- `analytics.retentionDays` bounds page-view analytics; analytics are cookie-free and store no client identifier.
+- `analytics.retentionDays` bounds page-view analytics. The tracker sets no cookie. `analytics.profile` decides what its rows hold: `audience-only`, the default, keeps page paths without their query string, the referring host, device, browser, operating system, language and a server-computed visitor identifier rotated daily, with one shared identifier on short-link clicks, QR scans and form submissions; `full` adds page titles, full referrers, UTM values, screen size and per-visitor identifiers on those three events. A `consent` purpose with the id `analytics` holds the tracker until a visitor accepts; short-link clicks, QR scans, form submissions and an automation's analytics events are recorded by the server and stay outside it. Whether visitors must consent before it runs is the operator's to assess: walk them through `sovrium docs guides-ops/analytics-and-consent`, and never tell them a setup settles the question.
 - Soft-deleted records stay recoverable and are not purged on a timer.
 
 ## Logs

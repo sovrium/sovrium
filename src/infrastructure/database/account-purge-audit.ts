@@ -11,7 +11,7 @@ import {
   shedActorEmailInDbTx,
 } from '@/infrastructure/audit-log/drizzle-store'
 import type { AuditLogEntry } from '@/domain/models/api/admin/audit-log/entry'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Build the `account.deletion.purged` audit entry for an erasure.
@@ -83,12 +83,12 @@ function buildPurgeAuditEntry(
  * remaining `actor_id`s when the user row goes.
  */
 export async function settleAuditTrail(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string,
   erasedEmail: string | undefined
 ): Promise<void> {
   await shedActorEmailInDbTx(tx, userId)
-  await appendAuditEntryToDbTx(tx, buildPurgeAuditEntry(userId, erasedEmail))
+  await appendAuditEntryToDbTx({ tx, dialect }, buildPurgeAuditEntry(userId, erasedEmail))
 }
 
 /**

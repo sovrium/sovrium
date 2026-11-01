@@ -6,8 +6,8 @@
  */
 
 import { dirname, resolve } from 'node:path'
+import { stopCommand } from '@/cli/runtime/run-command'
 import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
-import { printStderr } from '@/infrastructure/logging/cli-output'
 
 /**
  * The three steps `loadConfigForValidationWithSources` (in `validate.ts`) runs
@@ -19,16 +19,14 @@ import { printStderr } from '@/infrastructure/logging/cli-output'
 export const validateFileExists = async (filePath: string): Promise<void> => {
   const exists = await Bun.file(filePath).exists()
   if (!exists) {
-    printStderr(`Error: File not found: ${filePath}`)
-    process.exit(1)
+    return stopCommand(1, `Error: File not found: ${filePath}`)
   }
 }
 
 export const validateFileFormat = (filePath: string): ReturnType<typeof detectFormat> => {
   const format = detectFormat(filePath)
   if (format === 'unsupported') {
-    printStderr(`Error: Unsupported file format. Supported: .json, .yaml, .yml, .ts`)
-    process.exit(1)
+    return stopCommand(1, `Error: Unsupported file format. Supported: .json, .yaml, .yml, .ts`)
   }
   return format
 }
@@ -50,7 +48,8 @@ export const parseConfigWithRefSources = async (
 
   // Read and parse raw content to collect $ref sources before resolution
   const content = await Bun.file(filePath).text()
-  const rawParsed = format === 'json' ? parseJsonContent(content) : parseYamlContent(content)
+  const rawParsed =
+    format === 'json' ? parseJsonContent(content) : parseYamlContent(content, Bun.YAML)
   const absolutePath = resolve(filePath)
   const baseDir = dirname(absolutePath)
   const refSources = collectRefSources(rawParsed, baseDir)

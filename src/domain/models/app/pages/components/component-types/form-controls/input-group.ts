@@ -114,7 +114,7 @@ export const inputGroupFields = {
   label: Schema.optional(
     Schema.String.annotate({
       description:
-        'Label above the group. Bound to the input itself, not to the addons — an addon is not a control and must not be what a screen reader announces as the field.',
+        'Label above the group. Bound to the input itself, not to the addons: an addon is not a control and must not be what a screen reader announces as the field.',
       examples: ['Amount'],
     })
   ),
@@ -122,7 +122,7 @@ export const inputGroupFields = {
   name: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
-        description: 'Form field name of the inner input — what a submitted value is keyed by',
+        description: 'Form field name of the inner input: what a submitted value is keyed by',
         examples: ['amount'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -154,7 +154,7 @@ export const inputGroupFields = {
       Schema.annotate({
         title: 'Leading Addon',
         description:
-          'Text in the leading addon — a currency, a scheme, a unit. Outside the input, so it is never part of the submitted value.',
+          'Text in the leading addon: a currency, a scheme, a unit. Outside the input, so it is never part of the submitted value.',
         examples: ['€', 'https://'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -166,7 +166,7 @@ export const inputGroupFields = {
       Schema.annotate({
         title: 'Trailing Addon',
         description:
-          'Text in the trailing addon — a unit, a domain, a percent sign. Outside the input, so it is never part of the submitted value.',
+          'Text in the trailing addon: a unit, a domain, a percent sign. Outside the input, so it is never part of the submitted value.',
         examples: ['kg', '.sovrium.com'],
       }),
       Schema.check(Schema.isMinLength(1))

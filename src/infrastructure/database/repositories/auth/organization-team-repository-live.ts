@@ -6,22 +6,28 @@
  */
 
 import { and, count, eq, gte, sql } from 'drizzle-orm'
-import { Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   OrganizationTeamDatabaseError,
   OrganizationTeamRepository,
 } from '@/application/ports/repositories/auth/organization-team-repository'
 import { SOVRIUM_ORGANIZATION_ID } from '@/infrastructure/auth/better-auth/org-team-seeder'
-import { db, type DrizzleTransaction } from '@/infrastructure/database'
+import { type PortableTx } from '@/infrastructure/database'
 import {
   authMembersTable,
   authTeamMembersTable,
   authTeamsTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { withPromiseTransaction } from '@/infrastructure/database/transaction'
 
 /** Wrap a DB promise, adapting failures to `OrganizationTeamDatabaseError`. */
-const wrap = makeDbWrap((cause) => new OrganizationTeamDatabaseError({ cause }))
+const toError = (cause: unknown) => new OrganizationTeamDatabaseError({ cause })
+const wrap = makeDbWrap(toError)
 
 /**
  * The `team_member.membership_key` Better Auth writes for a (team, user) pair:
@@ -56,7 +62,7 @@ class TeamAtCapacity {
  * moving with the row.
  */
 const unlinkMember = async (
-  tx: DrizzleTransaction,
+  tx: Readonly<PortableTx>,
   teamId: string,
   userId: string
 ): Promise<void> => {
@@ -84,7 +90,7 @@ const unlinkMember = async (
  * twice.
  */
 const linkMember = async (
-  tx: DrizzleTransaction,
+  tx: Readonly<PortableTx>,
   entry: { readonly teamId: string; readonly maxMembers?: number | undefined },
   userId: string
 ): Promise<void> => {
@@ -140,8 +146,8 @@ const linkMember = async (
  * Tables resolve per dialect (`authTeamsTable()` and friends), so a query
  * targets `auth.team` on PostgreSQL and the flat `auth_team` on SQLite.
  */
-export const OrganizationTeamRepositoryLive = Layer.succeed(OrganizationTeamRepository, {
-  findTeamById: (teamId: string) =>
+const members: MembersOverDatabase<typeof OrganizationTeamRepository> = {
+  findTeamById: (db) => (teamId: string) =>
     wrap(async () => {
       const teams = authTeamsTable()
       const rows = await db
@@ -155,7 +161,7 @@ export const OrganizationTeamRepositoryLive = Layer.succeed(OrganizationTeamRepo
       return rows[0]
     }),
 
-  findOrganizationRole: (userId: string) =>
+  findOrganizationRole: (db) => (userId: string) =>
     wrap(async () => {
       const members = authMembersTable()
       const rows = await db
@@ -166,24 +172,25 @@ export const OrganizationTeamRepositoryLive = Layer.succeed(OrganizationTeamRepo
       return rows[0]?.role ?? undefined
     }),
 
-  listAllTeamMemberships: wrap(() => {
-    const teamMembers = authTeamMembersTable()
-    const teams = authTeamsTable()
-    // ONE join, and the organization predicate rides on it rather than on a
-    // second read: the team side is what carries `organization_id`, so joining
-    // is both how the name is resolved and how the tenant is scoped.
-    return db
-      .select({
-        teamId: teamMembers.teamId,
-        teamName: teams.name,
-        userId: teamMembers.userId,
-      })
-      .from(teamMembers)
-      .innerJoin(teams, eq(teamMembers.teamId, teams.id))
-      .where(eq(teams.organizationId, SOVRIUM_ORGANIZATION_ID))
-  }),
+  listAllTeamMemberships: (db) =>
+    wrap(() => {
+      const teamMembers = authTeamMembersTable()
+      const teams = authTeamsTable()
+      // ONE join, and the organization predicate rides on it rather than on a
+      // second read: the team side is what carries `organization_id`, so joining
+      // is both how the name is resolved and how the tenant is scoped.
+      return db
+        .select({
+          teamId: teamMembers.teamId,
+          teamName: teams.name,
+          userId: teamMembers.userId,
+        })
+        .from(teamMembers)
+        .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+        .where(eq(teams.organizationId, SOVRIUM_ORGANIZATION_ID))
+    }),
 
-  listTeamMembers: (teamId: string) =>
+  listTeamMembers: (db) => (teamId: string) =>
     wrap(() => {
       const teamMembers = authTeamMembersTable()
       return db
@@ -197,7 +204,7 @@ export const OrganizationTeamRepositoryLive = Layer.succeed(OrganizationTeamRepo
         .where(eq(teamMembers.teamId, teamId))
     }),
 
-  countTeamMembers: (teamId: string) =>
+  countTeamMembers: (db) => (teamId: string) =>
     wrap(async () => {
       const teamMembers = authTeamMembersTable()
       const rows = await db
@@ -212,7 +219,7 @@ export const OrganizationTeamRepositoryLive = Layer.succeed(OrganizationTeamRepo
       return Number(rows[0]?.value ?? 0)
     }),
 
-  isTeamMember: (teamId: string, userId: string) =>
+  isTeamMember: (db) => (teamId: string, userId: string) =>
     wrap(async () => {
       const teamMembers = authTeamMembersTable()
       const rows = await db
@@ -223,20 +230,25 @@ export const OrganizationTeamRepositoryLive = Layer.succeed(OrganizationTeamRepo
       return rows.length > 0
     }),
 
-  listTeams: wrap(() => {
-    const teams = authTeamsTable()
-    return db
-      .select({ id: teams.id, name: teams.name })
-      .from(teams)
-      .where(eq(teams.organizationId, SOVRIUM_ORGANIZATION_ID))
-  }),
+  listTeams: (db) =>
+    wrap(() => {
+      const teams = authTeamsTable()
+      return db
+        .select({ id: teams.id, name: teams.name })
+        .from(teams)
+        .where(eq(teams.organizationId, SOVRIUM_ORGANIZATION_ID))
+    }),
 
-  listUserMemberships: (userId: string) =>
+  listUserMemberships: (db) => (userId: string) =>
     wrap(() => {
       const teamMembers = authTeamMembersTable()
       const teams = authTeamsTable()
       return db
-        .select({ teamId: teamMembers.teamId, teamName: teams.name, userId: teamMembers.userId })
+        .select({
+          teamId: teamMembers.teamId,
+          teamName: teams.name,
+          userId: teamMembers.userId,
+        })
         .from(teamMembers)
         .innerJoin(teams, eq(teamMembers.teamId, teams.id))
         .where(
@@ -244,10 +256,12 @@ export const OrganizationTeamRepositoryLive = Layer.succeed(OrganizationTeamRepo
         )
     }),
 
-  applyMembershipChange: ({ userId, removeTeamIds, add }) =>
-    wrap(async () => {
-      try {
-        await db.transaction(async (tx) => {
+  applyMembershipChange:
+    (db) =>
+    ({ userId, removeTeamIds, add }) =>
+      withPromiseTransaction(
+        db,
+        async (tx) => {
           await removeTeamIds.reduce<Promise<void>>(async (previous, teamId) => {
             await previous
             await unlinkMember(tx, teamId, userId)
@@ -256,15 +270,17 @@ export const OrganizationTeamRepositoryLive = Layer.succeed(OrganizationTeamRepo
             await previous
             await linkMember(tx, entry, userId)
           }, Promise.resolve())
-        })
-        return { _tag: 'Applied' } as const
-      } catch (error) {
-        // The full team rolled the whole change back; that is an answer, not
-        // a failure of the store.
-        if (error instanceof TeamAtCapacity) {
-          return { _tag: 'AtCapacity', teamId: error.teamId } as const
-        }
-        throw error
-      }
-    }),
-})
+          return { _tag: 'Applied' } as const
+        },
+        // The full team rolled the whole change back; that is an answer, not a
+        // failure of the store, so it is kept apart from the store's error.
+        (error) => (error instanceof TeamAtCapacity ? error : toError(error))
+      ).pipe(
+        Effect.catchIf(
+          (error): error is TeamAtCapacity => error instanceof TeamAtCapacity,
+          (full) => Effect.succeed({ _tag: 'AtCapacity', teamId: full.teamId } as const)
+        )
+      ),
+}
+
+export const OrganizationTeamRepositoryLive = layerOverDatabase(OrganizationTeamRepository, members)

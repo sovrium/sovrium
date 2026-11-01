@@ -23,11 +23,10 @@ import { Effect } from 'effect'
 import {
   decodePagesLens,
   downloadDesignSystemBundle,
-} from '@/application/use-cases/admin/design-system-bundle-read-operations'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+} from '@/application/use-cases/design/bundle-read-operations'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import { runHandlerEffect, toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -41,7 +40,7 @@ export const zipResponseHeaders = (appName: string): Readonly<Record<string, str
   'Cache-Control': 'no-store',
 })
 
-const handleZip = async (c: Context, app: App): Promise<Response> => {
+const handleZip = (c: Context, app: App): Promise<Response> | Response => {
   const userId = getSessionContext(c)?.userId
   if (userId === undefined) return notFound(c, 'Not found')
   // `?pages=true` adds the app's pages ([internal ref] A13); any other value is refused by name.
@@ -50,21 +49,20 @@ const handleZip = async (c: Context, app: App): Promise<Response> => {
     return c.json({ success: false, message: lens.message, code: lens.code }, 400)
   }
   if (lens._tag !== 'Ok') return notFound(c, 'Not found')
-  const result = await runRequestEffect(
+  return runHandlerEffect(
     c,
-    Effect.result(provideDomain(c, downloadDesignSystemBundle(app, userId, lens.input)))
+    Effect.match(downloadDesignSystemBundle(app, userId, lens.input), {
+      onFailure: (failure) => toErrorResponse(c, failure),
+      onSuccess: (bundle) => c.body(bundle.slice().buffer, 200, zipResponseHeaders(app.name)),
+    })
   )
-  if (result._tag === 'Failure') return toErrorResponse(c, result.failure)
-  return c.body(result.success.slice().buffer, 200, zipResponseHeaders(app.name))
 }
 
 /**
  * Chain the bundle download onto a Hono app.
  *
  * @param honoApp - the app the admin routes are chained on.
- * @param resolveApp - the live config, read per request so a reload is honoured.
+ * @param app - the app whose design system the bundle exports.
  */
-export const chainAdminDesignSystemBundleRoutes = <T extends Hono>(
-  honoApp: T,
-  resolveApp: () => App
-): T => honoApp.get(DESIGN_SYSTEM_ZIP_PATH, (c) => handleZip(c, resolveApp())) as T
+export const chainAdminDesignSystemBundleRoutes = <T extends Hono>(honoApp: T, app: App): T =>
+  honoApp.get(DESIGN_SYSTEM_ZIP_PATH, (c) => handleZip(c, app)) as T

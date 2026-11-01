@@ -35,7 +35,8 @@ export const readTelemetryEpoch = (): string => epoch
 /**
  * Re-stamp the epoch at server boot.
  *
- * Called from `api-routes.ts` alongside the counter resets. A no-op in
+ * Called from `resetBootState` (`server/middleware/boot-state-reset.ts`)
+ * alongside the counter resets, which `compose-api-routes.ts` runs per boot. A no-op in
  * production, where the process boots once and the module-load value is
  * already correct; load-bearing under the E2E harness, which restarts the
  * server between specs inside one Bun process, so a stale epoch would make

@@ -33,18 +33,18 @@
  */
 
 import { Effect } from 'effect'
-import { StorageFootprintRepository } from '@/application/ports/repositories/footprint/storage-footprint-repository'
+import { StorageFootprintRepository } from '@/application/ports/repositories/admin/storage-footprint-repository'
+import { ProcessEnv, type ProcessEnvShape } from '@/application/ports/services/process-env'
 import { StorageService } from '@/application/ports/services/storage-service'
 import {
   buildFootprintOverview,
   type StorageConsumerInput,
-} from '@/application/use-cases/admin/footprint/get-footprint-overview'
+} from '@/application/use-cases/admin/get-footprint-overview'
 import { withBlockTimeout } from '@/application/use-cases/admin/overview-block-timeout'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { resolveOllamaBaseUrl } from '@/domain/models/process-env/ai/ai-eco-routing'
 import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { getCachedOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
-import { StorageFootprintRepositoryLive } from '@/infrastructure/database/repositories/footprint/storage-footprint-repository-live'
 import { logError } from '@/infrastructure/logging/logger'
 import { readEcoIndexTrackerSnapshot } from '@/infrastructure/process/eco-index-tracker'
 import { readPageCacheStats } from '@/infrastructure/process/page-cache-telemetry'
@@ -79,6 +79,14 @@ const unmeasuredConsumer = (type: 'table' | 'bucket', name: string): StorageCons
 })
 
 /**
+ * The last segment of a directory path, separators of either platform and any
+ * trailing one ignored: `/srv/app/.sovrium/storage/` reads `storage`. A path
+ * with no named segment (the filesystem root) reads `local`.
+ */
+const directoryBasename = (directory: string): string =>
+  directory.split(/[\\/]+/).findLast((segment) => segment.length > 0) ?? 'local'
+
+/**
  * Identify the object store the bucket row describes.
  *
  * A fixed literal such as `'default'` would name nothing: an operator running
@@ -87,15 +95,19 @@ const unmeasuredConsumer = (type: 'table' | 'bucket', name: string): StorageCons
  * the local directory, or `bytea` for the in-database store — is the smallest
  * string that actually distinguishes them.
  *
+ * The local directory is named by its last segment only: the absolute path is
+ * a fact about the host's filesystem, which neither the page nor the wire has
+ * any business publishing.
+ *
  * `parseStorageEnvConfig` throws on a half-configured provider (a missing
  * `STORAGE_S3_BUCKET`, say). That is a boot-time concern, not a dashboard one,
  * so a throw here degrades to a labelled row rather than failing the panel.
  */
-const resolveStorageName = (): string => {
+const resolveStorageName = (env: ProcessEnvShape): string => {
   try {
-    const config = parseStorageEnvConfig()
+    const config = parseStorageEnvConfig(env)
     if (config.provider === 's3') return config.bucket
-    if (config.provider === 'local') return config.directory
+    if (config.provider === 'local') return directoryBasename(config.directory)
     return 'bytea'
   } catch {
     return 'storage (unconfigured)'
@@ -109,7 +121,9 @@ const resolveStorageName = (): string => {
  * than failing the panel — the dashboard's job is to report what it knows,
  * and "we could not measure this" is a report.
  */
-const measureDatabase = (tableNames: readonly string[]): Effect.Effect<StoragePanel> =>
+const measureDatabase = (
+  tableNames: readonly string[]
+): Effect.Effect<StoragePanel, never, StorageFootprintRepository> =>
   Effect.gen(function* () {
     const repository = yield* StorageFootprintRepository
     const footprint = yield* repository.measureDatabaseFootprint(tableNames)
@@ -123,7 +137,6 @@ const measureDatabase = (tableNames: readonly string[]): Effect.Effect<StoragePa
       databaseTotalBytes: footprint.totalBytes,
     }
   }).pipe(
-    Effect.provide(StorageFootprintRepositoryLive),
     // effect-swallow: the fallback marks every consumer UNMEASURED rather than reporting zero bytes, so the console shows "not measured" instead of a false all-clear — which is the distinction that makes degrading here safe.
     Effect.orElseSucceed(() => ({
       consumers: tableNames.map((name) => unmeasuredConsumer('table', name)),
@@ -139,7 +152,9 @@ const measureDatabase = (tableNames: readonly string[]): Effect.Effect<StoragePa
  * found empty.
  */
 
-const measureBucket = (): Effect.Effect<StorageConsumerInput, never, StorageService> =>
+const measureBucket = (
+  env: ProcessEnvShape
+): Effect.Effect<StorageConsumerInput, never, StorageService> =>
   Effect.gen(function* () {
     const storage = yield* StorageService
     return yield* storage.getTotalBytes
@@ -158,11 +173,11 @@ const measureBucket = (): Effect.Effect<StorageConsumerInput, never, StorageServ
       result._tag === 'Success'
         ? {
             type: 'bucket' as const,
-            name: resolveStorageName(),
+            name: resolveStorageName(env),
             bytes: result.success,
             measurement: 'storage_adapter' as const,
           }
-        : unmeasuredConsumer('bucket', resolveStorageName())
+        : unmeasuredConsumer('bucket', resolveStorageName(env))
     )
   )
 
@@ -172,9 +187,12 @@ const measureBucket = (): Effect.Effect<StorageConsumerInput, never, StorageServ
  *
  * The use case ranks and slices to top-3 — the caller does NOT pre-sort.
  */
-const collectStoragePanel = (app: App): Effect.Effect<StoragePanel, never, StorageService> => {
+const collectStoragePanel = (
+  app: App,
+  env: ProcessEnvShape
+): Effect.Effect<StoragePanel, never, StorageService | StorageFootprintRepository> => {
   const tableNames = (app.tables ?? []).map((table) => sanitizeTableName(table.name))
-  return Effect.all([measureDatabase(tableNames), measureBucket()]).pipe(
+  return Effect.all([measureDatabase(tableNames), measureBucket(env)]).pipe(
     Effect.map(([database, bucket]) => ({
       consumers: [...database.consumers, bucket],
       databaseTotalBytes: database.databaseTotalBytes,
@@ -183,12 +201,12 @@ const collectStoragePanel = (app: App): Effect.Effect<StoragePanel, never, Stora
 }
 
 /** Panel substituted when the collection exceeds its latency budget. */
-const timedOutPanel = (app: App): StoragePanel => ({
+const timedOutPanel = (app: App, env: ProcessEnvShape): StoragePanel => ({
   consumers: [
     ...(app.tables ?? []).map((table) =>
       unmeasuredConsumer('table', sanitizeTableName(table.name))
     ),
-    unmeasuredConsumer('bucket', resolveStorageName()),
+    unmeasuredConsumer('bucket', resolveStorageName(env)),
   ],
   databaseTotalBytes: 0,
 })
@@ -199,15 +217,19 @@ const timedOutPanel = (app: App): StoragePanel => ({
  */
 export const assembleFootprintOverview = (
   app: App
-): Effect.Effect<unknown, never, StorageService> =>
+): Effect.Effect<unknown, never, StorageService | StorageFootprintRepository> =>
   Effect.gen(function* () {
-    const env = process.env as Readonly<Record<string, string | undefined>>
+    const env = yield* ProcessEnv
     // Storage measurement and the reachability read are independent, so they
     // run together rather than in series. On a cold memo the second one costs
     // a probe; on every subsequent request it costs nothing.
     const [panel, ollamaReachable] = yield* Effect.all(
       [
-        withBlockTimeout(collectStoragePanel(app), timedOutPanel(app), STORAGE_PANEL_TIMEOUT_MS),
+        withBlockTimeout(
+          collectStoragePanel(app, env),
+          timedOutPanel(app, env),
+          STORAGE_PANEL_TIMEOUT_MS
+        ),
         // effect-promise: total -- getCachedOllamaReachable memoises probeOllamaReachable, which catches every fetch failure and answers false
         Effect.promise(() => getCachedOllamaReachable(resolveOllamaBaseUrl(env))),
       ],

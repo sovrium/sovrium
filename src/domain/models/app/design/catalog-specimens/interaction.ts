@@ -390,8 +390,8 @@ const SPECIALTY_SPECIMENS: readonly CatalogSpecimen[] = [
       reorderable: true,
       props: { className: 'flex flex-col gap-1 text-xs' },
       children: [
-        { type: 'item', content: 'First — research', props: { id: 'kit-task-1' } },
-        { type: 'item', content: 'Second — draft', props: { id: 'kit-task-2' } },
+        { type: 'item', content: 'First: research', props: { id: 'kit-task-1' } },
+        { type: 'item', content: 'Second: draft', props: { id: 'kit-task-2' } },
       ],
     }),
   },
@@ -422,7 +422,7 @@ const SPECIALTY_SPECIMENS: readonly CatalogSpecimen[] = [
   {
     type: 'comments',
     refusal: writeTransportRefusal(
-      'Hydrates a comment composer — a form with a live submit control that posts a comment onto ' +
+      'Hydrates a comment composer: a form with a live submit control that posts a comment onto ' +
         'a record.'
     ),
   },
@@ -432,7 +432,7 @@ const SPECIALTY_SPECIMENS: readonly CatalogSpecimen[] = [
       state: 'needs-data-source',
       note:
         'Draws the languages an app declares in languages[]. This console’s own surface app ' +
-        'declares none — it carries your design system and deliberately nothing else — so the ' +
+        'declares none, since it carries your design system and deliberately nothing else, so the ' +
         'component has no list to draw. It renders on your pages.',
     },
   },
@@ -457,7 +457,7 @@ const SPECIALTY_SPECIMENS: readonly CatalogSpecimen[] = [
       // nesting has no bottom.
       note:
         'A frame around a drawn component and the config that produced it. It refuses to hold ' +
-        'another one — each level would print the level below, with no bottom — so it cannot be ' +
+        'another one: each level would print the level below, with no bottom, so it cannot be ' +
         'drawn inside this page. Every card here is one.',
     },
   },

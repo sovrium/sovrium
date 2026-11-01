@@ -93,14 +93,6 @@
                         "className": "text-xl font-semibold text-foreground"
                       },
                       "content": "$t:admin.api.access.heading"
-                    },
-                    {
-                      "type": "text",
-                      "element": "p",
-                      "props": {
-                        "className": "mt-1 text-sm text-muted-foreground"
-                      },
-                      "content": ""
                     }
                   ]
                 },
@@ -124,7 +116,7 @@
                           "type": "text",
                           "element": "span",
                           "props": {
-                            "className": "text-foreground-subtle text-sm uppercase"
+                            "className": "text-foreground-subtle text-sm"
                           },
                           "content": "$t:admin.api.baseUrl.heading"
                         },
@@ -150,7 +142,7 @@
                           "type": "text",
                           "element": "span",
                           "props": {
-                            "className": "text-foreground-subtle text-sm uppercase"
+                            "className": "text-foreground-subtle text-sm"
                           },
                           "content": "$t:admin.api.auth.heading"
                         },
@@ -176,7 +168,7 @@
                           "type": "text",
                           "element": "span",
                           "props": {
-                            "className": "text-foreground-subtle text-sm uppercase"
+                            "className": "text-foreground-subtle text-sm"
                           },
                           "content": "$t:admin.api.keys.heading"
                         },
@@ -232,14 +224,6 @@
                         "className": "text-xl font-semibold text-foreground"
                       },
                       "content": "$t:admin.api.examples.heading"
-                    },
-                    {
-                      "type": "text",
-                      "element": "p",
-                      "props": {
-                        "className": "mt-1 text-sm text-muted-foreground"
-                      },
-                      "content": ""
                     }
                   ]
                 },

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { sessionHoldsCapability } from '@/domain/models/app/pages/component-session-visibility-service'
 import {
   normalizeSidebarPath,
@@ -182,8 +183,4 @@ function isInScope(entry: unknown, scope: Scope): boolean {
   if (!isRecord(showWhen)) return true
   const { section } = showWhen
   return typeof section !== 'string' || sidebarEntryMatches(section, 'prefix', scope.fullPath)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

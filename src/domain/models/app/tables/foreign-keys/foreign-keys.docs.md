@@ -1,6 +1,6 @@
 # Relationships & Foreign Keys
 
-> Linking tables — the `relationship` field and its cardinalities, referential actions, reciprocal links, and the composite `foreignKeys` declaration for keys spanning several columns.
+> Linking tables: the `relationship` field and its cardinalities, referential actions, reciprocal links, and the composite `foreignKeys` declaration for keys spanning several columns.
 
 Tables connect through the `relationship` field, which creates a foreign-key link to another table. Once a relationship exists, `lookup`, `rollup` and `count` fields derive data through it without duplicating any values.
 
@@ -27,11 +27,11 @@ Tables connect through the `relationship` field, which creates a foreign-key lin
 | Cardinality    | Meaning                                                                       |
 | -------------- | ----------------------------------------------------------------------------- |
 | `one-to-one`   | Each record links to exactly one record, and the reverse holds                |
-| `many-to-one`  | Many records here link to one record in the related table — the default       |
+| `many-to-one`  | Many records here link to one record in the related table (the default)       |
 | `one-to-many`  | One record here links to many in the related table, using `foreignKey`        |
 | `many-to-many` | Both sides link to many on the other; `allowMultiple` then defaults to `true` |
 
-A `one-to-many` field stores nothing on its own table: the link lives on the related table's `many-to-one` field, which `reciprocalField` names (or the one field of that table pointing back, when there is exactly one). A read of the record lists the ids of the live related records pointing at it — an empty list when none does — and their titles beside them, so a grid cell and a record sheet show the linked records by name. A deleted related record is no longer listed.
+A `one-to-many` field stores nothing on its own table: the link lives on the related table's `many-to-one` field, which `reciprocalField` names (or the one field of that table pointing back, when there is exactly one). A read of the record lists the ids of the live related records pointing at it (an empty list when none does) and their titles beside them, so a grid cell and a record sheet show the linked records by name. A deleted related record is no longer listed.
 
 ## Referential actions
 
@@ -55,6 +55,8 @@ A `relationship` column is a record picker wherever it is bound: a grid cell, a 
 The create affordance follows the same permission rule as the grid's own create button: a role that may not create records in the related table does not see a disabled option, it sees no option at all.
 
 Inline create is offered in the grid today, in a cell and in the trailing add-row. A picker on a form links existing records and honours `maxLinked`, but does not yet offer to create one.
+
+On a form, the picker is a search box with a list of suggestions under it. ArrowDown and ArrowUp move through the suggestions, Enter picks the highlighted one without sending the form, and Escape closes the list.
 
 `maxLinked` caps a multi-valued picker. Once the cap is reached the search closes rather than offering candidates it would refuse, and the count reads how many of how many are linked. It is a rule and not a courtesy: a write arriving past the cap is refused by the API too, naming the field.
 

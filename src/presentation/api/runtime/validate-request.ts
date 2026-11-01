@@ -5,17 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
-import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
-import { validationErrorResponseSchema } from '@/domain/models/api/combinators/error'
-import type { Context, TypedResponse } from 'hono'
+import { Effect, Schema } from 'effect'
+import { decodeOrThrow } from '@/domain/kernel/config-parsing/decode'
+import { validationErrorResponseSchema } from '@/domain/models/api/error'
+import type { Context } from 'hono'
 
 /**
  * Result type for validation - either success with data or error response
  */
 export type ValidationResult<T> =
   | { readonly success: true; readonly data: T }
-  | { readonly success: false; readonly response: TypedResponse<unknown> }
+  | { readonly success: false; readonly response: Response }
 
 /**
  * Turn a decode failure into the envelope's field-level entries.
@@ -111,3 +111,14 @@ export async function validateRequest<S extends Schema.Top>(
     return { success: false, response: c.json(errorResponse, 400) }
   }
 }
+
+/**
+ * {@link validateRequest} as a step of a handler's one program, for a route
+ * whose gates answer before its body is judged.
+ */
+export const validatedBody = <S extends Schema.Top>(
+  c: Context,
+  schema: S
+): Effect.Effect<ValidationResult<S['Type']>> =>
+  // effect-promise: total -- `validateRequest` answers every read and decode failure as a value.
+  Effect.promise(() => validateRequest(c, schema))

@@ -22,7 +22,7 @@ import { computeFormFieldClasses } from '@/presentation/design/form-layout-class
 import { FIELD_LABEL_CLASS, fieldWrapperAttributes } from './form-field-chrome'
 import { RequiredMark } from './form-field-elements-typed'
 import { HelpText } from './form-help-text'
-import type { ResolvedFormField } from './form-field-elements'
+import type { ResolvedFormField } from './form-resolved-field'
 import type { ReactElement } from 'react'
 
 /** The browser's radios, held until the island mounts over them. */

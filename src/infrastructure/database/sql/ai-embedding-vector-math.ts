@@ -15,9 +15,9 @@
  * get co-located unit tests).
  *
  * The cosine-similarity contract mirrors the Postgres `1 - (embedding <=> q)`
- * pgvector operator: the returned score is in `[0, 1]` for the non-negative
- * embedding space the providers emit, so the same `minSimilarity` floor and
- * descending ranking hold identically across both dialects.
+ * pgvector operator: the returned score is in `[-1, 1]` on both, so the same
+ * `minSimilarity` floor and descending ranking hold identically across the two
+ * dialects.
  */
 
 /** Serialize an embedding vector into a `Float32Array`-backed byte buffer. */
@@ -44,10 +44,10 @@ export const deserializeEmbedding = (blob: unknown): ReadonlyArray<number> => {
 }
 
 /**
- * Cosine similarity between two equal-length vectors, normalized to `[0, 1]`
- * for the non-negative embedding space. Returns 0 when either vector is empty,
- * has zero magnitude, or the lengths differ — a degenerate pair scores 0 and is
- * filtered out rather than ranked.
+ * Cosine similarity between two equal-length vectors, in `[-1, 1]`: the raw
+ * ratio, not rescaled, since real embedding vectors hold negative components.
+ * Returns 0 when either vector is empty, has zero magnitude, or the lengths
+ * differ — a degenerate pair scores 0 and is filtered out rather than ranked.
  */
 export const cosineSimilarity = (a: ReadonlyArray<number>, b: ReadonlyArray<number>): number => {
   if (a.length === 0 || a.length !== b.length) return 0

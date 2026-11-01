@@ -27,8 +27,9 @@
  * Exact origins only — scheme, host and optional port, no path and no wildcard
  * — so `https://checkout.example.com.attacker.example` never matches
  * `https://checkout.example.com`. `https://` only, except `http://localhost`
- * (any port), which is accepted outside production for local testing and
- * refused in production like any other `http://` origin.
+ * (any port), which is accepted for local testing only while the server's
+ * address is local, and dropped like any other `http://` origin when
+ * `BASE_URL` or the bind address is a public host, or `NODE_ENV` is production.
  */
 
 import { Schema } from 'effect'
@@ -49,7 +50,7 @@ export const AllowOriginsSchema = Schema.Array(
   Schema.String.pipe(
     Schema.annotate({
       description:
-        'One exact origin: https:// and a host, with an optional port, no path and no wildcard. http://localhost (any port) is accepted outside production only.',
+        'One exact origin: https:// and a host, with an optional port, no path and no wildcard. http://localhost (any port) is accepted only while the server address is local: it is dropped when BASE_URL or the bind address is a public host, or NODE_ENV is production.',
       examples: ['https://checkout.stripe.com', 'http://localhost:4242'],
     }),
     Schema.check(
@@ -63,7 +64,7 @@ export const AllowOriginsSchema = Schema.Array(
   Schema.annotate({
     title: 'Allowed Origins',
     description:
-      'Other sites this action may send the reader to, as exact origins (https://host or https://host:port), read only when navigate is a lone $response.<path> reference to the address the run returned. A returned address on a listed origin opens in the whole page; any other address is refused, the reader stays, and onError is shown. A literal http:// or https:// navigate stays refused whatever this list says. http://localhost is accepted outside production only.',
+      'Other sites this action may send the reader to, as exact origins (https://host or https://host:port), read only when navigate is a lone $response.<path> reference to the address the run returned. A returned address on a listed origin opens in the whole page; any other address is refused, the reader stays, and onError is shown. A literal http:// or https:// navigate stays refused whatever this list says. http://localhost (any port) is accepted only while the server address is local: it is dropped when BASE_URL or the bind address is a public host, or NODE_ENV is production.',
     examples: [['https://checkout.stripe.com']],
   }),
   Schema.check(Schema.isMinLength(1))

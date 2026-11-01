@@ -14,7 +14,7 @@
  */
 
 import { HTTPException } from 'hono/http-exception'
-import type { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import type { ApiErrorCode } from '@/domain/models/api/error'
 
 /** Whether a request path belongs to the machine-facing `/api/*` surface. */
 export const isApiPath = (path: string): boolean => path === '/api' || path.startsWith('/api/')

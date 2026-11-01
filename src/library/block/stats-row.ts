@@ -21,7 +21,7 @@ import {
   THEME_NOTE,
   when,
   wrap,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 const FIGURES = ['[00]', '[00 %]', '[0.0×]', '[000]'] as const

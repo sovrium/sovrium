@@ -48,32 +48,31 @@
  * `AgentScheduleSchema`; these handlers assume a well-formed schedule.
  */
 
-import { Cron, DateTime, Result } from 'effect'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { Cron, DateTime, Effect, Result } from 'effect'
+import { agentScheduleResponseSchema } from '@/domain/models/api/agents/agents'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import { resolveAgentLimits } from '@/domain/models/app/agents/agent-gate-validation'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
-import { requireDomainContext } from '@/infrastructure/logging/request-effect'
 import {
   isTokenBudgetExhausted,
   releaseConcurrencySlot,
-} from '@/infrastructure/process/agent-limits'
+} from '@/infrastructure/ai/agents/agent-limits'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { checkTriggerPermission } from '@/presentation/api/agents/agent-trigger-guard'
 import { agentNotFound, findAgent } from '@/presentation/api/runtime/agent-lookup'
 import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { answerFailures, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
 import {
   chargeRun,
   checkExecutionGates,
   checkLimitGates,
   tokenBudgetExhausted,
 } from './agent-execution-gates'
-import { runScheduledAgentTask } from './agent-schedule-runner'
+import { scheduledAgentTask } from './agent-schedule-runner'
+import { answerCompleted, answerPendingApproval } from './approval-presenter'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { Context, Hono } from 'hono'
-
-/** A declared agent schedule, once its presence has been established. */
-type AgentSchedule = NonNullable<Agent['schedule']>
 
 /**
  * Compute the next cron fire time for a schedule. Returns an empty object when
@@ -91,48 +90,51 @@ const computeNextRunAt = (cron: string, timezone: string): Record<string, string
   return { nextRunAt: Cron.next(parsed.success, new Date()).toISOString() }
 }
 
-/** Either the addressed scheduled agent, or the response that stands in for it. */
-type ScheduleTarget =
-  { readonly agent: Agent; readonly schedule: AgentSchedule } | { readonly refusal: Response }
-
 /**
- * Resolve the agent a schedule route addresses.
+ * Resolve the agent a schedule route addresses: the scheduled agent, or the
+ * response that stands in for it.
  *
  * The trigger gate runs BEFORE the "has a schedule" check on purpose: an agent
  * that exists but declares no schedule must be indistinguishable from one that
  * was never declared and from one the caller may not reach, or the three
  * answers become an enumeration oracle keyed on the name in the URL.
  */
-const resolveScheduleTarget = async (c: Context, app: App | undefined): Promise<ScheduleTarget> => {
-  const agent = findAgent(app, c.req.param('name') ?? '')
-  if (!agent) return { refusal: agentNotFound(c) }
-  const triggerRefusal = await checkTriggerPermission(c, agent, app)
-  if (triggerRefusal) return { refusal: triggerRefusal }
-  const { schedule } = agent
-  if (schedule === undefined) return { refusal: agentNotFound(c) }
-  return { agent, schedule }
-}
+const resolveScheduleTarget = (c: Context, app: App | undefined) =>
+  Effect.gen(function* () {
+    const agent = findAgent(app, c.req.param('name') ?? '')
+    if (!agent) return { refusal: agentNotFound(c) }
+    const triggerRefusal = yield* checkTriggerPermission(c, agent, app)
+    if (triggerRefusal) return { refusal: triggerRefusal }
+    const { schedule } = agent
+    if (schedule === undefined) return { refusal: agentNotFound(c) }
+    return { agent, schedule }
+  })
 
-const handleGetSchedule =
-  (app: App | undefined) =>
-  async (c: Context): Promise<Response> => {
-    const target = await resolveScheduleTarget(c, app)
-    if ('refusal' in target) return target.refusal
-    const { agent, schedule } = target
+const handleGetSchedule = (app: App | undefined) => (c: Context) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.map(resolveScheduleTarget(c, app), (target) => {
+        if (target.refusal) return target.refusal
+        const { agent, schedule } = target
 
-    // An omitted zone is the operator timezone (SOVRIUM_TIMEZONE, UTC when unset).
-    const timezone = schedule.timezone ?? resolveOperatorTimezone()
-    return c.json(
-      {
-        agent: agent.name,
-        cron: schedule.cron,
-        timezone,
-        taskPrompt: schedule.taskPrompt,
-        ...computeNextRunAt(schedule.cron, timezone),
-      },
-      200
+        // An omitted zone is the operator timezone (SOVRIUM_TIMEZONE, UTC when unset).
+        const timezone = schedule.timezone ?? resolveOperatorTimezone(process.env)
+        return shapedJson(
+          c,
+          {
+            agent: agent.name,
+            cron: schedule.cron,
+            timezone,
+            taskPrompt: schedule.taskPrompt,
+            ...computeNextRunAt(schedule.cron, timezone),
+          },
+          agentScheduleResponseSchema
+        )
+      })
     )
-  }
+  )
 
 /**
  * Run the manual trigger while a concurrency slot is held, mirroring
@@ -140,38 +142,30 @@ const handleGetSchedule =
  * daily-token gate, so `maxTokensPerDay` can actually be reached through this
  * route.
  */
-const triggerWithinSlot = async (
+const triggerWithinSlot = (
   c: Context,
   agent: Agent,
   run: { readonly taskPrompt: string; readonly app: App | undefined }
-): Promise<Response> => {
-  const { taskPrompt, app } = run
-  const outcome = await runScheduledAgentTask(agent, taskPrompt, requireDomainContext(c), app)
-  // The gates only asked; a run whose actions charged nothing is charged once.
-  if (outcome.actionsCharged === 0) chargeRun(agent)
-  const limits = resolveAgentLimits(agent.limits)
-  if (isTokenBudgetExhausted(agent.name, limits.maxTokensPerDay)) {
-    return tokenBudgetExhausted(c, agent.name)
-  }
-  if (outcome.kind === 'pending_approval') {
-    return c.json(
-      {
-        status: 'pending_approval',
-        approvalRequired: true,
-        approvalId: outcome.approvalId,
-        agent: agent.name,
-      },
-      202
-    )
-  }
-  return c.json({ status: 'completed', approvalRequired: false, agent: agent.name }, 200)
-}
+) =>
+  Effect.gen(function* () {
+    const { taskPrompt, app } = run
+    const outcome = yield* scheduledAgentTask(agent, taskPrompt, app)
+    // The gates only asked; a run whose actions charged nothing is charged once.
+    if (outcome.actionsCharged === 0) chargeRun(agent)
+    const limits = resolveAgentLimits(agent.limits)
+    if (isTokenBudgetExhausted(agent.name, limits.maxTokensPerDay)) {
+      return tokenBudgetExhausted(c, agent.name)
+    }
+    if (outcome.kind === 'pending_approval') {
+      return answerPendingApproval(c, outcome.approvalId, agent.name)
+    }
+    return answerCompleted(c, agent.name)
+  })
 
-const handleTriggerSchedule =
-  (app: App | undefined) =>
-  async (c: Context): Promise<Response> => {
-    const target = await resolveScheduleTarget(c, app)
-    if ('refusal' in target) return target.refusal
+const triggerProgram = (c: Context, app: App | undefined) =>
+  Effect.gen(function* () {
+    const target = yield* resolveScheduleTarget(c, app)
+    if (target.refusal) return target.refusal
     const { agent, schedule } = target
 
     // An agent on a deployment with no AI provider is INERT —
@@ -200,12 +194,13 @@ const handleTriggerSchedule =
     const limitGate = checkLimitGates(c, agent, { record: false })
     if (limitGate) return limitGate
 
-    try {
-      return await triggerWithinSlot(c, agent, { taskPrompt: schedule.taskPrompt, app })
-    } finally {
-      releaseConcurrencySlot(agent.name)
-    }
-  }
+    return yield* triggerWithinSlot(c, agent, { taskPrompt: schedule.taskPrompt, app }).pipe(
+      Effect.ensuring(Effect.sync(() => releaseConcurrencySlot(agent.name)))
+    )
+  })
+
+const handleTriggerSchedule = (app: App | undefined) => (c: Context) =>
+  runHandlerEffect(c, answerFailures(c, triggerProgram(c, app)))
 
 /**
  * Chain agent scheduling routes onto a Hono app.

@@ -5,10 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { getRecordHistoryProgram } from '@/application/use-cases/tables/activity-programs'
+import { getRecordHistoryResponseSchema } from '@/domain/models/api/tables/comments'
+import { findTableByIdOrName } from '@/domain/models/app/tables/table-lookup-service'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext, getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { parseCreatedAtSortOrder } from './created-at-sort-param'
 import { handleRouteError } from './error-handlers'
 import { checkRecordReadGate } from './record-read-gate'
@@ -54,34 +61,41 @@ export async function handleGetRecordHistory(c: Context, app: App) {
   const { limit, offset } = parsePagination(c)
 
   // Find table by ID OR name, as every records route addresses it
-  const table = app.tables?.find((t) => String(t.id) === String(tableId) || t.name === tableId)
+  const table = findTableByIdOrName(app.tables, tableId)
   if (!table) {
     return notFound(c)
   }
 
-  // A history entry IS the record's values: it is gated exactly as a read of
-  // the record, so `/history` never shows what `GET /records/:id` would refuse.
-  const gateError = await checkRecordReadGate(c, app, table, recordId)
-  if (gateError) return gateError
+  return runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        // A history entry IS the record's values: it is gated exactly as a read of
+        // the record, so `/history` never shows what `GET /records/:id` would refuse.
+        const gateError = yield* checkRecordReadGate(c, app, table, recordId)
+        if (gateError) return gateError
 
-  // Run Effect program
-  const program = getRecordHistoryProgram({
-    session,
-    tableName: table.name,
-    recordId,
-    limit,
-    offset,
-    sortOrder: parseCreatedAtSortOrder(c.req.query('sort')),
-    app,
-    userRole: getTableContext(c).userRole,
-    userGroups: getTableContext(c).userGroups,
-  })
+        const result = yield* Effect.result(
+          getRecordHistoryProgram({
+            session,
+            tableName: table.name,
+            recordId,
+            limit,
+            offset,
+            sortOrder: parseCreatedAtSortOrder(c.req.query('sort')),
+            app,
+            userRole: getTableContext(c).userRole,
+            userGroups: getTableContext(c).userGroups,
+          })
+        )
 
-  const result = await runOnRequest(c, program)
+        if (result._tag === 'Failure') {
+          return handleRouteError(c, result.failure)
+        }
 
-  if (result._tag === 'Failure') {
-    return handleRouteError(c, result.failure)
-  }
-
-  return c.json(result.success, 200)
+        return yield* respondWith(c, Effect.succeed(result.success), getRecordHistoryResponseSchema)
+      })
+    )
+  )
 }

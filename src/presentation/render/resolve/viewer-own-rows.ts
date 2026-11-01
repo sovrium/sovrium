@@ -19,12 +19,14 @@
 import { RECORD_TEXT_KEY } from '@/domain/models/app/pages/substitute-record-vars'
 import { recordTextEntriesOf } from '@/presentation/render/props/record-value-format'
 import { withAvatarMembers } from './avatar-members-binding'
+import { rewriteComponent, tableBindingOf, type RenderProps } from './component-rewrite'
 import { withProgressRatio } from './progress-ratio-binding'
 import { labelledPageRows } from './record-display-labels'
 import { readRowsForCaller } from './record-read-gate'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
+import type { Component } from '@/domain/models/app/pages/components'
 import type {
   DataSourceMine,
   ViewerRowLookup,
@@ -189,37 +191,33 @@ export interface ViewerRowsStamp {
  * `props.id` is the region redrawn after a switch), a gallery's island handed
  * her rows (`props._viewerRows`).
  */
-async function bindViewerRows<
-  C extends {
-    readonly type: string
-    readonly children?: unknown
-    readonly props?: unknown
-    readonly dataSource?: { readonly mine?: DataSourceMine }
-  },
->(
-  component: C,
+async function bindViewerRows(
+  component: Component,
   rows: readonly Row[],
   ctx: ViewerReadContext
-): Promise<{ readonly component: C; readonly rows: readonly Row[] }> {
-  const mine = component.dataSource?.mine
+): Promise<{ readonly component: Component; readonly rows: readonly Row[] }> {
+  const mine = tableBindingOf(component)?.mine
   if (mine === undefined) return { component, rows }
   const own = await preparedViewerRows(mine, ctx)
   const joined = rows.map((row) => {
     const mineRow = own.get(String(row['id']))
     return { ...row, ...ownRowFieldsOf(mine.as, mineRow), [mine.as]: mineRow?.['id'] ?? null }
   })
-  const props = (component.props ?? {}) as Readonly<Record<string, unknown>>
+  const props: RenderProps = component.props ?? {}
   if (component.type === 'gallery') {
     const stamp: ViewerRowsStamp = {
       ...mine,
       userId: ctx.session?.userId ?? '',
       rows: Object.fromEntries(Array.from(own, ([key, row]) => [key, row['id']])),
     }
-    return { component: { ...component, props: { ...props, _viewerRows: stamp } }, rows: joined }
+    return {
+      component: rewriteComponent(component, { props: { ...props, _viewerRows: stamp } }),
+      rows: joined,
+    }
   }
   const region = typeof props['id'] === 'string' ? props['id'] : undefined
   const children = withViewerToggles(component.children, mine, { session: ctx.session, region })
-  return { component: { ...component, children }, rows: joined }
+  return { component: rewriteComponent(component, { children }), rows: joined }
 }
 
 /**
@@ -228,18 +226,11 @@ async function bindViewerRows<
  * figure taken over them (`progress-ratio-binding.ts`), or a bound avatar
  * group's people (`avatar-members-binding.ts`).
  */
-export async function bindReadRows<
-  C extends {
-    readonly type: string
-    readonly children?: unknown
-    readonly props?: unknown
-    readonly dataSource?: { readonly mine?: DataSourceMine; readonly table?: unknown }
-  },
->(
-  component: C,
+export async function bindReadRows(
+  component: Component,
   rows: readonly Row[],
   ctx: ViewerReadContext
-): Promise<{ readonly component: C; readonly rows: readonly Row[] }> {
+): Promise<{ readonly component: Component; readonly rows: readonly Row[] }> {
   const own = await bindViewerRows(component, rows, ctx)
   const counted = withProgressRatio(own.component, own.rows, ctx.app)
   return { component: await withAvatarMembers(counted, own.rows, ctx), rows: own.rows }

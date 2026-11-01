@@ -11,43 +11,40 @@ import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { resolveCurrentUserOperand } from '@/domain/models/app/pages/current-user-ref'
 import { declaresTranslatable } from '@/domain/models/app/tables/translatable-field-service'
 import { shouldUseView } from '@/infrastructure/database/lookup/lookup-view-generators'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   getExistingViews,
   getExistingMaterializedViews,
   executeSQLStatements,
-  executeSQLStatementsParallel,
   type SQLExecutionError,
   type TransactionLike,
 } from '../sql/sql-execution'
 import { recordLanguagesOf } from '../sql/sql-translatable-columns'
-import { languageValueDdl } from '../sql/translatable-value-sql'
+import { languageValueDdlOn } from '../sql/translatable-value-sql'
 import { generateSqlCondition } from '../table-queries/filter-operators'
 import { compileFilterTree, isCompleteCondition } from '../table-queries/filter-tree'
 import type { Table } from '@/domain/models/app/tables'
 import type { View } from '@/domain/models/app/tables/views'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
- * `DROP VIEW` statement for the active dialect.
+ * `DROP VIEW` statement on `dialect`, for one view name.
  *
  * PostgreSQL supports `DROP VIEW … CASCADE` (drops dependents transitively).
  * SQLite has no `CASCADE` clause on `DROP VIEW`; a plain `DROP VIEW IF EXISTS`
- * is used there.
- *
- * A previous version of this note claimed SQLite views are "filtered out of the
- * dynamic-table set by `shouldUseView` degradation". That was FALSE and is
- * corrected here: `shouldUseView` (lookup/lookup-view-generators.ts) is
- * `hasLookupFields || hasRollupFields || hasCountFields` — it has no dialect
- * awareness whatsoever and never inspects `materialized`. SQLite really does
- * create views, so this branch is load-bearing rather than defensive.
+ * is used there. SQLite really does create views — `shouldUseView`
+ * (lookup/lookup-view-generators.ts) has no dialect awareness and never inspects
+ * `materialized` — so this branch is load-bearing rather than defensive.
  */
-const dropViewStatement = (viewName: string): string => {
+const dropViewStatement = (dialect: DatabaseDialect, viewName: string): string => {
   // Quote the identifier — view IDs are kebab-case and must be quoted.
   const quoted = quoteSqlIdentifier(viewName)
-  return isSqliteRuntime()
+  return dialect === 'sqlite'
     ? `DROP VIEW IF EXISTS ${quoted}`
     : `DROP VIEW IF EXISTS ${quoted} CASCADE`
 }
+
+/** The engine a view's SQL is written for, and the fields of the table it reads. */
+type ViewScope = { readonly dialect: DatabaseDialect; readonly fields: Table['fields'] }
 
 /**
  * What a view's SQL reads for the field `name`: its quoted column, or, for a
@@ -55,12 +52,12 @@ const dropViewStatement = (viewName: string): string => {
  * D8) — a saved view filters, sorts and groups as a query does. The languages
  * come stamped on the field by the schema initializer, default first.
  */
-const columnExpression = (fields: Table['fields'], name: string): string => {
+const columnExpression = ({ dialect, fields }: ViewScope, name: string): string => {
   const quoted = quoteSqlIdentifier(name)
   const field = fields.find((candidate) => candidate.name === name)
   const language =
     field !== undefined && declaresTranslatable(field) ? recordLanguagesOf(field)[0] : undefined
-  return language === undefined ? quoted : languageValueDdl(quoted, language)
+  return language === undefined ? quoted : languageValueDdlOn(dialect, quoted, language)
 }
 
 /** A condition no row satisfies. */
@@ -81,7 +78,7 @@ const NO_ROW_CONDITION = '1 = 0'
  * which would widen `open AND mine` to every open row. The records API reads
  * the same view for each reader (`viewFiltersForReader`).
  */
-const generateWhereClause = (filters: View['filters'], fields: Table['fields']): string => {
+const generateWhereClause = (filters: View['filters'], scope: ViewScope): string => {
   if (!filters) return ''
 
   // The top level stays unwrapped (`WHERE a AND b`), so a view whose SQL was
@@ -93,32 +90,29 @@ const generateWhereClause = (filters: View['filters'], fields: Table['fields']):
     (c) => {
       if (!isCompleteCondition(c)) return undefined
       if (resolveCurrentUserOperand(c.value, undefined).kind !== 'literal') return NO_ROW_CONDITION
-      return generateSqlCondition(columnExpression(fields, c.field), c.operator, c.value)
+      return generateSqlCondition(columnExpression(scope, c.field), c.operator, c.value, scope)
     },
-    { fields }
+    { fields: scope.fields }
   )
   return condition === undefined ? '' : `WHERE ${condition}`
 }
 
 /**
- * Generate SQL ORDER BY clause from view sorts and groupBy
- * GroupBy takes precedence - when present, it's used for ordering
- * If both groupBy and sorts are present, groupBy is applied first
+ * Generate SQL ORDER BY clause from view sorts and groupBy. GroupBy takes
+ * precedence: when present, it orders the view and the sorts are not applied.
  */
 const generateOrderByClause = (
-  sorts: View['sorts'],
-  groupBy: View['groupBy'],
-  fields: Table['fields']
+  { sorts, groupBy }: Pick<View, 'sorts' | 'groupBy'>,
+  scope: ViewScope
 ): string => {
-  // Build order items immutably
   const groupByItems = groupBy
-    ? [`${columnExpression(fields, groupBy.field)} ${(groupBy.direction || 'asc').toUpperCase()}`]
+    ? [`${columnExpression(scope, groupBy.field)} ${(groupBy.direction || 'asc').toUpperCase()}`]
     : []
 
   const sortItems =
     sorts && sorts.length > 0 && !groupBy
       ? sorts.map(
-          (sort) => `${columnExpression(fields, sort.field)} ${sort.direction.toUpperCase()}`
+          (sort) => `${columnExpression(scope, sort.field)} ${sort.direction.toUpperCase()}`
         )
       : []
 
@@ -149,15 +143,16 @@ const generateOrderByClause = (
  * the REFRESH in `table-operations/table-effects.ts` — must go through it, or
  * they disagree about which objects exist.
  */
-export const emitsMaterializedView = (view: Readonly<{ materialized?: boolean }>): boolean =>
-  view.materialized === true && !isSqliteRuntime()
+export const emitsMaterializedView = (
+  view: Readonly<{ materialized?: boolean }>,
+  dialect: DatabaseDialect
+): boolean => view.materialized === true && dialect !== 'sqlite'
 
 /**
- * Generate CREATE VIEW or CREATE MATERIALIZED VIEW statement for a table view
- * PostgreSQL doesn't support IF NOT EXISTS for CREATE VIEW, so we drop first
+ * CREATE VIEW / MATERIALIZED VIEW for a table view on `dialect` (no IF NOT EXISTS: dropped first)
  */
-export const generateViewSQL = (table: Table, view: View): string => {
-  const viewType = emitsMaterializedView(view) ? 'MATERIALIZED VIEW' : 'VIEW'
+export const generateViewSQL = (table: Table, view: View, dialect: DatabaseDialect): string => {
+  const viewType = emitsMaterializedView(view, dialect) ? 'MATERIALIZED VIEW' : 'VIEW'
   // Convert view.id to string (ViewId can be number or string).
   // Kebab-case view IDs (e.g. `active-orders`) need double-quoting — an
   // unquoted hyphen is a SQL syntax error.
@@ -173,8 +168,9 @@ export const generateViewSQL = (table: Table, view: View): string => {
   // be named `values` or `window`, key words a bare column cannot be).
   const fields =
     view.fields && view.fields.length > 0 ? view.fields.map(quoteSqlIdentifier).join(', ') : '*'
-  const whereClause = generateWhereClause(view.filters, table.fields)
-  const orderByClause = generateOrderByClause(view.sorts, view.groupBy, table.fields)
+  const scope = { dialect, fields: table.fields }
+  const whereClause = generateWhereClause(view.filters, scope)
+  const orderByClause = generateOrderByClause(view, scope)
 
   // The DATABASE name, quoted: the config name (`report-requests`) is not an
   // identifier. A view-backed table reads its lookup VIEW, which carries this
@@ -248,7 +244,10 @@ END`,
  * SQL view for one, by design, because those are served by the records API
  * through `?view=`.
  */
-export const generateReadOnlyViewTrigger = (viewId: string | number): readonly string[] => {
+export const generateReadOnlyViewTrigger = (
+  viewId: string | number,
+  dialect: DatabaseDialect
+): readonly string[] => {
   const viewIdStr = String(viewId)
   // The view itself is referenced as a target identifier — quote it so
   // kebab-case IDs (e.g. `active-orders`) are valid SQL.
@@ -257,7 +256,7 @@ export const generateReadOnlyViewTrigger = (viewId: string | number): readonly s
   // normalize any non-identifier characters (e.g. hyphens) to underscores.
   const triggerBaseName = `${viewIdStr.replace(/[^a-z0-9_]/gi, '_')}_readonly`
 
-  if (isSqliteRuntime()) {
+  if (dialect === 'sqlite') {
     return generateReadOnlyViewTriggerSqlite(quotedViewId, viewIdStr, triggerBaseName)
   }
 
@@ -328,8 +327,8 @@ const collectExpectedViewIds = (tables: readonly Table[]): ReadonlySet<string> =
  * helper returns `[]` on SQLite — but the cascade suffix is applied
  * defensively for any caller that synthesizes names outside the catalog.
  */
-const dropMaterializedViewStatement = (viewName: string): string => {
-  const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
+const dropMaterializedViewStatement = (dialect: DatabaseDialect, viewName: string): string => {
+  const cascadeSuffix = dialect === 'sqlite' ? '' : ' CASCADE'
   return `DROP MATERIALIZED VIEW IF EXISTS ${quoteSqlIdentifier(viewName)}${cascadeSuffix}`
 }
 
@@ -360,12 +359,15 @@ export const dropAllObsoleteViews = async (
     const expectedViewIds = collectExpectedViewIds(tables)
     const obsolete = findObsoleteViewNames(existingViewNames, existingMatViewNames, expectedViewIds)
 
-    const dropViewStatements = obsolete.views.map(dropViewStatement)
-    const dropMatViewStatements = obsolete.matViews.map(dropMaterializedViewStatement)
+    const { dialect } = tx
+    const dropViewStatements = obsolete.views.map((name) => dropViewStatement(dialect, name))
+    const dropMatViewStatements = obsolete.matViews.map((name) =>
+      dropMaterializedViewStatement(dialect, name)
+    )
 
-    // Execute all DROP statements in parallel
+    // One transaction connection: the DROP statements run one after the other.
     if (dropViewStatements.length > 0 || dropMatViewStatements.length > 0) {
-      yield* executeSQLStatementsParallel(tx, [...dropViewStatements, ...dropMatViewStatements])
+      yield* executeSQLStatements(tx, [...dropViewStatements, ...dropMatViewStatements])
     }
   })
 
@@ -392,7 +394,7 @@ export const dropEveryView = (tx: TransactionLike): Effect.Effect<void, SQLExecu
     const materializedViews = yield* getExistingMaterializedViews(tx)
     const views = yield* getExistingViews(tx)
     yield* executeSQLStatements(tx, [
-      ...materializedViews.map(dropMaterializedViewStatement),
-      ...views.map(dropViewStatement),
+      ...materializedViews.map((name) => dropMaterializedViewStatement(tx.dialect, name)),
+      ...views.map((name) => dropViewStatement(tx.dialect, name)),
     ])
   })

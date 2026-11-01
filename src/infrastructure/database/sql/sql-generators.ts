@@ -38,6 +38,7 @@ import {
 } from './sql-key-constraints'
 import { generateTranslatableConstraints } from './sql-translatable-columns'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 // Re-export from sql-type-mappings
 export { mapFieldTypeToPostgres } from './sql-type-mappings'
@@ -75,27 +76,27 @@ export {
 
 /**
  * Generate table constraints (CHECK constraints, UNIQUE constraints, FOREIGN KEY, primary key, etc.)
+ * written for `dialect`.
  */
 export const generateTableConstraints = (
   table: Table,
+  dialect: DatabaseDialect,
   tableUsesView?: ReadonlyMap<string, boolean>,
   skipForeignKeys?: boolean
 ): readonly string[] => [
-  ...generateArrayConstraints(table.fields),
-  ...generateMultipleAttachmentsConstraints(table.fields),
+  ...generateArrayConstraints(table.fields, dialect),
+  ...generateMultipleAttachmentsConstraints(table.fields, dialect),
   ...generateNumericConstraints(table.fields),
   ...generateProgressConstraints(table.fields),
   ...generateEnumConstraints(table.fields),
-  ...generateMultiSelectConstraints(table.fields),
+  ...generateMultiSelectConstraints(table.fields, dialect),
   ...generateStatusConstraints(table.fields),
   ...generateRichTextConstraints(table.fields),
-  ...generateBarcodeConstraints(table.fields),
-  ...generateColorConstraints(table.fields),
-  ...generateTranslatableConstraints(table.fields),
+  ...generateBarcodeConstraints(table.fields, dialect),
+  ...generateColorConstraints(table.fields, dialect),
+  ...generateTranslatableConstraints(table.fields, dialect),
   ...generateCustomCheckConstraints(table.constraints),
   ...generatePrimaryKeyConstraint(table),
   ...generateUniqueConstraints(table),
-  ...(skipForeignKeys
-    ? []
-    : generateForeignKeyConstraints(table.name, table.fields, tableUsesView, table.foreignKeys)),
+  ...(skipForeignKeys ? [] : generateForeignKeyConstraints(dialect, table, tableUsesView)),
 ]

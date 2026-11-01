@@ -26,7 +26,7 @@ export const RowLevelFilterOperatorSchema = Schema.Literals(['eq', 'neq', 'in', 
   Schema.annotate({
     title: 'Row-Level Filter Operator',
     description:
-      'How the field is compared with the value: `eq` equal, `neq` different, `in` the field is one of a list of values, `contains` the field holds several values and one of them is the value (or one of the values of a list). `contains` applies to a many-to-many relationship and to a `user` field with `allowMultiple: true` (a list of people), on the table or one many-to-one relationship away, and is never a text match; on a field holding one value it is refused before the app starts — use `eq` or `in`.',
+      'How the field is compared with the value: `eq` equal, `neq` different, `in` the field is one of a list of values, `contains` the field holds several values and one of them is the value (or one of the values of a list). `contains` applies to a many-to-many relationship and to a `user` field with `allowMultiple: true` (a list of people), on the table or one many-to-one relationship away, and is never a text match; on a field holding one value it is refused before the app starts: use `eq` or `in`.',
   })
 )
 

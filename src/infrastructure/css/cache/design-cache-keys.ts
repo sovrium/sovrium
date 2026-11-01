@@ -61,6 +61,7 @@ export const CSS_BEARING_DESIGN_KEYS = [
   'density',
   'baseline',
   'components',
+  'code',
 ] as const satisfies readonly (keyof Design)[]
 
 /**

@@ -30,8 +30,7 @@
  *
  * Auth gating is wired upstream by `authMiddleware` + `requireAdminTier()` on
  * BOTH the `/api/admin/connections/*` wildcard AND the bare
- * `/api/admin/connections` path in `infrastructure/server/route-setup/
- * api-routes.ts`, which 404s both missing-session and wrong-role callers (S1
+ * `/api/admin/connections` path in `middleware/admin-route-guards.ts`, which 404s both missing-session and wrong-role callers (S1
  * anti-enumeration). The entries add only the per-connection anti-enum 404 (an
  * unknown connection id is not an enumerable resource) and the success path.
  *
@@ -52,10 +51,10 @@ import type { Hono } from 'hono'
  * Auth gating is wired upstream in `createApiRoutes` (authMiddleware +
  * requireAdminTier on the `/api/admin/connections/*` wildcard AND the bare
  * `/api/admin/connections` path). Connection rows are read from the RUNTIME DB,
- * not `app.connections` config; the resolver only satisfies the registry's
- * adapter. The single-segment `/:id` does not overlap the two-segment action
+ * not `app.connections` config; `app` only satisfies the registry's adapter.
+ * The single-segment `/:id` does not overlap the two-segment action
  * paths chained after it.
  */
-export function chainAdminConnectionsRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
-  return chainAdminReadRoutes(honoApp, resolveApp, CONNECTIONS_READ_OPERATIONS)
+export function chainAdminConnectionsRoutes<T extends Hono>(honoApp: T, app: App): T {
+  return chainAdminReadRoutes(honoApp, app, CONNECTIONS_READ_OPERATIONS)
 }

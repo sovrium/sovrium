@@ -14,14 +14,19 @@
  */
 
 import { Effect } from 'effect'
-import { LOGIN_RELATIVE_PATH } from '@/application/use-cases/mount/embedded-app-mount'
+import { ProcessEnv, type ProcessEnvShape } from '@/application/ports/services/process-env'
+import { ServerEnv } from '@/application/ports/services/server-env'
+import { LOGIN_RELATIVE_PATH } from '@/application/use-cases/admin/embedded-app-mount'
 import { appRequiresEmail } from '@/domain/models/app'
 import { mountHref } from '@/domain/models/app/admin/mount-hrefs'
+import { hasStrategy } from '@/domain/models/app/auth'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { compileCSS, type CompiledCSS } from '@/infrastructure/css/compiler'
+import { DatabaseUnownedLive } from '@/infrastructure/database/drizzle/layer'
 import { logInfo } from '@/infrastructure/logging/logger'
 import { renderStartupSummary } from '@/infrastructure/logging/startup-summary'
 import { isEmailConfigured } from '@/infrastructure/process/env'
+import { isPublicOrigin } from '@/infrastructure/process/security-posture'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import { adminMountsFor } from '@/infrastructure/server/admin-mounts'
 import { applyBootstrapTokenToSummary } from '@/infrastructure/server/bootstrap-banner'
@@ -37,12 +42,12 @@ import {
   collectTelemetryPhases,
 } from '@/infrastructure/server/startup-degradation-phases'
 import type { DatabaseStartupReport } from '@/application/ports/services/server-factory'
+import type { CSSCompilationError } from '@/domain/errors/css-compilation-error'
 import type { App } from '@/domain/models/app'
 import type {
   AuthConfigRequiredForUserFields,
   SchemaInitializationError,
 } from '@/infrastructure/database/schema/schema-initializer'
-import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
 import type { ServerConfig } from '@/infrastructure/server/server-config'
 
@@ -78,7 +83,9 @@ const collectDatabasePhases = (
   AuthConfigRequiredForUserFields | SchemaInitializationError | Error
 > => {
   if (report) return Effect.succeed(report.phases)
-  return runDatabaseStartup(app, parseDatabaseDialectConfig())
+  return Effect.flatMap(ProcessEnv, (env) =>
+    runDatabaseStartup(app, parseDatabaseDialectConfig(env))
+  )
 }
 
 /**
@@ -93,6 +100,31 @@ const cssStartupLabel = (result: CompiledCSS, sizeKB: number): string => {
   if (result.staleIgnored) return `CSS compiled (${sizeKB} KB, stale pre-compiled file ignored)`
   if (result.reused) return `CSS compiled (${sizeKB} KB) from cache`
   return `CSS compiled (${sizeKB} KB)`
+}
+
+/**
+ * The `Email sending disabled` warning, or nothing.
+ *
+ * Warned when SMTP is unconfigured AND email is LOAD-BEARING for this app
+ * (magic link, email OTP, `requireEmailVerification`, an `email` automation
+ * action, an agent granted `email.send`) — see `appRequiresEmail` for why a
+ * bare `emailAndPassword` app stays quiet on a developer machine. On a public
+ * origin that bare app is warned too: every password reset its users ask for
+ * would be dropped. When unconfigured, outgoing email is disabled (printed
+ * whole on a strictly local server, one line elsewhere) rather than routed to
+ * a local fallback transport.
+ */
+const collectSmtpPhases = (app: App): readonly StartupPhase[] => {
+  if (isEmailConfigured()) return []
+  const passwordResetsOnPublicOrigin = isPublicOrigin() && hasStrategy(app.auth, 'emailAndPassword')
+  return appRequiresEmail(app) || passwordResetsOnPublicOrigin
+    ? [
+        {
+          label: 'Email sending disabled — SMTP not configured (set SMTP_HOST to enable)',
+          type: 'warning' as const,
+        },
+      ]
+    : []
 }
 
 /**
@@ -111,6 +143,7 @@ const collectInfraPhases = (
 > =>
   Effect.gen(function* () {
     const databasePhases = yield* collectDatabasePhases(app, databaseStartup)
+    const env: ProcessEnvShape = yield* ProcessEnv
 
     // Admin display phase — emitted right after the database phase so the
     // operator sees the admin email and the data location side-by-side. See
@@ -121,40 +154,31 @@ const collectInfraPhases = (
     // effect-promise: total -- `collectAdminPhases` returns early for an app with no auth and otherwise ends its program in `Effect.orElseSucceed(() => [])`; a banner lookup must not regress the rest of the startup pipeline.
     const adminPhases = yield* Effect.promise(() => collectAdminPhases(app))
 
-    // SMTP check — only warn when email is LOAD-BEARING for this app (magic
-    // link, email OTP, `requireEmailVerification`, or an `email` automation
-    // action) AND SMTP is unconfigured. See `appRequiresEmail` for why a bare
-    // `emailAndPassword` app is deliberately not warned. When unconfigured,
-    // outgoing email is disabled (journalled in development, logged in
-    // production) rather than routed to a local fallback transport.
-    const smtpPhases: readonly StartupPhase[] =
-      appRequiresEmail(app) && !isEmailConfigured()
-        ? [
-            {
-              label: 'Email sending disabled — SMTP not configured (set SMTP_HOST to enable)',
-              type: 'warning' as const,
-            },
-          ]
-        : []
+    // SMTP check — see collectSmtpPhases.
+    const smtpPhases = collectSmtpPhases(app)
 
     // AI-provider check — the same shape as the SMTP one and placed beside it
     // on purpose: both name a subsystem the config asked for and the
     // environment did not supply. See collectAiProviderPhases.
-    const aiProviderPhases = collectAiProviderPhases(app)
+    const aiProviderPhases = collectAiProviderPhases(app, env)
 
     // Open sign-up exposure — which tables a stranger reaches by registering.
     // See collectSignUpExposurePhases.
     const signUpExposurePhases = collectSignUpExposurePhases(app)
 
     // Storage check — see collectStoragePhases for the contract.
-    const storagePhases = collectStoragePhases(app)
+    const storagePhases = collectStoragePhases(app, env)
 
     // Telemetry destinations — a
     // `✓ Telemetry:` line per active signal, host-only, silent when off.
     const telemetryPhases = collectTelemetryPhases()
 
     // AI-listener degradation notice — see collectAiListenerPhases.
-    const aiListenerPhases = collectAiListenerPhases(app)
+    // The boot reports it before a server runtime owns the client: the unowned database
+    // answers which engine this is.
+    const aiListenerPhases = yield* collectAiListenerPhases(app).pipe(
+      Effect.provide(DatabaseUnownedLive)
+    )
 
     // CSS phase
     const cssResult = yield* compileCSS(app)
@@ -245,7 +269,7 @@ export const renderStartup = (params: {
       ...(augmented.bootstrapToken ? { bootstrapToken: augmented.bootstrapToken } : {}),
     })
     // A token-gated preview says so, and never names the token ([internal ref] D2).
-    if (process.env['SOVRIUM_PREVIEW_TOKEN']) logInfo(`[server] ${PREVIEW_BANNER_LINE}`)
+    if ((yield* ServerEnv).previewToken !== undefined) logInfo(`[server] ${PREVIEW_BANNER_LINE}`)
   })
 
 /** Combine infrastructure phases + the static-asset directory phase. */

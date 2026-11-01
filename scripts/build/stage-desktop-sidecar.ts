@@ -42,10 +42,14 @@
  * The desktop release job. It fetches the per-platform binary produced by the
  * binary jobs and runs this script with `--from`, before `tauri build`. On
  * macOS the sidecar must additionally be signed with
- * `desktop/src-tauri/entitlements.plist` BEFORE the bundle is signed — a
- * `--deep` signature does not apply entitlements to a nested Mach-O, and
- * JavaScriptCore is a JIT, so an unsigned sidecar is killed by the kernel on
- * launch rather than failing with a message.
+ * `desktop/src-tauri/entitlements.plist` BEFORE `tauri build`, with the
+ * hardened runtime and a secure timestamp (`--options runtime --timestamp`):
+ * JavaScriptCore is a JIT, so a sidecar without `allow-jit` runs with its JIT
+ * off, about seven times slower (measured, [internal ref] A3). That signature is the
+ * one that ships: on macOS `desktop/tauri-cli.ts` hands the engine to the
+ * bundler as a plain file rather than an external binary, so Tauri never signs
+ * it again with the shell's minimal entitlements, and nothing later adds the
+ * runtime or the timestamp notarization needs.
  *
  * Usage:
  *   bun run scripts/build/stage-desktop-sidecar.ts --from ./sovrium-darwin-arm64

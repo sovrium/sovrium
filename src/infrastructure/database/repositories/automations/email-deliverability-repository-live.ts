@@ -6,13 +6,15 @@
  */
 
 import { and, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   EmailDeliverabilityDatabaseError,
   EmailDeliverabilityRepository,
 } from '@/application/ports/repositories/automations/email-deliverability-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   emailMessages as messagesPg,
   emailSuppressions as suppressionsPg,
@@ -42,60 +44,63 @@ const messageFilter = (input: {
 const countOf = (column: SQL | typeof messages.id): SQL<number> =>
   sql<number>`cast(count(${column}) as integer)`
 
-/**
- * Drizzle implementation of {@link EmailDeliverabilityRepository}, both
- * dialects. A suppression is written once per address and category: a second
- * identical suppression changes nothing.
- */
-export const EmailDeliverabilityRepositoryLive = Layer.succeed(EmailDeliverabilityRepository, {
-  suppressedAmong: ({ addresses, category }) =>
-    wrap(async () => {
-      const lowered = [...new Set(addresses.map((address) => address.toLowerCase()))]
-      if (lowered.length === 0) return new Set<string>()
-      const rows = await db
-        .select({ address: suppressions.address })
-        .from(suppressions)
-        .where(
-          and(
-            inArray(suppressions.address, lowered),
-            or(isNull(suppressions.category), eq(suppressions.category, category))
+const members: MembersOverDatabase<typeof EmailDeliverabilityRepository> = {
+  suppressedAmong:
+    (db) =>
+    ({ addresses, category }) =>
+      wrap(async () => {
+        const lowered = [...new Set(addresses.map((address) => address.toLowerCase()))]
+        if (lowered.length === 0) return new Set<string>()
+        const rows = await db
+          .select({ address: suppressions.address })
+          .from(suppressions)
+          .where(
+            and(
+              inArray(suppressions.address, lowered),
+              or(isNull(suppressions.category), eq(suppressions.category, category))
+            )
           )
-        )
-      return new Set(rows.map((row) => row.address))
-    }),
+        return new Set(rows.map((row) => row.address))
+      }),
 
-  suppress: ({ address, reason, category }) =>
-    wrap(async () => {
-      const lowered = address.toLowerCase()
-      const sameCategory =
-        category === undefined ? isNull(suppressions.category) : eq(suppressions.category, category)
-      const existing = await db
-        .select({ id: suppressions.id })
-        .from(suppressions)
-        .where(and(eq(suppressions.address, lowered), sameCategory))
-        .limit(1)
-      if (existing.length > 0) return
-      await db.insert(suppressions).values({
-        id: crypto.randomUUID(),
-        address: lowered,
-        category: category ?? null,
-        reason,
-        createdAt: new Date(),
-      })
-    }),
+  suppress:
+    (db) =>
+    ({ address, reason, category }) =>
+      wrap(async () => {
+        const lowered = address.toLowerCase()
+        const sameCategory =
+          category === undefined
+            ? isNull(suppressions.category)
+            : eq(suppressions.category, category)
+        const existing = await db
+          .select({ id: suppressions.id })
+          .from(suppressions)
+          .where(and(eq(suppressions.address, lowered), sameCategory))
+          .limit(1)
+        if (existing.length > 0) return
+        await db.insert(suppressions).values({
+          id: crypto.randomUUID(),
+          address: lowered,
+          category: category ?? null,
+          reason,
+          createdAt: new Date(),
+        })
+      }),
 
-  recordMessage: ({ ref, messageId, category, campaign }) =>
-    wrap(async () => {
-      await db.insert(messages).values({
-        id: ref,
-        messageId: messageId ?? null,
-        category: category ?? null,
-        campaign: campaign ?? null,
-        sentAt: new Date(),
-      })
-    }),
+  recordMessage:
+    (db) =>
+    ({ ref, messageId, category, campaign }) =>
+      wrap(async () => {
+        await db.insert(messages).values({
+          id: ref,
+          messageId: messageId ?? null,
+          category: category ?? null,
+          campaign: campaign ?? null,
+          sentAt: new Date(),
+        })
+      }),
 
-  markOpened: (ref) =>
+  markOpened: (db) => (ref) =>
     wrap(async () => {
       await db
         .update(messages)
@@ -103,7 +108,7 @@ export const EmailDeliverabilityRepositoryLive = Layer.succeed(EmailDeliverabili
         .where(and(eq(messages.id, ref), isNull(messages.openedAt)))
     }),
 
-  markUnsubscribed: (ref) =>
+  markUnsubscribed: (db) => (ref) =>
     wrap(async () => {
       await db
         .update(messages)
@@ -111,16 +116,18 @@ export const EmailDeliverabilityRepositoryLive = Layer.succeed(EmailDeliverabili
         .where(and(eq(messages.id, ref), isNull(messages.unsubscribedAt)))
     }),
 
-  markReported: ({ messageId, reason }) =>
-    wrap(async () => {
-      const column = reason === 'bounce' ? messages.bouncedAt : messages.complainedAt
-      await db
-        .update(messages)
-        .set(reason === 'bounce' ? { bouncedAt: new Date() } : { complainedAt: new Date() })
-        .where(and(eq(messages.messageId, messageId), isNull(column)))
-    }),
+  markReported:
+    (db) =>
+    ({ messageId, reason }) =>
+      wrap(async () => {
+        const column = reason === 'bounce' ? messages.bouncedAt : messages.complainedAt
+        await db
+          .update(messages)
+          .set(reason === 'bounce' ? { bouncedAt: new Date() } : { complainedAt: new Date() })
+          .where(and(eq(messages.messageId, messageId), isNull(column)))
+      }),
 
-  countMessages: (input) =>
+  countMessages: (db) => (input) =>
     wrap(async () => {
       const [row] = await db
         .select({
@@ -140,4 +147,14 @@ export const EmailDeliverabilityRepositoryLive = Layer.succeed(EmailDeliverabili
         unsubscribed: Number(row?.unsubscribed),
       }
     }),
-})
+}
+
+/**
+ * Drizzle implementation of {@link EmailDeliverabilityRepository}, both
+ * dialects. A suppression is written once per address and category: a second
+ * identical suppression changes nothing.
+ */
+export const EmailDeliverabilityRepositoryLive = layerOverDatabase(
+  EmailDeliverabilityRepository,
+  members
+)

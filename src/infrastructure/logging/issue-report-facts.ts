@@ -53,6 +53,8 @@ const spellingsOf = (dir: string): readonly string[] => {
  */
 export const readReportScrub = (env: Env = process.env): ReportScrub => ({
   secretValues: secretEnvValues(env),
-  projectDirs: [...new Set([...spellingsOf(parseProjectDir()), ...spellingsOf(process.cwd())])],
+  projectDirs: [
+    ...new Set([...spellingsOf(parseProjectDir(process.env)), ...spellingsOf(process.cwd())]),
+  ],
   home: homedir(),
 })

@@ -41,6 +41,7 @@ Run the core loop from `sovrium-app` underneath this skill: edit → `sovrium va
 ## Forms
 
 - Forms are declared under the top-level `forms` list and placed on pages by name. Manual: `sovrium docs forms/forms-overview`.
+- **To add a record from a page, declare the form in `forms` with `submitTo.table` and place it with a `form` component carrying `formRef: <name>`** — on the page, in a dialog, in a tab. The page `form` component never creates a row on its own: it edits the record a page shows (a `crud` update action), posts to an endpoint of yours, or signs someone in or up. Never give it a create action; that mode was removed and is refused. Manual: `sovrium docs data-components/data-components-forms`.
 - Who may submit is set on the form: `sovrium docs form-delivery/form-access`. Anti-spam, availability windows and file uploads are in the same section.
 - Every field has a visible label, a helpful error message, and a success state that says what happens next.
 

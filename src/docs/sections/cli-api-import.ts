@@ -93,13 +93,17 @@ export const importCliArticles: readonly DocArticle[] = [
   }),
   defineArticle({
     slug: 'cli-import-databases',
-    title: 'Migrating From Baserow, Retool Database, Webflow CMS and Zite',
+    title: 'Migrating From Baserow, Retool Database, Supabase, Webflow CMS and Zite',
     description:
-      "Bring a Baserow workspace or database, a Retool Database, a Webflow site's CMS collections or a Zite database across.",
+      "Bring a Baserow workspace or database, a Retool Database, a Supabase project, a Webflow site's CMS collections or a Zite database across.",
     keywords: [
       'sovrium import',
       'Baserow',
       'Retool Database',
+      'Supabase',
+      'row-level security',
+      'SUPABASE_DB_URL',
+      'SUPABASE_SERVICE_ROLE_KEY',
       'Webflow CMS',
       'Zite',
       'BASEROW_TOKEN',
@@ -108,10 +112,10 @@ export const importCliArticles: readonly DocArticle[] = [
       'ZITE_TOKEN',
     ],
     order: 1453,
-    sidebarLabel: 'Import: Baserow, Retool, Webflow, Zite',
+    sidebarLabel: 'Import: Baserow, Retool, Supabase, Webflow, Zite',
     body: cliImportDatabasesBody,
     documents: [],
-    stories: [],
+    stories: ['US-CLI-IMPORT-SUPABASE'],
   }),
   defineArticle({
     slug: 'cli-import-automations',

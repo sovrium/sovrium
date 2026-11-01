@@ -51,7 +51,7 @@ A refused request costs as little as possible:
 | ------------------------------------------------------------------------------------- | -------------------------------------------- |
 | No key, a key no row holds, or a key whose row does not match the `<project>` segment | `401`, the same answer for all three, no run |
 | A malformed envelope or malformed OTLP JSON                                           | `400`, no run                                |
-| A body larger than `API_BODY_LIMIT_BYTES` (25 MiB by default)                         | `413`, no run                                |
+| A body larger than `API_BODY_LIMIT_BYTES` when it is set, else 25 MiB                 | `413`, no run                                |
 | A `Content-Encoding` other than `gzip`, `deflate` or `identity`                       | `415`, no run                                |
 | More requests than the budget allows                                                  | `429` with `Retry-After`, no run             |
 | A refusal from an address past its refusal budget (below)                             | `429` with `Retry-After`, no run             |
@@ -135,7 +135,7 @@ Telemetry paths do not count against the instance-wide per-address ceiling (`API
 
 Requests no key admits have a budget of their own, per client address: **60 a minute**. It counts requests with no key and requests whose key no row holds. Past it, every further such request from that address is answered `429` with `Retry-After` instead of `401`, until the minute frees. Nothing else is counted:
 
-- **A key found in the key table within the last ten minutes is never counted and never refused by this budget**, from whatever address it comes — even sent to another project's Sentry path, which stays the plain `401`. A misconfigured app sending a wrong key from a shared host's address cannot mute the healthy apps beside it.
+- **A key found in the key table within the last ten minutes is never counted and never refused by this budget**, from whatever address it comes, even sent to another project's Sentry path, which stays the plain `401`. A misconfigured app sending a wrong key from a shared host's address cannot mute the healthy apps beside it.
 - **A key not found in the last ten minutes, arriving from an address past its refusal budget, is answered `429` without being looked up.** That bounds the database reads of a flood presenting a new key on every request. A brand-new sender sharing its address with such a flood sees its first reports deferred by at most a minute, which Sentry-compatible clients and OTLP exporters absorb by retrying after `Retry-After`.
 
 The number is fixed: a healthy sender is never refused, so this budget only bounds a misconfiguration or an attack.

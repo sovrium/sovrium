@@ -30,6 +30,7 @@
  * Specs: [internal ref]
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { DEFAULT_SCALE_VALUES } from '@/domain/models/app/design/default-design.generated'
 
 /** `cubic-bezier(...)` — the one form a curve may be written out as. */
@@ -56,9 +57,6 @@ export const INHERITED_EASING_CURVES: Readonly<Record<string, string>> = Object.
 export const INHERITED_EASING_NAMES: ReadonlySet<string> = new Set(
   Object.keys(INHERITED_EASING_CURVES)
 )
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The easing NAME a token refers to, with either custom-property prefix removed. */
 export const easingNameOf = (token: string): string => {

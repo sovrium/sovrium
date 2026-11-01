@@ -1,6 +1,6 @@
 # Migrating a Database
 
-> Bring a database's schema forward without booting the app — with `--dry-run` to preview and `--check` as a pre-flight.
+> Bring a database's schema forward without booting the app, with `--dry-run` to preview and `--check` as a pre-flight.
 
 Sovrium normally migrates your database as part of starting the server. `sovrium migrate` separates the two: it brings the schema forward and exits, starting no server and binding no port.
 
@@ -8,15 +8,15 @@ Sovrium normally migrates your database as part of starting the server. `sovrium
 Usage: sovrium migrate [config] [options]
 ```
 
-That separation buys two things. A platform can run migrations as a **release phase** instead of inside the web process. And when a deploy will not boot, you still have a route to its own database — the command constructs no application runtime, so it stays available where `sovrium start` cannot complete.
+That separation buys two things. A platform can run migrations as a **release phase** instead of inside the web process. And when a deploy will not boot, you still have a route to its own database: the command constructs no application runtime, so it stays available where `sovrium start` cannot complete.
 
 All it needs is the connection: `DATABASE_URL` for PostgreSQL, or nothing at all for the embedded SQLite. A config path is accepted, and auto-discovered when omitted, exactly as `start` does it.
 
 ## Three modes
 
-- **`sovrium migrate [config]`** — bring this database forward. Exit `0` applied, `1` failed.
-- **`sovrium migrate --dry-run`** — what _would_ change? Exit `0` unless the plan would be refused.
-- **`sovrium migrate --check`** — is this database safe to upgrade? Exit `0` safe, `1` unsafe.
+- **`sovrium migrate [config]`**: bring this database forward. Exit `0` applied, `1` failed.
+- **`sovrium migrate --dry-run`**: what _would_ change? Exit `0` unless the plan would be refused.
+- **`sovrium migrate --check`**: is this database safe to upgrade? Exit `0` safe, `1` unsafe.
 
 `--dry-run` and `--check` both write nothing, and cannot be combined: they ask different questions, and running them together would blur which answer you got.
 
@@ -24,10 +24,10 @@ All it needs is the connection: `DATABASE_URL` for PostgreSQL, or nothing at all
 
 "Migration" names two independent systems, and this command owns both.
 
-- **The shipped migrations** — the migration files bundled with the binary, covering authentication, system and internal tables, decided by the migration journal recorded in your database.
-- **The config tables** — the `tables` in your configuration, covering your own tables, views and indexes, decided by a checksum of your table definitions. A lookup, rollup or count view is also rebuilt whenever the version you run would write it differently, so an upgrade reaches your lookups without a config change. On PostgreSQL that comparison creates a temporary view; a database role without the `TEMP` privilege cannot, so every start then runs the full migration and logs a warning saying so. On SQLite, a table whose stored CHECK rules (a single-select's options, a length or range limit) are not the ones its definition declares is rebuilt with its rows the same way, without a config change. An earlier version left the old rules in place when one edit both added or renamed a field and changed such a rule on the same table, so the first start after the upgrade repairs it.
+- **The shipped migrations**: the migration files bundled with the binary, covering authentication, system and internal tables, decided by the migration journal recorded in your database.
+- **The config tables**: the `tables` in your configuration, covering your own tables, views and indexes, decided by a checksum of your table definitions. A lookup, rollup or count view is also rebuilt whenever the version you run would write it differently, so an upgrade reaches your lookups without a config change. On PostgreSQL that comparison creates a temporary view; a database role without the `TEMP` privilege cannot, so every start then runs the full migration and logs a warning saying so. On SQLite, a table whose stored CHECK rules (a single-select's options, a length or range limit) are not the ones its definition declares is rebuilt with its rows the same way, without a config change. An earlier version left the old rules in place when one edit both added or renamed a field and changed such a rule on the same table, so the first start after the upgrade repairs it.
 
-The shipped migrations run **first**, always. A `user` field emits a real foreign key into the authentication tables, so your own tables cannot be created before the migrations that build them. Running only half would leave `sovrium start` doing schema work inside the web process — the coupling this command exists to break.
+The shipped migrations run **first**, always. A `user` field emits a real foreign key into the authentication tables, so your own tables cannot be created before the migrations that build them. Running only half would leave `sovrium start` doing schema work inside the web process, the coupling this command exists to break.
 
 ## Applying
 
@@ -74,7 +74,7 @@ Every full migration rebuilds the view of **every** table with lookup, rollup or
 
 Adding a table's first lookup, rollup or count field, or removing its last one, changes which object holds its rows. The migration does this by renaming the table, so the rows, the id sequence and the foreign keys pointing at it move with it, and nothing is copied or created empty. The plan says so: `would rename table <name> to <name>_base (rows kept)`, with the view rebuilt afterwards, or, in the other direction, `would rename table <name>_base to <name> (rows kept)`, whose statements first drop the view that holds the name.
 
-A few changes rebuild a table and copy its rows across. The exact statements for those depend on the state of the table at the moment they run, so they cannot be rendered in advance. They are **named and labelled as unsimulated rather than left out** — a preview that quietly under-reports is worse than none, because you use it to decide whether the change needs a maintenance window. On SQLite, removing a `user` or `relationship` field, or a unique or indexed one, is one of them: SQLite cannot drop such a column in place, so the table is rebuilt without it, keeping its rows, its other foreign keys and its unique constraints. PostgreSQL drops the column in place. Indexes and triggers you created by hand on that table, outside the config, are put back after the rebuild, except those that name the removed column: the plan lists each of them under the rebuild as `not recreated: index <name>, which names the removed column <column>` (or `trigger <name>`), and the migration logs the same line when it runs.
+A few changes rebuild a table and copy its rows across. The exact statements for those depend on the state of the table at the moment they run, so they cannot be rendered in advance. They are **named and labelled as unsimulated rather than left out**. A preview that quietly under-reports is worse than none, because you use it to decide whether the change needs a maintenance window. On SQLite, removing a `user` or `relationship` field, or a unique or indexed one, is one of them: SQLite cannot drop such a column in place, so the table is rebuilt without it, keeping its rows, its other foreign keys and its unique constraints. PostgreSQL drops the column in place. Indexes and triggers you created by hand on that table, outside the config, are put back after the rebuild, except those that name the removed column: the plan lists each of them under the rebuild as `not recreated: index <name>, which names the removed column <column>` (or `trigger <name>`), and the migration logs the same line when it runs.
 
 A field that gains `unique: true`, whether it is new or already in the table, is planned with the unique constraint it would get: on PostgreSQL the `ADD CONSTRAINT <table>_<field>_key UNIQUE (<field>)` statement, on SQLite a `rebuild table <table> to enforce UNIQUE (<field>)` line, since SQLite writes uniqueness into the table definition. If existing rows already share a value of that field, the plan is refused and exits `1`, naming the table, the field and the duplicated values, exactly as the migration itself would refuse it. Once the constraint is in place, the plan lists nothing for it.
 
@@ -82,18 +82,18 @@ After an upgrade to a version of Sovrium that computes formulas differently, the
 
 ## Pre-flight with `--check`
 
-Reports where the database stands — which engine, which migration folder, how much of the journal it has applied — then gives a verdict. On a database already at the current schema the verdict reads `No pending migrations. This database is at the current schema.`, also exit `0`.
+Reports where the database stands (which engine, which migration folder, how much of the journal it has applied), then gives a verdict. On a database already at the current schema the verdict reads `No pending migrations. This database is at the current schema.`, also exit `0`.
 
 Exit `1` means the upgrade would abort part-way through, or would not start, for one of four reasons:
 
-- **Duplicate account identities** — two authentication rows a later migration's uniqueness constraint cannot both keep.
-- **Duplicate OAuth client ids** — the same collision on the OAuth server's clients.
-- **A rewritten released migration** — a migration file whose stored checksum no longer matches the file this build ships.
-- **A table that would be dropped with its rows** — a table your config no longer declares, reported with its row count.
+- **Duplicate account identities**: two authentication rows a later migration's uniqueness constraint cannot both keep.
+- **Duplicate OAuth client ids**: the same collision on the OAuth server's clients.
+- **A rewritten released migration**: a migration file whose stored checksum no longer matches the file this build ships.
+- **A table that would be dropped with its rows**: a table your config no longer declares, reported with its row count.
 
 Each is reported with the offending rows named. Nothing is repaired automatically: deleting one of two colliding authentication rows would sever somebody's login, so the command names them and stops, and you decide which one survives.
 
-**`--check` is a pre-flight, not a guarantee.** It reports the conditions it can prove would block the upgrade. A clean report means none of those were found — not that the migration will succeed.
+**`--check` is a pre-flight, not a guarantee.** It reports the conditions it can prove would block the upgrade. A clean report means none of those were found, not that the migration will succeed.
 
 ## Destructive changes
 
@@ -113,7 +113,7 @@ It applies the drops the plan named, and nothing else. An empty table removed fr
 
 `--allow-destructive` is a different consent from a table's `allowDestructive: true`. The table setting lets a migration drop a **column** the config no longer declares on a table that is still there. The command-line flag lets one run drop a whole **table** the config no longer declares. Neither implies the other.
 
-A table is renamed only when its `id` is written in the config: keep the `id` and change the `name`, and the migration renames the table in place, with its rows. That includes a table with lookup, rollup or count fields, whose `<name>_base` moves with it. Its many-to-many link tables move with it, links kept, whichever side of the link the renamed table is on — a table linked to itself included. Without a written `id`, a new name reads as one table removed and another added. If the old table still holds rows, the migration refuses, as it does for any populated table the config no longer declares, and the refusal names the `id` that keeps it (`declare it with id: 3`). Add that `id` to the renamed table instead of applying the drop with `--allow-destructive`, which would delete the rows. `--dry-run`, `--check` and the `--watch` reload read the rename the same way: the plan says `would rename table <old> to <new> (rows kept)`.
+A table is renamed only when its `id` is written in the config: keep the `id` and change the `name`, and the migration renames the table in place, with its rows. That includes a table with lookup, rollup or count fields, whose `<name>_base` moves with it. Its many-to-many link tables move with it, links kept, whichever side of the link the renamed table is on, a table linked to itself included. Without a written `id`, a new name reads as one table removed and another added. If the old table still holds rows, the migration refuses, as it does for any populated table the config no longer declares, and the refusal names the `id` that keeps it (`declare it with id: 3`). Add that `id` to the renamed table instead of applying the drop with `--allow-destructive`, which would delete the rows. `--dry-run`, `--check` and the `--watch` reload read the rename the same way: the plan says `would rename table <old> to <new> (rows kept)`.
 
 ## In a deploy pipeline
 

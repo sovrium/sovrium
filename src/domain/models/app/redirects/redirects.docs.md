@@ -1,6 +1,6 @@
 # URL Redirects
 
-> Retire a URL without breaking the links that point at it — declare redirect rules that answer old paths with a 301 before page resolution.
+> Retire a URL without breaking the links that point at it: declare redirect rules that answer old paths with a 301 before page resolution.
 
 Restructuring a site retires URLs. Without a redirect the only possible answer at a retired path is a 404, and every indexed link, bookmark and backlink pointing there breaks.
 
@@ -25,7 +25,7 @@ Query strings are not part of the match key. An incoming query string is preserv
 
 ### Retiring a family of URLs
 
-Renaming a section retires every URL under it. A `from` segment written `:name` matches any one segment and captures it, as a page path's `:name` does, and `to` writes it back wherever it names the same `:name` — in the path or in the query string:
+Renaming a section retires every URL under it. A `from` segment written `:name` matches any one segment and captures it, as a page path's `:name` does, and `to` writes it back wherever it names the same `:name`, in the path or in the query string:
 
 ```yaml
 redirects:
@@ -42,21 +42,21 @@ redirects:
 - A `:name` matches exactly one segment: `/tables/contacts/export` and the bare `/tables` are not matched by `/tables/:table`.
 - A captured value is encoded for where it lands, so `/users/ada%40example.com` becomes `/users?user=ada%40example.com`.
 - The incoming query string is appended after the target's own, as for any rule.
-- A literal `from` wins over a parametrised one that would also match, whatever the order they are declared in — which is how `/users/invitations` is retired separately from `/users/:email` above.
+- A literal `from` wins over a parametrised one that would also match, whatever the order they are declared in. That is how `/users/invitations` is retired separately from `/users/:email` above.
 - A `to` naming a `:name` that its `from` never captures fails validation: it would otherwise be sent literally, and every visitor would land on the same 404.
 
 ### Choosing a status
 
-| Status | Meaning                                              | Use it when                                                    |
-| ------ | ---------------------------------------------------- | -------------------------------------------------------------- |
-| `301`  | Moved Permanently — transfers link equity            | The URL is retired for good. This is the default and the norm. |
-| `302`  | Found — temporary, may rewrite the request method    | The move is temporary and the method does not matter.          |
-| `307`  | Temporary Redirect — temporary, preserves the method | A temporary move that must keep a `POST` a `POST`.             |
-| `308`  | Permanent Redirect — permanent, preserves the method | A permanent move that must keep the request method.            |
+| Status | Meaning                                             | Use it when                                                    |
+| ------ | --------------------------------------------------- | -------------------------------------------------------------- |
+| `301`  | Moved Permanently: transfers link equity            | The URL is retired for good. This is the default and the norm. |
+| `302`  | Found: temporary, may rewrite the request method    | The move is temporary and the method does not matter.          |
+| `307`  | Temporary Redirect: temporary, preserves the method | A temporary move that must keep a `POST` a `POST`.             |
+| `308`  | Permanent Redirect: permanent, preserves the method | A permanent move that must keep the request method.            |
 
 ## Language handling
 
-A `from` is matched the way page paths are authored. A bare rule matches the plain path _and_ every language-prefixed variant, and a path `to` inherits the language of the request — so one rule serves every locale and a French visitor lands on the French replacement, never the English one:
+A `from` is matched the way page paths are authored. A bare rule matches the plain path _and_ every language-prefixed variant, and a path `to` inherits the language of the request, so one rule serves every locale and a French visitor lands on the French replacement, never the English one:
 
 ```yaml
 redirects:
@@ -87,7 +87,7 @@ A bare `/docs` that 404s while `/en/docs` serves is the one case that makes a re
   /fr/docs   → 301 /fr/en/docs     the live French docs, now a 404
 ```
 
-Reaching for `localizeTarget: false` fixes the double prefix and creates something worse — the rule now sends the live URL back to itself:
+Reaching for `localizeTarget: false` fixes the double prefix and creates something worse: the rule now sends the live URL back to itself:
 
 ```text
 { from: '/docs', to: '/en/docs', localizeTarget: false }
@@ -102,34 +102,34 @@ Both used to validate and brick the docs zone at runtime. They now fail validati
 
 Redirects are evaluated **after static assets** and **before pages**:
 
-1. A real file in the public directory — a redirect rule can never hijack a served asset.
+1. A real file in the public directory. A redirect rule can never hijack a served asset.
 2. Redirect rules.
 3. Page resolution.
 4. The 404 catch-all.
 
 A rule therefore always beats a page. That cuts both ways: a `from` matching a path you still serve makes that page unreachable.
 
-Rules are also matched **before** URL canonicalization, so `from` is compared against the path exactly as the browser sent it — trailing slash included.
+Rules are also matched **before** URL canonicalization, so `from` is compared against the path exactly as the browser sent it, trailing slash included.
 
-**Redirects resolve in exactly one hop.** A matched request emits one redirect and the target is never re-matched against the table, so `Location` is always literally what you authored. Chains do not collapse — if `/a` should end at `/c`, write `/a → /c`, not `/a → /b → /c`.
+**Redirects resolve in exactly one hop.** A matched request emits one redirect and the target is never re-matched against the table, so `Location` is always literally what you authored. Chains do not collapse: if `/a` should end at `/c`, write `/a → /c`, not `/a → /b → /c`.
 
 ## Validation
 
-Whole-table rules are enforced when the config is decoded, so a broken table fails validation instead of shipping. Every one of them exists because the server resolves a single hop and therefore cannot loop — but the _browser_ follows each new rule in turn, and never settles.
+Whole-table rules are enforced when the config is decoded, so a broken table fails validation instead of shipping. Every one of them exists because the server resolves a single hop and therefore cannot loop. But the _browser_ follows each new rule in turn, and never settles.
 
 | Rejected shape               | Example                                                    | Why                                                                                                                |
 | ---------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Duplicate `from`             | two rules for `/pricing`                                   | Each path may declare at most one rule.                                                                            |
 | Self-redirect                | `{ from: '/a', to: '/a' }`                                 | A rule pointing at its own `from` loops forever.                                                                   |
 | Cycle                        | `/a → /b` with `/b → /a`                                   | The browser follows each rule in turn and never arrives.                                                           |
-| Double locale prefix         | `{ from: '/docs', to: '/en/docs' }`                        | `from` is locale-agnostic, so the live `/en/docs` matches it too and the target is prefixed again — a 404.         |
-| Opt-out self-loop            | `{ from: '/docs', to: '/en/docs', localizeTarget: false }` | `from` still matches every locale variant, so `/en/docs` is sent verbatim back to `/en/docs` — an infinite loop.   |
+| Double locale prefix         | `{ from: '/docs', to: '/en/docs' }`                        | `from` is locale-agnostic, so the live `/en/docs` matches it too and the target is prefixed again: a 404.          |
+| Opt-out self-loop            | `{ from: '/docs', to: '/en/docs', localizeTarget: false }` | `from` still matches every locale variant, so `/en/docs` is sent verbatim back to `/en/docs`: an infinite loop.    |
 | Trailing-slash self-redirect | `{ from: '/x', to: '/x/' }`                                | `/x/` is normalized back to `/x`, which re-enters this rule. Both the emitted and the canonical form are compared. |
 
-`{ from: '/x/', to: '/x' }` stays **valid** — it emits `/x`, which matches nothing, so it terminates. `{ from: '/en', to: '/en/' }` is rejected: it only duplicates the engine's own `/en` → `/en/` redirect.
+`{ from: '/x/', to: '/x' }` stays **valid**: it emits `/x`, which matches nothing, so it terminates. `{ from: '/en', to: '/en/' }` is rejected: it only duplicates the engine's own `/en` → `/en/` redirect.
 
 The opt-out check is deliberately narrow. `{ from: '/login', to: '/_admin/login', localizeTarget: false }` is the reason `localizeTarget` exists and keeps validating; `{ from: '/legacy', to: '/en/docs', localizeTarget: false }` is odd but does not loop, and is not rejected either.
 
 Protocol-relative targets (`//example.com`) are also rejected. A browser resolves them as absolute cross-origin URLs, which would turn the redirect table into an open-redirect primitive; cross-origin hand-offs must spell out `https://` so the intent is visible in review.
 
-**Collision with a dynamic route is not caught for you.** Validation compares `from` against static page paths only. If your app serves a dynamic route such as `/blog/:slug`, a rule for `/blog/my-post` will silently shadow that article — no boot error, no validation failure. Check retired slugs against the content that still exists.
+**Collision with a dynamic route is not caught for you.** Validation compares `from` against static page paths only. If your app serves a dynamic route such as `/blog/:slug`, a rule for `/blog/my-post` will silently shadow that article, with no boot error and no validation failure. Check retired slugs against the content that still exists.

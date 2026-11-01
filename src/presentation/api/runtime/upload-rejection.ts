@@ -17,7 +17,7 @@
  */
 
 import { storageErrorBody } from '@/presentation/api/runtime/auth-helpers'
-import type { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import type { ApiErrorCode } from '@/domain/models/api/error'
 import type { Context } from 'hono'
 
 /**

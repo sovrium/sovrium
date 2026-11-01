@@ -56,8 +56,8 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * The `application_type` an OAuth client registering a redirect URI on THIS
@@ -101,7 +101,7 @@ export const instanceTableSchema = Schema.Struct({
   label: optionalField(
     Schema.String.annotate({
       description:
-        "The name a person reads for the table as a collection, in the caller's console language: its `labelPlural`, else its `label`, with a `$t:` key resolved, else its `name` made readable (`site_visits` reads `Site visits`) — the same name `/api/admin/tables/overview` gives the table. A fact the app declared, not a word of the console's. Display text only; the request lines keep `name`.",
+        "The name a person reads for the table as a collection, in the caller's console language: its `labelPlural`, else its `label`, with a `$t:` key resolved, else its `name` made readable (`site_visits` reads `Site visits`), the same name `/api/admin/tables/overview` gives the table. A fact the app declared, not a word of the console's. Display text only; the request lines keep `name`.",
       examples: ['Site visits'],
     })
   ),
@@ -122,7 +122,7 @@ export type InstanceTable = typeof instanceTableSchema.Type
 export const instanceFactsResponseSchema = Schema.Struct({
   origin: Schema.String.annotate({
     description:
-      'The instance\'s resolved public origin, no trailing slash. BASE_URL, else the proxy/Host headers, else the request URL — the order the docs pages already encode. Config composes "$record.origin/api" and "$record.origin/mcp" from it.',
+      'The instance\'s resolved public origin, no trailing slash. BASE_URL, else the proxy/Host headers, else the request URL: the order the docs pages already encode. Config composes "$record.origin/api" and "$record.origin/mcp" from it.',
     examples: ['https://app.example.com'],
   }),
   version: Schema.NullOr(Schema.String).annotate({
@@ -135,22 +135,22 @@ export const instanceFactsResponseSchema = Schema.Struct({
   oauthApplicationType: oauthApplicationTypeSchema,
   exampleTable: Schema.NullOr(Schema.String).annotate({
     description:
-      "The FIRST declared table's name — the one the single-call examples (cURL, JavaScript, the create line) are written against. Null when the app declares no table. Declaration order, so every example on the page names the same table.",
+      "The FIRST declared table's name: the one the single-call examples (cURL, JavaScript, the create line) are written against. Null when the app declares no table. Declaration order, so every example on the page names the same table.",
   }),
   exampleTableLabel: optionalField(
     Schema.String.annotate({
       description:
-        "The `exampleTable`'s name as a person reads it, in the caller's console language — the same reading as each `tables[].label`. Absent when the app declares no table.",
+        "The `exampleTable`'s name as a person reads it, in the caller's console language, the same reading as each `tables[].label`. Absent when the app declares no table.",
       examples: ['Clients'],
     })
   ),
   tableCount: Schema.Finite.annotate({
     description:
-      'How many tables the config declares. The gate for "this app has an API surface at all" — a fact, where "no tables yet" is a sentence the console keeps.',
+      'How many tables the config declares. The gate for "this app has an API surface at all": a fact, where "no tables yet" is a sentence the console keeps.',
   }),
   tables: Schema.Array(instanceTableSchema).annotate({
     description:
-      "The declared tables in DECLARATION order — the operator's own grouping, which is information. Capped by the `limit` query param. Read for its ROWS by the API page's example block, which folds one `GET /api/tables/$record.name/records` line per table into a single code block.",
+      "The declared tables in DECLARATION order: the operator's own grouping, which is information. Capped by the `limit` query param. Read for its ROWS by the API page's example block, which folds one `GET /api/tables/$record.name/records` line per table into a single code block.",
   }),
   mcpToolCount: Schema.Finite.annotate({
     description:
@@ -158,7 +158,7 @@ export const instanceFactsResponseSchema = Schema.Struct({
   }),
   mcpToolCountTable: Schema.Finite.annotate({
     description:
-      'MCP tools in the `table` category. The MCP page gates that category\'s heading on `{ field: mcpToolCountTable, gt: 0 }` — which is why the count is published and the heading word "Data" is not.',
+      'MCP tools in the `table` category. The MCP page gates that category\'s heading on `{ field: mcpToolCountTable, gt: 0 }`, which is why the count is published and the heading word "Data" is not.',
   }),
   mcpToolCountAction: Schema.Finite.annotate({
     description: "MCP tools in the `action` category; gates that category's heading.",

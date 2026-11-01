@@ -31,10 +31,10 @@
  */
 
 import { parseHtmlElementTree } from '@/domain/kernel/sanitize/html-element-tree'
+import { escapeHtmlText } from '@/domain/kernel/sanitize/html-escaping'
 import {
   boardPolicyOf,
   drawnNode,
-  escapeText,
   imageOriginsOf,
   nodesById,
   serializeBoardNodes,
@@ -455,7 +455,7 @@ const viewOf = (input: PrototypeBoardInput, drawing: PrototypeViewDrawing, shown
   const drawn = parsed.ok ? parsed.nodes.flatMap((node) => drawnNode(context, node)) : []
   // Two views may draw a control for the same field: each view's ids are its own.
   const body = input.views.length > 1 ? withScopedIds(drawn, drawing.view.page) : drawn
-  return `<div data-dc-view="${escapeText(drawing.view.page)}"${shown ? '' : ' hidden'}>${serializeBoardNodes(body)}</div>`
+  return `<div data-dc-view="${escapeHtmlText(drawing.view.page)}"${shown ? '' : ' hidden'}>${serializeBoardNodes(body)}</div>`
 }
 
 /** The board's bar: a link to each page a reader can open without a record, and Reset. */
@@ -466,7 +466,7 @@ const toolbarOf = (views: readonly PrototypeViewDrawing[]): string =>
       .filter((drawing) => drawing.view.table === undefined)
       .map(
         (drawing) =>
-          `<a href="#" data-sovrium-href="${escapeText(drawing.view.path)}">${escapeText(drawing.view.page)}</a>`
+          `<a href="#" data-sovrium-href="${escapeHtmlText(drawing.view.path)}">${escapeHtmlText(drawing.view.page)}</a>`
       ),
     '<button type="button" data-dc-reset="" class="ml-auto rounded-md border px-3 py-1">Reset</button>',
     '</nav>',
@@ -507,7 +507,7 @@ export const prototypeBoardOf = (input: PrototypeBoardInput): string => {
     '<head>',
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${boardPolicyOf(imageOriginsOf(views))}">`,
-    `<title>${escapeText(`Prototype · ${input.appName}`)}</title>`,
+    `<title>${escapeHtmlText(`Prototype · ${input.appName}`)}</title>`,
     '<script src="./support.js"></script>',
     ...(input.bundleScript === undefined ? [] : [`<script src="${input.bundleScript}"></script>`]),
     '<link rel="stylesheet" href="../pages.css">',

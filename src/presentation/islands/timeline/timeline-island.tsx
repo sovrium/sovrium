@@ -5,25 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { ViewEmpty, ViewError, ViewMissing, type ViewStrings } from '../parts/view-states'
 import { hasDataBinding } from '../runtime/data-binding'
 import { buildTimelineItems, type TimelineConfig } from './timeline-compute'
-import {
-  TimelineEmpty,
-  TimelineError,
-  TimelineLoading,
-  TimelineMissingStartField,
-  TimelineMissingTable,
-} from './timeline-states'
+import { TimelineLoading } from './timeline-skeleton'
 import { TimelineView } from './timeline-view'
 import { TimelineResizeContext, useTimelineData } from './use-timeline-resize'
-import type { TimelineStrings } from './timeline-states'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 import type { ReactElement } from 'react'
 
 interface TimelineIslandProps {
   /** The timeline's own words in the page language, where they differ from English. */
-  readonly uiStrings?: TimelineStrings
+  readonly uiStrings?: ViewStrings
   readonly dataSource?: {
     /** DB-table binding — ABSENT for a system-source binding. */
     readonly table?: string
@@ -73,16 +67,50 @@ interface TimelineIslandProps {
   readonly resizeFields?: readonly string[]
 }
 
+const OF = 'timeline' as const
+
+/** The timeline's English for the shared view states. */
+const WORDS = {
+  'timeline.loadFailed': 'Failed to load timeline records: {error}',
+  'timeline.missingTable': 'data-timeline is missing a dataSource.table binding.',
+  'timeline.missingStartField': 'data-timeline is missing a required {setting} binding.',
+  'timeline.empty': 'No records on the timeline yet.',
+  'timeline.emptyHint': 'Records with a value in the configured date field will appear here.',
+} as const
+
+/** The `data-timeline-state` each shared state carries: the host names the timeline once. */
+const STATE = {
+  error: { 'data-timeline-state': 'error' },
+  'timeline.missingTable': { 'data-timeline-state': 'missing-table' },
+  'timeline.missingStartField': { 'data-timeline-state': 'missing-start-field' },
+} as const
+
+/** An empty timeline announces itself, and the host's shell steps out around it. */
+const EMPTY = { announce: true, attributes: { 'data-timeline-state': 'empty' } } as const
+
+/** A binding the timeline's config left out. */
+const missingOf = (
+  sentence: 'timeline.missingTable' | 'timeline.missingStartField',
+  strings: ViewStrings
+): ReactElement => (
+  <ViewMissing
+    sentence={sentence}
+    setting={sentence === 'timeline.missingStartField' ? 'startField' : undefined}
+    words={WORDS}
+    strings={strings}
+    attributes={STATE[sentence]}
+  />
+)
+
 /**
  * data-timeline island — client-side data-bound timeline visualisation.
  *
  * The island contract:
- * - Returns `TimelineMissingTable` if NEITHER a `dataSource.table` NOR a
- *   `dataSource.system` read-endpoint binding is configured.
- * - Returns `TimelineMissingStartField` if no `startField` is configured.
+ * - Names the missing binding if NEITHER a `dataSource.table` NOR a
+ *   `dataSource.system` read-endpoint binding is configured, or no `startField`.
  * - Returns `TimelineLoading` while the records query is in flight.
- * - Returns `TimelineError` on fetch failure.
- * - Returns `TimelineEmpty` when zero records come back.
+ * - Says the read failed on fetch failure.
+ * - Says there is nothing to draw when zero records come back.
  * - Otherwise renders `TimelineView` — horizontal bars on a time axis, point
  *   markers for records lacking an end date, optional swimlanes (`groupBy`)
  *   and per-value bar colors (`colorField`).
@@ -112,13 +140,17 @@ export default function TimelineIsland({
     resizeFields,
   })
 
-  const state = { error, strings: uiStrings, message: emptyMessage }
-  if (!hasDataBinding(dataSource)) return <TimelineMissingTable {...state} />
-  if (!startField) return <TimelineMissingStartField {...state} />
-  if (isLoading) return <TimelineLoading {...state} />
-  if (isError) return <TimelineError {...state} />
+  const strings = uiStrings
+  if (!hasDataBinding(dataSource)) return missingOf('timeline.missingTable', strings)
+  if (!startField) return missingOf('timeline.missingStartField', strings)
+  if (isLoading) return <TimelineLoading strings={strings} />
+  if (isError)
+    return <ViewError {...{ error, strings, of: OF, words: WORDS, attributes: STATE.error }} />
 
-  if (records.length === 0) return <TimelineEmpty {...state} />
+  const empty = (
+    <ViewEmpty {...{ strings, of: OF, words: WORDS, message: emptyMessage, ...EMPTY }} />
+  )
+  if (records.length === 0) return empty
 
   const config: TimelineConfig = {
     startField,
@@ -130,7 +162,7 @@ export default function TimelineIsland({
     dependencyField,
   }
   const items = buildTimelineItems(records, config)
-  if (items.length === 0) return <TimelineEmpty {...state} />
+  if (items.length === 0) return empty
 
   return (
     <TimelineResizeContext.Provider value={resize}>

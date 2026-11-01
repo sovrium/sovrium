@@ -83,7 +83,6 @@ const withInputFromBody = (triggerData: TriggerData): TriggerData => {
 export interface RunManualAutomationOptions {
   readonly name: string
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /**
    * Caller's role from the auth.users table — used to enforce the manual
    * trigger's `requiredRole` constraint. The route must call
@@ -125,7 +124,6 @@ export interface RunManualAutomationOptions {
 export const runManualAutomation = ({
   name,
   app,
-  processEnv,
   userRole,
   triggerData = {},
   handlers = defaultActionHandlers,
@@ -165,7 +163,6 @@ export const runManualAutomation = ({
       trigger,
       automationId,
       app,
-      processEnv,
       triggerData: byName ? withInputFromBody(triggerData) : triggerData,
       handlers,
       userId,

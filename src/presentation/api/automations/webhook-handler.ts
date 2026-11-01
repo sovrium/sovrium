@@ -6,44 +6,39 @@
  */
 
 import { Effect } from 'effect'
-import { TemplateEngine, type TemplateRenderer } from '@/application/ports/services/template-engine'
+import { TemplateEngine } from '@/application/ports/services/template-engine'
 import { loadPausedAutomationNames } from '@/application/use-cases/automations/paused-automation-names'
 import { buildEnvLookup } from '@/application/use-cases/automations/resolve-env-vars'
-import { runWebhookAutomation } from '@/application/use-cases/automations/run-automation'
+import { webhookDeduplicatedResponseSchema } from '@/domain/models/api/automations/automations'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { triggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
-import { logError } from '@/infrastructure/logging/logger'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
 import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import { presentsApiKeyOnly } from '@/presentation/api/middleware/request-credential'
+import { answerFailures, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
+import { refuseFullQueue } from './webhook-admission'
 import { headersToRecord, recordedHeaders, runWebhookAuth } from './webhook-auth'
 import { resolveWebhookCaller, sessionWebhookRefuses } from './webhook-caller'
 import { checkAndRecordDedup } from './webhook-dedup'
+import { dispatchAsync, dispatchSync, type DispatchInput } from './webhook-dispatch'
 import { allowedMethodsFor, isMethod, type Method, type Trigger } from './webhook-methods'
-import { isRateLimited, normalizeRateLimit } from './webhook-rate-limit'
+import { isRateLimited, webhookBudgetOf } from './webhook-rate-limit'
 import {
   webhookInvalidRequest,
   webhookMethodNotAllowed,
   webhookNotFound,
   webhookRateLimited,
-  webhookRegistrySeedFailure,
   webhookUnauthorized,
   webhookValidationFailed,
 } from './webhook-refusals'
-import { answerWebhook } from './webhook-revalidation'
-import { buildSyncResponse, webhookActsAsSystem } from './webhook-sync-response'
+import { webhookActsAsSystem } from './webhook-sync-response'
 import { coerceQueryForSchema, validateAgainstSchema } from './webhook-validation'
 import { answerVerificationHandshake } from './webhook-verification'
-import { webhookJson } from './webhook-wire-json'
 import type {
   TriggerData,
   TriggerRequester,
 } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { App } from '@/domain/models/app'
+import type { DomainServices } from '@/infrastructure/logging/request-effect'
 import type { Context } from 'hono'
 
 /**
@@ -55,8 +50,8 @@ import type { Context } from 'hono'
  *      automations with 404 (no information leakage).
  *   2. Gates by allowed HTTP method (`405 method_not_allowed`).
  *   3. Runs the configured auth scheme (`webhook-auth.ts`; `session` in `webhook-caller.ts`).
- *   4. Enforces optional per-IP rate limiting (delegates to
- *      `webhook-rate-limit.ts`).
+ *   4. Enforces per-IP budgets (`webhook-rate-limit.ts`) and the queue
+ *      bound (`webhook-admission.ts`).
  *   5. Validates body / query against optional JSON-Schema-like shapes
  *      (delegates to `webhook-validation.ts`).
  *   6. Builds the public `trigger.data` (method/path/body/headers/query/ip)
@@ -109,13 +104,6 @@ const safeParseJson = (raw: string): unknown => {
   }
 }
 
-const generateRunId = (): string => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `run-${String(Date.now())}-${String(Math.random()).slice(2, 10)}`
-}
-
 // ── Gate stages ──────────────────────────────────────────────────────────────
 
 interface GateContext {
@@ -127,6 +115,10 @@ interface GateContext {
   readonly queryRecord: Readonly<Record<string, string>>
   readonly caller: TriggerRequester | undefined
 }
+type WebhookGateFailure =
+  | Effect.Error<typeof loadPausedAutomationNames>
+  | Effect.Error<ReturnType<typeof resolveWebhookCaller>>
+  | Effect.Error<ReturnType<typeof refuseFullQueue>>
 type GateResult =
   | { readonly status: 'pass'; readonly ctx: GateContext }
   | { readonly status: 'reject'; readonly response: Response }
@@ -156,11 +148,10 @@ const runRateLimitGate = (
   name: string,
   trigger: WebhookTrigger
 ): Response | undefined => {
-  if (trigger.rateLimit === undefined) return undefined
-  const config = normalizeRateLimit(trigger.rateLimit)
+  const config = webhookBudgetOf(trigger)
   if (config === undefined) return undefined
   const ip = getRequestRateLimitKey(c)
-  const limit = isRateLimited(name, ip, config)
+  const limit = isRateLimited(trigger, name, ip, config)
   return limit.limited ? webhookRateLimited(c, limit.retryAfter) : undefined
 }
 
@@ -195,10 +186,6 @@ const lookupAndMethodGate = (
   return { status: 'pass', name, trigger, method }
 }
 
-/** The template engine this request's server holds (the `TemplateEngine` port). */
-const readTemplateEngine = (c: Context): Promise<TemplateRenderer> =>
-  runDomainPromise(c, TemplateEngine.use(Effect.succeed))
-
 /**
  * Deduplication gate: when the trigger declares `deduplicationKey`, a second
  * request resolving to a key seen within `deduplicationWindow` seconds is
@@ -206,59 +193,67 @@ const readTemplateEngine = (c: Context): Promise<TemplateRenderer> =>
  * schema validation all run BEFORE it so a malformed duplicate cannot poison
  * the cache.
  */
-const runDedupGate = async (
+const runDedupGate = (
   c: Context,
   input: Pick<GateContext, 'name' | 'trigger' | 'method' | 'queryRecord'> & {
     readonly body: unknown
   }
-): Promise<Response | undefined> => {
-  if (input.trigger.deduplicationKey === undefined) return undefined
-  const dedup = checkAndRecordDedup({
-    automationName: input.name,
-    trigger: input.trigger,
-    triggerData: {
-      method: input.method,
-      path: c.req.path,
-      body: input.body,
-      headers: headersToRecord(c.req),
-      query: input.queryRecord,
-      ip: getRequestClientIp(c),
-    },
-    templates: await readTemplateEngine(c),
+) =>
+  Effect.gen(function* () {
+    if (input.trigger.deduplicationKey === undefined) return undefined
+    const dedup = checkAndRecordDedup({
+      automationName: input.name,
+      trigger: input.trigger,
+      triggerData: {
+        method: input.method,
+        path: c.req.path,
+        body: input.body,
+        headers: headersToRecord(c.req),
+        query: input.queryRecord,
+        ip: getRequestClientIp(c),
+      },
+      templates: yield* TemplateEngine,
+    })
+    return dedup.isDuplicate
+      ? shapedJson(c, { success: true, deduplicated: true }, webhookDeduplicatedResponseSchema)
+      : undefined
   })
-  return dedup.isDuplicate ? c.json({ success: true, deduplicated: true }, 200) : undefined
-}
 
-const runWebhookGates = async (c: Context, app: App): Promise<GateResult> => {
-  // The operational-pause read has to happen HERE, before the lookup gate, so
-  // the paused and config-disabled off-states are decided at the same point in
-  // the chain — i.e. before auth can turn one of them into a 401.
-  const pausedNames = await runDomainPromise(c, loadPausedAutomationNames)
-  const initial = lookupAndMethodGate(c, app, pausedNames)
-  if (initial.status === 'reject') return initial
-  const { name, trigger, method } = initial
-  const caller = await resolveWebhookCaller(c, app)
-  if (sessionWebhookRefuses(trigger, app, caller)) {
-    return { status: 'reject', response: webhookNotFound(c) }
-  }
-  const rawBody = method === 'GET' ? '' : await c.req.text().catch(() => '')
-  const envLookup = buildEnvLookup(app.env, process.env)
-  if (!runWebhookAuth(c, trigger, rawBody, envLookup).ok) {
-    return { status: 'reject', response: webhookUnauthorized(c) }
-  }
-  const rateLimited = runRateLimitGate(c, name, trigger)
-  if (rateLimited !== undefined) return { status: 'reject', response: rateLimited }
-  const body = rawBody === '' ? undefined : safeParseJson(rawBody)
-  const queryRecord = queryToRecord(c)
-  const validationError = validateBodyAndQuery({ trigger, body, queryRecord }, c)
-  if (validationError !== undefined) return { status: 'reject', response: validationError }
-  const duplicate = await runDedupGate(c, { name, trigger, method, body, queryRecord })
-  if (duplicate !== undefined) return { status: 'reject', response: duplicate }
-  return {
-    status: 'pass',
-    ctx: { name, trigger, method, rawBody, envLookup, queryRecord, caller },
-  }
-}
+const runWebhookGates = (c: Context, app: App) =>
+  Effect.gen(function* (): Effect.fn.Return<GateResult, WebhookGateFailure, DomainServices> {
+    // The operational-pause read has to happen HERE, before the lookup gate, so
+    // the paused and config-disabled off-states are decided at the same point in
+    // the chain — i.e. before auth can turn one of them into a 401.
+    const pausedNames = yield* loadPausedAutomationNames
+    const initial = lookupAndMethodGate(c, app, pausedNames)
+    if (initial.status === 'reject') return initial
+    const { name, trigger, method } = initial
+    const caller = yield* resolveWebhookCaller(c, app, trigger)
+    if (sessionWebhookRefuses(trigger, app, caller)) {
+      return { status: 'reject', response: webhookNotFound(c) }
+    }
+    const rawBody =
+      method === 'GET'
+        ? ''
+        : // effect-promise: total -- a body that cannot be read is read as none.
+          yield* Effect.promise(() => c.req.text().catch(() => ''))
+    const envLookup = buildEnvLookup(app.env, process.env)
+    if (!runWebhookAuth(c, trigger, rawBody, envLookup).ok) {
+      return { status: 'reject', response: webhookUnauthorized(c) }
+    }
+    const rateLimited = runRateLimitGate(c, name, trigger) ?? (yield* refuseFullQueue(c, name))
+    if (rateLimited !== undefined) return { status: 'reject', response: rateLimited }
+    const body = rawBody === '' ? undefined : safeParseJson(rawBody)
+    const queryRecord = queryToRecord(c)
+    const validationError = validateBodyAndQuery({ trigger, body, queryRecord }, c)
+    if (validationError !== undefined) return { status: 'reject', response: validationError }
+    const duplicate = yield* runDedupGate(c, { name, trigger, method, body, queryRecord })
+    if (duplicate !== undefined) return { status: 'reject', response: duplicate }
+    return {
+      status: 'pass',
+      ctx: { name, trigger, method, rawBody, envLookup, queryRecord, caller },
+    }
+  })
 
 /** What a run keeps of the request: auth, caller and dedup read the live one before this. */
 const buildTriggerData = (c: Context, gate: GateContext): TriggerData => ({
@@ -271,132 +266,31 @@ const buildTriggerData = (c: Context, gate: GateContext): TriggerData => ({
   ...(gate.caller === undefined ? {} : { requester: gate.caller }),
 })
 
-// ── Dispatchers ──────────────────────────────────────────────────────────────
-
-interface DispatchInput {
-  readonly name: string
-  readonly app: App
-  readonly triggerData: TriggerData
-  readonly userId?: string
-  /** Decided once at the door, for either dispatcher (`webhookActsAsSystem`). */
-  readonly actsAsSystem: boolean
-}
-
-const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response> => {
-  // The scheduler persists the run row synchronously at queue time and
-  // exposes the resulting DB-generated UUID via the `onPersisted` callback.
-  // We park here on a Promise that resolves the moment that callback fires
-  // so the 202 response carries the SAME id the cancel endpoint can find, or
-  // a synthetic one if the engine never invokes the callback.
-  let resolveRunId: ((id: string) => void) | undefined
-  const runIdPromise = new Promise<string>((resolve) => {
-    resolveRunId = resolve
-  })
-
-  const program = runWebhookAutomation({
-    name: input.name,
-    app: input.app,
-    processEnv: process.env,
-    triggerData: input.triggerData,
-    ...(input.userId !== undefined ? { userId: input.userId } : {}),
-    actsAsSystem: input.actsAsSystem,
-    onPersisted: (id) => {
-      if (resolveRunId !== undefined) {
-        resolveRunId(id)
-        resolveRunId = undefined
-      }
-    },
-  })
-  // Fire-and-forget. The caller already received a 202 — log-only if the
-  // background run rejects so operators can still detect dispatch crashes.
-  Effect.runPromise(Effect.result(provideDomain(c, program))).then(
-    (res) => {
-      if (res._tag === 'Failure') {
-        logError('[automation] async webhook run failed', res.failure)
-      }
-      // If persistQueuedRun never fired the callback (engine errored
-      // before queueing), unblock the response with a synthetic id so
-      // the 202 still returns.
-      if (resolveRunId !== undefined) {
-        resolveRunId(generateRunId())
-        resolveRunId = undefined
-      }
-    },
-    (err) => {
-      logError('[automation] async webhook run rejected', err)
-      if (resolveRunId !== undefined) {
-        resolveRunId(generateRunId())
-        resolveRunId = undefined
-      }
-    }
-  )
-  const runId = await runIdPromise
-  // Surface as BOTH `id` (the sync response's key) AND `runId` (the runs API's).
-  return webhookJson(c, { id: runId, runId }, 202)
-}
-
-const dispatchSync = async (
-  c: Context,
-  input: DispatchInput & { readonly trigger: WebhookTrigger }
-): Promise<Response> => {
-  const program = runWebhookAutomation({
-    name: input.name,
-    app: input.app,
-    processEnv: process.env,
-    triggerData: input.triggerData,
-    ...(input.userId !== undefined ? { userId: input.userId } : {}),
-    actsAsSystem: input.actsAsSystem,
-  })
-  const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
-  if (result._tag === 'Failure') {
-    // The pre-dispatch gate already answered a missing or non-webhook automation
-    // with 404, so a failure here can only be the lazy registry seed: a 500, so
-    // operator dashboards / oncall paging treat it as an outage, not a miss.
-    if (result.failure._tag === 'AutomationRegistrySeedError') {
-      logError('[automation] webhook dispatch failed: registry seed error', result.failure)
-      return webhookRegistrySeedFailure(c)
-    }
-    return webhookNotFound(c)
-  }
-  const answer = buildSyncResponse({
-    app: input.app,
-    automationName: input.name,
-    trigger: input.trigger,
-    result: result.success,
-    triggerData: input.triggerData,
-    templates: await readTemplateEngine(c),
-    apiKeyOnly: presentsApiKeyOnly(c),
-  })
-  // A failed or exhausted run answers 500: the side effects the caller expected
-  // did not happen, and monitoring reads automation health off HTTP status. Not
-  // when the operator set `trigger.response.status`, nor when an error
-  // `flow/stop` ended the run — the automation chose that failure and answer.
-  const cfg = input.trigger.response
-  const operatorOverrodeStatus = cfg?.status !== undefined || cfg?.statusCode !== undefined
-  const chosen = operatorOverrodeStatus || result.success.stopped === true
-  const failed = ['failure', 'exhausted'].includes(result.success.status)
-  // A pull revalidates a declared 2xx answer with its ETag (`webhook-revalidation.ts`).
-  return answerWebhook(c, { ...answer, status: failed && !chosen ? 500 : answer.status })
-}
-
 /**
  * Dispatch a webhook request. Mounted by `chainAutomationRoutes` for every
  * supported HTTP method — the handler does the per-trigger filtering inside
  * so a single 405 response can advertise the configured `allowed` list.
  */
-export async function handleWebhookRequest(c: Context, app: App): Promise<Response> {
-  const gate = await runWebhookGates(c, app)
-  if (gate.status === 'reject') return gate.response
-
-  const { trigger, caller } = gate.ctx
-  const input: DispatchInput = {
-    name: gate.ctx.name,
-    app,
-    triggerData: buildTriggerData(c, gate.ctx),
-    ...(caller !== undefined ? { userId: caller.id } : {}),
-    actsAsSystem: webhookActsAsSystem(trigger, presentsApiKeyOnly(c)),
-  }
-  return trigger.respondImmediately === true
-    ? dispatchAsync(c, input)
-    : dispatchSync(c, { ...input, trigger })
+export function handleWebhookRequest(c: Context, app: App): Promise<Response> {
+  return runHandlerEffect(c, answerFailures(c, webhookResponse(c, app)))
 }
+
+/** Gate, dispatch and answer one webhook request, as one program. */
+const webhookResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const gate = yield* runWebhookGates(c, app)
+    if (gate.status === 'reject') return gate.response
+
+    const { trigger, caller } = gate.ctx
+    const input: DispatchInput = {
+      name: gate.ctx.name,
+      app,
+      triggerData: buildTriggerData(c, gate.ctx),
+      ...(caller !== undefined ? { userId: caller.id } : {}),
+      actsAsSystem: webhookActsAsSystem(trigger, presentsApiKeyOnly(c)),
+    }
+    return trigger.respondImmediately === true
+      ? // effect-promise: total -- settles on the run's id, or a stand-in when the run never queued.
+        yield* Effect.promise(() => dispatchAsync(c, input))
+      : yield* dispatchSync(c, { ...input, trigger })
+  })

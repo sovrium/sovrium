@@ -156,14 +156,19 @@ export const computeFormFieldLabelClasses = (): string =>
 export const computeFormHelpTextClasses = (): string => 'text-muted-foreground text-xs'
 
 /**
- * Typography className for a field's validation message — the same 11px rung as
- * the help text it replaces, on the error foreground (`#a12b1a`) rather than the
- * muted one. `variants.mjs:32` swaps exactly this one property when a field is
- * drawn Invalid: the message does not grow, move or gain an icon, it changes
- * colour. Keeping the metrics identical is what stops the field reflowing as it
- * goes from valid to invalid.
+ * Typography className for a field's validation message — the label's 12px
+ * rung, on the error foreground rather than the muted one. A reason the visitor
+ * has to read before going on is set as readably as the label it corrects, not
+ * at the accessory size of help text.
  */
-export const computeFormFieldErrorClasses = (): string => 'text-error-fg text-xs'
+export const computeFormFieldErrorClasses = (): string => 'text-error-fg text-sm'
+
+/**
+ * Typography className for the line explaining the required mark: the label's
+ * 12px rung, muted. It is read once, before any field, so it is set at the size
+ * of the labels it explains rather than at the help text's.
+ */
+export const computeFormRequiredLegendClasses = (): string => 'text-muted-foreground text-sm'
 
 /**
  * Typography className for the required marker appended to a label.

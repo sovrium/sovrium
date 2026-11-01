@@ -39,7 +39,7 @@ A union discriminated by `type`.
 
 ### A toast and a close beside the type
 
-`type` is the one thing a form does once it has been sent. Beside it, every variant may add a `toast` — a confirmation shown before the redirect leaves and again, once, on the page it lands on — or as the form clears — and `close`, which decides whether the dialog, drawer or popover the form sits in closes. They run in one order: the toast, then the close, then the `type`.
+`type` is the one thing a form does once it has been sent. Beside it, every variant may add a `toast` and a `close`. The toast is a confirmation shown before the redirect leaves and again, once, on the page it lands on, or as the form clears. `close` decides whether the dialog, drawer or popover the form sits in closes. They run in one order: the toast, then the close, then the `type`.
 
 Left unset, `close` keeps the habit a form has: one that writes a table record closes the dialog it sits in, one that writes none leaves it open. `close: true` always closes it, which is what a contact or feedback form in a dialog needs; `close: false` never does, for an "add another" dialog that clears for the next entry:
 
@@ -59,9 +59,9 @@ forms:
 
 Three pairings are refused when the configuration is read: a `toast` on `type: toast`, which already is one; a `toast` beside a reset's own `message`, which already confirms the reset; and `close: true` beside a success page, which would be closed before anyone read it. A redirect with `delaySeconds: 0` leaves before its toast can be read.
 
-A form sends its visitor to a web page or to this site, and nowhere else. An address is an `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`); the scheme is written out, never filled in by a template variable, and a `$t:` address is checked in every language. `sovrium validate` refuses any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — naming the field, and a server refuses to start on one. A thank-you page on another site works: write its full `https://` address. The same rule holds for a success-page button's `url`, its `buttonHref`, a closed form's link, and the `navigate` and `redirect` of a page form's or a button's action.
+A form sends its visitor to a web page or to this site, and nowhere else. An address is an `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`); the scheme is written out, never filled in by a template variable, and a `$t:` address is checked in every language. `sovrium validate` refuses any other address (`javascript:`, `data:`, `mailto:`, or one starting with `//`), naming the field, and a server refuses to start on one. A thank-you page on another site works: write its full `https://` address. The same rule holds for a success-page button's `url`, its `buttonHref`, a closed form's link, and the `navigate` and `redirect` of a page form's or a button's action.
 
-Omit `onSuccess` entirely and the form falls back to a success toast reading "Submitted." — a sane default, and rarely the one you want in production.
+Omit `onSuccess` entirely and the form falls back to a success toast reading "Submitted." This is a sane default, and rarely the one you want in production.
 
 `reset` is the type for a single-page form a submitter fills repeatedly. On a multi-step layout it clears the answers without returning the submitter to the first step, so prefer a success page carrying a reset action there.
 
@@ -84,15 +84,19 @@ onSuccess:
 
 `showSummary` lists the submitted values below the message. It skips hidden fields and applies per-field read permissions, so a summary never shows a submitter something they were not allowed to read back.
 
+The success page is announced as a status message, and the focus moves to its title, so a keyboard or screen-reader user carries on from it: the first action is the next Tab stop.
+
+A form posted from a browser that runs no scripts works too. It lands back on the page it was posted from with the success page (title and message) in place of the form. A refused one shows the page again, answering `400`, with each refused field marked invalid and its reason under it, and the answers typed back in their fields.
+
 ## Template variables
 
 Success copy and redirect targets can quote the submission that just happened. Four variables are substituted at submit time, in the title, the message and the URL alike.
 
 | Variable           | Resolves to                                                                                                                                                                                            |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `$submission.id`   | The ledger row id; empty when no ledger row was written — the form opts out of the ledger, or the submission came through a `formRef` embed on an app page without `storeSubmission: true`             |
+| `$submission.id`   | The ledger row id; empty when no ledger row was written: the form opts out of the ledger, or the submission came through a `formRef` embed on an app page without `storeSubmission: true`              |
 | `$record.id`       | The bound-table row id; empty when the form has no bound table                                                                                                                                         |
-| `$record.<column>` | A column of the inserted row — but only one the submitter themselves supplied                                                                                                                          |
+| `$record.<column>` | A column of the inserted row, but only one the submitter themselves supplied                                                                                                                           |
 | `$form.<field>`    | What the visitor entered in that field of the form, standalone fields included, so a form that stores nothing in a table can still thank the visitor by name; empty for a field the form does not have |
 
 ```yaml
@@ -106,7 +110,7 @@ A value substituted into a URL is percent-encoded, so an email address survives 
 
 ### An unresolved variable becomes empty, never the token
 
-A record reference on a form with no bound table substitutes to nothing, so a URL templating it navigates with an empty parameter. The redirect still fires and the submission is still recorded — you get a silently empty parameter rather than a broken URL or a leaked template string. Check that the target page tolerates an empty value before templating one in.
+A record reference on a form with no bound table substitutes to nothing, so a URL templating it navigates with an empty parameter. The redirect still fires and the submission is still recorded. You get a silently empty parameter rather than a broken URL or a leaked template string. Check that the target page tolerates an empty value before templating one in.
 
 ## `onError`
 
@@ -118,6 +122,6 @@ Covers whole-submission failures: the write was rejected, or the request did not
 
 ### Field errors are a different channel
 
-An invalid email or a missing required value comes back as a per-field error list and is rendered inline against the offending input. `onError` fires **alongside** it as the whole-form summary, not instead of it — so an error message written here should read as a summary rather than as the only thing the submitter will see. A submit refused in the browser before anything is sent — a required field left empty — marks the fields, moves the focus to the first, and shows a `message` you declared in `onError`, but never the default "Submission failed.": nothing failed, the form is waiting for answers. A toast is announced once, as a polite status or, for an `error` variant, as an alert.
+An invalid email or a missing required value comes back as a per-field error list and is rendered inline against the offending input. `onError` fires **alongside** it as the whole-form summary, not instead of it, so an error message written here should read as a summary rather than as the only thing the submitter will see. A submit refused in the browser before anything is sent (a required field left empty) marks the fields, moves the focus to the first, and shows a `message` you declared in `onError`, but never the default "Submission failed.": nothing failed, the form is waiting for answers. A toast is announced once, as a polite status or, for an `error` variant, as an alert.
 
 A field the server refuses is marked `aria-invalid` and points at its reason, which names the field by its label.

@@ -24,7 +24,7 @@
  * was seen to use.
  */
 
-import type { TriggerMapping } from './flow-step-targets'
+import type { TriggerMapping } from './flow/step-targets'
 
 /** How often a polled trigger runs until the operator sets its own schedule. */
 export const POLL_SCHEDULE = '*/15 * * * *'

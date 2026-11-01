@@ -6,14 +6,21 @@
  */
 
 import { Cause, Data, Effect } from 'effect'
+import { checkStorageQuota } from '@/application/use-cases/buckets/bucket-file-programs'
 import { resolveUploadBucket } from '@/application/use-cases/buckets/resolve-bucket'
 import { checkUploadFile } from '@/application/use-cases/buckets/upload-policy'
+import {
+  boundColumnTypes,
+  fileFieldNames,
+  isFileField,
+} from '@/domain/models/app/forms/form-access-link-service'
 import { fieldSubmitIdentifier } from '@/domain/models/app/forms/form-field-helpers'
 import {
   admitFormFile,
   type FormFileFieldLimits,
 } from '@/domain/models/app/forms/form-file-upload-validation'
 import { logError } from '@/infrastructure/logging/logger'
+import type { StorageService } from '@/application/ports/services/storage-service'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -59,10 +66,63 @@ export interface AdmittedFormFile extends ReadFormFile {
   readonly bucketName: string
 }
 
-/** The upload limits the form declares on `field`; none for an undeclared key. */
-const fieldLimits = (form: Readonly<Form>, field: string): FormFileFieldLimits => {
+/**
+ * A file posted under a name on which the form takes no file: a name it does
+ * not declare, or a declared field that takes text. The message is one fixed
+ * sentence that never repeats the posted name.
+ */
+export class FormUndeclaredFileError extends Data.TaggedError('FormUndeclaredFileError')<{
+  readonly message: string
+}> {}
+
+const UNDECLARED_FILE_MESSAGE = 'This form does not take a file under that name.'
+
+/**
+ * Refuse a submission that posts a file under any name other than a field the
+ * form declares AND that takes a file — before a single byte is read or stored.
+ */
+export const refuseUndeclaredFileFields = (
+  app: Readonly<App>,
+  form: Readonly<Form>,
+  postedFields: readonly string[]
+): Effect.Effect<void, FormUndeclaredFileError> => {
+  const accepted = fileFieldNames(form, app.tables)
+  return postedFields.every((field) => accepted.has(field))
+    ? Effect.void
+    : Effect.fail(new FormUndeclaredFileError({ message: UNDECLARED_FILE_MESSAGE }))
+}
+
+/** The files of a submission would take storage past `STORAGE_MAX_TOTAL_SIZE`. */
+export class FormStorageQuotaError extends Data.TaggedError('FormStorageQuotaError')<{
+  readonly message: string
+}> {}
+
+/**
+ * Refuse a submission whose files, together, would take storage past a set
+ * `STORAGE_MAX_TOTAL_SIZE` — the cap the bucket upload endpoint applies. Unset,
+ * every size fits. Checked once all files are admitted, before the first upload.
+ */
+export const refuseOverStorageQuota = (
+  incomingBytes: number
+): Effect.Effect<void, FormStorageQuotaError, StorageService> =>
+  checkStorageQuota(incomingBytes).pipe(
+    Effect.flatMap((verdict) =>
+      verdict.kind === 'exceeded'
+        ? Effect.fail(new FormStorageQuotaError({ message: 'Storage quota exceeded' }))
+        : Effect.void
+    )
+  )
+
+/** The upload limits the form declares on `field`; none for a key that takes no file. */
+const fieldLimits = (
+  app: Readonly<App>,
+  form: Readonly<Form>,
+  field: string
+): FormFileFieldLimits => {
   const declared = form.fields.find((candidate) => fieldSubmitIdentifier(candidate) === field)
-  if (declared?.kind !== 'table-field' && declared?.kind !== 'standalone') return {}
+  if (declared === undefined || !isFileField(declared, boundColumnTypes(form, app.tables)))
+    return {}
+  if (declared.kind !== 'table-field' && declared.kind !== 'standalone') return {}
   return {
     ...(declared.accept === undefined ? {} : { accept: declared.accept }),
     ...(declared.maxFileSize === undefined ? {} : { maxFileSize: declared.maxFileSize }),
@@ -79,7 +139,7 @@ export const admitReadFormFile = (
   read: Readonly<ReadFormFile>,
   bucketName: string
 ): Effect.Effect<AdmittedFormFile, FormUploadRefusedError> => {
-  const verdict = admitFormFile(fieldLimits(form, read.field), {
+  const verdict = admitFormFile(fieldLimits(app, form, read.field), {
     name: read.file.name,
     declaredType: read.file.type,
     bytes: read.bytes,

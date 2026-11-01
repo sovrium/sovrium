@@ -8,7 +8,6 @@
 import { and, eq, inArray, lt, notExists, notInArray, or } from 'drizzle-orm'
 import { zonedStartOfDayDaysBefore } from '@/domain/kernel/time/zoned-calendar'
 import { parseSovriumAutomationRunRetentionDays } from '@/domain/models/process-env/automations'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   automationApprovalRequests as approvalsPg,
@@ -25,6 +24,8 @@ import {
 import { logInfo } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The run-history retention EXECUTOR: `SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS`.
@@ -38,8 +39,9 @@ import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
  * for ever, so a `waiting-approval` run whose approval request is no longer
  * pending counts as ended — otherwise every approved run would be kept.
  *
- * Unset, the variable keeps every run: an upgrade must never start deleting
- * history an operator relied on. Batched like the table sweep; the Drizzle
+ * Unset, the window is ninety days: a public webhook can start a run per
+ * call, so history that grows for ever is a disk an anonymous caller fills.
+ * `36500` keeps a century. Batched like the table sweep; the Drizzle
  * builder encodes `created_at` per dialect (`timestamptz` on PostgreSQL, an
  * INTEGER of milliseconds on SQLite). Each batch's delete runs in a
  * transaction opened READ WRITE (`read-write-sweep.ts`), so the sweep keeps
@@ -57,7 +59,7 @@ const BATCH_SIZE = 500
 const UNFINISHED_STATUSES = ['pending', 'queued', 'running', 'waiting-approval', 'waiting-delay']
 
 /** A run that ended: a final status, or a paused approval parent whose request was answered. */
-const hasEnded = () =>
+const hasEnded = (db: PortableDb) =>
   or(
     notInArray(automationRuns.status, UNFINISHED_STATUSES),
     and(
@@ -77,14 +79,14 @@ const hasEnded = () =>
   )
 
 /** Delete the next batch of ended runs created before `cutoff`; answers how many went. */
-const deleteBatch = async (cutoff: Readonly<Date>): Promise<number> => {
-  const due = await db
+const deleteBatch = async (database: DatabaseService, cutoff: Readonly<Date>): Promise<number> => {
+  const due = await database.client
     .select({ id: automationRuns.id })
     .from(automationRuns)
-    .where(and(lt(automationRuns.createdAt, cutoff), hasEnded()))
+    .where(and(lt(automationRuns.createdAt, cutoff), hasEnded(database.client)))
     .limit(BATCH_SIZE)
   if (due.length === 0) return 0
-  const deleted = await inReadWriteTransaction((tx) =>
+  const deleted = await inReadWriteTransaction(database, (tx) =>
     tx
       .delete(automationRuns)
       .where(
@@ -105,26 +107,31 @@ const deleteBatch = async (cutoff: Readonly<Date>): Promise<number> => {
 }
 
 /** Delete batches until one comes back short. */
-const deleteAll = async (cutoff: Readonly<Date>, total: number): Promise<number> => {
-  const deleted = await deleteBatch(cutoff)
-  return deleted < BATCH_SIZE ? total + deleted : deleteAll(cutoff, total + deleted)
+const deleteAll = async (
+  database: DatabaseService,
+  cutoff: Readonly<Date>,
+  total: number
+): Promise<number> => {
+  const deleted = await deleteBatch(database, cutoff)
+  return deleted < BATCH_SIZE ? total + deleted : deleteAll(database, cutoff, total + deleted)
 }
 
 /**
  * Run the run-history sweep once.
  *
+ * @param database - the database the runs are read and deleted in.
  * @param env - the environment holding the window (validated at boot).
  * @param now - the reference instant, injected so the sweep is testable.
- * @returns the number of runs deleted; `0` when no window is set.
+ * @returns the number of runs deleted.
  */
 export async function pruneExpiredAutomationRuns(
+  database: DatabaseService,
   env: Readonly<Record<string, string | undefined>> = process.env,
   now: Readonly<Date> = onDevTimeline()
 ): Promise<number> {
   const days = parseSovriumAutomationRunRetentionDays(env)
-  if (days === undefined) return 0
-  const cutoff = zonedStartOfDayDaysBefore(now, resolveOperatorTimezone(), days)
-  const deleted = await deleteAll(cutoff, 0)
+  const cutoff = zonedStartOfDayDaysBefore(now, resolveOperatorTimezone(env), days)
+  const deleted = await deleteAll(database, cutoff, 0)
   logInfo(
     `[automation-run-retention] Deleted ${String(deleted)} run(s) that ended before ${cutoff.toISOString()}`
   )

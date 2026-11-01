@@ -13,7 +13,7 @@
  * An agent here is a conversation SOURCE, not only a declaration, and the set
  * is INCLUSIVE: the built-in System Agent is listed beside every declaration.
  * `POST /api/ai/chat` is
- * registered UNCONDITIONALLY (`api-routes.ts` — "Always registered") and is
+ * registered UNCONDITIONALLY (`compose-api-routes.ts` — every family is always registered) and is
  * reachable whether or not `app.agents` is declared, so a turn that names NO
  * agent persists `agent_name` NULL — and nothing about declaring agents stops
  * those turns from arriving.
@@ -26,7 +26,7 @@
  *   /api/agents/support-assistant/chat { message }     → 'support-assistant'
  *
  * Attribution is an optional field of the SINGLE writer
- * `persistChatTurnDurably`, and an AI memory spec pins it in both directions
+ * `rememberChatTurn`, and an AI memory spec pins it in both directions
  * across both transports.
  *
  * The argument below rests on the FIRST row, which no fix can retire: an agent-less turn is always

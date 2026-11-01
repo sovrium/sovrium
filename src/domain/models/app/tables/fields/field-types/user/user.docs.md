@@ -1,10 +1,10 @@
 # User & Audit Fields
 
-> The four user and audit field types — user, created-by, updated-by and deleted-by — that reference accounts and record who did what.
+> The four user and audit field types (user, created-by, updated-by and deleted-by) that reference accounts and record who did what.
 
 Four field types reference users from the authentication system. Three are auto-populated audit fields tracking who created, updated or deleted a record; one is an editable reference. All of them accept the base field properties every field type shares.
 
-Only `user` is bound to the account table, so it needs `auth` configured to be usable. A field holding one person emits a foreign key to Better Auth's user table — `auth.user` on PostgreSQL, `auth_user` on SQLite; a field holding several people checks each account when a record is written instead. The three authorship types emit no foreign key at all: they are plain columns the engine stamps from the session, which is why the paragraph at the end of this page is true.
+Only `user` is bound to the account table, so it needs `auth` configured to be usable. A field holding one person emits a foreign key to Better Auth's user table (`auth.user` on PostgreSQL, `auth_user` on SQLite); a field holding several people checks each account when a record is written instead. The three authorship types emit no foreign key at all: they are plain columns the engine stamps from the session, which is why the paragraph at the end of this page is true.
 
 | Type         | Behaviour                                                             |
 | ------------ | --------------------------------------------------------------------- |
@@ -13,17 +13,21 @@ Only `user` is bound to the account table, so it needs `auth` configured to be u
 | `updated-by` | Auto-set to the user who last modified the record. Read-only.         |
 | `deleted-by` | Auto-set to the user who soft-deleted the record. `NULL` when active. |
 
-Wherever a `user` field is shown as text — a grid cell, a card, a drawer, a list or gallery item — it reads as the account's name, or its email when the account has no name; links, filters and editors keep using the stored id. The same goes for the three authorship fields.
+Wherever a `user` field is shown as text (a grid cell, a card, a drawer, a list or gallery item), it reads as the account's name, or its email when the account has no name; links, filters and editors keep using the stored id. The same goes for the three authorship fields.
 
 ## `user`
 
-An editable reference to one or more accounts — an assignee, a reviewer, a watcher list.
+An editable reference to one or more accounts: an assignee, a reviewer, a watcher list.
 
-Its foreign key is `ON DELETE SET NULL`: deleting the account clears the reference and keeps the record. An assignment names a person rather than being that person's content, so the row survives them — and it is what keeps an assigned account erasable at all.
+Its foreign key is `ON DELETE SET NULL`: deleting the account clears the reference and keeps the record. An assignment names a person rather than being that person's content, so the row survives them, and that is what keeps an assigned account erasable at all.
+
+### Picking a person
+
+A picker reads the account directory, `GET /api/users/directory`, which lists people by name and avatar, never by email, and never an agent. It answers a signed-in person only where the app gives her a reason to pick someone: a `user`, `created-by` or `updated-by` field on a table she may create or update records in, presence shown to her role (see **Presence**), or a page that lists the directory. Anywhere else it answers `404`, so an app with nothing to pick discloses nobody's name. A caller who is not signed in is answered `401`.
 
 ### Several people
 
-With `allowMultiple: true` the field holds a list of people — a crew, a project's managers, a document's reviewers. Its value is a list of account ids everywhere it crosses: the records API reads and writes an array, the MCP tools describe it as an array of strings, and a form draws a people picker that takes several names. The list keeps the order it was written in and holds each person once; an empty list names no one.
+With `allowMultiple: true` the field holds a list of people: a crew, a project's managers, a document's reviewers. Its value is a list of account ids everywhere it crosses: the records API reads and writes an array, the MCP tools describe it as an array of strings, and a form draws a people picker that takes several names. The list keeps the order it was written in and holds each person once; an empty list names no one.
 
 ```yaml
 - { id: 3, name: crew, type: user, allowMultiple: true }
@@ -31,13 +35,13 @@ With `allowMultiple: true` the field holds a list of people — a crew, a projec
 
 - **Every id must be an account.** A list naming an account that does not exist is refused with `400`, naming the field, and nothing of it is written.
 - **It reads as names.** A grid cell, a card, a drawer, a `description-list` entry and a `record-field` show each person's name, in order.
-- **Filter it with `contains`.** `{ field: crew, operator: contains, value: <account id> }` answers the records listing that person — on the records API, in a page component's `dataSource.filter` (`value: $currentUser.id` lists the records naming the reader) and in an automation `record` action's `filter` — and never a record whose list merely holds an id containing that one as text; a row rule tests it the same way (see **Table Permissions**).
+- **Filter it with `contains`.** `{ field: crew, operator: contains, value: <account id> }` answers the records listing that person (on the records API, in a page component's `dataSource.filter` where `value: $currentUser.id` lists the records naming the reader, and in an automation `record` action's `filter`), and never a record whose list merely holds an id containing that one as text; a row rule tests it the same way (see **Table Permissions**).
 - **Erasing an account takes it out of every list.** The other people stay, in their order; a list that named only that person names no one.
 - **Upgrading keeps the stored person.** A field an older version stored as one account becomes a one-person list on the first start of the new version, on both database engines, and then takes more people.
 
 <!-- sovrium:options UserFieldSchema -->
 
-`default: $currentUser` fills the field with the signed-in person when a record is created without a value for it — through the API, a form or a dialog. Unlike `created-by`, it is only a default: a value the author supplies is kept, and the field stays editable, so a piece its writer adds is theirs until they hand it on. A record created with no signed-in person leaves it empty.
+`default: $currentUser` fills the field with the signed-in person when a record is created without a value for it, through the API, a form or a dialog. Unlike `created-by`, it is only a default: a value the author supplies is kept, and the field stays editable, so a piece its writer adds is theirs until they hand it on. A record created with no signed-in person leaves it empty.
 
 ```yaml
 - { id: 1, name: assignee, type: user }
@@ -60,8 +64,8 @@ With `allowMultiple: true` the field holds a list of people — a crew, a projec
 - { id: 4, name: deleted_by, type: deleted-by }
 ```
 
-The column name is yours. The engine finds these fields by `type` rather than by a reserved name, so a table may call its author column `author` and be stamped identically — which is what makes the audit trail work on a schema someone migrated in from elsewhere.
+The column name is yours. The engine finds these fields by `type` rather than by a reserved name, so a table may call its author column `author` and be stamped identically. That is what makes the audit trail work on a schema someone migrated in from elsewhere.
 
-**The audit TIMESTAMPS do not work this way**, and the difference catches people. `created-at`, `updated-at` and `deleted-at` are matched by NAME, so renaming one of those leaves the engine using its own automatic column beside yours — see **Date & Time Fields**.
+**The audit TIMESTAMPS do not work this way**, and the difference catches people. `created-at`, `updated-at` and `deleted-at` are matched by NAME, so renaming one of those leaves the engine using its own automatic column beside yours. See **Date & Time Fields**.
 
 A write with no account behind it does not fail on an authorship field. A public form submission is a legitimate record, and refusing it would make authorship fields unusable on exactly the tables that most need a submission trail, so the engine authors it as the system actor: every `created-by` field reads `system`, the same value an automation-authored record carries. A report filtering on `system` therefore counts every unattended write together, whether a visitor or an automation made it.

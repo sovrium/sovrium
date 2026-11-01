@@ -31,10 +31,16 @@
  *   - <guid isPermaLink="true"> — same as <link>
  */
 
+import { DateTime, Option } from 'effect'
 import { markdownToText } from '@/domain/kernel/markdown/markdown-to-text'
 import { isLocalizedPagePath, primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { isSlugFieldPerLanguage, slugFieldFor } from './collection-slug-field-service'
+import {
+  DEFAULT_FEED_PATH,
+  publishesFeed,
+  resolveFeedPath,
+} from './feed-path-uniqueness-validation'
 import { isPublicPage } from './is-public'
 import { markdownFeedArticlePath } from './rss-feed-article-path'
 import type { App } from '@/domain/models/app'
@@ -151,7 +157,7 @@ interface BuildRssFeedXmlInput {
   readonly records: ReadonlyArray<Readonly<Record<string, unknown>>>
   readonly baseUrl: string
   /** Forwarded to {@link BuildRssFeedXmlFromItemsInput.now}. */
-  readonly now?: Date
+  readonly now: Readonly<Date>
 }
 
 interface BuildRssFeedXmlFromItemsInput {
@@ -169,6 +175,8 @@ interface BuildRssFeedXmlFromItemsInput {
    * `app.description ?? 'Application built with Sovrium'` (backward-compatible).
    */
   readonly channelDescription?: string
+  /** The feed's own address, named by its `atom:link` self reference. Default `/feed.xml`. */
+  readonly feedPath?: string
   /**
    * The clock, injected so the builder stays a pure function of its inputs.
    * The presentation caller passes the request time; the default exists only so
@@ -181,7 +189,7 @@ interface BuildRssFeedXmlFromItemsInput {
    * creation time, or omitting `pubDate` altogether) is a feed-semantics
    * decision, not a refactor.
    */
-  readonly now?: Date
+  readonly now: Readonly<Date>
 }
 
 /**
@@ -250,8 +258,8 @@ export function buildRssFeedXmlFromItems(input: BuildRssFeedXmlFromItemsInput): 
   )
   const trimmedBase = baseUrl.replace(/\/$/, '')
   const channelLink = escapeXml(trimmedBase)
-  const feedUrl = escapeXml(`${trimmedBase}/feed.xml`)
-  const lastBuildDate = (input.now ?? new Date()).toUTCString()
+  const feedUrl = escapeXml(`${trimmedBase}${input.feedPath ?? DEFAULT_FEED_PATH}`)
+  const lastBuildDate = input.now.toUTCString()
 
   const itemsXml = items.map((item) => {
     const title = escapeXml(item.title)
@@ -323,7 +331,15 @@ export function buildRssFeedXml(input: BuildRssFeedXmlInput): string {
     app,
     page
   )
-  return buildRssFeedXmlFromItems({ app, baseUrl, items, channelTitle, channelDescription, now })
+  return buildRssFeedXmlFromItems({
+    app,
+    baseUrl,
+    items,
+    channelTitle,
+    channelDescription,
+    feedPath: resolveFeedPath(page),
+    now,
+  })
 }
 
 /** A level-2 (`## `) section extracted from a markdown changelog source. */
@@ -378,25 +394,77 @@ export function parseMarkdownFeedSections(markdown: string): readonly MarkdownFe
   return all.map((section) => ({ heading: section.heading, body: section.lines.join('\n').trim() }))
 }
 
+const MONTHS: Readonly<Record<string, number>> = {
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  sept: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12,
+}
+
+const MONTH_NAME =
+  'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?'
+const ISO_DATE = /(?<![\d.-])(\d{4})-(\d{2})-(\d{2})(?![\d])/
+const DAY_MONTH_YEAR = new RegExp(`\\b(\\d{1,2})\\s+(${MONTH_NAME})\\.?\\s+(\\d{4})\\b`, 'i')
+const MONTH_DAY_YEAR = new RegExp(`\\b(${MONTH_NAME})\\.?\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`, 'i')
+
+interface CalendarDay {
+  readonly year: number
+  readonly month: number
+  readonly day: number
+}
+
 /**
- * Extract the trailing date phrase from a changelog heading — the text after the
- * last em dash (`—`) or spaced hyphen (` - `) separator, e.g.
- * `v2.0.0 — 5 June 2026` → `5 June 2026`. Prefers the em dash so a hyphenated
- * version tag (`v2.0.0-beta — …`) is not mis-split. Returns `undefined` when no
- * separator is present; the caller then falls back to the channel build date.
+ * Find the calendar day a changelog heading names, wherever it sits: after an
+ * em dash, an en dash, a spaced hyphen, a middle dot or a comma, or inside
+ * parentheses. Reads an ISO day (`YYYY-MM-DD`), `26 October 2026` and
+ * `October 26, 2026`; month names may be abbreviated. Returns `undefined`
+ * when the heading names no day (`Unreleased`, `v0.46.0 — coming soon`).
  */
-function extractHeadingDatePhrase(heading: string): string | undefined {
-  const emDashIdx = heading.lastIndexOf('—')
-  if (emDashIdx >= 0) {
-    const phrase = heading.slice(emDashIdx + 1).trim()
-    return phrase.length > 0 ? phrase : undefined
+function extractHeadingDay(heading: string): CalendarDay | undefined {
+  const iso = ISO_DATE.exec(heading)
+  if (iso !== null) return { year: Number(iso[1]), month: Number(iso[2]), day: Number(iso[3]) }
+  const dmy = DAY_MONTH_YEAR.exec(heading)
+  if (dmy !== null) {
+    return { year: Number(dmy[3]), month: monthNumber(dmy[2]), day: Number(dmy[1]) }
   }
-  const hyphenMatch = / - ([^-]+)$/.exec(heading)
-  if (hyphenMatch !== null) {
-    const phrase = (hyphenMatch[1] ?? '').trim()
-    return phrase.length > 0 ? phrase : undefined
+  const mdy = MONTH_DAY_YEAR.exec(heading)
+  if (mdy !== null) {
+    return { year: Number(mdy[3]), month: monthNumber(mdy[1]), day: Number(mdy[2]) }
   }
   return undefined
+}
+
+function monthNumber(name: string | undefined): number {
+  const key = (name ?? '').toLowerCase()
+  return MONTHS[key] ?? MONTHS[key.slice(0, 3)] ?? 0
+}
+
+/**
+ * The RFC 822 `<pubDate>` of a heading's day, at 00:00 UTC: a bare day names
+ * no time and no zone, so it never depends on the zone the server runs in.
+ * An impossible day (`31 February 2026`) yields `undefined`.
+ */
+function headingDateToRfc822(heading: string): string | undefined {
+  const day = extractHeadingDay(heading)
+  if (day === undefined) return undefined
+  return Option.match(DateTime.make({ year: day.year, month: day.month, day: day.day }), {
+    onNone: () => undefined,
+    onSome: (dateTime) =>
+      DateTime.getPartUtc(dateTime, 'year') === day.year &&
+      DateTime.getPartUtc(dateTime, 'month') === day.month &&
+      DateTime.getPartUtc(dateTime, 'day') === day.day
+        ? DateTime.toDateUtc(dateTime).toUTCString()
+        : undefined,
+  })
 }
 
 interface BuildMarkdownRssItemsInput {
@@ -421,8 +489,9 @@ interface BuildMarkdownRssItemsInput {
  *     ({@link markdownFeedArticlePath}).
  *   - `description` — the section body as plain text (`markdownToText`), capped
  *     at 280 chars (mirrors `pickItemDescription`).
- *   - `pubDate`     — RFC-822 from the heading's trailing date phrase, or omitted
- *     (envelope falls back to the channel build date) when unparseable.
+ *   - `pubDate`     — the day the heading names, at 00:00 UTC
+ *     ({@link headingDateToRfc822}), or omitted (envelope falls back to the
+ *     channel build date) when the heading names no day.
  *
  * Sections are consumed in document order (changelog convention: newest first)
  * and capped at `limit`. Pure: takes `slugify` as an injected dependency.
@@ -435,7 +504,7 @@ export function buildMarkdownRssItems(input: BuildMarkdownRssItemsInput): readon
     const slug = slugify(section.heading)
     const plainBody = markdownToText(section.body)
     const description = plainBody.length > 280 ? `${plainBody.slice(0, 280)}...` : plainBody
-    const pubDate = formatRfc822(extractHeadingDatePhrase(section.heading))
+    const pubDate = headingDateToRfc822(section.heading)
     return {
       title: section.heading,
       link: `${trimmedBase}${pagePath}#${slug}`,
@@ -446,24 +515,31 @@ export function buildMarkdownRssItems(input: BuildMarkdownRssItemsInput): readon
 }
 
 /**
- * Locate the first PUBLIC page in `app.pages` with a non-falsy `rss`
- * declaration. Returns `undefined` when no public page opts in to feed
- * generation — the route handler then 404s `/feed.xml` (never 403, so a
- * restricted feed's existence is not revealed).
+ * Locate the first PUBLIC page in `app.pages` publishing its feed at
+ * `feedPath`: its `rss.path`, or `/feed.xml` when it names none. Returns
+ * `undefined` when no public page publishes there; the route handler then
+ * 404s the address (never 403, so a restricted feed's existence is not
+ * revealed).
  *
- * A page whose `access` requires a session or a role never builds the feed,
- * even for a signed-in reader: `/feed.xml` is one publicly cached document
- * per application, so it must never depend on who asks for it.
+ * A page whose `access` requires a session or a role never builds its feed,
+ * even for a signed-in reader: a feed is one publicly cached document, so it
+ * must never depend on who asks for it.
  *
- * "First match wins" mirrors the sitemap behaviour: a single feed per
- * application keeps the URL stable (`/feed.xml`) and matches reader
- * conventions. Multi-feed support (one per collection) is a future
- * enhancement; the schema is forward-compatible because `rss` is
- * declared per-page.
+ * "First match wins" for `/feed.xml`, which several pages naming no path may
+ * share; validation refuses any other shared address.
  */
-export function findRssPage(app: App): Page | undefined {
+export function findRssPage(app: App, feedPath: string = DEFAULT_FEED_PATH): Page | undefined {
   if (!app.pages) return undefined
   return app.pages.find(
-    (page) => page.rss !== undefined && page.rss !== false && isPublicPage(page)
+    (page) => publishesFeed(page) && resolveFeedPath(page) === feedPath && isPublicPage(page)
   )
+}
+
+/**
+ * Every address a feed is declared at, gated pages included, `/feed.xml`
+ * always first: the routes a server answers, a gated page's feed with a 404.
+ */
+export function listFeedPaths(app: App): readonly string[] {
+  const declared = (app.pages ?? []).filter(publishesFeed).map(resolveFeedPath)
+  return [...new Set([DEFAULT_FEED_PATH, ...declared])]
 }

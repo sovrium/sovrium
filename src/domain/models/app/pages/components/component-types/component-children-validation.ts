@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { locatedObjectNodes } from '@/domain/kernel/config-parsing/config-node-walk'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Container types whose `children` are restricted — by type, by count, or both.
  *
@@ -57,9 +60,6 @@ const CHILDREN_RULES: readonly ChildrenRule[] = [
 ]
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const listed = (types: readonly string[]): string => types.map((t) => `\`${t}\``).join(', ')
 
@@ -123,19 +123,12 @@ const boundFrameRulesAt = (node: RawRecord, path: string): readonly string[] => 
   ]
 }
 
-/** Walk every node depth-first, collecting rule breaks with their location. */
-const walk = (value: unknown, path: string): readonly string[] => {
-  if (Array.isArray(value)) return value.flatMap((item, index) => walk(item, `${path}[${index}]`))
-  if (!isRecord(value)) return []
-  const here = path === '' ? 'config' : path
-  return [
-    ...brokenRulesAt(value, here),
-    ...boundFrameRulesAt(value, here),
-    ...Object.entries(value).flatMap(([key, child]) =>
-      walk(child, path === '' ? key : `${path}.${key}`)
-    ),
-  ]
-}
+/** Every node depth-first (`kernel/config-parsing/config-node-walk.ts`), collecting rule breaks with their location. */
+const walk = (value: unknown, path: string): readonly string[] =>
+  locatedObjectNodes(value, path).flatMap(({ node, path: at }) => {
+    const here = at === '' ? 'config' : at
+    return [...brokenRulesAt(node, here), ...boundFrameRulesAt(node, here)]
+  })
 
 /**
  * Every restricted container whose children break its rule.

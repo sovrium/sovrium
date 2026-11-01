@@ -35,6 +35,7 @@
  */
 
 import { redactAppConfigForReflection } from '@/application/use-cases/admin/config/redact-app-config'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import type {
   ConfigDeclaration,
   ConfigDeclarationFamily,
@@ -44,9 +45,6 @@ import type {
 import type { App } from '@/domain/models/app'
 
 type ConfigNode = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is ConfigNode =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * The config families the tree walks, in the order `AppSchema` declares them.

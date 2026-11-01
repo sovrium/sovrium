@@ -40,12 +40,12 @@ import {
   isAgentActionName,
 } from '@/domain/models/app/agents/agent-turn-service'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
-import { logError } from '@/infrastructure/logging/logger'
-import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import {
   acquireConcurrencySlot,
   releaseConcurrencySlot,
-} from '@/infrastructure/process/agent-limits'
+} from '@/infrastructure/ai/agents/agent-limits'
+import { logError } from '@/infrastructure/logging/logger'
+import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { recordAgentActivity } from './agent-activity-log'
 import { recordFeedAction } from './approval-store-access'
 import type { App } from '@/domain/models/app'
@@ -74,40 +74,32 @@ const chargedActions = (turn: AgentTurnResult | undefined): number =>
   ).length
 
 /** The scheduled run itself, on the agent runtime; `undefined` when it could not run. */
-const runScheduledTurn = (
-  agent: Agent,
-  taskPrompt: string,
-  services: DomainContext,
-  app: App
-): Promise<AgentTurnResult | undefined> =>
-  runOnDomain(
-    services,
-    runAgentTurnToEnd({
-      surface: 'schedule',
-      agent,
-      app,
-      tools: {
-        runAction: (action, props) =>
-          dispatchAgentAction({ app, agentName: agent.name, action, props }),
-      },
-      messages: [
-        { role: 'system', content: buildAgentSystemPrompt(agent) },
-        { role: 'user', content: taskPrompt },
-      ],
-      toolDefinitions: buildAgentActionTools(agent),
-      maxSteps: SCHEDULE_MAX_STEPS,
-      model: { model: agent.model, temperature: agent.temperature, maxTokens: agent.maxTokens },
-    }).pipe(
-      Effect.asSome,
-      Effect.tapCause((cause) =>
-        Effect.sync(() => {
-          logError('[agents] scheduled run failed', cause, { agent: agent.name })
-        })
-      ),
-      // effect-swallow: a run whose provider failed is still a run the schedule fired — it is recorded like any other, and the failure is logged above.
-      Effect.catchCause(() => Effect.succeedNone),
-      Effect.map(Option.getOrUndefined)
-    )
+const scheduledTurn = (agent: Agent, taskPrompt: string, app: App) =>
+  runAgentTurnToEnd({
+    surface: 'schedule',
+    agent,
+    app,
+    tools: {
+      runAction: (action, props) =>
+        dispatchAgentAction({ app, agentName: agent.name, action, props }),
+    },
+    messages: [
+      { role: 'system', content: buildAgentSystemPrompt(agent) },
+      { role: 'user', content: taskPrompt },
+    ],
+    toolDefinitions: buildAgentActionTools(agent),
+    maxSteps: SCHEDULE_MAX_STEPS,
+    model: { model: agent.model, temperature: agent.temperature, maxTokens: agent.maxTokens },
+  }).pipe(
+    Effect.asSome,
+    Effect.tapCause((cause) =>
+      Effect.sync(() => {
+        logError('[agents] scheduled run failed', cause, { agent: agent.name })
+      })
+    ),
+    // effect-swallow: a run whose provider failed is still a run the schedule fired — it is recorded like any other, and the failure is logged above.
+    Effect.catchCause(() => Effect.succeedNone),
+    Effect.map(Option.getOrUndefined)
   )
 
 /**
@@ -121,36 +113,33 @@ const runScheduledTurn = (
  * activity feeds as `agent.scheduled`; each action it took is recorded as
  * itself. The caller owns the concurrency slot.
  */
-export const runScheduledAgentTask = async (
-  agent: Agent,
-  taskPrompt: string,
-  services: DomainContext,
-  app: App | undefined
-): Promise<ScheduledRunOutcome> => {
-  const agentName = agent.name
-  const turn =
-    app === undefined ? undefined : await runScheduledTurn(agent, taskPrompt, services, app)
+export const scheduledAgentTask = (agent: Agent, taskPrompt: string, app: App | undefined) =>
+  Effect.gen(function* () {
+    const agentName = agent.name
+    const turn = app === undefined ? undefined : yield* scheduledTurn(agent, taskPrompt, app)
 
-  await recordAgentActivity(services, {
-    actorName: agentName,
-    action: SCHEDULE_ACTION,
-    targetTable: undefined,
-    surface: 'schedule',
-  })
-  await recordFeedAction(services, {
-    action: SCHEDULE_ACTION,
-    agentName,
-    targetTable: undefined,
-    recordId: undefined,
-    runStartedById: undefined,
-  })
+    yield* recordAgentActivity({
+      actorName: agentName,
+      action: SCHEDULE_ACTION,
+      targetTable: undefined,
+      surface: 'schedule',
+    })
+    yield* recordFeedAction({
+      action: SCHEDULE_ACTION,
+      agentName,
+      targetTable: undefined,
+      recordId: undefined,
+      runStartedById: undefined,
+    })
 
-  const pending = turn?.toolResults.find((result) => result.approvalId !== undefined)
-  const actionsCharged = chargedActions(turn)
-  return pending?.approvalId === undefined
-    ? { kind: 'completed', actionsCharged }
-    : { kind: 'pending_approval', approvalId: pending.approvalId, actionsCharged }
-}
+    const pending = turn?.toolResults.find((result) => result.approvalId !== undefined)
+    const actionsCharged = chargedActions(turn)
+    const outcome: ScheduledRunOutcome =
+      pending?.approvalId === undefined
+        ? { kind: 'completed', actionsCharged }
+        : { kind: 'pending_approval', approvalId: pending.approvalId, actionsCharged }
+    return outcome
+  })
 
 /**
  * The cron entry point: fire one scheduled run in-process, or skip it silently.
@@ -177,7 +166,8 @@ export const fireAgentSchedule = async (
   const limits = resolveAgentLimits(agent.limits)
   if (!acquireConcurrencySlot(agent.name, limits.maxConcurrentTasks)) return
   try {
-    await runScheduledAgentTask(agent, schedule.taskPrompt, services, app)
+    // The one run site of this directory: a cron tick has no request to run on.
+    await runOnDomain(services, scheduledAgentTask(agent, schedule.taskPrompt, app))
   } finally {
     releaseConcurrencySlot(agent.name)
   }

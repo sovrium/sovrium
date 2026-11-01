@@ -229,12 +229,12 @@ export const REMAINDER_V1_DARK: TokenBlock = {
     { kind: 'decl', property: '--sv-border-inverse', value: { ref: 'neutral-50' } },
     {
       kind: 'comment',
-      text: '/* fg-subtle is a TEXT token, so it is pinned slightly lighter than\n       --sv-neutral-500 (oklch L 0.56) to clear WCAG AA (>= 4.5:1) on\n       bg-background in dark mode while staying clearly darker than fg-muted. */',
+      text: '/* fg-subtle is a TEXT token, so it is pinned lighter than\n       --sv-neutral-500 (oklch L 0.56) to clear WCAG AA (>= 4.5:1) on the\n       lighter of the two dark grounds it sits on: 4.73:1 on bg-card (0.205),\n       5.22:1 on bg-background, still clearly darker than fg-muted (0.708). */',
     },
-    { kind: 'decl', property: '--sv-fg-subtle', value: 'oklch(0.59 0 0)' },
+    { kind: 'decl', property: '--sv-fg-subtle', value: 'oklch(0.61 0 0)' },
     {
       kind: 'comment',
-      text: '/* fg-disabled sat on neutral-700, the SAME step as border-strong, so\n       disabled ink and the strongest rule in the system were one colour,\n       and disabled text read at 1.95:1 on the page, below the 2.48:1 its\n       light counterpart gets. 0.475 is the reference drawing verbatim\n       (oklch(0.475 0 0) renders #5c5c5c, the drawing hex): it clears\n       border-strong by 0.100 L, stays 0.115 L under fg-subtle, and lifts\n       disabled ink to 2.98:1 — still plainly disabled, no longer illegible.\n       (Founder call, 2026-09-10.) */',
+      text: '/* fg-disabled sat on neutral-700, the SAME step as border-strong, so\n       disabled ink and the strongest rule in the system were one colour,\n       and disabled text read at 1.95:1 on the page, below the 2.48:1 its\n       light counterpart gets. 0.475 is the reference drawing verbatim\n       (oklch(0.475 0 0) renders #5c5c5c, the drawing hex): it clears\n       border-strong by 0.100 L, stays 0.135 L under fg-subtle, and lifts\n       disabled ink to 2.98:1 — still plainly disabled, no longer illegible.\n       (Founder call, 2026-09-10.) */',
     },
     { kind: 'decl', property: '--sv-fg-disabled', value: 'oklch(0.475 0 0)' },
     { kind: 'decl', property: '--sv-fg-inverse', value: { ref: 'neutral-950' } },
@@ -314,9 +314,13 @@ export const REMAINDER_ROLE_BRIDGE: TokenBlock = {
     },
     { kind: 'decl', property: '--sv-success-border', value: { ref: 'success-300' } },
     {
+      kind: 'comment',
+      text: '/* success-fg is badge and alert TEXT on the green tint, so it sits a\n       step under success-700 (4.18:1 on the 15% badge tint): the same hue\n       at 0.49 L reads 4.95:1 on that tint and 5.85:1 on white. */',
+    },
+    {
       kind: 'decl',
       property: '--sv-success-fg',
-      value: { ref: 'success-700' },
+      value: 'oklch(0.49 0.14 150.069)',
       islandFallback: 'oklch(0.45 0 0)',
     },
     {
@@ -331,9 +335,13 @@ export const REMAINDER_ROLE_BRIDGE: TokenBlock = {
     { kind: 'decl', property: '--sv-warning-bg', value: { ref: 'warning-100' } },
     { kind: 'decl', property: '--sv-warning-border', value: { ref: 'warning-300' } },
     {
+      kind: 'comment',
+      text: '/* warning-fg is TEXT on the amber tint for the same reason: warning-700\n       reads 4.48:1 on the 15% badge tint, 0.53 L on its hue reads 4.99:1. */',
+    },
+    {
       kind: 'decl',
       property: '--sv-warning-fg',
-      value: { ref: 'warning-700' },
+      value: 'oklch(0.53 0.155 48.998)',
       islandFallback: 'oklch(0.45 0 0)',
     },
     {

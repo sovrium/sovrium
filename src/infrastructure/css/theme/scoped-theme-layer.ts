@@ -89,8 +89,10 @@ import {
   generateAuthorSvBridge,
   generateDarkColorOverrides,
   generateSidebarRoleFollowers,
-  generateThemeBorderRadius,
   generateThemeColors,
+} from './theme-color-generators'
+import {
+  generateThemeBorderRadius,
   generateThemeFonts,
   generateMotionScale,
   generateSpacingScale,

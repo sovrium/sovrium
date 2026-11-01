@@ -52,9 +52,19 @@ export function buildSelectionCsvDownload(
   endpoint: string,
   now: Readonly<Date>
 ): { readonly csv: string; readonly filename: string } {
-  const rows = table.getFilteredSelectedRowModel().rows.map((row) => row.original)
+  const columns = getVisibleColumnIds(table)
+  // A column over a nested value (`actor.email`) is identified as `actor_email`,
+  // a key the held row does not carry: read such a cell through the column's
+  // own accessor, and every flat one off the row as it arrived.
+  const rows = table
+    .getFilteredSelectedRowModel()
+    .rows.map((row) =>
+      Object.fromEntries(
+        columns.map((id) => [id, id in row.original ? row.original[id] : row.getValue(id)] as const)
+      )
+    )
   return {
-    csv: serializeRowsToCsv(getVisibleColumnIds(table), rows),
+    csv: serializeRowsToCsv(columns, rows),
     filename: buildCsvAttachmentFilename(readEndpointSubject(endpoint), now),
   }
 }

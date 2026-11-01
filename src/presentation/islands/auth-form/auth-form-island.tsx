@@ -18,7 +18,7 @@ import { type ButtonVariant } from '@/presentation/design/button-default-classes
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { AccountLinkBoundary, AccountMethodBoundary } from './account-method-boundary'
-import { AuthFormFeedback } from './auth-form-feedback'
+import { AuthFormFeedback, type CredentialRefusal } from './auth-form-feedback'
 import { AuthErrorSummary, AuthFieldRow } from './auth-form-fields'
 import { OAuthSignInForm } from './auth-form-oauth'
 import { PasskeyForm } from './auth-form-passkey'
@@ -28,10 +28,6 @@ import { type ToastConfig } from './auth-form-submit'
 import { AuthSuccessPage, type AuthSuccessPageConfig } from './auth-form-success-page'
 import { AuthSubmitButton } from './auth-submit-button'
 import type { TwoFactorNotice } from './two-factor-notice'
-
-/** @public Stub consumer (shadcn parity plan §9.1): a lazy edge to input-otp until the two-factor port. */
-// eslint-disable-next-line react-refresh/only-export-components -- a lazy loader, not a component
-export const loadOtpPrimitives = () => import('../parts/otp-primitives')
 
 // ---------------------------------------------------------------------------
 // Types
@@ -88,6 +84,8 @@ interface AuthFormIslandProps {
   readonly ssoProviders?: readonly SsoButtonProvider[]
   readonly successToast?: ToastConfig
   readonly errorToast?: ToastConfig
+  /** `login`: what a refused email and password says (`credentialError`), for this instance. */
+  readonly credentialError?: CredentialRefusal
   /** `onSuccess.type: 'successPage'`: the page that replaces the form once sent. */
   readonly successPage?: AuthSuccessPageConfig
   readonly className?: string
@@ -173,7 +171,10 @@ function CredentialAuthForm(props: AuthFormIslandProps) {
           onBlur={handleBlur}
         />
       ))}
-      <AuthFormFeedback state={state} />
+      <AuthFormFeedback
+        state={state}
+        refusal={props.credentialError}
+      />
       <AuthSubmitButton
         pending={state.isPending}
         label={submitLabel}

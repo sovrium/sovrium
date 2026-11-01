@@ -906,8 +906,15 @@ mod tests {
         .unwrap();
         let shown = plan.entry_preview();
         assert!(shown.contains("sovrium-crm"));
-        for secret in ["github", "ghp_secret", "filesystem", "globalShortcut"] {
-            assert!(!shown.contains(secret), "{secret} leaked into the preview");
+        // Other servers' names, a token-shaped value from their env, and a
+        // foreign top-level key: none of them may reach the preview. The
+        // failure message names the index, never the fixture text.
+        let foreign = ["github", "ghp_secret", "filesystem", "globalShortcut"];
+        for (index, other_entry) in foreign.iter().enumerate() {
+            assert!(
+                !shown.contains(other_entry),
+                "foreign fixture #{index} leaked into the preview"
+            );
         }
     }
 

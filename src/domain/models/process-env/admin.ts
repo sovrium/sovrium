@@ -53,7 +53,7 @@ export const SOVRIUM_ADMIN_VAR = 'SOVRIUM_ADMIN'
  * @throws Error when set to anything other than `on` or `off`.
  */
 export const parseSovriumAdmin = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): SovriumAdminMode =>
   parseEcoEnum(SOVRIUM_ADMIN_VAR, env[SOVRIUM_ADMIN_VAR], {
     allowed: ['on', 'off'] as const,

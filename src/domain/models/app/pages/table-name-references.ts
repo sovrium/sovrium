@@ -63,11 +63,9 @@
  * reach the same verdict. See `runSemanticChecks` there.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { isRouteParamRef } from '@/domain/models/app/pages/route-param-ref'
 import { isReservedTableName } from '@/domain/models/app/tables/reserved-table-names'
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
 
 /**
  * Component types whose unknown table name is ALREADY reported, by name.

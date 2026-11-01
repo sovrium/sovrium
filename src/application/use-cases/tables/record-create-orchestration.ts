@@ -17,6 +17,8 @@
  *
  * The order is fixed, and the unit tests pin it:
  *
+ *  0. clean the values and check their formats (`record-write-values.ts`),
+ *     then judge the table's business rules on the row as it will be created
  *  1. merge the SQLite AI-compute baseline into the fields
  *  2. write (as the writer: the system for a signed-out visitor), recording
  *     the table's create webhook deliveries in the same transaction
@@ -29,15 +31,21 @@
  */
 
 import { Effect } from 'effect'
-import { signalAiComputeWritePhase } from '@/application/use-cases/ai-compute/enqueue-refinement'
+import { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
+import { signalAiComputeWritePhase } from '@/application/use-cases/ai/enqueue-refinement'
+import { startInTrackedBackground } from '@/application/use-cases/automations/tracked-background'
 import { resolveActorUserId } from '@/domain/models/app/auth/guest-session'
 import { applyAiComputeBaseline } from '@/domain/models/app/tables/ai-compute-apply-baseline'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
+import { authorizeBusinessRules } from './permissions/business-rule-gate'
 import { storedRowOf } from './record-stored-row'
 import { deliverRecordWebhooks, withRecordWebhooks } from './record-webhook-outbox'
+import { checkedWriteValues } from './record-write-values'
 import { createRecordProgram } from './write-record-programs'
 import type { LinkReader } from './linked-row-visibility'
 import type { StoredRow, UpdateScope } from './record-update-orchestration'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import type {
   DeliveryMode,
   OutboxedWrite,
@@ -77,14 +85,12 @@ export interface RecordCreateInput {
   readonly origin?: string
   /** Whether the runtime engine is SQLite, which has no BEFORE trigger for the AI baseline. */
   readonly isSqlite: boolean
-  /** Process env captured at the route boundary, for the automations' `$env` lookups. */
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /**
    * Values the record automations read beneath the stored row — a form's
    * answers that no column stores. The row as stored always wins.
    */
   readonly triggerValues?: StoredRow
-  /** Whether the request waits for its webhook deliveries (it does, by default). */
+  /** Whether the write waits for its webhook deliveries; unnamed, the caller's receipt decides. */
   readonly deliveryMode?: DeliveryMode
 }
 
@@ -94,6 +100,8 @@ export interface RecordCreateInput {
  * unit-testable property rather than a reading of the code.
  */
 export interface RecordCreateSteps<E, R, RD = never, RA = never> {
+  /** Refuse a create the table's business rules forbid. */
+  readonly authorizeRules: (fields: StoredRow) => Effect.Effect<void, E, R>
   readonly write: (fields: StoredRow) => Effect.Effect<OutboxedWrite<CreatedRecord>, E, R | RD>
   readonly dispatchAutomations: (input: TriggerRecordEventInput) => Effect.Effect<void, never, RA>
   readonly deliverWebhooks: (deliveryIds: readonly string[]) => Effect.Effect<void, never, RD>
@@ -111,10 +119,19 @@ export function mergeCreateAiBaseline(
   fields: StoredRow,
   isSqlite: boolean
 ): StoredRow {
-  const table = app.tables?.find((t) => t.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   if (!table || !isSqlite) return fields
   return { ...fields, ...applyAiComputeBaseline({ table, op: 'insert', incoming: fields }) }
 }
+
+/**
+ * Whether the engine merges the AI-compute baseline into a write itself: the
+ * backend with no trigger to compute it (SQLite) is the one that refines its
+ * writes in process, as the AI-compute store reports.
+ */
+export const engineMergesAiBaseline = Effect.gen(function* () {
+  return yield* (yield* AiComputeStatusRepository).refinesWritesInProcess
+}).pipe(Effect.withSpan('tables.engine-merges-ai-baseline'))
 
 /**
  * Who made a records write, as its automations' `trigger.user`: the person
@@ -134,10 +151,7 @@ export function recordWriteRequester(
  * Resolves to the written record as the caller may read it.
  */
 export function orchestrateRecordCreate<E, R, RD = never, RA = never>(
-  input: Pick<
-    RecordCreateInput,
-    'app' | 'tableName' | 'fields' | 'isSqlite' | 'processEnv' | 'triggerValues'
-  > & {
+  input: Pick<RecordCreateInput, 'app' | 'tableName' | 'fields' | 'isSqlite' | 'triggerValues'> & {
     /** The caller the automations run as — never the writer. */
     readonly userId: string
     /** Who made the write, as the automations' `trigger.user`: absent for a guest. */
@@ -147,6 +161,7 @@ export function orchestrateRecordCreate<E, R, RD = never, RA = never>(
 ): Effect.Effect<CreatedRecord, E, R | RD | RA> {
   const { app, tableName } = input
   return Effect.gen(function* () {
+    yield* steps.authorizeRules(input.fields)
     const written = yield* steps.write(mergeCreateAiBaseline(input, input.fields, input.isSqlite))
     const record = written.value
     yield* steps.dispatchAutomations({
@@ -154,7 +169,6 @@ export function orchestrateRecordCreate<E, R, RD = never, RA = never>(
       tableName,
       event: 'create',
       record: { ...input.triggerValues, ...storedRowOf(record) },
-      processEnv: input.processEnv,
       userId: input.userId,
       ...(input.requester === undefined ? {} : { requester: input.requester }),
     })
@@ -165,12 +179,39 @@ export function orchestrateRecordCreate<E, R, RD = never, RA = never>(
 }
 
 /**
+ * The rules' step of a create: the row as it will be stored, stamped with the
+ * writer, the caller's role read against `exemptRoles`.
+ */
+const createRulesStep = (input: RecordCreateInput) => (fields: StoredRow) =>
+  authorizeBusinessRules({
+    ...{ app: input.app, tableName: input.tableName },
+    userId: (input.writer ?? input.session).userId,
+    ...(input.userRole === undefined ? {} : { userRole: input.userRole }),
+    ...(input.userGroups === undefined ? {} : { userGroups: input.userGroups }),
+    writes: [{ op: 'create', change: fields }],
+  })
+
+/**
  * One create with every side effect it carries, its record automations started by
  * `dispatchAutomations`: the records API's own dispatch for every road but an
  * automation step, which hands its run's record-event channel (see
- * `record-write-roads.ts`). Fails with the write's own errors.
+ * `record-write-roads.ts`). Its values pass the rules every record write obeys
+ * first (`record-write-values.ts`): a `rich-text` value is stored cleaned, a
+ * malformed `email` or `url` refuses the create before anything is read or
+ * written. Fails with that refusal or the write's own errors.
  */
 export function createRecordVia<RA>(
+  input: RecordCreateInput,
+  dispatchAutomations: (input: TriggerRecordEventInput) => Effect.Effect<void, never, RA>
+) {
+  return checkedWriteValues(input.app, input.tableName, input.fields).pipe(
+    Effect.flatMap((fields) => createCheckedRecord({ ...input, fields }, dispatchAutomations)),
+    Effect.withSpan('tables.create-record-via', { attributes: { tableName: input.tableName } })
+  )
+}
+
+/** {@link createRecordVia} once its values passed the write value rules. */
+function createCheckedRecord<RA>(
   input: RecordCreateInput,
   dispatchAutomations: (input: TriggerRecordEventInput) => Effect.Effect<void, never, RA>
 ) {
@@ -178,14 +219,18 @@ export function createRecordVia<RA>(
   // A signed-out visitor's row is written as the system: no person made it.
   const requester = recordWriteRequester((input.writer ?? session).userId, input.userRole)
   return orchestrateRecordCreate<
-    Effect.Error<ReturnType<typeof createRecordProgram>>,
+    | Effect.Error<ReturnType<typeof createRecordProgram>>
+    | Effect.Error<ReturnType<typeof authorizeBusinessRules>>,
     | Effect.Services<ReturnType<typeof createRecordProgram>>
-    | Effect.Services<ReturnType<typeof signalAiComputeWritePhase>>,
+    | Effect.Services<ReturnType<typeof authorizeBusinessRules>>
+    | Effect.Services<ReturnType<typeof signalAiComputeWritePhase>>
+    | AutomationFiberBridge,
     RecordWebhookDispatcher,
     RA
   >(
     { ...input, userId: session.userId, ...(requester === undefined ? {} : { requester }) },
     {
+      authorizeRules: createRulesStep(input),
       write: (fields) =>
         createRecordProgram({
           session: input.writer ?? session,
@@ -198,25 +243,23 @@ export function createRecordVia<RA>(
           ...(input.linkReader === undefined ? {} : { linkReader: input.linkReader }),
         }).pipe(withRecordWebhooks(app, tableName)),
       dispatchAutomations,
-      deliverWebhooks: (deliveryIds) =>
-        deliverRecordWebhooks(app, deliveryIds, input.deliveryMode ?? 'await'),
-      // Detached: the enqueue and its status writes outlive the request, and
-      // read the same `AiService` this program was provided. A user override is
+      deliverWebhooks: (deliveryIds) => deliverRecordWebhooks(app, deliveryIds, input.deliveryMode),
+      // In the tracked background: the enqueue and its status writes outlive
+      // the request, drain with the server, and read the same `AiService` this
+      // program was provided. A user override is
       // recorded as `skipped` on both engines (the PostgreSQL trigger
       // short-circuits before NOTIFY); a computed field is enqueued on SQLite.
       signalAiCompute: (record) =>
-        Effect.asVoid(
-          Effect.forkDetach(
-            signalAiComputeWritePhase({
-              app,
-              tableName,
-              op: 'insert',
-              recordId: record.id,
-              // The incoming map for override detection is the caller's own, pre-baseline.
-              incoming: input.fields,
-              record: record.fields,
-            })
-          )
+        startInTrackedBackground(
+          signalAiComputeWritePhase({
+            app,
+            tableName,
+            op: 'insert',
+            recordId: record.id,
+            // The incoming map for override detection is the caller's own, pre-baseline.
+            incoming: input.fields,
+            record: record.fields,
+          })
         ),
     }
   ).pipe(Effect.withSpan('tables.create-record-with-side-effects', { attributes: { tableName } }))

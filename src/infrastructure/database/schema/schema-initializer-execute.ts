@@ -7,11 +7,11 @@
 
 import { SQL } from 'bun'
 import { Effect, type Context } from 'effect'
+import { SchemaInitializationError } from '@/domain/errors/schema-initialization-error'
 import { readSovriumDevClock } from '@/domain/models/process-env/dev-clock'
 import { DEV_CLOCK_MARKER } from '@/infrastructure/database/formula/formula-dev-clock'
 import { shouldUseView } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { postgresClientOptions } from '@/infrastructure/database/sql/postgres-client-options'
-import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logDebug } from '@/infrastructure/logging/logger'
 import { BetterAuthUsersTableRequired } from '../auth/auth-validation'
 import {
@@ -135,11 +135,7 @@ export const logRollbackError = (
     const closeLogDb = Effect.promise(() => logDb.close())
     // effect-swallow: as in the SQLite arm above — the rollback audit row is best-effort, and the schema-init error it describes is already propagating.
     yield* Effect.tryPromise({
-      try: async () => {
-        await logDb.begin(async (logTx) => {
-          await runLogged(logTx)
-        })
-      },
+      try: () => logDb.begin((logTx) => runLogged(postgresTransactionLike(logTx))),
       catch: () => undefined, // Non-fatal
     }).pipe(Effect.ensuring(closeLogDb), Effect.ignore)
   })
@@ -183,11 +179,12 @@ const executeSchemaInitPostgres = (
     const { config, tables, app, runMigrationSteps, runtime } = job
     const db = new SQL(postgresClientOptions(config.databaseUrl, { max: 1 }))
     yield* Effect.tryPromise({
-      try: async () => {
-        await db.begin(async (tx) => {
-          await Effect.runPromiseWith(runtime)(runMigrationSteps(tx, tables, app))
-        })
-      },
+      try: () =>
+        db.begin((tx) =>
+          Effect.runPromiseWith(runtime)(
+            runMigrationSteps(postgresTransactionLike(tx), tables, app)
+          )
+        ),
       catch: asSchemaInitFailure,
     }).pipe(
       // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; this is the `ensuring` arm, where a teardown failure would displace the schema-init error the caller needs to see.
@@ -333,7 +330,7 @@ const openQuickConnection = (config: DatabaseDialectConfig): QuickConnection => 
  * when a trigger still carries the pinned-clock marker.
  */
 const clockMatchesTriggers = async (quick: Readonly<QuickConnection>): Promise<boolean> => {
-  if (readSovriumDevClock() !== undefined) {
+  if (readSovriumDevClock(process.env) !== undefined) {
     logDebug('[schema] development clock pinned — full migration')
     return false
   }
@@ -359,6 +356,22 @@ const checksumMatches = async (
   return row?.checksum === currentChecksum && storedFormulaEngineCurrent(row)
 }
 
+/**
+ * The first of `viewNames` the catalog does not hold, probed one at a time on
+ * the quick connection, or `undefined` when every one is there.
+ */
+const firstMissingView = async (
+  quick: Readonly<QuickConnection>,
+  viewNames: readonly string[]
+): Promise<string | undefined> =>
+  viewNames.reduce<Promise<string | undefined>>(async (previous, viewName) => {
+    const missing = await previous
+    if (missing !== undefined) return missing
+    const rows = (await quick.tx.unsafe(quick.viewExistsSql(viewName))) as readonly {
+      exists: boolean | number
+    }[]
+    return rows[0]?.exists ? undefined : viewName
+  }, Promise.resolve(undefined))
 /**
  * Resolve whether migration can be skipped, given an open `QuickConnection`.
  *
@@ -421,43 +434,13 @@ const resolveSkip = async (
   // are truthy/falsy correctly, so use `!rows[0]?.exists` (mirrors the
   // `tableExistsSql` check above) rather than strict equality against `true`.
   //
-  // FAN-OUT WIDTH: deliberately UNBOUNDED, and this is the one place in the
-  // database layer where that is defensible. Three independent reasons, all
-  // required:
-  //
-  //  1. **Not the shared pool.** These probes run on `quick.tx`, a connection
-  //     opened by `openQuickConnection` purely for this fast-path check — a
-  //     dedicated `new SQL(...)` on Postgres, a dedicated `bun:sqlite` handle
-  //     on SQLite. They cannot take a slot from the Drizzle pool that serves
-  //     requests, which is the exact mechanism of a production pool-exhaustion incident
-  //     (see the QUERY BUDGET note in
-  //     `repositories/tables/tables-overview-repository-live.ts`).
-  //  2. **Not a request path.** `checkShouldSkipMigration` has exactly one
-  //     caller chain — `schema-initializer.ts` → `initializeSchema` →
-  //     `runDatabaseStartup` in `infrastructure/server/server.ts` — which runs
-  //     during boot, before the HTTP listener accepts traffic. There is no
-  //     concurrent request to starve, and no live config-publish path reaches
-  //     here.
-  //  3. **Config-bounded, and cheap.** Width is the number of view-backed
-  //     tables, and each probe is a single indexed catalog lookup.
-  //
-  // If any of those three stops holding — in particular if schema init ever
-  // becomes reachable while the server is serving — this needs a ceiling, the
-  // same way every other fan-out in this layer now has one.
-  // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- deliberately unbounded; the three conditions that make it safe (dedicated connection, boot-only, config-bounded single catalog lookups) and their invalidation triggers are stated in the FAN-OUT WIDTH note directly above.
-  const viewCheckResults = await Promise.all(
-    expectedAutoViewNames.map(async (viewName) => {
-      const rows = (await quick.tx.unsafe(quick.viewExistsSql(viewName))) as readonly {
-        exists: boolean | number
-      }[]
-      return { viewName, exists: Boolean(rows[0]?.exists) }
-    })
-  )
-
-  const missingView = viewCheckResults.find((r) => !r.exists)
-  if (missingView) {
+  // One probe at a time, stopping at the first missing view. The probes share
+  // `quick.tx`, a dedicated connection opened with `max: 1` purely for this
+  // fast-path check, so issuing them together only queued them on it.
+  const missingView = await firstMissingView(quick, expectedAutoViewNames)
+  if (missingView !== undefined) {
     logDebug('[schema] checksum matches but auto-generated view missing — full migration', {
-      view: missingView.viewName,
+      view: missingView,
     })
     return false
   }

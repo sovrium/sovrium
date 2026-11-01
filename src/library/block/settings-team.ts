@@ -5,15 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, param, stringParam, THEME_NOTE } from '@/library/manifest/block-kit'
-import { defineLibraryEntry } from '@/library/manifest/define'
+import { asComponent, param, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
 import {
   SETTINGS_PLACE_NOTE,
   settingsColumn,
   settingsGroup,
   settingsListRow,
   settingsTitle,
-} from '@/library/manifest/settings-block-kit'
+} from '@/library/kit/settings-block-kit'
+import { defineLibraryEntry } from '@/library/manifest/define'
 
 type Node = Readonly<Record<string, unknown>>
 

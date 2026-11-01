@@ -29,6 +29,13 @@ import {
   type PermissionPolicy,
 } from '@/domain/models/app/auth/permission-evaluation'
 import { readEmbeddedFormRef } from '@/domain/models/app/pages/embedded-form-ref'
+import {
+  componentField,
+  componentFields,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+} from '@/presentation/render/resolve/component-rewrite'
 import type { App } from '@/domain/models/app'
 import type { PermissionValue } from '@/domain/models/app/auth/permissions'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -120,16 +127,18 @@ function isCrudCreateAllowed(
  * Hides a component section by injecting `display: none` into its style prop.
  */
 export function hideComponent(component: Component): Component {
-  return {
-    ...component,
-    props: {
-      ...(component.props ?? {}),
-      style: {
-        ...((component.props?.style as Record<string, unknown> | undefined) ?? {}),
-        display: 'none',
-      },
-    },
-  }
+  const style = (component.props?.['style'] as Record<string, unknown> | undefined) ?? {}
+  return rewriteComponent(component, {
+    props: { ...(component.props ?? {}), style: { ...style, display: 'none' } },
+  })
+}
+
+/** The action fields the write ladder judges, read by name: `undefined` for each one absent. */
+const crudActionOf = (component: Component) => {
+  const action = componentField(component, 'action')
+  const table = keyOf(action, 'table')
+  const tableName = typeof table === 'string' ? table : undefined
+  return { type: keyOf(action, 'type'), operation: keyOf(action, 'operation'), table: tableName }
 }
 
 /**
@@ -191,9 +200,9 @@ export function applyCrudDeletePermissions(
     if (typeof item !== 'object' || item === null || 'component' in item || '$ref' in item) {
       return item
     }
-    const component = withFilteredChildren(item as Component, filterChildren)
-    const action = component.action as { type?: string; operation?: string; table?: string }
-    if (action?.type !== 'crud' || action?.operation !== 'delete') return component
+    const component = withFilteredChildren(entryAsComponent(item), filterChildren)
+    const action = crudActionOf(component)
+    if (action.type !== 'crud' || action.operation !== 'delete') return component
     return isCrudDeleteAllowed(action.table, tables, session) ? component : hideComponent(component)
   })
 }
@@ -218,10 +227,10 @@ export function applyCrudCreatePermissions(
   return components.map((item) => {
     if ('component' in item || '$ref' in item) return item
 
-    const component = item as Component
-    const action = component.action as { type?: string; operation?: string; table?: string }
+    const component = entryAsComponent(item)
+    const action = crudActionOf(component)
 
-    if (action?.type !== 'crud' || action?.operation !== 'create') return component
+    if (action.type !== 'crud' || action.operation !== 'create') return component
     if (isCrudCreateAllowed(action.table, tables, session)) return component
 
     return hideComponent(component)
@@ -285,13 +294,13 @@ export function withholdUnofferedFormRefs(
   if (!components) return components
   const filterChildren = (children: Page['components']) =>
     withholdUnofferedFormRefs(children, app, session)
-  return components.flatMap((item) => {
+  return components.flatMap<NonNullable<Page['components']>[number]>((item) => {
     if (typeof item !== 'object' || item === null || 'component' in item || '$ref' in item) {
       return [item]
     }
     const formRef = readEmbeddedFormRef(item)
     if (formRef !== undefined && !isFormRefOffered(formRef, app, session)) return []
-    return [withFilteredChildren(item as Component, filterChildren)]
+    return [withFilteredChildren(entryAsComponent(item), filterChildren)]
   })
 }
 
@@ -300,17 +309,16 @@ function withFilteredChildren(
   component: Component,
   filterChildren: (children: Page['components']) => Page['components']
 ): Component {
-  const node = component as { readonly children?: unknown; readonly responsive?: unknown }
-  if (!Array.isArray(node.children) && node.responsive === undefined) return component
-  return {
-    ...component,
-    ...(Array.isArray(node.children)
-      ? { children: filterChildren(node.children as Page['components']) }
+  const { children, responsive } = componentFields(component)
+  if (!Array.isArray(children) && responsive === undefined) return component
+  return rewriteComponent(component, {
+    ...(Array.isArray(children)
+      ? { children: filterChildren(children as Page['components']) }
       : {}),
-    ...(node.responsive === undefined
+    ...(responsive === undefined
       ? {}
-      : { responsive: filterResponsiveChildren(node.responsive, filterChildren) }),
-  } as Component
+      : { responsive: filterResponsiveChildren(responsive, filterChildren) }),
+  })
 }
 
 /**
@@ -326,13 +334,7 @@ function withFilteredChildren(
  * disabled inputs — preventing edits while still showing the record values.
  */
 function markComponentReadOnly(component: Component): Component {
-  return {
-    ...component,
-    props: {
-      ...(component.props ?? {}),
-      _readOnly: true,
-    },
-  }
+  return rewriteComponent(component, { props: { ...(component.props ?? {}), _readOnly: true } })
 }
 
 /**
@@ -346,14 +348,11 @@ function markComponentReadOnly(component: Component): Component {
  */
 function getSynthesizedUpdateTable(component: Component): string | undefined {
   if (component.type !== 'form') return undefined
-  const action = component.action as { readonly type?: string } | undefined
-  if (action?.type !== undefined) return undefined
-  const dataSource = component.dataSource as
-    { readonly table?: string; readonly mode?: string } | undefined
-  if (!dataSource || dataSource.mode !== 'single' || typeof dataSource.table !== 'string') {
-    return undefined
-  }
-  return dataSource.table
+  if (keyOf(componentField(component, 'action'), 'type') !== undefined) return undefined
+  const dataSource = componentField(component, 'dataSource')
+  const table = keyOf(dataSource, 'table')
+  if (keyOf(dataSource, 'mode') !== 'single' || typeof table !== 'string') return undefined
+  return table
 }
 
 /**
@@ -381,10 +380,10 @@ export function applyCrudUpdatePermissions(
   return components.map((item) => {
     if ('component' in item || '$ref' in item) return item
 
-    const component = item as Component
-    const action = component.action as { type?: string; operation?: string; table?: string }
+    const component = entryAsComponent(item)
+    const action = crudActionOf(component)
 
-    if (action?.type === 'crud' && action?.operation === 'update') {
+    if (action.type === 'crud' && action.operation === 'update') {
       if (isCrudUpdateAllowed(action.table, tables, session)) return component
       return hideComponent(component)
     }

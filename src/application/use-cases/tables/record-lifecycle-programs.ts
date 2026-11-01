@@ -29,15 +29,16 @@ import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { NotFoundError, UniqueConstraintViolationError, ValidationError } from '@/domain/errors'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
+import { transformRecord } from '@/domain/models/app/tables/record-transformer-service'
 import { omitFromWriteEcho, writeEchoReaderOf } from './hidden-lookup-omission'
 import { refuseWhenNoSingleIdAddress } from './read-record-programs'
 import { announceRecordWrites } from './record-change-announcement'
-import { transformRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { InTransactionRuleJudge } from '@/application/ports/repositories/tables/in-transaction-rule-judge'
 import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type { BusinessRuleViolationError, DatabaseError } from '@/domain/errors'
 import type { RestoreRecordResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
 
@@ -108,16 +109,22 @@ export function restoreRecordProgram(
     readonly userRole?: string
     /** The caller's groups: a field read grant may name a group. */
     readonly userGroups?: readonly string[]
+    /** The table's business rules, judged inside the restore on the trashed row. */
+    readonly judge?: InTransactionRuleJudge | undefined
   }
 ): Effect.Effect<
   RestoreRecordResponse,
-  TableReadError | NotFoundError | ValidationError | UniqueConstraintViolationError,
+  | TableReadError
+  | NotFoundError
+  | ValidationError
+  | UniqueConstraintViolationError
+  | BusinessRuleViolationError,
   TableRepository | DataSourceRepository | AuthRepository
 > {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     yield* refuseWhenNoSingleIdAddress(params?.app, tableName)
-    const record = yield* repo.restoreRecord(session, tableName, recordId)
+    const record = yield* repo.restoreRecord(session, tableName, recordId, params?.judge)
     const refusal = restoreRefusalOf(record)
     if (refusal !== undefined) return yield* Effect.fail(refusal)
     if (!record) return yield* Effect.fail(new NotFoundError('Record not found'))
@@ -140,21 +147,30 @@ export function restoreRecordProgram(
   }).pipe(announceRecordWrites(params?.app), Effect.withSpan('tables.restore-record-program'))
 }
 
+/** What a delete is judged by: the app, and the table's rules judged inside its transaction. */
+interface DeleteRules {
+  readonly app?: App | undefined
+  readonly judge?: InTransactionRuleJudge | undefined
+}
+
 /** Soft-delete a record. Wraps Infrastructure for layer architecture. */
 export function deleteRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,
   recordId: string,
-  app?: App
+  { app, judge }: DeleteRules = {}
 ): Effect.Effect<
   { success: boolean; setNullPerformed: boolean; restrictViolation: boolean },
-  DatabaseError | ValidationError,
+  DatabaseError | ValidationError | BusinessRuleViolationError,
   TableRepository
 > {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     yield* refuseWhenNoSingleIdAddress(app, tableName)
-    return yield* repo.deleteRecord(session, tableName, recordId, app)
+    return yield* repo.deleteRecord(session, tableName, recordId, {
+      ...(app === undefined ? {} : { app }),
+      ...(judge === undefined ? {} : { judge }),
+    })
   }).pipe(announceRecordWrites(app), Effect.withSpan('tables.delete-record-program'))
 }
 
@@ -163,10 +179,10 @@ export function permanentlyDeleteRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,
   recordId: string,
-  app?: App
-): Effect.Effect<boolean, DatabaseError, TableRepository> {
+  { app, judge }: DeleteRules = {}
+): Effect.Effect<boolean, DatabaseError | BusinessRuleViolationError, TableRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
-    return yield* repo.permanentlyDeleteRecord(session, tableName, recordId)
+    return yield* repo.permanentlyDeleteRecord(session, tableName, recordId, judge)
   }).pipe(announceRecordWrites(app), Effect.withSpan('tables.permanently-delete-record-program'))
 }

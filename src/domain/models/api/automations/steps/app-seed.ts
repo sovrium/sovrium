@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { APP_SEED_MODES } from '@/domain/models/app/automations/actions/app/seed'
 
 /**
@@ -84,7 +84,7 @@ export const appSeedReportSchema = Schema.Struct({
   ),
   lines: Schema.Array(Schema.String.annotate({ description: 'One line of the report' })).annotate({
     description:
-      'The report as `sovrium seed` prints it, one entry per line — accounts first, then one line per table',
+      'The report as `sovrium seed` prints it, one entry per line: accounts first, then one line per table',
   }),
 })
 

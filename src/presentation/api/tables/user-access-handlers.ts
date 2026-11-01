@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import {
   listReadableGrants,
   type ReadableGrant,
@@ -14,7 +15,6 @@ import {
   type GrantValueRefusal,
 } from '@/application/use-cases/tables/mint-user-access-grant'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import {
   userAccessListResponseSchema,
   userAccessRecordSchema,
@@ -22,11 +22,15 @@ import {
 } from '@/domain/models/api/tables'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { validateUserAccessInput } from '@/domain/models/app/tables/user-access-validation'
-import { runUserAccessProgram } from '@/infrastructure/layers/table-layer'
 import { logError } from '@/infrastructure/logging/logger'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+  toErrorResponse,
+} from '@/presentation/api/runtime/run-effect'
 import type {
   UserAccessMinted,
   UserAccessRow,
@@ -105,11 +109,7 @@ interface ContextLike {
  * also be rejected at the API layer rather than 500-ing on a missing
  * relation.
  */
-export const respondNotFound = (c: ContextLike) =>
-  c.json(
-    { success: false, error: 'Not Found', message: 'Resource not found', code: 'NOT_FOUND' },
-    404
-  )
+export const respondNotFound = (c: ContextLike) => c.json(notFoundBody(), 404)
 
 /**
  * Authorize an ADMIN caller for the grant junction.
@@ -131,16 +131,11 @@ export const respondNotFound = (c: ContextLike) =>
  *
  * Returns a Response when the caller is refused, or `undefined` to proceed.
  */
-const authorizeUserAccessAdmin = async (
-  c: Context,
-  app: App,
-  userId: string
-): Promise<Response | undefined> => {
-  const callerRole = await runDomainPromise(c, getUserRole(userId))
-  // Admin-equivalent: the built-in `admin` and the app's top role.
-  if (!isAdminEquivalent(callerRole, app)) return respondNotFound(c)
-  return undefined
-}
+const authorizeUserAccessAdmin = (c: Context, app: App, userId: string) =>
+  Effect.map(getUserRole(userId), (callerRole) =>
+    // Admin-equivalent: the built-in `admin` and the app's top role.
+    isAdminEquivalent(callerRole, app) ? undefined : respondNotFound(c)
+  )
 
 export const respondValidationError = (c: ContextLike, message: string, field?: string) =>
   c.json(
@@ -175,14 +170,14 @@ interface ParsedJsonBody {
   readonly value?: unknown
 }
 
-export const parseJsonBody = async (c: Context): Promise<ParsedJsonBody> => {
-  try {
-    const value = await c.req.json()
-    return { success: true, value }
-  } catch {
-    return { success: false }
-  }
-}
+export const parseJsonBody = (c: Context): Effect.Effect<ParsedJsonBody> =>
+  // effect-promise: total -- a body that is not JSON is caught here and answered as such.
+  Effect.promise(() =>
+    c.req.json().then(
+      (value: unknown) => ({ success: true, value }),
+      () => ({ success: false })
+    )
+  )
 
 export const extractFields = (body: unknown): Record<string, unknown> => {
   if (body === null || typeof body !== 'object') return {}
@@ -201,9 +196,11 @@ export const extractFields = (body: unknown): Record<string, unknown> => {
  */
 const respondMintOutcome = (c: Context, outcome: GrantValueRefusal | UserAccessMinted) =>
   'field' in outcome
-    ? respondValidationError(c, outcome.message, outcome.field)
-    : c.json(
-        decodeOrThrow(userAccessRecordSchema)(toFieldsResponse(outcome.row)),
+    ? Effect.succeed(respondValidationError(c, outcome.message, outcome.field))
+    : respondWith(
+        c,
+        Effect.succeed(toFieldsResponse(outcome.row)),
+        userAccessRecordSchema,
         outcome.created ? 201 : 200
       )
 
@@ -229,45 +226,51 @@ export async function handleCreateUserAccessRecord(c: Context, app: App): Promis
     return respondNotFound(c)
   }
 
-  // Minting a grant is privilege assignment — admins only. Checked BEFORE the
-  // body is parsed so a non-admin learns nothing from validation feedback.
-  const denied = await authorizeUserAccessAdmin(c, app, session.userId)
-  if (denied) return denied
-
-  const parsed = await parseJsonBody(c)
-  if (!parsed.success) {
-    return respondValidationError(c, 'Invalid JSON body')
-  }
-
-  const fields = extractFields(parsed.value)
-  const validation = validateUserAccessInput(fields, {
-    scopeTables: collectScopeTables(app),
-    roleNames: collectRoleNames(app),
-  })
-  if (validation) {
-    return respondValidationError(c, validation.message, validation.field)
-  }
-
-  // After validation, fields are guaranteed to be the right types.
-  const validated = fields as unknown as ValidatedRow
-  const result = await runUserAccessProgram(
-    mintUserAccessGrant(
-      app,
-      {
-        userId: validated.user_id,
-        tableSlug: validated.table_slug,
-        recordIds: validated.record_ids,
-        role: validated.role,
-      },
-      session.userId
-    )
-  )
-
-  if (result._tag === 'Failure') {
-    return respondServerError(c, result.failure.cause)
-  }
-  return respondMintOutcome(c, result.success)
+  return runHandlerEffect(c, answerFailures(c, mintGrantResponse(c, app, session.userId)))
 }
+
+/** Gate, validate and mint a grant, as one program. */
+const mintGrantResponse = (c: Context, app: App, userId: string) =>
+  Effect.gen(function* () {
+    // Minting a grant is privilege assignment — admins only. Checked BEFORE the
+    // body is parsed so a non-admin learns nothing from validation feedback.
+    const denied = yield* authorizeUserAccessAdmin(c, app, userId)
+    if (denied) return denied
+
+    const parsed = yield* parseJsonBody(c)
+    if (!parsed.success) {
+      return respondValidationError(c, 'Invalid JSON body')
+    }
+
+    const fields = extractFields(parsed.value)
+    const validation = validateUserAccessInput(fields, {
+      scopeTables: collectScopeTables(app),
+      roleNames: collectRoleNames(app),
+    })
+    if (validation) {
+      return respondValidationError(c, validation.message, validation.field)
+    }
+
+    // After validation, fields are guaranteed to be the right types.
+    const validated = fields as unknown as ValidatedRow
+    const result = yield* Effect.result(
+      mintUserAccessGrant(
+        app,
+        {
+          userId: validated.user_id,
+          tableSlug: validated.table_slug,
+          recordIds: validated.record_ids,
+          role: validated.role,
+        },
+        userId
+      )
+    )
+
+    if (result._tag === 'Failure') {
+      return respondServerError(c, result.failure.cause)
+    }
+    return yield* respondMintOutcome(c, result.success)
+  })
 
 /** One listing criterion read from the query string, absent when not given. */
 const queryFilter = <K extends string>(
@@ -284,12 +287,14 @@ const queryFilter = <K extends string>(
  * is read: 401 without a session, 404 when the app declares no scope tables or
  * the caller is not admin-equivalent (S1). `undefined` lets the caller through.
  */
-export const gateUserAccessAdmin = async (c: Context, app: App): Promise<Response | undefined> => {
+export const gateUserAccessAdmin = (c: Context, app: App) => {
   const session = getSessionContext(c)
   if (!session) {
-    return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
+    return Effect.succeed(
+      c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
+    )
   }
-  if (!isMultiTenantConfigured(app)) return respondNotFound(c)
+  if (!isMultiTenantConfigured(app)) return Effect.succeed(respondNotFound(c))
   return authorizeUserAccessAdmin(c, app, session.userId)
 }
 
@@ -323,36 +328,40 @@ export async function handleListUserAccessRecords(c: Context, app: App): Promise
     return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
-  // Reading the junction enumerates the whole tenancy map — admins only. The
-  // `?user_id=` filter is not a substitute: it is caller-supplied, so a
-  // non-admin could simply point it at somebody else. Judged BEFORE the
-  // scope-table check, so a non-admin gets the same 404 on every app.
-  const denied = await authorizeUserAccessAdmin(c, app, session.userId)
-  if (denied) return denied
-
-  // An app that declares no scope tables holds no grant: to an admin, that is
-  // an empty list, the true state, rather than an error to interpret.
-  if (!isMultiTenantConfigured(app)) return c.json({ records: [] }, 200)
-
-  // Each filter given narrows the listing: an account's grants (by id or by
-  // address), a table's, or — with `record_id` — the grants naming one record,
-  // i.e. who holds access to it.
-  const filter = {
-    ...queryFilter(c, 'user_id', 'userId'),
-    ...queryFilter(c, 'user_email', 'userEmail'),
-    ...queryFilter(c, 'table_slug', 'tableSlug'),
-    ...queryFilter(c, 'record_id', 'recordId'),
-  }
-
-  const result = await runUserAccessProgram(listReadableGrants(app, filter))
-
-  if (result._tag === 'Failure') {
-    return respondServerError(c, result.failure.cause)
-  }
-  return c.json(
-    decodeOrThrow(userAccessListResponseSchema)({
-      records: result.success.map((grant) => toListedResponse(grant)),
-    }),
-    200
-  )
+  return runHandlerEffect(c, answerFailures(c, listGrantsResponse(c, app, session.userId)))
 }
+
+/** Gate and answer the grant listing, as one program. */
+const listGrantsResponse = (c: Context, app: App, userId: string) =>
+  Effect.gen(function* () {
+    // Reading the junction enumerates the whole tenancy map — admins only. The
+    // `?user_id=` filter is not a substitute: it is caller-supplied, so a
+    // non-admin could simply point it at somebody else. Judged BEFORE the
+    // scope-table check, so a non-admin gets the same 404 on every app.
+    const denied = yield* authorizeUserAccessAdmin(c, app, userId)
+    if (denied) return denied
+
+    // An app that declares no scope tables holds no grant: to an admin, that is
+    // an empty list, the true state, rather than an error to interpret.
+    if (!isMultiTenantConfigured(app)) {
+      return yield* respondWith(c, Effect.succeed({ records: [] }), userAccessListResponseSchema)
+    }
+
+    // Each filter given narrows the listing: an account's grants (by id or by
+    // address), a table's, or — with `record_id` — the grants naming one record,
+    // i.e. who holds access to it.
+    const filter = {
+      ...queryFilter(c, 'user_id', 'userId'),
+      ...queryFilter(c, 'user_email', 'userEmail'),
+      ...queryFilter(c, 'table_slug', 'tableSlug'),
+      ...queryFilter(c, 'record_id', 'recordId'),
+    }
+
+    const result = yield* Effect.result(listReadableGrants(app, filter))
+
+    if (result._tag === 'Failure') {
+      return respondServerError(c, result.failure.cause)
+    }
+    const records = result.success.map((grant) => toListedResponse(grant))
+    return yield* respondWith(c, Effect.succeed({ records }), userAccessListResponseSchema)
+  })

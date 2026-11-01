@@ -428,7 +428,7 @@ export const BrowserExtractStepSchema = Schema.Struct({
 })
   .annotate({
     description:
-      'Read what the page shows — a confirmation number, a status, the rows of a table — into the step output, for later steps.',
+      'Read what the page shows (a confirmation number, a status, the rows of a table) into the step output, for later steps.',
   })
   .pipe(
     Schema.check(
@@ -469,7 +469,7 @@ export const BrowserDismissStepSchema = Schema.Struct({
   ...StepBaseFields,
 }).annotate({
   description:
-    'Click the element if it appears within the step timeout — a cookie-consent button, a "what\'s new" notice — and carry on either way. Never fails the run for its absence.',
+    'Click the element if it appears within the step timeout (a cookie-consent button, a "what\'s new" notice) and carry on either way. Never fails the run for its absence.',
 })
 
 // ─── The union ──────────────────────────────────────────────────────────────

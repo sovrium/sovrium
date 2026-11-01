@@ -50,21 +50,18 @@
  * types are sorted into where the operators live
  * (`src/presentation/design/filter-expression.ts`).
  *
- * ## Which subscribers exist TODAY, measured rather than assumed
+ * ## Which subscribers follow it
  *
- * The subscriber half is `use-shared-filter.ts`, and exactly ONE island
- * consumes it: the data-table, through
- * `data-table/island/setup/use-system-query-params.ts`. `kpi`, `chart`, `list`,
- * `gallery` and `kanban` declare `bindTo` + `sharedFilter` in their schema and
- * ignore it at runtime.
- *
- * So a bar drives every GRID on its channel today — including grids over
- * different tables, which is the case `fields` is declared rather than derived
- * for — and the canvas's "one bar, a table and a KPI" picture needs those five
- * islands to adopt the hook. That is one call each in an island this wave does
- * not open, so it belongs to the wave that redraws the data views (R-D) rather
- * than here. Recorded rather than implied: a schema key that validates and does
- * nothing is the exact failure this type's `publishes.bindTo` refuses to risk.
+ * Every data component whose `dataSource` names the bar's channel in `bindTo`
+ * beside `sharedFilter`. The islands read it through `use-shared-filter.ts` or
+ * its lazy twin and merge the conditions into the filter they send the records
+ * API: `table`, `kanban`, `calendar`, `gallery`, `chart`, `kpi`, `timeline` and
+ * a `list` drawn through `listDisplay.itemTemplate`. A `list` drawn through a
+ * `children` row template has no island: the server reads the channel's
+ * conditions from the page address (else the bar's opening ones) when it
+ * expands the rows, and the core runtime swaps the list in place, redrawn by
+ * the server, each time the channel changes
+ * (`presentation/render/resolve/channel-row-lists.ts`).
  *
  * ## The operators are the SERVER's, not the grid's
  *
@@ -147,7 +144,7 @@ const FilterFieldSchema = Schema.Struct({
     ).annotate({
       title: 'Choices',
       description:
-        'Choices offered for a `select` field. Unread under the other kinds — a number has no option list. To offer the rows of a table instead, declare `optionsSource` (the binding a page `select` reads) and leave this out: the two together are refused at boot.',
+        'Choices offered for a `select` field. Unread under the other kinds: a number has no option list. To offer the rows of a table instead, declare `optionsSource` (the binding a page `select` reads) and leave this out: the two together are refused at boot.',
       examples: [
         [
           { value: 'paid', label: 'Paid' },
@@ -182,7 +179,7 @@ const FilterConditionSchema = Schema.Struct({
   field: Schema.String.pipe(
     Schema.annotate({
       description:
-        'Field to filter on. Must name one of the bar’s own `fields` — a cross-key rule an open struct cannot carry, so it is refused BY NAME at boot in `component-xor-rules.ts` rather than claimed here and never checked.',
+        'Field to filter on. Must name one of the bar’s own `fields`. It is a cross-key rule an open struct cannot carry, so it is refused BY NAME at boot in `component-xor-rules.ts` rather than claimed here and never checked.',
       examples: ['status'],
     }),
     Schema.check(Schema.isMinLength(1))
@@ -205,7 +202,7 @@ const FilterBarPublisherSchema = Schema.Struct({
     Schema.annotate({
       title: 'Channel',
       description:
-        'The shared-filter channel this bar publishes on — the same string every subscriber names in `dataSource.bindTo` beside `sharedFilter`.',
+        'The shared-filter channel this bar publishes on: the same string every subscriber names in `dataSource.bindTo` beside `sharedFilter`.',
       examples: ['invoices-filter'],
     }),
     Schema.check(Schema.isMinLength(1))
@@ -330,7 +327,7 @@ export const filterBarFields = {
   allowAdd: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        'Whether the reader may add conditions (default: true). Off leaves the existing chips removable — a filter that can be seen and not lifted is a dead end.',
+        'Whether the reader may add conditions (default: true). Off leaves the existing chips removable, since a filter that can be seen and not lifted is a dead end.',
     })
   ),
   /**

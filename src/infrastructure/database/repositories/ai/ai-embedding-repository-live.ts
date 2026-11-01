@@ -26,7 +26,8 @@ import {
   AiEmbeddingDatabaseError,
   AiEmbeddingRepository,
 } from '@/application/ports/repositories/ai/ai-embedding-repository'
-import { db } from '@/infrastructure/database'
+import { Database, layerOverDatabase } from '@/infrastructure/database/drizzle/layer'
+import { getPgDb } from '@/infrastructure/database/drizzle/portable-db'
 import { aiEmbeddings as aiEmbeddingsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import {
   chunkFieldsOf,
@@ -35,13 +36,13 @@ import {
   serializeEmbedding,
 } from '@/infrastructure/database/sql/ai-embedding-vector-math'
 import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
-import { extractRows } from '@/infrastructure/database/sql/sql-utils'
+import { executeRawTypedOn } from '@/infrastructure/database/sql/dialect-execute'
 import { searchSqliteVec } from '@/infrastructure/database/sql/sqlite-vec-search'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type {
   EmbeddingSearchResult,
   NewEmbedding,
 } from '@/application/ports/repositories/ai/ai-embedding-repository'
+import type { PgDb, PortableDb } from '@/infrastructure/database/drizzle/db'
 import type { aiEmbeddings as aiEmbeddingsPg } from '@/infrastructure/database/drizzle/schema/ai'
 
 /** Wrap a DB promise, adapting failures to AiEmbeddingDatabaseError. */
@@ -97,7 +98,7 @@ const embeddingValuesTuple = (row: Readonly<NewEmbedding>) => {
  * (`AiEmbeddingRepositoryLive`), and pgvector has no SQLite equivalent. The
  * SQLite arm below stores the vector as a `Float32Array` BLOB instead.
  */
-const insertEmbeddingBatch = (batch: ReadonlyArray<NewEmbedding>): Promise<unknown> =>
+const insertEmbeddingBatch = (db: PgDb, batch: ReadonlyArray<NewEmbedding>): Promise<unknown> =>
   db.execute(
     sql`
       INSERT INTO system.ai_embeddings
@@ -126,7 +127,7 @@ const toInsertBatches = (
  * {@link INSERT_BATCH_SIZE} chunks.
  *
  * FAN-OUT WIDTH: `SHARED_POOL_FANOUT_CONCURRENCY`. Every statement runs on the
- * `db` facade — the SHARED pool — and the number of statements grows with the
+ * database client — the SHARED pool — and the number of statements grows with the
  * size of the ingested document or table. A wide unbounded fan-out against the
  * ten default pool slots was the mechanism of a production 504 incident. Knowledge sync is best-effort (every caller pipes
  * `Effect.catch(() => Effect.void)`), but "best-effort" bounds the
@@ -142,8 +143,8 @@ const toInsertBatches = (
  *
  * An empty `rows` needs no special case — no batch, `Effect.all([])` succeeds.
  */
-const insertManyEffect = (rows: ReadonlyArray<NewEmbedding>) =>
-  Effect.forEach(toInsertBatches(rows), (batch) => wrap(() => insertEmbeddingBatch(batch)), {
+const insertManyEffect = (db: PgDb, rows: ReadonlyArray<NewEmbedding>) =>
+  Effect.forEach(toInsertBatches(rows), (batch) => wrap(() => insertEmbeddingBatch(db, batch)), {
     concurrency: SHARED_POOL_FANOUT_CONCURRENCY,
   }).pipe(Effect.asVoid)
 
@@ -163,16 +164,21 @@ const agentPredicate = (agentName: string | undefined, includeGlobal: boolean | 
     : sql`AND agent_name = ${agentName}`
 }
 
-const searchImpl = async (input: {
-  readonly embedding: ReadonlyArray<number>
-  readonly agentName: string | undefined
-  readonly includeGlobal?: boolean
-  readonly minSimilarity: number
-  readonly maxResults: number
-}): Promise<ReadonlyArray<EmbeddingSearchResult>> => {
+const searchImpl = async (
+  db: PgDb,
+  input: {
+    readonly embedding: ReadonlyArray<number>
+    readonly agentName: string | undefined
+    readonly includeGlobal?: boolean
+    readonly minSimilarity: number
+    readonly maxResults: number
+  }
+): Promise<ReadonlyArray<EmbeddingSearchResult>> => {
   const queryVector = toVectorLiteral(input.embedding)
   const agentFilter = agentPredicate(input.agentName, input.includeGlobal)
-  const result = await db.execute(
+  const rows = await executeRawTypedOn<SearchRow>(
+    'postgres',
+    db,
     sql`
       SELECT
         agent_name,
@@ -187,9 +193,6 @@ const searchImpl = async (input: {
       LIMIT ${input.maxResults}
     `
   )
-  // `db.execute` returns the rows array directly under bun-sql; older
-  // drivers wrap it as `{ rows }`. `extractRows` accepts both shapes.
-  const rows = extractRows(result) as unknown as ReadonlyArray<SearchRow>
   return rows
     .map((r) => ({
       agentName: r.agent_name,
@@ -201,7 +204,7 @@ const searchImpl = async (input: {
     .filter((r) => r.similarity >= input.minSimilarity)
 }
 
-const deleteBySourceIdPrefixImpl = async (prefix: string): Promise<void> => {
+const deleteBySourceIdPrefixImpl = async (db: PgDb, prefix: string): Promise<void> => {
   await db.execute(sql`DELETE FROM system.ai_embeddings WHERE source_id LIKE ${`${prefix}%`}`)
 }
 
@@ -209,26 +212,28 @@ const deleteBySourceIdPrefixImpl = async (prefix: string): Promise<void> => {
  * Live AI embedding repository — Drizzle + bun:sql against
  * `system.ai_embeddings` (pgvector). Mirrors `AiMemoryRepositoryLive`.
  */
-export const AiEmbeddingRepositoryLive = Layer.succeed(
-  AiEmbeddingRepository,
-  AiEmbeddingRepository.of({
-    insertMany: (rows) => insertManyEffect(rows),
-    search: (input) => wrap(() => searchImpl(input)),
-    deleteBySourceIdPrefix: (prefix) => wrap(() => deleteBySourceIdPrefixImpl(prefix)),
-  })
-)
+export const AiEmbeddingRepositoryLive = layerOverDatabase(AiEmbeddingRepository, {
+  insertMany: (client, dialect) => (rows) => insertManyEffect(getPgDb({ client, dialect }), rows),
+  search: (client, dialect) => (input) =>
+    wrap(() => searchImpl(getPgDb({ client, dialect }), input)),
+  deleteBySourceIdPrefix: (client, dialect) => (prefix) =>
+    wrap(() => deleteBySourceIdPrefixImpl(getPgDb({ client, dialect }), prefix)),
+})
 
 // ── SQLite (BLOB + app-side cosine) implementation ──────────────────
 
 /**
  * The SQLite `ai_embeddings` table cast to the Postgres-typed shape — the same
- * seam `dialect-schema.ts` uses so the PG-typed `db` facade (`DrizzleDB`)
+ * seam `dialect-schema.ts` uses so the PG-typed `db` facade (`PortableDb`)
  * accepts a `sqlite-core` table object. The runtime client is the bun-sqlite
  * driver; this cast is type-only.
  */
 const aiEmbeddingsSqliteTyped = aiEmbeddingsSqlite as unknown as typeof aiEmbeddingsPg
 
-const insertManySqliteImpl = async (rows: ReadonlyArray<NewEmbedding>): Promise<void> => {
+const insertManySqliteImpl = async (
+  db: PortableDb,
+  rows: ReadonlyArray<NewEmbedding>
+): Promise<void> => {
   if (rows.length === 0) return
   const values = rows.map((row) => ({
     sourceType: row.sourceType,
@@ -254,14 +259,20 @@ interface CandidateRow {
   readonly metadata: unknown
 }
 
-const searchSqliteImpl = async (input: {
+/** What one SQLite search asks for. */
+interface SqliteSearchInput {
   readonly embedding: ReadonlyArray<number>
   readonly query?: string
   readonly agentName: string | undefined
   readonly includeGlobal?: boolean
   readonly minSimilarity: number
   readonly maxResults: number
-}): Promise<ReadonlyArray<EmbeddingSearchResult>> => {
+}
+
+const searchSqliteImpl = async (
+  db: PortableDb,
+  input: SqliteSearchInput
+): Promise<ReadonlyArray<EmbeddingSearchResult>> => {
   // Phase 2 acceleration: when `RAG_SQLITE_VEC=on` and the extension
   // loaded, the sqlite-vec ANN (+ optional FTS5 hybrid) path serves the search
   // with the IDENTICAL response contract. `undefined` means acceleration is off
@@ -311,7 +322,7 @@ const searchSqliteImpl = async (input: {
   return scored.toSorted((a, b) => b.similarity - a.similarity).slice(0, input.maxResults)
 }
 
-const deleteBySourceIdPrefixSqliteImpl = async (prefix: string): Promise<void> => {
+const deleteBySourceIdPrefixSqliteImpl = async (db: PortableDb, prefix: string): Promise<void> => {
   await db
     .delete(aiEmbeddingsSqliteTyped)
     .where(like(aiEmbeddingsSqliteTyped.sourceId, `${prefix}%`))
@@ -322,20 +333,18 @@ const deleteBySourceIdPrefixSqliteImpl = async (prefix: string): Promise<void> =
  * `system_ai_embeddings`, with vectors stored as Float32Array BLOBs and cosine
  * similarity computed in application code.
  */
-export const AiEmbeddingRepositorySqlite = Layer.succeed(
-  AiEmbeddingRepository,
-  AiEmbeddingRepository.of({
-    insertMany: (rows) => wrap(() => insertManySqliteImpl(rows)),
-    search: (input) => wrap(() => searchSqliteImpl(input)),
-    deleteBySourceIdPrefix: (prefix) => wrap(() => deleteBySourceIdPrefixSqliteImpl(prefix)),
-  })
-)
+export const AiEmbeddingRepositorySqlite = layerOverDatabase(AiEmbeddingRepository, {
+  insertMany: (db) => (rows) => wrap(() => insertManySqliteImpl(db, rows)),
+  search: (db) => (input) => wrap(() => searchSqliteImpl(db, input)),
+  deleteBySourceIdPrefix: (db) => (prefix) =>
+    wrap(() => deleteBySourceIdPrefixSqliteImpl(db, prefix)),
+})
 
 /**
  * The active-dialect AI embedding repository.
  *
- * Resolved per process via `isSqliteRuntime()` — the same dispatch `db-bun.ts`
- * uses to build the Drizzle client. EVERY consumer should provide this rather
+ * Chosen by the dialect of the `Database` service it is built over — the
+ * engine the client speaks. EVERY consumer should provide this rather
  * than one of the two implementations above: providing `AiEmbeddingRepositoryLive`
  * directly means pgvector `<=>` SQL on an engine that has no pgvector, and a
  * caller that tolerates search failures turns that into a silent empty result.
@@ -347,6 +356,9 @@ export const AiEmbeddingRepositorySqlite = Layer.succeed(
  * `infrastructure/layers/ai-embedding-repository-layer.ts` re-exports this, so
  * existing importers are unaffected and there is still exactly one definition.
  */
-export const AiEmbeddingRepositoryActive: Layer.Layer<AiEmbeddingRepository> = Layer.suspend(() =>
-  isSqliteRuntime() ? AiEmbeddingRepositorySqlite : AiEmbeddingRepositoryLive
-)
+export const AiEmbeddingRepositoryActive: Layer.Layer<AiEmbeddingRepository, never, Database> =
+  Layer.unwrap(
+    Effect.map(Database, ({ dialect }) =>
+      dialect.kind === 'sqlite' ? AiEmbeddingRepositorySqlite : AiEmbeddingRepositoryLive
+    )
+  )

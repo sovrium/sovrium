@@ -22,6 +22,7 @@
 import { Effect } from 'effect'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { keysOf } from '@/domain/models/app/tables/lookup-row-judgement-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { omitHiddenLookups } from './hidden-lookup-omission'
 import { readableKeys, type LinkReader } from './linked-row-visibility'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -63,7 +64,7 @@ const linkedKeysByTable = (
     .filter((field) => field.type === 'relationship')
     .flatMap((field) => {
       const relatedName = (field as { readonly relatedTable?: unknown }).relatedTable
-      const related = app.tables?.find((candidate) => candidate.name === relatedName)
+      const related = findTableByName(app.tables, relatedName)
       const keys = [...new Set(rows.flatMap((row) => keysOf(row[field.name])))]
       return related === undefined || keys.length === 0 ? [] : [[related, keys] as const]
     })
@@ -90,7 +91,7 @@ export const rowsReadWholeBy = (
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
-    const table = app.tables?.find((candidate) => candidate.name === tableName)
+    const table = findTableByName(app.tables, tableName)
     if (table === undefined) return false
     if (rows.length === 0 || isAdminEquivalent(reader.role, app)) return true
     const own = rows.flatMap((row) => keysOf(row['id']))

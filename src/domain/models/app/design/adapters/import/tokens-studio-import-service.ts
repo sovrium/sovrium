@@ -18,11 +18,11 @@
  * skipped, as Tokens Studio itself skips it.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   adapterError,
   adapterOk,
   flattenTree,
-  isObject,
   namesDark,
   parseJson,
   parseLength,
@@ -42,7 +42,7 @@ const METADATA_FILE = '$metadata.json'
 
 /** Whether a parsed document is a Tokens Studio single file: `$themes` or `$metadata`. */
 export const isTokensStudioDocument = (document: unknown): boolean =>
-  isObject(document) && ('$themes' in document || '$metadata' in document)
+  isRecord(document) && ('$themes' in document || '$metadata' in document)
 
 /** Whether a folder's files are a Tokens Studio multi-file project. */
 export const isTokensStudioFolder = (paths: readonly string[]): boolean =>
@@ -60,9 +60,9 @@ interface Project {
 }
 
 const readThemes = (value: unknown): readonly Theme[] =>
-  (Array.isArray(value) ? value : []).filter(isObject).map((theme, position) => ({
+  (Array.isArray(value) ? value : []).filter(isRecord).map((theme, position) => ({
     name: typeof theme['name'] === 'string' ? theme['name'] : `theme-${position + 1}`,
-    sets: isObject(theme['selectedTokenSets'])
+    sets: isRecord(theme['selectedTokenSets'])
       ? (Object.fromEntries(
           Object.entries(theme['selectedTokenSets']).filter(
             ([, state]) => typeof state === 'string'
@@ -72,14 +72,14 @@ const readThemes = (value: unknown): readonly Theme[] =>
   }))
 
 const readOrder = (metadata: unknown): readonly string[] =>
-  isObject(metadata) && Array.isArray(metadata['tokenSetOrder'])
+  isRecord(metadata) && Array.isArray(metadata['tokenSetOrder'])
     ? metadata['tokenSetOrder'].filter((name): name is string => typeof name === 'string')
     : []
 
 const singleFileProject = (document: JsonObject): Project => ({
   sets: new Map(
     Object.entries(document).filter(
-      (entry): entry is [string, JsonObject] => !entry[0].startsWith('$') && isObject(entry[1])
+      (entry): entry is [string, JsonObject] => !entry[0].startsWith('$') && isRecord(entry[1])
     )
   ),
   themes: readThemes(document['$themes']),
@@ -93,7 +93,7 @@ const folderProject = (source: ImportSource): Project => {
       [...byPath.entries()]
         .filter(
           ([path, document]) =>
-            !path.startsWith('$') && path.endsWith('.json') && isObject(document)
+            !path.startsWith('$') && path.endsWith('.json') && isRecord(document)
         )
         .map(([path, document]) => [path.slice(0, -'.json'.length), document as JsonObject])
     ),
@@ -140,7 +140,7 @@ const isModified = (token: CanonicalToken): boolean => {
   const studio = token.extensions?.['studio.tokens']
   return (
     token.extensions?.['modify'] !== undefined ||
-    (isObject(studio) && studio['modify'] !== undefined)
+    (isRecord(studio) && studio['modify'] !== undefined)
   )
 }
 
@@ -194,7 +194,7 @@ const themesOf = (project: Project): readonly Theme[] =>
 const readProject = (source: ImportSource): Project | undefined => {
   if (source.entry === undefined) return folderProject(source)
   const document = parseJson(source.files.find((file) => file.path === source.entry)?.text ?? '')
-  return isObject(document) ? singleFileProject(document) : undefined
+  return isRecord(document) ? singleFileProject(document) : undefined
 }
 
 /** The light theme, the dark one, and the rest: dark by name, light the first other. */

@@ -35,12 +35,15 @@
  * its id (see `record-write-handlers.ts` and `batch-routes.ts`).
  */
 
+import { Effect } from 'effect'
 import { viewReadAdmits } from '@/application/use-cases/tables/table-operations'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { findViewByKey } from '@/domain/models/app/tables/views/view-read-service'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { resolveAccessRolesFor, resolveGuardForTable } from './row-level-guard'
+import { layerResponse } from '@/presentation/api/runtime/replace-response'
+import { guardForTable, resolveAccessRolesFor } from './row-level-guard'
 import { checkGetReadGate } from './row-level-read-helpers'
 import type { App, Table } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
@@ -50,15 +53,13 @@ import type { Context, Next } from 'hono'
  * `GET /records/:id` asks: the table's effective `read` over the caller's role,
  * groups and, under row-level rules, `user_access` roles.
  */
-export async function callerReadsTable(
-  c: Context,
-  app: App,
-  table: Table | undefined
-): Promise<boolean> {
-  if (table === undefined) return false
+export const callerReadsTable = (c: Context, app: App, table: Table | undefined) => {
+  if (table === undefined) return Effect.succeed(false)
   const { session, userRole, userGroups } = getTableContext(c)
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-  return checkGetReadGate({ c, app, table, userRole, userGroups, guard }) === undefined
+  return Effect.map(
+    guardForTable(session, { userRole, userGroups }, table, app),
+    (guard) => checkGetReadGate({ c, app, table, userRole, userGroups, guard }) === undefined
+  )
 }
 
 /** What the gate must decide for a request, read off its method and path. */
@@ -125,8 +126,7 @@ const DESCRIBING_REFUSALS: ReadonlySet<number> = new Set([400, 409, 422])
 /** Run a create for a caller who may not read the table, masking what would describe it. */
 const createWithoutRead = async (c: Context, next: Next): Promise<void> => {
   await next()
-  // eslint-disable-next-line no-param-reassign -- Hono's middleware contract replaces the response by assignment
-  if (DESCRIBING_REFUSALS.has(c.res.status)) c.res = notFound(c)
+  if (DESCRIBING_REFUSALS.has(c.res.status)) layerResponse(c, notFound(c))
 }
 
 /** Whether the caller passes the grant of the view a `/views/:viewId/records` read names. */
@@ -139,7 +139,7 @@ const callerReadsView = async (
   const view = findViewByKey(table.views, viewId)
   if (view === undefined) return true // the route answers a missing view itself
   const { session, userRole, userGroups } = getTableContext(c)
-  const accessRoles = await resolveAccessRolesFor(c, session, [table])
+  const accessRoles = await runDomainPromise(c, resolveAccessRolesFor(session, [table]))
   return viewReadAdmits(app, table, view, {
     role: userRole,
     groups: userGroups,
@@ -152,18 +152,17 @@ const callerReadsView = async (
  * Middleware mounted on `/api/tables/:tableId/*` after the table and caller are
  * resolved, ahead of every route and its validators.
  */
-export function gateUnreadableTable(resolveApp: () => App) {
+export function gateUnreadableTable(app: App) {
   return async (c: Context, next: Next) => {
     const segments = segmentsBelowTable(c.req.path)
     const kind = gateKindFor(c.req.method, segments)
     if (kind === 'none') return next()
-    const app = resolveApp()
     const table = app.tables?.find((t) => t.name === getTableContext(c).tableName)
     if (table === undefined) return next()
     if (kind === 'view') {
       return (await callerReadsView(c, app, table, segments[1] ?? '')) ? next() : notFound(c)
     }
-    if (await callerReadsTable(c, app, table)) return next()
+    if (await runDomainPromise(c, callerReadsTable(c, app, table))) return next()
     return kind === 'create' ? createWithoutRead(c, next) : notFound(c)
   }
 }

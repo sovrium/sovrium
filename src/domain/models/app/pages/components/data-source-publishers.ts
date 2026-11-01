@@ -211,7 +211,7 @@ export const SharedFilterRangePublisherSchema = Schema.Union([
     identifier: 'SharedFilterRangeConditionPublisher',
     title: 'Period Condition Publisher',
     description:
-      'Publishes the period as two conditions on one date field — from the first day, up to the last — combined with AND with the channel’s other conditions.',
+      'Publishes the period as two conditions on one date field (from the first day, up to the last), combined with AND with the channel’s other conditions.',
   }),
   Schema.Struct({
     bindTo: publisherChannel,

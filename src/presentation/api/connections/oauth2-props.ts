@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveRequestBaseUrl } from '@/domain/kernel/url/request-base-url'
 import { withProviderEndpoints } from '@/domain/models/app/connections/oauth2-provider-validation'
+import { resolveRequestBaseUrl } from '@/presentation/api/runtime/request-origin'
 import { connectionError } from './error-envelopes'
 import type { Context } from 'hono'
 

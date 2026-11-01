@@ -156,7 +156,7 @@ export const ComponentChildElementSchema: Schema.Codec<any, any, never> = buildC
       ComponentSlotSchema,
     ]).annotate({
       description:
-        "Child elements nested inside this one, recursive to any depth — components or text strings — or `$children`, which makes this node the template's slot: the page components a placement passes as `children` are drawn here.",
+        "Child elements nested inside this one, recursive to any depth (components or text strings), or `$children`, which makes this node the template's slot: the page components a placement passes as `children` are drawn here.",
     })
   ),
 }).pipe(

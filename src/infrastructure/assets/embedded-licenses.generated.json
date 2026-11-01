@@ -12,7 +12,7 @@
     },
     {
       "name": "argparse",
-      "version": "3.0.3",
+      "version": "3.0.4",
       "license": "PSF-2.0",
       "source": "npm argparse — https://github.com/nodeca/argparse",
       "file": "licenses/PSF-2.0-argparse.txt",
@@ -28,7 +28,7 @@
     },
     {
       "name": "es-toolkit",
-      "version": "1.52.0",
+      "version": "1.53.1",
       "license": "MIT",
       "source": "npm es-toolkit — https://github.com/toss/es-toolkit; MIT with a NOTICE (its compat layer derives from Lodash), both carried; reached through recharts",
       "file": "licenses/MIT-es-toolkit.txt",
@@ -61,10 +61,6 @@
   ],
   "texts": [
     {
-      "id": "0649bc87ac07c40d",
-      "text": "Apache License\n                        Version 2.0, January 2004\n                     http://www.apache.org/licenses/\n\nTERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n1. Definitions.\n\n   \"License\" shall mean the terms and conditions for use, reproduction,\n   and distribution as defined by Sections 1 through 9 of this document.\n\n   \"Licensor\" shall mean the copyright owner or entity authorized by\n   the copyright owner that is granting the License.\n\n   \"Legal Entity\" shall mean the union of the acting entity and all\n   other entities that control, are controlled by, or are under common\n   control with that entity. For the purposes of this definition,\n   \"control\" means (i) the power, direct or indirect, to cause the\n   direction or management of such entity, whether by contract or\n   otherwise, or (ii) ownership of fifty percent (50%) or more of the\n   outstanding shares, or (iii) beneficial ownership of such entity.\n\n   \"You\" (or \"Your\") shall mean an individual or Legal Entity\n   exercising permissions granted by this License.\n\n   \"Source\" form shall mean the preferred form for making modifications,\n   including but not limited to software source code, documentation\n   source, and configuration files.\n\n   \"Object\" form shall mean any form resulting from mechanical\n   transformation or translation of a Source form, including but\n   not limited to compiled object code, generated documentation,\n   and conversions to other media types.\n\n   \"Work\" shall mean the work of authorship, whether in Source or\n   Object form, made available under the License, as indicated by a\n   copyright notice that is included in or attached to the work\n   (an example is provided in the Appendix below).\n\n   \"Derivative Works\" shall mean any work, whether in Source or Object\n   form, that is based on (or derived from) the Work and for which the\n   editorial revisions, annotations, elaborations, or other modifications\n   represent, as a whole, an original work of authorship. For the purposes\n   of this License, Derivative Works shall not include works that remain\n   separable from, or merely link (or bind by name) to the interfaces of,\n   the Work and Derivative Works thereof.\n\n   \"Contribution\" shall mean any work of authorship, including\n   the original version of the Work and any modifications or additions\n   to that Work or Derivative Works thereof, that is intentionally\n   submitted to Licensor for inclusion in the Work by the copyright owner\n   or by an individual or Legal Entity authorized to submit on behalf of\n   the copyright owner. For the purposes of this definition, \"submitted\"\n   means any form of electronic, verbal, or written communication sent\n   to the Licensor or its representatives, including but not limited to\n   communication on electronic mailing lists, source code control systems,\n   and issue tracking systems that are managed by, or on behalf of, the\n   Licensor for the purpose of discussing and improving the Work, but\n   excluding communication that is conspicuously marked or otherwise\n   designated in writing by the copyright owner as \"Not a Contribution.\"\n\n   \"Contributor\" shall mean Licensor and any individual or Legal Entity\n   on behalf of whom a Contribution has been received by Licensor and\n   subsequently incorporated within the Work.\n\n2. Grant of Copyright License. Subject to the terms and conditions of\n   this License, each Contributor hereby grants to You a perpetual,\n   worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n   copyright license to reproduce, prepare Derivative Works of,\n   publicly display, publicly perform, sublicense, and distribute the\n   Work and such Derivative Works in Source or Object form.\n\n3. Grant of Patent License. Subject to the terms and conditions of\n   this License, each Contributor hereby grants to You a perpetual,\n   worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n   (except as stated in this section) patent license to make, have made,\n   use, offer to sell, sell, import, and otherwise transfer the Work,\n   where such license applies only to those patent claims licensable\n   by such Contributor that are necessarily infringed by their\n   Contribution(s) alone or by combination of their Contribution(s)\n   with the Work to which such Contribution(s) was submitted. If You\n   institute patent litigation against any entity (including a\n   cross-claim or counterclaim in a lawsuit) alleging that the Work\n   or a Contribution incorporated within the Work constitutes direct\n   or contributory patent infringement, then any patent licenses\n   granted to You under this License for that Work shall terminate\n   as of the date such litigation is filed.\n\n4. Redistribution. You may reproduce and distribute copies of the\n   Work or Derivative Works thereof in any medium, with or without\n   modifications, and in Source or Object form, provided that You\n   meet the following conditions:\n\n   (a) You must give any other recipients of the Work or\n       Derivative Works a copy of this License; and\n\n   (b) You must cause any modified files to carry prominent notices\n       stating that You changed the files; and\n\n   (c) You must retain, in the Source form of any Derivative Works\n       that You distribute, all copyright, patent, trademark, and\n       attribution notices from the Source form of the Work,\n       excluding those notices that do not pertain to any part of\n       the Derivative Works; and\n\n   (d) If the Work includes a \"NOTICE\" text file as part of its\n       distribution, then any Derivative Works that You distribute must\n       include a readable copy of the attribution notices contained\n       within such NOTICE file, excluding those notices that do not\n       pertain to any part of the Derivative Works, in at least one\n       of the following places: within a NOTICE text file distributed\n       as part of the Derivative Works; within the Source form or\n       documentation, if provided along with the Derivative Works; or,\n       within a display generated by the Derivative Works, if and\n       wherever such third-party notices normally appear. The contents\n       of the NOTICE file are for informational purposes only and\n       do not modify the License. You may add Your own attribution\n       notices within Derivative Works that You distribute, alongside\n       or as an addendum to the NOTICE text from the Work, provided\n       that such additional attribution notices cannot be construed\n       as modifying the License.\n\n   You may add Your own copyright statement to Your modifications and\n   may provide additional or different license terms and conditions\n   for use, reproduction, or distribution of Your modifications, or\n   for any such Derivative Works as a whole, provided Your use,\n   reproduction, and distribution of the Work otherwise complies with\n   the conditions stated in this License.\n\n5. Submission of Contributions. Unless You explicitly state otherwise,\n   any Contribution intentionally submitted for inclusion in the Work\n   by You to the Licensor shall be under the terms and conditions of\n   this License, without any additional terms or conditions.\n   Notwithstanding the above, nothing herein shall supersede or modify\n   the terms of any separate license agreement you may have executed\n   with Licensor regarding such Contributions.\n\n6. Trademarks. This License does not grant permission to use the trade\n   names, trademarks, service marks, or product names of the Licensor,\n   except as required for reasonable and customary use in describing the\n   origin of the Work and reproducing the content of the NOTICE file.\n\n7. Disclaimer of Warranty. Unless required by applicable law or\n   agreed to in writing, Licensor provides the Work (and each\n   Contributor provides its Contributions) on an \"AS IS\" BASIS,\n   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or\n   implied, including, without limitation, any warranties or conditions\n   of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A\n   PARTICULAR PURPOSE. You are solely responsible for determining the\n   appropriateness of using or redistributing the Work and assume any\n   risks associated with Your exercise of permissions under this License.\n\n8. Limitation of Liability. In no event and under no legal theory,\n   whether in tort (including negligence), contract, or otherwise,\n   unless required by applicable law (such as deliberate and grossly\n   negligent acts) or agreed to in writing, shall any Contributor be\n   liable to You for damages, including any direct, indirect, special,\n   incidental, or consequential damages of any character arising as a\n   result of this License or out of the use or inability to use the\n   Work (including but not limited to damages for loss of goodwill,\n   work stoppage, computer failure or malfunction, or any and all\n   other commercial damages or losses), even if such Contributor\n   has been advised of the possibility of such damages.\n\n9. Accepting Warranty or Additional Liability. While redistributing\n   the Work or Derivative Works thereof, You may choose to offer,\n   and charge a fee for, acceptance of support, warranty, indemnity,\n   or other liability obligations and/or rights consistent with this\n   License. However, in accepting such obligations, You may act only\n   on Your own behalf and on Your sole responsibility, not on behalf\n   of any other Contributor, and only if You agree to indemnify,\n   defend, and hold each Contributor harmless for any liability\n   incurred by, or claims asserted against, such Contributor by reason\n   of your accepting any such warranty or additional liability.\n\nEND OF TERMS AND CONDITIONS\n\nAPPENDIX: How to apply the Apache License to your work.\n\n   To apply the Apache License to your work, attach the following\n   boilerplate notice, with the fields enclosed by brackets \"[]\"\n   replaced with your own identifying information. (Don't include\n   the brackets!)  The text should be enclosed in the appropriate\n   comment syntax for the file format. We also recommend that a\n   file or class name and description of purpose be included on the\n   same \"printed page\" as the copyright notice for easier\n   identification within third-party archives.\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n\thttp://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by applicable law or agreed to in writing, software\ndistributed under the License is distributed on an \"AS IS\" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\nSee the License for the specific language governing permissions and\nlimitations under the License."
-    },
-    {
       "id": "064d87473d0f4ca3",
       "text": "# MIT License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
     },
@@ -93,16 +89,16 @@
       "text": "(The MIT license)\n\nPermission is hereby granted, free of charge, to any person obtaining\na copy of this software and associated documentation files (the\n'Software'), to deal in the Software without restriction, including\nwithout limitation the rights to use, copy, modify, merge, publish,\ndistribute, sublicense, and/or sell copies of the Software, and to\npermit persons to whom the Software is furnished to do so, subject to\nthe following conditions:\n\nThe above copyright notice and this permission notice shall be\nincluded in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,\nEXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.\nIN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,\nTORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE\nSOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
     },
     {
+      "id": "26ac4eeda8420741",
+      "text": "The MIT License (MIT)\n\nsnerks <https://github.com/snerks>, Krzysztof Cebula <https://github.com\nHavret>, Vitaliy Polyanskiy <https://github.com/alreadyExisted>, James Lismore\n<https://github.com/jlismore>, Stack Builders <https://github.com\nstackbuilders>, Esteban Ibarra <https://github.com/ibarrae>, Dominic Lee\n<https://github.com/dominictwlee>, Dave Vedder <https://github.com\nveddermatic>, Alec Flett <https://github.com/alecf> and potentially other\nDefinitelyTyped contributors.\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\n================================================================================\nThird-party software\n================================================================================\n\n`victory-vendor` bundles transpiled copies of the following libraries in\n`lib-vendor/` (used by the CommonJS build). Their licenses are reproduced\nbelow. The original license file for each library is also available at\n`lib-vendor/<library>/LICENSE`.\n\n--------------------------------------------------------------------------------\nd3-array (ISC), d3-color (ISC), d3-format (ISC), d3-interpolate (ISC),\nd3-path (ISC), d3-scale (ISC), d3-shape (ISC), d3-time (ISC),\nd3-time-format (ISC), d3-timer (ISC), internmap (ISC)\n--------------------------------------------------------------------------------\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n\n--------------------------------------------------------------------------------\nd3-ease (BSD-3-Clause)\n--------------------------------------------------------------------------------\n\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without modification,\nare permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this\n  list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice,\n  this list of conditions and the following disclaimer in the documentation\n  and/or other materials provided with the distribution.\n\n* Neither the name of the author nor the names of contributors may be used to\n  endorse or promote products derived from this software without specific prior\n  written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND\nANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED\nWARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR\nANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES\n(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;\nLOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON\nANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT\n(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS\nSOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n\n--------------------------------------------------------------------------------\nd3-voronoi (BSD-3-Clause)\n--------------------------------------------------------------------------------\n\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without modification,\nare permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this\n  list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice,\n  this list of conditions and the following disclaimer in the documentation\n  and/or other materials provided with the distribution.\n\n* Neither the name of the author nor the names of contributors may be used to\n  endorse or promote products derived from this software without specific prior\n  written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND\nANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED\nWARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR\nANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES\n(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;\nLOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON\nANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT\n(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS\nSOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n\nhttps://github.com/gorhill/Javascript-Voronoi\n\nLicensed under The MIT License\nhttp://en.wikipedia.org/wiki/MIT_License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of\nthis software and associated documentation files (the \"Software\"), to deal in\nthe Software without restriction, including without limitation the rights to\nuse, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software is furnished to do so,\nsubject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS\nFOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR\nIN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN\nCONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+    },
+    {
       "id": "287eef0b6f35f8f1",
       "text": "Apache License\n                           Version 2.0, January 2004\n                        http://www.apache.org/licenses/\n\n   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n   1. Definitions.\n\n      \"License\" shall mean the terms and conditions for use, reproduction,\n      and distribution as defined by Sections 1 through 9 of this document.\n\n      \"Licensor\" shall mean the copyright owner or entity authorized by\n      the copyright owner that is granting the License.\n\n      \"Legal Entity\" shall mean the union of the acting entity and all\n      other entities that control, are controlled by, or are under common\n      control with that entity. For the purposes of this definition,\n      \"control\" means (i) the power, direct or indirect, to cause the\n      direction or management of such entity, whether by contract or\n      otherwise, or (ii) ownership of fifty percent (50%) or more of the\n      outstanding shares, or (iii) beneficial ownership of such entity.\n\n      \"You\" (or \"Your\") shall mean an individual or Legal Entity\n      exercising permissions granted by this License.\n\n      \"Source\" form shall mean the preferred form for making modifications,\n      including but not limited to software source code, documentation\n      source, and configuration files.\n\n      \"Object\" form shall mean any form resulting from mechanical\n      transformation or translation of a Source form, including but\n      not limited to compiled object code, generated documentation,\n      and conversions to other media types.\n\n      \"Work\" shall mean the work of authorship, whether in Source or\n      Object form, made available under the License, as indicated by a\n      copyright notice that is included in or attached to the work\n      (an example is provided in the Appendix below).\n\n      \"Derivative Works\" shall mean any work, whether in Source or Object\n      form, that is based on (or derived from) the Work and for which the\n      editorial revisions, annotations, elaborations, or other modifications\n      represent, as a whole, an original work of authorship. For the purposes\n      of this License, Derivative Works shall not include works that remain\n      separable from, or merely link (or bind by name) to the interfaces of,\n      the Work and Derivative Works thereof.\n\n      \"Contribution\" shall mean any work of authorship, including\n      the original version of the Work and any modifications or additions\n      to that Work or Derivative Works thereof, that is intentionally\n      submitted to Licensor for inclusion in the Work by the copyright owner\n      or by an individual or Legal Entity authorized to submit on behalf of\n      the copyright owner. For the purposes of this definition, \"submitted\"\n      means any form of electronic, verbal, or written communication sent\n      to the Licensor or its representatives, including but not limited to\n      communication on electronic mailing lists, source code control systems,\n      and issue tracking systems that are managed by, or on behalf of, the\n      Licensor for the purpose of discussing and improving the Work, but\n      excluding communication that is conspicuously marked or otherwise\n      designated in writing by the copyright owner as \"Not a Contribution.\"\n\n      \"Contributor\" shall mean Licensor and any individual or Legal Entity\n      on behalf of whom a Contribution has been received by Licensor and\n      subsequently incorporated within the Work.\n\n   2. Grant of Copyright License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      copyright license to reproduce, prepare Derivative Works of,\n      publicly display, publicly perform, sublicense, and distribute the\n      Work and such Derivative Works in Source or Object form.\n\n   3. Grant of Patent License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      (except as stated in this section) patent license to make, have made,\n      use, offer to sell, sell, import, and otherwise transfer the Work,\n      where such license applies only to those patent claims licensable\n      by such Contributor that are necessarily infringed by their\n      Contribution(s) alone or by combination of their Contribution(s)\n      with the Work to which such Contribution(s) was submitted. If You\n      institute patent litigation against any entity (including a\n      cross-claim or counterclaim in a lawsuit) alleging that the Work\n      or a Contribution incorporated within the Work constitutes direct\n      or contributory patent infringement, then any patent licenses\n      granted to You under this License for that Work shall terminate\n      as of the date such litigation is filed.\n\n   4. Redistribution. You may reproduce and distribute copies of the\n      Work or Derivative Works thereof in any medium, with or without\n      modifications, and in Source or Object form, provided that You\n      meet the following conditions:\n\n      (a) You must give any other recipients of the Work or\n          Derivative Works a copy of this License; and\n\n      (b) You must cause any modified files to carry prominent notices\n          stating that You changed the files; and\n\n      (c) You must retain, in the Source form of any Derivative Works\n          that You distribute, all copyright, patent, trademark, and\n          attribution notices from the Source form of the Work,\n          excluding those notices that do not pertain to any part of\n          the Derivative Works; and\n\n      (d) If the Work includes a \"NOTICE\" text file as part of its\n          distribution, then any Derivative Works that You distribute must\n          include a readable copy of the attribution notices contained\n          within such NOTICE file, excluding those notices that do not\n          pertain to any part of the Derivative Works, in at least one\n          of the following places: within a NOTICE text file distributed\n          as part of the Derivative Works; within the Source form or\n          documentation, if provided along with the Derivative Works; or,\n          within a display generated by the Derivative Works, if and\n          wherever such third-party notices normally appear. The contents\n          of the NOTICE file are for informational purposes only and\n          do not modify the License. You may add Your own attribution\n          notices within Derivative Works that You distribute, alongside\n          or as an addendum to the NOTICE text from the Work, provided\n          that such additional attribution notices cannot be construed\n          as modifying the License.\n\n      You may add Your own copyright statement to Your modifications and\n      may provide additional or different license terms and conditions\n      for use, reproduction, or distribution of Your modifications, or\n      for any such Derivative Works as a whole, provided Your use,\n      reproduction, and distribution of the Work otherwise complies with\n      the conditions stated in this License.\n\n   5. Submission of Contributions. Unless You explicitly state otherwise,\n      any Contribution intentionally submitted for inclusion in the Work\n      by You to the Licensor shall be under the terms and conditions of\n      this License, without any additional terms or conditions.\n      Notwithstanding the above, nothing herein shall supersede or modify\n      the terms of any separate license agreement you may have executed\n      with Licensor regarding such Contributions.\n\n   6. Trademarks. This License does not grant permission to use the trade\n      names, trademarks, service marks, or product names of the Licensor,\n      except as required for reasonable and customary use in describing the\n      origin of the Work and reproducing the content of the NOTICE file.\n\n   7. Disclaimer of Warranty. Unless required by applicable law or\n      agreed to in writing, Licensor provides the Work (and each\n      Contributor provides its Contributions) on an \"AS IS\" BASIS,\n      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or\n      implied, including, without limitation, any warranties or conditions\n      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A\n      PARTICULAR PURPOSE. You are solely responsible for determining the\n      appropriateness of using or redistributing the Work and assume any\n      risks associated with Your exercise of permissions under this License.\n\n   8. Limitation of Liability. In no event and under no legal theory,\n      whether in tort (including negligence), contract, or otherwise,\n      unless required by applicable law (such as deliberate and grossly\n      negligent acts) or agreed to in writing, shall any Contributor be\n      liable to You for damages, including any direct, indirect, special,\n      incidental, or consequential damages of any character arising as a\n      result of this License or out of the use or inability to use the\n      Work (including but not limited to damages for loss of goodwill,\n      work stoppage, computer failure or malfunction, or any and all\n      other commercial damages or losses), even if such Contributor\n      has been advised of the possibility of such damages.\n\n   9. Accepting Warranty or Additional Liability. While redistributing\n      the Work or Derivative Works thereof, You may choose to offer,\n      and charge a fee for, acceptance of support, warranty, indemnity,\n      or other liability obligations and/or rights consistent with this\n      License. However, in accepting such obligations, You may act only\n      on Your own behalf and on Your sole responsibility, not on behalf\n      of any other Contributor, and only if You agree to indemnify,\n      defend, and hold each Contributor harmless for any liability\n      incurred by, or claims asserted against, such Contributor by reason\n      of your accepting any such warranty or additional liability.\n\n   END OF TERMS AND CONDITIONS\n\n   Licensed under the Apache License, Version 2.0 (the \"License\");\n   you may not use this file except in compliance with the License.\n   You may obtain a copy of the License at\n\n       http://www.apache.org/licenses/LICENSE-2.0\n\n   Unless required by applicable law or agreed to in writing, software\n   distributed under the License is distributed on an \"AS IS\" BASIS,\n   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n   See the License for the specific language governing permissions and\n   limitations under the License."
     },
     {
       "id": "2b4817b033ee45e8",
       "text": "All rights reserved.\n\nRedistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:\n\nRedistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.\n\nRedistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.\n\nTHIS IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS,\nEVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
-    },
-    {
-      "id": "35f91fe22868b457",
-      "text": "ISC License\n\nCopyright <year> <owner>\n\nPermission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE."
     },
     {
       "id": "387c95f3bf8a311b",
@@ -129,10 +125,6 @@
       "text": "ISC License\n\nPermission to use, copy, modify, and/or distribute this software for any\npurpose with or without fee is hereby granted, provided that the above\ncopyright notice and this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES\nWITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF\nMERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR\nANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES\nWHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN\nACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF\nOR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.\n\n---\n\nThe following Lucide icons are derived from the Feather project:\n\nairplay, alert-circle, alert-octagon, alert-triangle, aperture, arrow-down-circle, arrow-down-left, arrow-down-right, arrow-down, arrow-left-circle, arrow-left, arrow-right-circle, arrow-right, arrow-up-circle, arrow-up-left, arrow-up-right, arrow-up, at-sign, calendar, cast, check, chevron-down, chevron-left, chevron-right, chevron-up, chevrons-down, chevrons-left, chevrons-right, chevrons-up, circle, clipboard, clock, code, columns, command, compass, corner-down-left, corner-down-right, corner-left-down, corner-left-up, corner-right-down, corner-right-up, corner-up-left, corner-up-right, crosshair, database, divide-circle, divide-square, dollar-sign, download, external-link, feather, frown, hash, headphones, help-circle, info, italic, key, layout, life-buoy, link-2, link, loader, lock, log-in, log-out, maximize, meh, minimize, minimize-2, minus-circle, minus-square, minus, monitor, moon, more-horizontal, more-vertical, move, music, navigation-2, navigation, octagon, pause-circle, percent, plus-circle, plus-square, plus, power, radio, rss, search, server, share, shopping-bag, sidebar, smartphone, smile, square, table-2, tablet, target, terminal, trash-2, trash, triangle, tv, type, upload, x-circle, x-octagon, x-square, x, zoom-in, zoom-out\n\nThe MIT License (MIT) (for the icons listed above)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
     },
     {
-      "id": "4ae58b68df6bee2e",
-      "text": "The MIT License\n\nPermission is hereby granted, free of charge, to any person obtaining\na copy of this software and associated documentation files (the\n'Software'), to deal in the Software without restriction, including\nwithout limitation the rights to use, copy, modify, merge, publish,\ndistribute, sublicense, and/or sell copies of the Software, and to\npermit persons to whom the Software is furnished to do so, subject to\nthe following conditions:\n\nThe above copyright notice and this permission notice shall be\nincluded in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,\nEXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.\nIN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,\nTORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE\nSOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
-    },
-    {
       "id": "4dd4ef93d5d38d3d",
       "text": "Permission to use, copy, modify, and/or distribute this software for any\npurpose with or without fee is hereby granted, provided that the above\ncopyright notice and this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED “AS IS” AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM\nLOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR\nOTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR\nPERFORMANCE OF THIS SOFTWARE."
     },
@@ -147,10 +139,6 @@
     {
       "id": "7c9b48b52decb983",
       "text": "MIT License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
-    },
-    {
-      "id": "80bae4e3bc7de7b9",
-      "text": "Permission is hereby granted, free of charge, to any person obtaining a copy of\nthis software and associated documentation files (the “Software”), to deal in\nthe Software without restriction, including without limitation the rights to\nuse, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software is furnished to do so,\nsubject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS\nFOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR\nIN AN ACTION OF CONTRACT, TORT OR OTHERWISE, OUT OF OR IN CONNECTION WITH THE\nSOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
     },
     {
       "id": "81b0b7fc1d96eb35",
@@ -181,14 +169,6 @@
       "text": "The MIT License (MIT)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of\nthis software and associated documentation files (the “Software”), to deal in\nthe Software without restriction, including without limitation the rights to\nuse, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software is furnished to do so,\nsubject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS\nFOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.\nIN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,\nDAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,\nARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE."
     },
     {
-      "id": "a1556594256210a3",
-      "text": "Internet Systems Consortium license\n===================================\n\nCopyright (c) `2017`, `Colin Meinke`\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE."
-    },
-    {
-      "id": "b39500a6e714baee",
-      "text": "The MIT License (MIT)\n\nsnerks <https://github.com/snerks>, Krzysztof Cebula <https://github.com\nHavret>, Vitaliy Polyanskiy <https://github.com/alreadyExisted>, James Lismore\n<https://github.com/jlismore>, Stack Builders <https://github.com\nstackbuilders>, Esteban Ibarra <https://github.com/ibarrae>, Dominic Lee\n<https://github.com/dominictwlee>, Dave Vedder <https://github.com\nveddermatic>, Alec Flett <https://github.com/alecf> and potentially other\nDefinitelyTyped contributors.\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nvictory-vendor/lib-vendor/d3-array/LICENSE (ISC):\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n\nvictory-vendor/lib-vendor/d3-color/LICENSE (ISC):\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n\nvictory-vendor/lib-vendor/d3-ease/LICENSE (ISC):\n\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without modification,\nare permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this\n  list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice,\n  this list of conditions and the following disclaimer in the documentation\n  and/or other materials provided with the distribution.\n\n* Neither the name of the author nor the names of contributors may be used to\n  endorse or promote products derived from this software without specific prior\n  written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND\nANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED\nWARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR\nANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES\n(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;\nLOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON\nANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT\n(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS\nSOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n\nvictory-vendor/lib-vendor/d3-format/LICENSE (ISC):\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n\nvictory-vendor/lib-vendor/d3-interpolate/LICENSE (ISC):\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n\nvictory-vendor/lib-vendor/d3-path/LICENSE (ISC):\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n\nvictory-vendor/lib-vendor/d3-scale/LICENSE (ISC):\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n\nvictory-vendor/lib-vendor/d3-shape/LICENSE (ISC):\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n\nvictory-vendor/lib-vendor/d3-time/LICENSE (ISC):\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n\nvictory-vendor/lib-vendor/d3-time-format/LICENSE (ISC):\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n\nvictory-vendor/lib-vendor/d3-timer/LICENSE (ISC):\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n\nvictory-vendor/lib-vendor/d3-voronoi/LICENSE (ISC):\n\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without modification,\nare permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this\n  list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice,\n  this list of conditions and the following disclaimer in the documentation\n  and/or other materials provided with the distribution.\n\n* Neither the name of the author nor the names of contributors may be used to\n  endorse or promote products derived from this software without specific prior\n  written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND\nANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED\nWARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR\nANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES\n(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;\nLOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON\nANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT\n(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS\nSOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n\nhttps://github.com/gorhill/Javascript-Voronoi\n\nLicensed under The MIT License\nhttp://en.wikipedia.org/wiki/MIT_License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of\nthis software and associated documentation files (the \"Software\"), to deal in\nthe Software without restriction, including without limitation the rights to\nuse, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software is furnished to do so,\nsubject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS\nFOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR\nIN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN\nCONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n\nvictory-vendor/lib-vendor/internmap/LICENSE (ISC):\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE."
-    },
-    {
       "id": "c3fdbb1676f58f6a",
       "text": "MIT License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
     },
@@ -214,7 +194,7 @@
     },
     {
       "id": "d772bb344de0be46",
-      "text": "(The MIT License)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE."
+      "text": "(The MIT License)\n\nPermission is hereby granted, free of charge, to any person\nobtaining a copy of this software and associated documentation\nfiles (the \"Software\"), to deal in the Software without\nrestriction, including without limitation the rights to use,\ncopy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the\nSoftware is furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice shall be\nincluded in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND,\nEXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES\nOF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND\nNONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT\nHOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,\nWHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING\nFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR\nOTHER DEALINGS IN THE SOFTWARE."
     },
     {
       "id": "da0ea9556182ec66",
@@ -229,10 +209,6 @@
       "text": "The MIT License (MIT)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
     },
     {
-      "id": "e3dc2d98813ba8ac",
-      "text": "MIT LICENSE\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE."
-    },
-    {
       "id": "e43ae60001f0e398",
       "text": "MIT License\n\nBased on Async.js, Copyright Caolan McMahon\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
     },
@@ -243,10 +219,6 @@
     {
       "id": "e95f92b922765cd0",
       "text": "All rights reserved.\n\nRedistribution and use in source and binary forms, with or without modification,\nare permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this\n  list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice,\n  this list of conditions and the following disclaimer in the documentation\n  and/or other materials provided with the distribution.\n\n* Neither the name of the author nor the names of contributors may be used to\n  endorse or promote products derived from this software without specific prior\n  written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND\nANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED\nWARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR\nANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES\n(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;\nLOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON\nANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT\n(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS\nSOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
-    },
-    {
-      "id": "e970d05f68d28797",
-      "text": "MIT\n\nPermission is hereby granted, free of charge, to any person obtaining a\ncopy of this software and associated documentation files (the\n\"Software\"), to deal in the Software without restriction, including\nwithout limitation the rights to use, copy, modify, merge, publish,\ndistribute, sublicense, and/or sell copies of the Software, and to permit\npersons to whom the Software is furnished to do so, subject to the\nfollowing conditions:\n\nThe above copyright notice and this permission notice shall be included\nin all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS\nOR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN\nNO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,\nDAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR\nOTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE\nUSE OR OTHER DEALINGS IN THE SOFTWARE."
     },
     {
       "id": "ea9e8e57ded47d35",
@@ -263,10 +235,6 @@
     {
       "id": "eeaddfde63ee9d69",
       "text": "The MIT License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE."
-    },
-    {
-      "id": "f80ce373e9987ac0",
-      "text": "ISC License (ISC)\n\nPermission to use, copy, modify, and/or distribute this software for any\npurpose with or without fee is hereby granted, provided that the above\ncopyright notice and this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES\nWITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF\nMERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR\nANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES\nWHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN\nACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF\nOR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE."
     },
     {
       "id": "fe2a9817987f862e",
@@ -315,16 +283,6 @@
       "textId": "7c9b48b52decb983"
     },
     {
-      "name": "@babel/runtime",
-      "version": "8.0.7",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2014-present Sebastian McKenzie and other contributors"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
       "name": "@base-ui/react",
       "version": "1.9.0",
       "spdx": "MIT",
@@ -346,7 +304,7 @@
     },
     {
       "name": "@better-auth/api-key",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -356,7 +314,7 @@
     },
     {
       "name": "@better-auth/core",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -366,7 +324,7 @@
     },
     {
       "name": "@better-auth/drizzle-adapter",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -376,7 +334,7 @@
     },
     {
       "name": "@better-auth/kysely-adapter",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -386,7 +344,7 @@
     },
     {
       "name": "@better-auth/mcp",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -396,7 +354,7 @@
     },
     {
       "name": "@better-auth/memory-adapter",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -406,7 +364,7 @@
     },
     {
       "name": "@better-auth/mongo-adapter",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -416,7 +374,7 @@
     },
     {
       "name": "@better-auth/oauth-provider",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -426,7 +384,7 @@
     },
     {
       "name": "@better-auth/passkey",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -436,7 +394,7 @@
     },
     {
       "name": "@better-auth/prisma-adapter",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -446,7 +404,7 @@
     },
     {
       "name": "@better-auth/sso",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -456,7 +414,7 @@
     },
     {
       "name": "@better-auth/telemetry",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -475,8 +433,28 @@
       "textId": "7c9b48b52decb983"
     },
     {
+      "name": "@better-auth/utils",
+      "version": "0.5.1",
+      "spdx": "MIT",
+      "declared": "MIT",
+      "copyright": [
+        "Copyright (c) 2024 - present, Bereket Engida"
+      ],
+      "textId": "7c9b48b52decb983"
+    },
+    {
       "name": "@better-fetch/fetch",
       "version": "1.3.2",
+      "spdx": "MIT",
+      "declared": "MIT",
+      "copyright": [
+        "Copyright (c) Bereket Engida"
+      ],
+      "textId": "7c9b48b52decb983"
+    },
+    {
+      "name": "@better-fetch/fetch",
+      "version": "1.3.3",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -736,7 +714,7 @@
     },
     {
       "name": "@effect/ai-openai-compat",
-      "version": "4.0.6",
+      "version": "4.1.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -910,7 +888,7 @@
     },
     {
       "name": "@lezer/common",
-      "version": "1.5.4",
+      "version": "1.5.5",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -970,7 +948,7 @@
     },
     {
       "name": "@lezer/lr",
-      "version": "1.4.11",
+      "version": "1.4.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1020,7 +998,7 @@
     },
     {
       "name": "@modelcontextprotocol/core",
-      "version": "2.3.1",
+      "version": "2.4.0",
       "spdx": "Apache-2.0",
       "declared": "Apache-2.0",
       "copyright": [
@@ -1030,7 +1008,7 @@
     },
     {
       "name": "@modelcontextprotocol/server",
-      "version": "2.3.1",
+      "version": "2.4.0",
       "spdx": "Apache-2.0",
       "declared": "Apache-2.0",
       "copyright": [
@@ -1040,33 +1018,12 @@
     },
     {
       "name": "@noble/ciphers",
-      "version": "1.3.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2022 Paul Miller (https://paulmillr.com)",
-        "Copyright (c) 2016 Thomas Pornin <pornin@bolet.org>"
-      ],
-      "textId": "9f5cbba2b7258993"
-    },
-    {
-      "name": "@noble/ciphers",
       "version": "2.4.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
         "Copyright (c) 2022 Paul Miller (https://paulmillr.com)",
         "Copyright (c) 2016 Thomas Pornin <pornin@bolet.org>"
-      ],
-      "textId": "9f5cbba2b7258993"
-    },
-    {
-      "name": "@noble/hashes",
-      "version": "1.8.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2022 Paul Miller (https://paulmillr.com)"
       ],
       "textId": "9f5cbba2b7258993"
     },
@@ -1092,7 +1049,7 @@
     },
     {
       "name": "@peculiar/asn1-android",
-      "version": "2.11.0",
+      "version": "2.11.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1102,7 +1059,7 @@
     },
     {
       "name": "@peculiar/asn1-cms",
-      "version": "2.11.0",
+      "version": "2.11.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1112,7 +1069,7 @@
     },
     {
       "name": "@peculiar/asn1-csr",
-      "version": "2.11.0",
+      "version": "2.11.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1122,7 +1079,7 @@
     },
     {
       "name": "@peculiar/asn1-ecc",
-      "version": "2.11.0",
+      "version": "2.11.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1132,7 +1089,7 @@
     },
     {
       "name": "@peculiar/asn1-pfx",
-      "version": "2.11.0",
+      "version": "2.11.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1142,7 +1099,7 @@
     },
     {
       "name": "@peculiar/asn1-pkcs8",
-      "version": "2.11.0",
+      "version": "2.11.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1152,7 +1109,7 @@
     },
     {
       "name": "@peculiar/asn1-pkcs9",
-      "version": "2.11.0",
+      "version": "2.11.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1162,7 +1119,7 @@
     },
     {
       "name": "@peculiar/asn1-rsa",
-      "version": "2.11.0",
+      "version": "2.11.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1172,7 +1129,7 @@
     },
     {
       "name": "@peculiar/asn1-schema",
-      "version": "2.11.0",
+      "version": "2.11.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1182,7 +1139,7 @@
     },
     {
       "name": "@peculiar/asn1-x509",
-      "version": "2.11.0",
+      "version": "2.11.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1192,7 +1149,7 @@
     },
     {
       "name": "@peculiar/asn1-x509-attr",
-      "version": "2.11.0",
+      "version": "2.11.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1381,146 +1338,6 @@
       "textId": "7c9b48b52decb983"
     },
     {
-      "name": "@react-pdf/fns",
-      "version": "3.1.3",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/font",
-      "version": "4.1.2",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/hyphenate",
-      "version": "0.1.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/image",
-      "version": "3.1.2",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/layout",
-      "version": "5.2.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/paginate",
-      "version": "1.0.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/primitives",
-      "version": "4.4.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/reconciler",
-      "version": "2.0.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/render",
-      "version": "4.7.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/renderer",
-      "version": "4.9.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/stylesheet",
-      "version": "6.3.2",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/svg",
-      "version": "1.1.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/textkit",
-      "version": "7.0.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@react-pdf/types",
-      "version": "2.14.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017-present Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
       "name": "@reduxjs/toolkit",
       "version": "2.13.0",
       "spdx": "MIT",
@@ -1532,7 +1349,7 @@
     },
     {
       "name": "@scalar/client-side-rendering",
-      "version": "0.4.13",
+      "version": "0.4.16",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1552,7 +1369,7 @@
     },
     {
       "name": "@scalar/hono-api-reference",
-      "version": "0.12.14",
+      "version": "0.12.17",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1562,7 +1379,7 @@
     },
     {
       "name": "@scalar/schemas",
-      "version": "0.15.0",
+      "version": "0.16.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1572,7 +1389,7 @@
     },
     {
       "name": "@scalar/types",
-      "version": "0.25.0",
+      "version": "0.26.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1728,16 +1545,6 @@
       "textId": "7c9b48b52decb983"
     },
     {
-      "name": "@swc/helpers",
-      "version": "0.5.23",
-      "spdx": "Apache-2.0",
-      "declared": "Apache-2.0",
-      "copyright": [
-        "Copyright 2024 SWC contributors."
-      ],
-      "textId": "0649bc87ac07c40d"
-    },
-    {
       "name": "@tailwindcss/node",
       "version": "4.3.3",
       "spdx": "MIT",
@@ -1769,7 +1576,7 @@
     },
     {
       "name": "@tanstack/query-core",
-      "version": "5.104.5",
+      "version": "5.105.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1779,7 +1586,7 @@
     },
     {
       "name": "@tanstack/react-query",
-      "version": "5.104.5",
+      "version": "5.105.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1829,7 +1636,7 @@
     },
     {
       "name": "@tiptap/core",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1839,7 +1646,7 @@
     },
     {
       "name": "@tiptap/extension-blockquote",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1849,7 +1656,7 @@
     },
     {
       "name": "@tiptap/extension-bold",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1859,7 +1666,7 @@
     },
     {
       "name": "@tiptap/extension-bubble-menu",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1869,7 +1676,7 @@
     },
     {
       "name": "@tiptap/extension-bullet-list",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1879,7 +1686,7 @@
     },
     {
       "name": "@tiptap/extension-character-count",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1889,7 +1696,7 @@
     },
     {
       "name": "@tiptap/extension-code",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1899,7 +1706,7 @@
     },
     {
       "name": "@tiptap/extension-code-block",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1909,7 +1716,7 @@
     },
     {
       "name": "@tiptap/extension-document",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1919,7 +1726,7 @@
     },
     {
       "name": "@tiptap/extension-dropcursor",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1929,7 +1736,7 @@
     },
     {
       "name": "@tiptap/extension-floating-menu",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1939,7 +1746,7 @@
     },
     {
       "name": "@tiptap/extension-gapcursor",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1949,7 +1756,7 @@
     },
     {
       "name": "@tiptap/extension-hard-break",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1959,7 +1766,7 @@
     },
     {
       "name": "@tiptap/extension-heading",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1969,7 +1776,7 @@
     },
     {
       "name": "@tiptap/extension-horizontal-rule",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1979,7 +1786,7 @@
     },
     {
       "name": "@tiptap/extension-image",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1989,7 +1796,7 @@
     },
     {
       "name": "@tiptap/extension-italic",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1999,7 +1806,7 @@
     },
     {
       "name": "@tiptap/extension-link",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2009,7 +1816,7 @@
     },
     {
       "name": "@tiptap/extension-list",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2019,7 +1826,7 @@
     },
     {
       "name": "@tiptap/extension-list-item",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2029,7 +1836,7 @@
     },
     {
       "name": "@tiptap/extension-list-keymap",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2039,7 +1846,7 @@
     },
     {
       "name": "@tiptap/extension-ordered-list",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2049,7 +1856,7 @@
     },
     {
       "name": "@tiptap/extension-paragraph",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2059,7 +1866,7 @@
     },
     {
       "name": "@tiptap/extension-placeholder",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2069,7 +1876,7 @@
     },
     {
       "name": "@tiptap/extension-strike",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2079,7 +1886,7 @@
     },
     {
       "name": "@tiptap/extension-table",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2089,7 +1896,7 @@
     },
     {
       "name": "@tiptap/extension-text",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2099,7 +1906,7 @@
     },
     {
       "name": "@tiptap/extension-underline",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2109,7 +1916,7 @@
     },
     {
       "name": "@tiptap/extensions",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2119,7 +1926,7 @@
     },
     {
       "name": "@tiptap/pm",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2129,7 +1936,7 @@
     },
     {
       "name": "@tiptap/react",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2139,7 +1946,7 @@
     },
     {
       "name": "@tiptap/starter-kit",
-      "version": "3.32.0",
+      "version": "3.32.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2340,16 +2147,6 @@
       "textId": "fe2a9817987f862e"
     },
     {
-      "name": "abs-svg-path",
-      "version": "0.1.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) Jake Rosoman"
-      ],
-      "textId": "c963879647034d6c"
-    },
-    {
       "name": "ansi-colors",
       "version": "4.1.3",
       "spdx": "MIT",
@@ -2391,28 +2188,8 @@
       "textId": "8a170b6b564c3201"
     },
     {
-      "name": "base64-js",
-      "version": "0.0.8",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2014 Jameson Little"
-      ],
-      "textId": "dcdd5bec314a2c06"
-    },
-    {
-      "name": "base64-js",
-      "version": "1.5.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2014 Jameson Little"
-      ],
-      "textId": "dcdd5bec314a2c06"
-    },
-    {
       "name": "better-auth",
-      "version": "1.7.12",
+      "version": "1.7.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2431,16 +2208,6 @@
       "textId": "7c9b48b52decb983"
     },
     {
-      "name": "bidi-js",
-      "version": "1.1.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2021 Jason Johnston"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
       "name": "boolbase",
       "version": "1.0.0",
       "spdx": "ISC",
@@ -2449,16 +2216,6 @@
         "Copyright (c) 2014-2015, Felix Boehm <me@feedic.com>"
       ],
       "textId": "4829cc8e654be69d"
-    },
-    {
-      "name": "brotli",
-      "version": "1.3.3",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) Devon Govett"
-      ],
-      "textId": "c963879647034d6c"
     },
     {
       "name": "ccount",
@@ -2521,17 +2278,6 @@
       "textId": "287eef0b6f35f8f1"
     },
     {
-      "name": "clone",
-      "version": "2.1.2",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright © 2011-2015 Paul Vorbach <paul@vorba.ch>",
-        "COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER"
-      ],
-      "textId": "80bae4e3bc7de7b9"
-    },
-    {
       "name": "clsx",
       "version": "2.1.1",
       "spdx": "MIT",
@@ -2560,26 +2306,6 @@
         "Copyright (C) 2018-2021 by Marijn Haverbeke <marijn@haverbeke.berlin> and others"
       ],
       "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "color-name",
-      "version": "2.1.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2015 Dmitry Ivanov"
-      ],
-      "textId": "dcdd5bec314a2c06"
-    },
-    {
-      "name": "color-string",
-      "version": "2.1.4",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2011 Heather Arthur <fayearthur@gmail.com>"
-      ],
-      "textId": "fe2a9817987f862e"
     },
     {
       "name": "comma-separated-tokens",
@@ -2861,16 +2587,6 @@
       "textId": "22bbdccb3ee2c1a5"
     },
     {
-      "name": "dfa",
-      "version": "1.2.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) Devon Govett"
-      ],
-      "textId": "c963879647034d6c"
-    },
-    {
       "name": "dom-serializer",
       "version": "2.0.0",
       "spdx": "MIT",
@@ -2960,7 +2676,7 @@
     },
     {
       "name": "effect",
-      "version": "4.0.6",
+      "version": "4.1.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2995,16 +2711,6 @@
       "declared": "MIT",
       "copyright": [
         "Copyright (c) David Jerleke."
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "emoji-regex-xs",
-      "version": "1.0.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2024 Steven Levithan"
       ],
       "textId": "7c9b48b52decb983"
     },
@@ -3112,26 +2818,6 @@
       "textId": "dcdd5bec314a2c06"
     },
     {
-      "name": "events",
-      "version": "3.3.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright Joyent, Inc. and other Node contributors."
-      ],
-      "textId": "e970d05f68d28797"
-    },
-    {
-      "name": "fast-deep-equal",
-      "version": "3.1.3",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017 Evgeny Poberezkin"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
       "name": "fast-equals",
       "version": "5.4.5",
       "spdx": "MIT",
@@ -3172,16 +2858,6 @@
       "textId": "7c9b48b52decb983"
     },
     {
-      "name": "fontkit",
-      "version": "2.0.4",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) Devon Govett"
-      ],
-      "textId": "c963879647034d6c"
-    },
-    {
       "name": "get-nonce",
       "version": "1.0.1",
       "spdx": "MIT",
@@ -3213,7 +2889,7 @@
     },
     {
       "name": "hast-util-to-html",
-      "version": "9.0.5",
+      "version": "9.0.6",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -3233,33 +2909,13 @@
     },
     {
       "name": "hono",
-      "version": "4.13.13",
+      "version": "4.13.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
         "Copyright (c) 2021 - present, Yusuke Wada and Hono contributors"
       ],
       "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "hsl-to-hex",
-      "version": "1.0.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) David Mark Clements"
-      ],
-      "textId": "c963879647034d6c"
-    },
-    {
-      "name": "hsl-to-rgb-for-reals",
-      "version": "1.1.1",
-      "spdx": "ISC",
-      "declared": "ISC",
-      "copyright": [
-        "Copyright (c) David Mark Clements"
-      ],
-      "textId": "35f91fe22868b457"
     },
     {
       "name": "html-entities",
@@ -3312,16 +2968,6 @@
       "textId": "fe2a9817987f862e"
     },
     {
-      "name": "hyphen",
-      "version": "1.6.6",
-      "spdx": "ISC",
-      "declared": "ISC",
-      "copyright": [
-        "Copyright (c) 2021, Yevhen Tiurin <yevhentiurin@gmail.com>"
-      ],
-      "textId": "f80ce373e9987ac0"
-    },
-    {
       "name": "iconv-lite",
       "version": "0.6.3",
       "spdx": "MIT",
@@ -3340,16 +2986,6 @@
         "Copyright (c) 2017 Michel Weststrate"
       ],
       "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "inherits",
-      "version": "2.0.4",
-      "spdx": "ISC",
-      "declared": "ISC",
-      "copyright": [
-        "Copyright (c) Isaac Z. Schlueter"
-      ],
-      "textId": "eda9fe796c535349"
     },
     {
       "name": "input-otp",
@@ -3392,24 +3028,6 @@
       "textId": "7c9b48b52decb983"
     },
     {
-      "name": "is-url",
-      "version": "1.2.4",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [],
-      "textId": "e3dc2d98813ba8ac"
-    },
-    {
-      "name": "jay-peg",
-      "version": "1.1.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2024 Diego Muracciole <diegomuracciole@gmail.com>"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
       "name": "jiti",
       "version": "2.7.0",
       "spdx": "MIT",
@@ -3421,7 +3039,7 @@
     },
     {
       "name": "jose",
-      "version": "6.2.13",
+      "version": "6.2.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -3430,18 +3048,8 @@
       "textId": "dcdd5bec314a2c06"
     },
     {
-      "name": "js-tokens",
-      "version": "4.0.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2014, 2015, 2016, 2017, 2018 Simon Lydell"
-      ],
-      "textId": "dcdd5bec314a2c06"
-    },
-    {
       "name": "juice",
-      "version": "12.2.0",
+      "version": "12.2.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -3470,16 +3078,6 @@
       "textId": "fe2a9817987f862e"
     },
     {
-      "name": "linebreak",
-      "version": "1.1.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2014-present Devon Govett"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
       "name": "linkify-it",
       "version": "6.1.0",
       "spdx": "MIT",
@@ -3500,18 +3098,8 @@
       "textId": "fe2a9817987f862e"
     },
     {
-      "name": "loose-envify",
-      "version": "1.4.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2015 Andres Suarez <zertosh@gmail.com>"
-      ],
-      "textId": "dcdd5bec314a2c06"
-    },
-    {
       "name": "lucide-react",
-      "version": "1.61.0",
+      "version": "1.66.0",
       "spdx": "ISC",
       "declared": "ISC",
       "copyright": [
@@ -3570,16 +3158,6 @@
         "Copyright Joyent, Inc. and other Node contributors. All rights reserved."
       ],
       "textId": "e6679fd932f89197"
-    },
-    {
-      "name": "media-engine",
-      "version": "2.0.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) Diego Muracciole"
-      ],
-      "textId": "c963879647034d6c"
     },
     {
       "name": "micromark-util-character",
@@ -3706,25 +3284,13 @@
     },
     {
       "name": "nodemailer",
-      "version": "10.2.1",
+      "version": "10.3.1",
       "spdx": "MIT-0",
       "declared": "MIT-0",
       "copyright": [
         "Copyright (c) 2011-2023 Andris Reinman"
       ],
       "textId": "8a08afa3627bb2d4"
-    },
-    {
-      "name": "normalize-svg-path",
-      "version": "1.1.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright © 2008-2013 Dmitry Baranovskiy (http://raphaeljs.com)",
-        "Copyright © 2008-2013 Sencha Labs (http://sencha.com)",
-        "Copyright © 2013 Jake Rosoman <jkroso@gmail.com>"
-      ],
-      "textId": "4ae58b68df6bee2e"
     },
     {
       "name": "nth-check",
@@ -3735,16 +3301,6 @@
         "Copyright (c) Felix Böhm"
       ],
       "textId": "2b4817b033ee45e8"
-    },
-    {
-      "name": "object-assign",
-      "version": "4.1.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)"
-      ],
-      "textId": "dcdd5bec314a2c06"
     },
     {
       "name": "oniguruma-parser",
@@ -3788,16 +3344,6 @@
       "textId": "fe2a9817987f862e"
     },
     {
-      "name": "pako",
-      "version": "0.2.9",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (C) 2014-2016 by Vitaly Puzrin"
-      ],
-      "textId": "d772bb344de0be46"
-    },
-    {
       "name": "parse-srcset",
       "version": "1.0.2",
       "spdx": "MIT",
@@ -3806,16 +3352,6 @@
         "Copyright (c) 2014 Alex Bell"
       ],
       "textId": "dcdd5bec314a2c06"
-    },
-    {
-      "name": "parse-svg-path",
-      "version": "0.1.2",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2013 Jake Rosoman <jkroso@gmail.com>"
-      ],
-      "textId": "4ae58b68df6bee2e"
     },
     {
       "name": "parse5",
@@ -3856,16 +3392,6 @@
         "Copyright (c) 2024"
       ],
       "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "pdfkit",
-      "version": "0.20.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2014 Devon Govett"
-      ],
-      "textId": "e3dc2d98813ba8ac"
     },
     {
       "name": "pg",
@@ -3958,18 +3484,8 @@
       "textId": "d6aa1cc25d5f5b4d"
     },
     {
-      "name": "png-js",
-      "version": "2.0.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2017 Devon Govett"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
       "name": "postcss",
-      "version": "8.5.31",
+      "version": "8.5.32",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4006,16 +3522,6 @@
       "declared": "MIT",
       "copyright": [
         "Copyright (c) Ben Briggs <beneb.info@gmail.com> (http://beneb.info)"
-      ],
-      "textId": "fe2a9817987f862e"
-    },
-    {
-      "name": "postcss-value-parser",
-      "version": "4.2.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) Bogdan Chadkin <trysound@yandex.ru>"
       ],
       "textId": "fe2a9817987f862e"
     },
@@ -4070,16 +3576,6 @@
       "textId": "fe2a9817987f862e"
     },
     {
-      "name": "prop-types",
-      "version": "15.8.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2013-present, Facebook, Inc."
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
       "name": "property-information",
       "version": "7.2.0",
       "spdx": "MIT",
@@ -4091,7 +3587,7 @@
     },
     {
       "name": "prosemirror-changeset",
-      "version": "2.4.4",
+      "version": "2.4.5",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4171,7 +3667,7 @@
     },
     {
       "name": "prosemirror-schema-list",
-      "version": "1.5.1",
+      "version": "1.6.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4211,7 +3707,7 @@
     },
     {
       "name": "prosemirror-view",
-      "version": "1.42.7",
+      "version": "1.42.9",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4250,16 +3746,6 @@
       "textId": "459788d6c563eccf"
     },
     {
-      "name": "queue",
-      "version": "6.0.2",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2014 Jesse Tane <jesse.tane@gmail.com>"
-      ],
-      "textId": "dcdd5bec314a2c06"
-    },
-    {
       "name": "react",
       "version": "19.3.1",
       "spdx": "MIT",
@@ -4290,18 +3776,8 @@
       "textId": "7c9b48b52decb983"
     },
     {
-      "name": "react-is",
-      "version": "16.13.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) Facebook, Inc. and its affiliates."
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
       "name": "react-redux",
-      "version": "9.3.0",
+      "version": "9.3.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4331,7 +3807,7 @@
     },
     {
       "name": "react-resizable-panels",
-      "version": "4.14.8",
+      "version": "4.15.3",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4418,16 +3894,6 @@
       "textId": "7c9b48b52decb983"
     },
     {
-      "name": "require-from-string",
-      "version": "2.0.2",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) Vsevolod Strukchinsky <floatdrop@gmail.com> (github.com/floatdrop)"
-      ],
-      "textId": "dcdd5bec314a2c06"
-    },
-    {
       "name": "reselect",
       "version": "5.2.0",
       "spdx": "MIT",
@@ -4446,16 +3912,6 @@
         "Copyright (c) 2015-2018 Reselect Contributors"
       ],
       "textId": "dcdd5bec314a2c06"
-    },
-    {
-      "name": "restructure",
-      "version": "3.0.2",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2015-present Devon Govett"
-      ],
-      "textId": "7c9b48b52decb983"
     },
     {
       "name": "rope-sequence",
@@ -4509,16 +3965,6 @@
     },
     {
       "name": "scheduler",
-      "version": "0.25.0-rc-603e6108-20241029",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) Meta Platforms, Inc. and affiliates."
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "scheduler",
       "version": "0.28.0",
       "spdx": "MIT",
       "declared": "MIT",
@@ -4529,7 +3975,7 @@
     },
     {
       "name": "set-cookie-parser",
-      "version": "3.2.1",
+      "version": "3.2.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4629,14 +4075,6 @@
       "textId": "fe2a9817987f862e"
     },
     {
-      "name": "svg-arc-to-cubic-bezier",
-      "version": "3.2.0",
-      "spdx": "ISC",
-      "declared": "ISC",
-      "copyright": [],
-      "textId": "a1556594256210a3"
-    },
-    {
       "name": "tagged-tag",
       "version": "1.0.0",
       "spdx": "MIT",
@@ -4707,16 +4145,6 @@
       "textId": "7c9b48b52decb983"
     },
     {
-      "name": "tiny-inflate",
-      "version": "1.0.3",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2015-present Devon Govett"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
       "name": "tiny-invariant",
       "version": "1.3.3",
       "spdx": "MIT",
@@ -4738,7 +4166,7 @@
     },
     {
       "name": "tldts-core",
-      "version": "7.4.19",
+      "version": "7.4.20",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4768,7 +4196,7 @@
     },
     {
       "name": "tslib",
-      "version": "2.8.1",
+      "version": "2.9.1",
       "spdx": "0BSD",
       "declared": "0BSD",
       "copyright": [
@@ -4845,26 +4273,6 @@
       "textId": "7c9b48b52decb983"
     },
     {
-      "name": "unicode-properties",
-      "version": "1.4.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright 2018"
-      ],
-      "textId": "fe2a9817987f862e"
-    },
-    {
-      "name": "unicode-trie",
-      "version": "2.0.0",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright 2018"
-      ],
-      "textId": "fe2a9817987f862e"
-    },
-    {
       "name": "unist-util-is",
       "version": "6.0.1",
       "spdx": "MIT",
@@ -4896,27 +4304,27 @@
     },
     {
       "name": "unist-util-visit",
-      "version": "5.1.0",
+      "version": "5.2.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
-        "Copyright (c) 2015 Titus Wormer <tituswormer@gmail.com>"
+        "Copyright (c) Titus Wormer <tituswormer@gmail.com>"
       ],
       "textId": "22bbdccb3ee2c1a5"
     },
     {
       "name": "unist-util-visit-parents",
-      "version": "6.0.2",
+      "version": "6.1.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
-        "Copyright (c) 2016 Titus Wormer <tituswormer@gmail.com>"
+        "Copyright (c) Titus Wormer <tituswormer@gmail.com>"
       ],
       "textId": "22bbdccb3ee2c1a5"
     },
     {
       "name": "unpdf",
-      "version": "1.9.1",
+      "version": "2.1.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4996,22 +4404,22 @@
     },
     {
       "name": "victory-vendor",
-      "version": "37.3.6",
-      "spdx": "MIT AND ISC",
-      "declared": "MIT AND ISC",
+      "version": "37.4.1",
+      "spdx": "MIT AND ISC AND BSD-3-Clause",
+      "declared": "MIT AND ISC AND BSD-3-Clause",
       "copyright": [
-        "Copyright (c) 2015-2020 Formidable Labs.",
+        "Copyright (c) 2015-2026 Nearform.",
         "Copyright (c) 2016-2020 Alexey Svetliakov <https://github.com/asvetliakov>,",
         "Copyright 2010-2022 Mike Bostock",
         "Copyright 2010-2021 Mike Bostock",
-        "Copyright 2001 Robert Penner",
         "Copyright 2015-2021 Mike Bostock",
+        "Copyright 2021 Mike Bostock",
+        "Copyright 2001 Robert Penner",
         "Copyright 2010-2016 Mike Bostock",
         "Copyright (C) 2010-2013 Raymond Hill",
-        "COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER",
-        "Copyright 2021 Mike Bostock"
+        "COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER"
       ],
-      "textId": "b39500a6e714baee"
+      "textId": "26ac4eeda8420741"
     },
     {
       "name": "w3c-keyname",
@@ -5143,16 +4551,6 @@
         "Copyright Eemeli Aro <eemeli@gmail.com>"
       ],
       "textId": "4829cc8e654be69d"
-    },
-    {
-      "name": "yoga-layout",
-      "version": "3.2.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) Facebook, Inc. and its affiliates."
-      ],
-      "textId": "7c9b48b52decb983"
     },
     {
       "name": "zod",

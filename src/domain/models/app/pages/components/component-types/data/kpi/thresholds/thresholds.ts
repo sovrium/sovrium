@@ -44,7 +44,7 @@ export const KPIThresholdSchema = Schema.Struct({
 }).annotate({
   title: 'KPI Threshold',
   description:
-    'Conditional color threshold — applied when the metric value meets or exceeds the boundary',
+    'Conditional color threshold, applied when the metric value meets or exceeds the boundary',
 })
 
 /** @public */

@@ -8,6 +8,7 @@ Review ~/apps/portal before we launch it on https://portal.example.com. Here is 
 ```yaml
 name: portal
 auth:
+  allowSignUp: true
   strategies:
     - type: emailAndPassword
 tables:

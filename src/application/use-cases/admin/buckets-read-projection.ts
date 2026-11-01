@@ -15,7 +15,8 @@
 
 import { Cause, DateTime, Effect } from 'effect'
 import { AdminBucketFilesRepository } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
-import { ReadBucketUsage } from '@/application/use-cases/admin/bucket-files'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { readBucketUsage } from '@/application/use-cases/admin/bucket-files'
 import { readableName } from '@/domain/models/app/auth/readable-name-service'
 import {
   bucketIdForName,
@@ -30,11 +31,13 @@ import type { BucketsOverviewResponse } from '@/domain/models/api/admin/buckets/
 import type { App } from '@/domain/models/app'
 
 /** The env-resolved backend's provider and region. File storage always resolves to one. */
-const resolveDefaultBucket = (): {
+const resolveDefaultBucket = (
+  env: Readonly<Record<string, string | undefined>>
+): {
   readonly provider: BucketProvider
   readonly region: string | null
 } => {
-  const config = parseStorageEnvConfig()
+  const config = parseStorageEnvConfig(env)
   if (config.provider === 's3') return { provider: 's3', region: config.region }
   return { provider: config.provider, region: null }
 }
@@ -158,8 +161,8 @@ export const buildBucketItems = (
   language: ConsoleLanguage
 ): Effect.Effect<readonly BucketAdminItem[], never, AdminBucketFilesRepository | Logger> =>
   Effect.gen(function* () {
-    const meta = resolveDefaultBucket()
-    const usage = yield* degradeTo(ReadBucketUsage, 'bucket usage', EMPTY_USAGE)
+    const meta = resolveDefaultBucket(yield* ProcessEnv)
+    const usage = yield* degradeTo(readBucketUsage, 'bucket usage', EMPTY_USAGE)
     const now = DateTime.formatIso(yield* DateTime.now)
     return declaredBucketNames(app.buckets).map((name) => ({
       id: bucketIdForName(name),
@@ -195,7 +198,7 @@ export const buildOverviewTotals = (
   app: App
 ): Effect.Effect<BucketsOverviewResponse['totals'], never, AdminBucketFilesRepository | Logger> =>
   Effect.gen(function* () {
-    const meta = resolveDefaultBucket()
+    const meta = resolveDefaultBucket(yield* ProcessEnv)
     const buckets = declaredBucketNames(app.buckets).length
     const catalog = yield* degradeTo(
       Effect.gen(function* () {

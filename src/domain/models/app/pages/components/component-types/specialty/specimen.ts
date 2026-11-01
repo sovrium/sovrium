@@ -121,7 +121,7 @@ const SpecimenAnnotationSchema = Schema.Struct({
     Schema.annotate({
       title: 'Component Part',
       description:
-        "Name of the part being labelled — the SAME vocabulary `design.components` uses, so anatomy and styling speak one language. `root` on every type, plus that type's own inner elements.",
+        "Name of the part being labelled, in the SAME vocabulary `design.components` uses, so anatomy and styling speak one language. `root` on every type, plus that type's own inner elements.",
       examples: ['root', 'label', 'icon'],
     }),
     Schema.check(Schema.isMinLength(1))
@@ -216,7 +216,7 @@ const SpecimenSubjectSchema = Schema.Struct({
       Schema.annotate({
         title: 'Subject Template',
         description:
-          'A reusable template from `components[]` to draw on its own, by name — the operator’s own component rather than an engine type. Under an admin mount the name resolves against the documented app’s templates. Mutually exclusive with `type`.',
+          'A reusable template from `components[]` to draw on its own, by name: the operator’s own component rather than an engine type. Under an admin mount the name resolves against the documented app’s templates. Mutually exclusive with `type`.',
         examples: ['site-header', '$record.name'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -261,7 +261,7 @@ const SpecimenSubjectSchema = Schema.Struct({
   identifier: 'SpecimenSubject',
   title: 'Specimen Subject',
   description:
-    'A component type the engine draws its own catalogue specimen for — the alternative to writing the component out',
+    'A component type the engine draws its own catalogue specimen for, the alternative to writing the component out',
 })
 
 /**
@@ -329,7 +329,7 @@ const SpecimenViewportSchema = Schema.Struct({
   width: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))).annotate({
     title: 'Viewport Width',
     description:
-      'The CSS pixel width of the document the specimen is re-rendered in. This is a real viewport, so the subject’s own media queries evaluate against it — a subject declaring `lg:` rules collapses below 1024 here exactly as it does in a browser window of this width.',
+      'The CSS pixel width of the document the specimen is re-rendered in. This is a real viewport, so the subject’s own media queries evaluate against it. A subject declaring `lg:` rules collapses below 1024 here exactly as it does in a browser window of this width.',
     examples: [1280, 768, 375],
   }),
 }).annotate({
@@ -376,7 +376,7 @@ export const specimenFields = {
   showProvenance: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        "Show per-part badges naming which layer contributed each class — Sovrium's recipe, your `design.components` block, or the locked accessibility floor",
+        "Show per-part badges naming which layer contributed each class: Sovrium's recipe, your `design.components` block, or the locked accessibility floor",
     })
   ),
 } as const

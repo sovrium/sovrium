@@ -17,6 +17,7 @@ import { adminReadToolNames } from '@/application/use-cases/admin/admin-read-reg
 import { isConfigToolName } from '@/application/use-cases/config/config-mcp-tools'
 import { isAdminTierCaller, type McpCaller } from '@/presentation/api/mcp/auth'
 import { automationToolIsOffered } from '@/presentation/api/mcp/automation-call'
+import { passesTablePermission } from '@/presentation/api/mcp/caller-authority'
 import {
   authorityOnTable,
   callerListsTable,
@@ -30,12 +31,13 @@ import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { CompiledTool } from '@/presentation/api/mcp/tool-compiler'
 
 /**
- * Filter the compiled tool catalog to what the caller's role is allowed to
- * see. Viewers never see mutating tools (`_create / _update / _delete` on
- * tables and any action template — action templates are always considered
- * mutating because they execute side-effecting workflows). Members and
- * admins see the full catalog of user-defined tools; finer per-field RBAC
- * for member is the subject of M-6, not this discovery spec.
+ * Filter the compiled tool catalog by the caller's MCP tier — the first of the
+ * two filters `tools/list` applies, the one that needs no table permission.
+ * Viewers never see mutating tools (`_create / _update / _delete` on tables
+ * and any action template — action templates are always considered mutating
+ * because they execute side-effecting workflows). For members and admins the
+ * table tools are narrowed afterwards by each table's own permissions
+ * ({@link filterToolsForCaller}), never by tier.
  *
  * Internal tools (`_auth_*`, `_system_*` infixes) are admin-only — both
  * member and viewer roles never see them, regardless of operation type.
@@ -68,12 +70,16 @@ export const filterToolsForRole = (
 }
 
 /**
- * The tools `tools/list` offers `caller`: those her role may see
- * ({@link filterToolsForRole}), less the read tools (`_list`, `_read`) of every
- * table the records list would answer her as one that does not exist — a
- * table whose read gate refuses her, or whose list admits her no row
- * ({@link callerListsTable}). Each table is asked once, and her permission
- * identity — groups and assignment roles — is looked up once for them all.
+ * The tools `tools/list` offers `caller`: those her tier may see
+ * ({@link filterToolsForRole}), narrowed per table by the permissions the
+ * records API applies — her account role and her groups. A table's read tools
+ * (`_list`, `_read`) are offered only where the records list would answer her
+ * ({@link callerListsTable}); each write tool (`_create`, `_update`, `_delete`)
+ * only where the table's `permissions` admit her to that write. A table she may
+ * write without reading keeps its write tools; one she may neither read nor
+ * write offers her no tool at all. Her permission identity — groups and
+ * assignment roles — is looked up once for every table, and each table's list
+ * is asked once.
  */
 export const filterToolsForCaller = async (
   dispatch: {
@@ -86,16 +92,20 @@ export const filterToolsForCaller = async (
 ): Promise<ReadonlyArray<CompiledTool>> => {
   const { app, domainContext } = dispatch
   const offered = filterToolsForRole(dispatch.tools, caller, app, pausedNames)
+  const tableTools = offered.flatMap((tool) => {
+    const resolved = resolveTableTool(app, tool.name)
+    return resolved === undefined ? [] : [resolved]
+  })
+  if (tableTools.length === 0) return offered
+  const tables = [...new Set(tableTools.map((resolved) => resolved.table))]
+  const authority = await resolveListingAuthority(app, caller, tables, domainContext)
   const readTables = [
     ...new Set(
-      offered.flatMap((tool) => {
-        const resolved = resolveTableTool(app, tool.name)
-        return resolved !== undefined && isReadOperation(resolved.operation) ? [resolved.table] : []
-      })
+      tableTools
+        .filter((resolved) => isReadOperation(resolved.operation))
+        .map((resolved) => resolved.table)
     ),
   ]
-  if (readTables.length === 0) return offered
-  const authority = await resolveListingAuthority(app, caller, readTables, domainContext)
   const listed = await Promise.all(
     readTables.map((table) =>
       callerListsTable(app, table, caller, {
@@ -104,11 +114,16 @@ export const filterToolsForCaller = async (
       })
     )
   )
-  const hidden = new Set(readTables.filter((_, index) => listed[index] !== true))
+  const listedTables = new Set(readTables.filter((_, index) => listed[index] === true))
   return offered.filter((tool) => {
     const resolved = resolveTableTool(app, tool.name)
-    return (
-      resolved === undefined || !isReadOperation(resolved.operation) || !hidden.has(resolved.table)
+    if (resolved === undefined) return true
+    if (isReadOperation(resolved.operation)) return listedTables.has(resolved.table)
+    return passesTablePermission(
+      app,
+      resolved.table,
+      resolved.operation,
+      authorityOnTable(authority, resolved.table)
     )
   })
 }

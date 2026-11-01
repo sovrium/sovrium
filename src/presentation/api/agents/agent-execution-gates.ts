@@ -18,18 +18,23 @@
  * gates" true by construction instead of by two copies staying in step.
  */
 
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { executeResultSchema } from '@/domain/models/api/agents/agents'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import { resolveAgentLimits } from '@/domain/models/app/agents/agent-gate-validation'
-import { acquireConcurrencySlot, checkActionRateLimit } from '@/infrastructure/process/agent-limits'
+import {
+  acquireConcurrencySlot,
+  checkActionRateLimit,
+} from '@/infrastructure/ai/agents/agent-limits'
 import {
   checkAgentRateLimit,
   type LimitCheckOptions,
-} from '@/infrastructure/process/agent-rate-limit'
+} from '@/infrastructure/ai/agents/agent-rate-limit'
 import {
   checkChatRateLimit,
   resolveChatRateLimitConfig,
-} from '@/infrastructure/process/chat-rate-limit'
+} from '@/infrastructure/ai/agents/chat-rate-limit'
 import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { shapedJson } from '@/presentation/api/runtime/run-effect'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { Context } from 'hono'
 
@@ -110,15 +115,19 @@ export const checkLimitGates = (
 
   const rate = checkActionRateLimit(agent.name, limits.maxActionsPerMinute, options)
   if (rate.queued) {
-    return c.json(
+    return shapedJson(
+      c,
       { status: 'queued', agent: agent.name, reason: 'maxActionsPerMinute exceeded' },
+      executeResultSchema,
       202
     )
   }
 
   if (!acquireConcurrencySlot(agent.name, limits.maxConcurrentTasks)) {
-    return c.json(
+    return shapedJson(
+      c,
       { status: 'queued', agent: agent.name, reason: 'maxConcurrentTasks reached' },
+      executeResultSchema,
       202
     )
   }

@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The structured-input pass of a template that declares `inputs`.
  *
@@ -48,9 +50,6 @@ const TEMPLATE_META_KEYS: ReadonlySet<string> = new Set(['name', 'render', 'inpu
 
 const INPUT_TOKEN = /^\$([a-zA-Z][a-zA-Z0-9]*)$/
 const SLOT_MARKER = /^\$(?:children|slots\.[a-zA-Z][a-zA-Z0-9]*)$/
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * The inputs a template declares that substitute — every kind but `slot` — or

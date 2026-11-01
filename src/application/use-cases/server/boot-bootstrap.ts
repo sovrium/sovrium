@@ -7,6 +7,7 @@
 
 import { Data, Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   BootstrapDatabaseError,
   bootstrapAdmin,
@@ -80,7 +81,7 @@ const runBootstrapTokenFlow = (
 
     const empty = yield* userTableIsEmpty()
     const ctx: BootstrapTokenBootContext = {
-      hasAuthAdminEmailEnv: Boolean(process.env.AUTH_ADMIN_EMAIL),
+      hasAuthAdminEmailEnv: Boolean((yield* ProcessEnv)['AUTH_ADMIN_EMAIL']),
       userTableIsEmpty: empty,
     }
 

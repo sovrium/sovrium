@@ -33,7 +33,7 @@
  */
 
 import { publishToChannel } from '@/infrastructure/realtime/channel-manager'
-import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
+import type { ConfigFinding } from '@/domain/kernel/config-parsing/decode-report-format'
 
 /** The in-process channel every open dev-reload stream listens on. */
 export const DEV_RELOAD_CHANNEL = '__sovrium_dev:reload'

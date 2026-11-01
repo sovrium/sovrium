@@ -46,7 +46,7 @@ const VIRTUAL_ID = 'virtual:sovrium-templates'
 const RESOLVED_ID = `\0${VIRTUAL_ID}`
 
 /** Must stay identical to `TEMPLATE_PATTERN` in `src-tauri/src/deeplink.rs`. */
-const SLUG_PATTERN = /^[a-z0-9-]+(\/[a-z0-9._-]+)?$/
+const SLUG_PATTERN = /^[a-z0-9-]+$/
 
 interface CatalogEntry {
   readonly name: string

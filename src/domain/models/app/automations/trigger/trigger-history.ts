@@ -24,7 +24,7 @@ export const TriggerHistorySchema = Schema.Literals(['full', 'minimal', 'none'])
     identifier: 'TriggerHistory',
     title: 'Run History',
     description:
-      "How much of a run this trigger starts is kept once the run ends. `full` keeps the trigger data and every step with its input and output. `minimal` keeps only the run's status, trigger name, timings and error — no trigger data and no steps — for a trigger that fires often; such a run cannot be replayed without new trigger data. `none` keeps nothing of a run that succeeds and, for a run that does not, the row `minimal` keeps with its error — for a tick whose runs nobody reads one by one.",
+      "How much of a run this trigger starts is kept once the run ends. `full` keeps the trigger data and every step with its input and output. `minimal` keeps only the run's status, trigger name, timings and error (no trigger data and no steps), for a trigger that fires often; such a run cannot be replayed without new trigger data. `none` keeps nothing of a run that succeeds and, for a run that does not, the row `minimal` keeps with its error. Use it for a tick whose runs nobody reads one by one.",
     defaultNote: '`full`',
   })
 )

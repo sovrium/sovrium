@@ -79,5 +79,12 @@ export class AiComputeStatusRepository extends Context.Service<
       readonly fieldName: string
       readonly value: unknown
     }) => Effect.Effect<void, AiComputeStoreError>
+    /**
+     * Whether a write's refinement is this process's to start. A backend with a
+     * change listener (PostgreSQL) refines each write as its notification
+     * arrives; one without (SQLite) has nothing else to pick the write up, so
+     * the write phase enqueues the refinement itself.
+     */
+    readonly refinesWritesInProcess: Effect.Effect<boolean>
   }
 >()('AiComputeStatusRepository') {}

@@ -61,7 +61,7 @@ import {
   type StoragePublicAccessEnvError,
 } from '@/infrastructure/server/validate-storage-public-access-env'
 import { validateTransformPresetEnv } from '@/infrastructure/server/validate-transform-preset-env'
-import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
+import type { TransformPresetError } from '@/domain/errors/transform-preset-error'
 
 export const validateOperatorEnv: Effect.Effect<
   void,

@@ -6,41 +6,48 @@
  */
 
 import { Effect } from 'effect'
-import {
-  CancelAccountDeletion,
-  ExportAccount,
-  GRACE_PERIOD_DAYS,
-  LoadPendingErasure,
-  ScheduleAccountDeletion,
-} from '@/application/use-cases/account'
-import { EmitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { purgeExpiredActivityLogs } from '@/application/use-cases/activity/purge-expired-activity-logs'
+import { emitAuditEvent } from '@/application/use-cases/admin/audit-log-emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
+import {
+  cancelAccountDeletion,
+  exportAccount,
+  GRACE_PERIOD_DAYS,
+  loadPendingErasure,
+  scheduleAccountDeletion,
+} from '@/application/use-cases/auth/account'
 import { loadSocialExport } from '@/application/use-cases/auth/account-export-social'
 import { accountRemovalRefusal } from '@/application/use-cases/auth/last-admin-rail'
+import { purgeDueAccounts } from '@/application/use-cases/auth/purge-due-accounts'
 import { getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { accountDeleteRequestSchema } from '@/domain/models/api/account/account'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { activityRetentionResponseSchema } from '@/domain/models/api/auth/account'
+import {
+  accountDeleteCancelledResponseSchema,
+  accountDeleteRequestSchema,
+  accountDeleteScheduledResponseSchema,
+  accountExportResponseSchema,
+  accountPendingErasureResponseSchema,
+} from '@/domain/models/api/auth/account/account'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
 import { relatedValuesRefusedTo } from '@/domain/models/app/tables/lookup-link-service'
 import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
 import { translatableFieldNamesOf } from '@/domain/models/app/tables/translatable-query-service'
 import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
 import { resolvePurgeTableAuthorship } from '@/infrastructure/database/account-purge-authorship'
-import { purgeDueAccounts } from '@/infrastructure/database/account-purge-sweep'
-import { purgeExpiredActivityLogs } from '@/infrastructure/database/activity-log-retention'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
 import { chainAccountAvatarRoutes } from '@/presentation/api/auth/account-avatar-routes'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import {
   internalSchedulerNotFound,
   isInternalSchedulerRequest,
 } from '@/presentation/api/runtime/internal-scheduler-gate'
+import { decodeJsonBody } from '@/presentation/api/runtime/request-body'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import type { AvatarProfileStore } from '@/application/ports/contracts/avatar-profile-store'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -78,9 +85,9 @@ import type { Context, Hono } from 'hono'
  * shared-secret token (`INTERNAL_SCHEDULER_TOKEN`): a caller must present a
  * matching `X-Internal-Scheduler-Token` header, and the route 404s otherwise.
  * Production never sets the env var, so the route is unreachable there — no
- * anonymous internet client can trigger hard deletes. `purgeDueAccounts` is
- * itself already an infrastructure helper (its own `db.transaction` hard-delete
- * path), so it is invoked directly rather than through the repository port.
+ * anonymous internet client can trigger hard deletes. The route runs the
+ * `purgeDueAccounts` use-case, which reaches the cron's own sweep through the
+ * `RetentionSweeps` port.
  *
  * `retention-due` is the same shape for the same reason: an internal trigger for
  * the activity-log retention sweep, gated by the SAME token and unreachable in
@@ -123,25 +130,22 @@ const withheldFieldNames = (
  * Aggregates the caller's full personal-data footprint. The user id comes
  * only from the session — there is no `:userId` path param, so a
  * cross-account export is impossible by construction. The repository read +
- * payload shaping + contract validation live in the {@link ExportAccount} use
+ * payload shaping + contract validation live in the {@link exportAccount} use
  * case; the route resolves the session and serializes the result.
  */
-async function handleExport(c: Context, app: App): Promise<Response> {
+function handleExport(c: Context, app: App): Promise<Response> | Response {
   const session = getSessionContext(c)
   if (session === undefined) return unauthorized(c)
   const { userId } = session
-  const [role, groups] = await runRequestEffect(
+  return runHandlerEffect(
     c,
-    provideDomain(c, Effect.all([getUserRole(userId, app), getUserGroups(userId)]))
-  )
-
-  const outcome = await runRequestEffect(
-    c,
-    provideDomain(
+    answerFailures(
       c,
-      // The read positions, last-seen time and notifications first: the export carries them.
-      Effect.flatMap(loadSocialExport(userId), (social) =>
-        ExportAccount(
+      Effect.gen(function* () {
+        const [role, groups] = yield* Effect.all([getUserRole(userId, app), getUserGroups(userId)])
+        // The read positions, last-seen time and notifications first: the export carries them.
+        const social = yield* loadSocialExport(userId)
+        const outcome = yield* exportAccount(
           userId,
           // Candidate authorship columns resolved from the DECLARED FIELD TYPES,
           // matching the erasure sweep. Probing the literal `created_by` alone made
@@ -165,11 +169,11 @@ async function handleExport(c: Context, app: App): Promise<Response> {
           }),
           social
         )
-      )
+        if (outcome._tag === 'Unauthorized') return unauthorized(c)
+        return yield* respondWith(c, Effect.succeed(outcome.body), accountExportResponseSchema)
+      })
     )
   )
-  if (outcome._tag === 'Unauthorized') return unauthorized(c)
-  return c.json(outcome.body, 200)
 }
 
 // ============================================================================
@@ -186,12 +190,14 @@ async function handleExport(c: Context, app: App): Promise<Response> {
  * session-scoped with no enumeration surface. Exactly one item while an erasure
  * is scheduled; an empty `items` array once it is cancelled (or never requested).
  */
-async function handlePendingErasure(c: Context): Promise<Response> {
+function handlePendingErasure(c: Context): Promise<Response> | Response {
   const session = getSessionContext(c)
   if (session === undefined) return unauthorized(c)
 
-  const body = await runRequestEffect(c, provideDomain(c, LoadPendingErasure(session.userId)))
-  return c.json(body, 200)
+  return runHandlerEffect(
+    c,
+    respondWith(c, loadPendingErasure(session.userId), accountPendingErasureResponseSchema)
+  )
 }
 
 // ============================================================================
@@ -215,8 +221,7 @@ async function handleDelete(c: Context, app: App): Promise<Response> {
   if (session === undefined) return unauthorized(c)
   const { userId } = session
 
-  const rawBody = await c.req.json().catch(() => undefined)
-  const parsed = decodeSafe(accountDeleteRequestSchema)(rawBody)
+  const { decoded: parsed } = await decodeJsonBody(c, accountDeleteRequestSchema)
   if (!parsed.success) {
     return c.json(
       { success: false, message: 'A confirm or cancel flag is required', code: 'BAD_REQUEST' },
@@ -225,42 +230,54 @@ async function handleDelete(c: Context, app: App): Promise<Response> {
   }
 
   if ('cancel' in parsed.data) {
-    const body = await runRequestEffect(c, provideDomain(c, CancelAccountDeletion(userId)))
-    return c.json(body, 200)
+    return runHandlerEffect(
+      c,
+      respondWith(c, cancelAccountDeletion(userId), accountDeleteCancelledResponseSchema)
+    )
   }
 
-  const refusal = await runDomainPromise(c, accountRemovalRefusal(userId, app))
-  if (refusal !== undefined) {
-    return c.json({ success: false, message: refusal, code: 'CONFLICT' }, 409)
-  }
-
-  // { confirm: true } — schedule the erasure (transactional write inside the use case).
-  const result = await runRequestEffect(c, provideDomain(c, ScheduleAccountDeletion(userId)))
-
-  // Emit the audit entry — Phase 8 Cycle 1b. The catalog row
-  // (`account.deletion.scheduled` → resource.type `user`) is the canonical
-  // pairing; metadata carries the grace period + scheduled timestamp so
-  // operator triage can answer "when did this account schedule erasure?"
-  // without joining additional tables. Best-effort (catalog miss is logged
-  // and dropped inside EmitAuditEvent — the user-visible 202 must not fail
-  // because of an audit side-effect).
-  const actor = await runDomainPromise(c, resolveActor(userId))
-  await runDomainPromise(
+  return runHandlerEffect(
     c,
-    EmitAuditEvent({
-      action: AUDIT_ACTIONS.ACCOUNT_DELETION_SCHEDULED,
-      actor,
-      resourceId: userId,
-      severity: 'critical',
-      result: 'success',
-      metadata: {
-        gracePeriodDays: GRACE_PERIOD_DAYS,
-        scheduledErasureAt: result.scheduledErasureAt.toISOString(),
-      },
-    })
-  )
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const refusal = yield* accountRemovalRefusal(userId, app)
+        if (refusal !== undefined) {
+          return c.json({ success: false, message: refusal, code: 'CONFLICT' }, 409)
+        }
 
-  return c.json(result.body, 202)
+        // { confirm: true } — schedule the erasure (transactional write inside the use case).
+        const result = yield* scheduleAccountDeletion(userId)
+
+        // Emit the audit entry — Phase 8 Cycle 1b. The catalog row
+        // (`account.deletion.scheduled` → resource.type `user`) is the canonical
+        // pairing; metadata carries the grace period + scheduled timestamp so
+        // operator triage can answer "when did this account schedule erasure?"
+        // without joining additional tables. Best-effort (catalog miss is logged
+        // and dropped inside emitAuditEvent — the user-visible 202 must not fail
+        // because of an audit side-effect).
+        const actor = yield* resolveActor(userId)
+        yield* emitAuditEvent({
+          action: AUDIT_ACTIONS.ACCOUNT_DELETION_SCHEDULED,
+          actor,
+          resourceId: userId,
+          severity: 'critical',
+          result: 'success',
+          metadata: {
+            gracePeriodDays: GRACE_PERIOD_DAYS,
+            scheduledErasureAt: result.scheduledErasureAt.toISOString(),
+          },
+        })
+
+        return yield* respondWith(
+          c,
+          Effect.succeed(result.body),
+          accountDeleteScheduledResponseSchema,
+          202
+        )
+      })
+    )
+  )
 }
 
 // ============================================================================
@@ -292,16 +309,15 @@ async function handlePurgeDue(c: Context, app: App): Promise<Response> {
   // route did not exist (`internal-scheduler-gate.ts`).
   if (!isInternalSchedulerRequest(c)) return internalSchedulerNotFound(c)
 
-  // Authorship columns are resolved from the table's DECLARED FIELD TYPES, not
-  // assumed to be the literal `created_by`. A `{ name: 'author',
-  // type: 'created-by' }` field is valid config and generates an `author`
-  // column; matching by literal name deleted nothing for such a config while
-  // still reporting `purgedCount: 1`.
-  const purgedCount = await purgeDueAccounts(
-    (app.tables ?? []).map((t) => resolvePurgeTableAuthorship(app.tables, t.name)),
-    app
+  // The sweep resolves each table's authorship columns from its DECLARED FIELD
+  // TYPES (`RetentionSweepsLive`), never the literal `created_by`.
+  return runHandlerEffect(
+    c,
+    respondWith(
+      c,
+      purgeDueAccounts(app).pipe(Effect.map((purgedCount) => ({ status: 'ok', purgedCount })))
+    )
   )
-  return c.json({ status: 'ok', purgedCount }, 200)
 }
 
 /**
@@ -323,8 +339,16 @@ async function handleRetentionDue(c: Context): Promise<Response> {
   // route did not exist (`internal-scheduler-gate.ts`).
   if (!isInternalSchedulerRequest(c)) return internalSchedulerNotFound(c)
 
-  const deletedCount = await purgeExpiredActivityLogs()
-  return c.json({ status: 'ok', deletedCount }, 200)
+  return runHandlerEffect(
+    c,
+    respondWith(
+      c,
+      purgeExpiredActivityLogs().pipe(
+        Effect.map((deletedCount) => ({ status: 'ok', deletedCount }))
+      ),
+      activityRetentionResponseSchema
+    )
+  )
 }
 
 /**

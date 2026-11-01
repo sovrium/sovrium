@@ -13,12 +13,11 @@ import {
   otherActiveAdmins,
   type AdminCandidate,
 } from '@/domain/models/app/auth/roles/role-write-validation'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { authUsersTable } from './drizzle/dialect-schema'
-import { executeRaw } from './sql/dialect-execute'
-import { authTableRef } from './sql/dialect-sql'
-import { isSqliteRuntime } from './unsupported-in-sqlite'
+import type { Dialect, TransactionOn } from './drizzle/layer'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
-import type { DrizzleDB, DrizzleTransaction } from '@/infrastructure/database'
+import type { PortableDb } from '@/infrastructure/database'
 
 /**
  * The last-admin rail as the account erasure runs it (`purgeAccount` in
@@ -100,7 +99,7 @@ export async function eraseUnderLastAdminRail(
  * `IS NULL OR = false`, never `<> true`, which drops NULL rows on both dialects.
  */
 export const selectAdminCandidates = (
-  runner: Readonly<Pick<DrizzleDB, 'select'>>,
+  runner: Readonly<Pick<PortableDb, 'select'>>,
   users: ReturnType<typeof authUsersTable>,
   adminRoles: readonly string[]
 ) =>
@@ -137,12 +136,12 @@ export const ADMIN_CANDIDATE_LOCK = 'no key update'
  * not held against a concurrent demotion.
  */
 export async function lockAdminCandidates(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   adminRoles: readonly string[]
 ): Promise<readonly AdminCandidate[]> {
   if (adminRoles.length === 0) return []
-  const query = selectAdminCandidates(tx as unknown as DrizzleDB, authUsersTable(), adminRoles)
-  return isSqliteRuntime() ? await query : await query.for(ADMIN_CANDIDATE_LOCK)
+  const query = selectAdminCandidates(tx, authUsersTable(), adminRoles)
+  return dialect.kind === 'sqlite' ? await query : await query.for(ADMIN_CANDIDATE_LOCK)
 }
 
 /**
@@ -154,25 +153,26 @@ export async function lockAdminCandidates(
  * names. SQLite has no row locks and a single writer: nothing to take.
  */
 export async function lockErasedAccount(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string
 ): Promise<void> {
-  if (isSqliteRuntime()) return
-  await executeRaw(tx, erasedAccountLock(userId))
+  if (dialect.kind === 'sqlite') return
+  await executeRawOn(dialect.kind, tx, erasedAccountLock(dialect, userId))
 }
 
 /** The statement {@link lockErasedAccount} runs on PostgreSQL, with the id bound. */
-export const erasedAccountLock = (userId: string) =>
-  sql`SELECT id FROM ${authTableRef('user')} WHERE id = ${userId} FOR UPDATE`
+export const erasedAccountLock = (dialect: Dialect, userId: string) =>
+  sql`SELECT id FROM ${dialect.sql.authTableRef('user')} WHERE id = ${userId} FOR UPDATE`
 
 /** The account's address, role and ban flag, read inside the erasure transaction. */
 export async function readErasureSubject(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string
 ): Promise<ErasureSubject | undefined> {
-  const rows = (await executeRaw(
+  const rows = (await executeRawOn(
+    dialect.kind,
     tx,
-    sql`SELECT email, role, banned FROM ${authTableRef('user')} WHERE id = ${userId}`
+    sql`SELECT email, role, banned FROM ${dialect.sql.authTableRef('user')} WHERE id = ${userId}`
   )) as readonly {
     email: string | null
     role: string | null

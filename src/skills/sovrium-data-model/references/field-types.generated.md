@@ -29,7 +29,7 @@ Read: `sovrium docs fields/text-fields`
 | `phone-number` | Text field for storing phone numbers with support for international formats. Numbers are stored as plain text without automatic formatting. |
 | `rich-text` | Stores formatted text with rich formatting support. Rendered with Tiptap WYSIWYG editor in UI. |
 | `single-line-text` | Short text input limited to a single line. Ideal for names, titles, labels, and brief identifiers. Text is stored as-is without formatting. |
-| `url` | Text field with URL format validation. Validates web addresses and supports multiple protocols (http://, https://, ftp://, etc.). |
+| `url` | Text field holding a web address: every write accepts only an absolute http:// or https:// URL without a user name or password. |
 
 ## Numeric fields
 
@@ -88,7 +88,7 @@ Read: `sovrium docs fields/attachment-fields`
 | --- | --- |
 | `barcode` | Stores barcode values with various format support. Used for product identification and inventory. |
 | `multiple-attachments` | Stores multiple file attachments. The storage backend is configured globally through STORAGE_* environment variables, not per field. |
-| `signature` | Stores one signature — image, signer name, date, method and the statement agreed to. Written once by a signature-pad; a signed value cannot be changed by an edit. |
+| `signature` | Stores one signature: image, signer name, date, method and the statement agreed to. Written once by a signature-pad; a signed value cannot be changed by an edit. |
 | `single-attachment` | Stores a single file attachment. The storage backend is configured globally through STORAGE_* environment variables, not per field. |
 
 ## User fields

@@ -7,9 +7,9 @@
 
 /**
  * The SEARCH mode's list: the matches a declared endpoint answers, one named
- * group per kind, plus the three calm states the reader meets on the way (the
- * prompt before anything is typed, the hint while a query is in flight, and
- * the no-results status naming the searched term).
+ * group per kind, plus the calm states the reader meets on the way (the prompt
+ * under the list before anything is typed, the hint while a query is in
+ * flight, and the no-results status naming the searched term).
  *
  * The groups and items are the command menu's own (`parts/command-primitives`),
  * so a result is an `option` the arrows reach and Enter chooses. An item's
@@ -68,7 +68,12 @@ const momentText = (occurredAt: string | undefined): string | undefined => {
   if (occurredAt === undefined) return undefined
   const moment = new Date(occurredAt)
   if (Number.isNaN(moment.getTime())) return undefined
-  return formatDayRelativeTime(moment, usableLocale(resolvePageLocale()), resolvePageTimezone())
+  return formatDayRelativeTime(
+    moment,
+    usableLocale(resolvePageLocale()),
+    resolvePageTimezone(),
+    new Date()
+  )
 }
 
 /**
@@ -162,9 +167,33 @@ function StateLine({
 }
 
 /**
- * The list body for the current search state. The prompt names the CORPUS
- * rather than repeating the placeholder, so an empty palette tells the reader
- * what is reachable from here.
+ * The prompt under an empty palette's list: it names the CORPUS, the kinds of
+ * data the app declares (`Type to search records and users.`), rather than
+ * repeating the placeholder. It gives way once the reader types; an app
+ * declaring no kind gets none.
+ */
+export function PromptLine({
+  query,
+  text,
+}: {
+  readonly query: string
+  readonly text: string | undefined
+}): ReactElement | null {
+  if (query.trim().length > 0 || text === undefined || text.length === 0) return null
+  return (
+    <p
+      data-slot="command-prompt"
+      className="text-muted-foreground border-t px-3 py-2 text-xs"
+    >
+      {text}
+    </p>
+  )
+}
+
+/**
+ * The list body for the current search state: nothing before the reader types
+ * (the prompt sits under the list, {@link PromptLine}), then the in-flight
+ * line, the no-results status naming the term, or the results by kind.
  */
 export function SearchResults({
   query,
@@ -183,22 +212,13 @@ export function SearchResults({
   readonly kindLabels: Readonly<Record<string, string>> | undefined
   readonly kindBadges?: Readonly<Record<string, string>> | undefined
   readonly tableLabels: Readonly<Record<string, string>> | undefined
-  /** The palette's words in the page language (`startTyping`, `searching`, `noResultsFor`). */
+  /** The palette's words in the page language (`searching`, `noResultsFor`). */
   readonly words?: Readonly<Record<string, string | undefined>> | undefined
   readonly onSelect: (href: string) => void
 }): ReactElement | null {
   const trimmed = query.trim()
   const word = (key: string, english: string): string => words?.[key] ?? english
-  if (trimmed.length === 0) {
-    return (
-      <StateLine>
-        {word(
-          'startTyping',
-          'Start typing to search records, submissions, files, automations and users.'
-        )}
-      </StateLine>
-    )
-  }
+  if (trimmed.length === 0) return null
   if (searchPhaseOf(query, search) === 'searching') {
     return <StateLine status>{word('searching', 'Searching…')}</StateLine>
   }

@@ -8,12 +8,11 @@
 /**
  * Collection-page record resolution.
  *
- * Lives in its own module so the broader `render-page.tsx` file stays
- * under the line cap. The helper below is the only piece of the renderer
- * that materialises the `$record` envelope exposed to a collection-page's
- * components and meta — keeping it isolated also makes the contract
- * obvious (one fetch + filter check + substitution pass, three
- * outcomes).
+ * Lives in its own module so the broader `render-page.tsx` file stays under the
+ * line cap. The helper below is the only piece of the renderer that materialises
+ * the `$record` envelope exposed to a collection-page's components and meta —
+ * keeping it isolated also makes the contract obvious (one fetch + filter check
+ * + substitution pass, three outcomes).
  *
  * `page.collection` declares:
  *   - `table`       — name of the source table
@@ -25,16 +24,14 @@
  * The substitution pass walks the page's `components`, `meta.title`,
  * `meta.description`, and `meta.keywords` replacing `$record.<field>`
  * tokens with the corresponding column value from the resolved record.
- * Component substitution uses `substituteRecordInCollectionTemplate`
- * from `data-source-resolver.ts` — the collection-template variant of
- * the per-record walk skips children of components that have a
- * `dataSource` so per-row templates are not pre-bound to the parent
- * collection record (the pages access publishing requirement — Category & Tag
- * Patterns). The `dataSource.filter[].value` IS substituted so the
- * parent record can drive cross-table filtering (eg.
- * `filter: [{ field: 'category', value: '$record.name' }]`).
+ * `substituteRecordInCollectionTemplate` skips the children of a component
+ * that has a `dataSource`, so per-row templates are not pre-bound to the page
+ * record; its `dataSource.filter[].value` IS substituted, so the record can
+ * drive cross-table filtering. A top-level component failing its
+ * `visibility.record` leaves the page first.
  */
 
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import {
   recordLanguageAddresses,
   routeSlugLanguage,
@@ -43,9 +40,17 @@ import {
 import { withRecordText } from '@/domain/models/app/pages/substitute-record-vars'
 import { pageRecordOf } from '@/presentation/render/props/record-value-format'
 import { filledFromRecord } from '@/presentation/render/resolve/avatar-members-binding'
+import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/collection-template-substitution'
 import { autoBindCommentComponents } from '@/presentation/render/resolve/comment-record-binding'
+import {
+  componentField,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+} from '@/presentation/render/resolve/component-rewrite'
 import { substituteRecordVars } from '@/presentation/render/resolve/data-source-contracts'
-import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
+import { withAuthoredMetaCode } from '@/presentation/render/resolve/meta-code-bodies'
+import { markAddressedDialogs } from '@/presentation/render/resolve/overlay-triggers'
 import { recordMatchesCollectionFilter } from '@/presentation/render/resolve/page-collection-filter'
 import {
   fetchCollectionAdjacency,
@@ -54,6 +59,8 @@ import {
   type CollectionRowsReader,
   type CollectionViewerRowsReader,
 } from '@/presentation/render/resolve/page-collection-prevnext'
+import { collectionRecordScope } from '@/presentation/render/resolve/record-repeat-expansion'
+import { filterChildrenForRecord } from '@/presentation/render/resolve/record-visibility'
 import {
   addressableRecord,
   slugLookupLanguage,
@@ -62,6 +69,7 @@ import type { PageAddress } from '@/domain/kernel/matching/localized-path'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
+import type { StoredTables } from '@/presentation/render/resolve/record-repeat-expansion'
 
 /**
  * Outcome of resolving a collection page's record.
@@ -107,17 +115,7 @@ export type PageCollectionResolution =
  * a `$record.*` token at any depth resolves to the per-record value.
  */
 function substituteRecordDeep(value: unknown, record: Record<string, unknown>): unknown {
-  if (typeof value === 'string') return substituteRecordVars(value, record)
-  if (Array.isArray(value)) return value.map((item) => substituteRecordDeep(item, record))
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([k, v]) => [
-        k,
-        substituteRecordDeep(v, record),
-      ])
-    )
-  }
-  return value
+  return mapStringsDeep(value, (text) => substituteRecordVars(text, record))
 }
 
 /**
@@ -125,6 +123,8 @@ function substituteRecordDeep(value: unknown, record: Record<string, unknown>): 
  * included, so one declaration yields a per-record `<title>`, description,
  * canonical link, social card and JSON-LD — on a collection page and a page
  * bound to one record alike. `title` and `description` print a value formatted.
+ * The code `meta` declares (an analytics `initScript`, a `customElements` body)
+ * is left as written — `withAuthoredMetaCode`.
  */
 export function substituteRecordInMeta(
   meta: Page['meta'],
@@ -136,17 +136,11 @@ export function substituteRecordInMeta(
     readonly description?: unknown
   }
   const prose = (value: unknown) => substituteRecordDeep(value, withRecordText(record))
-  return {
+  return withAuthoredMetaCode(meta, {
     ...(substituteRecordDeep(meta, record) as NonNullable<Page['meta']>),
     ...(title !== undefined && { title: prose(title) }),
     ...(description !== undefined && { description: prose(description) }),
-  } as Page['meta']
-}
-
-/** The loose binding shape the nested-record walk reads off a component. */
-interface NestedBinding {
-  readonly table?: string
-  readonly mode?: string
+  } as Page['meta'])
 }
 
 /**
@@ -168,17 +162,23 @@ interface NestedBinding {
  */
 function inheritsPageRecord(component: Component, tableName: string): boolean {
   if (component.type !== 'form') return false
-  const ds = component.dataSource as NestedBinding | undefined
-  if (ds === undefined || ds.mode !== undefined || ds.table !== tableName) return false
-  const { action } = component as {
-    readonly action?: {
-      readonly type?: string
-      readonly operation?: string
-      readonly table?: string
-    }
-  }
-  if (action?.type !== 'crud') return true
-  return action.operation !== 'create' && (action.table ?? tableName) === tableName
+  const ds = componentField(component, 'dataSource')
+  if (ds === undefined || keyOf(ds, 'mode') !== undefined || keyOf(ds, 'table') !== tableName)
+    return false
+  const action = componentField(component, 'action')
+  if (keyOf(action, 'type') !== 'crud') return true
+  return (
+    keyOf(action, 'operation') !== 'create' && (keyOf(action, 'table') ?? tableName) === tableName
+  )
+}
+
+/** Bound to the page's own record: a single-mode binding to its table, or an inheriting form. */
+function bindsPageRecord(component: Component, tableName: string): boolean {
+  const ds = componentField(component, 'dataSource')
+  return (
+    (keyOf(ds, 'mode') === 'single' && keyOf(ds, 'table') === tableName) ||
+    inheritsPageRecord(component, tableName)
+  )
 }
 
 /**
@@ -188,12 +188,7 @@ function inheritsPageRecord(component: Component, tableName: string): boolean {
  * does not already carry a `_record` prop.
  */
 function shouldInjectCollectionRecord(component: Component, tableName: string): boolean {
-  const ds = component.dataSource as NestedBinding | undefined
-  const bound =
-    (ds?.mode === 'single' && ds.table === tableName) || inheritsPageRecord(component, tableName)
-  if (!bound) return false
-  const existing = (component.props as { _record?: unknown } | undefined)?._record
-  return existing === undefined
+  return bindsPageRecord(component, tableName) && keyOf(component.props, '_record') === undefined
 }
 
 /**
@@ -202,16 +197,12 @@ function shouldInjectCollectionRecord(component: Component, tableName: string): 
  * or because the component carries no children at all.
  */
 function shouldStopRecursion(component: Component, tableName: string): boolean {
-  const ds = component.dataSource as NestedBinding | undefined
   if (!component.children) return true
-  if (ds === undefined) return false
+  if (componentField(component, 'dataSource') === undefined) return false
   // Recurse only when this node is bound to the page's own record (the
   // single-mode case, or a form inheriting it); other dataSources own their
   // children's per-row substitution.
-  return !(
-    (ds.mode === 'single' && ds.table === tableName) ||
-    inheritsPageRecord(component, tableName)
-  )
+  return !bindsPageRecord(component, tableName)
 }
 
 /**
@@ -238,37 +229,41 @@ export function injectRecordIntoNestedSingleMode(
   record: Record<string, unknown>,
   tableName: string
 ): Component {
-  const withProp: Component = shouldInjectCollectionRecord(component, tableName)
-    ? {
-        ...component,
+  const withProp = shouldInjectCollectionRecord(component, tableName)
+    ? rewriteComponent(component, {
         props: { ...(component.props ?? {}), _dataSourceBound: true, _record: record },
-      }
+      })
     : component
   if (shouldStopRecursion(withProp, tableName)) return withProp
-  return {
-    ...withProp,
-    children: withProp.children!.map((child: Component | string) =>
-      typeof child === 'string' ? child : injectRecordIntoNestedSingleMode(child, record, tableName)
+  return rewriteComponent(withProp, {
+    children: withProp.children!.map((child) =>
+      typeof child === 'string'
+        ? child
+        : injectRecordIntoNestedSingleMode(entryAsComponent(child), record, tableName)
     ),
-  }
+  })
 }
 
 /**
- * Substitutes `$record.<field>` tokens in every top-level page
- * component. Component-reference items (`$ref`/`component`) are passed
- * through unchanged because variable substitution into referenced
- * templates happens later via the `$vars` pipeline.
+ * Substitutes `$record.<field>` in every top-level component and expands a `repeat` against the
+ * record (`record-repeat-expansion.ts`); a `$ref`/`component` item gets its `$vars` later.
  */
 function substituteRecordInPageComponents(
   components: Page['components'],
   record: Record<string, unknown>,
-  tableName: string
+  { table: tableName, tables }: { readonly table: string; readonly tables: StoredTables }
 ): Page['components'] {
   if (!components) return components
-  return components.map((item) => {
+  const scope = collectionRecordScope(record, tables, tableName)
+  // A dialog a dropped trigger opens is marked from the authored tree, so it waits closed.
+  const visible = markAddressedDialogs(
+    components,
+    filterChildrenForRecord(components as readonly (Component | string)[], record)
+  ) as NonNullable<Page['components']>
+  return visible.map((item) => {
     if ('component' in item || '$ref' in item) return item
-    const substituted = substituteRecordInCollectionTemplate(item as Component, record, tableName)
-    return injectRecordIntoNestedSingleMode(substituted, record, tableName)
+    const bound = substituteRecordInCollectionTemplate(item, record, tableName, scope)
+    return injectRecordIntoNestedSingleMode(bound, record, tableName)
   })
 }
 
@@ -321,16 +316,14 @@ async function resolveCollectionRecord(
   if (options?.refuseRecord === true) return { kind: 'not-found' }
 
   // A soft-deleted record is gone from its page, the way an unknown slug is.
-  const record = await db.fetchSingleRecord(collection.table, slugField, slugValue, undefined, {
+  const record = await db.fetchSingleRecord(collection.table, slugField, slugValue, {
     liveOnly: true,
     ...slugLookupLanguage(collection, db),
   })
   if (record === undefined) return { kind: 'not-found' }
 
   const passes = recordMatchesCollectionFilter(record, collection, db.recordText)
-  if (options?.bypassFilter !== true && !passes) {
-    return { kind: 'not-found' }
-  }
+  if (options?.bypassFilter !== true && !passes) return { kind: 'not-found' }
 
   // [internal ref] / a pages collection spec: row-level read predicate runs AFTER
   // the row is confirmed to exist (so a genuinely missing record still 404s
@@ -358,10 +351,8 @@ interface ResolveCollectionOptions {
    * see it — the resolver returns `permission-blocked`, which the page answers
    * exactly as `not-found`.
    *
-   * Returning `true` (or omitting the option entirely) preserves the
-   * existing pass-through behaviour. `bypassFilter` does NOT bypass this
-   * predicate — preview is an editorial concern, row-level read perms
-   * are a confidentiality concern and apply at all times.
+   * `bypassFilter` does NOT bypass this predicate: preview is an editorial
+   * concern, row-level read perms a confidentiality one that always applies.
    */
   readonly rowLevelReadCheck?: (
     record: Readonly<Record<string, unknown>>
@@ -417,7 +408,7 @@ export async function resolveCollectionPage(
   const substitutedComponents = substituteRecordInPageComponents(
     await filledFromRecord(options?.fillFromRecord, page.components, record),
     pageRecord,
-    collection.table
+    { table: collection.table, tables: db.recordText?.tables }
   )
 
   // PG-02 auto-bind: `comments` components (either display) inside a

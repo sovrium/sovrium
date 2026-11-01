@@ -19,7 +19,7 @@ The fastest way to a good config is to start from a piece someone already wrote 
 | `connection` | `connections` | `connection/qonto`     |
 | `recipe`     | `automations` | `recipe/form-to-brevo` |
 
-Every entry has an article in this manual under the `library` section — `sovrium docs library` lists them, and `sovrium docs search <provider>` finds one by name.
+Every entry has an article in this manual under the `library` section: `sovrium docs library` lists them, and `sovrium docs search <provider>` finds one by name.
 
 ## Finding an entry
 
@@ -35,13 +35,13 @@ A block that mirrors a shadcn/ui block also answers to shadcn's own id, so `show
 sovrium library add block/hero-centered --set headline="Handmade bindings that last"
 ```
 
-The command finds your config the way `sovrium start` does — `app.yaml`, `app.yml` or `app.ts` in the working directory — or uses the one `--into` names, which must sit inside the working directory. Then it:
+The command finds your config the way `sovrium start` does (`app.yaml`, `app.yml` or `app.ts` in the working directory) or uses the one `--into` names, which must sit inside the working directory. Then it:
 
-1. **Writes the fragment** to `library/<kind>/<name>.yaml` beside your config, opening with a `# sovrium-library: <id>@<version>` line so you always know where it came from, and — when the entry has parameters — a `# sovrium-library-params:` line recording the values it was written with. The file is yours: edit it like any other part of your config.
-2. **Wires it** by adding exactly one line, `- $ref: ./library/<kind>/<name>.yaml`, at the end of the `components`, `connections` or `automations` list — creating the key at the end of the file when it is missing. Nothing else in `app.yaml` moves: comments, ordering and quoting stay as you wrote them.
-3. **Lists the secrets** an entry reads by appending their names — never a value — to `.env.example`. `.env` is never read or written.
+1. **Writes the fragment** to `library/<kind>/<name>.yaml` beside your config, opening with a `# sovrium-library: <id>@<version>` line so you always know where it came from and, when the entry has parameters, a `# sovrium-library-params:` line recording the values it was written with. The file is yours: edit it like any other part of your config.
+2. **Wires it** by adding exactly one line, `- $ref: ./library/<kind>/<name>.yaml`, at the end of the `components`, `connections` or `automations` list, creating the key at the end of the file when it is missing. Nothing else in `app.yaml` moves: comments, ordering and quoting stay as you wrote them.
+3. **Lists the secrets** an entry reads by appending their names (never a value) to `.env.example`. `.env` is never read or written.
 
-An entry that reads environment variables needs them declared under `env` in your config first, since a config may reference only the variables it declares. Until they are, `add` refuses — writing nothing — and prints the exact lines to add, for example:
+An entry that reads environment variables needs them declared under `env` in your config first, since a config may reference only the variables it declares. Until they are, `add` refuses, writes nothing and prints the exact lines to add, for example:
 
 ```yaml
 env:
@@ -50,11 +50,11 @@ env:
 
 The entry itself is never changed to fit.
 
-A recipe that needs a connection installs it too, unless your config already defines one of that name. An entry another one requires — the password-reset block installs the screen its email links to — takes each `--set` value it declares under the same name and type, and the line announcing it names the value of each of its parameters and where it came from: `--set`, your config, or the entry's default.
+A recipe that needs a connection installs it too, unless your config already defines one of that name. An entry another one requires (the password-reset block installs the screen its email links to) takes each `--set` value it declares under the same name and type, and the line announcing it names the value of each of its parameters and where it came from: `--set`, your config, or the entry's default.
 
 A block that adds a record does it through a form, because a page `form` never creates a row on its own: the block places the form with `formRef`, and `add` installs that form beside it. The form is written to `library/form/<name>.yaml`, opens with the same `# sovrium-library:` line, and is wired with one `- $ref:` line under `forms`. It takes the next form `id` your config does not use, and keeps it if you install the block again. `library show` says when a block ships a form. A form embedded this way stores no submission in the Submissions inbox unless you add `submitTo.storeSubmission: true` to it.
 
-An entry that reads data binds to a table your config already has: `library show` lists the table and fields it expects, `--set table=<yours>` (and any field parameter) rebinds it, and `add` refuses — writing nothing — when the table or a field is missing. The library never creates a table.
+An entry that reads data binds to a table your config already has: `library show` lists the table and fields it expects, `--set table=<yours>` (and any field parameter) rebinds it, and `add` refuses, writing nothing, when the table or a field is missing. The library never creates a table.
 
 `--set key=value` fills a parameter the entry declares, and `--as <name>` installs it under another name. A parameter you leave unset takes the entry's default, except a link to the sign-in page, which follows `auth.loginPage` when your config sets it. `--dry-run` prints the files and the line it would write and writes nothing. `--no-wire` writes the fragment and prints the line for you to place.
 
@@ -62,17 +62,17 @@ A connection installed under another name is a second account of the same servic
 
 ## What it refuses, and what it leaves alone
 
-The config is decoded before anything changes. If it did not validate to begin with, nothing is written and the existing problem is reported the way `sovrium validate` reports it — fix that first. The edited config is then decoded again, with the new fragment in place, before a byte reaches the disk; a change that would not validate is refused whole.
+The config is decoded before anything changes. If it did not validate to begin with, nothing is written and the existing problem is reported the way `sovrium validate` reports it. Fix that first. The edited config is then decoded again, with the new fragment in place, before a byte reaches the disk; a change that would not validate is refused whole.
 
-It never overwrites a fragment you edited, and it refuses an entry whose name your config already uses — naming `--as` as the way out. Adding an entry that is already installed and wired changes nothing and says so. Adding it again with other parameters rewrites the fragment, as long as it is still exactly what the library wrote with the parameters it records, and names each parameter that changed; a fragment you edited is left as it is, and the refusal prints the `--update` command that replaces it. The version on the first line is not part of that comparison: a fragment an earlier Sovrium wrote counts as unedited while the block still writes the same item, and one written before parameters were recorded is compared with the block's default parameters.
+It never overwrites a fragment you edited, and it refuses an entry whose name your config already uses, naming `--as` as the way out. Adding an entry that is already installed and wired changes nothing and says so. Adding it again with other parameters rewrites the fragment, as long as it is still exactly what the library wrote with the parameters it records, and names each parameter that changed; a fragment you edited is left as it is, and the refusal prints the `--update` command that replaces it. The version on the first line is not part of that comparison: a fragment an earlier Sovrium wrote counts as unedited while the block still writes the same item, and one written before parameters were recorded is compared with the block's default parameters.
 
-`--update` replaces an installed fragment in place with what this version of Sovrium writes, whether you edited it or the block has changed since: `sovrium library add block/hero-centered --update`. The first line then names the version that wrote it. The parameters are the ones the fragment's `# sovrium-library-params:` line records, and a `--set` given with `--update` overrides its own; a fragment that records none takes the entry's defaults. The command says what it replaced — `Replaced library/block/hero-centered.yaml — block/hero-centered@0.26.0, edited since it was installed, with block/hero-centered@<version>` — because an edit it replaces is gone: commit your config first if you may want it back. With `--dry-run` it prints `Would replace …` and writes nothing. A config that already wires the fragment is not wired a second time, and the config is decoded with the new fragment in place before anything is written, as for every install.
+`--update` replaces an installed fragment in place with what this version of Sovrium writes, whether you edited it or the block has changed since: `sovrium library add block/hero-centered --update`. The first line then names the version that wrote it. The parameters are the ones the fragment's `# sovrium-library-params:` line records, and a `--set` given with `--update` overrides its own; a fragment that records none takes the entry's defaults. The command says what it replaced (`Replaced library/block/hero-centered.yaml — block/hero-centered@0.26.0, edited since it was installed, with block/hero-centered@<version>`), because an edit it replaces is gone: commit your config first if you may want it back. With `--dry-run` it prints `Would replace …` and writes nothing. A config that already wires the fragment is not wired a second time, and the config is decoded with the new fragment in place before anything is written, as for every install.
 
 Every fragment is laid out the way Prettier lays it out at its default options, in YAML and in TypeScript, so formatting your project leaves it unchanged, and a fragment you only reformatted with those options still counts as unedited. A fragment written before Sovrium laid them out that way reads as edited; moving it aside gets a fresh one.
 
-An empty list written inline — `components: []` — holds nothing to lose, so it becomes a block list holding the one new line; a trailing comment on that line is kept.
+An empty list written inline (`components: []`) holds nothing to lose, so it becomes a block list holding the one new line; a trailing comment on that line is kept.
 
-When the target key is written in a form a single line cannot safely extend — a non-empty inline list such as `components: [a, b]`, a `$ref` to another file, an anchor — the fragment is still written, your config is left exactly as it was, and the line to add is printed with the key it belongs under. A TypeScript config is never edited: the fragment is written as `library/<kind>/<name>.ts` and the `import` to paste is printed.
+When the target key is written in a form a single line cannot safely extend (a non-empty inline list such as `components: [a, b]`, a `$ref` to another file, an anchor), the fragment is still written, your config is left exactly as it was, and the line to add is printed with the key it belongs under. A TypeScript config is never edited: the fragment is written as `library/<kind>/<name>.ts` and the `import` to paste is printed.
 
 ## Installing API operations one by one
 
@@ -82,7 +82,7 @@ Several connections come with the endpoints of their provider's API, generated f
 sovrium library add lemlist/get-campaigns
 ```
 
-This declares the operation, exactly as the library ships it, under `operations` in `library/connection/lemlist.yaml`, installing and wiring the lemlist connection first when your config does not have it. A second operation is appended after the ones already there; one already declared changes nothing. `--tag <group>` declares a whole group — `sovrium library add lemlist --tag campaigns` — and an unknown group is refused with the list of real ones. `--all` declares every operation of the provider, and asks for `--yes` when there are more than fifty. `--dry-run` prints the operations it would add and writes nothing.
+This declares the operation, exactly as the library ships it, under `operations` in `library/connection/lemlist.yaml`, installing and wiring the lemlist connection first when your config does not have it. A second operation is appended after the ones already there; one already declared changes nothing. `--tag <group>` declares a whole group (`sovrium library add lemlist --tag campaigns`), and an unknown group is refused with the list of real ones. `--all` declares every operation of the provider, and asks for `--yes` when there are more than fifty. `--dry-run` prints the operations it would add and writes nothing.
 
 A connection whose operations are written by hand, such as `trello`, is addressed the same way: `sovrium library add trello/create-card` declares that one operation, and an operation the connection does not declare is refused with the address of its article. `--tag` and `--all` apply only to the generated operations.
 

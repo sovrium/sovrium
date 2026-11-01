@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every component type a page can place (112), by category, with what it is for. Reach for the type whose purpose matches the job before composing one out of smaller parts; the article named under each category lists its options.
+Every component type a page can place (113), by category, with what it is for. Reach for the type whose purpose matches the job before composing one out of smaller parts; the article named under each category lists its options.
 
 ## Contents
 
@@ -31,6 +31,7 @@ Read: `sovrium docs components/interactive-components`
 | `badge` | A Badge: a short status word pinned to a thing, never a sentence. |
 | `button` | One action, stated as a verb. A link when href is set, a button otherwise. |
 | `button-group` | A Button Group: several exclusive actions of equal weight, joined so they read as one control. |
+| `consent-choice` | A visitor's own on-or-off choice about one purpose, such as audience measurement, kept in their browser. |
 | `link` | Navigation inside a run of text, underlined so it reads as a link at a glance. |
 | `theme-toggle` | The one control that flips the colour scheme and remembers the choice. |
 
@@ -83,7 +84,7 @@ Read: `sovrium docs data-components`
 | `map` | Records placed as pins at their location, with a list twin a keyboard can use. |
 | `matrix` | Two sets of things crossed, each intersection a glyph rather than a word: rows and columns are nodes of the graph `dataSource` names, and a cell is the edge between them. |
 | `questionnaire` | A questionnaire: one question per screen, answered by choosing, with a count of how many remain. |
-| `table` | A Data Table: the records of a table as a grid — sorting, filtering, grouping, selection, paging — or the rows you write in the config. |
+| `table` | A Data Table: the records of a table as a grid (sorting, filtering, grouping, selection, paging), or the rows you write in the config. |
 | `tree` | The records of one table nested under their parents, opened branch by branch. |
 
 ## Layout
@@ -128,15 +129,15 @@ Read: `sovrium docs components/display-components`
 | Type | What it is for |
 | --- | --- |
 | `accordion` | An Accordion: stacked sections that open one at a time. |
-| `avatar` | An Avatar: a person or a thing as a small round mark — a picture, initials, or nothing at all. |
+| `avatar` | An Avatar: a person or a thing as a small round mark, drawn as a picture, as initials, or as nothing at all. |
 | `bubble` | A Bubble: the surface of one chat turn, set to its side of the thread. |
 | `collapsible` | A collapsible region behind one trigger, shown or hidden in place, with no siblings to close. |
 | `description-list` | Pairs of a term and its detail, read down rather than across. |
 | `empty` | An Empty state: what a view says when it has nothing to show, and what to do about it. |
-| `item` | An Item: one row of a list — a leading mark, a title, a subtitle, a trailing value. |
+| `item` | An Item: one row of a list, with a leading mark, a title, a subtitle and a trailing value. |
 | `marker` | A marker line inside a thread or a list: a status, a system note, a labelled break. |
 | `marquee` | A strip of logos or words that scrolls sideways. |
-| `message` | A message: one turn of a conversation — who said it, when, on which side — around the bubble that holds it. |
+| `message` | A message: one turn of a conversation, saying who said it, when and on which side, around the bubble that holds it. |
 | `record-field` | One field of one record, drawn read-only in its own format. |
 | `scroll-area` | A Scroll Area: a region that scrolls inside the page with a thin scrollbar. |
 | `stepper` | One task split into ordered steps, each a body of its own, with a rail that shows progress. |

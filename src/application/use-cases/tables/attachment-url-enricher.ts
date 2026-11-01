@@ -5,14 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
+import { resolveStorageSigningSecret } from '@/application/use-cases/buckets/signing-secret'
 import { parseJsonArrayCell, parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { signSignedUrl } from '@/domain/models/app/buckets/signed-url-service'
+import { isAttachmentFieldType } from '@/domain/models/app/tables/field-type-classifier-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { resolveStoragePublicAccess } from '@/domain/models/process-env/storage/storage-public-access'
-import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from './record-transformer'
 import type { App } from '@/domain/models/app'
+import type {
+  TransformedRecord,
+  RecordFieldValue,
+  FormattedFieldValue,
+} from '@/domain/models/app/tables/record-transformer-service'
 
 /**
  * B-01 / the attachment-bucket binding rule: Decorate attachment column values on a transformed record
@@ -57,14 +63,15 @@ const DEFAULT_EXPIRES_IN_SECONDS = 3600
  * `resolveStorageSigningSecret` for why the previous
  * `'sovrium-signed-url-dev-secret'` fallback had to go.
  */
-const signingSecret = (env: Readonly<NodeJS.ProcessEnv>): string => resolveStorageSigningSecret(env)
+const signingSecret = (env: Readonly<Record<string, string | undefined>>): string =>
+  resolveStorageSigningSecret(env)
 
 /**
  * Compute the HMAC-SHA256 download token through the one shared signer, so it
  * is bound to exactly the claims the signed-URL serve handler verifies.
  */
 const computeDownloadToken = (
-  env: Readonly<NodeJS.ProcessEnv>,
+  env: Readonly<Record<string, string | undefined>>,
   bucket: string,
   path: string,
   expires: number
@@ -84,32 +91,19 @@ const isAttachmentObject = (
   !Array.isArray(value) &&
   typeof (value as { key?: unknown }).key === 'string'
 
-/**
- * Attachment column types the read path enriches.
- *
- * `'attachment'` is a test-only alias (absent from `KNOWN_FIELD_TYPES`) kept
- * because `uploadInlineAttachmentContent` is its only writer and
- * a buckets signed URLs spec is its only guard —.
- */
-const ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
-  'attachment',
-  'single-attachment',
-  'multiple-attachments',
-])
-
 const fieldTypeOf = (
   app: Readonly<App>,
   tableName: string,
   fieldName: string
 ): string | undefined =>
-  app.tables?.find((t) => t.name === tableName)?.fields.find((f) => f.name === fieldName)?.type
+  findTableByName(app.tables, tableName)?.fields.find((f) => f.name === fieldName)?.type
 
 /** Per-column enrichment context, resolved once per field rather than per value. */
 interface ColumnContext {
   readonly bucket: string
   readonly isPublic: boolean
   readonly origin: string
-  readonly env: NodeJS.ProcessEnv
+  readonly env: Readonly<Record<string, string | undefined>>
   readonly now: number
 }
 
@@ -211,7 +205,7 @@ const enrichRecordAttachments = (
     readonly app: Readonly<App>
     readonly tableName: string
     readonly origin: string
-    readonly env: NodeJS.ProcessEnv
+    readonly env: Readonly<Record<string, string | undefined>>
     readonly now: number
   }
 ): TransformedRecord => {
@@ -220,7 +214,7 @@ const enrichRecordAttachments = (
   const enrichedFields = Object.fromEntries(
     Object.entries(record.fields).map(([name, value]) => {
       const fieldType = fieldTypeOf(app, tableName, name)
-      if (fieldType === undefined || !ATTACHMENT_FIELD_TYPES.has(fieldType)) return [name, value]
+      if (fieldType === undefined || !isAttachmentFieldType(fieldType)) return [name, value]
       const bucket = resolveFieldBucket(app, tableName, name) ?? SYSTEM_BUCKET_NAME
       // Monotone: the operator-global toggle keeps winning, and the per-bucket
       // `public: true` flag only ever turns MORE things public — so no
@@ -253,12 +247,12 @@ export const enrichRecordsWithAttachmentUrls = (
     readonly app: Readonly<App> | undefined
     readonly tableName: string | undefined
     readonly origin: string
-    readonly env?: NodeJS.ProcessEnv
+    readonly env: Readonly<Record<string, string | undefined>>
     readonly now?: number
   }
 ): readonly TransformedRecord[] => {
   if (!options.app || !options.tableName) return records
-  const env = options.env ?? process.env
+  const { env } = options
   const now = options.now ?? Date.now()
   return records.map((record) =>
     enrichRecordAttachments(record, {
@@ -282,7 +276,7 @@ export const enrichRecordWithAttachmentUrls = (
     readonly app: Readonly<App> | undefined
     readonly tableName: string | undefined
     readonly origin: string
-    readonly env?: NodeJS.ProcessEnv
+    readonly env: Readonly<Record<string, string | undefined>>
     readonly now?: number
   }
 ): TransformedRecord => enrichRecordsWithAttachmentUrls([record], options)[0] ?? record

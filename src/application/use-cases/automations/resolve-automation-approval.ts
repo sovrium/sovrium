@@ -119,7 +119,6 @@ export interface ResolveApprovalOptions {
   readonly approvalId: string
   readonly decision: 'approve' | 'reject'
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly handlers?: ReadonlyMap<ActionKey, ActionHandler>
   /**
    * The signed-in person resolving the request. `undefined` resolves nothing:
@@ -327,7 +326,6 @@ export interface ApplyApprovalOutcomeInput {
   readonly decision: 'approved' | 'rejected'
   readonly resolver: ApprovalResolver
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly handlers?: ReadonlyMap<ActionKey, ActionHandler>
 }
 
@@ -374,7 +372,7 @@ export const resolveAutomationApproval = (
   options: ResolveApprovalOptions
 ): Effect.Effect<ResolveApprovalResult, ResolveApprovalError, ResolveRequirements> =>
   Effect.gen(function* () {
-    const { runId, approvalId, decision, app, processEnv, caller } = options
+    const { runId, approvalId, decision, app, caller } = options
     const approval = yield* loadCheckedApproval({ runId, approvalId, app, caller })
     const target = yield* loadApprovalRunTarget({ runId, approval, app })
     const shared = {
@@ -382,7 +380,6 @@ export const resolveAutomationApproval = (
       approvalId,
       target,
       app,
-      processEnv,
       ...(options.handlers === undefined ? {} : { handlers: options.handlers }),
     }
 

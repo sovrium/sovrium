@@ -17,12 +17,10 @@
  * `sovrium validate` and a watch reload reach the same verdict. Pure.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { validateFillEmptyWindows } from './fill-empty-validation'
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every object at any depth. */
 function collectNodes(node: unknown): readonly RawRecord[] {

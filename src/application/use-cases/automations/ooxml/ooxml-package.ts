@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { buildDeflatedZip, type ZipEntry } from '../action-handlers/file-zip'
+import { buildDeflatedZip, type ZipEntry } from '../action-handlers/file/zip'
 import {
   readZipDirectory,
   readZipEntries,
   type ZipReadEntry,
-} from '../action-handlers/file-zip-read'
+} from '../action-handlers/file/zip-read'
 
 /**
  * Opening an Office package a USER supplied — a template uploaded to a bucket —

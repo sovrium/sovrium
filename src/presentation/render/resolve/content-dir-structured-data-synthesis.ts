@@ -28,6 +28,69 @@ import {
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { DocsRootCrumb } from '@/presentation/render/markdown/docs-root-crumb'
+import type { CollectionNavData } from '@/presentation/render/resolve/content-dir-lister'
+
+/** What a `contentDir` render knows beyond its page, route and frontmatter. */
+export interface ContentDirSeoContext {
+  /** The app whose languages the hreflang alternates name. */
+  readonly app?: App | undefined
+  /**
+   * When serving a `contentDir.index` article at the collection base path, the
+   * SEO meta is built against the base-path pattern (e.g. `/:lang/docs`) rather
+   * than the page's slugged pattern (`/:lang/docs/:slug`), so the canonical,
+   * the hreflang alternates and every address in the JSON-LD name the base path
+   * — the single canonical URL.
+   */
+  readonly indexBasePathPattern?: string | undefined
+  /**
+   * The zone-tab breadcrumb root (name + path-relative href), threaded into the
+   * synthesised BreadcrumbList so its position-1 root becomes the active docs
+   * zone tab. `undefined` for non-zoned collections (default "Home" root).
+   */
+  readonly docsRootCrumb?: DocsRootCrumb | undefined
+  /** The collection's sidebar, in its sort order: where each section crumb links. */
+  readonly collectionNav?: CollectionNavData | undefined
+}
+
+/**
+ * The address of each section's first article, in the sidebar's (sort) order,
+ * keyed by the raw section value.
+ */
+const firstArticleOfEachSection = (
+  collectionNav: CollectionNavData | undefined
+): Readonly<Record<string, string>> =>
+  (collectionNav?.sidebar ?? []).reduce<Readonly<Record<string, string>>>(
+    (first, entry) =>
+      entry.group === undefined || Object.hasOwn(first, entry.group)
+        ? first
+        : { ...first, [entry.group]: entry.href },
+    {}
+  )
+
+/**
+ * The breadcrumb's root crumb and section links, each address made absolute
+ * by `toAbsolute` exactly as the page's own.
+ */
+const breadcrumbAddressing = (
+  page: Page,
+  context: ContentDirSeoContext,
+  toAbsolute: (path: string) => string
+): Pick<Parameters<typeof buildContentDirStructuredData>[0], 'rootCrumb' | 'sections'> => {
+  const { docsRootCrumb } = context
+  const urls = Object.fromEntries(
+    Object.entries(firstArticleOfEachSection(context.collectionNav)).map(([section, href]) => [
+      section,
+      toAbsolute(href),
+    ])
+  )
+  const labels = page.contentDir?.nav?.groupLabels
+  return {
+    sections: { urls, ...(labels !== undefined && { labels }) },
+    ...(docsRootCrumb !== undefined && {
+      rootCrumb: { name: docsRootCrumb.name, url: toAbsolute(docsRootCrumb.href) },
+    }),
+  }
+}
 
 /**
  * Synthesise the JSON-LD documents for a `contentDir` page
@@ -36,33 +99,30 @@ import type { DocsRootCrumb } from '@/presentation/render/markdown/docs-root-cru
  * is the sole source (no double-emission of the same `@type`). Otherwise the
  * synthesiser reads `meta.structuredData.enabled` and derives a TechArticle +
  * BreadcrumbList from the file's frontmatter and the nav grouping field.
+ * Every address it names is built the way the canonical is: from the base path
+ * on a collection index, absolute when a `BASE_URL` origin is set — so the
+ * self-link collapses compare like with like.
  */
-// eslint-disable-next-line max-params -- A1 threads the zone-tab rootCrumb through the existing JSON-LD synthesiser
-function buildContentDirSynthesisedJsonLd(
-  page: Page,
-  routeParams: Readonly<Record<string, string>>,
-  frontmatter: Readonly<Record<string, string>>,
-  baseUrl: string | undefined,
-  docsRootCrumb: DocsRootCrumb | undefined
-): readonly Record<string, unknown>[] {
+function buildContentDirSynthesisedJsonLd(input: {
+  readonly page: Page
+  readonly routeParams: Readonly<Record<string, string>>
+  readonly frontmatter: Readonly<Record<string, string>>
+  readonly baseUrl: string | undefined
+  readonly context: ContentDirSeoContext
+}): readonly Record<string, unknown>[] {
+  const { page, routeParams, frontmatter, baseUrl, context } = input
   if (page.meta?.schema !== undefined) return []
   const config = parseStructuredDataConfig(page.meta?.structuredData)
   if (config === undefined) return []
-  const resolvedPath = resolvePagePath(primaryPagePath(page.path), routeParams)
+  const pattern = context.indexBasePathPattern ?? primaryPagePath(page.path)
   const toAbsolute = (path: string): string =>
     baseUrl ? `${baseUrl.replace(/\/$/, '')}${path}` : path
-  // Build the JSON-LD rootCrumb URL the SAME way as the page URL (absolute when a
-  // BASE_URL origin is set) so the domain builder's self-link collapse matches.
-  const rootCrumb =
-    docsRootCrumb !== undefined
-      ? { name: docsRootCrumb.name, url: toAbsolute(docsRootCrumb.href) }
-      : undefined
   return buildContentDirStructuredData({
     config,
     frontmatter,
-    url: toAbsolute(resolvedPath),
+    url: toAbsolute(resolvePagePath(pattern, routeParams)),
     groupBy: page.contentDir?.nav?.groupBy,
-    ...(rootCrumb !== undefined && { rootCrumb }),
+    ...breadcrumbAddressing(page, context, toAbsolute),
   })
 }
 
@@ -72,40 +132,26 @@ function buildContentDirSynthesisedJsonLd(
  * `BASE_URL` operator origin when set (mirrors `seo-routes.resolveBaseUrl`),
  * otherwise fall back to a path-relative URL.
  */
-// eslint-disable-next-line max-params -- the index base-path pattern and the zone-tab rootCrumb are threaded through the existing SEO builder
 export function buildContentDirSeo(
   page: Page,
   routeParams: Readonly<Record<string, string>>,
   frontmatter: Readonly<Record<string, string>>,
-  app: App | undefined,
-  /**
-   * When serving a `contentDir.index` article at the collection base
-   * path, the SEO meta is built against the base-path pattern (e.g. `/:lang/docs`)
-   * rather than the page's slugged pattern (`/:lang/docs/:slug`), so the canonical
-   * link + hreflang alternates point at the base path — the single canonical URL.
-   */
-  indexBasePathPattern?: string,
-  /**
-   * A1 — the zone-tab breadcrumb root (name + path-relative href), threaded into
-   * the synthesised BreadcrumbList so its position-1 root becomes the active docs
-   * zone tab. `undefined` for non-zoned collections (default "Home" root).
-   */
-  docsRootCrumb?: DocsRootCrumb
+  context: ContentDirSeoContext = {}
 ): ContentDirSeoMeta | undefined {
   if (page.contentDir === undefined) return undefined
   const baseUrl = typeof Bun.env.BASE_URL === 'string' ? Bun.env.BASE_URL : undefined
   return buildContentDirSeoMeta({
-    pattern: indexBasePathPattern ?? primaryPagePath(page.path),
+    pattern: context.indexBasePathPattern ?? primaryPagePath(page.path),
     routeParams,
     frontmatter,
-    languages: app?.languages,
+    languages: context.app?.languages,
     baseUrl,
-    structuredData: buildContentDirSynthesisedJsonLd(
+    structuredData: buildContentDirSynthesisedJsonLd({
       page,
       routeParams,
       frontmatter,
       baseUrl,
-      docsRootCrumb
-    ),
+      context,
+    }),
   })
 }

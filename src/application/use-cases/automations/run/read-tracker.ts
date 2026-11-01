@@ -15,6 +15,7 @@
  * script cannot read anything the record does not hold.
  */
 
+import { MutableRef } from 'effect'
 import { classifyStepRead, type StepRead } from '@/domain/models/app/automations/step-read-service'
 import { redactSecretsForRunHistory } from '../redact-secrets'
 import type { ActionOutcome } from '../action-handlers'
@@ -40,23 +41,23 @@ const MAX_READS = 1000
 
 /** A fresh tracker for one step. */
 export const createReadTracker = (): ReadTracker => {
-  // A mutable buffer is the point: user code calls actions as a side effect
-  // from inside the sandbox, and the only way to observe those calls afterwards
-  // is to record them somewhere the step can read back (`code-log-collector.ts`).
-  // eslint-disable-next-line functional/prefer-immutable-types -- the tracker's buffer; see above
-  const buffer: StepRead[] = []
-  const append = (read: StepRead): void => {
-    // Past the cap the step is not judged: it reads what no reach judges.
-    const next: StepRead =
-      buffer.length >= MAX_READS ? { kind: 'unknown', reason: 'called too many actions' } : read
-    if (buffer.length > MAX_READS) return
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, no-restricted-syntax -- the tracker's buffer; see above
-    buffer.push(next)
-  }
+  // A cell is the point: user code calls actions as a side effect from inside
+  // the sandbox, synchronously, and the only way to observe those calls
+  // afterwards is to record them somewhere the step can read back
+  // (`code-log-collector.ts`). Each record replaces the list, never edits it.
+  const buffer = MutableRef.make<readonly StepRead[]>([])
+  // Past the cap the step is not judged: it reads what no reach judges.
+  const append = (read: StepRead) =>
+    MutableRef.update(buffer, (reads) => {
+      if (reads.length > MAX_READS) return reads
+      const next: StepRead =
+        reads.length >= MAX_READS ? { kind: 'unknown', reason: 'called too many actions' } : read
+      return [...reads, next]
+    })
   return {
     dispatched: (app, action, output) => append(classifyStepRead(app, action, output)),
     calledRun: (automation, runId) => append({ kind: 'calledRun', automation, runId }),
-    reads: () => [...buffer],
+    reads: () => MutableRef.get(buffer),
   }
 }
 

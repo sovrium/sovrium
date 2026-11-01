@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { appMark, AUTH_PLACE_NOTE, authHeading, authPage } from '@/library/manifest/auth-block-kit'
-import { asComponent, param, stringParam, THEME_NOTE } from '@/library/manifest/block-kit'
+import { appMark, AUTH_PLACE_NOTE, authHeading, authPage } from '@/library/kit/auth-block-kit'
+import { asComponent, param, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** Step two of a password reset: the page the emailed link opens. */

@@ -9,7 +9,7 @@
  * The Claude Design page adapter, digest half: what a LOCKED node of a board
  * (a template placement, an island) draws inside, as one document the page
  * import only ever compares with the same digest of an unedited export
- * (`page-merge-digest-service.ts`). The canvas parse reads a locked node's
+ * (`pages/merge/digest-service.ts`). The canvas parse reads a locked node's
  * box and its slotted page nodes; everything else it draws is this digest.
  *
  * A board may be a prototype built over the export, which only ADDS: its own

@@ -50,17 +50,20 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   StorageFootprintError,
   StorageFootprintRepository,
   type DatabaseFootprint,
   type TableSizeRow,
-} from '@/application/ports/repositories/footprint/storage-footprint-repository'
+} from '@/application/ports/repositories/admin/storage-footprint-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { db } from '@/infrastructure/database'
-import { executeRawTyped, type RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
+import { type RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawTypedOn } from '@/infrastructure/database/sql/dialect-execute'
 import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /** Projection shared by both dialects' catalog queries. */
@@ -120,7 +123,11 @@ export const resetDbstatProbeCache = (): void => {
  */
 const probeDbstat = async (runner: Readonly<RawSqlRunner>): Promise<boolean> => {
   if (dbstatAvailable !== undefined) return dbstatAvailable
-  const available = await executeRawTyped(runner, sql`SELECT 1 AS ok FROM dbstat LIMIT 1`)
+  const available = await executeRawTypedOn(
+    'sqlite',
+    runner,
+    sql`SELECT 1 AS ok FROM dbstat LIMIT 1`
+  )
     .then(() => true)
     .catch(() => false)
   dbstatAvailable = available
@@ -134,7 +141,8 @@ const probeDbstat = async (runner: Readonly<RawSqlRunner>): Promise<boolean> => 
  * an operator means by "how much does this table cost".
  */
 const readPostgresCatalog = (runner: Readonly<RawSqlRunner>): Promise<readonly CatalogSizeRow[]> =>
-  executeRawTyped<CatalogSizeRow>(
+  executeRawTypedOn<CatalogSizeRow>(
+    'postgres',
     runner,
     sql`SELECT c.relname AS table_name, pg_total_relation_size(c.oid) AS bytes
         FROM pg_class c
@@ -151,7 +159,8 @@ const readPostgresCatalog = (runner: Readonly<RawSqlRunner>): Promise<readonly C
  * `pg_total_relation_size` counts on the other engine.
  */
 const readSqliteCatalog = (runner: Readonly<RawSqlRunner>): Promise<readonly CatalogSizeRow[]> =>
-  executeRawTyped<CatalogSizeRow>(
+  executeRawTypedOn<CatalogSizeRow>(
+    'sqlite',
     runner,
     sql`SELECT m.tbl_name AS table_name, SUM(d.pgsize) AS bytes
         FROM dbstat d
@@ -176,11 +185,13 @@ const readTotalBytes = async (
 ): Promise<number> => {
   const rows =
     dialect === 'postgres'
-      ? await executeRawTyped<TotalBytesRow>(
+      ? await executeRawTypedOn<TotalBytesRow>(
+          dialect,
           runner,
           sql`SELECT pg_database_size(current_database()) AS bytes`
         )
-      : await executeRawTyped<TotalBytesRow>(
+      : await executeRawTypedOn<TotalBytesRow>(
+          dialect,
           runner,
           sql`SELECT (SELECT * FROM pragma_page_count()) * (SELECT * FROM pragma_page_size()) AS bytes`
         )
@@ -241,12 +252,20 @@ const readTableSizes = async (
  * @param tableNames - configured (sanitized) table names
  */
 export const readDatabaseFootprint = async (
+  dialect: DatabaseDialect,
   runner: Readonly<RawSqlRunner>,
   tableNames: ReadonlyArray<string>
 ): Promise<DatabaseFootprint> => {
-  const { dialect } = parseDatabaseDialectConfig()
   const totalBytes = await readTotalBytes(runner, dialect).catch(() => 0)
   return { tables: await readTableSizes(runner, tableNames, dialect), totalBytes }
+}
+
+const members: MembersOverDatabase<typeof StorageFootprintRepository> = {
+  measureDatabaseFootprint: (db, dialect) => (tableNames) =>
+    Effect.tryPromise({
+      try: () => readDatabaseFootprint(dialect.kind, db, tableNames),
+      catch: (cause) => new StorageFootprintError({ cause }),
+    }),
 }
 
 /**
@@ -255,10 +274,4 @@ export const readDatabaseFootprint = async (
  * Two statements per reading regardless of table count — see the QUERY BUDGET
  * note at the top of this file.
  */
-export const StorageFootprintRepositoryLive = Layer.succeed(StorageFootprintRepository, {
-  measureDatabaseFootprint: (tableNames) =>
-    Effect.tryPromise({
-      try: () => readDatabaseFootprint(db, tableNames),
-      catch: (cause) => new StorageFootprintError({ cause }),
-    }),
-})
+export const StorageFootprintRepositoryLive = layerOverDatabase(StorageFootprintRepository, members)

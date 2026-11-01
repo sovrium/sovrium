@@ -23,7 +23,7 @@
  */
 
 import { Clock, Effect } from 'effect'
-import { StorageError, storageObjectNotFound } from '@/application/ports/services/storage-service'
+import { storageObjectNotFound } from '@/application/ports/services/storage-service'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   bucketBindingPermitsWrite,
@@ -39,15 +39,13 @@ import {
 } from './catalog-claim'
 import { assertNoOtherSpelling, type SpellingStore } from './catalog-guards'
 import { claimThenCheck, releaseClaimQuietly } from './claim-then-check'
-
-const makeError = (cause: unknown): StorageError => new StorageError({ cause })
-
-const attempt = <A>(run: () => Promise<A>): Effect.Effect<A, StorageError> =>
-  Effect.tryPromise({ try: run, catch: (e: unknown) => makeError(e) })
+import { attemptStorage, toStorageError, type DriverCall } from './storage-attempt'
+import type { StorageError } from '@/application/ports/services/storage-service'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /** Another bucket's key, or one another writer took: never told apart from an absent one. */
 const refuseAsAbsent = (key: string): Effect.Effect<never, StorageError> =>
-  Effect.fail(makeError(storageObjectNotFound(key)))
+  Effect.fail(toStorageError(storageObjectNotFound(key)))
 
 /**
  * Bytes written beside their key, not yet at it: `commit` moves them into
@@ -61,7 +59,7 @@ export interface StagedWrite {
 
 /** Remove staged bytes; a failure is logged, and leaves a file no listing shows. */
 const discardQuietly = (staged: StagedWrite): Effect.Effect<void> =>
-  attempt(staged.discard).pipe(
+  attemptStorage(staged.discard).pipe(
     Effect.tapCause((cause) =>
       Effect.sync(() => logError('[storage] staged bytes could not be removed', cause))
     ),
@@ -74,9 +72,13 @@ const discardQuietly = (staged: StagedWrite): Effect.Effect<void> =>
  * they are removed, and so is the row the claim settled into, so no row is
  * left describing a file that is not there. Either failure is logged.
  */
-const abandonSettled = (staged: StagedWrite, claim: CatalogClaim): Effect.Effect<void> =>
+const abandonSettled = (
+  client: PortableDb,
+  staged: StagedWrite,
+  claim: CatalogClaim
+): Effect.Effect<void> =>
   discardQuietly(staged).pipe(
-    Effect.andThen(attempt(() => withdrawSettledClaim(claim))),
+    Effect.andThen(attemptStorage(() => withdrawSettledClaim(client, claim))),
     Effect.tapCause((cause) =>
       Effect.sync(() =>
         logError('[storage] a settled key with no bytes could not be removed', cause)
@@ -94,29 +96,31 @@ const abandonSettled = (staged: StagedWrite, claim: CatalogClaim): Effect.Effect
  * over the newer writer's.
  */
 const storeClaimed = (
-  bytes:
-    { readonly write: () => Promise<unknown> } | { readonly stage: () => Promise<StagedWrite> },
+  client: PortableDb,
+  bytes: { readonly write: DriverCall<unknown> } | { readonly stage: () => Promise<StagedWrite> },
   claim: CatalogClaim
 ): Effect.Effect<void, StorageError> => {
-  const release = releaseClaimQuietly(claim)
+  const release = releaseClaimQuietly(client, claim)
   // A claim released as stale meanwhile is no longer this write's row, even
   // when another writer has claimed the key since: the markers differ.
-  const settle = attempt(() => settleClaim(claim))
+  const settle = attemptStorage(() => settleClaim(client, claim))
   if ('write' in bytes) {
-    return attempt(bytes.write).pipe(
+    return attemptStorage(bytes.write).pipe(
       Effect.tapError(() => release),
       Effect.andThen(settle),
       Effect.flatMap((settled) => (settled ? Effect.void : refuseAsAbsent(claim.key)))
     )
   }
-  return attempt(bytes.stage).pipe(
+  return attemptStorage(bytes.stage).pipe(
     Effect.tapError(() => release),
     Effect.flatMap((staged) =>
       settle.pipe(
         Effect.tapError(() => discardQuietly(staged)),
         Effect.flatMap((settled) =>
           settled
-            ? attempt(staged.commit).pipe(Effect.tapError(() => abandonSettled(staged, claim)))
+            ? attemptStorage(staged.commit).pipe(
+                Effect.tapError(() => abandonSettled(client, staged, claim))
+              )
             : discardQuietly(staged).pipe(Effect.andThen(refuseAsAbsent(claim.key)))
         )
       )
@@ -131,30 +135,36 @@ const storeClaimed = (
  * none): the seam a test places another writer behind.
  */
 export const replaceOutsideCatalog = (input: {
+  /** The catalog's database. */
+  readonly client: PortableDb
   readonly catalog: CatalogWrite
   readonly store: Readonly<SpellingStore>
-  readonly writeBytes: () => Promise<unknown>
+  readonly writeBytes: DriverCall<unknown>
   /** Write the bytes beside the key for a claimed write; absent, a claimed write uses `writeBytes`. */
   readonly stageBytes?: () => Promise<StagedWrite>
-  readonly readRow?: typeof readFileMetadata
+  readonly readRow?: (key: string) => ReturnType<typeof readFileMetadata>
 }): Effect.Effect<void, StorageError> =>
   Effect.gen(function* () {
+    const { client } = input
     const { key, bucket } = input.catalog
     const now = yield* Clock.currentTimeMillis
-    yield* attempt(() => releaseStaleClaim(key, now))
+    yield* attemptStorage(() => releaseStaleClaim(client, key, now))
     // A claim is invisible here: a key another writer is claiming reads as free.
-    const row = yield* attempt(() => (input.readRow ?? readFileMetadata)(key))
+    const readRow = input.readRow ?? ((rowKey: string) => readFileMetadata(client, rowKey))
+    const row = yield* attemptStorage(() => readRow(key))
     if (!bucketBindingPermitsWrite(bucket, row?.bucket)) return yield* refuseAsAbsent(key)
     if (row !== undefined) {
       // The row is settled and visible to every other writer's check: no claim needed.
-      yield* assertNoOtherSpelling(key, bucket, input.store)
-      return yield* attempt(() => input.writeBytes().then(() => writeFileMetadata(input.catalog)))
+      yield* assertNoOtherSpelling(client, key, bucket, input.store)
+      yield* attemptStorage(input.writeBytes)
+      return yield* attemptStorage(() => writeFileMetadata(client, input.catalog))
     }
     // A free key: claim it, then check the other spellings (`claim-then-check.ts`).
-    const claim = yield* claimThenCheck(input.catalog, input.store)
+    const claim = yield* claimThenCheck(client, input.catalog, input.store)
     if (claim === undefined) return yield* refuseAsAbsent(key)
     const { stageBytes } = input
     return yield* storeClaimed(
+      client,
       stageBytes === undefined ? { write: input.writeBytes } : { stage: stageBytes },
       claim
     )

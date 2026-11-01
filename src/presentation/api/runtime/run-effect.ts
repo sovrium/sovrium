@@ -6,12 +6,14 @@
  */
 
 import { Effect } from 'effect'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { sanitizeError, getStatusCode } from './error-sanitizer'
+import { isApiPath, provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { reportRequestFailure } from '@/infrastructure/logging/request-failure-report'
+import { sanitizeError, statusOf } from './error-sanitizer'
+import { DEFAULT_SANITIZER_LOG, type SanitizerLog } from './error-sanitizer-log'
 import type { DomainServices } from '@/infrastructure/logging/request-effect'
 import type { Result, Schema } from 'effect'
 import type { Context } from 'hono'
@@ -25,6 +27,24 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
  * generic 500.
  */
 type RouteFailure = Error | { readonly _tag: string }
+
+/**
+ * The sanitizer's log for one request: a server-side fault's line names the
+ * route, and the fault is reported to telemetry with the request as its context,
+ * exactly as the server's error boundary reports what reaches it. A caller-side
+ * refusal never reaches `error`, so it stays one warn line and no report.
+ */
+const sanitizerLogFor = (
+  c: Context,
+  report?: Parameters<typeof reportRequestFailure>[2]
+): SanitizerLog => ({
+  ...DEFAULT_SANITIZER_LOG,
+  where: `${c.req.method} ${redactSecretPath(c.req.path)}`,
+  error: (message, cause) => {
+    reportRequestFailure(c.req.raw, cause, report)
+    DEFAULT_SANITIZER_LOG.error(message, cause)
+  },
+})
 
 /**
  * Render ANY error as the canonical Sovrium error envelope, sanitized.
@@ -53,21 +73,26 @@ type RouteFailure = Error | { readonly _tag: string }
  * errors, driver failures, the S1 anti-enumeration 404), the server-side logging
  * of the full cause, and the envelope shape.
  *
- * It never throws. The envelope is decoded through {@link decodeSafe} rather
+ * It never throws. `report` stands in for the telemetry reporter in a unit test.
+ * The envelope is decoded through {@link decodeSafe} rather
  * than `decodeOrThrow` precisely because this is the last thing standing between
  * a failure and the client: a throw here escapes a `catch` that has nowhere left
  * to send it. A decode miss is logged and the undecoded envelope is sent, which
  * is strictly better than a naked 500 with no body.
  */
-export function toErrorResponse(c: Context, error: unknown): Response {
+export function toErrorResponse(
+  c: Context,
+  error: unknown,
+  report?: Parameters<typeof reportRequestFailure>[2]
+): Response {
   // Request ID for error correlation — set by the `hono/request-id` middleware
   // (mounted first in `createHonoApp`). Falls back to a fresh UUID only if the
   // middleware was not mounted (e.g. an isolated test harness).
   const requestId = (c.get('requestId') as string | undefined) ?? crypto.randomUUID()
 
   // Sanitize error (removes internal details, logs full error server-side)
-  const sanitized = sanitizeError(error, requestId)
-  const statusCode = getStatusCode(sanitized.code)
+  const sanitized = sanitizeError(error, requestId, sanitizerLogFor(c, report))
+  const statusCode = statusOf(sanitized)
 
   const errorData = {
     success: false as const,
@@ -79,6 +104,7 @@ export function toErrorResponse(c: Context, error: unknown): Response {
     // is a bare object schema, so an undeclared key is stripped silently and
     // the attribution would vanish between here and the wire.
     ...(sanitized.field ? { field: sanitized.field } : {}),
+    ...(sanitized.rule ? { rule: sanitized.rule } : {}),
     ...(sanitized.errors ? { errors: sanitized.errors } : {}),
     // An internal error names its request, so whoever saw it can quote the id
     // to whoever runs the server, who reports it with `sovrium report`.
@@ -94,6 +120,32 @@ export function toErrorResponse(c: Context, error: unknown): Response {
     return c.json(errorData, statusCode)
   }
   return c.json(decoded.data, statusCode)
+}
+
+/**
+ * Answer `value` through its published schema: the value as `schema` reads it,
+ * or the canonical 500 when the route computed a value its own schema rejects.
+ *
+ * The step {@link respondWith} runs on a success, for a handler that is not an
+ * Effect at that point: a synchronous answer, or a callback of a `match`.
+ */
+export function shapedJson<S extends Schema.Top>(
+  c: Context,
+  value: unknown,
+  schema: S,
+  successStatus: number = 200
+): Response {
+  const validated = decodeSafe(schema)(value)
+  if (validated.success) return c.json(validated.data, successStatus as ContentfulStatusCode)
+  const requestId = (c.get('requestId') as string | undefined) ?? 'unknown'
+  // The path goes in the MESSAGE, not in the cause: a `SchemaError` carries
+  // no message on its stack header, so passing it as the cause alone would
+  // log a bare `Error` and lose the attribution (measured on effect@4.0.0).
+  logError(
+    `[API Error] response failed its schema at ${c.req.method} ${redactSecretPath(c.req.path)} requestId=${requestId}: ${validated.error.message}`,
+    validated.error
+  )
+  return toErrorResponse(c, validated.error)
 }
 
 /**
@@ -118,20 +170,10 @@ export function respondWith<T, E, R, S extends Schema.Top = Schema.Top>(
 ): Effect.Effect<Response, never, R> {
   return Effect.match(program, {
     onFailure: (failure) => toErrorResponse(c, failure),
-    onSuccess: (value) => {
-      if (!schema) return c.json(value, successStatus as ContentfulStatusCode)
-      const validated = decodeSafe(schema)(value)
-      if (validated.success) return c.json(validated.data, successStatus as ContentfulStatusCode)
-      const requestId = (c.get('requestId') as string | undefined) ?? 'unknown'
-      // The path goes in the MESSAGE, not in the cause: a `SchemaError` carries
-      // no message on its stack header, so passing it as the cause alone would
-      // log a bare `Error` and lose the attribution (measured on effect@4.0.0).
-      logError(
-        `[API Error] response failed its schema at ${c.req.method} ${redactSecretPath(c.req.path)} requestId=${requestId}: ${validated.error.message}`,
-        validated.error
-      )
-      return toErrorResponse(c, validated.error)
-    },
+    onSuccess: (value) =>
+      schema
+        ? shapedJson(c, value, schema, successStatus)
+        : c.json(value, successStatus as ContentfulStatusCode),
   })
 }
 
@@ -140,10 +182,12 @@ export function respondWith<T, E, R, S extends Schema.Top = Schema.Top>(
  * request-edge `http.server` span.
  *
  * The program has already turned every failure it knows about into a
- * `Response` (see {@link respondWith}); what is left to catch here is a defect,
- * which is rendered through the same sanitized envelope. One call per handler
- * is the point: every step then shares one fiber, one set of services and one
- * trace, which is what lets a transaction span the handler.
+ * `Response` (see {@link respondWith}); what is left to catch here is a defect.
+ * On `/api/*` it is rendered through the same sanitized envelope. On any other
+ * path a browser reads the answer, so it reaches the server's error boundary,
+ * which renders the error page. One call per handler is the point: every step
+ * then shares one fiber, one set of services and one trace, which is what lets a
+ * transaction span the handler.
  */
 export async function runHandlerEffect(
   c: Context,
@@ -152,8 +196,77 @@ export async function runHandlerEffect(
   try {
     return await runRequestEffect(c, provideDomain(c, program))
   } catch (error) {
+    if (!isApiPath(c.req.path)) throw error
     return toErrorResponse(c, error)
   }
+}
+
+/**
+ * The app's not-found answer, inside a handler's program. Hono's `c.notFound()`
+ * may be async: the app's handler renders a page.
+ */
+export const answerNotFound = (c: Context): Effect.Effect<Response> =>
+  // effect-promise: total -- a page that cannot render is a defect, which the error boundary answers.
+  Effect.promise(async () => c.notFound())
+
+/**
+ * Answer every failure `program` may still fail with as the sanitized error
+ * envelope ({@link toErrorResponse}): the last rung of a handler whose program
+ * builds its own responses and has no opinion about what is left.
+ */
+export const answerFailures = <E, R>(
+  c: Context,
+  program: Effect.Effect<Response, E, R>
+): Effect.Effect<Response, never, R> =>
+  Effect.catch(program, (failure) => Effect.succeed(toErrorResponse(c, failure)))
+
+/**
+ * What a handler's program is handed when it may answer BEFORE it ends — a
+ * streamed response, whose body the program goes on producing after the
+ * handler returned it.
+ */
+export interface HandlerAnswer {
+  /** Answer the request with `response` now; the program goes on running. */
+  readonly answer: (response: Response) => Effect.Effect<void>
+  /**
+   * Settles once the program ended, however it ended: what a streamed body
+   * waits on before it closes, so the work its end does (saving what was
+   * streamed) is visible to the next request.
+   */
+  readonly ended: Promise<void>
+}
+
+/**
+ * Answer with the first of: the response the program handed over through
+ * {@link HandlerAnswer.answer}, or the one it ended with. The handle's `ended`
+ * settles once `run` has.
+ */
+export const answerBeforeEnd = async (
+  run: (handle: HandlerAnswer) => Promise<Response>
+): Promise<Response> => {
+  const answered = Promise.withResolvers<Response>()
+  const ended = Promise.withResolvers<void>()
+  const ran = run({
+    answer: (response) => Effect.sync(() => answered.resolve(response)),
+    ended: ended.promise,
+  }).finally(() => ended.resolve())
+  return Promise.race([answered.promise, ran])
+}
+
+/**
+ * {@link runHandlerEffect} for a handler that may answer before its program
+ * ends: a streamed response. The handler's WHOLE program still runs once, on
+ * the request's services and under its span — its gates, the work behind the
+ * stream, and what that work does once the stream ends. Until it answers, a
+ * failure or a defect is rendered through the sanitized envelope, exactly as
+ * {@link runHandlerEffect} renders it; once it answered, the response is on
+ * the wire and a later defect is only logged (`sanitizeError` logs it whole).
+ */
+export async function runHandlerStream(
+  c: Context,
+  program: (handle: HandlerAnswer) => Effect.Effect<Response, never, DomainServices>
+): Promise<Response> {
+  return answerBeforeEnd((handle) => runHandlerEffect(c, program(handle)))
 }
 
 /**

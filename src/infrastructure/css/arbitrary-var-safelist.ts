@@ -71,7 +71,7 @@
  * What actually protects the binary is the BUILD-TIME bake.
  * `scripts/build/generate-css-assets.ts` calls this generator while `src/` IS on
  * disk, unions the result into `BUILTIN_CSS_CANDIDATES`, and commits it to
- * `generated-css-assets.ts`; the binary then compiles candidate-driven from that
+ * `generated-css-assets.generated.ts`; the binary then compiles candidate-driven from that
  * frozen set. So a class this extractor misses is missing from the binary's CSS
  * for good — which is why that script guards fail-closed twice, throwing on an
  * empty safelist and again on one carrying no popup surface sentinel. The

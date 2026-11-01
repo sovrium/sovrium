@@ -64,8 +64,8 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * The constant every set value is reported as.
@@ -170,7 +170,7 @@ export type EnvDefaultState = typeof envDefaultStateSchema.Type
 export const envVarStatusSchema = Schema.Struct({
   key: Schema.String.annotate({
     description:
-      'The declared variable key, verbatim from app.env[].key (uppercase snake_case). Never masked — a key name is an identifier the operator authored, not a credential.',
+      'The declared variable key, verbatim from app.env[].key (uppercase snake_case). Never masked: a key name is an identifier the operator authored, not a credential.',
   }).pipe(Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9_]*$/))),
   description: optionalField(
     Schema.String.annotate({
@@ -190,7 +190,7 @@ export const envVarStatusSchema = Schema.Struct({
   defaultValue: optionalField(
     Schema.String.annotate({
       description:
-        'The declared app.env[].default, verbatim — present ONLY when the author marked the variable `secret: false`. Absent when the marker is omitted or true, which is the safe default: an unmarked default is treated as a credential. Absence is never ambiguous, because hasDefault already reports whether a default exists at all.',
+        'The declared app.env[].default, verbatim. Present ONLY when the author marked the variable `secret: false`. Absent when the marker is omitted or true, which is the safe default: an unmarked default is treated as a credential. Absence is never ambiguous, because hasDefault already reports whether a default exists at all.',
     })
   ),
   isSet: Schema.Boolean.annotate({

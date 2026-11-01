@@ -28,7 +28,7 @@ import * as path from 'node:path'
  * project directory is therefore resolved explicitly at each site that needs
  * it, which is what the helpers below are for.
  *
- * Plain functions over `process.env`, deliberately: these are paths rather than
+ * Plain functions over an env map, deliberately: these are paths rather than
  * decoded documents, and `data-dir.ts` next door is the precedent they have to
  * agree with.
  */
@@ -42,7 +42,8 @@ import * as path from 'node:path'
  *
  * @public
  */
-export const parseProjectDir = (): string => path.resolve(process.env.SOVRIUM_PROJECT_DIR || '.')
+export const parseProjectDir = (env: Readonly<Record<string, string | undefined>>): string =>
+  path.resolve(env['SOVRIUM_PROJECT_DIR'] || '.')
 
 /**
  * The project root ONLY when a supervisor explicitly named one.
@@ -61,8 +62,10 @@ export const parseProjectDir = (): string => path.resolve(process.env.SOVRIUM_PR
  *
  * @public
  */
-export const parseProjectDirJail = (): string | undefined => {
-  const declared = process.env.SOVRIUM_PROJECT_DIR
+export const parseProjectDirJail = (
+  env: Readonly<Record<string, string | undefined>>
+): string | undefined => {
+  const declared = env['SOVRIUM_PROJECT_DIR']
   return declared ? path.resolve(declared) : undefined
 }
 
@@ -77,8 +80,9 @@ export const parseProjectDirJail = (): string | undefined => {
  *
  * @public
  */
-export const parseConfigFileName = (): string | undefined =>
-  process.env.SOVRIUM_CONFIG_FILE || undefined
+export const parseConfigFileName = (
+  env: Readonly<Record<string, string | undefined>>
+): string | undefined => env['SOVRIUM_CONFIG_FILE'] || undefined
 
 /**
  * Whether closing the server's stdin should stop it, the way a signal does.
@@ -96,8 +100,9 @@ export const parseConfigFileName = (): string | undefined =>
  *
  * @public
  */
-export const parseShutdownOnStdinClose = (): boolean =>
-  process.env.SOVRIUM_SHUTDOWN_ON_STDIN_CLOSE === '1'
+export const parseShutdownOnStdinClose = (
+  env: Readonly<Record<string, string | undefined>>
+): boolean => env['SOVRIUM_SHUTDOWN_ON_STDIN_CLOSE'] === '1'
 
 /**
  * True when `candidate` (absolute) is `root` itself or sits beneath it.
@@ -137,8 +142,11 @@ export const isPathWithin = (root: string, candidate: string): boolean => {
  *
  * @public
  */
-export const resolveInProjectDir = (candidate: string): string | undefined => {
-  const root = parseProjectDir()
+export const resolveInProjectDir = (
+  candidate: string,
+  env: Readonly<Record<string, string | undefined>>
+): string | undefined => {
+  const root = parseProjectDir(env)
   const resolved = path.resolve(root, candidate)
   return isPathWithin(root, resolved) ? resolved : undefined
 }
@@ -152,9 +160,10 @@ export const resolveInProjectDir = (candidate: string): string | undefined => {
  * @public
  */
 export const findProjectJailEscape = (
-  absolutePath: string
+  absolutePath: string,
+  env: Readonly<Record<string, string | undefined>>
 ): { readonly root: string; readonly escaped: string } | undefined => {
-  const root = parseProjectDirJail()
+  const root = parseProjectDirJail(env)
   if (!root) return undefined
   return isPathWithin(root, absolutePath) ? undefined : { root, escaped: absolutePath }
 }

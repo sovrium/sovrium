@@ -10,8 +10,10 @@ import {
   type CurrencyDisplayOptions,
 } from '@/domain/kernel/format/currency-format'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
+import { formatDateTimeReading } from '@/domain/models/app/tables/date-time-reading-service'
 import { relativeStampOf } from '@/domain/models/app/tables/relative-stamp-service'
 import { resolveColumnLabel } from '@/presentation/design/field-display'
+import { resolvePageDateTimeGlue } from '../../runtime/page-datetime-glue'
 import { resolvePageTimezone } from '../../runtime/page-timezone'
 import { readDisplayLabel } from '../../runtime/record-display-label'
 import { EMPTY_VALUE, isMissing } from '../cell-empty'
@@ -21,6 +23,7 @@ import { cellClassOf, drawsTextChip, optionChipCellClassOf } from '../column-pre
 import { textCellContent } from '../text-chip-cell'
 import { withValueLabelOptions } from '../value-label-options'
 import { buildButtonCellRenderer, type ButtonCellOptions } from './button-cell'
+import { withCellExtras } from './cell-extras'
 import { buildCellFieldOptions } from './cell-field-options'
 import { formatClassOf } from './format-classes'
 import { presentedTypeOf } from './type-placement'
@@ -65,7 +68,7 @@ export interface FieldCellOptions extends ButtonCellOptions {
  * three paths so a status-pill cell can still receive an extra
  * conditionally-applied class without losing its pill chrome.
  */
-export function buildFieldCellRenderer(
+function buildValueRenderer(
   col: FieldColumn,
   locale: string,
   options: FieldCellOptions,
@@ -109,6 +112,14 @@ export function buildFieldCellRenderer(
     )
 }
 
+/** A field column's cell renderer: its value, with the copy button and second line its column adds. */
+export const buildFieldCellRenderer = (
+  col: FieldColumn,
+  locale: string,
+  options: FieldCellOptions,
+  listFields: ReadonlySet<string>
+) => withCellExtras(buildValueRenderer(col, locale, options, listFields), col)
+
 /** The heading a column is drawn under: its own label, the field's, else the readable name. */
 const columnLabelOf = (col: FieldColumn, meta: { readonly label?: string } | undefined): string =>
   resolveColumnLabel(col.label, meta?.label, col.field)
@@ -147,6 +158,50 @@ function labelledContent(value: unknown, label: string, chrome: ValueCellChrome)
 }
 
 /**
+ * A value through its column's explicit `format`, at the field's own zone
+ * (`local` is the reader's), else the operator's; a `datetime` reads through
+ * the one spelling every surface shares.
+ */
+function formattedCell(
+  value: unknown,
+  format: NonNullable<FieldColumn['format']>,
+  chrome: ValueCellChrome,
+  conditionalClass: string
+): React.ReactNode {
+  const { locale, fieldOptions, currencyOptions, durationUnit } = chrome
+  const timeZone = fieldOptions?.timeZone ?? resolvePageTimezone()
+  const displayValue =
+    format === 'datetime'
+      ? formatDateTimeReading(value, locale, { glue: resolvePageDateTimeGlue(), timeZone })
+      : formatCellValue(value, format, locale, {
+          currency: currencyOptions,
+          timeZone,
+          durationUnit,
+          now: new Date(),
+        })
+  const composed = [formatClassOf(format), conditionalClass].filter(Boolean).join(' ')
+  // A relative reading carries its instant and its absolute moment (`time`).
+  const stamp = relativeStampOf(value, format, locale, timeZone)
+  return wrapWithClass(
+    stamp === undefined ? (
+      format === 'short-id' ? (
+        <span title={String(value)}>{displayValue}</span>
+      ) : (
+        displayValue
+      )
+    ) : (
+      <time
+        dateTime={stamp.dateTime}
+        title={stamp.title}
+      >
+        {displayValue}
+      </time>
+    ),
+    composed
+  )
+}
+
+/**
  * The value-rendering ladder — label substitution, then explicit format, then
  * field-type affordance, then plain text, each wrapped in the `cellStyle` class.
  *
@@ -154,7 +209,7 @@ function labelledContent(value: unknown, label: string, chrome: ValueCellChrome)
  * branch count.
  */
 function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?: unknown) {
-  const { col, locale, fieldTypeRenderer, fieldOptions, currencyOptions, durationUnit } = chrome
+  const { col, fieldTypeRenderer, fieldOptions } = chrome
   const conditionalClass = cellClassOf(value, col)
 
   // valueLabels — render-only, highest precedence: a per-value label overrides the
@@ -168,29 +223,7 @@ function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?:
   if (col.format && isMissing(value)) return wrapWithClass(EMPTY_VALUE, conditionalClass)
 
   // Path 1 — explicit format override
-  if (col.format) {
-    const displayValue = formatCellValue(value, col.format, locale, {
-      currency: currencyOptions,
-      timeZone: resolvePageTimezone(),
-      durationUnit,
-    })
-    const composed = [formatClassOf(col.format), conditionalClass].filter(Boolean).join(' ')
-    // A relative reading carries its instant and its absolute moment (`time`).
-    const stamp = relativeStampOf(value, col.format, locale, resolvePageTimezone())
-    return wrapWithClass(
-      stamp === undefined ? (
-        displayValue
-      ) : (
-        <time
-          dateTime={stamp.dateTime}
-          title={stamp.title}
-        >
-          {displayValue}
-        </time>
-      ),
-      composed
-    )
-  }
+  if (col.format) return formattedCell(value, col.format, chrome, conditionalClass)
 
   // Path 2 — field-type-driven affordance. A resolved relationship label stands in
   // for the stored key HERE only: `valueLabels` and an explicit `format` were written

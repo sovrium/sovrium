@@ -6,17 +6,19 @@
  */
 
 import { and, eq, like, or, gt, isNull, sql, type SQL } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AutomationStateDatabaseError,
   AutomationStateRepository,
 } from '@/application/ports/repositories/automations/automation-state-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type Dialect,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { automationState as automationStatePg } from '@/infrastructure/database/drizzle/schema/automation-state'
 import { automationState as automationStateSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/automation-state'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 
 const automationState = resolveDialectSchema(automationStatePg, automationStateSqlite)
 
@@ -50,8 +52,121 @@ const wrap = makeDbWrap((cause) => new AutomationStateDatabaseError({ cause }))
  *   - Before fix (stock jsonb()):       value::text = `"\"10\""` (DOUBLE)
  *   - After fix (`::text::jsonb`):      value::text = `"10"`     (single)
  */
-const encodeJsonbValue = (value: unknown): unknown | SQL =>
-  isSqliteRuntime() ? value : sql`${JSON.stringify(value)}::text::jsonb`
+const encodeJsonbValue = (value: unknown, dialect: Dialect): unknown | SQL =>
+  dialect.kind === 'sqlite' ? value : sql`${JSON.stringify(value)}::text::jsonb`
+
+const members: MembersOverDatabase<typeof AutomationStateRepository> = {
+  set:
+    (db, dialect) =>
+    ({ automationId, key, value, ttlMs }) =>
+      wrap(async () => {
+        const ttlAt = ttlMs === undefined ? undefined : new Date(Date.now() + ttlMs)
+        const encodedValue = encodeJsonbValue(value, dialect)
+        await db
+          .insert(automationState)
+          .values({
+            automationId,
+            key,
+            value: encodedValue,
+            ...(ttlAt !== undefined ? { ttl: ttlAt } : {}),
+          })
+          .onConflictDoUpdate({
+            target: [automationState.automationId, automationState.key],
+            set: {
+              value: encodedValue,
+              ttl: ttlAt,
+              updatedAt: new Date(),
+            },
+          })
+      }),
+
+  get:
+    (db) =>
+    ({ automationId, key }) =>
+      wrap(async () => {
+        const rows = await db
+          .select({ value: automationState.value })
+          .from(automationState)
+          .where(
+            and(
+              eq(automationState.automationId, automationId),
+              eq(automationState.key, key),
+              or(isNull(automationState.ttl), gt(automationState.ttl, new Date()))
+            )
+          )
+          .limit(1)
+        // null sentinel — specs assert `body.actions.<name>.value).toBeNull()`
+        // when the key is missing or expired. Returning undefined would omit
+        // the field from JSON serialization and break that contract.
+        return rows[0]?.value ?? null
+      }),
+
+  list:
+    (db) =>
+    ({ automationId, prefix }) =>
+      wrap(async () => {
+        const rows = await db
+          .select({ key: automationState.key, value: automationState.value })
+          .from(automationState)
+          .where(
+            and(
+              eq(automationState.automationId, automationId),
+              like(automationState.key, `${prefix}%`),
+              or(isNull(automationState.ttl), gt(automationState.ttl, new Date()))
+            )
+          )
+        return rows.map((row) => ({ key: row.key, value: row.value }))
+      }),
+
+  delete:
+    (db) =>
+    ({ automationId, key }) =>
+      wrap(async () => {
+        await db
+          .delete(automationState)
+          .where(and(eq(automationState.automationId, automationId), eq(automationState.key, key)))
+      }),
+
+  increment:
+    (db, dialect) =>
+    ({ automationId, key, amount }) =>
+      wrap(async () => {
+        // Atomic numeric increment, dialect-aware:
+        // - PG: `(((${value} #>> '{}')::numeric) + ${amount})::text::jsonb` —
+        //   `#>> '{}'` extracts the JSONB value as TEXT regardless of its
+        //   underlying shape (numeric `42` or string-encoded `"42"`); cast to
+        //   numeric, add the delta, then round-trip via `::text::jsonb` so the
+        //   stored value remains a numeric JSONB.
+        // - SQLite: `(CAST(json_extract(value, '$') AS REAL) + ${amount})` —
+        //   `json_extract(col, '$')` returns the underlying scalar (the row
+        //   value, not a JSON-quoted form); cast to REAL, add the delta. The
+        //   SQLite mirror's `text(mode:'json')` column re-encodes the bound
+        //   number as JSON on write, preserving the round-trip semantics.
+        const incrementExpr =
+          dialect.kind === 'sqlite'
+            ? sql`(CAST(json_extract(${automationState.value}, '$') AS REAL) + ${amount})`
+            : sql`(((${automationState.value} #>> '{}')::numeric) + ${amount})::text::jsonb`
+
+        const rows = await db
+          .insert(automationState)
+          .values({
+            automationId,
+            key,
+            // First-time insert: store the delta as the initial value.
+            value: encodeJsonbValue(amount, dialect),
+          })
+          .onConflictDoUpdate({
+            target: [automationState.automationId, automationState.key],
+            set: {
+              value: incrementExpr,
+              updatedAt: new Date(),
+            },
+          })
+          .returning({ value: automationState.value })
+        const next = Number(rows[0]?.value ?? 0)
+        return Number.isFinite(next) ? next : 0
+      }),
+}
 
 /**
  * Automation State Repository Implementation (Drizzle).
@@ -71,104 +186,4 @@ const encodeJsonbValue = (value: unknown): unknown | SQL =>
  * shape, and the round-trip back through `text::jsonb` produces a numeric
  * jsonb on the way out.
  */
-export const AutomationStateRepositoryLive = Layer.succeed(AutomationStateRepository, {
-  set: ({ automationId, key, value, ttlMs }) =>
-    wrap(async () => {
-      const ttlAt = ttlMs === undefined ? undefined : new Date(Date.now() + ttlMs)
-      const encodedValue = encodeJsonbValue(value)
-      await db
-        .insert(automationState)
-        .values({
-          automationId,
-          key,
-          value: encodedValue,
-          ...(ttlAt !== undefined ? { ttl: ttlAt } : {}),
-        })
-        .onConflictDoUpdate({
-          target: [automationState.automationId, automationState.key],
-          set: {
-            value: encodedValue,
-            ttl: ttlAt,
-            updatedAt: new Date(),
-          },
-        })
-    }),
-
-  get: ({ automationId, key }) =>
-    wrap(async () => {
-      const rows = await db
-        .select({ value: automationState.value })
-        .from(automationState)
-        .where(
-          and(
-            eq(automationState.automationId, automationId),
-            eq(automationState.key, key),
-            or(isNull(automationState.ttl), gt(automationState.ttl, new Date()))
-          )
-        )
-        .limit(1)
-      // null sentinel — specs assert `body.actions.<name>.value).toBeNull()`
-      // when the key is missing or expired. Returning undefined would omit
-      // the field from JSON serialization and break that contract.
-      return rows[0]?.value ?? null
-    }),
-
-  list: ({ automationId, prefix }) =>
-    wrap(async () => {
-      const rows = await db
-        .select({ key: automationState.key, value: automationState.value })
-        .from(automationState)
-        .where(
-          and(
-            eq(automationState.automationId, automationId),
-            like(automationState.key, `${prefix}%`),
-            or(isNull(automationState.ttl), gt(automationState.ttl, new Date()))
-          )
-        )
-      return rows.map((row) => ({ key: row.key, value: row.value }))
-    }),
-
-  delete: ({ automationId, key }) =>
-    wrap(async () => {
-      await db
-        .delete(automationState)
-        .where(and(eq(automationState.automationId, automationId), eq(automationState.key, key)))
-    }),
-
-  increment: ({ automationId, key, amount }) =>
-    wrap(async () => {
-      // Atomic numeric increment, dialect-aware:
-      // - PG: `(((${value} #>> '{}')::numeric) + ${amount})::text::jsonb` —
-      //   `#>> '{}'` extracts the JSONB value as TEXT regardless of its
-      //   underlying shape (numeric `42` or string-encoded `"42"`); cast to
-      //   numeric, add the delta, then round-trip via `::text::jsonb` so the
-      //   stored value remains a numeric JSONB.
-      // - SQLite: `(CAST(json_extract(value, '$') AS REAL) + ${amount})` —
-      //   `json_extract(col, '$')` returns the underlying scalar (the row
-      //   value, not a JSON-quoted form); cast to REAL, add the delta. The
-      //   SQLite mirror's `text(mode:'json')` column re-encodes the bound
-      //   number as JSON on write, preserving the round-trip semantics.
-      const incrementExpr = isSqliteRuntime()
-        ? sql`(CAST(json_extract(${automationState.value}, '$') AS REAL) + ${amount})`
-        : sql`(((${automationState.value} #>> '{}')::numeric) + ${amount})::text::jsonb`
-
-      const rows = await db
-        .insert(automationState)
-        .values({
-          automationId,
-          key,
-          // First-time insert: store the delta as the initial value.
-          value: encodeJsonbValue(amount),
-        })
-        .onConflictDoUpdate({
-          target: [automationState.automationId, automationState.key],
-          set: {
-            value: incrementExpr,
-            updatedAt: new Date(),
-          },
-        })
-        .returning({ value: automationState.value })
-      const next = Number(rows[0]?.value ?? 0)
-      return Number.isFinite(next) ? next : 0
-    }),
-})
+export const AutomationStateRepositoryLive = layerOverDatabase(AutomationStateRepository, members)

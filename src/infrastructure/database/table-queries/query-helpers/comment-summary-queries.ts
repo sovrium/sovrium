@@ -6,7 +6,6 @@
  */
 
 import { desc, eq } from 'drizzle-orm'
-import { db } from '@/infrastructure/database/drizzle'
 import {
   authUsersTable,
   resolveDialectSchema,
@@ -14,6 +13,7 @@ import {
 import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
 import { visibleCommentsByRecordId } from './comment-query-predicates'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
@@ -38,6 +38,7 @@ const RECENT_REPLIES = 50
  * @public
  */
 export async function readCommentSummaries(
+  db: PortableDb,
   tableKeys: readonly string[],
   recordIds: readonly string[]
 ): Promise<ReadonlyMap<string, CommentSummary>> {

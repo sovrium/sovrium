@@ -15,6 +15,8 @@
    directive in `render/forms/form-renderer.tsx`. */
 
 import { useCallback } from 'react'
+import { optionValue } from '@/domain/models/app/tables/select-option'
+import { lockedOnRecord, nextValuesOf } from '@/presentation/design/locks-verdict'
 import { EditableCell } from './editable-cell'
 import { isSingleGestureWidget } from './editors/editor-contract'
 import { CheckboxCellControl, RatingCellControl } from './editors/single-gesture-cells'
@@ -30,11 +32,14 @@ export function InlineEditor({
   value,
   field,
   rowId,
+  record,
   ctx,
 }: {
   readonly value: unknown
   readonly field: string
   readonly rowId: string | number | undefined
+  /** The row's record, whose `_locks` narrows a transition field's choices. */
+  readonly record: Readonly<Record<string, unknown>>
   readonly ctx: DataRowContext
 }): ReactElement {
   const { autoSave } = ctx
@@ -42,7 +47,7 @@ export function InlineEditor({
     <div className="flex items-center gap-1">
       <EditableCell
         value={value}
-        fieldMeta={ctx.fieldMeta?.[field]}
+        fieldMeta={offeredMeta(ctx.fieldMeta?.[field], record, field)}
         onSave={ctx.onEditSave!}
         onCancel={ctx.onEditCancel!}
         tableName={ctx.tableName}
@@ -61,6 +66,25 @@ export function InlineEditor({
       {ctx.inlineSaveStatus && <SaveStatusIndicator status={ctx.inlineSaveStatus} />}
     </div>
   )
+}
+
+/**
+ * The field's meta with its options narrowed, when a transition rule moves it,
+ * to the value the record holds and the values it may move to (`_locks.next`).
+ */
+function offeredMeta(
+  meta: FieldMeta | undefined,
+  record: Readonly<Record<string, unknown>>,
+  field: string
+): FieldMeta | undefined {
+  const next = nextValuesOf(record, field)
+  if (meta?.options === undefined || next === undefined) return meta
+  const current = String(record[field] ?? '')
+  const options = meta.options.filter((option) => {
+    const value = optionValue(option)
+    return value === current || next.includes(value)
+  })
+  return { ...meta, options }
 }
 
 /** The live control itself, so the resolver above stays a resolver. */
@@ -125,9 +149,29 @@ export function editorOpener(
   const field = meta?.field
   const rowId = cell.row.original.id as string | number | undefined
   const { onCellDoubleClick } = ctx
-  if (meta?.editable !== true) return undefined
+  if (writableField(cell, meta) === undefined) return undefined
   if (field === undefined || rowId === undefined || !onCellDoubleClick) return undefined
   return () => onCellDoubleClick(rowId, field, cell.getValue())
+}
+
+/**
+ * The field of a declared-editable cell its record lets change — `undefined`
+ * when the column is not editable, or a lock rule holds the field on the
+ * record (`_locks`).
+ */
+function writableField(cell: DataTableCell, meta: CellMeta): string | undefined {
+  const field = meta?.field
+  if (meta?.editable !== true || field === undefined) return undefined
+  const record = cell.row.original as Record<string, unknown>
+  return lockedOnRecord(record, field) === undefined ? field : undefined
+}
+
+/**
+ * Whether a lock rule keeps this editable cell's field from changing on its
+ * record (`_locks`): the cell then opens no editor and reads as read-only.
+ */
+export function cellLocked(cell: DataTableCell, meta: CellMeta): boolean {
+  return meta?.editable === true && meta.field !== undefined && !writableField(cell, meta)
 }
 
 /**
@@ -153,11 +197,10 @@ export function singleGestureControl(
   meta: CellMeta,
   ctx: DataRowContext
 ): ReactNode | undefined {
-  const field = meta?.field
+  const field = writableField(cell, meta)
   const rowId = cell.row.original.id as string | number | undefined
   const fieldMeta = field ? ctx.fieldMeta?.[field] : undefined
-  if (meta?.editable !== true || !field || rowId === undefined || !ctx.onCellCommit)
-    return undefined
+  if (!field || rowId === undefined || !ctx.onCellCommit) return undefined
   if (!isSingleGestureWidget(fieldMeta)) return undefined
 
   return (

@@ -35,6 +35,7 @@ import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import { ATTACHMENT_FIELD_TYPES, renderAttachmentLinks } from './record-attachment-links'
 import { islandFallback, renderSpecimenDash } from './specimen-island-states'
 import type { ComponentRenderer } from './component-dispatch-config'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { Tables } from '@/domain/models/app/tables'
@@ -128,7 +129,7 @@ function renderAttachment(
 function renderRichText(
   chrome: RecordFieldChrome,
   value: unknown,
-  parts: Readonly<Record<string, string>> | undefined
+  parts: PartClassMap | undefined
 ): ReactElement {
   const safeHtml =
     typeof value === 'string' ? applyProsePartClasses(sanitizeRichTextHTML(value), parts) : ''

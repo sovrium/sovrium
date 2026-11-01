@@ -15,16 +15,19 @@
  * pay for it if a module on the static boot graph named the package directly.
  * These modules need its values:
  *
- *   - `server.ts`            → `createAuthInstance`, `rekeyUnreadableJwks`
- *   - `route-setup/api-routes.ts`     → `createAuthInstance`
- *   - `route-setup/openapi-routes.ts` → `createAuthInstance`
- *   - `route-setup/auth-routes.ts`    → the `@better-auth/oauth-provider` metadata handlers
- *   - `route-setup/mcp/auth.ts`       → `createMcpProtectedRequestHandler`
+ *   - `server/startup-database.ts`              → `rekeyUnreadableJwks`
+ *   - `server/hono-auth-context.ts`             → `createAuthInstance`
+ *   - `presentation/api/compose-api-routes.ts`  → `createAuthInstance`
+ *   - `presentation/api/openapi/routes.ts`      → `createAuthInstance`
+ *   - `presentation/api/auth/better-auth-routes.ts` → the `@better-auth/oauth-provider` metadata handlers
+ *   - `presentation/api/mcp/auth.ts`            → `createMcpProtectedRequestHandler`
  *
  * Each of those uses an `import type` (erased at transpile) plus a value that
- * arrives as a PARAMETER. This module is the one place that still names the
- * package as a value, and `createHonoApp` loads it with a single
- * `await import(...)` guarded by `app.auth`.
+ * arrives as a PARAMETER or through one `await import(...)` of this module.
+ * This module is the one place that still names the package as a value, and
+ * `resolveAuthContext` (`server/hono-auth-context.ts`, called by
+ * `createHonoApp`) loads it with a single `await import(...)` guarded by
+ * `app.auth`.
  *
  * ## The contract
  *

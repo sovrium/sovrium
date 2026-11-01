@@ -23,8 +23,10 @@
  *     lister walks for previous / next — one ordering, so the two never disagree.
  *
  * A tab's `id` is announced verbatim on the docs sidebar wrapper
- * (`data-docs-active-zone`); the app owns its own tab-strip markup and matches on
- * that value. The platform renders no tab strip itself.
+ * (`data-docs-active-zone`). By default (`nav.tabsPlacement: header`) the app
+ * draws its own tab strip in its header and matches on that value; with
+ * `tabsPlacement: sidebar` the docs sidebar draws the tabs itself, as a zone
+ * list at its top.
  */
 import { humanizeFieldName } from '@/presentation/design/string-utils'
 import type {
@@ -66,6 +68,19 @@ export const tabOfSection = (
  * ("api-reference" → "Api Reference").
  */
 export const getTabLabel = (tab: DocsNavTab): string => tab.label ?? humanizeFieldName(tab.id)
+
+/**
+ * A tab's landing URL: the configured `href`, else the first sidebar entry (in
+ * sort order) whose section belongs to the tab, so it self-heals when the docs
+ * tree is restructured. Undefined for a tab no article belongs to. Shared by
+ * the breadcrumb root and the sidebar's zone list, so the two never disagree.
+ */
+export const tabLandingHref = (
+  tab: DocsNavTab,
+  sidebar: readonly CollectionNavEntry[],
+  tabs: CollectionNavTabs
+): string | undefined =>
+  tab.href ?? sidebar.find((entry) => tabOfSection(entry.group, tabs)?.id === tab.id)?.href
 
 export interface NavGroup {
   /** Raw `groupBy` key used as the section identifier (`data-nav-group`). */
@@ -138,21 +153,19 @@ export const groupsForTab = (
  * The collection's entries in the order the docs sidebar lists them, for the
  * previous / next links at the foot of each article. Mirrors `DocsSidebarNav`: groups in first-appearance sort order,
  * entries in sort order within each group, ungrouped entries last. When the
- * sidebar is zoned (declared tabs, not collapsed) the walk runs tab by tab in
+ * sidebar is zoned (declared tabs, folded or not) the walk runs tab by tab in
  * declared order, each tab contributing its `groupsForTab` groups — so the last
  * article of one group, or of one tab, leads to the first of the next. An entry
  * reachable through two tabs keeps its first position.
  */
 export const orderSidebarEntries = (
   entries: readonly CollectionNavEntry[],
-  tabs: CollectionNavTabs | undefined,
-  collapsed: boolean
+  tabs: CollectionNavTabs | undefined
 ): readonly CollectionNavEntry[] => {
   const groups = bucketByGroup(entries)
-  const orderedGroups =
-    !collapsed && hasDocsTabs(tabs)
-      ? tabs.flatMap((tab) => groupsForTab(groups, tab, tabs, tab === tabs[0]))
-      : groups
+  const orderedGroups = hasDocsTabs(tabs)
+    ? tabs.flatMap((tab) => groupsForTab(groups, tab, tabs, tab === tabs[0]))
+    : groups
   return orderedGroups
     .flatMap((group) => group.entries)
     .filter((entry, index, all) => all.findIndex((other) => other.slug === entry.slug) === index)

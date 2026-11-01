@@ -18,7 +18,9 @@ sovrium start app.yaml
 
 `SMTP_FROM_NAME` is the display name recipients see beside the sender address. Leave it unset and emails go out under your app's `name`; `Sovrium` is used only when neither is available.
 
-Until `SMTP_HOST` is set, email is disabled and send attempts are logged rather than delivered — safe for local development. In development the whole message goes to the journal, links included, so a reset link can be copied straight out of the terminal; in production only a one-line notice naming the recipient and subject is logged. The startup banner warns about the missing transport when — and only when — the config makes email load-bearing. See **Troubleshooting: Auth, Email & MCP**.
+Port 587 upgrades the connection with STARTTLS before the account or the message is sent, and Sovrium refuses to go on without the upgrade unless the SMTP server runs on the same machine. A relay on a private network that offers no TLS at all needs `SMTP_ALLOW_PLAINTEXT=1`. Port 465, or `SMTP_SECURE=true`, is TLS from the first byte.
+
+Until `SMTP_HOST` is set, email is disabled and send attempts are logged rather than delivered, which is safe for local development. On a server only you can reach (a loopback origin with no reverse proxy declared), the whole message goes to the terminal, links included, so a reset link can be copied straight out of it. On any other deployment only a one-line notice naming the recipient and the subject is logged, whatever `NODE_ENV` says: a reset link is a credential, and a server log is read by more people than its operator. The startup banner warns about the missing transport when, and only when, the config makes email load-bearing. See **Troubleshooting: Auth, Email & MCP**.
 
 ## Send through an email API instead of SMTP
 
@@ -38,9 +40,9 @@ sovrium start app.yaml
 | `resend`         | `RESEND_API_KEY`                                                             |
 | `ses`            | `EMAIL_SES_REGION`, `EMAIL_SES_ACCESS_KEY_ID`, `EMAIL_SES_SECRET_ACCESS_KEY` |
 
-SMTP stays the default: leave `EMAIL_PROVIDER` unset and nothing changes. A key alone never switches the transport — a `BREVO_API_KEY` set for a Brevo connection leaves your mail on SMTP until `EMAIL_PROVIDER=brevo` says otherwise. `SMTP_FROM` and `SMTP_FROM_NAME` still name the sender, whichever transport carries the message. Auth emails and automation email actions take the same road.
+SMTP stays the default: leave `EMAIL_PROVIDER` unset and nothing changes. A key alone never switches the transport: a `BREVO_API_KEY` set for a Brevo connection leaves your mail on SMTP until `EMAIL_PROVIDER=brevo` says otherwise. `SMTP_FROM` and `SMTP_FROM_NAME` still name the sender, whichever transport carries the message. Auth emails and automation email actions take the same road.
 
-A misconfiguration refuses to start: an `EMAIL_PROVIDER` value that names no transport, or a selected transport with a missing credential, stops the server at boot and names the variable. If the provider later refuses a message — a revoked key, an unverified sender — the email step fails with the provider's name and the HTTP status it answered, never with the key. `EMAIL_API_URL` points the transport at a regional endpoint or a relay in front of the provider.
+A misconfiguration refuses to start: an `EMAIL_PROVIDER` value that names no transport, or a selected transport with a missing credential, stops the server at boot and names the variable. If the provider later refuses a message (a revoked key, an unverified sender), the email step fails with the provider's name and the HTTP status it answered, never with the key. `EMAIL_API_URL` points the transport at a regional endpoint or a relay in front of the provider.
 
 ## Verify
 
@@ -48,6 +50,6 @@ Trigger a password reset, or run an automation with an email action; the message
 
 ## Next
 
-- **Auth Overview** — the flows that send verification and reset email.
-- **Automation Email Actions** — sending email from a workflow.
-- **Environment Variables** — every email variable, including `SMTP_SECURE` and `EMAIL_API_URL`.
+- **Auth Overview**: the flows that send verification and reset email.
+- **Automation Email Actions**: sending email from a workflow.
+- **Environment Variables**: every email variable, including `SMTP_SECURE` and `EMAIL_API_URL`.

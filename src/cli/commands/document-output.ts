@@ -24,8 +24,9 @@
 
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { Effect, Console } from 'effect'
-import { printStderr } from '@/infrastructure/logging/cli-output'
+import { Effect } from 'effect'
+import { stopCommand } from '@/cli/runtime/run-command'
+import { printLine } from '@/infrastructure/logging/cli-output'
 
 /** The spellings every document verb accepts for markdown, its default. */
 const MARKDOWN_FORMATS: ReadonlySet<string> = new Set(['md', 'markdown'])
@@ -55,12 +56,12 @@ export function resolveDocumentFormat<F extends string>(
   const other = others.find((format) => format === normalized)
   if (other !== undefined) return other
 
-  printStderr(
+  return stopCommand(
+    1,
     `Error: Unsupported --format "${raw}".\n\n` +
       `  Accepted values: ${['md (or markdown)', ...others].join(', ')}.\n\n` +
       `  Omitting --format prints ${omittedPrints}`
   )
-  process.exit(1)
 }
 
 /**
@@ -80,8 +81,9 @@ const isBrokenPipe = (error: Error): boolean => (error as NodeJS.ErrnoException)
 /**
  * Write to stdout and resolve only once the stream has taken all of it.
  *
- * Every command that prints a document is an EXIT command: `src/cli/index.ts`
- * calls `process.exit(0)` as soon as the handler returns. A bare
+ * Every command that prints a document ends in an exit: the command runner
+ * (`cli/runtime/run-command.ts`) calls `process.exit` as soon as the handler
+ * returns. A bare
  * `process.stdout.write` returns before a pipe has accepted the bytes, so the
  * exit cut a large document short — `sovrium changelog --list --format json |
  * jq` received the first 128 KiB and invalid JSON. A file or a terminal hid
@@ -115,6 +117,7 @@ export const writeStdout = (content: string, stream: StdoutSink = process.stdout
         reject(error)
         return
       }
+      // Inside a stream callback, which cannot yield: the log runs synchronously.
       Effect.runSync(
         Effect.logDebug('stdout reader closed early (EPIPE); treated as a normal end', error)
       )
@@ -143,5 +146,5 @@ export const writeDocument = async (
   if (outputPath === undefined) return writeStdout(content)
   await mkdir(dirname(outputPath), { recursive: true })
   await writeFile(outputPath, content)
-  Effect.runSync(Console.log(`${noun} written to ${outputPath}.`))
+  printLine(`${noun} written to ${outputPath}.`)
 }

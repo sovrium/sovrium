@@ -6,25 +6,29 @@
  */
 
 import { dirname, basename, join, resolve } from 'node:path'
-import { Effect, Console } from 'effect'
 import { printConfigDeprecationWarnings } from '@/cli/runtime/config-deprecation-warnings'
+import { lazyImportSchema } from '@/cli/runtime/lazy-modules'
+import { stopCommand } from '@/cli/runtime/run-command'
+import { messageAsConfigFinding } from '@/domain/kernel/config-parsing/decode-report-format'
 import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
 import { formatMessageReport } from '@/domain/models/app/app-config-report-service'
-import { messageAsConfigFinding } from '@/domain/models/app/app-excess-property-report'
 import { sessionWebhookCacheWarnings } from '@/domain/models/app/automations/trigger/webhook-session-validation'
 import { slugFieldUniquenessWarnings } from '@/domain/models/app/pages/collection-slug-field-validation'
+import { savedClockFormulaNotices } from '@/domain/models/app/tables/formula-clock-notice-service'
+import { narrowedFormulaGrantNotices } from '@/domain/models/app/tables/formula-grant-notice-service'
 import { emptyLookupReadNotices } from '@/domain/models/app/tables/lookup-empty-read-service'
-import { printStderr } from '@/infrastructure/logging/cli-output'
-import { lazyImportSchema } from './utils'
+import { printLine, printStderr } from '@/infrastructure/logging/cli-output'
 import {
   parseConfigWithRefSources,
   validateFileExists,
   validateFileFormat,
 } from './validate-config-source'
+import { undrawnInlineSvgWarnings } from './validate-inline-svg-files'
 import { missingMarkdownFileWarnings } from './validate-markdown-files'
 import { coveredFiles, discoverValidationConfig, printJsonReport } from './validate-report'
 import { seedLanguageIssues } from './validate-seed-languages'
-import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
+import type { ConfigFinding } from '@/domain/kernel/config-parsing/decode-report-format'
+import type { App } from '@/domain/models/app'
 
 /**
  * The `$ref` source map of a config file, for ATTRIBUTION only, never fatal.
@@ -51,7 +55,7 @@ export const collectConfigAttribution = async (
     const { parseYamlContent, parseJsonContent } =
       await import('@/domain/models/app/app-content-parsing')
     const content = await Bun.file(absolutePath).text()
-    const raw = format === 'json' ? parseJsonContent(content) : parseYamlContent(content)
+    const raw = format === 'json' ? parseJsonContent(content) : parseYamlContent(content, Bun.YAML)
     return { refSources: collectRefSources(raw, dirname(absolutePath)), configFile: absolutePath }
   } catch {
     return { refSources: new Map<string, string>(), configFile: absolutePath }
@@ -76,10 +80,10 @@ export const loadConfigForValidationWithSources = async (
   try {
     return await parseConfigWithRefSources(filePath, format, loadFromFile, collectRefSources)
   } catch (error) {
-    printStderr(
+    return stopCommand(
+      1,
       `Error: Failed to parse file: ${error instanceof Error ? error.message : String(error)}`
     )
-    process.exit(1)
   }
 }
 
@@ -238,8 +242,10 @@ export interface ValidationOutcome {
    */
   readonly report: readonly string[]
   /**
-   * Non-fatal notices — deprecated config keys from the shared pipeline, and
-   * each lookup that reads empty for a role allowed to read it.
+   * Non-fatal notices — deprecated config keys from the shared pipeline,
+   * each lookup that reads empty for a role allowed to read it, each formula
+   * that reads the clock but is computed when its row is saved, and each
+   * formula whose own read grant its inputs narrow.
    *
    * Kept apart from `errors` all the way to the print site. A deprecation is
    * not a refusal: the config is valid, it ships, and it keeps shipping until
@@ -255,6 +261,13 @@ export interface ValidationOutcome {
    */
   readonly warnings: readonly string[]
 }
+
+/** The notices read off the decoded schema: lookups that read empty, and formulas that mislead. */
+const schemaNotices = (app: App): readonly string[] => [
+  ...emptyLookupReadNotices(app),
+  ...savedClockFormulaNotices(app),
+  ...narrowedFormulaGrantNotices(app),
+]
 
 /**
  * Validate one parsed config. THE single decode path behind both the
@@ -323,9 +336,10 @@ export const validateParsedConfig = async (
     findings: postDecodeErrors.map((error) => messageAsConfigFinding(error)),
     report: formatMessageReport(postDecodeErrors),
     // Only `validate` says it: the boot decodes through the pipeline, not here.
-    notices: [...decoded.notices, ...emptyLookupReadNotices(decoded.app)],
+    notices: [...decoded.notices, ...schemaNotices(decoded.app)],
     warnings: [
       ...(await missingMarkdownFileWarnings(decoded.app.pages, projectDir)),
+      ...(await undrawnInlineSvgWarnings(decoded.app, projectDir)),
       ...sessionWebhookCacheWarnings(parsed),
       ...slugFieldUniquenessWarnings(decoded.app),
     ],
@@ -369,8 +383,7 @@ export const handleValidateCommand = async (filePath?: string, json = false): Pr
     //
     // The report is the one `start` and `build` print for the same config: every
     // problem, counted, grouped under the file it lives in.
-    printStderr(`Error: Validation failed.\n\n${outcome.report.join('\n')}`)
-    process.exit(1)
+    return stopCommand(1, `Error: Validation failed.\n\n${outcome.report.join('\n')}`)
   }
 
   // Notices print BEFORE the verdict and on stderr, so the success line stays
@@ -381,5 +394,5 @@ export const handleValidateCommand = async (filePath?: string, json = false): Pr
     printStderr(`Notice:\n\n${noticeLines}\n`)
   }
 
-  Effect.runSync(Console.log(`Valid configuration: ${outcome.name}`))
+  printLine(`Valid configuration: ${outcome.name}`)
 }

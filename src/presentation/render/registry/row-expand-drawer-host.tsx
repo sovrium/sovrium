@@ -24,8 +24,11 @@ const HIDDEN_STYLE = { display: 'none' } as const
  */
 export function RowExpandDrawerHost({
   props,
+  loadingLabel,
 }: {
   readonly props: Record<string, unknown>
+  /** The placeholder line served before the panel mounts, in the page language. */
+  readonly loadingLabel: string
 }): ReactElement {
   return (
     <div
@@ -38,7 +41,7 @@ export function RowExpandDrawerHost({
         role="dialog"
         aria-label={props['title'] as string}
       >
-        <p>Loading...</p>
+        <p>{loadingLabel}</p>
       </div>
     </div>
   )

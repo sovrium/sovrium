@@ -16,7 +16,7 @@ import {
   small,
   stack,
   str,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** A centered hero: headline, supporting line and one call to action. */

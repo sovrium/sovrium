@@ -5,15 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  asComponent,
-  DATA_NOTE,
-  param,
-  stringParam,
-  THEME_NOTE,
-} from '@/library/manifest/block-kit'
+import { asComponent, DATA_NOTE, param, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
+import { RECORD_PAGE_NOTE, recordPanel } from '@/library/kit/record-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import { RECORD_PAGE_NOTE, recordPanel } from '@/library/manifest/record-block-kit'
 
 /** The facts of a record page: each field by its type, and when it was made and changed. */
 export const entry = defineLibraryEntry({

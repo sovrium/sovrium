@@ -99,7 +99,7 @@ export const PdfPagesActionSchema = Schema.Struct({
   ]).pipe(
     Schema.annotate({
       description:
-        'The PDF, the page operation — delete, extract, reorder or rotate — the pages it applies to, and where the result is written.',
+        'The PDF, the page operation (delete, extract, reorder or rotate), the pages it applies to, and where the result is written.',
     })
   ),
 }).pipe(

@@ -21,6 +21,13 @@
  * its format — and its renderer draws the static card from the marker.
  */
 
+import {
+  componentField,
+  componentFields,
+  keyOf,
+  rewriteComponent,
+  synthesizedComponent,
+} from './component-rewrite'
 import type { Component } from '@/domain/models/app/pages/components'
 
 /** The marker a withheld component carries from the resolver to the renderer. */
@@ -45,7 +52,7 @@ export function isWithheldOverUnreadableTable(component: Component): boolean {
 
 /** The author's `data-testid`, the one prop a withheld KPI card keeps. */
 function testIdOf(component: Component): Record<string, unknown> {
-  const testId = (component.props as Record<string, unknown> | undefined)?.['data-testid']
+  const testId = keyOf(component.props, 'data-testid')
   return testId === undefined ? {} : { 'data-testid': testId }
 }
 
@@ -54,25 +61,19 @@ function testIdOf(component: Component): Record<string, unknown> {
  * of the table), or a marked node {@link dropWithheld} removes from the page.
  */
 export function withheldComponent(component: Component): Component {
-  const { label } = component as { readonly label?: unknown }
-  return {
+  const label = componentField(component, 'label')
+  const { id } = componentFields(component)
+  return synthesizedComponent({
     type: component.type,
-    ...(component.id !== undefined && { id: component.id }),
+    ...(id !== undefined && { id }),
     ...(component.type === 'kpi' && label !== undefined && { label }),
     props: { ...testIdOf(component), [READ_WITHHELD_MARKER]: true },
-  } as Component
+  })
 }
 
 /** True for a node {@link withheldComponent} marked to leave the page. */
 export function isDroppedWithheld(node: unknown): boolean {
-  if (typeof node !== 'object' || node === null) return false
-  const { type, props } = node as { readonly type?: unknown; readonly props?: unknown }
-  return (
-    type !== 'kpi' &&
-    typeof props === 'object' &&
-    props !== null &&
-    (props as Record<string, unknown>)[READ_WITHHELD_MARKER] === true
-  )
+  return keyOf(node, 'type') !== 'kpi' && isReadWithheld(node)
 }
 
 /**
@@ -81,12 +82,8 @@ export function isDroppedWithheld(node: unknown): boolean {
  */
 export function isReadWithheld(node: unknown): boolean {
   if (typeof node !== 'object' || node === null) return false
-  const { props } = node as { readonly props?: unknown }
-  return (
-    typeof props === 'object' &&
-    props !== null &&
-    (props as Record<string, unknown>)[READ_WITHHELD_MARKER] === true
-  )
+  const props = keyOf(node, 'props')
+  return typeof props === 'object' && keyOf(props, READ_WITHHELD_MARKER) === true
 }
 
 /**
@@ -109,10 +106,15 @@ export function emptyDataBoundComponent(component: Component): Component {
   if (isWithheldOverUnreadableTable(component)) return withheldComponent(component)
   // A record the page handed down (`_record`) leaves with the binding: a form
   // the caller may not read renders empty, not prefilled from the page.
-  const { _record: _withheld, ...ownProps } = (component.props ?? {}) as Record<string, unknown>
+  const { _record: _withheld, ...ownProps } = componentFields(component.props ?? {})
   const props = { ...ownProps, _dataSourceBound: true }
+  const { id } = componentFields(component)
   if (component.type === 'table') {
-    return { type: component.type, ...(component.id && { id: component.id }), props } as Component
+    return synthesizedComponent({
+      type: component.type,
+      ...(id ? { id } : {}),
+      props,
+    })
   }
-  return { ...component, children: undefined, props }
+  return rewriteComponent(component, { children: undefined, props })
 }

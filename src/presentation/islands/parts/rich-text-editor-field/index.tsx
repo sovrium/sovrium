@@ -10,7 +10,7 @@ import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
-import { useEditor, EditorContent, type Editor } from '@tiptap/react'
+import { useEditor, EditorContent, type Editor, type Extensions } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useCallback, useEffect, useRef } from 'react'
 import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
@@ -45,8 +45,7 @@ const RICH_TEXT_EMPTY_DOC_LENGTH = '<p></p>'.length // 7
  */
 const BODY_EDITOR_PROPS = { attributes: { 'data-slot': 'input-group-control' } }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- @tiptap/core version mismatch between starter-kit (3.22.2) and root (3.22.3)
-function buildExtensions(placeholder?: string, maxLength?: number): any[] {
+function buildExtensions(placeholder?: string, maxLength?: number): Extensions {
   return [
     // StarterKit ships a `link` of its own, so registering the standalone
     // extension beside it made Tiptap log `Duplicate extension names found:

@@ -18,8 +18,8 @@ export const EMAIL_PROVIDERS = ['smtp', 'brevo', 'resend', 'ses'] as const
 /**
  * Email environment configuration.
  *
- * Env vars: EMAIL_PROVIDER, SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER,
- * SMTP_PASS, SMTP_FROM, SMTP_FROM_NAME, BREVO_API_KEY, RESEND_API_KEY,
+ * Env vars: EMAIL_PROVIDER, SMTP_HOST, SMTP_PORT, SMTP_SECURE,
+ * SMTP_ALLOW_PLAINTEXT, SMTP_USER, SMTP_PASS, SMTP_FROM, SMTP_FROM_NAME, BREVO_API_KEY, RESEND_API_KEY,
  * EMAIL_SES_REGION, EMAIL_SES_ACCESS_KEY_ID, EMAIL_SES_SECRET_ACCESS_KEY,
  * EMAIL_API_URL.
  *
@@ -64,7 +64,20 @@ export const EmailEnvSchema = Schema.Struct({
         decode: SchemaGetter.transform((s: string) => s === 'true'),
         encode: SchemaGetter.transform((b: boolean) => (b ? 'true' : 'false')),
       }),
-      Schema.annotate({ description: 'Use TLS (SMTP_SECURE)' })
+      Schema.annotate({
+        description:
+          'TLS from the first byte (SMTP_SECURE); port 465 enables it regardless. Without it, the connection must upgrade with STARTTLS unless the SMTP host is local.',
+      })
+    )
+  ),
+  smtpAllowPlaintext: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        defaultNote: 'unset: a remote SMTP server must offer STARTTLS',
+        description:
+          'Lets a remote SMTP server that offers no STARTTLS receive the account and the message in clear text (SMTP_ALLOW_PLAINTEXT): 1 or true; any other non-empty value refuses to start. A server on the same machine never needs it.',
+        examples: ['1'],
+      })
     )
   ),
   smtpUser: Schema.optional(

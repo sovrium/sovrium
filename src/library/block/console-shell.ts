@@ -5,16 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, param, when } from '@/library/manifest/block-kit'
-import { stringParam } from '@/library/manifest/block-notes'
+import { asComponent, param, when } from '@/library/kit/block-kit'
+import { stringParam } from '@/library/kit/block-notes'
+import { crumbs, placeholderContent, userRow } from '@/library/kit/navigation-block-kit'
+import { platformGroup, SHELL_NOTES, shellSidebar } from '@/library/kit/sidebar-shell-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import { crumbs, placeholderContent, userRow } from '@/library/manifest/navigation-block-kit'
-import {
-  platformGroup,
-  SHELL_NOTES,
-  shellSidebar,
-} from '@/library/manifest/sidebar-shell-block-kit'
-import type { BlockNode } from '@/library/manifest/block-kit'
+import type { BlockNode } from '@/library/kit/block-kit'
 
 /** A row of `size: lg`, as sidebar-07's header and footer draw them. */
 const LARGE_ROW =
@@ -58,7 +54,7 @@ const identityRow = (): BlockNode => ({
               element: 'span',
               props: {
                 className:
-                  "shrink-0 rounded-sm bg-sidebar-accent px-1 font-mono text-[10px] leading-4 text-sidebar-foreground/70 before:content-['v'] empty:hidden!",
+                  "shrink-0 rounded-sm bg-sidebar-accent px-1 font-mono text-xs text-sidebar-foreground/70 before:content-['v'] empty:hidden!",
               },
               content: '2.4.0',
             },
@@ -145,9 +141,10 @@ const readOnlyNotice = (text: string, shortText: string): readonly BlockNode[] =
  * role rides on the name's line as a small badge — `roleLabel` for an operator
  * holding `edit-operations`, `readOnlyRoleLabel` for anyone else, either left
  * out while its label is empty — so the block stays two lines. The name gives
- * way first, then the badge; the email truncates on its own line.
+ * way first, then the badge, which wraps rather than clip its role; the email
+ * truncates on its own line.
  */
-const ROLE_BADGE = { className: 'h-4 max-w-[60%] shrink truncate px-1.5 text-[10px]' } as const
+const ROLE_BADGE = { className: 'h-auto max-w-[60%] shrink whitespace-normal px-1.5' } as const
 
 const accountRow = (roleLabel: string, readOnlyRoleLabel: string): BlockNode => {
   const row = userRow('shadcn', 'm@example.com', 'CN')

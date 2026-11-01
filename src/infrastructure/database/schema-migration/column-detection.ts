@@ -6,10 +6,9 @@
  */
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { isPhysicalColumnField, shouldCreateDatabaseColumn } from '../sql/sql-field-predicates'
 import { generateColumnDefinition, isFieldNotNull } from '../sql/sql-generators'
-import { withTranslatableToggle } from '../sql/sql-translatable-columns'
+import { isTranslatableToggle, withTranslatableToggle } from '../sql/sql-translatable-columns'
 import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
 import {
   normalizeDataType,
@@ -19,6 +18,18 @@ import {
 } from './type-utils'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
+
+/**
+ * The DEFAULT expression of `field`'s column as a per-column reshape writes it,
+ * or `undefined`. Reshapes run on PostgreSQL only (`generateColumnReshapeStatements`
+ * returns none on SQLite, which rebuilds the table instead). Handles a quoted
+ * string (`'value'`), an unquoted value (`42`) and a function (`NOW()`).
+ */
+const reshapeDefaultExpression = (table: Table, field: Fields[number]): string | undefined =>
+  generateColumnDefinition(field, { dialect: 'postgres', allFields: table.fields }).match(
+    /DEFAULT\s+('(?:[^']|'')*'|[^\s]+)/
+  )?.[1]
 
 /** Column info from database */
 export type ExistingColumnInfo = {
@@ -47,37 +58,35 @@ const normalizePrimaryKeyType = (dataType: string): string => {
  * Whether the protected automatic `id` column disagrees with the primary-key
  * type the config DECLARES, and so must be rebuilt.
  *
- * The declared type is the reference, not a hardcoded integer. Until this took
- * `declaredPrimaryKeyType` the predicate asked only whether the live `id` was
- * integer-ish and called every other type incompatible — so a table that
- * declares `primaryKey: { type: 'text' }` (explicitly, or implicitly via
- * `auth.scopeTables`, which `applySchemaDefaults` grants a TEXT id) was
- * classified as needing a full recreate on EVERY migrating boot, even though
- * its TEXT id was exactly what the config asked for. That churned data forever
- * and re-ran the riskiest path in the migrator for no reason.
+ * The declared type is the reference, not a hardcoded integer: a table declaring
+ * `primaryKey: { type: 'text' }` (or granted a TEXT id through `auth.scopeTables`)
+ * keeps its TEXT id instead of being recreated on every migrating boot.
  *
  * @param declaredPrimaryKeyType - the table's `primaryKey.type` (`undefined` ⇒
  *   the default serial id). Resolved through the same
  *   {@link resolvePrimaryKeyColumnType} the DDL generator uses, so the two can
  *   never drift apart.
+ * @param dialect - the engine of the live table
  */
 export const needsIdColumnRecreation = (
   existingColumns: ReadonlyMap<string, ExistingColumnInfo>,
   shouldProtectIdColumn: boolean,
-  declaredPrimaryKeyType?: string
+  declaredPrimaryKeyType: string | undefined,
+  dialect: DatabaseDialect
 ): boolean => {
   if (!shouldProtectIdColumn) return false
   if (!existingColumns.has('id')) return false
 
   const liveType = normalizePrimaryKeyType(existingColumns.get('id')!.dataType)
-  const declaredType = normalizePrimaryKeyType(resolvePrimaryKeyColumnType(declaredPrimaryKeyType))
+  const declaredType = normalizePrimaryKeyType(
+    resolvePrimaryKeyColumnType(declaredPrimaryKeyType, dialect)
+  )
   return liveType !== declaredType
 }
 
 /**
- * Find columns that should be added to the table
- * Excludes columns that exist but have type mismatches (those will be altered, not dropped/added)
- *
+ * Find columns that should be added to the table (an existing column whose type
+ * mismatches is altered, not added)
  * Only STORED fields qualify ({@link isPhysicalColumnField}): a lookup, rollup
  * or view-computed formula is produced by the view body, so it is never missing
  * from the base table no matter what the live column list says.
@@ -148,31 +157,35 @@ export const filterModifiableFields = (
     return true
   })
 
+/** The live columns as they stand once each `old → new` field rename has run. */
+export const columnsAfterRenames = (
+  existingColumns: ReadonlyMap<string, ExistingColumnInfo>,
+  fieldRenames: ReadonlyMap<string, string>
+): ReadonlyMap<string, ExistingColumnInfo> =>
+  new Map([...existingColumns].map(([name, info]) => [fieldRenames.get(name) ?? name, info]))
+
 /**
- * Find columns that need type changes
- * Returns ALTER COLUMN TYPE statements for type mismatches
- *
- * One mismatch is deliberately NOT reported here: the `timestamp → timestamptz`
- * reshape of a declared `created-at` / `updated-at` / `deleted-at` column. That
- * conversion rewrites the whole table under an `ACCESS EXCLUSIVE` lock and is
- * only instant-preserving under an assumption about the database server's
- * `TimeZone` that no config change can establish — so emitting it from here
- * would make it fire automatically at boot on every existing deployment, purely
- * as a side effect of some unrelated config edit. It is owned end-to-end by the
- * boot-time reconciler instead (opt-in gate + `TimeZone` preflight).
+ * ALTER COLUMN TYPE statements for type mismatches, each inside a translatable
+ * toggle's steps. A renamed field is compared with its column as the rename leaves
+ * it, and converted only when the same edit turns `translatable` on or off. Not
+ * reported: the `timestamp → timestamptz` reshape of a declared `created-at` /
+ * `updated-at` / `deleted-at` column, which rewrites the table under an `ACCESS
+ * EXCLUSIVE` lock and preserves instants only under a server `TimeZone` no config
+ * can establish; the boot-time reconciler owns it.
  */
 export const findTypeChanges = (
   table: Table,
   existingColumns: ReadonlyMap<string, ExistingColumnInfo>,
-  renamedNewNames: ReadonlySet<string>,
+  fieldRenames: ReadonlyMap<string, string>,
   tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
-): readonly string[] =>
-  filterModifiableFields(table.fields, existingColumns, renamedNewNames).flatMap((field) => {
-    const existing = existingColumns.get(field.name)!
+): readonly string[] => {
+  const columns = columnsAfterRenames(existingColumns, fieldRenames)
+  const renamed = new Set(fieldRenames.values())
+  return filterModifiableFields(table.fields, columns, new Set()).flatMap((field) => {
+    const existing = columns.get(field.name)!
     if (doesColumnTypeMatch(field, existing.dataType, tablePrimaryKeyTypes)) return []
     if (isGatedTimestamptzConversion(field, existing.dataType)) return []
-
-    // Type mismatch detected - ALTER COLUMN TYPE, inside a translatable toggle's steps
+    if (renamed.has(field.name) && !isTranslatableToggle(field, existing.dataType)) return []
     return withTranslatableToggle(
       table.name,
       field,
@@ -180,6 +193,7 @@ export const findTypeChanges = (
       generateAlterColumnTypeStatement(table.name, field, existing.dataType, tablePrimaryKeyTypes)
     )
   })
+}
 
 /**
  * Generate validation query to check if existing data contains NULL values
@@ -205,16 +219,9 @@ export const generateNotNullValidationQuery = (tableName: string, fieldName: str
  * Returns UPDATE statement that sets NULL values to the default value
  */
 export const generateBackfillQuery = (table: Table, field: Fields[number]): string => {
-  const columnDef = generateColumnDefinition(field, false, table.fields)
-  // Extract DEFAULT clause from column definition
-  // Handle quoted strings (DEFAULT 'value'), unquoted values (DEFAULT 42), and functions (DEFAULT NOW())
-  const defaultMatch = columnDef.match(/DEFAULT\s+('(?:[^']|'')*'|[^\s]+)/)
-  if (!defaultMatch) {
-    // This shouldn't happen if hasDefault is true, but handle gracefully
-    return ''
-  }
-
-  const defaultClause = defaultMatch[1]
+  const defaultClause = reshapeDefaultExpression(table, field)
+  // This shouldn't happen if hasDefault is true, but handle gracefully
+  if (defaultClause === undefined) return ''
   return `UPDATE ${table.name} SET ${quoteSqlIdentifier(field.name)} = ${defaultClause} WHERE ${quoteSqlIdentifier(field.name)} IS NULL`
 }
 
@@ -321,12 +328,8 @@ export const findDefaultValueChanges = (
 
     // Case 2: Default added or modified (generate SET DEFAULT statement)
     if (currentDefault !== undefined) {
-      const columnDef = generateColumnDefinition(field, false, table.fields)
-      // Extract DEFAULT clause from column definition
-      // Handle quoted strings (DEFAULT 'value'), unquoted values (DEFAULT 42), and functions (DEFAULT NOW())
-      const defaultMatch = columnDef.match(/DEFAULT\s+('(?:[^']|'')*'|[^\s]+)/)
-      if (defaultMatch) {
-        const defaultClause = defaultMatch[1]
+      const defaultClause = reshapeDefaultExpression(table, field)
+      if (defaultClause !== undefined) {
         return [
           `ALTER TABLE ${physicalTableName} ALTER COLUMN ${quoteSqlIdentifier(field.name)} SET DEFAULT ${defaultClause}`,
         ]
@@ -356,6 +359,7 @@ export interface ColumnDrop {
  * follow-on constraint sync then cannot build against a TEXT/UUID parent key.
  */
 export const buildColumnStatements = (options: {
+  readonly dialect: DatabaseDialect
   readonly tableName: string
   readonly columnsToDrop: readonly string[]
   readonly columnsToAdd: readonly Fields[number][]
@@ -368,32 +372,19 @@ export const buildColumnStatements = (options: {
   readonly dropStatements: readonly string[]
   readonly addStatements: readonly string[]
 } => {
-  const {
-    tableName,
-    columnsToDrop,
-    columnsToAdd,
-    primaryKeyFields,
-    allFields,
-    tablePrimaryKeyTypes,
-    hasAuthConfig = true,
-  } = options
+  const { dialect, tableName, columnsToDrop, columnsToAdd, primaryKeyFields } = options
   // `CASCADE` is PostgreSQL-only. SQLite (3.35+) drops without it and refuses a
   // column a key, an index, a constraint, a trigger or a view still names; the
   // migration rebuilds the table for those instead.
-  const cascade = isSqliteRuntime() ? '' : ' CASCADE'
+  const cascade = dialect === 'sqlite' ? '' : ' CASCADE'
   const drops = columnsToDrop.map((column): ColumnDrop => ({
     column,
     statement: `ALTER TABLE ${tableName} DROP COLUMN ${quoteSqlIdentifier(column)}${cascade}`,
   }))
   const addStatements = columnsToAdd.map((field) => {
     const isPrimaryKey = primaryKeyFields.includes(field.name)
-    const columnDef = generateColumnDefinition(
-      field,
-      isPrimaryKey,
-      allFields,
-      hasAuthConfig,
-      tablePrimaryKeyTypes
-    )
+    // The context is the options themselves: engine, fields, auth flag and key types.
+    const columnDef = generateColumnDefinition(field, { ...options, isPrimaryKey })
     return `ALTER TABLE ${tableName} ADD COLUMN ${columnDef}`
   })
   return { drops, dropStatements: drops.map((drop) => drop.statement), addStatements }

@@ -66,7 +66,7 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
 
 // ─── Status derivation threshold ─────────────────────────────────────────────
 
@@ -305,7 +305,7 @@ export const connectionUserTokenSchema = Schema.Struct({
  */
 export const connectionDetailResponseSchema = Schema.Struct({
   connection: connectionListItemSchema.annotate({
-    description: 'The connection header — the same secret-free fields as the list item.',
+    description: 'The connection header: the same secret-free fields as the list item.',
   }),
   tokens: Schema.Array(connectionUserTokenSchema).annotate({
     description:
@@ -327,3 +327,16 @@ export type ConnectionsListResponse = typeof connectionsListResponseSchema.Type
 export type ConnectionUserToken = typeof connectionUserTokenSchema.Type
 /** @public */
 export type ConnectionDetailResponse = typeof connectionDetailResponseSchema.Type
+
+/**
+ * `POST /api/admin/connections/:id/authorize`: where to send the operator to
+ * grant the connection.
+ */
+export const connectionAuthorizeResponseSchema = Schema.Struct({
+  authorizationUrl: Schema.String.annotate({
+    description: "The provider's authorization page, with this attempt's state and code challenge",
+  }),
+}).annotate({ identifier: 'ConnectionAuthorizeResponse' })
+
+/** @public */
+export type ConnectionAuthorizeResponse = typeof connectionAuthorizeResponseSchema.Type

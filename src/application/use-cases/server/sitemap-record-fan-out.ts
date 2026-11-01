@@ -33,6 +33,7 @@ import {
   signedOutContext,
 } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { signedOutRowAdmission } from '@/domain/models/app/tables/row-read-admission-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { visitorRowRule } from '@/domain/models/app/tables/visitor-row-rule-service'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
@@ -236,7 +237,7 @@ const perLanguageRecordPaths = (
 }
 
 /** The declared table `name` of `app`. */
-const tableOf = (app: App, name: string) => app.tables?.find((table) => table.name === name)
+const tableOf = (app: App, name: string) => findTableByName(app.tables, name)
 
 /**
  * The fields a table's row-level read rule compares, across every condition

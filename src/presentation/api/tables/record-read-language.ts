@@ -33,9 +33,8 @@ const RECORD_LANGUAGE = 'recordReadLanguage'
 
 /** Middleware: decide the read language, and name it on a successful answer. */
 export const servesRecordLanguage =
-  (resolveApp: () => App) =>
+  (app: App) =>
   async (c: Context, next: Next): Promise<void> => {
-    const app = resolveApp()
     const language = requestedRecordLanguage(
       app.languages,
       c.req.query('lang'),

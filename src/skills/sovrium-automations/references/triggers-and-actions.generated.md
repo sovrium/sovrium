@@ -33,17 +33,17 @@ Read: `sovrium docs automation-actions`
 
 | Type | Operator | What it does |
 | --- | --- | --- |
-| `code` | `runTypescript` | Execute a named execute(context) function with typed CodeContext including actions and structured logging — body is type-checked at server startup |
-| `http` | `get` | Send GET requests to external services — no body field |
-| `http` | `post` | Send POST requests to external services — defaults Content-Type to application/json |
-| `http` | `put` | Send PUT requests to external services — full resource replacement with JSON default |
-| `http` | `patch` | Send PATCH requests to external services — partial resource update with JSON default |
-| `http` | `delete` | Send DELETE requests to external services — optional body for APIs that accept it |
+| `code` | `runTypescript` | Execute a named execute(context) function with typed CodeContext including actions and structured logging. The body is type-checked at server startup |
+| `http` | `get` | Send GET requests to external services (no body field) |
+| `http` | `post` | Send POST requests to external services. Defaults Content-Type to application/json |
+| `http` | `put` | Send PUT requests to external services: full resource replacement with JSON default |
+| `http` | `patch` | Send PATCH requests to external services: partial resource update with JSON default |
+| `http` | `delete` | Send DELETE requests to external services, with an optional body for APIs that accept it |
 | `http` | `request` | Send configurable HTTP requests to external services |
 | `record` | `create` | Insert a new record into a table |
 | `record` | `read` | Fetch a single record from a table by its primary key |
 | `record` | `list` | Read a filtered, ordered, paginated set of records from a table |
-| `record` | `update` | Update records matching filter conditions |
+| `record` | `update` | Update one record by its id, or every record matching filter conditions |
 | `record` | `delete` | Delete records matching filter conditions |
 | `record` | `upsert` | Atomically create a record if not found, or update it if it exists |
 | `record` | `batchCreate` | Create multiple records in a single operation |
@@ -78,7 +78,7 @@ Read: `sovrium docs automation-actions`
 | `comment` | `list` | Read a record's comments, oldest first, as the system or as the triggering user would read them |
 | `comment` | `delete` | Soft-delete one comment of a record's thread, as the system or under the triggering user's comment rules |
 | `comment` | `update` | Replace the text of one comment of a record's thread, keeping its id, author, date and place, as the system or under the triggering user's edit rule |
-| `comment` | `moderate` | Set the moderation status of one comment of a record's thread — approved, pending or rejected — without touching its content, as the system or under the triggering user's moderator permission |
+| `comment` | `moderate` | Set the moderation status of one comment of a record's thread (approved, pending or rejected) without touching its content, as the system or under the triggering user's moderator permission |
 | `notification` | `create` | Notify people of something: one notification per recipient, of a declared kind, listed in the app, sent by email, or kept for a periodic digest that this version does not yet send, as each recipient's preferences for that kind decide |
 | `webhook` | `send` | Send outgoing webhook (envelope or pass-through mode) |
 | `webhook` | `response` | Construct a custom response for synchronous webhook triggers (respondImmediately: false) |
@@ -157,7 +157,7 @@ Read: `sovrium docs automation-actions`
 | `date` | `now` | Capture the current instant, optionally rendered in a timezone and locale |
 | `flow` | `stop` | Immediately stop automation execution with optional status and output |
 | `sovrium` | `validateConfig` | Decode a candidate app config against AppSchema and expose { valid, errors } |
-| `sovrium` | `validateBundle` | Check a stored bundle archive — its manifest, every entry against its sha256, and the config it carries — and expose { valid, name, manifest, errors } |
+| `sovrium` | `validateBundle` | Check a stored bundle archive (its manifest, every entry against its sha256, and the config it carries) and expose { valid, name, manifest, errors } |
 | `app` | `seed` | Seed this app's own data from its seed files, or reset it to them, as `sovrium seed` would; switched on by the host with SOVRIUM_SELF_SEED |
 | `instance` | `status` | Read a supervised app's unit state, restart count, memory use, how its last run ended, current revision and the engine it runs |
 | `instance` | `usage` | Measure how many bytes a supervised app's database and stored files hold, as the app, through its one-shot usage unit |

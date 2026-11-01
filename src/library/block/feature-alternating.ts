@@ -20,9 +20,9 @@ import {
   stringParam,
   THEME_NOTE,
   wrap,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import type { BlockNode } from '@/library/manifest/block-kit'
+import type { BlockNode } from '@/library/kit/block-kit'
 
 const ROWS = [
   {

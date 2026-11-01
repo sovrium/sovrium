@@ -23,8 +23,8 @@
  */
 
 import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
 import { periodPresetSchema } from '@/domain/models/api/admin/envelope/period-preset'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 
 /**
  * Query parameters accepted by `GET /api/admin/users/overview`.
@@ -155,7 +155,7 @@ export const usersOverviewResponseSchema = Schema.Struct({
     }),
     without_role: Schema.Int.annotate({
       description:
-        'Accounts whose stored role is empty or is not a role this app can assign — for example a role removed from the configuration. Such an account is granted nothing. Invited accounts are not counted here.',
+        'Accounts whose stored role is empty or is not a role this app can assign, for example a role removed from the configuration. Such an account is granted nothing. Invited accounts are not counted here.',
     }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
     invited: Schema.Int.annotate({
       description:

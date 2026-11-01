@@ -26,11 +26,14 @@
  */
 
 import { Schema } from 'effect'
-import { coercedBoolean } from '@/domain/models/api/combinators/coerce'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { cursorPaginationQuerySchema, cursorPaginationResponseSchema } from '../../combinators'
-import { withDefault } from '../../combinators/schema-defaults'
+import { coercedBoolean } from '@/domain/kernel/config-parsing/coerce'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import {
+  cursorPaginationQuerySchema,
+  cursorPaginationResponseSchema,
+} from '../../cursor-pagination'
+import { withDefault } from '../../schema-defaults'
 import { adminEnvelopeSchema } from '../envelope/admin-envelope'
 
 /**

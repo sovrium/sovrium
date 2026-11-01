@@ -5,15 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Data, Effect } from 'effect'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
+import {
+  adminUserRoleUpdatedResponseSchema,
+  sessionRefreshResponseSchema,
+} from '@/domain/models/api/auth/auth'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { logError } from '@/infrastructure/logging/logger'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
   conflict,
   notFound,
   unauthorized,
   validationError,
 } from '@/presentation/api/runtime/auth-helpers'
+import { runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { Context, Hono } from 'hono'
 
@@ -27,6 +33,11 @@ import type { Context, Hono } from 'hono'
  * not through a custom add-member endpoint. Test fixtures can add members
  * directly via the AuthService infrastructure layer.
  */
+
+/** Better Auth did not answer whose session a request carries. */
+class CallerSessionError extends Data.TaggedError('CallerSessionError')<{
+  readonly cause: unknown
+}> {}
 
 /**
  * Better Auth API interface
@@ -85,11 +96,10 @@ const createSessionRefreshHandler = (authInstance?: unknown) => async (c: Contex
       return unauthorized(c)
     }
 
-    return c.json(
-      {
-        message: 'Session refreshed successfully',
-      },
-      200
+    return shapedJson(
+      c,
+      { message: 'Session refreshed successfully' },
+      sessionRefreshResponseSchema
     )
   } catch {
     return c.json(
@@ -109,26 +119,19 @@ const createSessionRefreshHandler = (authInstance?: unknown) => async (c: Contex
  * (`admin-editor`, `admin-viewer`, `operator`) are not admin-equivalent and are
  * refused here, as the admin plane refuses them.
  */
-const authorizeAdminCaller = async (
-  auth: BetterAuthAPI,
-  c: Context,
-  app: AdminRoleResolvable
-): Promise<Response | undefined> => {
-  const callerSession = await auth.api.getSession({ headers: c.req.raw.headers })
-  if (!callerSession) {
-    return unauthorized(c)
-  }
+const authorizeAdminCaller = (auth: BetterAuthAPI, c: Context, app: AdminRoleResolvable) =>
+  Effect.gen(function* () {
+    const callerSession = yield* Effect.tryPromise({
+      try: () => auth.api.getSession({ headers: c.req.raw.headers }),
+      catch: (cause) => new CallerSessionError({ cause }),
+    })
+    if (!callerSession) return unauthorized(c)
 
-  const { getUserRole } = await import('@/application/use-cases/tables/user-role')
-  const callerRole = await runDomainPromise(c, getUserRole(callerSession.session.userId))
-  if (!isAdminEquivalent(callerRole, app)) {
+    const callerRole = yield* getUserRole(callerSession.session.userId)
     // S1 anti-enumeration: admin-role denial returns 404 so the existence
     // of the admin endpoint is not discoverable by non-admin callers.
-    return notFound(c)
-  }
-
-  return undefined
-}
+    return isAdminEquivalent(callerRole, app) ? undefined : notFound(c)
+  })
 
 /**
  * Parse and validate the role-update request (body + path parameter).
@@ -211,7 +214,11 @@ const applyRoleUpdate = async (
       (error: unknown) => error ?? new Error('set-role rejected without a reason')
     )
   if (failure === undefined) {
-    return c.json({ success: true, message: 'User role updated successfully' }, 200)
+    return shapedJson(
+      c,
+      { success: true, message: 'User role updated successfully' },
+      adminUserRoleUpdatedResponseSchema
+    )
   }
   const refusal = betterAuthRefusal(failure)
   if (refusal === undefined || refusal.status >= 500) {
@@ -249,33 +256,41 @@ const applyRoleUpdate = async (
  * - Returns 404 if the id matches no account; nothing is written or recorded
  */
 const createAdminUserUpdateHandler =
-  (app: AdminRoleResolvable, authInstance?: unknown) => async (c: Context) => {
-    try {
-      const auth = resolveAuthInstance(authInstance)
-      if (!auth) {
-        return c.json(
-          { success: false, message: 'Auth instance not configured', code: 'SERVICE_UNAVAILABLE' },
-          500
-        )
-      }
-
-      const authorizationFailure = await authorizeAdminCaller(auth, c, app)
-      if (authorizationFailure) {
-        return authorizationFailure
-      }
-
-      const request = await parseRoleUpdateRequest(c)
-      if (request instanceof Response) {
-        return request
-      }
-
-      return await applyRoleUpdate(c, auth, request.targetUserId, request.role)
-    } catch {
+  (app: AdminRoleResolvable, authInstance?: unknown) =>
+  (c: Context): Promise<Response> | Response => {
+    const auth = resolveAuthInstance(authInstance)
+    if (!auth) {
       return c.json(
-        { success: false, message: 'Failed to update user role', code: 'INTERNAL_ERROR' },
+        { success: false, message: 'Auth instance not configured', code: 'SERVICE_UNAVAILABLE' },
         500
       )
     }
+
+    const update = Effect.gen(function* () {
+      const authorizationFailure = yield* authorizeAdminCaller(auth, c, app)
+      if (authorizationFailure) return authorizationFailure
+
+      // effect-promise: total -- parseRoleUpdateRequest reads a body that cannot throw and answers a refusal as a value
+      const request = yield* Effect.promise(() => parseRoleUpdateRequest(c))
+      if (request instanceof Response) return request
+
+      // effect-promise: total -- applyRoleUpdate turns a rejected set-role into a response
+      return yield* Effect.promise(() =>
+        applyRoleUpdate(c, auth, request.targetUserId, request.role)
+      )
+    })
+    return runHandlerEffect(
+      c,
+      // effect-swallow: every unanswered failure is this route's own 500; set-role logs its own.
+      Effect.catchCause(update, () =>
+        Effect.succeed(
+          c.json(
+            { success: false, message: 'Failed to update user role', code: 'INTERNAL_ERROR' },
+            500
+          )
+        )
+      )
+    )
   }
 
 /**

@@ -15,7 +15,7 @@
  * scope is Better Auth's: her passkeys, her sessions, her API keys. `members`
  * and `invitations` range over the whole app and answer only a caller who may
  * administer accounts — anyone else gets the same 404 as an unknown list (S1).
- * Every row is projected through `src/domain/models/api/account/account-lists`
+ * Every row is projected through `src/domain/models/api/auth/account/lists/account-lists`
  * before it leaves: a session's token and a key's secret never reach a page.
  *
  * `revoke-session` is answered here, before Better Auth's catch-all, because
@@ -29,6 +29,8 @@
  * the invitation email carries. An unknown, used or revoked token answers 404.
  */
 
+import { Data, Effect } from 'effect'
+import { Invitations } from '@/application/ports/services/invitations'
 import {
   declineInvitation,
   listInvitations,
@@ -36,23 +38,22 @@ import {
 import {
   accountApiKeysResponseSchema,
   accountDeclineInvitationRequestSchema,
+  accountDeclineInvitationResponseSchema,
   accountInvitationsResponseSchema,
   accountMembersResponseSchema,
   accountPasskeysResponseSchema,
   accountRevokeSessionRequestSchema,
   accountSessionsResponseSchema,
-} from '@/domain/models/api/account/account'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
+} from '@/domain/models/api/auth/account/account'
 import { describeUserAgent } from '@/domain/models/app/auth/user-agent-label-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { requireAdminCaller } from '@/presentation/api/auth/admin-invitation-guard'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import { validateRequest } from '@/presentation/api/runtime/validate-request'
 import type { InvitationServices } from '@/application/ports/contracts/invitation-services'
-import type { accountDeclineInvitationResponseSchema } from '@/domain/models/api/account/account'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
-import type { Schema } from 'effect'
 import type { Context, Hono } from 'hono'
 
 type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
@@ -63,6 +64,11 @@ interface AccountListDeps {
   readonly invitations: InvitationServices
   readonly app: App
 }
+
+/** Better Auth did not answer a read made as the caller. */
+class AccountListReadError extends Data.TaggedError('AccountListReadError')<{
+  readonly cause: unknown
+}> {}
 
 /** Read one of Better Auth's own endpoints as the caller. */
 const readAsCaller = async (deps: AccountListDeps, c: Context, path: string): Promise<unknown> => {
@@ -153,66 +159,89 @@ const members = async (deps: AccountListDeps, c: Context) => ({
   ),
 })
 
-const invitations = async (deps: AccountListDeps) => ({
-  rows: (await listInvitations(deps.invitations.store))
-    .filter((item) => item.status === 'pending')
-    .map((item) => ({
-      id: item.id,
-      email: item.email,
-      role: item.role,
-      invitedBy: item.invitedBy,
-      sentAt: item.createdAt,
-      expiresAt: item.expiresAt,
-    })),
-})
+const invitations = (deps: AccountListDeps) =>
+  Effect.provideService(listInvitations(), Invitations, deps.invitations).pipe(
+    Effect.map((listed) => ({
+      rows: listed
+        .filter((item) => item.status === 'pending')
+        .map((item) => ({
+          id: item.id,
+          email: item.email,
+          role: item.role,
+          invitedBy: item.invitedBy,
+          sentAt: item.createdAt,
+          expiresAt: item.expiresAt,
+        })),
+    }))
+  )
+
+/** A list read through Better Auth's own endpoints. */
+const fromAuth =
+  (read: (deps: AccountListDeps, c: Context) => Promise<unknown>) =>
+  (deps: AccountListDeps, c: Context) =>
+    Effect.tryPromise({
+      try: () => read(deps, c),
+      catch: (cause) => new AccountListReadError({ cause }),
+    })
+
+/** Whether a request carries a live session of the caller's. */
+const hasCallerSession = (deps: AccountListDeps, c: Context) =>
+  Effect.tryPromise({
+    try: () => currentSessionId(deps, c),
+    catch: (cause) => new AccountListReadError({ cause }),
+  }).pipe(Effect.map((id) => id !== undefined))
 
 /** Each list: whether it needs an administrator, its reader, its wire schema. */
-const LISTS: Readonly<
-  Record<
-    string,
-    {
-      readonly admin: boolean
-      readonly read: (deps: AccountListDeps, c: Context) => Promise<unknown>
-      readonly schema: Schema.Top
-    }
-  >
-> = {
-  passkeys: { admin: false, read: passkeys, schema: accountPasskeysResponseSchema },
-  sessions: { admin: false, read: sessions, schema: accountSessionsResponseSchema },
-  apiKeys: { admin: false, read: apiKeys, schema: accountApiKeysResponseSchema },
-  members: { admin: true, read: members, schema: accountMembersResponseSchema },
+const LISTS = {
+  passkeys: { admin: false, read: fromAuth(passkeys), schema: accountPasskeysResponseSchema },
+  sessions: { admin: false, read: fromAuth(sessions), schema: accountSessionsResponseSchema },
+  apiKeys: { admin: false, read: fromAuth(apiKeys), schema: accountApiKeysResponseSchema },
+  members: { admin: true, read: fromAuth(members), schema: accountMembersResponseSchema },
   invitations: { admin: true, read: invitations, schema: accountInvitationsResponseSchema },
-}
+} as const
 
-const handleList = (deps: AccountListDeps) => async (c: Context) => {
-  const list = LISTS[c.req.param('list') ?? '']
-  if (list === undefined) return notFound(c, 'Not Found')
-  try {
+/** The list a request names, if it names one: `constructor` is not a list. */
+const listNamed = (name: string | undefined) =>
+  name !== undefined && Object.hasOwn(LISTS, name) ? LISTS[name as keyof typeof LISTS] : undefined
+
+/** One list, as the caller may read it: the refusal to send, or its rows. */
+const answerList = (
+  deps: AccountListDeps,
+  c: Context,
+  list: NonNullable<ReturnType<typeof listNamed>>
+) =>
+  Effect.gen(function* () {
     if (list.admin) {
-      const authorized = await requireAdminCaller(deps.authInstance, c, deps.app)
-      if (authorized instanceof Response)
+      const authorized = yield* requireAdminCaller(deps.authInstance, c, deps.app)
+      if (authorized instanceof Response) {
         return authorized.status === 401 ? authorized : notFound(c, 'Not Found')
-    } else if ((await currentSessionId(deps, c)) === undefined) {
+      }
+    } else if (!(yield* hasCallerSession(deps, c))) {
       return unauthenticated(c)
     }
-    const parsed = decodeSafe(list.schema)(await list.read(deps, c))
-    if (!parsed.success) {
-      logError('[account-lists] response validation failed', parsed.error)
-      return c.json(
-        { success: false, message: 'Failed to read the list', code: 'INTERNAL_ERROR' },
-        500
-      )
-    }
+    const rows: unknown = yield* list.read(deps, c)
     c.header('Cache-Control', 'no-store')
-    return c.json(parsed.data as Record<string, unknown>, 200)
-  } catch (error) {
-    logError('[account-lists] list handler crashed', error)
-    return c.json(
-      { success: false, message: 'Failed to read the list', code: 'INTERNAL_ERROR' },
-      500
+    return yield* respondWith(c, Effect.succeed(rows), list.schema)
+  })
+
+const handleList =
+  (deps: AccountListDeps) =>
+  (c: Context): Promise<Response> | Response => {
+    const list = listNamed(c.req.param('list'))
+    if (list === undefined) return notFound(c, 'Not Found')
+    return runHandlerEffect(
+      c,
+      Effect.catchCause(answerList(deps, c, list), (cause) =>
+        Effect.sync(() => {
+          logError('[account-lists] list handler crashed', cause)
+          return c.json(
+            { success: false, message: 'Failed to read the list', code: 'INTERNAL_ERROR' },
+            500
+          )
+        })
+      )
     )
   }
-}
 
 /** `POST /api/auth/revoke-session` — the caller's own session by id or token, else 404. */
 const handleRevokeSession = (deps: AccountListDeps) => async (c: Context) => {
@@ -242,21 +271,34 @@ const handleRevokeSession = (deps: AccountListDeps) => async (c: Context) => {
 const handleDeclineInvitation = (deps: AccountListDeps) => async (c: Context) => {
   const parsed = await validateRequest(c, accountDeclineInvitationRequestSchema)
   if (!parsed.success) return parsed.response
-  try {
-    const result = await declineInvitation(deps.invitations.store, parsed.data.token)
+  const decline = Effect.gen(function* () {
+    const result = yield* Effect.provideService(
+      declineInvitation(parsed.data.token),
+      Invitations,
+      deps.invitations
+    )
     if (result.status === 'not-found') return notFound(c, 'Not Found')
     if (result.status !== 'ok') {
       return c.json({ success: false, message: result.message, code: 'INTERNAL_ERROR' }, 500)
     }
-    const declined: typeof accountDeclineInvitationResponseSchema.Type = { declined: true }
-    return c.json(declined, 200)
-  } catch (error) {
-    logError('[account-lists] decline-invitation handler crashed', error)
-    return c.json(
-      { success: false, message: 'Failed to decline the invitation', code: 'INTERNAL_ERROR' },
-      500
+    return yield* respondWith(
+      c,
+      Effect.succeed({ declined: true }),
+      accountDeclineInvitationResponseSchema
     )
-  }
+  })
+  return runHandlerEffect(
+    c,
+    Effect.catchCause(decline, (cause) =>
+      Effect.sync(() => {
+        logError('[account-lists] decline-invitation handler crashed', cause)
+        return c.json(
+          { success: false, message: 'Failed to decline the invitation', code: 'INTERNAL_ERROR' },
+          500
+        )
+      })
+    )
+  )
 }
 
 /** Chain the account lists and the revoke-session ownership check. */

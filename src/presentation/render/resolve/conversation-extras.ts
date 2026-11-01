@@ -18,6 +18,14 @@ import {
   linkAddressesOfRecord,
   linkPreviewFieldsOf,
 } from '@/domain/models/app/pages/components/component-types/display/link-preview-service'
+import {
+  componentFields,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+  tableBindingOf,
+  type ComponentEntry,
+} from './component-rewrite'
 import type {
   CommentSummaryFacts,
   DataSourceDb,
@@ -25,7 +33,7 @@ import type {
 } from './data-source-contracts'
 import type { Component } from '@/domain/models/app/pages/components'
 
-type Node = Component | string
+type Node = ComponentEntry
 type Row = Readonly<Record<string, unknown>>
 
 /** The render-time field naming the record a bound turn was drawn for. */
@@ -56,16 +64,22 @@ const asksForReplies = (nodes: readonly Node[]): boolean =>
   nodes.some(
     (node) =>
       typeof node === 'object' &&
-      ((node.type === 'message' && (node as { readonly replies?: unknown }).replies === true) ||
-        (Array.isArray(node.children) && asksForReplies(node.children as readonly Node[])))
+      ((keyOf(node, 'type') === 'message' && keyOf(node, 'replies') === true) ||
+        asksForReplies(childrenOf(node)))
   )
+
+/** A node's `children` when it holds a list of them, else none. */
+const childrenOf = (node: object): readonly Node[] => {
+  const { children } = componentFields(node)
+  return Array.isArray(children) ? children : []
+}
 
 /** The reply summary of every record that has replies, when the template asks for them. */
 async function summariesByRecord(
   input: ExtrasInput
 ): Promise<ReadonlyMap<string, CommentSummaryFacts>> {
   const read = input.db.readCommentSummaries
-  const template = (input.component.children ?? []) as readonly Node[]
+  const template = input.component.children ?? []
   if (read === undefined || input.table === undefined || !asksForReplies(template)) {
     return new Map()
   }
@@ -119,14 +133,14 @@ const replySummaryOf = (
 /** A node of a turn with its record's cards on each previewing bubble. */
 function stamp(node: Node, ctx: StampContext, recordId: string | undefined): Node {
   if (typeof node !== 'object') return node
-  const fields = node as Component & Readonly<Record<string, unknown>>
+  const fields = componentFields(node)
   const own = fields[CONVERSATION_RECORD_KEY]
   const id = typeof own === 'string' ? own : recordId
-  const children = Array.isArray(fields.children)
-    ? { children: (fields.children as readonly Node[]).map((child) => stamp(child, ctx, id)) }
+  const children = Array.isArray(fields['children'])
+    ? { children: childrenOf(node).map((child) => stamp(child, ctx, id)) }
     : {}
   const cards =
-    fields.type === 'bubble' && fields['linkPreviews'] === true && id !== undefined
+    fields['type'] === 'bubble' && fields['linkPreviews'] === true && id !== undefined
       ? (ctx.cards.get(id) ?? [])
       : []
   const drawn = cards.map((card) => ({
@@ -136,13 +150,12 @@ function stamp(node: Node, ctx: StampContext, recordId: string | undefined): Nod
     siteName: card.siteName,
     imageUrl: card.hasImage ? pictureRoute(ctx.tableName, id ?? '', card.id) : undefined,
   }))
-  return {
-    ...fields,
+  return rewriteComponent(entryAsComponent(node), {
     ...children,
     ...recordOfButton(fields, id),
     ...replySummaryOf(fields, ctx, id),
     ...(drawn.length === 0 ? {} : { [LINK_PREVIEW_CARDS_KEY]: drawn }),
-  } as Component
+  })
 }
 
 /**
@@ -166,7 +179,7 @@ export async function withConversationExtras(
   nodes: readonly Node[],
   input: ExtrasInput
 ): Promise<readonly Node[]> {
-  const tableName = input.component.dataSource?.table ?? ''
+  const tableName = tableBindingOf(input.component)?.table ?? ''
   const [cards, summaries] = await Promise.all([
     cardsByRecord(input, tableName),
     summariesByRecord(input),

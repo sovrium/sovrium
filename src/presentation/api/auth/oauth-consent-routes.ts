@@ -66,17 +66,17 @@
  * the code issue; this route renders and nothing else.
  */
 
-import { Effect } from 'effect'
+import { Data, Effect } from 'effect'
 import { OAuthServerRepository } from '@/application/ports/repositories/auth/oauth-server-repository'
 import { loginPageOf, signInRedirectPath } from '@/domain/models/app/auth/login-page-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { answerNotFound, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import { renderOAuthConsentDocument } from '../../render/page/oauth-consent-document'
 import type { OAuthConsentColors } from '../../render/page/oauth-consent-document'
 import type { OAuthClientRecord } from '@/application/ports/repositories/auth/oauth-server-repository'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
 
 /** The palette the consent screen borrows from the app's own theme. */
 const consentColors = (app: App): OAuthConsentColors => {
@@ -131,30 +131,41 @@ export const signInRedirectFor = (requestUrl: string, loginPage: string): string
   return signInRedirectPath(loginPage, `${pathname}${search}`)
 }
 
-/**
- * Setup the OAuth consent screen.
- *
- * @param honoApp - Hono application instance.
- * @param app - Decoded app configuration.
- * @param getSession - the page tier's session reader (same binding checks as the API).
- * @returns The Hono app with the consent screen chained (unchanged without auth).
- */
-export function setupOauthConsentRoutes(
-  honoApp: Readonly<Hono>,
-  app: App,
-  getSession: ((headers: Headers) => Promise<SessionInfo | undefined>) | undefined
-): Readonly<Hono> {
-  if (!app.auth || getSession === undefined) return honoApp
-  const loginPage = loginPageOf(app.auth)
+/** The page tier's session reader did not answer. */
+class ConsentSessionReadError extends Data.TaggedError('ConsentSessionReadError')<{
+  readonly cause: unknown
+}> {}
 
-  return honoApp.get('/oauth/consent', async (c) => {
+/** The session reader's failure is a defect: on a page, the error boundary answers it. */
+const readConsentSession = (
+  getSession: (headers: Headers) => Promise<SessionInfo | undefined>,
+  headers: Headers
+) =>
+  Effect.orDie(
+    Effect.tryPromise({
+      try: () => getSession(headers),
+      catch: (cause) => new ConsentSessionReadError({ cause }),
+    })
+  )
+
+/** The consent screen for one request, as one program. */
+const consentResponse = (
+  c: Context,
+  app: App,
+  input: {
+    readonly getSession: (headers: Headers) => Promise<SessionInfo | undefined>
+    readonly loginPage: string
+  }
+) =>
+  Effect.gen(function* () {
+    const { getSession, loginPage } = input
     // The session check comes FIRST, before the client_id is even read: a
     // signed-out visitor gets the same redirect whatever the query names.
-    const session = await getSession(c.req.raw.headers)
+    const session = yield* readConsentSession(getSession, c.req.raw.headers)
     if (session === undefined) return c.redirect(signInRedirectFor(c.req.url, loginPage), 302)
 
     const clientId = c.req.query('client_id')
-    if (clientId === undefined || clientId.length === 0) return c.notFound()
+    if (clientId === undefined || clientId.length === 0) return yield* answerNotFound(c)
 
     // A database failure answers exactly like a miss. A 500 that a valid
     // client_id does not produce would turn this page into an oracle for
@@ -172,15 +183,15 @@ export function setupOauthConsentRoutes(
       // cause is logged on the way past (E6).
       Effect.orElseSucceed((): OAuthClientRecord | undefined => undefined)
     )
-    const client = await runDomainPromise(c, lookup)
+    const client = yield* lookup
 
-    if (!client || client.disabled) return c.notFound()
+    if (!client || client.disabled) return yield* answerNotFound(c)
 
     const { redirectUris } = client
     // A client with no usable registered redirect URI has no address to show,
     // and the address is the whole security property of this screen. Refuse
     // rather than render an identity-free consent prompt.
-    if (redirectUris.length === 0) return c.notFound()
+    if (redirectUris.length === 0) return yield* answerNotFound(c)
 
     const scopes = (c.req.query('scope') ?? '').split(' ').filter((scope) => scope.length > 0)
 
@@ -211,4 +222,24 @@ export function setupOauthConsentRoutes(
       }
     )
   })
+
+/**
+ * Setup the OAuth consent screen.
+ *
+ * @param honoApp - Hono application instance.
+ * @param app - Decoded app configuration.
+ * @param getSession - the page tier's session reader (same binding checks as the API).
+ * @returns The Hono app with the consent screen chained (unchanged without auth).
+ */
+export function setupOauthConsentRoutes(
+  honoApp: Readonly<Hono>,
+  app: App,
+  getSession: ((headers: Headers) => Promise<SessionInfo | undefined>) | undefined
+): Readonly<Hono> {
+  if (!app.auth || getSession === undefined) return honoApp
+  const loginPage = loginPageOf(app.auth)
+
+  return honoApp.get('/oauth/consent', (c) =>
+    runHandlerEffect(c, consentResponse(c, app, { getSession, loginPage }))
+  )
 }

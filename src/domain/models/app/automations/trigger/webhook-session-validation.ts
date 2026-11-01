@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 interface SessionWebhookAppLike {
   readonly auth?: unknown
   readonly automations?: ReadonlyArray<{
@@ -34,9 +36,6 @@ export const validateSessionWebhookAuth = (app: SessionWebhookAppLike): true | s
 }
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every step reachable from `value`, through branches and loops. */
 function stepsOf(value: unknown): readonly RawRecord[] {

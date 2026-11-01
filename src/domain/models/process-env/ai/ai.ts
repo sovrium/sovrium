@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { blankToUndefined } from '@/domain/kernel/config-parsing/blank-text'
 
 /**
  * AI environment configuration.
@@ -87,29 +88,15 @@ export const AiEnvSchema = Schema.Struct({
 
 export type AiEnvConfig = Schema.Schema.Type<typeof AiEnvSchema>
 
-/**
- * Normalize an env-var value: an empty or whitespace-only string is treated as
- * "unset" (`undefined`). Operators who blank out `AI_PROVIDER` (or any AI_*
- * var) intend to disable that setting, not supply an invalid value — this
- * mirrors the "treats an empty AI_PROVIDER the same as unset" contract already
- * enforced by `validate-ai-configuration.ts` and keeps `parseAiEnvConfig`
- * total instead of throwing a `ParseError` at server boot.
- */
-const blankToUndefined = (value: string | undefined): string | undefined => {
-  if (value === undefined) return undefined
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
-
 /** @public */
-export const parseAiEnvConfig = (): AiEnvConfig =>
+export const parseAiEnvConfig = (env: Readonly<Record<string, string | undefined>>): AiEnvConfig =>
   Schema.decodeSync(AiEnvSchema)({
-    provider: blankToUndefined(process.env.AI_PROVIDER),
-    apiKey: blankToUndefined(process.env.AI_API_KEY),
-    baseUrl: blankToUndefined(process.env.AI_BASE_URL),
-    model: blankToUndefined(process.env.AI_MODEL),
-    temperature: blankToUndefined(process.env.AI_TEMPERATURE),
-    maxTokens: blankToUndefined(process.env.AI_MAX_TOKENS),
-    embeddingModel: blankToUndefined(process.env.AI_EMBEDDING_MODEL),
-    embeddingDimensions: blankToUndefined(process.env.AI_EMBEDDING_DIMENSIONS),
+    provider: blankToUndefined(env['AI_PROVIDER']),
+    apiKey: blankToUndefined(env['AI_API_KEY']),
+    baseUrl: blankToUndefined(env['AI_BASE_URL']),
+    model: blankToUndefined(env['AI_MODEL']),
+    temperature: blankToUndefined(env['AI_TEMPERATURE']),
+    maxTokens: blankToUndefined(env['AI_MAX_TOKENS']),
+    embeddingModel: blankToUndefined(env['AI_EMBEDDING_MODEL']),
+    embeddingDimensions: blankToUndefined(env['AI_EMBEDDING_DIMENSIONS']),
   })

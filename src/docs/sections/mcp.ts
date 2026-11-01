@@ -18,18 +18,10 @@ import { defineArticle, defineSection } from './define'
 /**
  * Model Context Protocol — the section manifest.
  *
- * ─── ONE ARTICLE'S FRAGMENT LIVES UNDER `src/cli/` ─────────────────────────
- *
- * `mcp-config` documents the `sovrium mcp` verb, so by the placement rule its
- * fragment sits beside `src/cli/commands/mcp.ts` — the narrowest thing the
- * prose is true of is the command, not the HTTP route tree its four siblings
- * describe. The SECTION is still `mcp`, because a reader looking for the
- * config tools looks among the MCP articles and not in the CLI reference,
- * which carries the verb only as a one-line entry in its command table.
- *
- * A manifest may import a fragment from any directory; what `Doc File
- * Presence` asks is that the fragment sits in a DECLARED doc-bearing
- * directory, and `src/cli/commands` is one.
+ * Why one fragment lives under `src/cli/commands/`:
+ * `[internal ref]`, § `mcp`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const mcp = defineSection({
   slug: 'mcp',
@@ -88,7 +80,7 @@ export const mcp = defineSection({
       slug: 'mcp-clients',
       title: 'Connecting a Client',
       description:
-        'Pointing an assistant at the app — the configuration block every client shares, which header carries which credential, and the one request that proves filtering is live.',
+        'Point an assistant at the app: the configuration block every client shares, which header carries which credential, and the request that proves filtering works.',
       keywords: [
         'sovrium',
         'mcpServers',
@@ -107,7 +99,7 @@ export const mcp = defineSection({
       slug: 'mcp-config',
       title: 'Your Config over MCP',
       description:
-        "Run `sovrium mcp` and let the AI client you already use read your configuration, its findings, its schema and its run state — over a pipe, with no server and no credentials — and read Sovrium's agent skills as prompts.",
+        'Run `sovrium mcp` so your AI client reads your config, its findings, schema and run state over a pipe, with no server or credentials, and the skills as prompts.',
       keywords: [
         'sovrium mcp',
         'stdio',
@@ -132,7 +124,7 @@ export const mcp = defineSection({
       slug: 'mcp-config-write',
       title: 'Letting Your AI Edit the Config',
       description:
-        'Switch on the four `sovrium mcp` tools that read, replace and undo the files your config is made of — what turns them on, every reason a write is refused, and how to go back.',
+        'Switch on the four `sovrium mcp` tools that read, replace and undo your config files: what turns them on, every reason a write is refused, and how to go back.',
       keywords: [
         'MCP_CONFIG_WRITE',
         'config_list_files',

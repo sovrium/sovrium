@@ -75,7 +75,7 @@ export const ListItemMetadataSchema = Schema.Struct({
   className: Schema.optional(
     Schema.String.annotate({
       description:
-        "Tailwind classes on this metadata entry in every row, layered over the list's `meta` part — the one detail that must read differently from the others",
+        "Tailwind classes on this metadata entry in every row, layered over the list's `meta` part, for the one detail that must read differently from the others",
       examples: ['font-medium text-error'],
     })
   ),

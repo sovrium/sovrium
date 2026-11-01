@@ -53,6 +53,8 @@ export interface FieldDef extends TypedColumnConfig {
   readonly lineNumbers?: boolean
   readonly readOnly?: boolean
   readonly disabled?: boolean
+  /** Why the field is drawn disabled: the message of the lock rule holding it on the record. */
+  readonly lockReason?: string
   readonly tabSize?: number
   readonly minLines?: number
   readonly maxLines?: number

@@ -48,7 +48,7 @@ export const LinkDestinationSchema = Schema.String.pipe(
     identifier: 'LinkDestination',
     title: 'Link Destination',
     description:
-      'Where the short link sends the visitor — an absolute http(s) URL (the common case) or a root-relative path on this app.',
+      'Where the short link sends the visitor: an absolute http(s) URL (the common case) or a root-relative path on this app.',
     examples: ['https://example.com/pricing', '/pricing'],
   }),
   Schema.check(

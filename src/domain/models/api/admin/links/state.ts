@@ -51,7 +51,7 @@ export const linkStateChangeResponseSchema = Schema.Struct({
     'archived',
   ]).annotate({
     description:
-      'The state AFTER the change, computed by the resolver — not an echo of what was requested. A link enabled while still outside its window reports `scheduled`, not `active`.',
+      'The state AFTER the change, computed by the resolver, not an echo of what was requested. A link enabled while still outside its window reports `scheduled`, not `active`.',
   }),
   changed: Schema.Boolean.annotate({
     description:

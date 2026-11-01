@@ -24,6 +24,7 @@
 
 import { Effect, Option, Schema } from 'effect'
 import { AdminReadHost } from '@/application/ports/services/admin-read-host'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   answerWithSchema,
   defineAdminRead,
@@ -66,9 +67,6 @@ const NO_ARGUMENTS = { type: 'object', properties: {} } as const
 
 /** A read that takes no parameter. */
 const noInput = (): AdminReadDecode<undefined> => ({ _tag: 'Ok', input: undefined })
-
-/** The process environment, as the redactors read it. */
-const processEnv = (): Readonly<Record<string, string | undefined>> => process.env
 
 /**
  * A positive integer `limit`, or `undefined`. A malformed value is treated as
@@ -130,7 +128,7 @@ const instanceRead = defineAdminRead<number | undefined>({
           limit,
           (table) => tableLabelsFor(table, translate).labelPlural
         ),
-        ...buildInstanceRuntimeFacts(app, host.processStartedAt),
+        ...buildInstanceRuntimeFacts(app, host.processStartedAt, yield* ProcessEnv),
       })
     }),
 })
@@ -140,9 +138,9 @@ const instanceRead = defineAdminRead<number | undefined>({
  * environment refuses the boot whenever MCP is on, so the fallback only answers
  * for a server offering no tool at all — and then answers closed.
  */
-const readMcpExposeInternals = (): boolean => {
+const readMcpExposeInternals = (env: Readonly<Record<string, string | undefined>>): boolean => {
   try {
-    return resolveMcpEnv(parseMcpEnvConfig(process.env)).exposeInternals
+    return resolveMcpEnv(parseMcpEnvConfig(env)).exposeInternals
   } catch {
     return false
   }
@@ -198,10 +196,12 @@ const mcpToolsList = defineAdminRead<McpToolCategory | undefined>({
           onSome: (category) => ({ _tag: 'Ok', input: category }),
         }),
   read: (app, category) =>
-    Effect.sync(() =>
-      answerWithSchema(
-        mcpToolsResponseSchema,
-        buildMcpToolsResponse(app, category, { exposeInternals: readMcpExposeInternals() })
+    ProcessEnv.pipe(
+      Effect.map((env) =>
+        answerWithSchema(
+          mcpToolsResponseSchema,
+          buildMcpToolsResponse(app, category, { exposeInternals: readMcpExposeInternals(env) })
+        )
       )
     ),
 })
@@ -238,7 +238,7 @@ const configReflection = defineAdminRead<undefined>({
       const language = yield* resolveOperatorLanguage(request)
       const starts = yield* countBootLedger(app.name)
       return answerWithSchema(configReflectionResponseSchema, {
-        ...buildConfigReflection(app, processEnv()),
+        ...buildConfigReflection(app, yield* ProcessEnv),
         startsLabel: ledgerStartsLabel(starts, language),
       })
     }),
@@ -290,10 +290,12 @@ const configDeclarations = defineAdminRead<ConfigDeclarationFamily | undefined>(
           onSome: (family) => ({ _tag: 'Ok', input: family }),
         }),
   read: (app, family) =>
-    Effect.sync(() =>
-      answerWithSchema(
-        configDeclarationsResponseSchema,
-        buildConfigDeclarations(app, processEnv(), family)
+    ProcessEnv.pipe(
+      Effect.map((env) =>
+        answerWithSchema(
+          configDeclarationsResponseSchema,
+          buildConfigDeclarations(app, env, family)
+        )
       )
     ),
 })

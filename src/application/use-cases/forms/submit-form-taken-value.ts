@@ -34,13 +34,24 @@ import {
   getUserAccessRoles,
   getUserGroups,
 } from '@/application/use-cases/tables/user-groups'
+import {
+  anonymousGrant,
+  servesNoAuthVisitor,
+} from '@/domain/models/app/auth/anonymous-grant-service'
 import { GUEST_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { hasReadPermissionForCaller } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { rowPassesRule } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { languageUniqueBaseField } from '@/domain/models/app/tables/translatable-unique-service'
 import { FormFieldConstraintError, uniqueRefusalForField } from './submit-form-constraint-errors'
+import {
+  engineMessageForReader,
+  fieldLabelForReader,
+  translatedForReader,
+  type SubmissionReader,
+} from './submit-form-messages'
 import type { UniqueConstraintViolationError } from '@/domain/errors'
 import type { App, Table } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -57,16 +68,23 @@ const takenMessageOf = (form: Readonly<Form>, column: string | undefined): strin
   return field?.kind === 'table-field' ? field.takenMessage : undefined
 }
 
-/** The field's own refusal, when its author wrote a `takenMessage` for the refused column. */
+/**
+ * The field's own refusal, when its author wrote a `takenMessage` for the
+ * refused column — a `$t:` key read in the language the form was served in.
+ */
 const authoredTakenRefusal = (
   form: Readonly<Form>,
-  unique: Readonly<UniqueConstraintViolationError>
+  unique: Readonly<UniqueConstraintViolationError>,
+  reader: SubmissionReader
 ): Readonly<FormFieldConstraintError> | undefined => {
   const column =
     unique.fieldName === undefined ? undefined : languageUniqueBaseField(unique.fieldName)
   const message = takenMessageOf(form, column)
   return message !== undefined && column !== undefined
-    ? new FormFieldConstraintError({ fieldName: column, message })
+    ? new FormFieldConstraintError({
+        fieldName: column,
+        message: translatedForReader(reader, message),
+      })
     : undefined
 }
 
@@ -105,6 +123,20 @@ const readerOf = (input: {
     }
   })
 
+/**
+ * An app with no `auth`: the value is named only to a visitor the table opens
+ * `read` to (`anonymousGrant`); anyone else gets the refusal that names nothing.
+ */
+const noAuthTakenAnswer = <Answer>(
+  app: Readonly<App>,
+  table: Parameters<typeof anonymousGrant>[0],
+  answers: { readonly named: Answer; readonly unique: Answer }
+): Answer =>
+  !servesNoAuthVisitor(app) ||
+  anonymousGrant(table, 'read', app as Parameters<typeof anonymousGrant>[2])
+    ? answers.named
+    : answers.unique
+
 /** The refusal a submission gets for a value its bound table already holds. */
 export const takenValueRefusal = Effect.fn('forms.taken-value-refusal')(function* (input: {
   readonly app: Readonly<App>
@@ -113,13 +145,24 @@ export const takenValueRefusal = Effect.fn('forms.taken-value-refusal')(function
   readonly unique: UniqueConstraintViolationError
   readonly submitterUserId: string | undefined
   readonly visitor: Readonly<Record<string, unknown>> | undefined
+  /** The submission's `?lang=`: the refusal is written in it. */
+  readonly lang: string | undefined
 }) {
   const { app, form, unique } = input
-  const authored = authoredTakenRefusal(form, unique)
+  const answerReader = { app, lang: input.lang }
+  const authored = authoredTakenRefusal(form, unique, answerReader)
   if (authored !== undefined) return authored
-  const named = uniqueRefusalForField(unique) ?? unique
-  if (app.auth === undefined) return named
-  const table = app.tables?.find((candidate) => candidate.name === form.submitTo?.table)
+  // Told to a submitter who may read the record: by the field's label, in the page language.
+  const named =
+    uniqueRefusalForField(unique, (column) =>
+      engineMessageForReader(
+        answerReader,
+        'form.takenNamed',
+        fieldLabelForReader(answerReader, form, column)
+      )
+    ) ?? unique
+  const table = findTableByName(app.tables, form.submitTo?.table)
+  if (app.auth === undefined) return noAuthTakenAnswer(app, table, { named, unique })
   if (table === undefined) return unique
   const role = typeof input.visitor?.['role'] === 'string' ? input.visitor['role'] : ''
   const reader = yield* readerOf({ app, table, submitterUserId: input.submitterUserId, role })

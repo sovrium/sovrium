@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql, type SQL } from 'drizzle-orm'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import {
   users as authUsersPg,
@@ -20,6 +19,7 @@ import {
   oauthAccessTokens as authOauthAccessTokensPg,
   oauthClientResources as authOauthClientResourcesPg,
 } from '@/infrastructure/auth/better-auth/schema'
+import { activeDialectKind } from './active-dialect'
 import { formSubmissions as formSubmissionsPg } from './schema/form-submissions'
 import { fileStorageMetadata as fileStorageMetadataPg } from './schema/storage'
 import { oauthClientResources as authOauthClientResourcesSqlite } from './schema-sqlite/auth-oauth-resource-tables'
@@ -38,11 +38,55 @@ import {
 import { formSubmissions as formSubmissionsSqlite } from './schema-sqlite/form-submissions'
 import { fileStorageMetadata as fileStorageMetadataSqlite } from './schema-sqlite/storage'
 
-let CACHED_DIALECT: 'postgres' | 'sqlite' | undefined
+/** The dialect the per-call selectors resolve against, read once from the environment. */
+const dialectMemo = new Map<'dialect', 'postgres' | 'sqlite'>()
 
 const resolveDialect = (): 'postgres' | 'sqlite' => {
-  CACHED_DIALECT ??= parseDatabaseDialectConfig().dialect
-  return CACHED_DIALECT
+  // The running layer's dialect first: it was resolved once, at acquire.
+  const acquired = activeDialectKind()
+  if (acquired !== undefined) return acquired
+  const known = dialectMemo.get('dialect')
+  if (known !== undefined) return known
+  const { dialect } = parseDatabaseDialectConfig(process.env)
+  dialectMemo.set('dialect', dialect)
+  return dialect
+}
+
+/** Whether the active engine is SQLite: the running layer's, or the environment's before it. */
+export const isSqliteDialect = (): boolean => resolveDialect() === 'sqlite'
+
+/** What a column stands for in JavaScript, whichever engine stores it. */
+type ColumnData<C> = C extends { readonly _: { readonly data: infer Data } } ? Data : never
+
+/** The columns a Drizzle table declares, or nothing for an object that is not one. */
+type ColumnsOf<T> = T extends { readonly _: { readonly columns: infer Columns } } ? Columns : never
+
+/**
+ * The SQLite twin of a PostgreSQL table object: every column under the same
+ * property name, carrying the same JavaScript data type. A column added to one
+ * tree and not to the other fails the call that pairs them.
+ */
+type Compatible<P> = {
+  readonly _: {
+    readonly columns: {
+      readonly [K in keyof ColumnsOf<P>]: {
+        readonly _: { readonly data: ColumnData<ColumnsOf<P>[K]> }
+      }
+    }
+  }
+}
+
+/**
+ * Forget the memoised dialect, so the next selector reads the environment
+ * again. Called by `resetDbCache` and only there: the connection it rebuilds
+ * and the per-call selectors below must agree on the engine. A table object a
+ * repository resolved at module load keeps the engine it was resolved for — a
+ * process binds one engine for its life.
+ *
+ * @internal Test-isolation hook, alongside `resetDbCache`.
+ */
+export const resetDialectCache = (): void => {
+  dialectMemo.clear()
 }
 
 /**
@@ -64,10 +108,10 @@ const resolveDialect = (): 'postgres' | 'sqlite' => {
  * ```
  *
  * The return type is `typeof pgVariant`, so column-access autocomplete works
- * as if SQLite mode didn't exist; the runtime structural compatibility of the
- * sqlite-core variant for the query-builder subset (select/insert/update/delete
- * by column) is what makes the cast sound. Dialect resolution memoizes after
- * the first call.
+ * as if SQLite mode didn't exist. `Compatible` is what makes that claim sound:
+ * the SQLite variant must declare every column the PostgreSQL one does, with
+ * the same JavaScript data type, or the call fails the typecheck. Dialect
+ * resolution memoizes after the first call.
  *
  * Use this generic in new repositories. The per-table `formSubmissionsTable()`
  * / `authUsersTable()` / `authSessionsTable()` selectors below predate this
@@ -75,8 +119,8 @@ const resolveDialect = (): 'postgres' | 'sqlite' => {
  * `.from(authUsersTable())`); the generic is the standard for the module-init
  * resolution pattern used across `src/infrastructure/database/repositories/`.
  */
-export const resolveDialectSchema = <T>(pg: T, sqlite: unknown): T =>
-  resolveDialect() === 'sqlite' ? (sqlite as T) : pg
+export const resolveDialectSchema = <P, S extends Compatible<P>>(pg: P, sqlite: S): P =>
+  resolveDialect() === 'sqlite' ? (sqlite as unknown as P) : pg
 
 /**
  * Dialect-aware Drizzle schema-object selectors.
@@ -105,9 +149,7 @@ export const resolveDialectSchema = <T>(pg: T, sqlite: unknown): T =>
  * submission insert resolve to a table that actually exists on SQLite.
  */
 export const formSubmissionsTable = (): typeof formSubmissionsPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (formSubmissionsSqlite as unknown as typeof formSubmissionsPg)
-    : formSubmissionsPg
+  resolveDialectSchema(formSubmissionsPg, formSubmissionsSqlite)
 
 /**
  * The `system.file_storage_metadata` (PostgreSQL) / `system_file_storage_metadata`
@@ -120,9 +162,7 @@ export const formSubmissionsTable = (): typeof formSubmissionsPg =>
  * that actually exists on SQLite. Same rationale as {@link formSubmissionsTable}.
  */
 export const fileStorageMetadataTable = (): typeof fileStorageMetadataPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (fileStorageMetadataSqlite as unknown as typeof fileStorageMetadataPg)
-    : fileStorageMetadataPg
+  resolveDialectSchema(fileStorageMetadataPg, fileStorageMetadataSqlite)
 
 /**
  * The Better Auth `user` (`auth.user` / `auth_user`) Drizzle table object for
@@ -134,25 +174,21 @@ export const fileStorageMetadataTable = (): typeof fileStorageMetadataPg =>
  * object too — otherwise they emit `auth.user`, which does not exist on SQLite.
  */
 export const authUsersTable = (): typeof authUsersPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (authUsersSqlite as unknown as typeof authUsersPg)
-    : authUsersPg
+  resolveDialectSchema(authUsersPg, authUsersSqlite)
 
 /**
  * The Better Auth `session` (`auth.session` / `auth_session`) Drizzle table
  * object for the active dialect. Same rationale as {@link authUsersTable}.
  */
 export const authSessionsTable = (): typeof authSessionsPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (authSessionsSqlite as unknown as typeof authSessionsPg)
-    : authSessionsPg
+  resolveDialectSchema(authSessionsPg, authSessionsSqlite)
 
 /**
  * The Better Auth `account` (`auth.account` / `auth_account`) Drizzle table
  * object for the active dialect. Same rationale as {@link authUsersTable}.
  *
- * Currently unused by direct Drizzle-query call sites — `account.ts:222-299`
- * hand-writes raw `auth.account` SQL via {@link authTableRef} instead. Kept
+ * Currently unused by direct Drizzle-query call sites — `account-repository-live.ts`
+ * hand-writes raw `auth.account` SQL via `dialect.sql.authTableRef` instead. Kept
  * exported (and marked `@public`) for symmetry with the rest of the
  * Better Auth table family so a future per-account query can adopt the
  * dialect-aware selector without re-introducing it.
@@ -160,9 +196,7 @@ export const authSessionsTable = (): typeof authSessionsPg =>
  * @public
  */
 export const authAccountsTable = (): typeof authAccountsPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (authAccountsSqlite as unknown as typeof authAccountsPg)
-    : authAccountsPg
+  resolveDialectSchema(authAccountsPg, authAccountsSqlite)
 
 /**
  * The Better Auth `verification` (`auth.verification` / `auth_verification`)
@@ -177,27 +211,21 @@ export const authAccountsTable = (): typeof authAccountsPg =>
  * @public
  */
 export const authVerificationsTable = (): typeof authVerificationsPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (authVerificationsSqlite as unknown as typeof authVerificationsPg)
-    : authVerificationsPg
+  resolveDialectSchema(authVerificationsPg, authVerificationsSqlite)
 
 /**
  * The Better Auth `team` (`auth.team` / `auth_team`) Drizzle table object for
  * the active dialect. Same rationale as {@link authUsersTable}.
  */
 export const authTeamsTable = (): typeof authTeamsPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (authTeamsSqlite as unknown as typeof authTeamsPg)
-    : authTeamsPg
+  resolveDialectSchema(authTeamsPg, authTeamsSqlite)
 
 /**
  * The Better Auth `member` (`auth.member` / `auth_member`) Drizzle table object
  * for the active dialect. Same rationale as {@link authUsersTable}.
  */
 export const authMembersTable = (): typeof authMembersPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (authMembersSqlite as unknown as typeof authMembersPg)
-    : authMembersPg
+  resolveDialectSchema(authMembersPg, authMembersSqlite)
 
 /**
  * The Better Auth `team_member` (`auth.team_member` / `auth_team_member`)
@@ -205,9 +233,7 @@ export const authMembersTable = (): typeof authMembersPg =>
  * {@link authUsersTable}.
  */
 export const authTeamMembersTable = (): typeof authTeamMembersPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (authTeamMembersSqlite as unknown as typeof authTeamMembersPg)
-    : authTeamMembersPg
+  resolveDialectSchema(authTeamMembersPg, authTeamMembersSqlite)
 
 /**
  * The Better Auth `organization` (`auth.organization` / `auth_organization`)
@@ -215,9 +241,7 @@ export const authTeamMembersTable = (): typeof authTeamMembersPg =>
  * {@link authUsersTable}.
  */
 export const authOrganizationsTable = (): typeof authOrganizationsPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (authOrganizationsSqlite as unknown as typeof authOrganizationsPg)
-    : authOrganizationsPg
+  resolveDialectSchema(authOrganizationsPg, authOrganizationsSqlite)
 
 /**
  * The Better Auth `oauth_client` (`auth.oauth_client` / `auth_oauth_client`)
@@ -225,9 +249,7 @@ export const authOrganizationsTable = (): typeof authOrganizationsPg =>
  * {@link authUsersTable}.
  */
 export const authOauthClientsTable = (): typeof authOauthClientsPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (authOauthClientsSqlite as unknown as typeof authOauthClientsPg)
-    : authOauthClientsPg
+  resolveDialectSchema(authOauthClientsPg, authOauthClientsSqlite)
 
 /**
  * The Better Auth `oauth_access_token` (`auth.oauth_access_token` /
@@ -235,9 +257,7 @@ export const authOauthClientsTable = (): typeof authOauthClientsPg =>
  * rationale as {@link authUsersTable}.
  */
 export const authOauthAccessTokensTable = (): typeof authOauthAccessTokensPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (authOauthAccessTokensSqlite as unknown as typeof authOauthAccessTokensPg)
-    : authOauthAccessTokensPg
+  resolveDialectSchema(authOauthAccessTokensPg, authOauthAccessTokensSqlite)
 
 /**
  * The Better Auth `oauth_client_resource` join table for the active dialect.
@@ -246,36 +266,4 @@ export const authOauthAccessTokensTable = (): typeof authOauthAccessTokensPg =>
  * primary keys. Same rationale as {@link authUsersTable}.
  */
 export const authOauthClientResourcesTable = (): typeof authOauthClientResourcesPg =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? (authOauthClientResourcesSqlite as unknown as typeof authOauthClientResourcesPg)
-    : authOauthClientResourcesPg
-
-/**
- * Build a raw-SQL fragment that references a Better Auth table by name, picking
- * the dialect-correct physical qualifier:
- *
- *   - Postgres: `auth.<name>` (the `pgSchema('auth')` qualifier).
- *   - SQLite:   `auth_<name>` (the flat-prefix mirror produced by `authTable`).
- *
- * Used by `presentation/api/routes/account.ts`-style sites that hand-write
- * `sql\`SELECT … FROM auth.user …\`` paths and need to interpolate the table
- * reference without losing dialect awareness. The accepted names match the set
- * of Better Auth tables Sovrium hand-queries from raw SQL.
- */
-export const authTableRef = (
-  name:
-    | 'user'
-    | 'session'
-    | 'account'
-    | 'team'
-    | 'member'
-    | 'team_member'
-    | 'oauth_client'
-    | 'oauth_access_token'
-    | 'verification'
-): SQL =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? // sql-literal: identifier -- `name` is a closed union of Better Auth table names
-      sql.raw(`auth_${name}`)
-    : // sql-literal: identifier -- `name` is a closed union of Better Auth table names
-      sql.raw(`auth.${name}`)
+  resolveDialectSchema(authOauthClientResourcesPg, authOauthClientResourcesSqlite)

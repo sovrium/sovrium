@@ -24,7 +24,7 @@ import type { Hono } from 'hono'
  * Chain the realtime presence route onto a Hono app.
  *
  * The `/api/realtime/presence` path receives `authMiddleware` in
- * `api-routes.ts` (when `app.auth` is configured) so the handler can read the
+ * `middleware/api-auth-guards.ts` (when `app.auth` is configured) so the handler can read the
  * session via `getSessionContext`. The `app` is threaded through so the
  * handler can namespace the in-memory presence channel by `app.name` and
  * keep two distinct apps' presence sets isolated, and `getSession` — the
@@ -32,20 +32,12 @@ import type { Hono } from 'hono'
  * `enrichUserRole` resolves the caller's role and groups, which the records
  * gate reads on a record page.
  */
-export function chainRealtimeRoutes<T extends Hono>(
-  honoApp: T,
+export function chainRealtimeRoutes(
+  honoApp: Hono,
   app: App,
   getSession?: PresenceReaderResolver
-) {
-  return honoApp
-    .get(
-      '/api/realtime/presence',
-      enrichUserRole(() => app),
-      (c) => handlePresence(c, app, getSession)
-    )
-    .get(
-      '/api/realtime/connection',
-      enrichUserRole(() => app),
-      (c) => handleAppConnection(c, app)
-    )
+): void {
+  honoApp
+    .get('/api/realtime/presence', enrichUserRole(app), (c) => handlePresence(c, app, getSession))
+    .get('/api/realtime/connection', enrichUserRole(app), (c) => handleAppConnection(c, app))
 }

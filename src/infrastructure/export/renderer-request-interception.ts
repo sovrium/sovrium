@@ -7,6 +7,7 @@
 
 import { RENDER_DOCUMENT_ORIGIN } from '@/application/ports/services/document-renderer'
 import { guardedFetch } from '@/infrastructure/egress/guarded-fetch'
+import { judgeHost, systemResolveHost } from '@/infrastructure/egress/host-resolution'
 import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
 import type {
   AssetResolver,
@@ -216,7 +217,7 @@ const LOADING_ATTRIBUTES: ReadonlyArray<readonly [string, string]> = [
  */
 export const stripRemoteReferences = async (
   html: string,
-  keep: (url: string) => boolean = () => false
+  keep: (url: string) => boolean | Promise<boolean> = () => false
 ): Promise<string> => {
   const base = new HTMLRewriter()
     .on('link[rel]', {
@@ -233,15 +234,18 @@ export const stripRemoteReferences = async (
   const rewriter = LOADING_ATTRIBUTES.reduce(
     (current, [selector, attribute]) =>
       current.on(selector, {
-        element: (element) => {
+        element: async (element) => {
           const value = element.getAttribute(attribute) ?? ''
           const urls = attribute.endsWith('srcset')
             ? value.split(',').map((candidate) => candidate.trim().split(/\s+/, 1)[0] ?? '')
             : [value.trim()]
-          const refused = urls.some(
-            (url) => isRemoteReference(url) && !keep(resolveReference(url)?.href ?? url)
+          const verdicts = await Promise.all(
+            urls.map(
+              async (url) =>
+                isRemoteReference(url) && !(await keep(resolveReference(url)?.href ?? url))
+            )
           )
-          if (refused) element.removeAttribute(attribute)
+          if (verdicts.includes(true)) element.removeAttribute(attribute)
         },
       }),
     base
@@ -249,6 +253,15 @@ export const stripRemoteReferences = async (
   return rewriter.transform(new Response(html)).text()
 }
 
-/** Under `allowRemoteAssets`: a network URL the outbound guard accepts (a protocol-relative one read as https). */
-export const outboundGuardAccepts = (url: string): boolean =>
-  validateOutboundUrl(url.trim().startsWith('//') ? `https:${url.trim()}` : url.trim()).ok
+/**
+ * Under `allowRemoteAssets`: a network URL the outbound guard accepts (a
+ * protocol-relative one read as https) — by its spelling, then by what its
+ * host name resolves to, the two checks `guardedFetch` makes before it fetches.
+ */
+export const outboundGuardAccepts = async (url: string): Promise<boolean> => {
+  const validation = validateOutboundUrl(
+    url.trim().startsWith('//') ? `https:${url.trim()}` : url.trim()
+  )
+  if (!validation.ok) return false
+  return (await judgeHost(validation.url, systemResolveHost)).kind !== 'refused'
+}

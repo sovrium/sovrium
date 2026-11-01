@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computeFormHelpTextClasses } from '@/presentation/design/form-layout-classes'
-import type { ResolvedFormField } from './form-field-elements'
+import { computeFormRequiredLegendClasses } from '@/presentation/design/form-layout-classes'
+import type { ResolvedFormField } from './form-resolved-field'
 
 /**
  * The line that explains the asterisk (WCAG 3.3.2, RGAA 11.10): drawn at the
@@ -35,7 +35,7 @@ export function RequiredLegend({
   return (
     <p
       data-form-required-legend=""
-      className={`${computeFormHelpTextClasses()} col-span-full`}
+      className={`${computeFormRequiredLegendClasses()} col-span-full`}
     >
       {text}
     </p>

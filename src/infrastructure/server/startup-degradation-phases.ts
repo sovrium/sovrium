@@ -6,7 +6,7 @@
  */
 
 import { stat } from 'node:fs/promises'
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { isAdminEquivalent, resolveAdminRole } from '@/domain/models/app/auth/roles'
 import { appRequiresAi } from '@/domain/models/app/requires-ai'
@@ -21,14 +21,15 @@ import {
   provisionRootSecret,
   ROOT_SECRET_ENV_VAR,
 } from '@/infrastructure/crypto/root-secret'
+import { Database, DatabaseUnownedLive } from '@/infrastructure/database/drizzle/layer'
 import { isAiComputeFieldType } from '@/infrastructure/database/generators/ai-field-triggers'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
 import { formatDuration } from '@/infrastructure/logging/startup-summary'
 import { collectPostureWarnings, getNodeEnv } from '@/infrastructure/process/env'
 import { collectDevModePhases } from '@/infrastructure/server/dev-mode-phases'
 import { getTelemetryConfig } from '@/infrastructure/telemetry/telemetry-config'
+import type { ProcessEnvShape } from '@/application/ports/services/process-env'
 import type { App } from '@/domain/models/app'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
@@ -59,9 +60,12 @@ import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
  * as `collectPublicDirPhases` / `collectAiListenerPhases`. A CLI log output spec
  * (a bucket → the row appears) against a CLI log output spec (nothing → no row).
  */
-export const collectStoragePhases = (app: Readonly<App>): readonly StartupPhase[] => {
+export const collectStoragePhases = (
+  app: Readonly<App>,
+  env: ProcessEnvShape
+): readonly StartupPhase[] => {
   if (!appUsesStorage(app)) return []
-  return [{ label: storageStartupLabel(parseStorageEnvConfig()), type: 'success' as const }]
+  return [{ label: storageStartupLabel(parseStorageEnvConfig(env)), type: 'success' as const }]
 }
 
 /**
@@ -105,21 +109,24 @@ const storageStartupLabel = (config: StorageEnvConfig): string => {
  * understands why auto-embedding / auto-compute are inactive, rather than
  * discovering it silently.
  */
-export const collectAiListenerPhases = (app: Readonly<App>): readonly StartupPhase[] => {
-  if (!isSqliteRuntime()) return []
-  const tables = app.tables ?? []
-  const hasAiComputeField = tables.some((table) =>
-    table.fields.some((field) => isAiComputeFieldType(field.type))
-  )
-  const hasRagAgents = (app.agents ?? []).length > 0
-  if (!hasAiComputeField && !hasRagAgents) return []
-  return [
-    {
-      label: 'AI knowledge listener disabled — requires PostgreSQL',
-      type: 'warning' as const,
-    },
-  ]
-}
+export const collectAiListenerPhases = (
+  app: Readonly<App>
+): Effect.Effect<readonly StartupPhase[], never, Database> =>
+  Effect.map(Database, ({ dialect }): readonly StartupPhase[] => {
+    if (dialect.kind !== 'sqlite') return []
+    const tables = app.tables ?? []
+    const hasAiComputeField = tables.some((table) =>
+      table.fields.some((field) => isAiComputeFieldType(field.type))
+    )
+    const hasRagAgents = (app.agents ?? []).length > 0
+    if (!hasAiComputeField && !hasRagAgents) return []
+    return [
+      {
+        label: 'AI knowledge listener disabled — requires PostgreSQL',
+        type: 'warning' as const,
+      },
+    ]
+  })
 
 /**
  * Emit a warning startup phase when the app USES AI but no provider is chosen.
@@ -140,8 +147,11 @@ export const collectAiListenerPhases = (app: Readonly<App>): readonly StartupPha
  * no AI surface loses nothing to an unset `AI_PROVIDER`, so warning it would
  * describe a capability it never asked for.
  */
-export const collectAiProviderPhases = (app: Readonly<App>): readonly StartupPhase[] => {
-  if (!appRequiresAi(app) || isAiProviderConfigured(process.env)) return []
+export const collectAiProviderPhases = (
+  app: Readonly<App>,
+  env: ProcessEnvShape
+): readonly StartupPhase[] => {
+  if (!appRequiresAi(app) || isAiProviderConfigured(env)) return []
   return [
     {
       label:
@@ -239,7 +249,9 @@ export const collectAdminPhases = (app: Readonly<App>): Promise<readonly Startup
       },
     ] as const
   }).pipe(
-    Effect.provide(AuthRepositoryLive),
+    // The banner is printed at boot, outside the server runtime that owns the
+    // client, so the repository reads the unowned database.
+    Effect.provide(Layer.provide(AuthRepositoryLive, DatabaseUnownedLive)),
     // effect-swallow: stated in the doc comment above — this only decides whether the startup BANNER prints an admin line, and a banner lookup must not regress the boot it is describing. A real misconfiguration is caught earlier, by the Better Auth users-table check.
     Effect.orElseSucceed(() => [] as readonly StartupPhase[])
   )
@@ -293,7 +305,10 @@ export const collectTelemetryPhases = (): readonly StartupPhase[] => {
  * `development`. Extracted from `server.ts` to keep the composition root under
  * the `max-lines` / `max-statements` budgets.
  */
-export const collectRootSecretPhases = (app: Readonly<App>): readonly StartupPhase[] => {
+export const collectRootSecretPhases = (
+  app: Readonly<App>,
+  env: ProcessEnvShape
+): readonly StartupPhase[] => {
   const resolution = provisionRootSecret()
   const reported: StartupPhase = {
     label: `Encryption key: ${describeRootSecretSource(resolution, formatPathForDisplay)}`,
@@ -312,7 +327,7 @@ export const collectRootSecretPhases = (app: Readonly<App>): readonly StartupPha
   // exists to remove.
   const ephemeral: readonly StartupPhase[] =
     resolution.source === 'generated' &&
-    (process.env['DATABASE_URL'] ?? '') !== '' &&
+    (env['DATABASE_URL'] ?? '') !== '' &&
     (app.connections ?? []).length > 0
       ? [
           {
@@ -332,13 +347,14 @@ export const buildStartupPhases = (params: {
   readonly cssLabel: string
   readonly durationMs: number
   readonly bindHost?: string
+  readonly env: ProcessEnvShape
 }): readonly StartupPhase[] => {
   const mode = getNodeEnv() === 'production' ? 'production' : 'development'
   return [
     ...collectPostureWarnings(params.bindHost),
-    ...collectDevModePhases(params.bindHost),
+    ...collectDevModePhases(params.bindHost, params.env),
     { label: `Mode: ${mode}`, type: 'success' as const },
-    ...collectRootSecretPhases(params.app),
+    ...collectRootSecretPhases(params.app, params.env),
     ...params.infraPhases,
     { label: params.cssLabel, type: 'success' as const },
     { label: `Server ready in ${formatDuration(params.durationMs)}`, type: 'success' as const },

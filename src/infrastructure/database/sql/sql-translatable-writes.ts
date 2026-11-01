@@ -6,9 +6,9 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { jsonbLiteral } from './sql-utils'
+import { bindJsonbOn } from './sql-utils'
 import type { LanguageMerge } from '@/domain/models/app/tables/translatable-write-service'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * The SQL a write to a translatable field becomes: the languages it sets and
@@ -28,19 +28,23 @@ import type { LanguageMerge } from '@/domain/models/app/tables/translatable-writ
  * with no language is stored as `NULL`, the empty value every other read
  * already expects.
  *
- * The map is inlined through {@link jsonbLiteral}, the escape every JSON write
- * shares (bun-sql cannot bind `jsonb`); each removed language code is bound.
+ * The map binds through {@link bindJsonb}, the encoder every JSON write
+ * shares; each removed language code is bound too.
  */
-export const languageMergeSql = (column: string, merge: LanguageMerge): Readonly<SQL> => {
+export const languageMergeSql = (
+  dialect: DatabaseDialect,
+  column: string,
+  merge: LanguageMerge
+): Readonly<SQL> => {
   const target = sql.identifier(column)
-  if (isSqliteRuntime()) {
+  if (dialect === 'sqlite') {
     const patch = { ...merge.set, ...Object.fromEntries(merge.remove.map((code) => [code, null])) }
     const stored = sql`CASE WHEN json_type(${target}) = 'object' THEN ${target} ELSE '{}' END`
-    return sql`NULLIF(json_patch(${stored}, ${jsonbLiteral(patch)}), '{}')`
+    return sql`NULLIF(json_patch(${stored}, ${bindJsonbOn(dialect, patch)}), '{}')`
   }
   const stored = sql`CASE WHEN jsonb_typeof(${target}) = 'object' THEN ${target} ELSE '{}'::jsonb END`
   const removals = merge.remove.map((code) => sql` - ${code}::text`)
-  const merged = sql`(${stored} || ${jsonbLiteral(merge.set)})${sql.join(removals)}`
+  const merged = sql`(${stored} || ${bindJsonbOn(dialect, merge.set)})${sql.join(removals)}`
   return sql`NULLIF(${merged}, '{}'::jsonb)`
 }
 
@@ -48,5 +52,8 @@ export const languageMergeSql = (column: string, merge: LanguageMerge): Readonly
  * The value a write to a translatable field inserts: the map it sets, or
  * `NULL` when it sets no language — a new record has no map to merge into.
  */
-export const languageMergeInsertSql = (merge: LanguageMerge): Readonly<SQL> =>
-  Object.keys(merge.set).length === 0 ? sql`NULL` : jsonbLiteral(merge.set)
+export const languageMergeInsertSql = (
+  dialect: DatabaseDialect,
+  merge: LanguageMerge
+): Readonly<SQL> =>
+  Object.keys(merge.set).length === 0 ? sql`NULL` : bindJsonbOn(dialect, merge.set)

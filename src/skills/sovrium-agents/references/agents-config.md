@@ -53,7 +53,7 @@ tools:
 
 - **No `tools` block means no access at all.** An agent that seems to do nothing is often one whose allowlist was forgotten.
 - Every call passes two gates: the role allows it, and `tools` lists it. `tools` can only narrow the role; listing `record.delete` on a role that cannot delete grants nothing. Tightening the allowlist is always safe to try.
-- The action vocabulary is the automation engine's `type.operator`: `record.*`, `state.*` (only when an automation runs the agent), `http.request`, `ai.generate|classify|extract`, `code.runTypescript`, `email.send`, `auth.createUser|assignRole|banUser|unbanUser`, `file.*`, `browser.use`. Read the current list with `sovrium docs config agents[].tools.actions[]`.
+- The action vocabulary is the automation engine's `type.operator`: `record.*`, `state.*` (only when an automation runs the agent), `http.request`, `ai.generate|classify|extract`, `code.runTypescript` (only on an agent with `permissions.trigger: none`, refused on any agent people can reach), `email.send`, `auth.createUser|assignRole|banUser|unbanUser`, `file.*`, `browser.use`. Read the current list with `sovrium docs config agents[].tools.actions[]`.
 - `record.read` reads one record by id; `record.list` returns a filtered, sorted set. Granting one does not grant the other.
 - `browser.use` needs `tools.browser.allowedHosts` (and the stored `sessions` it may start from); it never sends data, only reads.
 - Reaching tools on an external MCP server is a separate allowlist, `mcp.servers` and `mcp.allowedTools` (see `ai-access-and-mcp-server.md`).

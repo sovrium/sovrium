@@ -6,14 +6,16 @@
  */
 
 import { eq } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   BrowserSessionDatabaseError,
   BrowserSessionRepository,
 } from '@/application/ports/repositories/automations/browser-session-repository'
 import { decryptToken, encryptToken } from '@/infrastructure/crypto/token-encrypt'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { browserSessions as browserSessionsPg } from '@/infrastructure/database/drizzle/schema/browser-session'
 import { browserSessions as browserSessionsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/browser-session'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -41,15 +43,8 @@ const openJar = (name: string, sealed: string): string | undefined => {
   }
 }
 
-/**
- * Browser Session Repository Implementation (Drizzle).
- *
- * Seals on write, opens on read (`crypto/token-encrypt.ts`, AES-256-GCM under
- * the instance key): the `jar` column never holds a readable cookie. A save is
- * one INSERT … ON CONFLICT DO UPDATE on the session name.
- */
-export const BrowserSessionRepositoryLive = Layer.succeed(BrowserSessionRepository, {
-  load: (name) =>
+const members: MembersOverDatabase<typeof BrowserSessionRepository> = {
+  load: (db) => (name) =>
     wrap(async () => {
       const rows = await db
         .select({ jar: browserSessions.jar })
@@ -60,7 +55,7 @@ export const BrowserSessionRepositoryLive = Layer.succeed(BrowserSessionReposito
       return sealed === undefined ? undefined : openJar(name, sealed)
     }),
 
-  save: (name, jar) =>
+  save: (db) => (name, jar) =>
     wrap(async () => {
       const sealed = encryptToken(jar)
       await db
@@ -71,4 +66,13 @@ export const BrowserSessionRepositoryLive = Layer.succeed(BrowserSessionReposito
           set: { jar: sealed, updatedAt: new Date() },
         })
     }),
-})
+}
+
+/**
+ * Browser Session Repository Implementation (Drizzle).
+ *
+ * Seals on write, opens on read (`crypto/token-encrypt.ts`, AES-256-GCM under
+ * the instance key): the `jar` column never holds a readable cookie. A save is
+ * one INSERT … ON CONFLICT DO UPDATE on the session name.
+ */
+export const BrowserSessionRepositoryLive = layerOverDatabase(BrowserSessionRepository, members)

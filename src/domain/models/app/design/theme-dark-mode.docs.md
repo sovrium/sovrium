@@ -1,19 +1,19 @@
 # Baseline & Dark Mode
 
-> What the app looks like before you style anything, and what it looks like at night — `baseline`, `darkColors` and `colorScheme`.
+> What the app looks like before you style anything, and what it looks like at night: `baseline`, `darkColors` and `colorScheme`.
 
 Three keys of `design` decide the starting point: whether the prebuilt components come with a look attached, what the palette becomes under a dark scheme, and which scheme a first-time visitor gets.
 
 ## `baseline`
 
-`extend`, the default, makes the prebuilt components inherit Sovrium's own design-system tokens — cards have a border and a shadow, buttons have a fill, form controls have a focus ring — and layers your tokens on top. `replace` drops that look and starts from a neutral, unstyled floor: nothing is prestyled, and every surface is yours to define.
+`extend`, the default, makes the prebuilt components inherit Sovrium's own design-system tokens (cards have a border and a shadow, buttons have a fill, form controls have a focus ring) and layers your tokens on top. `replace` drops that look and starts from a neutral, unstyled floor: nothing is prestyled, and every surface is yours to define.
 
 ```yaml
 design:
   baseline: extend
 ```
 
-Start with `extend`. It gets a usable app on screen from a handful of colour tokens, and any individual prestyle can still be overridden — an author-supplied `props.className` is appended last, so it wins the Tailwind cascade. Reach for `replace` only when you are building a design system of your own and the defaults are actively in the way.
+Start with `extend`. It gets a usable app on screen from a handful of colour tokens, and any individual prestyle can still be overridden: an author-supplied `props.className` is appended last, so it wins the Tailwind cascade. Reach for `replace` only when you are building a design system of your own and the defaults are actively in the way.
 
 ## `darkColors`
 
@@ -35,9 +35,9 @@ design:
     primary: '#818cf8'
 ```
 
-Only the tokens that need to change have to appear. A token you leave out keeps its light value in both schemes — correct for a brand accent, and usually wrong for anything with `background` or `foreground` in the name.
+Only the tokens that need to change have to appear. A token you leave out keeps its light value in both schemes. That is correct for a brand accent, and usually wrong for anything with `background` or `foreground` in the name.
 
-A brand colour you leave out — `primary`, `secondary`, `accent`, `ring`, a sidebar brand role, a chart series — keeps its light value everywhere it is read under the dark scheme: in its utility (`bg-primary`) and in the variable a component reads directly (`--primary`). A surface kept in its light colour keeps its light foreground too, unless a dark foreground is declared: a linen `accent` with no dark value still carries the dark text it carries in light, never the near-white text of the dark palette.
+A brand colour you leave out (`primary`, `secondary`, `accent`, `ring`, a sidebar brand role, a chart series) keeps its light value everywhere it is read under the dark scheme: in its utility (`bg-primary`) and in the variable a component reads directly (`--primary`). A surface kept in its light colour keeps its light foreground too, unless a dark foreground is declared: a linen `accent` with no dark value still carries the dark text it carries in light, never the near-white text of the dark palette.
 
 **Check contrast in both palettes, not one.** A `primary` tuned against a white background is frequently too dark against a near-black one, which is why the example above lightens it rather than reusing it. The pair is two designs, not one design with the lights off.
 
@@ -54,7 +54,7 @@ design:
   colorScheme: light
 ```
 
-A visitor who has since made a choice always overrides this — the stored preference wins on every subsequent visit. `colorScheme` is the default, not the policy. Under `system`, a page that is already open follows the operating system when it changes scheme, until the visitor makes a choice of their own.
+A visitor who has since made a choice always overrides this: the stored preference wins on every subsequent visit. `colorScheme` is the default, not the policy. Under `system`, a page that is already open follows the operating system when it changes scheme, until the visitor makes a choice of their own.
 
 It is applied before the page's content renders, so a dark-first app does not flash a white page on load.
 
@@ -75,4 +75,6 @@ pages:
           - { type: theme-toggle }
 ```
 
-Omit the toggle and the app follows `colorScheme` forever — a legitimate choice for a single-palette design, which then declares `colorScheme: light` (or `dark`) rather than leaving it to the operating system.
+The toggle is a toggle button: its name stays the same and `aria-pressed` says whether the dark theme is on, set when the page loads and after every press. Without a class of its own, either variant offers a target of at least 24 by 24 pixels.
+
+Omit the toggle and the app follows `colorScheme` forever. That is a legitimate choice for a single-palette design, which then declares `colorScheme: light` (or `dark`) rather than leaving it to the operating system.

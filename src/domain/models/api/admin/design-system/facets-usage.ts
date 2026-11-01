@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // Where a type — or a named template — is already written
@@ -105,7 +105,7 @@ export const usageRowSchema = Schema.Struct({
   }),
   routes: Schema.Array(Schema.String).annotate({
     description:
-      'Those routes, in page order. Empty — never absent — for a subject nobody writes. A bare `string[]`, so it is readable by a CALLER but not bindable by a config page: see `routeRows` on the response for the row-shaped copy and why both exist.',
+      'Those routes, in page order. Empty, never absent, for a subject nobody writes. A bare `string[]`, so it is readable by a CALLER but not bindable by a config page: see `routeRows` on the response for the row-shaped copy and why both exist.',
     examples: [['/', '/pricing']],
   }),
   // ─── WHETHER A CARD MAY BE DRAWN AT FULL HEIGHT ─────────────────────────
@@ -124,7 +124,7 @@ export const usageRowSchema = Schema.Struct({
   // component tree, and a config page has no arithmetic and no recursion.
   heavy: Schema.Boolean.annotate({
     description:
-      'Whether this template is too tall to draw inline, so a card collapses it behind a way in. REQUIRED on every row, `false` for a `type` subject — the gate a page reads, which cannot be an absence because there is no presence operator to test one with.',
+      'Whether this template is too tall to draw inline, so a card collapses it behind a way in. REQUIRED on every row, `false` for a `type` subject. It is the gate a page reads, which cannot be an absence because there is no presence operator to test one with.',
   }),
   // ─── THE COPY PAYLOAD, ADMITTED UNDER THE FACTS-NOT-STRINGS RULE ───────────────────────────
   //
@@ -138,7 +138,7 @@ export const usageRowSchema = Schema.Struct({
   snippet: optionalField(
     Schema.String.annotate({
       description:
-        'The operator’s own declaration of this template, serialised as config — the payload a card offers to copy. ABSENT for a `type` subject: a component type is the engine’s, not the operator’s, so there is nothing of theirs to copy.',
+        'The operator’s own declaration of this template, serialised as config: the payload a card offers to copy. ABSENT for a `type` subject: a component type is the engine’s, not the operator’s, so there is nothing of theirs to copy.',
       examples: ['name: site-header\ntype: container'],
     })
   ),
@@ -179,7 +179,7 @@ export const usageRowSchema = Schema.Struct({
 export const usageRouteRowSchema = Schema.Struct({
   subject: usageSubjectSchema,
   name: Schema.String.annotate({
-    description: 'The subject whose route this is — the join key back to `items`',
+    description: 'The subject whose route this is: the join key back to `items`',
     examples: ['site-header'],
   }),
   route: Schema.String.annotate({
@@ -207,7 +207,7 @@ export const usageRouteRowSchema = Schema.Struct({
  */
 export const usagePropRowSchema = Schema.Struct({
   name: Schema.String.annotate({
-    description: 'The template this variable belongs to — the join key back to `items`',
+    description: 'The template this variable belongs to: the join key back to `items`',
     examples: ['kpi-card'],
   }),
   prop: Schema.String.annotate({
@@ -271,7 +271,7 @@ const usageKindCount = (kind: string) =>
 export const usageResponseSchema = Schema.Struct({
   items: Schema.Array(usageRowSchema).annotate({
     description:
-      'One row per subject — catalogued types in category order, templates in declaration order — filtered by `name` when one was given',
+      'One row per subject (catalogued types in category order, templates in declaration order), filtered by `name` when one was given',
   }),
   total: Schema.Int.annotate({
     description: 'How many rows this response carries',
@@ -283,7 +283,7 @@ export const usageResponseSchema = Schema.Struct({
   // routes exist.
   routeRows: Schema.Array(usageRouteRowSchema).annotate({
     description:
-      'Every (subject, name, route) pair in this response, flattened — the row-shaped copy of `items[].routes` a config page can bind. EMPTY when no subject in this response is written anywhere.',
+      'Every (subject, name, route) pair in this response, flattened: the row-shaped copy of `items[].routes` a config page can bind. EMPTY when no subject in this response is written anywhere.',
   }),
   // ─── HOW MANY ROWS OF EACH KIND, FLAT ─────────────────────────────────
   //
@@ -299,7 +299,7 @@ export const usageResponseSchema = Schema.Struct({
   propRows: optionalField(
     Schema.Array(usagePropRowSchema).annotate({
       description:
-        'One row per (template, `$` variable) in this response, in the order each template reads its variables — the rows a component page’s props table binds. Absent on a `type` read; empty for a template reading no variable.',
+        'One row per (template, `$` variable) in this response, in the order each template reads its variables: the rows a component page’s props table binds. Absent on a `type` read; empty for a template reading no variable.',
     })
   ),
   pageSectionCount: usageKindCount('page-section'),
@@ -343,7 +343,7 @@ export const usageResponseSchema = Schema.Struct({
 export const typeLadderRowSchema = Schema.Struct({
   step: Schema.String.annotate({
     description:
-      'The step’s own name, without its `text-` prefix — what a page stamps into an addressable attribute. Published rather than derived because a config page cannot split a string.',
+      'The step’s own name, without its `text-` prefix: what a page stamps into an addressable attribute. Published rather than derived because a config page cannot split a string.',
     examples: ['xs', '2xl'],
   }),
   utility: Schema.String.annotate({
@@ -378,7 +378,7 @@ export const typeLadderResponseSchema = Schema.Struct({
     description: 'Every step of the platform ladder, in ascending size order',
   }),
   total: Schema.Int.annotate({
-    description: 'How many steps this response carries — the whole ladder, never a page of it',
+    description: 'How many steps this response carries: the whole ladder, never a page of it',
   }),
 }).annotate({
   strictKeys: true,

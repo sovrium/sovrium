@@ -63,7 +63,7 @@ export const PublicViewPermissionsSchema = Schema.Struct({
    */
   public: Schema.Literal(true).annotate({
     description:
-      "Makes the view readable by everyone, signed in or not: its `fields` become the only columns served, its `filters` and `sorts` are applied on the server, and writes stay on the table's own permissions. Requires `fields`. Only `true` is accepted — omit the block rather than writing `false`.",
+      "Makes the view readable by everyone, signed in or not: its `fields` become the only columns served, its `filters` and `sorts` are applied on the server, and writes stay on the table's own permissions. Requires `fields`. Only `true` is accepted: omit the block rather than writing `false`.",
   }),
 }).pipe(
   Schema.annotate({

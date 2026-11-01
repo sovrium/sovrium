@@ -17,51 +17,10 @@ import { defineArticle, defineSection } from './define'
 /**
  * Admin & Observability — the section manifest.
  *
- * ─── WHY SIX ARTICLES SIT IN FOUR DIFFERENT TREES ─────────────────────────
- *
- * The obvious reading is that every `admin` article belongs under
- * `src/admin/`, and it is wrong for two of the six. The placement rule sends
- * a paragraph to the narrowest thing it is TRUE of, and "the operator console"
- * is not the subject of all six:
- *
- *   - `admin-dashboard` documents the console's own surface — every page it
- *     serves and how you sign into it. Its pages span
- *     `config/pages/{,data/,developers/}`, so the narrowest directory holding
- *     them is `src/admin/config/pages/` itself.
- *   - `admin-read-api` documents the `/api/admin/*` read API those pages are
- *     composed from. It was split out of `admin-dashboard` to keep each
- *     fragment under its size ceiling, and stays beside it: the endpoints'
- *     subject is the console's pages, and their routes span several
- *     `src/presentation/api/` directories, none narrower than the console.
- *   - `design-system-console` documents the eight routes under
- *     `/design-system`, which are exactly the pages of
- *     `config/pages/design-system/`.
- *   - `admin-customization` documents the `admin` KEY — a boolean, plus what
- *     your `design` does and does not reach once the console is served. The
- *     key is declared in `src/domain/models/app/admin/`, and that is where the
- *     article goes; the console is its subject only in the way any property's
- *     effect is.
- *   - `analytics` documents the `analytics` property, its event model and its
- *     endpoints. It mentions the console's Analytics page in one paragraph and
- *     is otherwise not about the console at all.
- *   - `activity-monitoring` documents `GET /api/activity`, implemented in
- *     `src/presentation/api/tables/activity-feed-routes.ts` — a class-B,
- *     route-subject article, filed beside `record-history.docs.md`, which is
- *     the article a reader arrives from.
- *
- * Both schema-property homes were among the five directories the `Doc File
- * Presence` census listed as uncovered, which is a second, independent reading
- * of the same placement: the census asks every schema property for an article,
- * and these two were the ones it had not been given.
- *
- * ─── WHY ONLY ONE DIRECTIVE ────────────────────────────────────────────────
- *
- * `AdminConfigSchema` is `Schema.Boolean`. The walker renders a scalar as an
- * empty table and the engine refuses to publish one, so the `admin` key is
- * prose — the same call the manual already makes for `NameSchema` and
- * `VersionSchema`. Everything else these six articles tabulate is a ROUTE or
- * an HTTP parameter rather than a config option, and no schema node carries
- * it. `BuiltInAnalytics` is the one real option bag in the section.
+ * Why six articles sit in four trees and only one carries a directive:
+ * `[internal ref]`, § `admin`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const section = defineSection({
   slug: 'admin',
@@ -73,7 +32,7 @@ export const section = defineSection({
       slug: 'admin-dashboard',
       title: 'Admin Dashboard',
       description:
-        'The operator console at `/_admin` — an admin-only, read-only data console over records, runs, submissions, accounts, files and analytics, plus the read API behind it.',
+        'The operator console at `/_admin`: an admin-only, read-only console over records, runs, submissions, accounts, files and analytics, and the read API behind it.',
       keywords: [
         'sovrium',
         'admin dashboard',
@@ -152,7 +111,7 @@ export const section = defineSection({
       slug: 'admin-read-api',
       title: 'Admin Read API',
       description:
-        'The `/api/admin/*` endpoints behind the operator console — overview and list shapes, the users and tables overviews, the developer reads, the organisation graph and the design-system export — admin-gated, answering 404 to anyone else.',
+        'The admin-only `/api/admin/*` endpoints behind the console: overviews, lists, developer reads, the organisation graph, the design-system export. Others get 404.',
       keywords: [
         'sovrium',
         'admin API',
@@ -186,7 +145,7 @@ export const section = defineSection({
       slug: 'admin-customization',
       title: 'Console Customization',
       description:
-        'What you can change about the built-in admin console — whether it is served at all, and how your own design paints it — plus the accessibility floor no configuration can remove.',
+        'What you can change about the built-in console: whether it is served at all and how your design paints it, plus the accessibility floor no config removes.',
       keywords: [
         'sovrium',
         'admin console',
@@ -207,7 +166,7 @@ export const section = defineSection({
       slug: 'analytics',
       title: 'Analytics',
       description:
-        'Built-in, privacy-first, self-hosted analytics — page views, sessions, referrers, UTM campaigns and device breakdowns on one unified event model, with no cookies and no external services.',
+        'Built-in, self-hosted analytics: page views, sessions, referrers, UTM campaigns and devices on one event model, no cookies, no outside services.',
       keywords: [
         'sovrium',
         'analytics',
@@ -237,13 +196,14 @@ export const section = defineSection({
         'US-ANALYTICS-PAGE-ANALYTICS-006',
         'US-ANALYTICS-PAGE-ANALYTICS-007',
         'US-ANALYTICS-UNIFIED-EVENTS-MODEL',
+        'US-PAGES-INTERACTIVITY-ANALYTICS-OPT-OUT',
       ],
     }),
     defineArticle({
       slug: 'activity-monitoring',
       title: 'Activity Monitoring',
       description:
-        'System-wide activity logging — record CRUD, authentication events and administrative actions — with filtering, pagination, and an audit trail that outlives the rows it describes.',
+        'System-wide activity logging of record writes, authentication events and admin actions, with filtering, pagination and an audit trail that outlives its rows.',
       keywords: [
         'sovrium',
         'activity log',
@@ -272,7 +232,7 @@ export const section = defineSection({
       slug: 'design-system-console',
       title: 'Design System Console',
       description:
-        'The console section that draws your design system at its rendered values — foundations, your own components, brand, voice — and the revocable link that publishes it to someone with no login.',
+        'The console section that draws your design system at its rendered values (foundations, components, brand, voice) and the revocable link that shares it.',
       keywords: [
         'sovrium',
         'design system console',

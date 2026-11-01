@@ -225,7 +225,7 @@ const FullTemplateSchema: Schema.Codec<any, any, never> = buildComponentUnion(
     children: Schema.optional(
       Schema.Union([ComponentChildrenSchema, ComponentSlotSchema]).annotate({
         description:
-          "The template's child elements — components or text strings, with `$variable` placeholders — or `$children`, which makes the template's root its slot: a frame around the page components a placement passes as `children`.",
+          "The template's child elements (components or text strings, with `$variable` placeholders), or `$children`, which makes the template's root its slot: a frame around the page components a placement passes as `children`.",
       })
     ),
   },

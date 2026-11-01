@@ -21,7 +21,7 @@ import type { DrawnRules } from '@/domain/models/app/pages/page-drawing'
  * - `data-sovrium-form`: the form a form node embeds (`formRef`);
  * - `data-sovrium-href`: on a button, the page its `navigate` action opens.
  *
- * The page import reads each back and writes an edited one (`page-merge-rules-service.ts`).
+ * The page import reads each back and writes an edited one (`pages/merge/rules-service.ts`).
  * Only the Claude Design canvas carries them: a Figma or Penpot file draws
  * how a page looks, never what it does.
  */

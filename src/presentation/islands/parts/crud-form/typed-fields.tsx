@@ -10,7 +10,7 @@ import {
   numericAdornmentOf,
   numericInputAttributes,
 } from '@/presentation/design/field-control-attributes'
-import { fieldDescribedBy } from '@/presentation/design/field-display'
+import { controlDescribedBy } from '@/presentation/design/field-display'
 import { computeFormFieldLabelClasses } from '@/presentation/design/form-layout-classes'
 import {
   fromLocalInputValue,
@@ -67,7 +67,7 @@ function NativeInput(props: {
       {...(field.readOnly && { readOnly: true })}
       {...(field.disabled && { disabled: true })}
       {...(props.invalid && { 'aria-invalid': 'true' })}
-      {...fieldDescribedBy(field)}
+      {...controlDescribedBy(field)}
     />
   )
 }
@@ -195,7 +195,7 @@ export function MultiSelectField({ field, value, onChange }: TypedFieldProps): R
   return (
     <fieldset
       className={LABEL_CLASS}
-      {...fieldDescribedBy(field)}
+      {...controlDescribedBy(field)}
       {...(field.disabled && { disabled: true })}
     >
       <legend className={computeFormFieldLabelClasses()}>

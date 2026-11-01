@@ -6,15 +6,18 @@
  */
 
 import { and, count, desc, eq, inArray, isNull } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   NotificationDatabaseError,
   NotificationRepository,
   type ChosenChannels,
   type StoredNotification,
 } from '@/application/ports/repositories/automations/notification-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   notificationPreferences as preferencesPg,
   notifications as notificationsPg,
@@ -81,8 +84,8 @@ const announceChanged = (userIds: Iterable<string>): Effect.Effect<void> =>
     )
   })
 
-export const NotificationRepositoryLive = Layer.succeed(NotificationRepository, {
-  insertMany: (rows) =>
+const members: MembersOverDatabase<typeof NotificationRepository> = {
+  insertMany: (db) => (rows) =>
     Effect.forEach(
       Array.from({ length: Math.ceil(rows.length / INSERT_BATCH) }, (_, index) =>
         rows.slice(index * INSERT_BATCH, (index + 1) * INSERT_BATCH)
@@ -98,7 +101,7 @@ export const NotificationRepositoryLive = Layer.succeed(NotificationRepository, 
       )
     ),
 
-  listFor: (userId, limit) =>
+  listFor: (db) => (userId, limit) =>
     wrap(() =>
       db
         .select()
@@ -108,7 +111,7 @@ export const NotificationRepositoryLive = Layer.succeed(NotificationRepository, 
         .limit(limit)
     ).pipe(Effect.map(storedRows)),
 
-  everyFor: (userId) =>
+  everyFor: (db) => (userId) =>
     wrap(() =>
       db
         .select()
@@ -117,7 +120,7 @@ export const NotificationRepositoryLive = Layer.succeed(NotificationRepository, 
         .orderBy(desc(notifications.createdAt), desc(notifications.id))
     ).pipe(Effect.map(storedRows)),
 
-  unreadCountFor: (userId) =>
+  unreadCountFor: (db) => (userId) =>
     wrap(() =>
       db
         .select({ total: count() })
@@ -125,24 +128,26 @@ export const NotificationRepositoryLive = Layer.succeed(NotificationRepository, 
         .where(and(listedOf(userId), isNull(notifications.readAt)))
     ).pipe(Effect.map((rows) => Number((rows as readonly { total: unknown }[])[0]?.total ?? 0))),
 
-  markRead: ({ userId, id }) =>
-    Effect.gen(function* () {
-      const mine = and(listedOf(userId), eq(notifications.id, id))
-      yield* wrap(() =>
-        db
-          .update(notifications)
-          .set({ readAt: new Date() })
-          .where(and(mine, isNull(notifications.readAt)))
-      )
-      const marked = storedRows(
-        yield* wrap(() => db.select().from(notifications).where(mine).limit(1))
-      )
-      // Her other tabs re-read: the item is read there too.
-      if (marked.length > 0) yield* announceChanged([userId])
-      return marked
-    }),
+  markRead:
+    (db) =>
+    ({ userId, id }) =>
+      Effect.gen(function* () {
+        const mine = and(listedOf(userId), eq(notifications.id, id))
+        yield* wrap(() =>
+          db
+            .update(notifications)
+            .set({ readAt: new Date() })
+            .where(and(mine, isNull(notifications.readAt)))
+        )
+        const marked = storedRows(
+          yield* wrap(() => db.select().from(notifications).where(mine).limit(1))
+        )
+        // Her other tabs re-read: the item is read there too.
+        if (marked.length > 0) yield* announceChanged([userId])
+        return marked
+      }),
 
-  markAllRead: (userId) =>
+  markAllRead: (db) => (userId) =>
     wrap(() =>
       db
         .update(notifications)
@@ -154,7 +159,7 @@ export const NotificationRepositoryLive = Layer.succeed(NotificationRepository, 
       Effect.tap(() => announceChanged([userId]))
     ),
 
-  preferencesOf: (userIds) =>
+  preferencesOf: (db) => (userIds) =>
     userIds.length === 0
       ? Effect.succeed([])
       : wrap(() =>
@@ -174,7 +179,7 @@ export const NotificationRepositoryLive = Layer.succeed(NotificationRepository, 
           )
         ),
 
-  savePreferences: (chosen) =>
+  savePreferences: (db) => (chosen) =>
     Effect.forEach(
       chosen,
       ({ userId, kind, inApp, email, digest }) =>
@@ -189,4 +194,6 @@ export const NotificationRepositoryLive = Layer.succeed(NotificationRepository, 
         ),
       { discard: true }
     ),
-})
+}
+
+export const NotificationRepositoryLive = layerOverDatabase(NotificationRepository, members)

@@ -7,7 +7,12 @@
 
 import { responsiveColumnsClass } from '../styling/class-builders'
 import type { Responsive, VariantOverrides } from '@/domain/models/app/pages/components/responsive'
-import type { Breakpoint } from '@/presentation/render/props/use-breakpoint'
+
+/**
+ * A responsive breakpoint key, matching the `responsive` schema: `mobile` is the
+ * base, the rest are Tailwind's default min-width breakpoints.
+ */
+export type Breakpoint = 'mobile' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 
 /**
  * Breakpoint order for progressive enhancement (mobile-first)

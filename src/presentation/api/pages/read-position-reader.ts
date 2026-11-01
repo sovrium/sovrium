@@ -35,7 +35,8 @@ const CLOCK_SKEW_MS = 5 * 60 * 1000
  * clock and the server's clock (a development clock may be pinned either way
  * of it, and a position may have been stamped by either), plus the skew.
  */
-const latestPositionNow = (): number => Math.max(Date.now(), serverNow().getTime()) + CLOCK_SKEW_MS
+const latestPositionNow = (): number =>
+  Math.max(Date.now(), serverNow(process.env).getTime()) + CLOCK_SKEW_MS
 
 /**
  * The position a redraw of the conversation on `tableName`/`recordId` says its

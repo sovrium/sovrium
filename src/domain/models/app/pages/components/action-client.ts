@@ -66,7 +66,7 @@ export const NavigateActionSchema = Schema.Struct({
   onError: Schema.optional(ActionResponseSchema),
 }).annotate({
   title: 'Navigate Action',
-  description: 'Pure navigation action — no mutation side-effect',
+  description: 'Pure navigation action, with no mutation side-effect',
 })
 
 /**
@@ -114,7 +114,7 @@ export const ToastActionSchema = Schema.Struct({
   ),
 }).annotate({
   title: 'Toast Action',
-  description: 'Pure notification action — shows a transient toast with no side-effect',
+  description: 'Pure notification action: shows a transient toast with no side-effect',
 })
 
 /**

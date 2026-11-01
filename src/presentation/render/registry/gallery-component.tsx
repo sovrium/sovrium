@@ -20,6 +20,7 @@ import { boundViewGroupBy } from '@/presentation/render/resolve/list-island-inpu
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import { islandFallback, specimenEmpty } from './specimen-island-states'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 
 /** The bound view's first `groupBy` level, when the gallery reads through a grouped view. */
 const groupByProp = (dataSource: unknown, tables: ComponentDispatchConfig['tables']) => {
@@ -34,7 +35,7 @@ const groupByProp = (dataSource: unknown, tables: ComponentDispatchConfig['table
 function extractGalleryProps(
   elementProps: Record<string, unknown>,
   tables: ComponentDispatchConfig['tables'],
-  parts: Readonly<Record<string, string>> | undefined
+  parts: PartClassMap | undefined
 ): Record<string, unknown> {
   const tableName = (elementProps.dataSource as { readonly table?: unknown } | undefined)?.table
   const weekdays = resolveWeekdayFields(tables?.find((table) => table.name === tableName))

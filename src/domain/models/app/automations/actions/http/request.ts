@@ -54,7 +54,7 @@ export const HttpRequestActionSchema = Schema.Struct({
     ),
     body: Schema.optional(
       Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.Unknown)]).pipe(
-        Schema.annotate({ description: 'Request body — string or JSON object' })
+        Schema.annotate({ description: 'Request body: string or JSON object' })
       )
     ),
     contentType: Schema.optional(

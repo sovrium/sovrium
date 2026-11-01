@@ -25,10 +25,13 @@
  * island stays a thin render under the per-island `max-lines` cap.
  */
 
-import { type ReactElement, useMemo } from 'react'
+import { type ReactElement, type ReactNode, useMemo } from 'react'
 import { ConversationList } from './admin-agent-conversations-list'
 import { useAgentConversations } from './admin-agent-conversations-state'
-import { AgentConversationStringsContext } from './admin-agent-conversations-strings'
+import {
+  AgentConversationStringsContext,
+  useAgentConversationString as useWord,
+} from './admin-agent-conversations-strings'
 import { ConversationThread } from './admin-agent-conversations-thread'
 import type { SharedFilterBindingConfig } from '../../hooks/use-shared-filter'
 
@@ -56,6 +59,27 @@ interface AdminAgentConversationsIslandProps {
 const EMPTY_NAMES: ReadonlyArray<string> = []
 const UNBOUND: SharedFilterBindingConfig = {}
 const ENGLISH: Readonly<Record<string, string>> = {}
+
+/**
+ * The thread column's landmark. Its own component because the name has to be
+ * read beneath the strings provider the island itself renders.
+ */
+function ThreadRegion({
+  className,
+  children,
+}: {
+  readonly className: string
+  readonly children: ReactNode
+}): ReactElement {
+  return (
+    <section
+      aria-label={useWord('region', 'Conversation')}
+      className={className}
+    >
+      {children}
+    </section>
+  )
+}
 
 /** The agent conversation-viewer surface region (two columns: list + thread). */
 export default function AdminAgentConversationsIsland({
@@ -99,17 +123,14 @@ export default function AdminAgentConversationsIsland({
             alone={quiet}
           />
           {quiet ? null : (
-            <section
-              aria-label="Conversation"
-              className={`${thread} w-full min-w-0 @2xl:flex-1`}
-            >
+            <ThreadRegion className={`${thread} w-full min-w-0 @2xl:flex-1`}>
               <ConversationThread
                 state={ctl.thread}
                 onRetry={ctl.reloadThread}
                 onBack={ctl.onBack}
                 names={names}
               />
-            </section>
+            </ThreadRegion>
           )}
         </div>
       </div>

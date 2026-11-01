@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useMemo } from 'react'
 import { useRecordSelectionToggle } from '../hooks/use-lazy-shared-filter-publisher'
 import { BoardContinuation } from './board-continuation'
 import { buildKanbanDragHandler } from './build-drag-handler'
@@ -12,13 +13,13 @@ import { buildKanbanGrid, type KanbanGrid } from './group-lanes'
 import { groupRecords, withUncategorizedLabel, type KanbanHeaderPaint } from './group-records'
 import { KanbanBoard } from './kanban-board'
 import { KanbanFormatProvider } from './kanban-format-context'
-import { KanbanError, KanbanLoading, KanbanMissingGroupBy } from './kanban-states'
+import { KanbanFailure, KanbanLoading, MissingGroupBy } from './kanban-skeleton'
 import { useBoardRecords } from './use-board-records'
 import { useKanbanDragGate } from './use-kanban-drag-gate'
-import type { KanbanStrings } from './kanban-states'
 import type { BoardPagination } from './use-board-window'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
+import type { ViewStrings } from '../parts/view-states'
 import type { TableRecord } from '../runtime/types'
 import type {
   KanbanCard,
@@ -33,7 +34,7 @@ import type { ReactElement } from 'react'
 
 export interface KanbanIslandProps {
   /** The board's own words in the page language, where they differ from English. */
-  readonly uiStrings?: KanbanStrings
+  readonly uiStrings?: ViewStrings
   /** The channel the board publishes the card a reader selects on. */
   readonly publishes?: SharedFilterPublisherConfig
   readonly dataSource?: {
@@ -144,21 +145,19 @@ const columnFieldOf = (groupBy: KanbanGroupBy | undefined): string | undefined =
 
 /**
  * The placeholder a board renders INSTEAD of itself, or `undefined` when there
- * is a board to draw.
- *
- * Its own function so the composition root below stays inside the
- * cyclomatic-complexity cap.
+ * is a board to draw: its own function so the composition root stays inside
+ * the cyclomatic-complexity cap.
  */
 function resolveBoardState(input: {
   readonly groupByField: string | undefined
   readonly isLoading: boolean
-  readonly strings: KanbanStrings
+  readonly strings: ViewStrings
   readonly isError: boolean
   readonly error: unknown
 }): ReactElement | undefined {
-  if (input.groupByField === undefined) return <KanbanMissingGroupBy {...input} />
+  if (input.groupByField === undefined) return <MissingGroupBy strings={input.strings} />
   if (input.isLoading) return <KanbanLoading {...input} />
-  if (input.isError) return <KanbanError {...input} />
+  if (input.isError) return <KanbanFailure {...input} />
   return undefined
 }
 
@@ -195,16 +194,15 @@ export default function KanbanIsland(props: KanbanIslandProps): ReactElement {
 
   const groupByField = columnFieldOf(kanbanGroupBy)
   const laneField = swimlanes?.field
-  const { draggableEnabled, persistEnabled } = useKanbanDragGate(dataSource, drag, [
-    groupByField,
-    laneField,
-  ])
+  const laneFields = useMemo(() => [groupByField, laneField], [groupByField, laneField])
+  const { draggableEnabled, persistEnabled } = useKanbanDragGate(dataSource, drag, laneFields)
   const { fieldMeta, colorFieldColors, recordText } = props
   const format = {
     fieldMeta,
     table: dataSource?.table,
     colorFieldColors,
     draggableEnabled,
+    laneFields,
     recordText,
     select: useRecordSelectionToggle(props.publishes),
   }
@@ -217,7 +215,7 @@ export default function KanbanIsland(props: KanbanIslandProps): ReactElement {
     error,
   })
   if (state || groupByField === undefined)
-    return state ?? <KanbanMissingGroupBy strings={props.uiStrings} />
+    return state ?? <MissingGroupBy strings={props.uiStrings} />
 
   const { columns, grid } = boardLayoutOf(props, shown, groupByField)
   const handleDragEnd = buildKanbanDragHandler({

@@ -31,11 +31,10 @@
  *     stray audit entry never crashes the host process.
  */
 
-import { eq, and, asc, desc, gte, inArray, lt, sql, type Column } from 'drizzle-orm'
+import { eq, and, asc, desc, gte, inArray, lt, notLike, sql, type Column } from 'drizzle-orm'
 import { parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
-import { db } from '@/infrastructure/database'
 import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
-import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
+import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
 import { logError } from '@/infrastructure/logging/logger'
 import type {
   AuditActionCount,
@@ -48,7 +47,12 @@ import type {
 } from '@/domain/models/api/admin/audit-log/entry'
 import type { ActorRole, ActorType } from '@/domain/models/api/admin/envelope/actor'
 import type { Severity } from '@/domain/models/api/admin/envelope/severity'
-import type { DrizzleDB, DrizzleTransaction } from '@/infrastructure/database'
+import type { PortableDb, PortableTx } from '@/infrastructure/database'
+import type {
+  DatabaseService,
+  Dialect,
+  TransactionOn,
+} from '@/infrastructure/database/drizzle/layer'
 
 /** Drizzle row shape inferred from the pg-core schema. */
 type AuditLogRow = typeof auditLog.$inferSelect
@@ -64,7 +68,7 @@ type NewAuditLogRow = typeof auditLog.$inferInsert
  * coerce `undefined` to `null` so the round-trip via `rowToEntry` produces
  * the same shape we started with.
  */
-function rowFromEntry(entry: Readonly<AuditLogEntry>): Readonly<NewAuditLogRow> {
+function rowFromEntry(dialect: Dialect, entry: Readonly<AuditLogEntry>): Readonly<NewAuditLogRow> {
   // `actor.id` is `string | null` on the API shape — the column is nullable
   // text and the FK has `ON DELETE SET NULL`, so we preserve the null when
   // the actor has no user id (system actors). The base shape uses null at
@@ -84,17 +88,13 @@ function rowFromEntry(entry: Readonly<AuditLogEntry>): Readonly<NewAuditLogRow> 
     severity: entry.severity,
     result: entry.result,
     transport: entry.transport,
-    // `metadata` is jsonb on Postgres. drizzle-orm + bun-sql encodes string
-    // parameters bound to jsonb columns as TEXT, which Postgres then casts
-    // to a JSONB STRING (not a JSONB OBJECT) — `->>'key'` returns NULL and
-    // the row reads back as a JSON-stringified literal in pg's client. The
-    // `jsonbLiteral` helper inlines the value as `'…'::jsonb` so PG parses
-    // it as a structured object. On SQLite the helper emits a plain
-    // single-quoted string literal compatible with `text({mode:'json'})`.
-    // See `src/infrastructure/database/sql/sql-utils.ts` for the upstream
-    // tracking link.
-    metadata:
-      entry.metadata !== undefined ? (jsonbLiteral(entry.metadata) as unknown as null) : null,
+    // `metadata` is jsonb on Postgres. A string bound straight to a jsonb
+    // parameter lands as a JSONB STRING (not a JSONB OBJECT) — `->>'key'`
+    // returns NULL. `dialect.sql.bindJsonb` binds it with the `::text::jsonb` cast so PG
+    // parses it as a structured object. On SQLite it binds plain JSON text,
+    // compatible with `text({mode:'json'})`. See
+    // `src/infrastructure/database/sql/sql-utils.ts` for the full rationale.
+    metadata: entry.metadata !== undefined ? dialect.sql.bindJsonb(entry.metadata) : null,
   }
 }
 
@@ -160,9 +160,12 @@ export function rowToEntry(row: Readonly<AuditLogRow>): Readonly<AuditLogEntry> 
  * that emit before migrations apply) and logs+skips so the host request
  * never fails on an audit-log side effect.
  */
-export async function appendAuditEntryToDb(entry: Readonly<AuditLogEntry>): Promise<void> {
+export async function appendAuditEntryToDb(
+  { client: db, dialect }: DatabaseService,
+  entry: Readonly<AuditLogEntry>
+): Promise<void> {
   try {
-    await db.insert(auditLog).values(rowFromEntry(entry))
+    await db.insert(auditLog).values(rowFromEntry(dialect, entry))
   } catch (error) {
     // Best-effort emit; do not crash the host request.
     logError('[audit-log] failed to persist entry', error, {
@@ -182,14 +185,10 @@ export async function appendAuditEntryToDb(entry: Readonly<AuditLogEntry>): Prom
  * null-ifies it when the user row is deleted on commit.
  */
 export async function appendAuditEntryToDbTx(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   entry: Readonly<AuditLogEntry>
 ): Promise<void> {
-  // `DrizzleTransaction` is the portable transaction surface; the insert
-  // builder is identical to `db.insert(...)`. Cast to the same writer
-  // facade so TypeScript does not need a separate overload.
-  const writer = tx as unknown as DrizzleDB
-  await writer.insert(auditLog).values(rowFromEntry(entry))
+  await tx.insert(auditLog).values(rowFromEntry(dialect, entry))
 }
 
 /**
@@ -206,11 +205,10 @@ export async function appendAuditEntryToDbTx(
  * Drizzle binds `userId` as a parameter on both dialects.
  */
 export async function shedActorEmailInDbTx(
-  tx: Readonly<DrizzleTransaction>,
+  tx: Readonly<PortableTx>,
   userId: string
 ): Promise<void> {
-  const writer = tx as unknown as DrizzleDB
-  await writer.update(auditLog).set({ actorEmail: null }).where(eq(auditLog.actorId, userId))
+  await tx.update(auditLog).set({ actorEmail: null }).where(eq(auditLog.actorId, userId))
 }
 
 /**
@@ -236,12 +234,30 @@ function sinceWhenSet(since: Readonly<Date> | undefined) {
   return since === undefined ? undefined : gte(auditLog.createdAt, since as Date)
 }
 
+/** The exclusive end of a period, or `undefined` when the caller set none. */
+function untilWhenSet(until: Readonly<Date> | undefined) {
+  return until === undefined ? undefined : lt(auditLog.createdAt, until as Date)
+}
+
 /**
  * A membership predicate for one optional list filter — see {@link inWhenSet}.
  */
 function inWhenSet(column: Readonly<Column>, values: readonly string[] | undefined) {
   if (values === undefined) return undefined
   return values.length === 0 ? sql`1 = 0` : inArray(column, [...values])
+}
+
+/**
+ * The action endings that mark a read: someone looked, nothing changed. Each is
+ * a constant pattern bound as a parameter; `.` is literal under `LIKE`.
+ */
+const READ_ACTION_PATTERNS = ['%.queried', '%.read'] as const
+
+/** The predicates leaving the reads out, or none when the caller keeps them. */
+function readsLeftOut(withoutReads: boolean | undefined) {
+  return withoutReads === true
+    ? READ_ACTION_PATTERNS.map((pattern) => notLike(auditLog.action, pattern))
+    : []
 }
 
 /**
@@ -270,12 +286,17 @@ export function buildAuditWhere(filter: AuditListFilter = {}) {
     inWhenSet(auditLog.severity, filter.severities),
     inWhenSet(auditLog.action, filter.actions),
     sinceWhenSet(filter.since),
+    untilWhenSet(filter.until),
+    ...readsLeftOut(filter.withoutReads),
+    // The search reads what an operator names from memory, never the metadata.
+    ...searchAnyColumn(filter.q, auditLog.actorEmail, auditLog.action, auditLog.resourceId),
   ].filter((c): c is NonNullable<typeof c> => c !== undefined)
   if (conditions.length === 0) return undefined
   return conditions.length === 1 ? conditions[0] : and(...conditions)
 }
 
 export async function listAuditEntriesFromDb(
+  db: PortableDb,
   filter?: AuditListFilter
 ): Promise<readonly AuditLogEntry[]> {
   const where = buildAuditWhere(filter)
@@ -309,6 +330,7 @@ export async function listAuditEntriesFromDb(
  * is the lesser fault next to a missing one.
  */
 export async function hasAuditEntrySinceLatest(
+  db: PortableDb,
   input: Readonly<{ action: string; sinceAction: string; resourceId: string }>
 ): Promise<boolean> {
   try {
@@ -345,12 +367,15 @@ export async function hasAuditEntrySinceLatest(
  *
  * Same boot-path tolerance as the reader: a missing table answers `[]`.
  */
-export async function countAuditEntriesByAction(input: {
-  readonly since: Readonly<Date>
-  readonly until: Readonly<Date>
-  readonly severities: readonly string[]
-  readonly limit: number
-}): Promise<readonly AuditActionCount[]> {
+export async function countAuditEntriesByAction(
+  db: PortableDb,
+  input: {
+    readonly since: Readonly<Date>
+    readonly until: Readonly<Date>
+    readonly severities: readonly string[]
+    readonly limit: number
+  }
+): Promise<readonly AuditActionCount[]> {
   if (input.severities.length === 0) return []
   try {
     const total = sql<unknown>`count(*)`

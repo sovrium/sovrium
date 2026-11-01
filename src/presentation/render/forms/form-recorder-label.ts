@@ -6,7 +6,7 @@
  */
 
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
-import type { ResolvedFormField } from './form-field-elements'
+import type { ResolvedFormField } from './form-resolved-field'
 import type { Languages } from '@/domain/models/app/languages'
 
 /**

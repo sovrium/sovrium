@@ -418,7 +418,7 @@ const REQUIRED_BRAND_MARKS: readonly string[] = [
  * KEYED UNIT-QUALIFIED (`sovrium/mark-light-outline.svg`), which is the one
  * structural difference from {@link collectSampleFiles} and is forced rather
  * than chosen: `assets/logo/` holds one directory per business unit
- * (`sovrium`, `partner`, `academy`, `cloud`) and all four hold files of the
+ * (`sovrium`, `partner`, `builder`, `cloud`) and all four hold files of the
  * SAME names — the filename says which variant, the directory says which unit.
  * Keying by basename would collide four ways, which is exactly why the sample
  * collector's flat rule throws on a subdirectory. The unit-qualified key adds

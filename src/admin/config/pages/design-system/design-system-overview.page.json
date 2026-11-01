@@ -283,7 +283,7 @@
                                   "type": "text",
                                   "element": "span",
                                   "props": {
-                                    "className": "border-border bg-background text-foreground shrink-0 rounded-sm border px-2 py-1 font-mono text-[11px]"
+                                    "className": "border-border bg-background text-foreground shrink-0 rounded-sm border px-2 py-1 font-mono text-xs"
                                   },
                                   "content": "$record.name"
                                 }
@@ -856,7 +856,7 @@
                                   "type": "text",
                                   "element": "span",
                                   "props": {
-                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-[10px]"
+                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-xs"
                                   },
                                   "content": "GET"
                                 },
@@ -875,7 +875,7 @@
                                   "variant": "link",
                                   "props": {
                                     "type": "button",
-                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-[10px] leading-none",
+                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-xs leading-none",
                                     "data-copy-code": "true",
                                     "data-copied-label": "$t:admin.common.copied",
                                     "aria-label": "$t:admin.common.copy /api/admin/design-system.zip",
@@ -917,7 +917,7 @@
                                   "type": "text",
                                   "element": "span",
                                   "props": {
-                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-[10px]"
+                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-xs"
                                   },
                                   "content": "GET"
                                 },
@@ -936,7 +936,7 @@
                                   "variant": "link",
                                   "props": {
                                     "type": "button",
-                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-[10px] leading-none",
+                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-xs leading-none",
                                     "data-copy-code": "true",
                                     "data-copied-label": "$t:admin.common.copied",
                                     "aria-label": "$t:admin.common.copy /api/admin/design-system.md",
@@ -978,7 +978,7 @@
                                   "type": "text",
                                   "element": "span",
                                   "props": {
-                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-[10px]"
+                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-xs"
                                   },
                                   "content": "GET"
                                 },
@@ -997,7 +997,7 @@
                                   "variant": "link",
                                   "props": {
                                     "type": "button",
-                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-[10px] leading-none",
+                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-xs leading-none",
                                     "data-copy-code": "true",
                                     "data-copied-label": "$t:admin.common.copied",
                                     "aria-label": "$t:admin.common.copy /api/admin/design-system.json",
@@ -1039,7 +1039,7 @@
                                   "type": "text",
                                   "element": "span",
                                   "props": {
-                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-[10px]"
+                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-xs"
                                   },
                                   "content": "GET"
                                 },
@@ -1058,7 +1058,7 @@
                                   "variant": "link",
                                   "props": {
                                     "type": "button",
-                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-[10px] leading-none",
+                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-xs leading-none",
                                     "data-copy-code": "true",
                                     "data-copied-label": "$t:admin.common.copied",
                                     "aria-label": "$t:admin.common.copy /api/admin/design-system.css",
@@ -1084,7 +1084,7 @@
                           "type": "text",
                           "element": "p",
                           "props": {
-                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                            "className": "text-foreground-subtle text-xs font-medium tracking-[0.04em] uppercase"
                           },
                           "content": "$t:admin.ds.share.terminal"
                         },
@@ -1120,7 +1120,7 @@
                                   "variant": "link",
                                   "props": {
                                     "type": "button",
-                                    "className": "text-foreground-subtle hover:text-foreground shrink-0 font-mono text-[10px] leading-none",
+                                    "className": "text-foreground-subtle hover:text-foreground shrink-0 font-mono text-xs leading-none",
                                     "data-copy-code": "true",
                                     "data-copied-label": "$t:admin.common.copied",
                                     "aria-label": "$t:admin.common.copy sovrium design-system app.ts --format md"
@@ -1163,7 +1163,7 @@
                                   "variant": "link",
                                   "props": {
                                     "type": "button",
-                                    "className": "text-foreground-subtle hover:text-foreground shrink-0 font-mono text-[10px] leading-none",
+                                    "className": "text-foreground-subtle hover:text-foreground shrink-0 font-mono text-xs leading-none",
                                     "data-copy-code": "true",
                                     "data-copied-label": "$t:admin.common.copied",
                                     "aria-label": "$t:admin.common.copy sovrium design-system app.ts --format bundle --output design-system"

@@ -5,17 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isRecord, type Raw } from '../action-handlers/document-run'
+import { escapeHtmlText } from '@/domain/kernel/sanitize/html-escaping'
+import { isRecord, type Raw } from '../action-handlers/document/run'
 import {
   attrOf,
   allMatches,
   decodeXmlText,
   innerText,
   readSharedStrings,
-} from '../action-handlers/file-xlsx-xml'
+} from '../action-handlers/file/xlsx-xml'
 import { entryText, readOoxmlPackage, textEntry, writeOoxmlPackage } from './ooxml-package'
 import { movedRow, moveReferences, type RowInsertion } from './xlsx-references'
-import type { ZipEntry } from '../action-handlers/file-zip'
+import type { ZipEntry } from '../action-handlers/file/zip'
 
 /**
  * Fill a workbook template (`.xlsx`) with data. Pure: bytes and data in, bytes
@@ -77,12 +78,10 @@ const ITEM_SEPARATOR = '\u0002'
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/
 
 const escapeXml = (text: string): string =>
-  text
+  escapeHtmlText(
     // eslint-disable-next-line no-control-regex -- the characters XML 1.0 forbids
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+    text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+  )
 
 const cellText = (attributes: string, inner: string, shared: ReadonlyArray<string>) => {
   const type = attrOf(attributes, 't')

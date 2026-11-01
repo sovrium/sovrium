@@ -45,6 +45,7 @@
  * Specs: [internal ref]
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   computePreviewCaptionClasses,
   computePreviewRootClasses,
@@ -54,9 +55,6 @@ import {
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Read one string field, when it is one. */
 const text = (source: Readonly<Record<string, unknown>>, key: string): string | undefined => {

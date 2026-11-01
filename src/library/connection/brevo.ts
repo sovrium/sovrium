@@ -32,6 +32,7 @@ export const entry = defineLibraryEntry({
     type: 'apiKey',
     label: 'Brevo',
     description: 'Brevo API, authenticated with an API key',
+    baseUrl: 'https://api.brevo.com',
     props: {
       key: '$env.BREVO_API_KEY',
       header: 'api-key',

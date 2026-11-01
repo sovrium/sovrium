@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { findPageRoute, primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { buildDerivedCrumbs } from '@/domain/models/app/pages/derived-breadcrumb'
 import type { Page } from '@/domain/models/app/pages'
@@ -132,8 +133,4 @@ function readLabels(value: unknown): Readonly<Record<string, string>> | undefine
   return Object.fromEntries(
     Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
   )
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

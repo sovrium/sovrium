@@ -28,7 +28,7 @@
  * exists and is already trusted: `Effect.DateTime` does zone conversion (and
  * is already boot-validated for IANA zones in `automations/trigger/cron.ts`),
  * and `Intl.DateTimeFormat` does locale names (already used in
- * `use-cases/tables/utils/display-formatter.ts`). What was missing was a
+ * `models/app/tables/display-formatter-service.ts`). What was missing was a
  * tokenizer, which is this file.
  *
  * THE CLOSED-SET POLICY (load-bearing)

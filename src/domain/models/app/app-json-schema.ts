@@ -45,7 +45,7 @@
  */
 
 import { SchemaAST } from 'effect'
-import { toJsonSchemaDocument } from '@/domain/models/api/combinators/json-schema-document'
+import { toJsonSchemaDocument } from '@/domain/kernel/config-parsing/json-schema-document'
 import { AppSchema } from '@/domain/models/app'
 import type { SchemaRepresentation } from 'effect'
 
@@ -118,6 +118,14 @@ export const appJsonSchemaReferencePolicy: SchemaRepresentation.ReferencePolicy 
   return occurrences > 1 && isAnonymousShareCandidate(ast, occurrences) ? `${ast._tag}_` : undefined
 }
 
+/** Every `$ref` string in a JSON tree, depth-first, repeats included. */
+const collectRefs = (node: unknown): readonly string[] => {
+  if (node === null || typeof node !== 'object') return []
+  if (Array.isArray(node)) return node.flatMap(collectRefs)
+  const ref = (node as Record<string, unknown>)['$ref']
+  return [...(typeof ref === 'string' ? [ref] : []), ...Object.values(node).flatMap(collectRefs)]
+}
+
 /**
  * Assert the generated document is actually walkable before anything consumes it.
  *
@@ -137,13 +145,12 @@ export const appJsonSchemaReferencePolicy: SchemaRepresentation.ReferencePolicy 
 // loudly at the point of failure. Returning a Result/Effect would make the
 // failure something a caller can ignore, which is precisely the outcome it
 // exists to prevent: `check-progress` runs `--no-error` in CI, so a soft
-// failure reads GREEN while measuring nothing. The mutable `Set` and the
-// `for..of` are a local ref accumulator over a JSON tree, never observable
-// outside this function.
-/* eslint-disable functional/no-throw-statements, functional/immutable-data, functional/no-expression-statements, functional/no-loop-statements */
+// failure reads GREEN while measuring nothing. Hence the three `throw`s, each
+// excused on its own line and nothing else in the function.
 const assertWalkable = (schema: Readonly<Record<string, unknown>>): void => {
   const defs = schema['$defs'] as Record<string, unknown> | undefined
   if (defs === undefined || Object.keys(defs).length === 0) {
+    // eslint-disable-next-line functional/no-throw-statements -- tripwire, see above
     throw new Error(
       'generateAppJsonSchema: produced no $defs. The Effect 4 JsonSchema Document -> ' +
         'JSON Schema serialization is wrong; fix it rather than letting every consumer ' +
@@ -151,21 +158,9 @@ const assertWalkable = (schema: Readonly<Record<string, unknown>>): void => {
     )
   }
 
-  const refs = new Set<string>()
-  const collect = (node: unknown): void => {
-    if (node === null || typeof node !== 'object') return
-    if (Array.isArray(node)) {
-      node.forEach(collect)
-      return
-    }
-    const obj = node as Record<string, unknown>
-    const ref = obj['$ref']
-    if (typeof ref === 'string') refs.add(ref)
-    for (const value of Object.values(obj)) collect(value)
-  }
-  collect(schema)
-
+  const refs = new Set(collectRefs(schema))
   if (refs.size === 0) {
+    // eslint-disable-next-line functional/no-throw-statements -- tripwire, see above
     throw new Error(
       'generateAppJsonSchema: produced $defs but no $ref anywhere. Definitions that ' +
         'nothing references mean the document was serialized with mismatched ref targets.'
@@ -177,6 +172,7 @@ const assertWalkable = (schema: Readonly<Record<string, unknown>>): void => {
     return !(ref.slice('#/$defs/'.length) in defs)
   })
   if (unresolvable.length > 0) {
+    // eslint-disable-next-line functional/no-throw-statements -- tripwire, see above
     throw new Error(
       `generateAppJsonSchema: ${unresolvable.length} $ref target(s) do not resolve against ` +
         `$defs (e.g. ${unresolvable.slice(0, 3).join(', ')}). The document is not walkable; ` +
@@ -184,7 +180,6 @@ const assertWalkable = (schema: Readonly<Record<string, unknown>>): void => {
     )
   }
 }
-/* eslint-enable functional/no-throw-statements, functional/immutable-data, functional/no-expression-statements, functional/no-loop-statements */
 
 /**
  * Generate the published JSON Schema for `AppSchema`.

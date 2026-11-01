@@ -27,6 +27,7 @@
  */
 
 import { runSuccessOutcome } from '../runtime/action-outcome'
+import { warnInBrowser } from '../runtime/client-log'
 import {
   applyFetchSuccessEffects,
   fetchSuccessNavigate,
@@ -98,9 +99,9 @@ export async function submitUpload(
     // Without a configured onError this branch is otherwise invisible (no
     // toast, no refetch, nothing paints) — log it so console capture in
     // traces records WHICH leg failed instead of leaving a silently stale UI.
-    console.warn('[file-upload] upload rejected:', res.status, config.url)
+    warnInBrowser('file-upload', 'upload rejected:', res.status, config.url)
   } catch (err) {
-    console.warn('[file-upload] upload failed:', config.url, err)
+    warnInBrowser('file-upload', 'upload failed:', config.url, err)
   }
   renderUploadError(files, config)
   return false

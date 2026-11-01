@@ -6,19 +6,10 @@
  */
 
 import { Data } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logDebug } from '@/infrastructure/logging/logger'
 import { isUserReferenceField, isUserField } from '../sql/sql-generators'
 import type { Table } from '@/domain/models/app/tables'
-
-/**
- * Active SQL dialect for the validator helpers. Callers normally let the
- * default branch on {@link isSqliteRuntime}; tests pass an explicit value so
- * they don't depend on process env.
- */
-type Dialect = 'sqlite' | 'postgres'
-
-const defaultDialect = (): Dialect => (isSqliteRuntime() ? 'sqlite' : 'postgres')
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 export class BetterAuthUsersTableRequired extends Data.TaggedError('BetterAuthUsersTableRequired')<{
   readonly message: string
@@ -56,7 +47,7 @@ export const needsUpdatedByTrigger = (tables: readonly Table[]): boolean =>
  */
 export const ensureBetterAuthUsersTable = async (
   tx: { unsafe: (sql: string) => Promise<unknown> },
-  dialect: Dialect = defaultDialect()
+  dialect: DatabaseDialect
 ): Promise<void> => {
   logDebug('[ensureBetterAuthUsersTable] Verifying Better Auth users table exists...')
 
@@ -152,7 +143,7 @@ const readPostgresAuthUserIdType = async (tx: {
  */
 export const ensureUpdatedByTriggerFunction = async (
   tx: { unsafe: (sql: string) => Promise<unknown> },
-  dialect: Dialect = defaultDialect()
+  dialect: DatabaseDialect
 ): Promise<void> => {
   if (dialect === 'sqlite') return
   await tx.unsafe(`

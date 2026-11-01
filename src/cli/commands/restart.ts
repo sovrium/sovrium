@@ -6,8 +6,8 @@
  */
 
 import { resolve } from 'node:path'
-import { Effect, Console } from 'effect'
-import { printFailure, printStderr } from '@/infrastructure/logging/cli-output'
+import { refuseCommand, stopCommand } from '@/cli/runtime/run-command'
+import { printLine } from '@/infrastructure/logging/cli-output'
 import { isBunfsPath } from '@/infrastructure/process/package-paths'
 import {
   isProcessRunning,
@@ -53,11 +53,10 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
     // new is started.
     const exited = await waitForProcessExit(lockData.pid)
     if (!exited) {
-      printFailure({
+      return refuseCommand({
         headline: `Server (PID ${lockData.pid}) did not exit within 5s after SIGTERM. Nothing was restarted.`,
         guidance: `Force it with 'kill -9 ${lockData.pid}', then run 'sovrium start <config>'.`,
       })
-      process.exit(1)
     }
     await removeLockFile()
   }
@@ -66,8 +65,7 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
   const effectiveConfigFile = configFile || lockData?.configPath
 
   if (!effectiveConfigFile) {
-    printStderr('Error: No config file specified and none found in lock file')
-    process.exit(1)
+    return stopCommand(1, 'Error: No config file specified and none found in lock file')
   }
 
   // Start the new server as a detached background process, from the SAME
@@ -94,7 +92,7 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
         newLock.socketPath !== undefined
           ? `the socket ${newLock.socketPath}`
           : `http://localhost:${String(newLock.port)}`
-      Effect.runSync(Console.log(`Server restarted on ${where}.`))
+      printLine(`Server restarted on ${where}.`)
       return
     }
     attempts++
@@ -103,9 +101,8 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
   // Naming the old server's fate is the half the operator most needs: at this
   // point it is already gone, so "timed out" alone reads as a no-op.
 
-  printFailure({
+  return refuseCommand({
     headline: 'The new server did not start within 10s. The old one was already stopped.',
     guidance: "Run 'sovrium start <config>' in the foreground to see why it failed.",
   })
-  process.exit(1)
 }

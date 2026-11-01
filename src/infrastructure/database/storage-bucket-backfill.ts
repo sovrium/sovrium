@@ -57,17 +57,18 @@ import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { AVATAR_BUCKET_NAME, avatarStorageKeyFromUrl } from '@/domain/models/app/auth/avatar-url'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
-import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
   fileStorageMetadataTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { logError, logInfo } from '@/infrastructure/logging/logger'
 import { declaresLegacyDefaultBucket, LEGACY_DEFAULT_BUCKET } from './attachment-url-backfill'
 import { getBaseTableName, shouldUseView } from './lookup/lookup-view-generators'
-import { executeRaw } from './sql/dialect-execute'
 import { shouldCreateDatabaseColumn } from './sql/sql-field-predicates'
 import type { App, Table } from '@/domain/models/app'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** The URL shape every bucket file is published under. */
 const BUCKET_URL_PATTERN = /^\/api\/buckets\/([^/]+)\/files\/(.+)$/
@@ -156,7 +157,7 @@ export const collectAttachmentColumns = (app: Readonly<App>): readonly Attachmen
  * attributed — by an upload, or by an earlier pass reading a more
  * authoritative source — is never overwritten.
  */
-const attribute = async (key: string, bucket: string): Promise<number> => {
+const attribute = async (db: PortableDb, key: string, bucket: string): Promise<number> => {
   const files = fileStorageMetadataTable()
   const updated = await db
     .update(files)
@@ -174,26 +175,30 @@ const attribute = async (key: string, bucket: string): Promise<number> => {
  * attachment column of every table forever. The `bucket` column is indexed, so
  * a settled install pays one indexed lookup and stops.
  */
-const hasUnattributedObjects = async (): Promise<boolean> => {
+const hasUnattributedObjects = async (db: PortableDb): Promise<boolean> => {
   const files = fileStorageMetadataTable()
   const rows = await db.select({ key: files.key }).from(files).where(isNull(files.bucket)).limit(1)
   return rows.length > 0
 }
 
 /** Recover avatar objects from the `image` column every issued URL is stored in. */
-const recoverAvatars = async (): Promise<number> => {
+const recoverAvatars = async (db: PortableDb): Promise<number> => {
   const users = authUsersTable()
   const rows = await db.select({ image: users.image }).from(users)
   const keys = rows
     .map((row) => avatarStorageKeyFromUrl(row.image))
     .filter((key): key is string => key !== undefined)
-  const counts = await Promise.all(keys.map((key) => attribute(key, AVATAR_BUCKET_NAME)))
+  const counts = await Promise.all(keys.map((key) => attribute(db, key, AVATAR_BUCKET_NAME)))
   return counts.reduce((total, n) => total + n, 0)
 }
 
 /** Recover the objects one attachment column names. */
-const recoverColumn = async (target: Readonly<AttachmentColumn>): Promise<number> => {
-  const rows = await executeRaw(
+const recoverColumn = async (
+  { client: db, dialect }: DatabaseService,
+  target: Readonly<AttachmentColumn>
+): Promise<number> => {
+  const rows = await executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT ${sql.identifier(target.column)} AS value
         FROM ${sql.identifier(target.relation)}
@@ -203,7 +208,7 @@ const recoverColumn = async (target: Readonly<AttachmentColumn>): Promise<number
     const recovered = recoverBinding(row['value'], target.bucket)
     return recovered === undefined ? [] : [recovered]
   })
-  const counts = await Promise.all(bindings.map((b) => attribute(b.key, b.bucket)))
+  const counts = await Promise.all(bindings.map((b) => attribute(db, b.key, b.bucket)))
   return counts.reduce((total, n) => total + n, 0)
 }
 
@@ -214,7 +219,10 @@ const recoverColumn = async (target: Readonly<AttachmentColumn>): Promise<number
  * declares an ordinary bucket named `default`, whose objects legitimately carry
  * that value. Idempotent: a settled install matches no row.
  */
-const reattributeLegacyDefaultBucket = async (app: Readonly<App>): Promise<number> => {
+const reattributeLegacyDefaultBucket = async (
+  db: PortableDb,
+  app: Readonly<App>
+): Promise<number> => {
   if (declaresLegacyDefaultBucket(app)) return 0
   const files = fileStorageMetadataTable()
   const updated = await db
@@ -230,10 +238,13 @@ const reattributeLegacyDefaultBucket = async (app: Readonly<App>): Promise<numbe
  * bucket the config can still name.
  *
  * Best-effort per source AND overall — one unreadable relation must not skip
- * the rest, and no failure may block startup.
+ * the rest, and no failure may block startup. Reads and writes through `db`.
  */
-export const runStorageBucketBackfill = async (app: Readonly<App>): Promise<void> => {
-  const reattributed = await reattributeLegacyDefaultBucket(app).catch((error: unknown) => {
+export const runStorageBucketBackfill = async (
+  { client: db, dialect }: DatabaseService,
+  app: Readonly<App>
+): Promise<void> => {
+  const reattributed = await reattributeLegacyDefaultBucket(db, app).catch((error: unknown) => {
     logError('[storage-bucket-backfill] re-attribution of the default bucket failed', error)
     return 0
   })
@@ -241,13 +252,13 @@ export const runStorageBucketBackfill = async (app: Readonly<App>): Promise<void
     logInfo(`[storage-bucket-backfill] moved ${reattributed} stored object(s) to the system bucket`)
   }
 
-  const pending = await hasUnattributedObjects().catch((error: unknown) => {
+  const pending = await hasUnattributedObjects(db).catch((error: unknown) => {
     logError('[storage-bucket-backfill] could not probe for unattributed objects', error)
     return false
   })
   if (!pending) return
 
-  const avatars = await recoverAvatars().catch((error: unknown) => {
+  const avatars = await recoverAvatars(db).catch((error: unknown) => {
     logError('[storage-bucket-backfill] avatar recovery failed (non-fatal)', error)
     return 0
   })
@@ -257,7 +268,7 @@ export const runStorageBucketBackfill = async (app: Readonly<App>): Promise<void
   // Postgres pool during boot.
   let attachments = 0
   for (const target of collectAttachmentColumns(app)) {
-    attachments += await recoverColumn(target).catch((error: unknown) => {
+    attachments += await recoverColumn({ client: db, dialect }, target).catch((error: unknown) => {
       logError(
         `[storage-bucket-backfill] recovery of ${target.relation}.${target.column} failed (non-fatal)`,
         error

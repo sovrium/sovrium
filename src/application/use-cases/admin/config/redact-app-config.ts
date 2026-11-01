@@ -53,6 +53,7 @@
 
 import { redactSecretsForApp } from '@/application/use-cases/automations/redact-secrets'
 import { ENV_REFERENCE_PATTERN } from '@/application/use-cases/automations/resolve-env-vars'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { REDACTION_PLACEHOLDER } from '@/domain/models/api/admin/config'
 import type { App } from '@/domain/models/app'
 
@@ -119,9 +120,6 @@ const ACTION_SECRET_PROP_KEYS: readonly string[] = ['secret', 'password', 'heade
  */
 const ENV_SECRET_KEYS: readonly string[] = ['default']
 
-const isRecord = (value: unknown): value is ConfigNode =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 /**
  * Whether a string carries a `$env.VAR_NAME` reference.
  *
@@ -175,8 +173,8 @@ const mapArrayProp = (
  * Redact one automation action, recursing into the two composite action shapes.
  *
  * `path` actions nest their branches under `props.paths[].actions[]` and `loop`
- * actions under `props.actions[]` — the same two shapes `AppSchema`'s own
- * `collectAllActions` cross-validator walks. A redactor that skipped them would
+ * actions under `props.actions[]` — the same two shapes the domain's
+ * `flattenActions` walks for every cross-validator. A redactor that skipped them would
  * cover the top-level HMAC key and leak the identical key one branch down.
  */
 const redactAction = (action: unknown): unknown => {

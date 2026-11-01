@@ -29,10 +29,10 @@ import {
   defineAdminRead,
   answerWithSchema,
 } from '@/application/use-cases/admin/admin-read-operation'
-import { BuildBucketFiles } from '@/application/use-cases/admin/bucket-files'
+import { buildBucketFiles } from '@/application/use-cases/admin/bucket-files'
 import {
   buildBucketUploadSeries,
-  BuildBucketUploadSeries,
+  loadBucketUploadSeries,
 } from '@/application/use-cases/admin/buckets-overview'
 import {
   buildBucketItems,
@@ -222,10 +222,10 @@ const bucketsOverview = defineAdminRead<PeriodPreset>({
   },
   read: (app, preset) =>
     Effect.gen(function* () {
-      const window = resolvePeriodWindow(preset)
+      const window = resolvePeriodWindow(preset, new Date())
       const totals = yield* buildOverviewTotals(app)
       const points = yield* degradeTo(
-        BuildBucketUploadSeries(window),
+        loadBucketUploadSeries(window),
         'bucket overview series',
         buildBucketUploadSeries(window, [])
       )
@@ -336,7 +336,7 @@ const bucketFiles = defineAdminRead<BucketFilesRequest>({
   // The system listing names each table and field in the operator's console language.
   read: (app, input, request) =>
     Effect.flatMap(resolveOperatorLanguage(request), (language) =>
-      BuildBucketFiles({ ...input, app, language })
+      buildBucketFiles({ ...input, app, language })
     ),
   audit: {
     action: AUDIT_ACTIONS.BUCKET_FILES_QUERIED,

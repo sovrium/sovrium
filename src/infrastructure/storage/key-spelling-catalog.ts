@@ -21,10 +21,10 @@ import {
   storageKeyCollisionForm,
   type StorageKeyComparison,
 } from '@/domain/kernel/identity/storage-key'
-import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { CLAIM_PROVIDER_PREFIX, CLAIM_STALE_AFTER_MS } from './catalog-claim'
 import type { StoredSpelling } from '@/application/ports/services/storage-service'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Characters kept verbatim in the narrowing pattern: ASCII letters and digits
@@ -80,13 +80,14 @@ export const providerSpellings = (
  * would hold every other spelling of that key for good.
  */
 export const findOtherStoredSpelling = async (
+  client: PortableDb,
   key: string,
   store: Readonly<StorageKeyComparison & { readonly provider: string }>,
   nowMs: number
 ): Promise<StoredSpelling | undefined> => {
   const files = fileStorageMetadataTable()
   const provider = providerSpellings(store.provider)
-  const rows = await db
+  const rows = await client
     .select({ key: files.key, bucket: files.bucket, uploadedBy: files.uploadedById })
     .from(files)
     .where(

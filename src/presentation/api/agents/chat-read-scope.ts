@@ -40,7 +40,9 @@
  */
 
 import { Effect } from 'effect'
+import { isSignedOut } from '@/application/use-cases/agents/chat-turn/reader-rows'
 import { buildSyntheticSession } from '@/application/use-cases/automations/build-guest-session'
+import { judgeTableGrant } from '@/application/use-cases/tables/permissions/authorize-record-verbs'
 import { callerReadScope } from '@/application/use-cases/tables/permissions/caller-read-authority'
 import {
   buildEffectiveRoles,
@@ -50,7 +52,6 @@ import {
   type TableGateCaller,
 } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
 import { relatedValuesRefusedTo } from '@/domain/models/app/tables/lookup-link-service'
 import {
   admitsSignedOut,
@@ -58,14 +59,21 @@ import {
 } from '@/domain/models/app/tables/read-access-plan-service'
 import { INTRINSIC_DELETED_AT_COLUMN } from '@/domain/models/app/tables/system-fields'
 import { logError } from '@/infrastructure/logging/logger'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { chatReaderRows, isSignedOut } from './chat-reader-rows'
+import { chatReaderRows } from './chat-reader-rows'
 import { readableColumnsForTable, type ProjectedTable } from './chat-table-projection'
-import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
-import type { App } from '@/domain/models/app'
+import type {
+  AuthDatabaseError,
+  AuthRepository,
+} from '@/application/ports/repositories/auth/auth-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type {
+  QueryFilterNode,
+  TableRepository,
+} from '@/application/ports/repositories/tables/table-repository'
+import type { App, Table } from '@/domain/models/app'
+import type { TableGateScope } from '@/domain/models/app/auth/permission-evaluator-service'
 import type { RowReadAdmission } from '@/domain/models/app/tables/row-read-admission-service'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { Context } from 'hono'
 
 /** The principal a chat turn reads as. */
@@ -82,6 +90,9 @@ export interface ChatReader extends TableGateCaller {
   readonly answering?: ChatReader | undefined
 }
 
+/** What a chat read needs from the server to judge a reader's rows. */
+export type ChatReadRequirements = AuthRepository | DataSourceRepository | TableRepository
+
 /** A reader holding only `role` — a declared agent, or a caller with no session. */
 export const roleOnlyReader = (role: string, agent: boolean): ChatReader => ({
   role,
@@ -91,7 +102,8 @@ export const roleOnlyReader = (role: string, agent: boolean): ChatReader => ({
 })
 
 /**
- * A caller signed in to nothing, in an app that has sign-in. The empty role is
+ * A caller signed in to nothing — in an app that has sign-in, or any caller of
+ * one that has none. The empty role is
  * the read plan's "no session" ({@link ReadPrincipal}): she reads a table only
  * where its resolved read is `'all'`, only its public fields, and no row a
  * row-level rule governs. A new object per turn: a turn's answers are kept on
@@ -121,7 +133,7 @@ export const chatTableRoles = (
   )
 
 /**
- * The table's read grant for `reader`, over the records route's effective roles
+ * The table's read verdict for `reader`, over the records route's effective roles
  * for it — and for the person it answers, when it answers one. A signed-out
  * reader passes only where the records API admits a signed-out request
  * (`admitsSignedOut`): the evaluator alone answers `'authenticated'` for every
@@ -133,13 +145,12 @@ export const passesChatTableGate = (
   table: { readonly name: string; readonly permissions?: unknown },
   reader: ChatReader
 ): boolean =>
-  hasReadPermissionForRoles(
-    table as { name: string; permissions?: { read?: unknown } },
-    chatTableRoles(app, table.name, reader),
-    (app === undefined ? tables : { auth: app.auth, tables }) as Parameters<
-      typeof hasReadPermissionForRoles
-    >[2]
-  ) &&
+  judgeTableGrant(table as Table, 'read', {
+    effectiveRoles: chatTableRoles(app, table.name, reader),
+    allTables: (app === undefined ? tables : { auth: app.auth, tables }) as TableGateScope,
+    // A signed-out reader is judged by `admitsSignedOut` below, as the records API judges her.
+    signedOut: false,
+  })._tag === 'Allowed' &&
   (app === undefined ||
     !isSignedOut(reader) ||
     admitsSignedOut(app, table as Parameters<typeof admitsSignedOut>[1])) &&
@@ -212,21 +223,18 @@ export type ChatRowScope =
  * The rows of `tableName` a chat read for `reader` may answer with (see above):
  * for an agent answering a person, the rows both row rules admit.
  */
-export const resolveChatRowScope = async (
-  services: DomainContext,
+export const resolveChatRowScope = (
   app: App | undefined,
   tableName: string,
   reader: ChatReader
-): Promise<ChatRowScope> => {
-  const own = await ownRowScope(services, app, tableName, reader)
-  if (reader.answering === undefined || own.kind === 'refused' || own.kind === 'nothing') {
-    return own
-  }
-  return intersectRowScopes(
-    own,
-    await resolveChatRowScope(services, app, tableName, reader.answering)
-  )
-}
+): Effect.Effect<ChatRowScope, never, ChatReadRequirements> =>
+  Effect.gen(function* () {
+    const own = yield* ownRowScope(app, tableName, reader)
+    if (reader.answering === undefined || own.kind === 'refused' || own.kind === 'nothing') {
+      return own
+    }
+    return intersectRowScopes(own, yield* resolveChatRowScope(app, tableName, reader.answering))
+  })
 
 /** The rows two readers may BOTH read: a refusal or an empty side wins, clauses AND. */
 const intersectRowScopes = (left: ChatRowScope, right: ChatRowScope): ChatRowScope => {
@@ -241,17 +249,17 @@ const intersectRowScopes = (left: ChatRowScope, right: ChatRowScope): ChatRowSco
  * The rows of `tableName` `reader` alone may read: those her row-level rule
  * admits, narrowed to those the records list admits her ({@link chatReaderRows}).
  */
-const ownRowScope = async (
-  services: DomainContext,
+const ownRowScope = (
   app: App | undefined,
   tableName: string,
   reader: ChatReader
-): Promise<ChatRowScope> => {
-  const ruled = await ruledRowScope(services, app, tableName, reader)
-  if (ruled.kind === 'refused' || ruled.kind === 'nothing') return ruled
-  const rows = await chatReaderRows(services, app, tableName, reader)
-  return rows === undefined ? ruled : intersectRowScopes(ruled, admittedRowScope(rows.admission))
-}
+): Effect.Effect<ChatRowScope, never, ChatReadRequirements> =>
+  Effect.gen(function* () {
+    const ruled = yield* ruledRowScope(app, tableName, reader)
+    if (ruled.kind === 'refused' || ruled.kind === 'nothing') return ruled
+    const rows = yield* chatReaderRows(app, tableName, reader)
+    return rows === undefined ? ruled : intersectRowScopes(ruled, admittedRowScope(rows.admission))
+  })
 
 /** The rows the records list admits, as a chat row scope: admitting none refuses the table. */
 const admittedRowScope = (admission: RowReadAdmission): ChatRowScope => {
@@ -261,18 +269,16 @@ const admittedRowScope = (admission: RowReadAdmission): ChatRowScope => {
 }
 
 /** The rows of `tableName` `reader`'s row-level rule admits her. */
-const ruledRowScope = async (
-  services: DomainContext,
+const ruledRowScope = (
   app: App | undefined,
   tableName: string,
   reader: ChatReader
-): Promise<ChatRowScope> => {
-  const table = app?.tables?.find((candidate) => candidate.name === tableName)
-  if (app === undefined || table === undefined) return { kind: 'all' }
-  if (reader.userId === undefined) return anonymousRowScope(table, reader)
-  const scope = await Effect.runPromise(
-    callerReadScope(app, buildSyntheticSession(reader.userId), tableName).pipe(
-      Effect.provide(services),
+): Effect.Effect<ChatRowScope, never, ChatReadRequirements> =>
+  Effect.gen(function* () {
+    const table = app?.tables?.find((candidate) => candidate.name === tableName)
+    if (app === undefined || table === undefined) return { kind: 'all' }
+    if (reader.userId === undefined) return anonymousRowScope(table, reader)
+    const scope = yield* callerReadScope(app, buildSyntheticSession(reader.userId), tableName).pipe(
       // A scope that cannot be read refuses the table, as the records API does
       // when it cannot read the caller's access: logged, never guessed (E6).
       Effect.catchCause((cause) =>
@@ -284,12 +290,11 @@ const ruledRowScope = async (
         })
       )
     )
-  )
-  if (scope === undefined) return { kind: 'refused' }
-  if (scope.clause === undefined) return { kind: 'all' }
-  if (scope.clause === 'nothing') return { kind: 'nothing' }
-  return { kind: 'scoped', clause: scope.clause }
-}
+    if (scope === undefined) return { kind: 'refused' }
+    if (scope.clause === undefined) return { kind: 'all' }
+    if (scope.clause === 'nothing') return { kind: 'nothing' }
+    return { kind: 'scoped', clause: scope.clause }
+  })
 
 /** A reader with no user: a declared agent reads every row, nobody else a governed one. */
 const anonymousRowScope = (
@@ -342,48 +347,50 @@ export const readScopeOf = (scope: ChatRowScope): { readonly readScope?: QueryFi
  * rules exactly as on the records route (`chatTableRoles`); the user's id goes
  * with them, so the records read gate can judge her rows.
  */
-export const resolveUserPrincipal = async (
+export const resolveUserPrincipal = (
   c: Context
-): Promise<{
-  readonly userRole: string
-  readonly effectiveRoles: readonly string[]
-  readonly reader: ChatReader
-}> => {
-  const session = getSessionContext(c)
-  if (session === undefined) {
-    return {
-      userRole: 'member',
-      effectiveRoles: ['member'],
-      reader: roleOnlyReader('member', false),
+): Effect.Effect<ChatPrincipal, AuthDatabaseError, AuthRepository | DataSourceRepository> =>
+  Effect.gen(function* () {
+    const session = getSessionContext(c)
+    if (session === undefined) {
+      return {
+        userRole: 'member',
+        effectiveRoles: ['member'],
+        reader: roleOnlyReader('member', false),
+      }
     }
-  }
-  // The records route's own lookups: the assignment roles fail closed (an
-  // unreadable overlay grants nothing) and only count on a table with
-  // row-level rules (`chatTableRoles`).
-  const [userRole, userGroups, accessRoles] = await runDomainPromise(
-    c,
-    Effect.all([
+    // The records route's own lookups: the assignment roles fail closed (an
+    // unreadable overlay grants nothing) and only count on a table with
+    // row-level rules (`chatTableRoles`).
+    const [userRole, userGroups, accessRoles] = yield* Effect.all([
       getUserRole(session.userId),
       getUserGroups(session.userId),
       getUserAccessRoles(session.userId),
     ])
-  )
-  return {
-    userRole,
-    effectiveRoles: buildEffectiveRoles(userRole, userGroups),
-    reader: { role: userRole, groups: userGroups, accessRoles, userId: session.userId },
-  }
+    return {
+      userRole,
+      effectiveRoles: buildEffectiveRoles(userRole, userGroups),
+      reader: { role: userRole, groups: userGroups, accessRoles, userId: session.userId },
+    }
+  })
+
+/** The caller a chat turn reads as: her bare role, her effective roles, and her reader. */
+export interface ChatPrincipal {
+  readonly userRole: string
+  readonly effectiveRoles: readonly string[]
+  readonly reader: ChatReader
 }
 
 /**
- * The person a declared agent answers: the signed-in caller, or — in an app
- * with sign-in — {@link signedOutReader} for a visitor signed in to nothing. An
- * app without sign-in has no such visitor to tell apart: its agents read with
- * their declared reach.
+ * The person a declared agent answers: the signed-in caller, or
+ * {@link signedOutReader} for a visitor signed in to nothing — in an app with
+ * sign-in, and in one without, where every caller is that visitor and holds
+ * only the tables that open `read` to everyone. The agent never shows her more
+ * than its declared reach and hers both admit.
  */
-export const agentCaller = async (c: Context, app: App): Promise<ChatReader | undefined> => {
-  if (getSessionContext(c) !== undefined) {
-    return (await resolveUserPrincipal(c)).reader
-  }
-  return app.auth === undefined ? undefined : signedOutReader()
-}
+export const agentCaller = (
+  c: Context
+): Effect.Effect<ChatReader, AuthDatabaseError, AuthRepository | DataSourceRepository> =>
+  getSessionContext(c) === undefined
+    ? Effect.sync(signedOutReader)
+    : Effect.map(resolveUserPrincipal(c), (principal) => principal.reader)

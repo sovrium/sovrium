@@ -1,12 +1,12 @@
 # Upsert and Delete
 
-> The two writes that are neither a plain create nor a plain update — merging on a key, and removing a row — plus the parameter that decides how values come back on a read.
+> The two writes that are neither a plain create nor a plain update (merging on a key, and removing a row), plus the parameter that decides how values come back on a read.
 
 ## Upsert
 
 Upsert creates records or updates existing ones matched on one or more unique fields, in a single call. It is the endpoint for idempotent synchronisation from an external system: replaying the same payload converges instead of duplicating.
 
-There is **one upsert endpoint and it is inherently multi-record** — the body always carries a `records` array, even for a single row.
+There is **one upsert endpoint and it is inherently multi-record**: the body always carries a `records` array, even for a single row.
 
 ```json
 {
@@ -26,6 +26,8 @@ There is **one upsert endpoint and it is inherently multi-record** — the body 
 
 A record in the trash is never a match: when the only record holding the merge value is deleted, the upsert creates a new record and leaves the deleted one where it is.
 
+Rows are written in the order they are sent. Two rows carrying the same merge value write one record: the first creates or updates it, and the second updates what the first left, judged by the table's business rules as that update.
+
 `records` is populated only when `returnRecords` is true. A body shaped as a single `{ "fields": … }` with no `records` array is refused with `400`.
 
 A `default: $currentUser` fills the rows an upsert creates, never the rows it updates.
@@ -34,7 +36,7 @@ An upsert reads the table to find the rows it matches, so it requires reading th
 
 For the same reason, every field in `fieldsToMergeOn` must be one the caller may read. Merging on a field her `permissions.fields` rule hides answers `404`, the same whether a row holds the value or not, and nothing is written. A row a row-level rule hides from her is not a match either: a record whose key matches only such rows is created, answering what a create of it would answer, and the hidden rows are left alone.
 
-A relationship value naming a row the caller may not read — a related table their role may not read, or a row a row-level rule hides from them — counts as a foreign-key failure on both branches, exactly as a row that does not exist: `400`, the same body, and the whole upsert rolls back with nothing written. As on an update, a many-to-one value equal to the key the matched row already holds is not a new link and is accepted.
+A relationship value naming a row the caller may not read (a related table their role may not read, or a row a row-level rule hides from them) counts as a foreign-key failure on both branches, exactly as a row that does not exist: `400`, the same body, and the whole upsert rolls back with nothing written. As on an update, a many-to-one value equal to the key the matched row already holds is not a new link and is accepted.
 
 ## Delete
 
@@ -50,17 +52,17 @@ DELETE /api/tables/contacts/records/42?purge=true
 | ----------------- | --------------------------------------------------------------------------------------------------------- | -------------- |
 | Default           | Trashes the row; recoverable by restore                                                                   | `204`, no body |
 | `?permanent=true` | Removes the row irreversibly. **Admin-equivalent only**                                                   | `200`          |
-| `?purge=true`     | Deletes the attached storage files no other record names, then removes the row. **Admin-equivalent only** | `200`          |
+| `?purge=true`     | Removes the row, then deletes the attached storage files no other record names. **Admin-equivalent only** | `200`          |
 
-Both irreversible modes are reserved for an admin-equivalent role (see Roles & RBAC). Any other caller, even one the table grants `delete`, receives **404** rather than `403` — the same anti-enumeration rule the rest of the records path follows — and nothing is deleted. `?purge=true` is the mode to reach for when the row owns uploaded files that should not be left orphaned. A file another record still names — in any table, in a single or a multiple attachments field, trashed records included — is kept; so is a file whose references could not be checked. Both flags are read from the query string, and `permanent` is tested first, so sending both takes the permanent path.
+Both irreversible modes are reserved for an admin-equivalent role (see Roles & RBAC). Any other caller, even one the table grants `delete`, receives **404** rather than `403`, the same anti-enumeration rule the rest of the records path follows, and nothing is deleted. `?purge=true` is the mode to reach for when the row owns uploaded files that should not be left orphaned. A file another record still names (in any table, in a single or a multiple attachments field, trashed records included) is kept; so is a file whose references could not be checked. The files go only once the row's removal has committed: a purge the table's business rules refuse, or one that fails, keeps every file. Both irreversible modes also reach a record already in the trash: the business rules judge it as they judge a live one and its files are purged, but no second `delete` event reaches the record-delete automations or webhooks: the move to the trash fired the one. Both flags are read from the query string, and `permanent` is tested first, so sending both takes the permanent path.
 
-**A soft delete answers `204` with no body, except when a `set-null` cascade ran** — that case answers `200` with a body, because dependent rows were rewritten and the call did more than trash one row. A client must therefore treat both as success on the same route rather than matching on `204`. A `restrict` policy blocking the delete answers `400`.
+**A soft delete answers `204` with no body, except when a `set-null` cascade ran**: that case answers `200` with a body, because dependent rows were rewritten and the call did more than trash one row. A client must therefore treat both as success on the same route rather than matching on `204`. A `restrict` policy blocking the delete answers `400`.
 
 **Every authorization denial on this endpoint answers `404`.** A missing record, an invisible record, and a visible record the caller may not delete are indistinguishable by design.
 
-The bulk form routes refuse as the single-record routes do: a caller without the table's `delete` grant gets `404` from `POST …/records/bulk-delete`, and one without its `update` grant gets `404` from `POST …/records/bulk-update` — never a `403` — and nothing changes.
+The bulk form routes refuse as the single-record routes do: a caller without the table's `delete` grant gets `404` from `POST …/records/bulk-delete`, and one without its `update` grant gets `404` from `POST …/records/bulk-update`, never a `403`, and nothing changes.
 
-A delete requires reading the table, as an update does. On a table whose `read` refuses the caller, a delete — by `DELETE`, the delete form, either batch delete route or bulk-delete — answers the `404` of a missing record even where her `delete` grant admits her, and nothing is deleted.
+A delete requires reading the table, as an update does. On a table whose `read` refuses the caller, a delete (by `DELETE`, the delete form, either batch delete route or bulk-delete) answers the `404` of a missing record even where her `delete` grant admits her, and nothing is deleted.
 
 ## Raw values and display values
 
@@ -68,7 +70,7 @@ A delete requires reading the table, as an update does. On a table whose `read` 
 
 | `format`  | Behaviour                                                                    |
 | --------- | ---------------------------------------------------------------------------- |
-| _omitted_ | Stored values, unchanged — the default, and what a programmatic client wants |
+| _omitted_ | Stored values, unchanged: the default, and what a programmatic client wants  |
 | `display` | A formatted field becomes an object carrying both the raw and rendered value |
 
 ```
@@ -84,6 +86,6 @@ Under `format=display` a formatted field **wraps** rather than replaces: the val
 | Duration                        | `h:mm`, `h:mm:ss` or decimal hours, per the field                |
 | Single and multiple attachments | The upload constraints the field declares, where it declares any |
 
-**`?format=raw` is refused on a single-record read.** That endpoint accepts `display` only; any other value, `raw` included, answers `400`. Omit the parameter to get raw values. On the list endpoint `raw` is accepted and is a no-op — the two endpoints disagree, and the single-record one is the stricter.
+**`?format=raw` is refused on a single-record read.** That endpoint accepts `display` only; any other value, `raw` included, answers `400`. Omit the parameter to get raw values. On the list endpoint `raw` is accepted and is a no-op. The two endpoints disagree, and the single-record one is the stricter.
 
 Round-tripping is not supported: read with `display`, and write back the raw value rather than the rendered one. Signed attachment URLs are added by a separate step and appear whatever `format` says.

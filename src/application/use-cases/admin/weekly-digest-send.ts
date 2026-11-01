@@ -37,16 +37,17 @@
 import { Effect, type Context } from 'effect'
 import { AdminDigestSnapshotRepository } from '@/application/ports/repositories/admin/admin-digest-snapshot-repository'
 import { EmailSender } from '@/application/ports/services/email-sender'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { resolveNotificationRecipients } from '@/application/use-cases/admin/resolve-notification-recipients'
 import {
   buildWeeklyDigest,
   type WeeklyDigestServices,
 } from '@/application/use-cases/admin/weekly-digest-build'
 import { renderWeeklyDigestEmail } from '@/application/use-cases/admin/weekly-digest-email'
-import { DAY_MS, HOUR_MS } from '@/domain/kernel/time/time-series-bucketing'
+import { DAY_MS, HOUR_MS } from '@/domain/kernel/time/durations'
 import { parseSovriumNotifyDigest } from '@/domain/models/process-env/notifications'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { logError } from '@/infrastructure/logging/logger'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import type {
   AdminDigestSnapshot,
@@ -156,7 +157,7 @@ const storeAndDeliver = (
 > =>
   Effect.gen(function* () {
     const repository = yield* AdminDigestSnapshotRepository
-    const recipients = yield* resolveNotificationRecipients(app, 'weeklyDigest', env)
+    const recipients = yield* resolveNotificationRecipients(app, 'weeklyDigest')
     const id = yield* repository.insert({
       periodStart: new Date(digest.period.start),
       periodEnd: new Date(digest.period.end),
@@ -192,7 +193,7 @@ const periodEndNow = (
  */
 export const sendWeeklyDigest = (
   app: App,
-  options: { readonly now?: Date | undefined; readonly env?: NoticeEnv | undefined } = {}
+  options: { readonly now?: Date | undefined } = {}
 ): Effect.Effect<
   WeeklyDigestTriggerResponse,
   AdminDigestSnapshotDatabaseError,
@@ -201,7 +202,7 @@ export const sendWeeklyDigest = (
   Effect.gen(function* () {
     const repository = yield* AdminDigestSnapshotRepository
     const now = options.now ?? (yield* periodEndNow(repository))
-    const env = options.env ?? process.env
+    const env = yield* ProcessEnv
     const latest = yield* repository.latest
     const period = resolveDigestPeriod(latest, now)
     // effect-promise: total -- getSovriumVersion never rejects; it degrades to '0.0.0'
@@ -212,7 +213,7 @@ export const sendWeeklyDigest = (
         latest === undefined || !isReadableInstant(latest.periodEnd)
           ? undefined
           : { periodEnd: latest.periodEnd, metrics: latest.metrics },
-      timezone: resolveOperatorTimezone(env),
+      timezone: parseSovriumTimezone(env).zoneId,
       engineVersion,
     })
     if (parseSovriumNotifyDigest(env) === 'off') return { sent: false, recipients: 0, digest }
@@ -232,7 +233,7 @@ const resendStored = (
 > =>
   Effect.gen(function* () {
     if (snapshot.metrics === undefined) return false
-    const recipients = yield* resolveNotificationRecipients(app, 'weeklyDigest', env)
+    const recipients = yield* resolveNotificationRecipients(app, 'weeklyDigest')
     const delivered =
       recipients.length === 0 ? 0 : yield* deliver(app, snapshot.metrics, recipients, env)
     if (recipients.length > 0 && delivered === 0) return false
@@ -253,16 +254,16 @@ export type WeeklyDigestCatchUp = 'disabled' | 'no-history' | 'up-to-date' | 'ca
  */
 export const catchUpWeeklyDigest = (
   app: App,
-  options: { readonly now?: Date | undefined; readonly env?: NoticeEnv | undefined } = {}
+  options: { readonly now?: Date | undefined } = {}
 ): Effect.Effect<WeeklyDigestCatchUp, AdminDigestSnapshotDatabaseError, WeeklyDigestSendServices> =>
   Effect.gen(function* () {
     const now = options.now ?? new Date()
-    const env = options.env ?? process.env
+    const env = yield* ProcessEnv
     if (parseSovriumNotifyDigest(env) === 'off') return 'disabled'
     const latest = yield* (yield* AdminDigestSnapshotRepository).latest
     if (latest === undefined) return 'no-history'
     if (latest.periodEnd.getTime() < now.getTime() - WEEK_MS - CATCH_UP_SLACK_MS) {
-      yield* sendWeeklyDigest(app, { now: options.now, env })
+      yield* sendWeeklyDigest(app, { now: options.now })
       return 'caught-up'
     }
     if (latest.sentAt === undefined) {
@@ -279,16 +280,16 @@ export const catchUpWeeklyDigest = (
  */
 export const runScheduledWeeklyDigest = (
   app: App,
-  options: { readonly now?: Date | undefined; readonly env?: NoticeEnv | undefined } = {}
+  options: { readonly now?: Date | undefined } = {}
 ): Effect.Effect<boolean, AdminDigestSnapshotDatabaseError, WeeklyDigestSendServices> =>
   Effect.gen(function* () {
     const now = options.now ?? new Date()
-    const env = options.env ?? process.env
+    const env = yield* ProcessEnv
     if (parseSovriumNotifyDigest(env) === 'off') return false
     const latest = yield* (yield* AdminDigestSnapshotRepository).latest
     if (latest !== undefined && latest.periodEnd.getTime() > now.getTime() - CATCH_UP_SLACK_MS) {
       return false
     }
-    const result = yield* sendWeeklyDigest(app, { now: options.now, env })
+    const result = yield* sendWeeklyDigest(app, { now: options.now })
     return result.sent
   }).pipe(Effect.withSpan('notifications.run-scheduled-weekly-digest'))

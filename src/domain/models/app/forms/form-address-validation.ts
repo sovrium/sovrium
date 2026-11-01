@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 
 /**
  * Where a form may send its visitor.
@@ -79,9 +80,6 @@ interface TranslatedAddressApp {
     readonly translations?: Readonly<Record<string, Readonly<Record<string, string>>>>
   }
 }
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const stringAt = (
   owner: Readonly<Record<string, unknown>>,

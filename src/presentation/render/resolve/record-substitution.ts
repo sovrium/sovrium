@@ -12,32 +12,37 @@
  * `substituteRecordInComponent` is the entry point; everything else here is a
  * destination it substitutes INTO — content, props, typed fields, a nested data
  * source, a system binding — and the escaping rule each destination needs. The
- * escaping is why they are one module: whether a value is HTML-escaped depends
- * on whether the AUTHOR's template was HTML, a single decision that has to be
- * made identically at every destination or the same record renders differently
- * in two places on one page.
+ * escaping is why they are one module: a value is HTML-escaped when the AUTHOR's
+ * template was HTML, one decision every destination has to take identically.
  *
- * The collection-page variant and the per-row expansion live in
- * `data-source-rows.ts`, which calls into this module once per row.
+ * The per-row expansion lives in `data-source-rows.ts`, which calls in per row.
  */
 
 import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
-import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
-import { parseJsonArrayCell } from '@/domain/kernel/sql/sqlite-json-cell'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
+import { substituteRecordInFilter } from '@/domain/models/app/pages/record-filter-substitution-service'
 import {
-  isRecordFieldRef,
   substituteRecordVars,
   substituteScopedVars,
   withRecordText,
   withScopesText,
 } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  componentField,
+  entryAsComponent,
+  rewriteComponent,
+  type ComponentBinding,
+  type ComponentContent as Content,
+  type RenderProps,
+} from './component-rewrite'
 import { walkComponentSlots, type ComponentListEntry } from './component-slot-walk'
 import { drawsOwnRows } from './nested-row-lists'
+import { fillAuthorTag } from './record-address-attributes'
 import { withControlRecord } from './record-control-binding'
 import { recordDisplayOf } from './record-display-labels'
 import { substituteRecordInProps, withDescriptionFieldValues } from './record-template-substitution'
 import { substituteRecordInTypedFields } from './record-typed-fields'
-import { filterChildrenForRecord } from './record-visibility'
+import { filterChildrenForRecord, labelsFollowingRecord } from './record-visibility'
 import type { RowSubstitutionDepth } from './data-source-rows'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
@@ -53,7 +58,6 @@ import type { DataFilter } from '@/domain/models/app/pages/components/data-sourc
  * React unknown-attribute warning nor gets silently renamed in transit.
  * `renderHTMLElement` strips it before it reaches the element. Renderers that
  * pass content through React children are already safe and simply ignore it.
- *
  * Mirrors the existing `_dataSourceError` resolver→renderer channel.
  */
 const CONTENT_PLAIN_TEXT_ATTR = 'data-content-plain-text'
@@ -77,9 +81,9 @@ const templateIsAuthorHtml = (template: string): boolean => template.trim().star
  * attribute and adds an event handler to the author's own tag. Quotes are what
  * shut that door, and `&` must be escaped first or the escaping is itself
  * forgeable (`&lt;` in the data would otherwise decode to a real `<`). The
- * kernel's `escapeHtml` is exactly that escape, so it is used rather than copied.
+ * kernel's `escapeHtmlAttribute` is exactly that escape, so it is used rather than copied.
  */
-const escapeRecordValueForHtml = escapeHtml
+const escapeRecordValueForHtml = escapeHtmlAttribute
 
 /**
  * Substitutes `$record.*` into a component's `content` WITHOUT letting record
@@ -121,9 +125,9 @@ const escapeRecordValueForHtml = escapeHtml
  * formatted, except inside an author tag, where it keeps the stored value.
  */
 export function substituteRecordInContent(
-  content: Component['content'],
+  content: Content,
   record: Record<string, unknown>
-): { readonly content: Component['content']; readonly forcePlainText: boolean } {
+): { readonly content: Content; readonly forcePlainText: boolean } {
   return substituteScopesInContent(content, { record })
 }
 
@@ -134,16 +138,19 @@ export function substituteRecordInContent(
  * One pass per string, so a substituted value is never scanned again.
  */
 export function substituteScopesInContent(
-  content: Component['content'],
+  content: Content,
   scopes: Readonly<Record<string, Readonly<Record<string, unknown>>>>
-): { readonly content: Component['content']; readonly forcePlainText: boolean } {
+): { readonly content: Content; readonly forcePlainText: boolean } {
   if (typeof content !== 'string') return { content, forcePlainText: false }
   const text = withScopesText(scopes)
   if (templateIsAuthorHtml(content)) {
     // A tag keeps the stored value (an attribute is an address or a value);
     // only the text between tags is prose.
+    // An address the record would open is held to a web address or a site path.
     const fill = (part: string) =>
-      substituteScopedVars(part, part.startsWith('<') ? scopes : text, escapeRecordValueForHtml)
+      part.startsWith('<')
+        ? fillAuthorTag(part, scopes, escapeRecordValueForHtml)
+        : substituteScopedVars(part, text, escapeRecordValueForHtml)
     return {
       content: content
         .split(/(<[^>]*>)/)
@@ -160,10 +167,16 @@ export function substituteScopesInContent(
 
 /** Adds the plain-text pin to a component's props when the sink would flip. */
 export const withPlainTextPin = (
-  props: Component['props'],
+  props: RenderProps | undefined,
   forcePlainText: boolean
-): Component['props'] =>
+): RenderProps | undefined =>
   forcePlainText ? { ...(props ?? {}), [CONTENT_PLAIN_TEXT_ATTR]: true } : props
+
+/** Has an earlier pass already pinned this component's content to the text branch? */
+export const hasPlainTextPin = (props: unknown): boolean =>
+  props !== null &&
+  typeof props === 'object' &&
+  (props as Readonly<Record<string, unknown>>)[CONTENT_PLAIN_TEXT_ATTR] === true
 
 /**
  * Substitutes `$record.<field>` tokens inside `dataSource.filter[].value`
@@ -177,9 +190,9 @@ export const withPlainTextPin = (
  * (eg. `'Technology'`) before `resolvePageDataSources` builds the SQL
  * query — enabling cross-table filtering driven by the parent record.
  *
- * Only string filter values are substituted. Numeric, boolean, array, and
- * `$currentUser` reference values pass through unchanged so the existing
- * filter pipeline (literal types + `$currentUser` resolver) keeps working.
+ * A string value is substituted, and so is each string of a list (`in` with
+ * `['$record.id']`); numbers, booleans and `$currentUser` references reach the
+ * filter pipeline (literal types + `$currentUser` resolver) as they came.
  */
 /**
  * A `{ system }` binding's own string leaves — the endpoint and its query.
@@ -194,51 +207,25 @@ export const withPlainTextPin = (
  * Additive by construction: a `system` binding written before nesting existed
  * carries no `$record.` at all, so the walk is a no-op on every shipped page.
  */
-const substituteRecordInSystemBinding = (
-  system: Record<string, unknown>,
+const substituteRecordInSystemBinding = <T extends object>(
+  system: T,
   record: Record<string, unknown>
-): Record<string, unknown> =>
-  mapStringsDeep(system, (value) => substituteRecordVars(value, record)) as Record<string, unknown>
-
-/**
- * A filter value made concrete from the record. An `in` naming one field
- * wholly (`$record.exercises`) takes that field's list as its list —
- * a many-to-many field's linked ids, a multi-select's choices — rather than
- * the list printed as text; an empty one matches nothing. Every other value is
- * the token substituted as text.
- */
-const filterValueOf = (
-  filter: DataFilter,
-  value: string,
-  record: Record<string, unknown>
-): DataFilter['value'] => {
-  if (filter.operator !== 'in' || !isRecordFieldRef(value)) {
-    return substituteRecordVars(value, record)
-  }
-  const stored = record[value.slice('$record.'.length)]
-  const list = Array.isArray(stored) ? stored : parseJsonArrayCell(stored)
-  return list === undefined ? substituteRecordVars(value, record) : list.map(String)
-}
+): T => mapStringsDeep(system, (value) => substituteRecordVars(value, record)) as T
 
 export function substituteRecordInDataSource(
-  dataSource: NonNullable<Component['dataSource']>,
+  binding: ComponentBinding,
   record: Record<string, unknown>
-): NonNullable<Component['dataSource']> {
-  const { system } = dataSource as { readonly system?: unknown }
-  const withSystem =
+): ComponentBinding {
+  const system = typeof binding === 'object' && 'system' in binding ? binding.system : undefined
+  const bound: ComponentBinding =
     system !== null && typeof system === 'object' && !Array.isArray(system)
-      ? {
-          ...dataSource,
-          system: substituteRecordInSystemBinding(system as Record<string, unknown>, record),
-        }
-      : dataSource
-  const { filter } = withSystem
-  if (!filter || filter.length === 0) return withSystem
+      ? { ...binding, system: substituteRecordInSystemBinding(system, record) }
+      : binding
+  const filter = typeof bound === 'object' && 'filter' in bound ? bound.filter : undefined
+  if (!filter || filter.length === 0) return bound
   return {
-    ...withSystem,
-    filter: filter.map((f: DataFilter): DataFilter =>
-      typeof f.value === 'string' ? { ...f, value: filterValueOf(f, f.value, record) } : f
-    ),
+    ...bound,
+    filter: filter.map((f: DataFilter): DataFilter => substituteRecordInFilter(f, record)),
   }
 }
 
@@ -274,26 +261,25 @@ export function substituteRecordInComponent(
   if (RECORD_VALUE_TYPES.has(component.type)) {
     return injectRecordFieldValue(component, record, tableName)
   }
-  const resolvedContent = substituteRecordInContent(component.content, record)
+  const dataSource = componentField(component, 'dataSource')
+  const resolvedContent = substituteRecordInContent(componentField(component, 'content'), record)
   const describedItems = withDescriptionFieldValues(component, record, tableName)
-  // `stop-at-nested-rows` keeps only a nested row list's template (`nested-row-lists.ts`).
-  const withheld =
-    (substitution === 'stop-at-nested-binding' && component.dataSource !== undefined) ||
-    (substitution === 'stop-at-nested-rows' && drawsOwnRows(component))
+  const withheld = withholdsChildLists(component, substitution)
   const walk = (entries: readonly ComponentListEntry[]): readonly ComponentListEntry[] =>
     withheld
       ? entries
       : filterChildrenForRecord(entries, record).map((child) =>
           typeof child === 'string'
             ? substituteRecordVars(child, withRecordText(record))
-            : substituteRecordInComponent(child, record, tableName, substitution)
+            : substituteRecordInComponent(entryAsComponent(child), record, tableName, substitution)
         )
-  return {
-    ...component,
-    // Every OTHER string leaf — a component's own TYPED fields — every leaf, not
-    // a list of keys that would silently stop covering each new one. The four
-    // keys below carry semantics; this reuses `$param`'s walker.
-    ...substituteRecordInTypedFields(component, record),
+  // Every OTHER string leaf — a component's own TYPED fields — every leaf, not
+  // a list of keys that would silently stop covering each new one. The four
+  // keys below carry semantics; this reuses `$param`'s walker.
+  const typedFields = substituteRecordInTypedFields(component, record)
+  const children = component.children ?? []
+  return rewriteComponent(component, {
+    ...typedFields,
     props: withControlRecord(
       component,
       withPlainTextPin(
@@ -304,17 +290,14 @@ export function substituteRecordInComponent(
     ),
     content: resolvedContent.content,
     ...(describedItems !== undefined && { items: describedItems }),
-    dataSource: component.dataSource
-      ? substituteRecordInDataSource(component.dataSource, record)
-      : component.dataSource,
+    dataSource: dataSource ? substituteRecordInDataSource(dataSource, record) : dataSource,
     // A STRING CHILD needs no escaping and must not get any: children render as
     // React children, which escape on output and never reach a
     // `dangerouslySetInnerHTML` sink. Escaping here too would double-escape, so
     // the visitor would see the literal characters `&lt;`.
     // `visibility.record` is evaluated HERE, one level at a time, so the gate
-    // reaches any depth of a row template rather than only its outermost
-    // children. A failing child is DROPPED — omitted from the HTML, never
-    // hidden — see `record-visibility.ts`.
+    // reaches any depth of a row template. A failing child is DROPPED, omitted
+    // from the HTML and never hidden: see `record-visibility.ts`.
     // An INNER `{ system }` binding's children are left alone: they are a
     // template that has not met its own rows yet, and consuming their
     // `$record.` against THIS row would resolve every one of them against a
@@ -322,12 +305,17 @@ export function substituteRecordInComponent(
     // read ever runs. Everything else about this node is still substituted,
     // including its own `dataSource`, which is what makes the inner read a
     // DIFFERENT read per outer row.
-    // Only the children and slots are withheld; the typed-field walk still runs.
-    // A slot (a card's `footer`) is walked as `children` is, replacing its blind walk.
+    // Only the children and slots are withheld; a slot is walked as `children` is.
     ...walkComponentSlots(component, walk),
-    children: walk(component.children ?? []),
-  }
+    children: walk(children),
+    ...(withheld ? {} : labelsFollowingRecord({ ...component, ...typedFields }, children, record)),
+  })
 }
+
+/** `stop-at-nested-rows` keeps only a nested row list's template (`nested-row-lists.ts`). */
+const withholdsChildLists = (component: Component, depth: RowSubstitutionDepth): boolean =>
+  (depth === 'stop-at-nested-binding' && componentField(component, 'dataSource') !== undefined) ||
+  (depth === 'stop-at-nested-rows' && drawsOwnRows(component))
 
 /**
  * The components a bound record hands its raw value to, rather than a
@@ -370,11 +358,10 @@ export function injectRecordFieldValue(
   const baseProps = component.props ? substituteRecordInProps(component.props, record) : {}
   // `record-field` names its field in `props`; the field-bound controls
   // (`rating`, `signature-pad`, `file-preview`) name it on their root.
-  const fieldName = baseProps['field'] ?? (component as { readonly field?: unknown }).field
+  const fieldName = baseProps['field'] ?? componentField(component, 'field')
   const value = typeof fieldName === 'string' ? recordValueOf(record, fieldName) : undefined
-  const { altField } = component as { readonly altField?: unknown }
-  return {
-    ...component,
+  const altField = componentField(component, 'altField')
+  return rewriteComponent(component, {
     // A control's own sentence (`signature-pad.statement`) reads the record too.
     ...(component.type === 'record-field' ? {} : substituteRecordInTypedFields(component, record)),
     props: {
@@ -386,5 +373,5 @@ export function injectRecordFieldValue(
       ...(typeof altField === 'string' && { _recordAlt: record[altField] }),
       ...(tableName !== undefined ? { _recordTable: tableName } : {}),
     },
-  }
+  })
 }

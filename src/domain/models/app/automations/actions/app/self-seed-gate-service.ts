@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   SOVRIUM_SELF_SEED_VAR,
   selfSeedGateAllows,
@@ -27,11 +28,6 @@ import type { App } from '@/domain/models/app'
  * "Holds" means at any depth: the automation's own steps, and the steps nested
  * in a `path` branch (`props.paths[].actions`) or a `loop` (`props.actions`).
  */
-
-type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The mode of every `app/seed` step reachable from `value`; only step-nesting keys are followed. */
 const seedModesIn = (value: unknown): readonly string[] => {

@@ -91,7 +91,7 @@ const kindOf = (name: string): ClockKind => {
 export const pinFormulaClock = (
   sql: string,
   dialect: Dialect,
-  now: Readonly<Date> | undefined = readSovriumDevClock()
+  now: Readonly<Date> | undefined = readSovriumDevClock(process.env)
 ): string => {
   if (now === undefined) return sql
   const literals = clockLiterals(now, dialect)

@@ -7,8 +7,8 @@
 
 import { mkdir, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
-import { Effect, Console } from 'effect'
 import { generateAppJsonSchema, splitAppJsonSchema } from '@/domain/models/app/app-json-schema'
+import { printLine } from '@/infrastructure/logging/cli-output'
 import { writeStdout } from './document-output'
 
 /** A document as the schema command writes it: two-space JSON, one trailing newline. */
@@ -45,7 +45,7 @@ export const handleSchemaCommand = async (outputPath?: string): Promise<void> =>
     // Beside the full file, never instead of it: the full file stays the one
     // document an editor maps a whole config to.
     await writeSplitSchema(schema, outputPath)
-    Effect.runSync(Console.log(`Schema written to ${outputPath}.`))
+    printLine(`Schema written to ${outputPath}.`)
   } else {
     // Write to stdout without trailing console formatting
     await writeStdout(json)

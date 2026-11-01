@@ -29,7 +29,6 @@ tables:
 # starts with the line naming the entry and version it came from.
 components:
   - $ref: ./library/block/auth-sso.yaml
-  - $ref: ./library/block/auth-sign-up.yaml
   - $ref: ./library/block/auth-magic-link.yaml
   - $ref: ./library/block/auth-password-reset-new.yaml
   - $ref: ./library/block/auth-password-reset.yaml
@@ -102,7 +101,6 @@ pages:
   - $ref: ./config/pages/project.yaml
   - $ref: ./config/pages/sign-in.yaml
   - $ref: ./config/pages/sso.yaml
-  - $ref: ./config/pages/sign-up.yaml
   - $ref: ./config/pages/magic-link.yaml
   - $ref: ./config/pages/reset-password.yaml
   - $ref: ./config/pages/reset-password-new.yaml

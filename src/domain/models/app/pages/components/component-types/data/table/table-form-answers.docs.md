@@ -1,8 +1,8 @@
 # A Grid over a Form's Answers
 
-> One page that lists what any of your forms received, with a column per question — `columnsFrom: { form }` on a `table` bound to the form's submissions.
+> One page that lists what any of your forms received, with a column per question: `columnsFrom: { form }` on a `table` bound to the form's submissions.
 
-A form's submissions are read from the admin submissions list, `/api/admin/forms/:form/submissions`. Each row there is an envelope — `id`, `status`, `submittedAt` — around the answers, which arrive in `body` only when they are asked for. The envelope is the same for every form, so you write its columns. The answers differ per form, so the grid derives them:
+A form's submissions are read from the admin submissions list, `/api/admin/forms/:form/submissions`. Each row there is an envelope (`id`, `status`, `submittedAt`) around the answers, which arrive in `body` only when they are asked for. The envelope is the same for every form, so you write its columns. The answers differ per form, so the grid derives them:
 
 ```yaml
 name: my-app
@@ -22,7 +22,7 @@ pages:
         columnsFrom: { form: $param.form }
 ```
 
-`columnsFrom: { form }` adds one column per field of the form that carries a value — a section heading carries none — after the columns you wrote, in the order the form declares them. Each is headed by the field's `label` (a `$t:` key is resolved in the page's language), or by its name when it has none, and each answer is drawn the way the grid draws that field type — a checkbox answer is a yes or no mark, not the word `true`. The answer columns are not sortable or filterable — the list sorts and searches its envelope, never the answers — and never editable.
+`columnsFrom: { form }` adds one column per field of the form that carries a value (a section heading carries none), after the columns you wrote, in the order the form declares them. Each is headed by the field's `label` (a `$t:` key is resolved in the page's language), or by its name when it has none, and each answer is drawn the way the grid draws that field type: a checkbox answer is a yes or no mark, not the word `true`. The answer columns are not sortable or filterable (the list sorts and searches its envelope, never the answers), and never editable.
 
 **The form is named on the column source.** A literal name must be a form the app declares, or the app is refused at startup. `$param.<segment>` takes it from the address, so one page serves every form; an address naming no declared form answers 404, not an empty grid. `columnsFrom: { form }` needs a `dataSource.system`: over a `dataSource.table` it is refused at startup, because a table's rows carry no answers. `columnsFrom: table` is unchanged: it needs a `dataSource.table` and cannot stand beside `columns`.
 

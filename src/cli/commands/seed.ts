@@ -10,10 +10,10 @@
  *   [--today <YYYY-MM-DD>] [--dry-run] [--request <file>] [--report <file>]`
  *
  * With `--baseline`, the command seeds nothing: it records the baseline an
- * `app/seed` reset returns each kept account to (`seed-baseline.ts`).
+ * `app/seed` reset returns each kept account to (`seed/baseline.ts`).
  *
  * With `--app <slug>` or `--remote`, the command seeds a HOSTED app instead
- * (`seed-remote.ts`), and that branch is taken before anything below runs: no
+ * (`seed/remote.ts`), and that branch is taken before anything below runs: no
  * config is loaded and no local database is opened.
  *
  * Loads a folder of `seed/<table>.yaml` files into an app's tables through the
@@ -40,12 +40,27 @@
  * would give the command side effects its name does not promise.
  */
 
-import { readFile, stat } from 'node:fs/promises'
+import { stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { Option, Schema } from 'effect'
 import { buildSeedPlan } from '@/application/use-cases/seed/seed-plan'
-import { getFlagPathValue } from '@/cli/runtime/flag-vocabulary'
-import { seedRunRequestSchema } from '@/domain/models/api/automations/cloud/seed-run'
+import { settleAccountPlan } from '@/cli/commands/seed/account-plan'
+import {
+  NO_SEED_FLAGS,
+  isRemoteSeed,
+  seedFlags,
+  withRequestFile,
+  type SeedFlags,
+} from '@/cli/commands/seed/flags'
+import { loadSeedFiles } from '@/cli/commands/seed/load'
+import { handleRemoteSeed } from '@/cli/commands/seed/remote'
+import {
+  report,
+  seedReportOf,
+  writeFailureReport,
+  writeReportFile,
+} from '@/cli/commands/seed/report'
+import { silenced } from '@/cli/commands/seed/silent'
+import { fromAsync, rethrowCliStop, withFlags } from '@/cli/runtime/run-command'
 import { parseSovriumDevClock } from '@/domain/models/process-env/dev-clock'
 import {
   SEED_MODES,
@@ -53,21 +68,10 @@ import {
   pinRunAtToDay,
   withholdInvitationLinks,
 } from '@/domain/models/seed'
-import {
-  applyDatabaseMigrations,
-  discoverConfigFile,
-  lastRefusal,
-  refuse,
-  requireApp,
-} from './app-prelude'
+import { applyDatabaseMigrations, discoverConfigFile, refuse, requireApp } from './app-prelude'
 import { resolveProjectRoot } from './option-parsing'
-import { settleAccountPlan } from './seed-account-plan'
-import { loadSeedFiles } from './seed-load'
-import { handleRemoteSeed, isRemoteSeed } from './seed-remote'
-import { report, seedReportOf, writeReportFile } from './seed-report'
-import { silenced } from './seed-silent'
-import type { AccountPlan } from './seed-accounts'
 import type { SeedPlan } from '@/application/use-cases/seed/seed-plan'
+import type { AccountPlan } from '@/cli/commands/seed/accounts'
 import type { App } from '@/domain/models/app'
 import type { SeedAccount, SeedMode } from '@/domain/models/seed'
 
@@ -83,8 +87,8 @@ export interface SeedCommandOptions {
   readonly as?: string | undefined
   /** `--today <YYYY-MM-DD>` — wins over `SOVRIUM_SEED_TODAY`. */
   readonly today?: string | undefined
-  /** The raw command line: `--app`, `--remote`, `--request` and `--report` are read from it. */
-  readonly argv?: readonly string[]
+  /** The flags only `sovrium seed` reads: `--app`, `--remote`, `--baseline`, `--request`, `--report`. */
+  readonly flags?: SeedFlags
 }
 
 const DEFAULT_SEED_DIR = 'seed'
@@ -179,11 +183,23 @@ export const requireAccountPlan = async (
     : accountPlan
 }
 
+/** The run's database and its accounts: read under `--dry-run`, else created first. */
+const runAccounts = async (app: Readonly<App>, accountPlan: AccountPlan, dryRun: boolean) => {
+  const { createPlannedAccounts } = await import('@/cli/commands/seed/accounts')
+  const { readAccountIndex } = await import('@/cli/commands/seed/account-reads')
+  const { seedDatabase } = await import('@/cli/commands/seed/database')
+  const database = seedDatabase()
+  const settled = dryRun
+    ? { accounts: await readAccountIndex(database), invitations: [] }
+    : await createPlannedAccounts(database, app, accountPlan)
+  return { database, ...settled }
+}
+
 /**
  * Create the accounts, then write the rows as the system or the `--as` account,
  * silently (see {@link silenced}).
  *
- * Deferred imports, for the reason the plan's are: `seed-write` drags in the
+ * Deferred imports, for the reason the plan's are: `seed/write` drags in the
  * whole database + table layer, which no other verb needs. An eager import here
  * put that graph — and every module-load side effect in it — inside
  * `sovrium --help`. It also matters in compiled binary mode, where native
@@ -205,19 +221,23 @@ export const writeRun = async (input: {
   const { seedTablesOf } = await import('@/application/use-cases/seed/seed-config')
   const { buildSyntheticSession, buildSystemSession } =
     await import('@/application/use-cases/automations/build-guest-session')
-  const { accountReportLines, createPlannedAccounts, invitationReportLines, readAccountIndex } =
-    await import('./seed-accounts')
-  const { executeSeedPlan } = await import('./seed-write')
-  const { writeSeedGrants } = await import('./seed-grants')
+  const { accountReportLines, invitationReportLines } = await import('@/cli/commands/seed/accounts')
+  const { executeSeedPlan } = await import('@/cli/commands/seed/write')
+  const { writeSeedGrants } = await import('@/cli/commands/seed/grants')
 
-  const { accounts, invitations } = options.dryRun
-    ? { accounts: await readAccountIndex(), invitations: [] }
-    : await createPlannedAccounts(app, accountPlan)
+  const { database, accounts, invitations } = await runAccounts(app, accountPlan, options.dryRun)
   const actingId = options.as === undefined ? undefined : accounts.get(options.as.toLowerCase())
   const session = actingId === undefined ? buildSystemSession() : buildSyntheticSession(actingId)
-  const context = { plan: input.plan, tables: seedTablesOf(app), seedDir: input.seedDir, accounts }
+  const context = {
+    ...database,
+    plan: input.plan,
+    tables: seedTablesOf(app),
+    seedDir: input.seedDir,
+    accounts,
+  }
   const grantsInput = { ...input, accountIds: accounts, context, createdBy: session.userId }
   const rows = await executeSeedPlan({
+    database,
     app,
     plan: input.plan,
     tables: context.tables,
@@ -246,9 +266,9 @@ const describeRunFailure = async (
   error: unknown,
   print: (lines: readonly string[]) => void
 ): Promise<string> => {
-  const { SeedWriteError } = await import('./seed-write')
-  const { SeedAccountError, invitationReportLines } = await import('./seed-accounts')
-  const { SeedGrantError } = await import('./seed-grants')
+  const { SeedWriteError } = await import('@/cli/commands/seed/write-error')
+  const { SeedAccountError, invitationReportLines } = await import('@/cli/commands/seed/accounts')
+  const { SeedGrantError } = await import('@/cli/commands/seed/grants')
   if (error instanceof SeedAccountError && error.invitations.length > 0) {
     print(invitationReportLines(error.invitations))
   }
@@ -259,100 +279,50 @@ const describeRunFailure = async (
     : `Error: seeding failed: ${error instanceof Error ? error.message : String(error)}`
 }
 
-/** What a `--request <file>` may carry: the request of a hosted seed, without its app. */
-const seedRequestFileSchema = Schema.Struct({
-  mode: seedRunRequestSchema.fields.mode,
-  tables: seedRunRequestSchema.fields.tables,
-  today: seedRunRequestSchema.fields.today,
-  dryRun: seedRunRequestSchema.fields.dryRun,
-})
-
 /**
- * The options with `--request <file>` read in place of the flags — how the
- * one-shot seed unit of a hosting machine passes them. A file that is missing
- * or is not a request is refused, naming it.
+ * The options of a run on this machine, and how it prints. A run with
+ * `--report` is a run whose output is kept — the file, and on a hosting machine
+ * the unit's journal and the step's run history — so it prints every
+ * invitation with its link withheld: the link is a credential.
  */
-const withRequestFile = async (
-  options: SeedCommandOptions,
-  path: string | undefined
-): Promise<SeedCommandOptions> => {
-  if (path === undefined) return options
-  const text = await readFile(path, 'utf-8').catch((error: unknown) =>
-    refuse(`Error: could not read the seed request ${resolve(path)}: ${String(error)}`)
-  )
-  const decoded = Option.flatMap(
-    Option.liftThrowable(() => JSON.parse(text) as unknown)(),
-    Schema.decodeUnknownOption(seedRequestFileSchema)
-  )
-  if (Option.isNone(decoded)) {
-    return refuse(
-      `Error: ${resolve(path)} is not a seed request. Expected { "mode": "if-empty" | "upsert" | "replace", "tables"?: [names], "today"?: "YYYY-MM-DD", "dryRun"?: true | false }.`
-    )
-  }
-  const request = decoded.value
-  return {
-    ...options,
-    mode: request.mode,
-    tables: request.tables ?? [],
-    dryRun: request.dryRun ?? false,
-    today: request.today,
-  }
-}
-
-/**
- * Leave `{ error }` in the `--report` file when the run ends on a refusal —
- * any refusal, the config's and the database's included: they all end the
- * process through `refuse`, so the `exit` handler is the one place that sees
- * every one of them.
- */
-const reportRefusalsTo = (path: string | undefined): void => {
-  if (path === undefined) return
-  process.once('exit', (code) => {
-    if (code === 0) return
-    writeReportFile(path, { error: lastRefusal() ?? `sovrium seed failed (exit ${code})` })
-  })
-}
-
-/**
- * The options of a run on this machine, where its `--report` goes, and how it
- * prints. A run with `--report` is a run whose output is kept — the file, and
- * on a hosting machine the unit's journal and the step's run history — so it
- * prints every invitation with its link withheld: the link is a credential.
- */
-const localRun = async (given: SeedCommandOptions, argv: readonly string[]) => {
-  const reportPath = getFlagPathValue(argv, '--report')
-  reportRefusalsTo(reportPath)
+const localRun = async (given: SeedCommandOptions, reportPath: string | undefined) => {
   const kept = (lines: readonly string[]) =>
     reportPath === undefined ? lines : withholdInvitationLinks(lines)
   return {
-    options: await withRequestFile(given, getFlagPathValue(argv, '--request')),
-    reportPath,
+    options: await withRequestFile(given, (given.flags ?? NO_SEED_FLAGS).request),
     kept,
     print: (lines: readonly string[]) => report(kept(lines)),
   }
 }
 
-/**
- * The runs that do not seed this machine: a hosted app's (`--app`, `--remote`),
- * and `--baseline`, which seeds nothing and records what a reset puts back.
- */
-const seedElsewhere = async (given: SeedCommandOptions & { readonly argv: readonly string[] }) =>
-  isRemoteSeed(given.argv)
-    ? handleRemoteSeed(given)
-    : (await import('./seed-baseline')).handleSeedBaseline(given)
+/** `--baseline`: seeds nothing, and records what a reset puts back. */
+const seedBaseline = async (given: SeedCommandOptions & { readonly flags: SeedFlags }) =>
+  (await import('@/cli/commands/seed/baseline')).handleSeedBaseline(given)
 
 /**
  * Handle `sovrium seed`.
  *
  * Exits 0 when every targeted table was seeded, skipped by `if-empty`, or
  * reported by `--dry-run`; exits 1 on any refusal or write failure. The exit is
- * explicit because a database connection can outlive the last write and keep
- * the process alive, and `demo-reset.service` waits on the exit code.
+ * explicit (an exit command): a database connection can outlive the last
+ * write, and `demo-reset.service` waits on the exit code.
  */
-export const handleSeedCommand = async (given: SeedCommandOptions): Promise<void> => {
-  const argv = given.argv ?? []
-  if (isRemoteSeed(argv) || argv.includes('--baseline')) return seedElsewhere({ ...given, argv })
-  const { options, reportPath, kept, print } = await localRun(given, argv)
+const runSeedCommand = async (given: SeedCommandOptions): Promise<void> => {
+  const flags = given.flags ?? NO_SEED_FLAGS
+  if (flags.baseline) return seedBaseline({ ...given, flags })
+  const reportPath = flags.report
+  return seedHere(given, reportPath).catch((error: unknown) => {
+    if (reportPath !== undefined) writeFailureReport(reportPath, error)
+    throw error
+  })
+}
+
+/** `sovrium seed` on this machine's database. */
+const seedHere = async (
+  given: SeedCommandOptions,
+  reportPath: string | undefined
+): Promise<void> => {
+  const { options, kept, print } = await localRun(given, reportPath)
   const mode = requireMode(options.mode)
   const runAt = requireRunAt(options.today)
   const createdAt = requireDevClock()
@@ -386,7 +356,10 @@ export const handleSeedCommand = async (given: SeedCommandOptions): Promise<void
     seedDir,
     options,
     print,
-  }).catch(async (error: unknown) => refuse(await describeRunFailure(error, print)))
+  }).catch(async (error: unknown) => {
+    rethrowCliStop(error)
+    return refuse(await describeRunFailure(error, print))
+  })
 
   print(lines)
   if (reportPath !== undefined) {
@@ -396,5 +369,22 @@ export const handleSeedCommand = async (given: SeedCommandOptions): Promise<void
       seedReportOf({ mode, dryRun: options.dryRun, order, lines: kept(lines) })
     )
   }
-  process.exit(0)
 }
+
+/**
+ * Handle `sovrium seed`. A hosted app's run (`--app`, `--remote`) is a program
+ * of its own; every other run seeds or records on this machine.
+ */
+export const handleSeedCommand = withFlags(seedFlags, (args) => {
+  const given = {
+    configFile: args.configFile,
+    seedDir: args.flags.dir,
+    mode: args.mode,
+    tables: args.flags.tables,
+    dryRun: args.dryRun ?? false,
+    as: args.flags.as,
+    today: args.flags.today,
+    flags: args.flags,
+  }
+  return isRemoteSeed(args.flags) ? handleRemoteSeed(given) : fromAsync(() => runSeedCommand(given))
+})

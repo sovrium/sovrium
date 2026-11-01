@@ -15,7 +15,7 @@ import {
   computeFormFieldLabelClasses,
   computeFormHelpTextClasses,
 } from '@/presentation/design/form-layout-classes'
-import type { ResolvedFormField } from './form-field-elements'
+import type { ResolvedFormField } from './form-resolved-field'
 
 // Shared form-field chrome — composes the semantic class names (kept as theme /
 // back-compat hooks) with the shared form-layout design contract so STANDALONE

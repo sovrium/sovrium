@@ -40,7 +40,7 @@ export const organisationFindingKindSchema = Schema.Literals([
   'single-bridge',
 ]).annotate({
   description:
-    'The structural exposure reported: `public-write` (a write path reachable without authenticating), `open-rung-read` (a resource readable through the `*` rung), `single-bridge` (exactly one principal joins two otherwise separate parts of the graph — a continuity risk, not a vulnerability).',
+    'The structural exposure reported: `public-write` (a write path reachable without authenticating), `open-rung-read` (a resource readable through the `*` rung), `single-bridge` (exactly one principal joins two otherwise separate parts of the graph; a continuity risk, not a vulnerability).',
 })
 
 /**
@@ -112,12 +112,12 @@ export const organisationFindingSchema = Schema.Struct({
   )
     .annotate({
       description:
-        'The subjects the finding is about, as NAMES only (a table name, a role name, a person’s display name) — never a value, a token or an email (S4). Never empty: a finding naming no subject gives the operator nothing to act on, so an empty list is a producer bug rather than a quieter finding.',
+        'The subjects the finding is about, as NAMES only (a table name, a role name, a person’s display name), never a value, a token or an email (S4). Never empty: a finding naming no subject gives the operator nothing to act on, so an empty list is a producer bug rather than a quieter finding.',
     })
     .pipe(Schema.check(Schema.isMinLength(1))),
   message: Schema.String.annotate({
     description:
-      'The finding as ONE rendered sentence, e.g. "The widest write in the app is unauthenticated." Rendered server-side because the consuming list binding can print a string but cannot format one — the join, the truncation and the ordering therefore live here. Names subjects, never values (S4).',
+      'The finding as ONE rendered sentence, e.g. "The widest write in the app is unauthenticated." Rendered server-side because the consuming list binding can print a string but cannot format one. The join, the truncation and the ordering therefore live here. Names subjects, never values (S4).',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   nodes: Schema.Array(graphId('One `nodes[].id` this finding concerns.'))
     .annotate({
@@ -149,5 +149,5 @@ export const organisationFindingsBySeveritySchema = Schema.Struct({
   title: 'sovrium:strict-keys',
   identifier: 'AdminOrganisationGraphFindingsBySeverity',
   description:
-    'The findings counted by severity — `critical`, `warning`, `notice` — summing to `findingsCount`. Each count is zero rather than absent when no finding has that severity. NOT narrowed by `?node=`.',
+    'The findings counted by severity (`critical`, `warning`, `notice`), summing to `findingsCount`. Each count is zero rather than absent when no finding has that severity. NOT narrowed by `?node=`.',
 })

@@ -43,7 +43,7 @@ export const getTelemetryConfig = (): TelemetryConfig => {
 
 const safeParse = (): TelemetryConfig => {
   try {
-    return parseTelemetryConfig()
+    return parseTelemetryConfig(process.env)
   } catch {
     return OFF
   }

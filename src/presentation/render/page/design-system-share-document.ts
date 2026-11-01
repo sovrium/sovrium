@@ -52,7 +52,7 @@
  * legitimately in reach.
  */
 
-import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { renderMarkdownToHtml } from '@/infrastructure/markdown/markdown-it-renderer'
 
@@ -126,12 +126,12 @@ export const renderDesignSystemShareDocument = (
   appName: string,
   colors: ShareDocumentColors = {}
 ): string => {
-  // `renderMarkdownToHtml` already runs markdown-it with `html: false`, so raw
-  // author HTML is dropped at parse time. The sanitiser is the second pass its
+  // `renderMarkdownToHtml` already drops every raw author HTML token at parse
+  // time. The sanitiser is the second pass its
   // own docblock asks for — cheap, and the difference between one boundary and
   // none on the widest-audience surface in the product.
   const body = sanitizeRichTextHTML(renderMarkdownToHtml(markdown).html)
-  const title = escapeHtml(`${appName} — Design System`)
+  const title = escapeHtmlAttribute(`${appName} — Design System`)
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

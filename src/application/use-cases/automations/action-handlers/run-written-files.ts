@@ -27,7 +27,7 @@
  * stores it (`run/run-ledger-persistence.ts`).
  */
 
-import { Effect } from 'effect'
+import { Effect, MutableRef } from 'effect'
 import {
   UNATTRIBUTED_BUCKET,
   type BucketBinding,
@@ -37,7 +37,7 @@ import {
   bucketForField,
   extractAttachmentReferences,
   type AttachmentScope,
-} from '@/application/use-cases/attachments/attachment-fields'
+} from '@/application/use-cases/buckets/attachment-fields'
 
 /** Where a written file's bytes came from: in with the run, or from a file stored before it. */
 export interface WrittenProvenance {
@@ -91,32 +91,43 @@ const entryOf = (bucket: BucketBinding, key: string): string =>
 export const createRunWrittenFiles = (
   restored: readonly RunWrittenEntry[] = []
 ): RunWrittenFiles => {
-  // A mutable map is the point: steps record their writes as side effects while
-  // the run goes on, and later steps of the same run read them back.
-  const written = new Map<string, RunWrittenEntry>(
-    restored.map((entry) => [entryOf(entry.bucket ?? UNATTRIBUTED_BUCKET, entry.key), entry])
+  // A cell is the point: steps record their writes as side effects while the
+  // run goes on, synchronously, and later steps of the same run read them back.
+  // Each write replaces the map, never edits it; a key written again keeps the
+  // place it was first recorded at.
+  const written = MutableRef.make<ReadonlyMap<string, RunWrittenEntry>>(
+    new Map(
+      restored.map((entry) => [entryOf(entry.bucket ?? UNATTRIBUTED_BUCKET, entry.key), entry])
+    )
   )
   const ofKey = (key: string): readonly RunWrittenEntry[] =>
-    [...written.values()].filter((entry) => entry.key === key)
+    [...MutableRef.get(written).values()].filter((entry) => entry.key === key)
   return {
-    record: (bucket, key, { carriesRunBytes }) => {
-      const at = typeof bucket === 'string' ? bucket : null
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- the run's ledger; see above
-      written.set(entryOf(bucket, key), { bucket: at, key, carriesRunBytes })
-    },
-    has: (bucket, key) => written.has(entryOf(bucket, key)),
-    hasRunBytes: (bucket, key) => written.get(entryOf(bucket, key))?.carriesRunBytes === true,
+    record: (bucket, key, { carriesRunBytes }) =>
+      MutableRef.update(
+        written,
+        (current) =>
+          new Map([
+            ...current,
+            [
+              entryOf(bucket, key),
+              { bucket: typeof bucket === 'string' ? bucket : null, key, carriesRunBytes },
+            ],
+          ])
+      ),
+    has: (bucket, key) => MutableRef.get(written).has(entryOf(bucket, key)),
+    hasRunBytes: (bucket, key) =>
+      MutableRef.get(written).get(entryOf(bucket, key))?.carriesRunBytes === true,
     keyHasRunBytes: (key) => {
       const held = ofKey(key)
       return held.length > 0 && held.every((entry) => entry.carriesRunBytes)
     },
-    forget: (key) => {
-      ofKey(key).forEach((entry) =>
-        // eslint-disable-next-line functional/immutable-data -- the run's ledger; see above
-        written.delete(entryOf(entry.bucket ?? UNATTRIBUTED_BUCKET, entry.key))
-      )
-    },
-    entries: () => [...written.values()],
+    forget: (key) =>
+      MutableRef.update(
+        written,
+        (current) => new Map([...current].filter(([, entry]) => entry.key !== key))
+      ),
+    entries: () => [...MutableRef.get(written).values()],
   }
 }
 

@@ -7,23 +7,24 @@
 
 import { Effect } from 'effect'
 import {
-  SearchCommandPalette,
+  searchCommandPalette,
   type RecordSearchScope,
-} from '@/application/use-cases/command-search'
+} from '@/application/use-cases/search/command-search'
 import { getUserAccessRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
-import { commandSearchResponseSchema } from '@/domain/models/api/command-search'
+import { decodeOrThrow } from '@/domain/kernel/config-parsing/decode'
+import { commandSearchResponseSchema } from '@/domain/models/api/search'
 import { tableLabelsFor } from '@/domain/models/app/auth/readable-name-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import { resolvePageReader, type PageReaderResolver } from '@/presentation/api/search/page-reader'
 import type { App } from '@/domain/models/app'
+import type { DomainServices } from '@/infrastructure/logging/request-effect'
 import type { Context, Hono } from 'hono'
 
 /**
@@ -90,7 +91,8 @@ const CACHE_HEADERS = { 'Cache-Control': CACHE_CONTROL, Vary: 'Cookie' } as cons
  * Three answers, because the palette returns two kinds of result with different
  * risk (see {@link RecordSearchScope}):
  *
- *  - no `auth` block            → unrestricted, as every other read surface;
+ *  - no `auth` block            → the tables that open `read` to everyone,
+ *    as every other read surface;
  *  - auth, but no session       → PAGES ONLY, and only the pages anyone may
  *    open. Not a 401: a public documentation search is served through this
  *    endpoint to anonymous readers. Records are simply out of scope;
@@ -101,23 +103,25 @@ const CACHE_HEADERS = { 'Cache-Control': CACHE_CONTROL, Vary: 'Cookie' } as cons
  * read primitive over the whole database: a query of `@gmail.com` would surface
  * values out of `read: ['admin']` tables, soft-deleted rows included.
  */
-const resolveRecordScope = async (c: Context, app: App): Promise<RecordSearchScope> => {
-  if (!app.auth) return { kind: 'unrestricted' }
-  const session = getSessionContext(c)
-  if (session?.userId === undefined) return { kind: 'pages-only' }
-  // The records route's own lookups: the account role, the groups she belongs
-  // to, and the roles her assignments give her (counted only on a table with
-  // row-level rules — see `tableEffectiveRoles`).
-  const [role, groups, accessRoles] = await runDomainPromise(
-    c,
-    Effect.all([
+const resolveRecordScope = (c: Context, app: App) =>
+  Effect.gen(function* (): Effect.fn.Return<
+    RecordSearchScope,
+    Effect.Error<ReturnType<typeof getUserRole>>,
+    DomainServices
+  > {
+    if (!app.auth) return { kind: 'unrestricted' }
+    const session = getSessionContext(c)
+    if (session?.userId === undefined) return { kind: 'pages-only' }
+    // The records route's own lookups: the account role, the groups she belongs
+    // to, and the roles her assignments give her (counted only on a table with
+    // row-level rules — see `tableEffectiveRoles`).
+    const [role, groups, accessRoles] = yield* Effect.all([
       getUserRole(session.userId),
       getUserGroups(session.userId),
       getUserAccessRoles(session.userId),
     ])
-  )
-  return { kind: 'scoped', reader: { userId: session.userId, role, groups, accessRoles } }
-}
+    return { kind: 'scoped', reader: { userId: session.userId, role, groups, accessRoles } }
+  })
 
 /**
  * A table's plural label in the app's default language, a readable name where
@@ -130,55 +134,60 @@ const tableLabelOf = (app: App, tableName: string): string => {
   return tableLabelsFor(table ?? { name: tableName }, translate).labelPlural
 }
 
-const buildSearchHandler =
-  (app: App, getSession: PageReaderResolver | undefined) =>
-  async (c: Context): Promise<Response> => {
-    const query = (c.req.query('q') ?? '').trim()
-    // Below the selectivity floor the honest answer is `200 []`, NOT `400`: a
-    // palette types into this endpoint character by character, and a 400
-    // mid-typing is an error state rendered for a user who has done nothing
-    // wrong. This also covers the empty-query case it replaces. Checked BEFORE
-    // the auth gate so a keystroke costs no session lookup.
-    if (query.length < MIN_QUERY_LENGTH) {
-      return c.json([], 200, CACHE_HEADERS)
-    }
-
-    const session = getSessionContext(c)
-    const scope = await resolveRecordScope(c, app)
-    // The PAGE half answers for the reader the router would see: their page
-    // corpus is filtered by the same `checkPageAccess` it applies on a visit.
-    const pageReader = await resolvePageReader(c, app, getSession)
-
-    const results = await runRequestEffect(
+const buildSearchHandler = (app: App, getSession: PageReaderResolver | undefined) => (c: Context) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
       c,
-      provideDomain(
-        c,
-        SearchCommandPalette(app, query, { userId: session?.userId, scope, pageReader })
-      )
-    )
+      Effect.gen(function* () {
+        const query = (c.req.query('q') ?? '').trim()
+        // Below the selectivity floor the honest answer is `200 []`, NOT `400`: a
+        // palette types into this endpoint character by character, and a 400
+        // mid-typing is an error state rendered for a user who has done nothing
+        // wrong. This also covers the empty-query case it replaces. Checked BEFORE
+        // the auth gate so a keystroke costs no session lookup.
+        if (query.length < MIN_QUERY_LENGTH) {
+          c.header('Cache-Control', CACHE_HEADERS['Cache-Control'])
+          c.header('Vary', CACHE_HEADERS.Vary)
+          return yield* respondWith(c, Effect.succeed([]), commandSearchResponseSchema)
+        }
 
-    // Shaped by the wire contract, each record naming its table as a person reads it.
-    const shaped = results.map((result) =>
-      result.tableName === undefined
-        ? result
-        : { ...result, tableLabel: tableLabelOf(app, result.tableName) }
+        const session = getSessionContext(c)
+        const scope = yield* resolveRecordScope(c, app)
+        // The PAGE half answers for the reader the router would see: their page
+        // corpus is filtered by the same `checkPageAccess` it applies on a visit.
+        const pageReader = yield* resolvePageReader(c, app, getSession)
+
+        const results = yield* searchCommandPalette(app, query, {
+          userId: session?.userId,
+          scope,
+          pageReader,
+        })
+
+        // Shaped by the wire contract, each record naming its table as a person reads it.
+        const shaped = results.map((result) =>
+          result.tableName === undefined
+            ? result
+            : { ...result, tableLabel: tableLabelOf(app, result.tableName) }
+        )
+        return c.json(decodeOrThrow(commandSearchResponseSchema)(shaped), 200, CACHE_HEADERS)
+      })
     )
-    return c.json(decodeOrThrow(commandSearchResponseSchema)(shaped), 200, CACHE_HEADERS)
-  }
+  )
 
 /**
  * Chain the command-palette search route onto a Hono app.
  *
  * **Authentication**: `authMiddleware` is applied to `/api/command-search` in
- * `api-routes.ts` when `app.auth` is configured. The endpoint stays reachable
+ * `middleware/api-auth-guards.ts` when `app.auth` is configured. The endpoint stays reachable
  * anonymously — the public documentation search depends on it — but the RECORD
  * half of the scan is scoped by the caller's read permissions, and is skipped
  * entirely for an anonymous caller. See `resolveRecordScope`.
  */
-export function chainCommandSearchRoutes<T extends Hono>(
-  honoApp: T,
+export function chainCommandSearchRoutes(
+  honoApp: Hono,
   app: App,
   getSession?: PageReaderResolver
-): T {
-  return honoApp.get('/api/command-search', buildSearchHandler(app, getSession)) as T
+): Hono {
+  return honoApp.get('/api/command-search', buildSearchHandler(app, getSession))
 }

@@ -36,7 +36,7 @@
  */
 
 import { Schema } from 'effect'
-import { uri } from '@/domain/models/api/combinators/formats'
+import { uri } from '@/domain/kernel/config-parsing/formats'
 import { reportAddressResponseSchema } from './report-address'
 
 /**
@@ -46,7 +46,7 @@ import { reportAddressResponseSchema } from './report-address'
 export const reportLatestResponseSchema = Schema.Struct({
   url: uri({
     description:
-      'The prefilled new-issue address for the most recent internal error kept that is Sovrium’s to fix — the address the request report read answers for `requestId`; opening it files nothing',
+      'The prefilled new-issue address for the most recent internal error kept that is Sovrium’s to fix: the address the request report read answers for `requestId`; opening it files nothing',
   }),
   requestId: Schema.String.annotate({
     description:

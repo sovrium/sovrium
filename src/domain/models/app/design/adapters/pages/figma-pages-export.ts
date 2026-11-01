@@ -38,6 +38,7 @@
  * translation key nor a binding expression.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   FIGMA_PAGE_DOCUMENT_FORMAT,
   type FigmaPageDocument,
@@ -72,8 +73,6 @@ export const FIGMA_VARIABLE_FILES = ['light.tokens.json', 'dark.tokens.json'] as
 export const figmaPagePathOf = (page: string): string => `${FIGMA_PAGES_DIR}/${page}.figma.json`
 
 type MapNode = PageNodeMap['pages'][number]['nodes'][number]
-type AnyRecord = Readonly<Record<string, unknown>>
-
 /** What an island draws: its column headers and the rows the synthetic seed gave it. */
 export interface FigmaIslandDrawing {
   readonly headers: readonly string[]
@@ -107,9 +106,6 @@ interface BoardContext {
   readonly breakpoint: string
   readonly order: readonly string[]
 }
-
-const isRecord = (value: unknown): value is AnyRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const BINDING = /\$([A-Za-z_]\w*(?:\.\w+)+)/g
 const VARIABLE = /\$([A-Za-z_]\w*)(?![.\w])/g

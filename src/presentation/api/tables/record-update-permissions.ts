@@ -6,13 +6,15 @@
  */
 
 import { Effect } from 'effect'
+import { judgeTableGrant } from '@/application/use-cases/tables/permissions/authorize-record-verbs'
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
-import { transformRecord } from '@/application/use-cases/tables/record-transformer'
-import { hasUpdatePermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
+import { unchangedRecordResponseSchema } from '@/domain/models/api/tables/tables'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
+import { transformRecord } from '@/domain/models/app/tables/record-transformer-service'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/runtime/field-permission-validator'
+import { shapedJson } from '@/presentation/api/runtime/run-effect'
 import { handleRouteError } from './error-handlers'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
@@ -30,8 +32,8 @@ import type { Context } from 'hono'
 const SYSTEM_PROTECTED_FIELDS = new Set(['user_id'])
 
 /**
- * Check if the caller has table-level update permission (using the pre-fetched
- * identity from middleware).
+ * The table-level update verdict (`judgeTableGrant`) for a table without
+ * row-level rules, mapped to the 404 on refusal.
  *
  * Takes the caller's EFFECTIVE ROLES — their global role plus a `group:<name>`
  * entry per membership — not a bare role, and evaluates them
@@ -47,27 +49,11 @@ export function checkTableUpdatePermissionWithRole(
   c: Context
 ): { allowed: true } | { allowed: false; response: Response } {
   const table = app.tables?.find((t) => t.name === tableName)
-
-  if (!hasUpdatePermissionForRoles(table, effectiveRoles, app)) {
-    // S1 anti-enumeration: authz denial returns 404 with a generic envelope.
-    // The pre-S1 code branched on `userRole === 'viewer'` to customise the
-    // error message; that branch is intentionally removed so the response
-    // shape stays uniform regardless of which role triggered the denial.
-    return {
-      allowed: false,
-      response: c.json(
-        {
-          success: false,
-          error: 'Not Found',
-          message: 'Resource not found',
-          code: 'NOT_FOUND',
-        },
-        404
-      ),
-    }
-  }
-
-  return { allowed: true }
+  const caller = { effectiveRoles, allTables: app, signedOut: false }
+  // S1 anti-enumeration: every refusal is the plain 404, whichever role asked.
+  return judgeTableGrant(table, 'write', caller)._tag === 'Allowed'
+    ? { allowed: true }
+    : { allowed: false, response: notFound(c) }
 }
 
 /**
@@ -145,7 +131,11 @@ export const noAllowedFieldsResponse = (config: {
       // filter every other record-bearing response uses.
       const caller = { role: userRole, groups: userGroups }
       const readable = filterReadableFields({ app, tableName, caller, record })
-      return c.json({ record: transformRecord(readable, { app, tableName }) }, 200)
+      return shapedJson(
+        c,
+        { record: transformRecord(readable, { app, tableName }) },
+        unchangedRecordResponseSchema
+      )
     },
   })
 }

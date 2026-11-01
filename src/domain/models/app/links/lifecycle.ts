@@ -95,7 +95,7 @@ export const LinkLifecycleSchema = Schema.Struct({
       Schema.annotate({
         title: 'Expired Destination',
         description:
-          'Where to send a visitor arriving at a dead link. Omit to answer 410 Gone instead — set it when the link is printed and cannot be recalled.',
+          'Where to send a visitor arriving at a dead link. Omit to answer 410 Gone instead. Set it when the link is printed and cannot be recalled.',
       })
     )
   ),

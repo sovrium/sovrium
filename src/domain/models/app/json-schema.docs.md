@@ -1,6 +1,6 @@
 # JSON Schema
 
-> The config schema published as a standard JSON Schema document — where it comes from, how to generate it, and which URL to point a pipeline at.
+> The config schema published as a standard JSON Schema document: where it comes from, how to generate it, and which URL to point a pipeline at.
 
 The app schema describes the complete structure of an application configuration. It is published as **JSON Schema Draft 2020-12**, derived directly from the canonical schema the server decodes with, so it cannot drift from what the binary actually accepts.
 
@@ -23,15 +23,15 @@ sovrium schema --output app.schema.json
 
 With no output path the document goes to stdout. It is self-contained, carrying a top-level `$schema` declaration, so any JSON-Schema-aware tool consumes it without further configuration.
 
-With an output path, three companions are written beside the file, named after it — for `--output schemas/app.json`:
+With an output path, three companions are written beside the file, named after it. For `--output schemas/app.json`:
 
-- `schemas/app.index.json` — the same schema, with each top-level key pointing at its own file. Equivalent to `app.json`.
-- `schemas/app/<key>.json` — the schema of one top-level key's value, equivalent to that key inside `app.json`. This is what describes a `$ref` partial holding one section, such as a `tables.yaml`.
-- `schemas/app/_defs.json` — the definitions the per-key files share, written once. Together the split files weigh about what `app.json` does.
+- `schemas/app.index.json`: the same schema, with each top-level key pointing at its own file. Equivalent to `app.json`.
+- `schemas/app/<key>.json`: the schema of one top-level key's value, equivalent to that key inside `app.json`. This is what describes a `$ref` partial holding one section, such as a `tables.yaml`.
+- `schemas/app/_defs.json`: the definitions the per-key files share, written once. Together the split files weigh about what `app.json` does.
 
 They reference each other by relative path and declare no `$id`, so a tool resolves them from disk rather than from the network. `app.json` itself is unchanged by them: byte-for-byte what stdout prints.
 
-It takes no input beyond the binary itself — no config file, no environment — so **regenerating it in CI and diffing the result makes any change a real schema change**. That is the cheap way to notice that an upgrade moved the contract under you.
+It takes no input beyond the binary itself (no config file, no environment), so **regenerating it in CI and diffing the result makes any change a real schema change**. That is the cheap way to notice that an upgrade moved the contract under you.
 
 ## The root properties
 
@@ -53,4 +53,4 @@ Replace the placeholder with the version `sovrium --version` prints. **A pinned 
 https://sovrium.com/schema/app.json
 ```
 
-Always the most recent version. Convenient in development, and able to introduce a breaking change without warning — which is the same property read twice, depending on whether a human or a pipeline is reading it.
+Always the most recent version. Convenient in development, and able to introduce a breaking change without warning, which is the same property read twice, depending on whether a human or a pipeline is reading it.

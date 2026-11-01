@@ -95,8 +95,9 @@ export const FORM_RUNTIME_SUBMIT_SCRIPT = `
     announceRecordWritten(result.body, response)
     applyOnSuccess(response)
     renderEditLink(result.body.editUrl)
-    // A success that stays: the focus is back on the submit, never on the page.
-    if (submitBtn && !successLeaves(result)) submitBtn.focus()
+    // A success that stays: the focus is back on the submit, never on the page;
+    // a success page took it to its own title.
+    if (submitBtn && !successLeaves(result) && onSuccess.type !== 'successPage') submitBtn.focus()
   }
   function responseOf(body) {
     return {

@@ -27,7 +27,7 @@
 import {
   resolveScopedMountApp,
   synthesiseMountSurface,
-} from '@/application/use-cases/mount/embedded-app-mount'
+} from '@/application/use-cases/admin/embedded-app-mount'
 import { setupMountedAppRoutes } from './mounted-app-routes'
 import type { HonoAppConfig } from '@/application/ports/contracts/hono-app-config'
 import type { Hono } from 'hono'

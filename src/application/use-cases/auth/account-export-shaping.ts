@@ -22,7 +22,7 @@ import type { EmailSuppressionEntry } from '@/application/ports/repositories/aut
  * Pure shaping of the rows the GDPR export reads into the entries of its
  * published contract (`accountExportResponseSchema`): every timestamp becomes
  * ISO 8601, and system columns become dedicated keys. Consumed by the export
- * use case (`use-cases/account.ts`), which assembles and validates the payload.
+ * use case (`use-cases/auth/account.ts`), which assembles and validates the payload.
  */
 
 /**

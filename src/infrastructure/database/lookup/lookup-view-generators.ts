@@ -7,22 +7,15 @@
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getViewFormulaLayers, buildLayeredViewSQL } from '../formula/view-formula-generators'
-import { aggregateSourceOf, type AggregateSource } from './lookup-aggregate-source'
+import { buildComputedSelectClause, buildForwardLookupJoins } from './lookup-computed-columns'
 import {
-  generateReverseLookupExpression,
-  generateManyToManyLookupExpression,
-  generateForwardLookupExpression,
-} from './lookup-expressions'
-import { readThroughSelfLookup } from './lookup-self-read'
-import {
-  compileRelationalFilter,
-  relatedAliasOf,
-  relationNameOf,
-  mapAggregationToSql,
-  getDefaultValueForAggregation,
-} from './lookup-view-helpers'
+  getBaseTableName,
+  isCountField,
+  isLookupField,
+  isRollupField,
+  shouldUseView,
+} from './lookup-field-kinds'
 import {
   getBaseFields,
   getUpdateBaseFields,
@@ -37,440 +30,25 @@ import {
   generateDeleteTriggerSqlite,
 } from './lookup-view-triggers'
 import type { Table } from '@/domain/models/app/tables'
-import type { Fields } from '@/domain/models/app/tables/fields'
-import type { ViewFilterNode } from '@/domain/models/app/tables/views/filters'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
-type LookupFieldInput = Fields[number] & {
-  readonly type: 'lookup'
-  readonly relationshipField: string
-  readonly relatedField: string
-  readonly filters?: ViewFilterNode
-}
-
-/**
- * Check if a field is a lookup field
- */
-const isLookupField = (field: Fields[number]): field is LookupFieldInput =>
-  field.type === 'lookup' &&
-  'relationshipField' in field &&
-  'relatedField' in field &&
-  typeof field.relationshipField === 'string' &&
-  typeof field.relatedField === 'string'
-
-/**
- * Check if a field is a rollup field
- */
-const isRollupField = (
-  field: Fields[number]
-): field is Fields[number] & {
-  type: 'rollup'
-  relationshipField: string
-  relatedField: string
-  aggregation: string
-  filters?: ViewFilterNode
-} =>
-  field.type === 'rollup' &&
-  'relationshipField' in field &&
-  'relatedField' in field &&
-  'aggregation' in field &&
-  typeof field.relationshipField === 'string' &&
-  typeof field.relatedField === 'string' &&
-  typeof field.aggregation === 'string'
-
-/**
- * Check if a field is a count field
- */
-const isCountField = (
-  field: Fields[number]
-): field is Fields[number] & {
-  type: 'count'
-  relationshipField: string
-  filters?: ViewFilterNode
-} =>
-  field.type === 'count' &&
-  'relationshipField' in field &&
-  typeof field.relationshipField === 'string'
-
-/**
- * Check if a table has any lookup fields
- */
-export const hasLookupFields = (table: Table): boolean =>
-  table.fields.some((field) => isLookupField(field))
-
-/**
- * Check if a table has any rollup fields
- */
-export const hasRollupFields = (table: Table): boolean =>
-  table.fields.some((field) => isRollupField(field))
-
-/**
- * Check if a table has any count fields
- */
-export const hasCountFields = (table: Table): boolean =>
-  table.fields.some((field) => isCountField(field))
-
-/**
- * The set of OTHER table names that a table's generated VIEW BODY reads from.
- *
- * A `lookup` field JOINs to its relationship's related table; a `rollup`/`count`
- * field subqueries `FROM <relatedTable>` (the VIEW name, not the base table).
- * When any of those related tables is ALSO view-backed, the referencing VIEW
- * must be created AFTER the referenced VIEW — on Postgres the referenced
- * relation must already exist at `CREATE VIEW` time, or schema-init fails with
- * `relation "<name>" does not exist`. This is the dependency signal used to
- * order view creation (see `sortTablesByViewDependencies`).
- *
- * Returns raw config table names (matching `table.name`), so callers can filter
- * against the view-backed set directly.
- */
-export const getViewBodyReferencedTables = (
-  table: Table,
-  allTables: readonly Table[]
-): ReadonlySet<string> => {
-  const referenced = table.fields.flatMap((field) => {
-    if (isRollupField(field) || isCountField(field) || isLookupField(field)) {
-      const relationshipFieldDef = table.fields.find((f) => f.name === field.relationshipField)
-      if (
-        relationshipFieldDef &&
-        relationshipFieldDef.type === 'relationship' &&
-        'relatedTable' in relationshipFieldDef &&
-        typeof relationshipFieldDef.relatedTable === 'string'
-      ) {
-        return [relationshipFieldDef.relatedTable]
-      }
-      // Reverse lookup: the FK lives on another table whose relationship field
-      // points back here — the view JOINs to that other table.
-      if (isLookupField(field)) {
-        const reverse = allTables.find(
-          (t) =>
-            t.name !== table.name &&
-            t.fields.some((f) => f.name === field.relationshipField && f.type === 'relationship')
-        )
-        return reverse ? [reverse.name] : []
-      }
-    }
-    return []
-  })
-  // A self-reference reads the base table (`relationFor`), not this view.
-  return new Set(referenced.filter((name) => name !== table.name))
-}
-
-/**
- * The relation a view body reads for a related table.
- *
- * A table's VIEW carries its computed columns and has the table's own name;
- * its stored rows live in `<name>_base`. A view that read ITSELF — a lookup
- * through a relationship to its own table, an org chart's manager — is
- * circularly defined (SQLite refuses it, PostgreSQL cannot create it), so a
- * self-reference reads the base table: the related row's stored columns are
- * all a lookup through it reads. Every other related table is read through
- * its view, as before.
- */
-const relationFor = (relatedTable: string, currentTable: string): string =>
-  sanitizeTableName(relatedTable) === sanitizeTableName(currentTable)
-    ? quoteSqlIdentifier(`${sanitizeTableName(relatedTable)}_base`)
-    : relationNameOf(relatedTable)
-
-/** Check if relationship field is many-to-many with valid related table */
-const isManyToMany = (field: Fields[number]): field is Fields[number] & { relatedTable: string } =>
-  'relationType' in field &&
-  field.relationType === 'many-to-many' &&
-  'relatedTable' in field &&
-  typeof field.relatedTable === 'string'
-
-/** Check if relationship field has valid related table */
-const hasRelatedTable = (
-  field: Fields[number]
-): field is Fields[number] & { relatedTable: string } =>
-  'relatedTable' in field && typeof field.relatedTable === 'string'
-
-/** The table holding a relationship field that points back at this one (a reverse lookup's key). */
-const findReverseLookupTable = (
-  relationshipField: string,
-  currentTableName: string,
-  allTables: readonly Table[]
-): string | undefined => {
-  const match = allTables
-    .filter((table) => sanitizeTableName(table.name) !== currentTableName)
-    .find((table) =>
-      table.fields.some((f) => f.name === relationshipField && f.type === 'relationship')
-    )
-  return match ? sanitizeTableName(match.name) : undefined
-}
-
-type LookupContext = {
-  readonly tableAlias: string
-  readonly allFields: readonly Fields[number][]
-  readonly actualTableName: string
-  readonly allTables: readonly Table[]
-}
-
-/** Generate lookup column expression for forward, reverse, and many-to-many lookups */
-const generateLookupExpression = (
-  lookupField: LookupFieldInput,
-  context: LookupContext
-): string => {
-  const { allFields, actualTableName, allTables } = context
-  const { name: lookupName, relationshipField, relatedField, filters } = lookupField
-  const relationshipFieldDef = allFields.find((f) => f.name === relationshipField)
-
-  // Reverse lookup (relationship field not in current table)
-  if (!relationshipFieldDef || relationshipFieldDef.type !== 'relationship') {
-    const relatedTable =
-      findReverseLookupTable(relationshipField, actualTableName, allTables) ?? actualTableName
-    return generateReverseLookupExpression({
-      lookupName,
-      relationshipField,
-      relatedField,
-      relatedTable,
-      filters,
-      ...context,
-    })
-  }
-
-  // Many-to-many lookup (via junction table)
-  if (isManyToMany(relationshipFieldDef)) {
-    return generateManyToManyLookupExpression({
-      lookupName,
-      relatedTable: relationshipFieldDef.relatedTable,
-      relationshipField,
-      relatedRelation: relationFor(relationshipFieldDef.relatedTable, actualTableName),
-      relatedField,
-      filters,
-      ...context,
-    })
-  }
-
-  // Forward lookup (many-to-one)
-  if (hasRelatedTable(relationshipFieldDef)) {
-    const throughSelf = readThroughSelfLookup(lookupField, relationshipFieldDef.relatedTable, {
-      actualTableName,
-      allFields,
-    })
-    if (throughSelf !== undefined) return throughSelf
-    return generateForwardLookupExpression({
-      lookupName,
-      relationshipField,
-      relatedTable: relationshipFieldDef.relatedTable,
-      relatedRelation: relationFor(relationshipFieldDef.relatedTable, actualTableName),
-      relatedField,
-      filters,
-      ...context,
-    })
-  }
-
-  // Fallback: NULL if relationship is invalid
-  return `NULL AS ${lookupName}`
-}
-
-/**
- * Inputs a `rollup` / `count` expression needs beyond its own field definition.
- *
- * `tableAlias` is what the emitted SQL joins against (`base`); `parentTableName`
- * is the CONFIG name of the table declaring the computed field, which is what
- * the child's relationship fields point back at. The two are not
- * interchangeable, and conflating them is how foreign-key inference silently
- * finds nothing.
- */
-interface ComputedFieldContext {
-  readonly tableAlias: string
-  readonly parentTableName: string
-  readonly allFields: readonly Fields[number][]
-  readonly allTables: readonly Table[]
-}
-
-/**
- * The related table a `rollup` / `count` reads, the alias it reads it under,
- * and the FROM / join conditions for its relationship's direction — or
- * `undefined` when the relationship field is missing or names no table.
- */
-const computedSourceOf = (
-  computedFieldName: string,
-  relationshipField: string,
-  context: ComputedFieldContext
-):
-  | { readonly relatedTable: string; readonly alias: string; readonly source: AggregateSource }
-  | undefined => {
-  const { parentTableName } = context
-  const def = context.allFields.find((f) => f.name === relationshipField)
-  if (!def || def.type !== 'relationship' || !hasRelatedTable(def)) return undefined
-  const { relatedTable } = def
-  const alias = relatedAliasOf(relatedTable, computedFieldName)
-  const source = aggregateSourceOf({
-    relationshipFieldDef: def as Readonly<Record<string, unknown>>,
-    relationshipFieldName: relationshipField,
-    relatedTable,
-    relatedRelation: relationFor(relatedTable, parentTableName),
-    alias,
-    computedFieldName,
-    tableAlias: context.tableAlias,
-    parentTableName,
-    allTables: context.allTables,
-  })
-  return { relatedTable, alias, source }
-}
-
-/**
- * Generate rollup column expression with aggregation
- */
-const generateRollupExpression = (
-  rollupField: Fields[number] & {
-    readonly type: 'rollup'
-    readonly relationshipField: string
-    readonly relatedField: string
-    readonly aggregation: string
-    readonly filters?: ViewFilterNode
-  },
-  context: ComputedFieldContext
-): string => {
-  const { name: rollupName, relationshipField, relatedField, aggregation, filters } = rollupField
-  const defaultValue = getDefaultValueForAggregation(aggregation)
-  const computed = computedSourceOf(rollupName, relationshipField, context)
-  if (computed === undefined) return `${defaultValue} AS ${rollupName}`
-  const { relatedTable, alias, source } = computed
-
-  const aggregationExpr = mapAggregationToSql(
-    aggregation,
-    `${alias}.${quoteSqlIdentifier(relatedField)}`
-  )
-  // Soft-deleted child rows must NOT contribute to the aggregate — a devoted /
-  // trashed related record is logically gone (soft-delete-by-default: every app
-  // table carries a `deleted_at` column). Without this, "un-voting" (soft-
-  // deleting a pain_vote) never lowers the pain's rollup.
-  const notDeleted = `${alias}.deleted_at IS NULL`
-  const filterCondition = compileRelationalFilter(filters, alias, {
-    allTables: context.allTables,
-    relatedTable,
-  })
-  const whereClause = [
-    ...source.where,
-    notDeleted,
-    ...(filterCondition ? [filterCondition] : []),
-  ].join(' AND ')
-
-  // Reads the related table's VIEW (created after every base table exists).
-  return `COALESCE(
-    (SELECT ${aggregationExpr}
-     FROM ${source.from}
-     WHERE ${whereClause}),
-    ${defaultValue}
-  ) AS ${rollupName}`
-}
-
-/**
- * Generate count column expression with optional filtering
- * Counts linked records from a relationship field, with optional conditions
- */
-const generateCountExpression = (
-  countField: Fields[number] & {
-    readonly type: 'count'
-    readonly relationshipField: string
-    readonly filters?: ViewFilterNode
-  },
-  context: ComputedFieldContext
-): string => {
-  const { name: countName, relationshipField, filters } = countField
-  // A count must reference a valid relationship field of the same table.
-  const computed = computedSourceOf(countName, relationshipField, context)
-  if (computed === undefined) return `0 AS ${countName}`
-  const { relatedTable, alias, source } = computed
-
-  // Soft-deleted child rows must NOT be counted — a devoted / trashed related
-  // record is logically gone (soft-delete-by-default: every app table carries a
-  // `deleted_at` column). Without this, un-voting never lowers the count.
-  const notDeleted = `${alias}.deleted_at IS NULL`
-
-  // An and / or group keeps its own meaning (an `or` is no longer read as AND).
-  const filterCondition = compileRelationalFilter(filters, alias, {
-    allTables: context.allTables,
-    relatedTable,
-  })
-
-  const whereConditions = [
-    ...source.where,
-    notDeleted,
-    ...(filterCondition ? [filterCondition] : []),
-  ]
-  const whereClause = whereConditions.join(' AND ')
-
-  // Use COALESCE to ensure 0 instead of NULL when no records match
-  return `COALESCE(
-    (SELECT COUNT(*)
-     FROM ${source.from}
-     WHERE ${whereClause}),
-    0
-  ) AS ${countName}`
-}
-
-/**
- * Build JOIN clauses for forward lookups (many-to-one only, not many-to-many)
- */
-const buildForwardLookupJoins = (
-  lookupFields: readonly LookupFieldInput[],
-  allFields: readonly Fields[number][],
-  currentTable: string
-): string => {
-  const forwardLookups = lookupFields.filter((field) => {
-    const relationshipFieldDef = allFields.find((f) => f.name === field.relationshipField)
-    return (
-      relationshipFieldDef &&
-      relationshipFieldDef.type === 'relationship' &&
-      'relatedTable' in relationshipFieldDef &&
-      'relationType' in relationshipFieldDef &&
-      relationshipFieldDef.relationType !== 'many-to-many'
-    )
-  })
-
-  return forwardLookups
-    .map((field) => {
-      const relationshipFieldDef = allFields.find((f) => f.name === field.relationshipField)
-      if (!relationshipFieldDef || relationshipFieldDef.type !== 'relationship') {
-        return ''
-      }
-      const { relatedTable } = relationshipFieldDef as { relatedTable: string }
-      const alias = relatedAliasOf(relatedTable, field.name)
-      // A linked record in the trash contributes nothing through a link to ONE
-      // record either, as through a link to many (`lookup-expressions.ts`).
-      return `LEFT JOIN ${relationFor(relatedTable, currentTable)} AS ${alias} ON ${alias}.id = base.${field.relationshipField} AND ${alias}.deleted_at IS NULL`
-    })
-    .filter((join) => join !== '')
-    .join('\n  ')
-}
-
-/**
- * The view's SELECT list: `base.*` plus one expression per computed field.
- *
- * `base.*` always leads so every stored column stays addressable; the computed
- * columns are appended in lookup / rollup / count order.
- */
-const buildComputedSelectClause = (table: Table, allTables: readonly Table[]): string => {
-  const lookupContext = {
-    tableAlias: 'base',
-    allFields: table.fields,
-    actualTableName: sanitizeTableName(table.name),
-    allTables,
-  } as const
-  const computedContext = {
-    tableAlias: 'base',
-    parentTableName: table.name,
-    allFields: table.fields,
-    allTables,
-  } as const
-
-  return [
-    'base.*',
-    ...table.fields.filter(isLookupField).map((f) => generateLookupExpression(f, lookupContext)),
-    ...table.fields.filter(isRollupField).map((f) => generateRollupExpression(f, computedContext)),
-    ...table.fields.filter(isCountField).map((f) => generateCountExpression(f, computedContext)),
-  ].join(',\n    ')
-}
+export {
+  getBaseTableName,
+  getPhysicalTableName,
+  getViewBodyReferencedTables,
+  shouldUseView,
+} from './lookup-field-kinds'
 
 /**
  * Generate CREATE VIEW statement for a table with lookup, rollup, and/or count fields
  * Replaces the base table with a VIEW that includes looked-up, aggregated, and counted columns
  * Returns empty string if table has no lookup, rollup, or count fields
  */
-export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] = []): string => {
+export const generateLookupViewSQL = (
+  table: Table,
+  allTables: readonly Table[],
+  dialect: DatabaseDialect
+): string => {
   const lookupFields = table.fields.filter(isLookupField)
   const rollupFields = table.fields.filter(isRollupField)
   const countFields = table.fields.filter(isCountField)
@@ -485,7 +63,7 @@ export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] 
   const joins = buildForwardLookupJoins(lookupFields, table.fields, table.name)
 
   // Computed (lookup/rollup/count) column SELECT list, over the base table.
-  const computedSelectClause = buildComputedSelectClause(table, allTables)
+  const computedSelectClause = buildComputedSelectClause(table, allTables, dialect)
 
   // Dialect-aware view-replacement keyword: PostgreSQL supports
   // `CREATE OR REPLACE VIEW`; SQLite has no `OR REPLACE`, so emit a plain
@@ -493,7 +71,7 @@ export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] 
   // engines: `reconcileViewTopology` drops every lookup view before the base
   // tables change (Postgres's OR REPLACE cannot drop or reorder a column), and
   // `createLookupViewsEffect` drops any survivor with `DROP VIEW IF EXISTS`.
-  const createView = isSqliteRuntime() ? 'CREATE VIEW' : 'CREATE OR REPLACE VIEW'
+  const createView = dialect === 'sqlite' ? 'CREATE VIEW' : 'CREATE OR REPLACE VIEW'
 
   const fromClause = `FROM ${quoteSqlIdentifier(`${sanitized}_base`)} AS base
   ${joins ? joins : ''}`
@@ -503,7 +81,7 @@ export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] 
   // sibling SELECT alias on Postgres, so the lookup/rollup/count computation is
   // wrapped in a CTE and each formula is layered on top (one CTE layer per
   // formula, in dependency order so formula-over-formula chains resolve).
-  const formulaLayers = getViewFormulaLayers(table.fields)
+  const formulaLayers = getViewFormulaLayers(table.fields, dialect)
 
   if (formulaLayers.length === 0) {
     // No view-computed formulas — keep the historical single-SELECT shape.
@@ -520,37 +98,6 @@ export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] 
     fromClause,
     formulaLayers,
   })
-}
-
-/**
- * Generate base table name for a table with lookup fields
- * The actual table is named {table}_base, and the VIEW is named {table}
- */
-export const getBaseTableName = (tableName: string): string => `${tableName}_base`
-
-/**
- * Check if a table should use a VIEW (has lookup, rollup, or count fields)
- */
-export const shouldUseView = (table: Table): boolean =>
-  hasLookupFields(table) || hasRollupFields(table) || hasCountFields(table)
-
-/**
- * The physical relation that holds a table's rows.
- *
- * A view-backed table (see {@link shouldUseView}) stores its rows in
- * `<name>_base` behind a `<name>` VIEW; every other table IS its own relation.
- * Every DDL statement that changes STORAGE — `ALTER TABLE`, a constraint, an
- * index, a trigger, a catalog probe — must address this name, never the config
- * name: `ALTER TABLE <view>` is not a statement any engine accepts, and reading
- * the view's columns would count its computed fields as stored ones.
- *
- * The config name stays the right key for everything the OPERATOR sees
- * (messages, the previous-schema snapshot, rename detection), because nothing
- * in the config says `_base`.
- */
-export const getPhysicalTableName = (table: Table): string => {
-  const sanitized = sanitizeTableName(table.name)
-  return shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
 }
 
 /**
@@ -575,7 +122,10 @@ export const getPhysicalTableName = (table: Table): string => {
  * rollup / count) and one-to-many / many-to-many relationship fields plus
  * `id` — the same exclusions apply on both dialects.
  */
-export const generateLookupViewTriggers = (table: Table): readonly string[] => {
+export const generateLookupViewTriggers = (
+  table: Table,
+  dialect: DatabaseDialect
+): readonly string[] => {
   if (!shouldUseView(table)) {
     return [] // No VIEW, no triggers needed
   }
@@ -591,17 +141,17 @@ export const generateLookupViewTriggers = (table: Table): readonly string[] => {
   // default, so there is nothing for the insert path to carry.
   const updateBaseFields = getUpdateBaseFields(table)
   // DEFAULT-bearing columns, the automatic created_at too, are COALESCE(NEW.col, <default>).
-  const createdAt = getInsertCreatedAtColumn(table)
-  const insertValues = [...getInsertValueExpressions(table), ...createdAt.values]
+  const createdAt = getInsertCreatedAtColumn(table, dialect)
+  const insertValues = [...getInsertValueExpressions(table, dialect), ...createdAt.values]
 
   // The INSERT trigger PRESERVES an explicitly-provided `id` (kept out of
   // getBaseFields — the UPDATE/DELETE triggers must never rewrite it — so it is
   // prepended only here). See getInsertIdExpression for the per-dialect,
   // per-primary-key-type semantics.
   const insertFields = ['id', ...baseFields, ...createdAt.fields]
-  const insertFieldValues = [getInsertIdExpression(table, baseTableName), ...insertValues]
+  const insertFieldValues = [getInsertIdExpression(table, baseTableName, dialect), ...insertValues]
 
-  if (isSqliteRuntime()) {
+  if (dialect === 'sqlite') {
     return [
       ...generateInsertTriggerSqlite(viewName, baseTableName, insertFields, insertFieldValues),
       ...generateUpdateTriggerSqlite(viewName, baseTableName, updateBaseFields),

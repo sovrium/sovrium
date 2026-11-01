@@ -14,6 +14,7 @@ import {
   type UserAccessFilter,
   type UserAccessRow,
 } from '@/application/ports/repositories/auth/user-access-repository'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { declaresWriteOnly } from '@/domain/models/app/tables/write-only-field-service'
 import type { App } from '@/domain/models/app'
 
@@ -39,7 +40,7 @@ export interface ReadableGrant {
  * record's name.
  */
 const labelSourceFor = (app: App, tableSlug: string): RecordLabelSource | undefined => {
-  const table = app.tables?.find((candidate) => candidate.name === tableSlug)
+  const table = findTableByName(app.tables, tableSlug)
   const field = table?.fields.find(
     (candidate) => candidate.type === 'single-line-text' && !declaresWriteOnly(candidate)
   )

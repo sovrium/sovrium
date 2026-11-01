@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { MAX_PAGE_SIZE } from '@/domain/models/api/combinators/common'
+import { MAX_PAGE_SIZE } from '@/domain/models/api/common'
 import type { Context } from 'hono'
 
 /**
@@ -13,7 +13,7 @@ import type { Context } from 'hono'
  *
  * ## The defect this closes
  *
- * `paginationSchema` (`domain/models/api/combinators/common.ts`) constrains the
+ * `paginationSchema` (`domain/models/api/common.ts`) constrains the
  * pagination block of the RESPONSE — `limit` an integer in `[1, 100]`,
  * `offset` a non-negative integer — while `parseListRecordsParams` handed the
  * client's value straight through as `Number(raw)`. Anything the response

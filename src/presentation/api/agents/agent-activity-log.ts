@@ -23,7 +23,8 @@
 
 import { Effect } from 'effect'
 import { recordAiActivity } from '@/application/use-cases/ai/record-ai-activity'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
+import { logError } from '@/infrastructure/logging/logger'
+import type { AiActivityLogRepository } from '@/application/ports/repositories/ai/ai-activity-log-repository'
 
 /**
  * A single agent-action entry to persist to the `activity_log` table.
@@ -44,16 +45,22 @@ export interface AgentActivityLogEntry {
  * Record an agent action in the activity log. Best-effort — any persistence
  * failure is swallowed so the agent runtime is unaffected.
  */
-export const recordAgentActivity = async (
-  services: DomainContext,
+export const recordAgentActivity = (
   entry: AgentActivityLogEntry
-): Promise<void> =>
-  Effect.runPromise(
-    recordAiActivity({
-      actorType: 'agent',
-      actorName: entry.actorName,
-      action: entry.action,
-      targetTable: entry.targetTable,
-      surface: entry.surface,
-    }).pipe(Effect.result, Effect.asVoid, Effect.provide(services))
+): Effect.Effect<void, never, AiActivityLogRepository> =>
+  recordAiActivity({
+    actorType: 'agent',
+    actorName: entry.actorName,
+    action: entry.action,
+    targetTable: entry.targetTable,
+    surface: entry.surface,
+  }).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => {
+        logError('[agents] activity log write failed', cause, { agent: entry.actorName })
+      })
+    ),
+    // effect-swallow: monitoring is best-effort, and a log write must not fail the agent's action.
+    Effect.result,
+    Effect.asVoid
   )

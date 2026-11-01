@@ -47,11 +47,13 @@ export const readServerBootInstant = (): Readonly<Date> => new Date(bootInstantM
  * conversation and a message are stamped with (`devTimelineInstant`).
  */
 export const onDevTimeline = (at: Readonly<Date> = new Date()): Date =>
-  new Date(devTimelineInstant(at, readSovriumDevClock(), new Date(bootInstantMs)).getTime())
+  new Date(
+    devTimelineInstant(at, readSovriumDevClock(process.env), new Date(bootInstantMs)).getTime()
+  )
 
 /**
  * A row's `createdAt` on a pinned host — `{}` otherwise, so the column's own
  * default keeps stamping it exactly as it always has.
  */
 export const devTimelineCreatedAt = (): { readonly createdAt?: Date } =>
-  readSovriumDevClock() === undefined ? {} : { createdAt: onDevTimeline() }
+  readSovriumDevClock(process.env) === undefined ? {} : { createdAt: onDevTimeline() }

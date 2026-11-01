@@ -37,6 +37,7 @@ import {
   type ReadStateCount,
   type UnreadParent,
 } from '@/domain/models/app/tables/read-state-service'
+import { findTableByIdOrName } from '@/domain/models/app/tables/table-lookup-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
@@ -203,8 +204,7 @@ export const countsOnRecord =
     )
 
 /** The table a request names, by id or by name. */
-const tableOf = (app: App, key: string): Table | undefined =>
-  app.tables?.find((table) => String(table.id) === key || table.name === key)
+const tableOf = (app: App, key: string): Table | undefined => findTableByIdOrName(app.tables, key)
 
 /**
  * Handle `POST /api/tables/:tableId/records/:recordId/read`.
@@ -224,12 +224,11 @@ export async function handleMarkRecordRead(c: Context, app: App): Promise<Respon
   ) {
     return NOT_FOUND_RESPONSE(c)
   }
-  const gateError = await checkRecordReadGate(c, app, table, recordId)
-  if (gateError) return gateError
-
   return runHandlerEffect(
     c,
     Effect.gen(function* () {
+      const gateError = yield* checkRecordReadGate(c, app, table, recordId)
+      if (gateError) return gateError
       const record = yield* rawGetRecordProgram(session, table.name, recordId, app).pipe(
         Effect.tapCause((cause) =>
           Effect.sync(() => logError('[read-state] parent unreadable; answering 404', cause))

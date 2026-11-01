@@ -47,7 +47,7 @@ A visitor who is not signed in has no rows of their own: a source naming the rea
 
 ## A second fetched level
 
-`childrenSource` on a group's `source` makes each fetched entry a disclosure: the entry stays a link to its own page, with a toggle beside it named `Expand {label}` and `Collapse {label}`, and its list is fetched the first time the reader opens it — never for a list nobody opened. The list opens on arrival when the reader is on the entry's own page.
+`childrenSource` on a group's `source` makes each fetched entry a disclosure: the entry stays a link to its own page, with a toggle beside it named `Expand {label}` and `Collapse {label}`, and its list is fetched the first time the reader opens it, never for a list nobody opened. The list opens on arrival when the reader is on the entry's own page.
 
 `childrenSource` takes the fields of an entry's `source`: `endpoint`, `rowsKey`, `query`, `labelKey`, `hrefTemplate`, `itemProps`, `activeMatch`, `loadingLabel`, `errorLabel`, `emptyLabel` and `loading`. Its `query` values speak the `{field}` grammar `hrefTemplate` does, filled from the **parent** row, so each entry lists its own children; every other placeholder reads the child row.
 

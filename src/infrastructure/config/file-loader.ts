@@ -76,7 +76,7 @@ const readRoot = async (
   }
 
   const content = standIn ?? (await file.text())
-  const parsed = format === 'json' ? parseJsonContent(content) : parseYamlContent(content)
+  const parsed = format === 'json' ? parseJsonContent(content) : parseYamlContent(content, Bun.YAML)
   return { format, absolutePath, parsed }
 }
 

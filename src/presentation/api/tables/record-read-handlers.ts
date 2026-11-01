@@ -14,8 +14,8 @@ import {
 import { viewGrantAdmits, type TableCaller } from '@/application/use-cases/tables/table-operations'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
-  listRecordsResponseSchema,
   getRecordResponseSchema,
+  listRecordsResponseSchema,
 } from '@/domain/models/api/tables/tables'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
@@ -44,6 +44,7 @@ import {
   checkGetReadGate,
   checkListReadGate,
   EMPTY_LIST_RESPONSE,
+  EMPTY_TRASH_RESPONSE,
   readRuleAdmits,
   NOT_FOUND_RESPONSE,
   type FilterStructure,
@@ -392,9 +393,7 @@ function trashAfterGuard(input: {
     // Zero rows, WITHOUT the `appliedQuery` key the list branch carries: the
     // trash branch ignores `?q=` entirely, so announcing a search contract it
     // does not honour would mislead the grid.
-    return Effect.succeed(
-      c.json({ records: [], pagination: { total: 0, limit: 0, offset: 0 } }, 200)
-    )
+    return Effect.succeed(EMPTY_TRASH_RESPONSE(c))
   }
 
   // Parse query parameters (sort, limit, offset)

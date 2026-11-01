@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { planSqliteDrops } from '../table-operations/sqlite-column-drop'
 import {
   planHandMadeReplay,
@@ -72,7 +71,7 @@ export const withLostHandMadeObjects = (params: {
   readonly change: TableChange
 }): Effect.Effect<TableChange, never> => {
   const { tx, table, source, drops, change } = params
-  if (!isSqliteRuntime() || change.kind !== 'recreate' || drops.length === 0) {
+  if (tx.dialect !== 'sqlite' || change.kind !== 'recreate' || drops.length === 0) {
     return Effect.succeed(change)
   }
   return readHandMadeObjects(tx, table, source).pipe(

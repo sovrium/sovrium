@@ -28,7 +28,7 @@ automations:
 
 `maxAttempts` accepts 1 to 10 and is required once the block is present. `delayMs` accepts 100 to 60000 and defaults to 1000. `strategy` defaults to `fixed`.
 
-**Only a failure a second try could fix is retried.** A network error, a timeout, and an answer of `408`, `429` or any `5xx` — from an `http` step or from a provider an `ai` step calls, such as the speech endpoint of `ai/transcribe` — are retried; any other `4xx` — a missing record, a refused credential, a malformed request — would fail the same way every time (as would a recording `ai/transcribe` refuses before sending it), so the step fails at once and the run ends `failed` rather than `exhausted`. When a `429` or `503` carries `Retry-After`, the next attempt waits at least that long, even when `delayMs` is shorter; a server asking for more than 30 seconds is not retried at all, since a run held open that long is worse than one that fails.
+**Only a failure a second try could fix is retried.** A network error, a timeout, and an answer of `408`, `429` or any `5xx` (from an `http` step or from a provider an `ai` step calls, such as the speech endpoint of `ai/transcribe`) are retried. Any other `4xx` (a missing record, a refused credential, a malformed request) would fail the same way every time (as would a recording `ai/transcribe` refuses before sending it), so the step fails at once and the run ends `failed` rather than `exhausted`. When a `429` or `503` carries `Retry-After`, the next attempt waits at least that long, even when `delayMs` is shorter; a server asking for more than 30 seconds is not retried at all, since a run held open that long is worse than one that fails.
 
 Prefer `exponential` against a dependency that might be down rather than merely slow: a fixed delay turns an outage into steady load against a service already struggling, and each attempt costs the same as the first.
 
@@ -40,11 +40,11 @@ Prefer `exponential` against a dependency that might be down rather than merely 
 | Action           | `action.timeout`       | Caps one step, with `retry` and `continueOnError` still applying |
 | Action, internal | `action.props.timeout` | A per-type fence, for instance on an HTTP call or a code step    |
 
-`automation.timeout` accepts 1000 to 3600000 milliseconds — up to one hour — and `action.timeout` accepts 1000 to 900000.
+`automation.timeout` accepts 1000 to 3600000 milliseconds (up to one hour), and `action.timeout` accepts 1000 to 900000.
 
 Without a `timeout`, a run gets **900000 milliseconds, fifteen minutes**. An operator changes that default for every automation of the instance with the `SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS` environment variable, which accepts the same range; an automation that sets its own `timeout` keeps it.
 
-The timeout counts only the time a run is **actually executing**. A run waiting for a concurrency slot has not started yet, and a run suspended on a human approval is not running: neither wait is counted. The run's `startedAt` is the moment it left the queue, and its `durationMs` measures from there — so a run that queued for a minute behind another and then worked for two seconds reports about two seconds.
+The timeout counts only the time a run is **actually executing**. A run waiting for a concurrency slot has not started yet, and a run suspended on a human approval is not running: neither wait is counted. The run's `startedAt` is the moment it left the queue, and its `durationMs` measures from there, so a run that queued for a minute behind another and then worked for two seconds reports about two seconds.
 
 A `timed-out` run is deliberately **distinct** from a `failed` one, so that duration and error can be told apart in a list of runs. It keeps the steps that finished before the timeout, with their output, and lists every action it never reached as `skipped`.
 
@@ -58,7 +58,7 @@ When the server starts, it closes the runs a previous process left `running` or 
 
 `continueOnError: true` on an action means its failure does not abort the run: the following actions still execute and the run finishes as `completed-with-errors`.
 
-It holds the same way for an action inside a `path` or a `loop`, at any depth: once its `retry` is spent, the failed action is recorded `failed` with its error, the next action of its path or item runs, and its container is not failed for it. The run still finishes as `completed-with-errors`, unless a stronger outcome — `failed`, `exhausted`, `timed-out`, `cancelled` — applies.
+It holds the same way for an action inside a `path` or a `loop`, at any depth: once its `retry` is spent, the failed action is recorded `failed` with its error, the next action of its path or item runs, and its container is not failed for it. The run still finishes as `completed-with-errors`, unless a stronger outcome (`failed`, `exhausted`, `timed-out`, `cancelled`) applies.
 
 ```yaml
 - name: bestEffortLog
@@ -68,7 +68,7 @@ It holds the same way for an action inside a `path` or a `loop`, at any depth: o
   props: { event: order.created, properties: { id: '{{trigger.data.id}}' } }
 ```
 
-Reach for it on a step whose failure genuinely does not change what should happen next — telemetry, a courtesy notification. A write that a later step reads is not such a step.
+Reach for it on a step whose failure genuinely does not change what should happen next, such as telemetry or a courtesy notification. A write that a later step reads is not such a step.
 
 ## The dead letter
 
@@ -82,7 +82,7 @@ Independently of any `automation-failure` handler you declare, Sovrium emails th
 
 **Who receives it:**
 
-- every account with an admin-tier role — `admin`, `admin-editor`, `admin-viewer`, `operator`, and a custom role that reaches the console — that is not banned, and has left **Automation alerts** on in its profile (`/_admin/profile`, Notifications). Every account starts with it on;
+- every account with an admin-tier role (`admin`, `admin-editor`, `admin-viewer`, `operator`, and a custom role that reaches the console) that is not banned, and has left **Automation alerts** on in its profile (`/_admin/profile`, Notifications). Every account starts with it on;
 - every address listed in `SOVRIUM_NOTIFY_TO`, a comma-separated list. It is the whole audience of an app with no `auth:` block, which has no accounts to email.
 
 An address that appears in both is emailed once. `SOVRIUM_NOTIFY_AUTOMATIONS=off` silences the alert for the whole instance; your `automation-failure` handlers still run.
@@ -97,30 +97,32 @@ The footer carries the app's version and the Sovrium version (`acme-ops v2.3.1 (
 
 The body's first sentence says the automation failed, and adds that it did so after using all of its retries only when a retry policy allowed more than one attempt and every one of them failed; a run with no retries to use is simply reported as failed. A run skipped because a connection it needs is not configured is not a failure and sends no email.
 
-A run that exceeded its `timeout` reads `Automation timed out: <name>` and says it timed out. The body names the automation, the error — shown as text, never interpreted as markup — and when it happened. The error is summarised before it is sent: its first line only, with a database's detail block removed except the column a duplicate key names, whose value is replaced (`Key (email)=(…)`), any password in a connection URL masked, and at most 200 characters. The full error stays in the run's history in the console. The email itself is headed with the app's name. When `BASE_URL` is set, it links to the console's automations catalogue, where a paused automation is resumed, and, in its footer, to the profile page where each operator switches the email off; without `BASE_URL` no link can be built, so the run id is printed instead.
+A run that exceeded its `timeout` reads `Automation timed out: <name>` and says it timed out. The body names the automation, the error (shown as text, never interpreted as markup) and when it happened. The error is summarised before it is sent: its first line only, with a database's detail block removed except the column a duplicate key names, whose value is replaced (`Key (email)=(…)`), any password in a connection URL masked, and at most 200 characters. The full error stays in the run's history in the console. The email itself is headed with the app's name. When `BASE_URL` is set, it links to the console's automations catalogue, where a paused automation is resumed, and, in its footer, to the profile page where each operator switches the email off; without `BASE_URL` no link can be built, so the run id is printed instead.
 
-A run the server stopped under reads `Automation interrupted: <name>`, and its error is `Interrupted: the server stopped during this run` — see _Runs interrupted by a restart_ in the runs article.
+A restart that interrupted runs sends ONE email, whose subject names the automations (`Automations interrupted: <name>, <name>`) and whose body gives each automation a line with how many of its runs were interrupted. Each closed run's error is `Interrupted: the server stopped during this run`. See _Runs interrupted by a restart_ in the runs article.
 
 A timed-out run is alerted but is still NOT passed to `automation-failure` handlers: a timeout is a question for whoever operates the instance, not a routine failure a workflow should react to.
 
 ### One email, then one summary an hour
 
-An automation that fails every minute does not send sixty emails an hour. Its first failure is emailed at once. Every further failure of that automation within the next hour is held back, and at the top of each hour, in the operator timezone (`SOVRIUM_TIMEZONE`), one summary email lists every automation with held-back failures: how many more times it failed, its last error, and — when a later run succeeded — the time it recovered, so nobody investigates a failure that has already fixed itself.
+An automation that fails every minute does not send sixty emails an hour. Its first failure is emailed at once. Every further failure of that automation within the next hour is held back, and at the top of each hour, in the operator timezone (`SOVRIUM_TIMEZONE`), one summary email lists every automation with held-back failures: how many more times it failed, its last error, and, when a later run succeeded, the time it recovered, so nobody investigates a failure that has already fixed itself.
 
 A failure more than an hour after the previous one of the same automation is emailed at once again. An hour with nothing held back sends no summary. The summary is not caught up after a restart: every automation in it already had its first failure emailed.
 
+The hold-back does not depend on the run history being written: when the database refuses writes (a full disk, a read-only file), the server still holds back an automation's further failures for the hour and counts them in the next summary.
+
 ### Pauses
 
-Pausing or resuming an automation from the console emails the same recipients, naming who did it and leaving that person out. With `SOVRIUM_AUTOMATION_AUTOPAUSE` set, the platform also pauses an automation after that many failures in a row, and emails the recipients to say so — see _Pausing an automation_ in the runs article.
+Pausing or resuming an automation from the console emails the same recipients, naming who did it and leaving that person out. With `SOVRIUM_AUTOMATION_AUTOPAUSE` set, the platform also pauses an automation after that many failures in a row, and emails the recipients to say so. See _Pausing an automation_ in the runs article.
 
 The alert is sent through the instance's SMTP settings (see the Email section of the environment reference). With no SMTP host set, it is logged rather than delivered.
 
 ## Partial failure and idempotent resume
 
-When a run fails mid-pipeline, the completed steps read `completed`, the failing step reads `failed`, and everything downstream reads `skipped`. Replaying runs only the steps the failure left `skipped` — the ones after the failed step. Neither a completed step nor the failed step runs again, so the replay is safe to press without auditing what the first attempt got through. A run that stopped on purpose — stopped by a filter, waiting for an approval, or refused one — left no step `skipped`, so its replay runs no step.
+When a run fails mid-pipeline, the completed steps read `completed`, the failing step reads `failed`, and everything downstream reads `skipped`. Replaying runs only the steps the failure left `skipped`: the ones after the failed step. Neither a completed step nor the failed step runs again, so the replay is safe to press without auditing what the first attempt got through. A run that stopped on purpose (stopped by a filter, waiting for an approval, or refused one) left no step `skipped`, so its replay runs no step.
 
 Replay creates a new run rather than mutating the original.
 
 ## Duplicate triggers
 
-A webhook trigger accepts a `deduplicationKey` — a template over the payload — and a `deduplicationWindow` in seconds, which together drop a duplicate run started by an identical payload. Paired with idempotent resume, that is what makes at-least-once delivery from an external sender safe to accept.
+A webhook trigger accepts a `deduplicationKey` (a template over the payload) and a `deduplicationWindow` in seconds, which together drop a duplicate run started by an identical payload. Paired with idempotent resume, that is what makes at-least-once delivery from an external sender safe to accept.

@@ -35,31 +35,26 @@ export const selectMode = (_text: string): Mode => 'byte'
 // 0x11D). Log/antilog tables make multiplication an addition of exponents.
 // ---------------------------------------------------------------------------
 
-const buildTables = (): { readonly exp: readonly number[]; readonly log: readonly number[] } => {
-  const exp = Array.from({ length: 512 }, () => 0)
-  const log = Array.from({ length: 256 }, () => 0)
-  // eslint-disable-next-line functional/no-let
-  let x = 1
-  // eslint-disable-next-line functional/no-loop-statements
-  for (let i = 0; i < 255; i++) {
-    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data
-    exp[i] = x
-    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data
-    log[x] = i
-    // eslint-disable-next-line functional/no-expression-statements
-    x <<= 1
+/** The next power of the generator α = 2: shift, reduced by the primitive polynomial. */
+const timesAlpha = (x: number): number => {
+  const shifted = x << 1
+  return shifted & 0x1_00 ? shifted ^ 0x1_1d : shifted
+}
 
-    if (x & 0x1_00) {
-      // eslint-disable-next-line functional/no-expression-statements
-      x ^= 0x1_1d
-    }
+/** α⁰ … α^(count-1), starting from `x`. */
+const powersFrom = (x: number, count: number): readonly number[] =>
+  count === 0 ? [] : [x, ...powersFrom(timesAlpha(x), count - 1)]
+
+const buildTables = (): { readonly exp: readonly number[]; readonly log: readonly number[] } => {
+  // The 255 distinct non-zero elements, each once (α is primitive).
+  const powers = powersFrom(1, 255)
+  const exponentOf = new Map(powers.map((value, exponent) => [value, exponent]))
+  return {
+    // Doubled past 255 so a sum of two logs indexes it without a modulo.
+    exp: Array.from({ length: 512 }, (_, i) => powers[i % 255] ?? 0),
+    // log(0) is undefined; it reads 0 and `gfMultiply` never asks for it.
+    log: Array.from({ length: 256 }, (_, value) => exponentOf.get(value) ?? 0),
   }
-  // eslint-disable-next-line functional/no-loop-statements
-  for (let i = 255; i < 512; i++) {
-    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data
-    exp[i] = exp[i - 255] ?? 0
-  }
-  return { exp, log }
 }
 
 const { exp: EXP, log: LOG } = buildTables()

@@ -21,15 +21,24 @@
  * So the reader is ONE shape — {@link CallerReader}, everything a read decision
  * reads about a person — and the decision is ONE function over it,
  * {@link callerTableGate}: the table's read grant over the roles that count on
- * that table ({@link effectiveRolesOnTable}), then its row-level read rule for
- * that reader. How the reader is gathered differs by runtime (a page has the
+ * that table ({@link effectiveRolesOnTable}) — judged by the one table-level
+ * read verdict every door asks ({@link judgeTableReadGrant}) — then its
+ * row-level read rule for that reader. How the reader is gathered differs by runtime (a page has the
  * session in hand, a use-case reads the account through its ports), so each
  * door builds it once per request; what it is, and what is decided from it,
  * does not differ.
  */
 
+import {
+  anonymousGrant,
+  servesNoAuthVisitor,
+} from '@/domain/models/app/auth/anonymous-grant-service'
 import { isGroupReference, toGroupReference } from '@/domain/models/app/auth/groups/group-reference'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import {
+  judgeTableReadGrant,
+  type ReadGrantTable,
+} from '@/domain/models/app/auth/table-read-grant-service'
 import {
   buildReadAccessPlan,
   CANONICAL_READ_POLICY,
@@ -39,6 +48,7 @@ import {
   type TableLike,
 } from './read-access-plan-service'
 import { visitorRowRule, type VisitorRowRule } from './visitor-row-rule-service'
+import { isWriteOnlyField } from './write-only-field-service'
 import type { CurrentUserContext } from './row-level-evaluator-service'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -123,9 +133,11 @@ export const tableReadPrincipal = (
  *    not signed in;
  *  - `open` — `rule` says whether a row is hers (`all` admits every row; a
  *    `check` is asked with her assignments), and `plan` names the columns she
- *    may not read. An app with no `auth` block is the full-access model: every
- *    row is admitted, and `plan` withholds only the write-only columns
- *    ({@link fullAccessReadPlan}) — absent for a table it does not declare.
+ *    may not read. An app with no `auth` block refuses a table that does not
+ *    open `read` to everyone (`anonymousGrant`); a table that does is the
+ *    full-access model: every row is admitted, and `plan` withholds only the
+ *    write-only columns ({@link fullAccessReadPlan}) — absent for a table it
+ *    does not declare.
  */
 export type CallerTableGate =
   | { readonly kind: 'refused' }
@@ -142,19 +154,55 @@ export const callerTableGate = (
 ): CallerTableGate => {
   const table = (app.tables ?? []).find((t) => t.name === tableName) as TableLike | undefined
   if (!app.auth) {
+    // A visitor holds only the tables that open `read` to everyone.
+    if (table !== undefined && servesNoAuthVisitor(app) && !anonymousGrant(table, 'read', app)) {
+      return { kind: 'refused' }
+    }
     const plan = table === undefined ? undefined : fullAccessReadPlan(app, table)
     return { kind: 'open', plan, rule: { kind: 'all' } }
   }
   if (table === undefined) return { kind: 'refused' }
-  const plan = buildReadAccessPlan({
-    app,
-    table,
-    principal: tableReadPrincipal(table, reader),
-    policy: CANONICAL_READ_POLICY,
-  })
-  if (!plan.allowed) return { kind: 'refused' }
+  const principal = tableReadPrincipal(table, reader)
+  const caller = { effectiveRoles: principal.effectiveRoles, signedOut: !principal.isAuthenticated }
+  if (judgeTableReadGrant(table as ReadGrantTable, caller, app)._tag !== 'Allowed') {
+    return { kind: 'refused' }
+  }
+  const plan = buildReadAccessPlan({ app, table, principal, policy: CANONICAL_READ_POLICY })
   const rule = visitorRowRule(table, reader)
   return rule.kind === 'none' ? { kind: 'refused' } : { kind: 'open', plan, rule }
+}
+
+/**
+ * May the visitor of an app with no `auth` block read `tableName`? Only a table
+ * that opens `read` to everyone ({@link callerTableGate}); a name the app does
+ * not declare, and the operator console mounted into an app, are not refused.
+ * Asked only of an app with no `auth` block.
+ */
+export const noAuthTableOpen = (app: App, tableName: string): boolean =>
+  callerTableGate(app, tableName, undefined).kind === 'open'
+
+/** {@link noAuthTableOpen}, and none of `fields` of it a write-only column, which no one reads. */
+export const noAuthColumnsReadable = (
+  app: App,
+  tableName: string,
+  fields: readonly string[]
+): boolean =>
+  noAuthTableOpen(app, tableName) && fields.every((f) => !isWriteOnlyField(app, tableName, f))
+
+/**
+ * The read plan of an app with no `auth` block for `table`: refused to its
+ * visitor when the table does not open `read` to everyone, else the
+ * full-access model ({@link fullAccessReadPlan}); `undefined` for a table the
+ * app does not declare.
+ */
+export const noAuthReadPlan = (
+  app: App,
+  table: TableLike | undefined
+): ReadAccessPlan | undefined => {
+  if (table === undefined) return undefined
+  if (noAuthTableOpen(app, table.name)) return fullAccessReadPlan(app, table)
+  const principal = tableReadPrincipal(table, undefined)
+  return buildReadAccessPlan({ app, table, principal, policy: CANONICAL_READ_POLICY })
 }
 
 /**

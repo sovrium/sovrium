@@ -41,11 +41,9 @@
  * options rather than the safe one.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { findMatchingFieldName } from '@/domain/models/app/tables/field-name-matching'
 import { isSystemFieldName } from '@/domain/models/app/tables/system-fields'
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
 
 /**
  * Every component in a parsed config, at any depth.

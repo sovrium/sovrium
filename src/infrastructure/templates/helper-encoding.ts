@@ -6,6 +6,7 @@
  */
 
 import Handlebars from 'handlebars'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { toStr } from './helper-coercion'
 
@@ -42,18 +43,6 @@ export const urlPath = (value: string): string => {
   }
   return segments.map((segment) => encodeURIComponent(segment)).join('/')
 }
-
-const HTML_ESCAPES: Readonly<Record<string, string>> = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;',
-}
-
-/** HTML-escape text: the five characters that can open markup or end an attribute. */
-export const escapeHtmlText = (text: string): string =>
-  text.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char] ?? char)
 
 /** A Handlebars `SafeString` (what `safeHtml` returns): markup already made safe. */
 const isSafeString = (value: unknown): value is { readonly toHTML: () => string } =>
@@ -96,7 +85,7 @@ export const escapeXmlText = (text: string): string =>
  */
 export const encodeValue = (value: unknown, encoding: ValueEncoding): string => {
   if (encoding === 'html')
-    return isSafeString(value) ? value.toHTML() : escapeHtmlText(toText(value))
+    return isSafeString(value) ? value.toHTML() : escapeHtmlAttribute(toText(value))
   // In XML even `safeHtml` output is text: markup from data never enters a part.
   if (encoding === 'xml') return escapeXmlText(toText(value))
   if (encoding === 'url') return encodeURIComponent(toText(value))

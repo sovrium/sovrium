@@ -11,6 +11,7 @@
  * blocks render their sub-lines with.
  */
 import { DateTime } from 'effect'
+import { DAY_MS } from '@/domain/kernel/time/durations'
 import type { ConsoleLanguage } from './operator-language'
 
 /**
@@ -137,8 +138,6 @@ export const formatStamp = (iso: string, timeZone: string): string => {
   const parts = DateTime.toParts(DateTime.makeZonedUnsafe(at.getTime(), { timeZone }))
   return `${parts.day} ${MONTHS[parts.month - 1] ?? '???'} ${pad2(parts.hour)}:${pad2(parts.minute)}`
 }
-
-const DAY_MS = 24 * 60 * 60 * 1000
 
 /**
  * How long the oldest of a set has waited, per console language. The console

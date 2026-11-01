@@ -135,25 +135,6 @@ export const computeGalleryOverlayClasses = (): string =>
   'invisible absolute inset-0 flex items-center justify-center gap-2 bg-foreground/60 text-xs text-background opacity-0 transition-opacity group-hover:visible group-hover:opacity-100'
 
 // ──────────────────────────────────────────────────────────────────────────────
-// EMPTY — base-nova's `Empty`, when no card is drawn
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * The empty gallery's parts: base-nova's `Empty` with its outline drawn
- * (`border` beside the root's `border-dashed`), `EmptyHeader`, `EmptyTitle`
- * and `EmptyDescription`. They repeat `display-default-classes.ts`'s strings,
- * which the unit test holds equal: importing that module costs the gallery
- * island a shared chunk of server-side display recipes it never draws.
- */
-export const GALLERY_EMPTY_CLASSES = {
-  root: 'flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl border-dashed p-6 text-center text-balance',
-  header: 'flex max-w-sm flex-col items-center gap-2',
-  title: 'text-sm font-medium tracking-tight',
-  description:
-    'text-sm/relaxed text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary',
-} as const
-
-// ──────────────────────────────────────────────────────────────────────────────
 // PAGER — the pagination footer and its numbered pages
 // ──────────────────────────────────────────────────────────────────────────────
 

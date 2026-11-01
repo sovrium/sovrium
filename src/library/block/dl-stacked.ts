@@ -5,14 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { appRegion } from '@/library/manifest/app-block-kit'
-import {
-  asComponent,
-  param,
-  PLACE_NOTE,
-  stringParam,
-  THEME_NOTE,
-} from '@/library/manifest/block-kit'
+import { appRegion } from '@/library/kit/app-block-kit'
+import { asComponent, param, PLACE_NOTE, stringParam, THEME_NOTE } from '@/library/kit/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** Short facts about one thing, laid out as a grid of term-over-value pairs. */

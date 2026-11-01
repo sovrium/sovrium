@@ -7,6 +7,7 @@
 
 import { APIError, getSessionFromCtx } from 'better-auth/api'
 import { isAdminTier } from '@/domain/models/app/auth/roles/role'
+import { presentsApiKey } from './api-key-admin-plane-guard'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles/role'
 import type { createAuthMiddleware } from 'better-auth/api'
 
@@ -26,7 +27,10 @@ type AuthMiddlewareCtx = Parameters<typeof createAuthMiddleware>[0] extends (
  * page's switches write them through `/update-user` — and also what lets ANY
  * signed-in account send them there.
  */
-const NOTIFICATION_PREFERENCE_FIELDS = ['notifyAutomationAlerts', 'notifyWeeklyDigest'] as const
+export const NOTIFICATION_PREFERENCE_FIELDS = [
+  'notifyAutomationAlerts',
+  'notifyWeeklyDigest',
+] as const
 
 /** `true` when the self-service body carries either preference at all. */
 const carriesPreference = (body: unknown): boolean => {
@@ -45,6 +49,13 @@ export const NOTIFICATION_PREFERENCE_ADDITIONAL_FIELDS = {
   notifyAutomationAlerts: { type: 'boolean', required: false, input: true, defaultValue: true },
   notifyWeeklyDigest: { type: 'boolean', required: false, input: true, defaultValue: true },
 } as const
+
+/** The one 400 a refused notification preference answers. */
+export const preferenceRefusal = (): APIError =>
+  new APIError('BAD_REQUEST', {
+    message:
+      'Notification preferences belong to the operator emails, which only admin-tier accounts receive.',
+  })
 
 /**
  * Refuse a notification preference written through `/update-user` by an account
@@ -69,7 +80,12 @@ export const NOTIFICATION_PREFERENCE_ADDITIONAL_FIELDS = {
  *
  * 400, like the language guard, and for its reason: the caller is writing their
  * OWN row, nothing is enumerable, and the refusal should read the same as the
- * neighbouring one — one vocabulary for "this door does not take that from you".
+ * neighbouring one — one vocabulary for "this door does not take that from you". *
+ * ─── AN API KEY ─────────────────────────────────────────────────────────────
+ *
+ * A request presenting an API key is refused the same 400, whoever owns the
+ * key: this hook runs before the key becomes a session, so it could not tell
+ * the owner's role, and a preference is the owner's to set while signed in.
  */
 export async function applyNotificationPreferenceGuard(
   ctx: AuthMiddlewareCtx,
@@ -77,6 +93,7 @@ export async function applyNotificationPreferenceGuard(
 ): Promise<void> {
   if (ctx.path !== '/update-user') return
   if (!carriesPreference(ctx.body)) return
+  if (presentsApiKey(ctx)) throw preferenceRefusal()
 
   const session = await getSessionFromCtx(ctx, { disableRefresh: true })
   // No session: `/update-user` answers 401 on its own, so let it.
@@ -84,8 +101,5 @@ export async function applyNotificationPreferenceGuard(
   const { role } = session.user as { readonly role?: string | null }
   if (typeof role === 'string' && isAdminTier(role, app)) return
 
-  throw new APIError('BAD_REQUEST', {
-    message:
-      'Notification preferences belong to the operator emails, which only admin-tier accounts receive.',
-  })
+  throw preferenceRefusal()
 }

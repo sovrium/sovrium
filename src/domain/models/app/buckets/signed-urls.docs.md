@@ -1,6 +1,6 @@
 # Signed URLs
 
-> A URL that carries its own authorisation — what the signature binds, which files need one at all, and who may mint one.
+> A URL that carries its own authorisation: what the signature binds, which files need one at all, and who may mint one.
 
 A private file cannot go in an image tag, be mailed to a customer, or be handed to a third-party renderer: none of those carry your session cookie. Making the bucket public to solve that trades a scoped problem for an unscoped one.
 
@@ -33,8 +33,8 @@ Everything outside those three carve-outs answers `404` to an anonymous request.
 | ------ | ------------------------------------- | ------------------------------------------------------------------ |
 | `POST` | `/api/buckets/{bucket}/sign`          | A session plus the `sign` / `signUpload` permission of the request |
 | `POST` | `/api/buckets/{bucket}/sign/batch`    | A session plus the `sign` / `signUpload` permission of each entry  |
-| `GET`  | `/api/buckets/{bucket}/signed?path=…` | None — the token **is** the credential                             |
-| `PUT`  | `/api/buckets/{bucket}/signed?path=…` | None — the token **is** the credential                             |
+| `GET`  | `/api/buckets/{bucket}/signed?path=…` | None: the token **is** the credential                              |
+| `PUT`  | `/api/buckets/{bucket}/signed?path=…` | None: the token **is** the credential                              |
 
 You mint against the signing route with a session, and the resulting URL points at the signed route, which needs nothing. That separation is exactly what makes the URL forwardable.
 
@@ -42,14 +42,14 @@ You mint against the signing route with a session, and the resulting URL points 
 
 Signing is gated by the bucket's `sign` and `signUpload` permissions.
 
-| Caller                                                       | Answer                                                      |
-| ------------------------------------------------------------ | ----------------------------------------------------------- |
-| No session                                                   | `401`, unless the permission is `all`                       |
-| A session whose role matches                                 | The signed URL                                              |
-| A session whose role does not                                | `404`, so the boundary itself stays invisible               |
-| An admin-equivalent role (`admin` or the app's highest role) | Always passes, whatever the permission says                 |
-| A bucket declaring no permissions                            | Admin-equivalent roles only — the default, and it is strict |
+| Caller                                                       | Answer                                                     |
+| ------------------------------------------------------------ | ---------------------------------------------------------- |
+| No session                                                   | `401`, unless the permission is `all`                      |
+| A session whose role matches                                 | The signed URL                                             |
+| A session whose role does not                                | `404`, so the boundary itself stays invisible              |
+| An admin-equivalent role (`admin` or the app's highest role) | Always passes, whatever the permission says                |
+| A bucket declaring no permissions                            | Admin-equivalent roles only: the default, and it is strict |
 
 **`sign: all` really does mean anyone.** The permission is evaluated before the session is required, so an anonymous caller asking a bucket whose `sign` (or `signUpload`) is `all` gets a signed URL, and that URL then works with no session. Every other value refuses an anonymous caller with `401`. Declare `all` only where minting URLs for the public is what you want.
 
-If you want files reachable with no session at all, that is a public bucket or a public path prefix — not a signing permission. The two look similar in the configuration and do entirely different things.
+If you want files reachable with no session at all, that is a public bucket or a public path prefix, not a signing permission. The two look similar in the configuration and do entirely different things.

@@ -32,7 +32,6 @@ export interface RunPagePressedAutomationOptions {
   /** The automation the page gate admitted (manual, page-bound, role checked). */
   readonly automation: Automation
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly triggerData: TriggerData
   /** The presser's id, from the session the page gate judged; `undefined` for a visitor. */
   readonly userId: string | undefined
@@ -92,7 +91,6 @@ export const runPagePressedAutomationWith =
   ({
     automation,
     app,
-    processEnv,
     triggerData,
     userId,
     press,
@@ -112,7 +110,6 @@ export const runPagePressedAutomationWith =
         // A press starts the manual entry; the gate admitted only an automation that has one.
         trigger: triggerOfTypeOrFirst(automation, 'manual'),
         app,
-        processEnv,
         triggerData,
         userId,
         ...pressStarterOf(app, userId),

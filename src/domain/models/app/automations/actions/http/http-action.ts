@@ -12,7 +12,6 @@ import { HttpPatchActionSchema } from './patch'
 import { HttpPostActionSchema } from './post'
 import { HttpPutActionSchema } from './put'
 import { HttpRequestActionSchema } from './request'
-import type { Action } from '..'
 
 /**
  * Union of all HTTP action variants. The general-purpose `request` operator
@@ -21,14 +20,13 @@ import type { Action } from '..'
  * carry tighter prop schemas (e.g. GET rejects `body` per HTTP semantics) so
  * config files surface misuse at decode time rather than at runtime.
  */
-export const HttpActionSchema: Schema.Codec<Action & { readonly type: 'http' }, unknown> =
-  Schema.Union([
-    HttpGetActionSchema,
-    HttpPostActionSchema,
-    HttpPutActionSchema,
-    HttpPatchActionSchema,
-    HttpDeleteActionSchema,
-    HttpRequestActionSchema,
-  ]) as Schema.Codec<Action & { readonly type: 'http' }, unknown>
+export const HttpActionSchema = Schema.Union([
+  HttpGetActionSchema,
+  HttpPostActionSchema,
+  HttpPutActionSchema,
+  HttpPatchActionSchema,
+  HttpDeleteActionSchema,
+  HttpRequestActionSchema,
+])
 /** @public */
 export type HttpAction = Schema.Schema.Type<typeof HttpActionSchema>

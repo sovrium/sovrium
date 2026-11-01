@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Layer } from 'effect'
 import {
   InvitationTokenDatabaseError,
   InvitationTokenRepository,
@@ -14,6 +13,7 @@ import {
   findInvitationToken,
   listPendingInvitations,
 } from '@/infrastructure/auth/better-auth/invitation-queries'
+import { layerOverDatabase } from '@/infrastructure/database/drizzle/layer'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
 /** Wrap a DB promise, adapting failures to `InvitationTokenDatabaseError`. */
@@ -30,7 +30,7 @@ const wrap = makeDbWrap((cause) => new InvitationTokenDatabaseError({ cause }))
  * This layer's job is to move the call across the layer boundary, not to own
  * the encoding.
  */
-export const InvitationTokenRepositoryLive = Layer.succeed(InvitationTokenRepository, {
-  findByToken: (token: string) => wrap(() => findInvitationToken(token)),
-  listPending: wrap(() => listPendingInvitations()),
+export const InvitationTokenRepositoryLive = layerOverDatabase(InvitationTokenRepository, {
+  findByToken: (db) => (token: string) => wrap(() => findInvitationToken(db, token)),
+  listPending: (db) => wrap(() => listPendingInvitations(db)),
 })

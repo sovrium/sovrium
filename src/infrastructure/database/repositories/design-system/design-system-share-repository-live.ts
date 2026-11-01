@@ -6,14 +6,17 @@
  */
 
 import { and, desc, eq, isNull } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   DesignSystemShareDatabaseError,
   DesignSystemShareRepository,
   type DesignSystemShareRecord,
-} from '@/application/ports/repositories/design-system/design-system-share-repository'
-import { db } from '@/infrastructure/database'
+} from '@/application/ports/repositories/design/design-system-share-repository'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { designSystemShares as designSystemSharesPg } from '@/infrastructure/database/drizzle/schema/design-system-shares'
 import { designSystemShares as designSystemSharesSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/design-system-shares'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -51,17 +54,19 @@ const decodeRow = (row: Readonly<Record<string, unknown>>): DesignSystemShareRec
   }
 }
 
-export const DesignSystemShareRepositoryLive = Layer.succeed(DesignSystemShareRepository, {
-  create: ({ appName, tokenHash, createdBy }) =>
-    wrap(async () => {
-      const [row] = await db
-        .insert(designSystemShares)
-        .values({ appName, tokenHash, ...(createdBy === undefined ? {} : { createdBy }) })
-        .returning()
-      return decodeRow((row ?? {}) as Record<string, unknown>)
-    }),
+const members: MembersOverDatabase<typeof DesignSystemShareRepository> = {
+  create:
+    (db) =>
+    ({ appName, tokenHash, createdBy }) =>
+      wrap(async () => {
+        const [row] = await db
+          .insert(designSystemShares)
+          .values({ appName, tokenHash, ...(createdBy === undefined ? {} : { createdBy }) })
+          .returning()
+        return decodeRow((row ?? {}) as Record<string, unknown>)
+      }),
 
-  listActive: (appName: string) =>
+  listActive: (db) => (appName: string) =>
     wrap(() =>
       db
         .select()
@@ -70,7 +75,7 @@ export const DesignSystemShareRepositoryLive = Layer.succeed(DesignSystemShareRe
         .orderBy(desc(designSystemShares.createdAt))
     ).pipe(Effect.map((rows) => rows.map((row) => decodeRow(row as Record<string, unknown>)))),
 
-  findActiveByTokenHash: (appName: string, tokenHash: string) =>
+  findActiveByTokenHash: (db) => (appName: string, tokenHash: string) =>
     wrap(() =>
       db
         .select()
@@ -89,7 +94,7 @@ export const DesignSystemShareRepositoryLive = Layer.succeed(DesignSystemShareRe
       )
     ),
 
-  revoke: (appName: string, id: string) =>
+  revoke: (db) => (appName: string, id: string) =>
     wrap(() =>
       db
         .update(designSystemShares)
@@ -106,4 +111,9 @@ export const DesignSystemShareRepositoryLive = Layer.succeed(DesignSystemShareRe
         )
         .returning()
     ).pipe(Effect.map((rows) => rows.length > 0)),
-})
+}
+
+export const DesignSystemShareRepositoryLive = layerOverDatabase(
+  DesignSystemShareRepository,
+  members
+)

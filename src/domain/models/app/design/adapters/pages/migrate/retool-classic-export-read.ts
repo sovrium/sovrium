@@ -5,10 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  isObject,
-  parseJson,
-} from '@/domain/models/app/design/adapters/import/canonical-tokens-service'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+import { parseJson } from '@/domain/models/app/design/adapters/import/canonical-tokens-service'
 import { MIGRATION_PAGE_FACTS } from './migrated-page-mapping'
 import {
   readToolScript,
@@ -147,7 +145,7 @@ const filesUnder = (entries: readonly RetoolExportEntry[], root: string): AppFil
 const checkVersion = (app: AppFiles): Failed | undefined => {
   const bytes = app.files.get('metadata.json')
   const metadata = bytes === undefined ? undefined : parseJson(textOf(bytes))
-  const version = isObject(metadata) ? metadata['toolscriptVersion'] : undefined
+  const version = isRecord(metadata) ? metadata['toolscriptVersion'] : undefined
   const known = TOOLSCRIPT_VERSIONS.join(', ')
   if (typeof version !== 'string') {
     return {
@@ -273,10 +271,10 @@ const finiteOr = (value: unknown, fallback: number): number =>
 const positionsOf = (app: AppFiles, file: string): RetoolPositions => {
   const bytes = app.files.get(file)
   const parsed = bytes === undefined ? undefined : parseJson(textOf(bytes))
-  if (!isObject(parsed)) return new Map()
+  if (!isRecord(parsed)) return new Map()
   return new Map(
     Object.entries(parsed).flatMap(([id, entry]) =>
-      isObject(entry)
+      isRecord(entry)
         ? [
             [
               id,

@@ -15,19 +15,18 @@
  */
 
 import { Effect } from 'effect'
-import { ListActivityGateRecords } from '@/application/use-cases/list-activity-logs'
+import { listActivityGateRecords } from '@/application/use-cases/activity/list-activity-logs'
 import { readerRowsOf, type ReaderRows } from '@/application/use-cases/tables/row-read-admission'
 import { admitsRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { singleRecordAddressRefusal } from '@/domain/models/app/tables/single-record-address'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { rowRuleHolds } from './record-read-gate'
 import {
+  guardForTable,
   projectReadPredicateClause,
   recordPassesPredicate,
-  resolveGuardForTable,
   type RowLevelGuardContext,
 } from './row-level-guard'
 import { checkGetReadGate } from './row-level-read-helpers'
@@ -101,18 +100,19 @@ function narrowToRows(plan: TablePlan, admission: ReaderRows['admission']): Tabl
 }
 
 /** One table's plan ({@link TablePlan}): read gate, rows the list admits, then the rule. */
-async function planTable(c: Context, app: App, table: Table): Promise<TablePlan> {
-  const { session, userRole, userGroups } = getTableContext(c)
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-  if (checkGetReadGate({ c, app, table, userRole, userGroups, guard })) return REFUSED
-  const reader = { session, role: userRole, groups: userGroups }
-  const rows = await runRequestEffect(c, provideDomain(c, readerRowsOf(app, table.name, reader)))
-  if (rows.admission.kind === 'no-row') return REFUSED
-  return narrowToRows(
-    rowRuleHolds(guard, table) ? planRule(app, table, guard) : ALL,
-    rows.admission
-  )
-}
+const planTable = (c: Context, app: App, table: Table) =>
+  Effect.gen(function* () {
+    const { session, userRole, userGroups } = getTableContext(c)
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
+    if (checkGetReadGate({ c, app, table, userRole, userGroups, guard })) return REFUSED
+    const reader = { session, role: userRole, groups: userGroups }
+    const rows = yield* readerRowsOf(app, table.name, reader)
+    if (rows.admission.kind === 'no-row') return REFUSED
+    return narrowToRows(
+      rowRuleHolds(guard, table) ? planRule(app, table, guard) : ALL,
+      rows.admission
+    )
+  })
 
 /**
  * The plan of every table named, keyed by name — one table after another, so
@@ -120,62 +120,67 @@ async function planTable(c: Context, app: App, table: Table): Promise<TablePlan>
  * BUDGET note in `tables-overview-repository-live.ts`). A name the app does
  * not declare is refused.
  */
-export const planTables = (
-  c: Context,
-  app: App,
-  tableNames: readonly string[]
-): Promise<ReadonlyMap<string, TablePlan>> =>
-  [...new Set(tableNames)].reduce<Promise<ReadonlyMap<string, TablePlan>>>(async (done, name) => {
-    const planned = await done
-    const table = app.tables?.find((t) => t.name === name)
-    const plan = table === undefined ? REFUSED : await planTable(c, app, table)
-    return new Map([...planned, [name, plan]])
-  }, Promise.resolve(new Map()))
+export const planTables = (c: Context, app: App, tableNames: readonly string[]) =>
+  Effect.map(
+    Effect.forEach([...new Set(tableNames)], (name) => {
+      const table = app.tables?.find((t) => t.name === name)
+      return Effect.map(
+        table === undefined ? Effect.succeed(REFUSED) : planTable(c, app, table),
+        (plan) => [name, plan] as const
+      )
+    }),
+    (plans): ReadonlyMap<string, TablePlan> => new Map(plans)
+  )
 
 /**
  * The live rows a gate judges, in one statement; none when the read fails —
  * the gate then admits nothing from them, as a failed record read refuses.
  */
-async function gateRecords(c: Context, query: LiveRecordsQuery): Promise<readonly Row[]> {
-  const result = await runRequestEffect(
-    c,
-    provideDomain(c, ListActivityGateRecords(query)).pipe(Effect.result)
+const gateRecords = (query: LiveRecordsQuery) =>
+  listActivityGateRecords(query).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError('[activity] gate records read failed', cause))
+    ),
+    // effect-swallow: a read that fails admits nothing from it, as a failed record read refuses.
+    Effect.orElseSucceed((): readonly Row[] => [])
   )
-  if (result._tag === 'Success') return result.success
-  logError('[activity] gate records read failed', result.failure)
-  return []
-}
 
 /** The ids of `rows`, as text — the form the activity log keeps them in. */
 const idsOf = (rows: readonly Row[]): readonly string[] => rows.map((row) => String(row.id))
 
 /** One table's admission to the activity list, from its plan. */
-export async function admissionOf(
-  c: Context,
-  tableName: string,
-  plan: TablePlan
-): Promise<readonly ActivityTableAdmission[]> {
-  if (plan.kind === 'refused') return []
-  if (plan.kind === 'all') return [{ tableName, rows: 'all' }]
-  if (plan.kind === 'rule') return [{ tableName, rows: 'rule', rule: plan.rule }]
-  const rows = await gateRecords(c, { tableName, recordIds: 'logged' })
-  return [{ tableName, rows: 'listed', recordIds: idsOf(rows.filter(plan.admits)) }]
-}
+export const admissionOf = (tableName: string, plan: TablePlan) =>
+  Effect.gen(function* () {
+    if (plan.kind === 'refused') return [] as readonly ActivityTableAdmission[]
+    if (plan.kind === 'all') {
+      return [{ tableName, rows: 'all' }] as readonly ActivityTableAdmission[]
+    }
+    if (plan.kind === 'rule') {
+      return [{ tableName, rows: 'rule', rule: plan.rule }] as readonly ActivityTableAdmission[]
+    }
+    const rows = yield* gateRecords({ tableName, recordIds: 'logged' })
+    const admitted: ActivityTableAdmission = {
+      tableName,
+      rows: 'listed',
+      recordIds: idsOf(rows.filter(plan.admits)),
+    }
+    return [admitted] as readonly ActivityTableAdmission[]
+  })
 
 /**
  * The record ids of `tableName` among `recordIds` the caller may read under
  * its plan — one statement for the table, however many records it names.
  */
-export async function readableRecordIds(
-  c: Context,
+export const readableRecordIds = (
   tableName: string,
   plan: TablePlan,
   recordIds: readonly string[]
-): Promise<ReadonlySet<string>> {
-  if (plan.kind === 'refused' || recordIds.length === 0) return new Set()
-  if (plan.kind === 'all') return new Set(recordIds)
-  if (plan.kind === 'rule') {
-    return new Set(idsOf(await gateRecords(c, { tableName, recordIds, rule: plan.rule })))
-  }
-  return new Set(idsOf((await gateRecords(c, { tableName, recordIds })).filter(plan.admits)))
-}
+) =>
+  Effect.gen(function* () {
+    if (plan.kind === 'refused' || recordIds.length === 0) return new Set<string>()
+    if (plan.kind === 'all') return new Set(recordIds)
+    if (plan.kind === 'rule') {
+      return new Set(idsOf(yield* gateRecords({ tableName, recordIds, rule: plan.rule })))
+    }
+    return new Set(idsOf((yield* gateRecords({ tableName, recordIds })).filter(plan.admits)))
+  })

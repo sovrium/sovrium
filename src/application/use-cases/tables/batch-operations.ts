@@ -12,7 +12,11 @@ import {
   type BatchValidationError,
 } from '@/application/ports/repositories/tables/batch-repository'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { type DatabaseError, ValidationError } from '@/domain/errors'
+import {
+  type BusinessRuleViolationError,
+  type DatabaseError,
+  ValidationError,
+} from '@/domain/errors'
 import { CONSTRAINT_MESSAGES } from '@/domain/errors/driver-failure'
 import { isGuestSession, SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import {
@@ -20,6 +24,7 @@ import {
   buildUpdateAuthorshipOverrides,
   buildCurrentUserDefaults,
 } from '@/domain/models/app/tables/authorship-fields'
+import { transformRecords } from '@/domain/models/app/tables/record-transformer-service'
 import { languageMergesIn } from '@/domain/models/app/tables/translatable-write-service'
 import { storedValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import { omitFromWriteEchoWhenReturned } from './hidden-lookup-omission'
@@ -31,7 +36,6 @@ import {
 import { getManyToManyFieldSpecs } from './many-to-many-fields'
 import { announceRecordWrites } from './record-change-announcement'
 import { splitManyToManyFields } from './record-link-enrichment'
-import { transformRecords, type TransformedRecord } from './record-transformer'
 import { refuseSelfLinkCycles } from './self-link-cycle-check'
 import { upsertLinkTargetWrite } from './upsert-link-target-write'
 import { stampUpsertRows } from './upsert-row-stamping'
@@ -39,9 +43,11 @@ import type { LinkReader } from './linked-row-visibility'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { InTransactionRuleJudge } from '@/application/ports/repositories/tables/in-transaction-rule-judge'
 import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type { BatchRestoreRecordsResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
+import type { TransformedRecord } from '@/domain/models/app/tables/record-transformer-service'
 
 /**
  * Judge every link the batch names before the batch writes anything, and answer
@@ -232,12 +238,14 @@ export function batchUpdateProgram(config: {
   readonly app?: App
   /** Whose read rules judge the rows the batch links to (none: existence only). */
   readonly linkReader?: LinkReader
+  /** The table's business rules, judged inside the write on the rows as they stand there. */
+  readonly judge?: InTransactionRuleJudge | undefined
 }): Effect.Effect<
   { readonly updated: number; readonly records?: readonly TransformedRecord[] },
-  TableReadError | ValidationError,
+  TableReadError | ValidationError | BusinessRuleViolationError,
   BatchRepository | TableRepository | DataSourceRepository | AuthRepository
 > {
-  const { session, tableName, recordsData, returnRecords = false, app, linkReader } = config
+  const { session, tableName, recordsData, returnRecords = false, app, linkReader, judge } = config
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
     const repo = yield* TableRepository
@@ -260,7 +268,7 @@ export function batchUpdateProgram(config: {
       tableName,
       recordsData.map((record) => record.fields ?? {})
     )
-    const updatedRecords = yield* batch.batchUpdate(session, tableName, dated, accounts)
+    const updatedRecords = yield* batch.batchUpdate(session, tableName, dated, { accounts, judge })
 
     // The records handed back hold no more than the writer's own read of them.
     const echoed = yield* omitFromWriteEchoWhenReturned(returnRecords, {
@@ -281,12 +289,17 @@ export function batchDeleteProgram(
   session: Readonly<UserSession>,
   tableName: string,
   ids: readonly string[],
-  options: { readonly permanent?: boolean; readonly app?: App } = {}
-): Effect.Effect<{ deleted: number }, DatabaseError, BatchRepository> {
-  const { permanent = false, app } = options
+  options: {
+    readonly permanent?: boolean
+    readonly app?: App
+    /** The table's business rules, judged inside the delete on the rows as they stand there. */
+    readonly judge?: InTransactionRuleJudge | undefined
+  } = {}
+): Effect.Effect<{ deleted: number }, DatabaseError | BusinessRuleViolationError, BatchRepository> {
+  const { permanent = false, app, judge } = options
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
-    const deletedCount = yield* batch.batchDelete(session, tableName, ids, permanent)
+    const deletedCount = yield* batch.batchDelete(session, tableName, ids, { permanent, judge })
     return {
       deleted: deletedCount,
     }
@@ -297,11 +310,12 @@ export function batchRestoreProgram(
   session: Readonly<UserSession>,
   tableName: string,
   ids: readonly string[],
-  app?: App
+  { app, judge }: { readonly app?: App; readonly judge?: InTransactionRuleJudge | undefined } = {}
 ): Effect.Effect<BatchRestoreRecordsResponse, BatchRestoreError, BatchRepository> {
+  // `judge`: the table's business rules, judged inside the restore on the trashed rows.
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
-    const restored = yield* batch.batchRestore(session, tableName, ids)
+    const restored = yield* batch.batchRestore(session, tableName, ids, { judge })
     return {
       success: true as const,
       restored,
@@ -345,6 +359,7 @@ export function upsertProgram(
     readonly app?: App
     /** Whose read rules judge the rows the upsert links to (none: existence only). */
     readonly linkReader?: LinkReader
+    readonly judge?: InTransactionRuleJudge | undefined // the rules, judged on every row
   }
 ): Effect.Effect<
   {
@@ -352,7 +367,7 @@ export function upsertProgram(
     readonly created: number
     readonly updated: number
   },
-  TableReadError | ValidationError | BatchValidationError,
+  TableReadError | ValidationError | BatchValidationError | BusinessRuleViolationError,
   BatchRepository | TableRepository | DataSourceRepository | AuthRepository
 > {
   return Effect.gen(function* () {
@@ -371,6 +386,7 @@ export function upsertProgram(
       insertOnlyFields,
       hiddenIds: params.hiddenIds ?? [],
       accounts: namedAccounts(app, tableName, recordsData),
+      judge: params.judge,
     })
 
     // The records handed back hold no more than the writer's own read of them.

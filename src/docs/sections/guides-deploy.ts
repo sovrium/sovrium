@@ -14,10 +14,10 @@ import { defineArticle, defineSection } from './define'
 /**
  * Guides: deploy — the section manifest.
  *
- * Four ways to get a Sovrium app into production: the container, the binary as
- * a service, a managed platform, and the app beside its database. They share
- * `src/docs/guides/` with the other guide sections; see `guides-build.ts`
- * for why the directory and the section are different decisions.
+ * Why the guide sections share one directory:
+ * `[internal ref]`, § `the four guides-* sections`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const section = defineSection({
   slug: 'guides-deploy',

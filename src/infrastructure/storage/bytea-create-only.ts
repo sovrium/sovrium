@@ -7,48 +7,62 @@
 
 import { sql } from 'drizzle-orm'
 import { uploadTargetParts } from '@/application/ports/services/storage-service'
-import { db } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import { withPromiseTransaction } from '@/infrastructure/database/transaction'
 import { bucketColumnValue, pinnedCreatedAtSql } from './bytea-adapter'
 import type { UploadTarget } from '@/application/ports/services/storage-service'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Effect } from 'effect'
 
 /**
- * `byteaUpload` that replaces nothing: the catalog row is inserted with
+ * `byteaUploadIn` that replaces nothing: the catalog row is inserted with
  * `ON CONFLICT DO NOTHING`, and its payload only when the row was new. `taken`
  * when a row is already recorded at `key`, whoever's: its row and its bytes are
  * left as they were. The row and its payload are one transaction: a payload
  * that cannot be written leaves no row behind, so the key is not left held by
- * a file with no bytes.
+ * a file with no bytes. A driver call (`DriverCall`): the failure stays the
+ * driver's own, for the caller to map.
  */
-export const byteaUploadCreateOnly = async (
-  key: string,
-  content: Uint8Array,
-  mimeType: string,
-  target: UploadTarget
-): Promise<'written' | 'taken'> => {
-  const { bucket, uploadedById, generatedBy } = uploadTargetParts(target)
-  const filename = key.split('/').at(-1) ?? key
-  const pinned = pinnedCreatedAtSql()
-  return db.transaction(async (tx) => {
-    const inserted = await executeRaw(
-      tx,
-      sql`
+export const byteaUploadCreateOnlyIn =
+  (client: PortableDb) =>
+  (
+    key: string,
+    content: Uint8Array,
+    mimeType: string,
+    target: UploadTarget
+  ): Effect.Effect<'written' | 'taken', unknown> => {
+    const { bucket, uploadedById, generatedBy } = uploadTargetParts(target)
+    const filename = key.split('/').at(-1) ?? key
+    const pinned = pinnedCreatedAtSql()
+    return withPromiseTransaction(
+      client,
+      async (tx) => {
+        const inserted = await executeRawOn(
+          'postgres',
+          tx,
+          sql`
         INSERT INTO system.file_storage_metadata
           (key, filename, mime_type, size, storage_provider, bucket, uploaded_by_id, generated_by${pinned.column})
         VALUES (${key}, ${filename}, ${mimeType}, ${content.length}, 'bytea', ${bucketColumnValue(bucket)}, ${uploadedById ?? null}, ${generatedBy ?? null}${pinned.value})
         ON CONFLICT (key) DO NOTHING
         RETURNING id
       `
-    )
-    const row = inserted[0] as { id: string } | undefined
-    if (row === undefined) return 'taken' as const
-    await executeRaw(
-      tx,
-      sql`
+        )
+        const row = inserted[0] as { id: string } | undefined
+        if (row === undefined) return 'taken' as const
+        await executeRawOn(
+          'postgres',
+          tx,
+          sql`
         INSERT INTO system.file_storage_bytea (metadata_id, content)
         VALUES (${row.id}, ${Buffer.from(content)})
       `
+        )
+        return 'written' as const
+      },
+      passThrough
     )
-    return 'written' as const
-  })
-}
+  }
+
+/** The driver's own failure, unchanged: `attemptStorage` maps it. */
+const passThrough = (cause: unknown): unknown => cause

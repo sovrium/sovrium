@@ -123,3 +123,41 @@ export const groupSubmissionAnswers = (
   })
   return { ...loose, ...Object.fromEntries(sections) }
 }
+
+/** How many answers a preview carries, and how long each value runs before it is cut. */
+const PREVIEW_ANSWERS = 3
+const PREVIEW_VALUE_LENGTH = 40
+
+/** The value a masked preview shows in place of every answer. */
+export const MASKED_ANSWER = '•••'
+
+/**
+ * A one-line preview of a submission: the form's first three answer-carrying
+ * questions in declaration order, as `Label: value · Label: value`, each value
+ * cut to 40 characters with an ellipsis. With no `body` (the answers are not
+ * revealed) every value reads {@link MASKED_ANSWER}, so the preview carries the
+ * form's own labels and nothing that was submitted. `undefined` when the form
+ * asks no question.
+ */
+export const answersPreviewOf = (
+  form: AnswerForm,
+  body: Readonly<Record<string, unknown>> | undefined,
+  words: AnswerWords
+): string | undefined => {
+  const parts = form.fields
+    .flatMap((field) => {
+      const key = answerKey(field)
+      return key === undefined ? [] : [{ field, key }]
+    })
+    .slice(0, PREVIEW_ANSWERS)
+    .map(({ field, key }) => {
+      const label =
+        field.label === undefined ? words.readableName(key) : words.translate(field.label)
+      if (body === undefined) return `${label}: ${MASKED_ANSWER}`
+      const value = key in body ? answerText(body[key], field, words) : ''
+      const cut =
+        value.length > PREVIEW_VALUE_LENGTH ? `${value.slice(0, PREVIEW_VALUE_LENGTH)}…` : value
+      return `${label}: ${cut}`
+    })
+  return parts.length === 0 ? undefined : parts.join(' · ')
+}

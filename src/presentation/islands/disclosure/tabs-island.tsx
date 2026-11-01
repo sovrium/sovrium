@@ -67,21 +67,20 @@ interface TabsIslandProps {
    * This host's server-rendered subtree, captured by `island-client.tsx` before
    * `createRoot` discarded it — the host opts in with `data-island-ssr="true"`.
    *
-   * It carries the panel the URL addressed, which is the one panel no longer
-   * serialised into the island props. Absent on a tab set whose addressed panel
-   * had no body to render, where the SSR half was a skeleton and there is
-   * nothing to adopt.
+   * It carries the panels' markup, which the island props no longer do: the
+   * open panel as markup, and, unless the tab set is an address, every unopened
+   * one as an inert `<template>`. Absent when no panel had a body to render,
+   * where the SSR half was a skeleton and there is nothing to adopt.
    */
   readonly ssrHtml?: string
   /**
    * The DECLARED `page.query` property this tab set's `defaultTab` binds to —
    * present only on a tab set the author made an ADDRESS.
    *
-   * Its presence is what turns fetch-on-activation on: the server has dropped
-   * every panel's markup from {@link TabItem.content}, so opening one asks the
-   * page for it at that address. Absent on every other
-   * tab set, where all the markup travels as it always did and switching stays
-   * instant and offline-safe.
+   * Its presence is what turns fetch-on-activation on: the response carries no
+   * unopened panel's markup, so opening one asks the page for it at that
+   * address. Absent on every other tab set, whose unopened panels travel in
+   * the host's templates, so switching stays instant and offline-safe.
    */
   readonly lazyParam?: string
 }
@@ -135,8 +134,8 @@ const partClasses = (
  * `ssrPanels` is parsed ONCE per mount: the captured subtree is a string of a
  * size the page has already paid for, and re-parsing it on every tab switch
  * would buy nothing. Each panel then takes the props' copy of its markup when
- * there is one, and the document's otherwise — which is where the panel the URL
- * addressed now lives, and nowhere else.
+ * there is one, and the document's otherwise — which is where a served page's
+ * panels now live, and nowhere else.
  */
 
 /**

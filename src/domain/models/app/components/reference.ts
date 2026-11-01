@@ -158,7 +158,7 @@ const referenceChildrenField = (children: ComponentReferenceChildrenSchema) =>
   Schema.optional(
     children.annotate({
       description:
-        "The page's own components for the template's slot. The template marks the slot by writing `children: $children` on one of its nodes; these components fill it, read in the page's scope — the page's record, `$t:` keys and visibility rules — and never receive the template's `vars`. A template with no slot refuses them.",
+        "The page's own components for the template's slot. The template marks the slot by writing `children: $children` on one of its nodes; these components fill it, read in the page's scope (the page's record, `$t:` keys and visibility rules), and never receive the template's `vars`. A template with no slot refuses them.",
     })
   )
 

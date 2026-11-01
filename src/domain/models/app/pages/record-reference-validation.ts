@@ -5,11 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { recordFieldRefsIn } from '@/domain/models/app/pages/substitute-record-vars'
 import { boundNodesOf, describeNode } from './record-binding-walk'
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 // ---------------------------------------------------------------------------
 // 14. `$record.<field>` requires a record-binding ancestor

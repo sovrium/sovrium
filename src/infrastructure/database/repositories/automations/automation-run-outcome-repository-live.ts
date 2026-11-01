@@ -6,7 +6,6 @@
  */
 
 import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AutomationRunOutcomeDatabaseError,
   AutomationRunOutcomeRepository,
@@ -18,8 +17,11 @@ import {
   STREAK_TERMINAL_RUN_STATUSES,
   type FinalFailure,
 } from '@/domain/models/app/automations/automation-run-outcome-service'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   automationDefinitions as automationDefinitionsPg,
   automationDelayedSteps as automationDelayedStepsPg,
@@ -31,6 +33,7 @@ import {
   automationRuns as automationRunsSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const automationDefinitions = resolveDialectSchema(
   automationDefinitionsPg,
@@ -61,7 +64,7 @@ const predates = (instant: Readonly<Date>) => lt(automationRuns.createdAt, insta
  * Inert today — nothing writes `automation_delayed_steps` — and kept for the
  * day delayed steps are resumed from the database (see the port).
  */
-const resumableRunIds = () =>
+const resumableRunIds = (db: PortableDb) =>
   db
     .select({ runId: automationDelayedSteps.runId })
     .from(automationDelayedSteps)
@@ -75,8 +78,8 @@ const startedAfterInstant = (instant: Readonly<Date>) =>
   )
 
 /** Close the orphaned rows and return their ids with their automation id. */
-const closeOrphans = async (startedBefore: Readonly<Date>, error: string) => {
-  const resumable = resumableRunIds()
+const closeOrphans = async (db: PortableDb, startedBefore: Readonly<Date>, error: string) => {
+  const resumable = resumableRunIds(db)
   return (await db
     .update(automationRuns)
     .set({ status: 'failed', error, completedAt: new Date() })
@@ -95,6 +98,7 @@ const closeOrphans = async (startedBefore: Readonly<Date>, error: string) => {
 
 /** Name each closed run by its definition, in one read. */
 const nameClosedRuns = async (
+  db: PortableDb,
   closed: ReadonlyArray<{ readonly id: string; readonly automationId: string }>
 ) => {
   if (closed.length === 0) return []
@@ -124,6 +128,7 @@ const startOf = (row: {
 
 /** Close one stuck run, unless it finished meanwhile; answers whether it was closed. */
 const closeStuckRun = async (
+  db: PortableDb,
   run: { readonly id: string; readonly start: Readonly<Date> },
   error: string,
   now: Readonly<Date>
@@ -142,14 +147,17 @@ const closeStuckRun = async (
 }
 
 /** Find the `running` rows past their automation's cutoff, then close each one. */
-const closeStuckRuns = async (input: {
-  readonly cutoffs: ReadonlyArray<{
-    readonly automationName: string
-    readonly startedBefore: Readonly<Date>
-  }>
-  readonly defaultStartedBefore: Readonly<Date>
-  readonly error: string
-}) => {
+const closeStuckRuns = async (
+  db: PortableDb,
+  input: {
+    readonly cutoffs: ReadonlyArray<{
+      readonly automationName: string
+      readonly startedBefore: Readonly<Date>
+    }>
+    readonly defaultStartedBefore: Readonly<Date>
+    readonly error: string
+  }
+) => {
   const rows = await db
     .select({
       id: automationRuns.id,
@@ -160,7 +168,7 @@ const closeStuckRuns = async (input: {
     .from(automationRuns)
     .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
     .where(
-      and(eq(automationRuns.status, 'running'), notInArray(automationRuns.id, resumableRunIds()))
+      and(eq(automationRuns.status, 'running'), notInArray(automationRuns.id, resumableRunIds(db)))
     )
   const cutoffByName = new Map(
     input.cutoffs.map((cutoff) => [cutoff.automationName, cutoff.startedBefore.getTime()])
@@ -178,7 +186,7 @@ const closeStuckRuns = async (input: {
   const closed = await stuck.reduce<Promise<ReadonlyArray<(typeof stuck)[number]>>>(
     async (previous, run) => {
       const done = await previous
-      return (await closeStuckRun(run, input.error, now)) ? [...done, run] : done
+      return (await closeStuckRun(db, run, input.error, now)) ? [...done, run] : done
     },
     Promise.resolve([])
   )
@@ -195,7 +203,7 @@ const countWhere = (condition: ReturnType<typeof and>) =>
   sql<unknown>`sum(case when ${condition} then 1 else 0 end)`
 
 /** Group the window's runs by automation, in the database. */
-const tallyRuns = async (from: Readonly<Date>, to: Readonly<Date>) => {
+const tallyRuns = async (db: PortableDb, from: Readonly<Date>, to: Readonly<Date>) => {
   const rows = await db
     .select({
       automationName: automationDefinitions.name,
@@ -221,6 +229,125 @@ const tallyRuns = async (from: Readonly<Date>, to: Readonly<Date>) => {
   }))
 }
 
+const members: MembersOverDatabase<typeof AutomationRunOutcomeRepository> = {
+  failOrphanedRuns:
+    (db) =>
+    ({ startedBefore, error }) =>
+      wrap(async () => nameClosedRuns(db, await closeOrphans(db, startedBefore, error))),
+
+  timeOutStuckRuns: (db) => (input) => wrap(() => closeStuckRuns(db, input)),
+
+  listFinalFailures:
+    (db) =>
+    ({ from, to, automationName }) =>
+      wrap(async () => {
+        const rows = await db
+          .select({
+            id: automationRuns.id,
+            automationName: automationDefinitions.name,
+            completedAt: automationRuns.completedAt,
+            error: automationRuns.error,
+          })
+          .from(automationRuns)
+          .innerJoin(
+            automationDefinitions,
+            eq(automationDefinitions.id, automationRuns.automationId)
+          )
+          .where(
+            and(
+              inArray(automationRuns.status, [...FINAL_FAILURE_RUN_STATUSES]),
+              gte(automationRuns.completedAt, from),
+              lt(automationRuns.completedAt, to),
+              ...(automationName === undefined
+                ? []
+                : [eq(automationDefinitions.name, automationName)])
+            )
+          )
+          .orderBy(asc(automationRuns.completedAt))
+        return rows.flatMap((row): readonly FinalFailure[] =>
+          row.completedAt instanceof Date ? [{ ...row, completedAt: row.completedAt }] : []
+        )
+      }),
+
+  findFirstCompletedAfter:
+    (db) =>
+    ({ automationName, after }) =>
+      wrap(async () => {
+        const rows = await db
+          .select({ completedAt: automationRuns.completedAt })
+          .from(automationRuns)
+          .innerJoin(
+            automationDefinitions,
+            eq(automationDefinitions.id, automationRuns.automationId)
+          )
+          .where(
+            and(
+              eq(automationDefinitions.name, automationName),
+              eq(automationRuns.status, 'completed'),
+              gt(automationRuns.completedAt, after)
+            )
+          )
+          .orderBy(asc(automationRuns.completedAt))
+          .limit(1)
+        const first = rows[0]?.completedAt
+        return first instanceof Date ? first : undefined
+      }),
+
+  listRecentEndedStatuses:
+    (db) =>
+    ({ automationName, limit, startedAfter }) =>
+      wrap(async () => {
+        const rows = await db
+          .select({ status: automationRuns.status })
+          .from(automationRuns)
+          .innerJoin(
+            automationDefinitions,
+            eq(automationDefinitions.id, automationRuns.automationId)
+          )
+          .where(
+            and(
+              eq(automationDefinitions.name, automationName),
+              inArray(automationRuns.status, [...STREAK_TERMINAL_RUN_STATUSES]),
+              ...(startedAfter === undefined ? [] : [startedAfterInstant(startedAfter)])
+            )
+          )
+          // A run closed while still queued was never stamped: it sorts by when
+          // it was created, like everywhere else a missing start is read.
+          .orderBy(desc(sql`coalesce(${automationRuns.startedAt}, ${automationRuns.createdAt})`))
+          .limit(limit)
+        return rows.map((row) => row.status)
+      }),
+
+  countRunsByAutomationBetween:
+    (db) =>
+    ({ from, to }) =>
+      wrap(() => tallyRuns(db, from, to)),
+
+  findLastFailureError:
+    (db) =>
+    ({ automationName, from, to }) =>
+      wrap(async () => {
+        const rows = await db
+          .select({ error: automationRuns.error })
+          .from(automationRuns)
+          .innerJoin(
+            automationDefinitions,
+            eq(automationDefinitions.id, automationRuns.automationId)
+          )
+          .where(
+            and(
+              eq(automationDefinitions.name, automationName),
+              inArray(automationRuns.status, [...FINAL_FAILURE_RUN_STATUSES]),
+              createdBetween(from, to)
+            )
+          )
+          .orderBy(desc(automationRuns.createdAt))
+          .limit(1)
+        const error = rows[0]?.error
+        return typeof error === 'string' && error !== '' ? error : undefined
+      }),
+}
+
 /**
  * Automation Run Outcome Repository Implementation (Drizzle).
  *
@@ -228,96 +355,7 @@ const tallyRuns = async (from: Readonly<Date>, to: Readonly<Date>) => {
  * `Date` compares correctly against `timestamptz` on PostgreSQL and against
  * epoch milliseconds on SQLite.
  */
-export const AutomationRunOutcomeRepositoryLive = Layer.succeed(AutomationRunOutcomeRepository, {
-  failOrphanedRuns: ({ startedBefore, error }) =>
-    wrap(async () => nameClosedRuns(await closeOrphans(startedBefore, error))),
-
-  timeOutStuckRuns: (input) => wrap(() => closeStuckRuns(input)),
-
-  listFinalFailures: ({ from, to, automationName }) =>
-    wrap(async () => {
-      const rows = await db
-        .select({
-          id: automationRuns.id,
-          automationName: automationDefinitions.name,
-          completedAt: automationRuns.completedAt,
-          error: automationRuns.error,
-        })
-        .from(automationRuns)
-        .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
-        .where(
-          and(
-            inArray(automationRuns.status, [...FINAL_FAILURE_RUN_STATUSES]),
-            gte(automationRuns.completedAt, from),
-            lt(automationRuns.completedAt, to),
-            ...(automationName === undefined
-              ? []
-              : [eq(automationDefinitions.name, automationName)])
-          )
-        )
-        .orderBy(asc(automationRuns.completedAt))
-      return rows.flatMap((row): readonly FinalFailure[] =>
-        row.completedAt instanceof Date ? [{ ...row, completedAt: row.completedAt }] : []
-      )
-    }),
-
-  findFirstCompletedAfter: ({ automationName, after }) =>
-    wrap(async () => {
-      const rows = await db
-        .select({ completedAt: automationRuns.completedAt })
-        .from(automationRuns)
-        .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
-        .where(
-          and(
-            eq(automationDefinitions.name, automationName),
-            eq(automationRuns.status, 'completed'),
-            gt(automationRuns.completedAt, after)
-          )
-        )
-        .orderBy(asc(automationRuns.completedAt))
-        .limit(1)
-      const first = rows[0]?.completedAt
-      return first instanceof Date ? first : undefined
-    }),
-
-  listRecentEndedStatuses: ({ automationName, limit, startedAfter }) =>
-    wrap(async () => {
-      const rows = await db
-        .select({ status: automationRuns.status })
-        .from(automationRuns)
-        .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
-        .where(
-          and(
-            eq(automationDefinitions.name, automationName),
-            inArray(automationRuns.status, [...STREAK_TERMINAL_RUN_STATUSES]),
-            ...(startedAfter === undefined ? [] : [startedAfterInstant(startedAfter)])
-          )
-        )
-        // A run closed while still queued was never stamped: it sorts by when
-        // it was created, like everywhere else a missing start is read.
-        .orderBy(desc(sql`coalesce(${automationRuns.startedAt}, ${automationRuns.createdAt})`))
-        .limit(limit)
-      return rows.map((row) => row.status)
-    }),
-
-  countRunsByAutomationBetween: ({ from, to }) => wrap(() => tallyRuns(from, to)),
-
-  findLastFailureError: ({ automationName, from, to }) =>
-    wrap(async () => {
-      const rows = await db
-        .select({ error: automationRuns.error })
-        .from(automationRuns)
-        .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
-        .where(
-          and(
-            eq(automationDefinitions.name, automationName),
-            inArray(automationRuns.status, [...FINAL_FAILURE_RUN_STATUSES]),
-            createdBetween(from, to)
-          )
-        )
-        .orderBy(desc(automationRuns.createdAt))
-        .limit(1)
-      const error = rows[0]?.error
-      return typeof error === 'string' && error !== '' ? error : undefined
-    }),
-})
+export const AutomationRunOutcomeRepositoryLive = layerOverDatabase(
+  AutomationRunOutcomeRepository,
+  members
+)

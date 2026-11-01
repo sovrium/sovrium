@@ -21,6 +21,8 @@ export interface SanitizerLog {
    * its log line adds. Absent in a unit test, which keeps nothing on disk.
    */
   readonly keep?: (error: unknown, requestId: string) => string
+  /** The request's method and path, named on a server-side fault's line. */
+  readonly where?: string
 }
 
 export const DEFAULT_SANITIZER_LOG: SanitizerLog = {
@@ -78,7 +80,8 @@ export const logAnsweredError = (
       input.answered === INTERNAL_ANSWER && input.requestId !== undefined && log.keep !== undefined
         ? ` ${log.keep(input.error, input.requestId)}`
         : ''
-    log.error(`[API Error] requestId=${input.requestId}${kept}`, input.error)
+    const where = log.where === undefined ? '' : ` ${log.where}`
+    log.error(`[API Error]${where} requestId=${input.requestId}${kept}`, input.error)
   }
   logDebugDetails(input.error)
 }

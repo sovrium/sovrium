@@ -26,11 +26,9 @@
  */
 
 import { Schema } from 'effect'
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { ComponentSchema } from './components/component'
 import type { InputDrawnAt, NodePointer } from './template-input-service'
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The keys a template carries about itself; they are never a placed field. */
 const TEMPLATE_META_KEYS: ReadonlySet<string> = new Set(['name', 'render', 'inputs', 'guidance'])

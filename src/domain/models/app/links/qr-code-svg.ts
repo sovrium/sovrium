@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeHtmlDoubleQuotedAttribute } from '@/domain/kernel/sanitize/html-escaping'
+
 /**
  * Matrix → SVG.
  *
@@ -42,13 +44,6 @@ const runsInRow = (row: readonly boolean[]): ReadonlyArray<readonly [number, num
     return [...runs, [index, 1] as const]
   }, [])
 
-const escapeText = (value: string): string =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-
 /** Render a module matrix as a standalone SVG document. */
 export const matrixToSvg = (
   matrix: readonly (readonly boolean[])[],
@@ -70,7 +65,10 @@ export const matrixToSvg = (
 
   const dimensions =
     options.size === undefined ? '' : ` width="${options.size}" height="${options.size}"`
-  const title = options.title === undefined ? '' : `<title>${escapeText(options.title)}</title>`
+  const title =
+    options.title === undefined
+      ? ''
+      : `<title>${escapeHtmlDoubleQuotedAttribute(options.title)}</title>`
 
   // The quiet zone is PAINTED rather than left transparent: a transparent symbol
   // on a dark background is unscannable, and that failure only shows up on

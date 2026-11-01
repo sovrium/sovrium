@@ -78,9 +78,10 @@ const SIDEBAR_BOX_CLASS = 'bg-sidebar text-sidebar-foreground'
  * is the `sv-scroll-fade-end` keyframes driven by the region's OWN scroll
  * (`component-layer-generators.ts`): a region with nothing to scroll has an
  * inactive timeline and draws no fade, and the fade lifts at the bottom.
+ * Under reduced motion the region runs no animation at all, so it draws no fade.
  */
 const SIDEBAR_NAV_LAYOUT =
-  'flex min-h-0 flex-1 flex-col gap-0 overflow-auto pb-12 [animation-name:sv-scroll-fade-end] [animation-fill-mode:both] [animation-timing-function:linear] [animation-timeline:scroll(self)] group-data-[collapsible=icon]/sidebar:overflow-hidden'
+  'flex min-h-0 flex-1 flex-col gap-0 overflow-auto pb-12 [animation-name:sv-scroll-fade-end] [animation-fill-mode:both] [animation-timing-function:linear] [animation-timeline:scroll(self)] group-data-[collapsible=icon]/sidebar:overflow-hidden motion-reduce:animate-none!'
 
 /**
  * A declared landmark's `nav` around its groups: a plain column that never

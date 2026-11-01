@@ -6,7 +6,7 @@
  */
 
 import { Data, Effect } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Type definition for a database transaction that can execute raw SQL.
@@ -20,6 +20,13 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
  */
 export interface TransactionLike {
   readonly unsafe: (sql: string, params?: readonly unknown[]) => Promise<readonly unknown[]>
+  /**
+   * The engine this connection speaks, set by the adapter that opened it
+   * ({@link postgresTransactionLike} or `sqliteTransactionLike`). Migration
+   * code that shapes SQL for one engine reads it here instead of asking the
+   * environment again.
+   */
+  readonly dialect: DatabaseDialect
 }
 
 /**
@@ -31,6 +38,7 @@ export interface TransactionLike {
 export const postgresTransactionLike = (client: {
   readonly unsafe: (sql: string, values?: unknown[]) => PromiseLike<unknown>
 }): TransactionLike => ({
+  dialect: 'postgres',
   unsafe: async (sql, params) =>
     (await client.unsafe(
       sql,
@@ -111,8 +119,11 @@ export const executeSQL = (
   })
 
 /**
- * Execute multiple SQL statements sequentially
- * Use this when statements must be executed in order (e.g., DDL that depends on previous statements)
+ * Execute multiple SQL statements sequentially, in array order.
+ *
+ * Every caller runs on one transaction connection, which serves one statement
+ * at a time: issuing statements together only queues them, so there is no
+ * parallel form, and in-order execution is what independent DDL gets anyway.
  */
 export const executeSQLStatements = (
   tx: TransactionLike,
@@ -125,24 +136,6 @@ export const executeSQLStatements = (
           yield* executeSQL(tx, sql)
         }
       })
-
-/**
- * Execute multiple SQL statements in parallel
- * Use this when statements are independent (e.g., DROP VIEW statements, index creation)
- *
- * Note: PostgreSQL allows concurrent DDL operations within a transaction,
- * but some operations may still serialize at the database level.
- */
-export const executeSQLStatementsParallel = (
-  tx: TransactionLike,
-  statements: readonly string[]
-): Effect.Effect<void, SQLExecutionError> =>
-  statements.length === 0
-    ? Effect.void
-    : // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
-      Effect.forEach(statements, (sql) => executeSQL(tx, sql), { concurrency: 'unbounded' }).pipe(
-        Effect.asVoid
-      )
 
 // ============================================================================
 // Information Schema Query Helpers
@@ -162,7 +155,7 @@ export const tableExists = (
   tx: TransactionLike,
   tableName: string
 ): Effect.Effect<boolean, SQLExecutionError> =>
-  isSqliteRuntime()
+  tx.dialect === 'sqlite'
     ? // SQLite — sqlite_master catalogs every table; COUNT(*) > 0 mirrors EXISTS.
       executeSQL(
         tx,
@@ -277,7 +270,7 @@ export const getExistingColumns = (
   tx: TransactionLike,
   tableName: string
 ): Effect.Effect<ReadonlyMap<string, ExistingColumnEntry>, SQLExecutionError> =>
-  isSqliteRuntime()
+  tx.dialect === 'sqlite'
     ? getExistingColumnsSqlite(tx, tableName)
     : getExistingColumnsPostgres(tx, tableName)
 
@@ -290,7 +283,7 @@ export const getExistingColumns = (
 export const getExistingTableNames = (
   tx: TransactionLike
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
-  isSqliteRuntime()
+  tx.dialect === 'sqlite'
     ? // SQLite — sqlite_master lists tables; exclude the internal sqlite_*
       // bookkeeping tables (sqlite_sequence etc.) to match pg_tables' scope.
       executeSQL(
@@ -328,7 +321,7 @@ export const getExistingTableNames = (
 export const getSqliteVirtualTableNames = (
   tx: TransactionLike
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
-  isSqliteRuntime()
+  tx.dialect === 'sqlite'
     ? executeSQL(
         tx,
         `SELECT name AS tablename FROM sqlite_master
@@ -347,7 +340,7 @@ export const getSqliteVirtualTableNames = (
 export const getExistingViews = (
   tx: TransactionLike
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
-  isSqliteRuntime()
+  tx.dialect === 'sqlite'
     ? // SQLite — views live in sqlite_master alongside tables, keyed by type.
       executeSQL(
         tx,
@@ -379,7 +372,7 @@ export const getExistingViews = (
 export const getExistingMaterializedViews = (
   tx: TransactionLike
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
-  isSqliteRuntime()
+  tx.dialect === 'sqlite'
     ? // SQLite has no materialized views — always report none. Materialized
       // views are a Postgres-only feature that degrades in Phase 6.
       Effect.succeed([])

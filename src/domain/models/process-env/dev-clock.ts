@@ -16,11 +16,13 @@
  * of relative-date filters, formulas computed on write over `CURRENT_DATE` /
  * `NOW()`, and the automation `{{today}}` / `{{now}}` helpers.
  *
- * ─── WHY PRODUCTION REFUSES IT ─────────────────────────────────────────────
+ * ─── WHY A DEPLOYMENT REFUSES IT ───────────────────────────────────────────
  *
  * A pinned clock on a deployed instance would stamp every write with a date
- * that is not true. So a server started with `NODE_ENV=production` refuses to
- * boot while it is set, naming the variable.
+ * that is not true. So a server refuses to boot while it is set — naming the
+ * variable — when its public origin is not loopback (the host of `BASE_URL`,
+ * else the bind), and also when `NODE_ENV=production`. The origin is the
+ * deciding signal: the binary and the container image never set `NODE_ENV`.
  *
  * ─── WHY A MALFORMED VALUE THROWS ──────────────────────────────────────────
  *
@@ -35,6 +37,7 @@
  */
 
 import { DateTime, Option } from 'effect'
+import { isPublicOriginEnv } from './public-origin'
 
 /** The variable's name, so a caller can quote it without spelling it again. */
 export const SOVRIUM_DEV_CLOCK_VAR = 'SOVRIUM_DEV_CLOCK'
@@ -76,16 +79,23 @@ const instantOf = (raw: string): Readonly<Date> | undefined => {
  * Unset, empty or whitespace-only resolves to `undefined` (the real clock).
  *
  * @param env - the environment to read (defaults to the process environment).
- * @throws Error naming the variable when `NODE_ENV` is `production`, or naming
+ * @throws Error naming the variable when `NODE_ENV` is `production` or the
+ *   public origin is not loopback (naming `BASE_URL` too), or naming
  *   the variable, the value and the expected shape when it is not ISO 8601.
  */
-export const parseSovriumDevClock = (env: Env = process.env): Readonly<Date> | undefined => {
+export const parseSovriumDevClock = (env: Env): Readonly<Date> | undefined => {
   const raw = rawValue(env)
   if (raw === '') return undefined
   if (env['NODE_ENV'] === 'production') {
     // eslint-disable-next-line functional/no-throw-statements -- a boot-time refusal: the caller turns it into a startup failure before the port binds.
     throw new Error(
       `${SOVRIUM_DEV_CLOCK_VAR} is a development setting and is refused when NODE_ENV=production; unset it to start this server.`
+    )
+  }
+  if (isPublicOriginEnv(env)) {
+    // eslint-disable-next-line functional/no-throw-statements -- a boot-time refusal: the caller turns it into a startup failure before the port binds.
+    throw new Error(
+      `${SOVRIUM_DEV_CLOCK_VAR} is a development setting and is refused when the public origin is not loopback (BASE_URL, else the bind host); unset it to start this server.`
     )
   }
   const instant = instantOf(raw)
@@ -100,14 +110,16 @@ export const parseSovriumDevClock = (env: Env = process.env): Readonly<Date> | u
 
 /**
  * The pinned instant, or `undefined` when none is set. Never throws: the boot
- * already refused a malformed or production value, so a request-time reader
- * treats one it cannot read as unset.
+ * already refused a malformed, production or public-origin value, so a
+ * request-time reader treats one it cannot honour as unset.
  *
  * @param env - the environment to read (defaults to the process environment).
  */
-export const readSovriumDevClock = (env: Env = process.env): Readonly<Date> | undefined => {
+export const readSovriumDevClock = (env: Env): Readonly<Date> | undefined => {
   const raw = rawValue(env)
-  return raw === '' || env['NODE_ENV'] === 'production' ? undefined : instantOf(raw)
+  return raw === '' || env['NODE_ENV'] === 'production' || isPublicOriginEnv(env)
+    ? undefined
+    : instantOf(raw)
 }
 
 /**
@@ -116,8 +128,7 @@ export const readSovriumDevClock = (env: Env = process.env): Readonly<Date> | un
  *
  * @param env - the environment to read (defaults to the process environment).
  */
-export const serverNow = (env: Env = process.env): Readonly<Date> =>
-  readSovriumDevClock(env) ?? new Date()
+export const serverNow = (env: Env): Readonly<Date> => readSovriumDevClock(env) ?? new Date()
 
 /**
  * Where a real instant falls on the development TIMELINE: the stamp a run, a

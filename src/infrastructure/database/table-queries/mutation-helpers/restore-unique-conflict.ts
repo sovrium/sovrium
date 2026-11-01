@@ -26,12 +26,13 @@ import {
   languageUniqueLabel,
   languageUniqueTargetOf,
 } from '@/domain/models/app/tables/translatable-unique-service'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { getBaseTableName } from '@/infrastructure/database/lookup/lookup-view-generators'
-import { executeRaw, type RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
+import { type RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { liveUniqueIndexName } from '@/infrastructure/database/sql/sql-key-constraints'
-import { languageValueSql } from '@/infrastructure/database/sql/translatable-value-sql'
+import { languageValueSqlOn } from '@/infrastructure/database/sql/translatable-value-sql'
 import { databaseTableName, tableIdentifier } from '../statement/validation'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 /** One value a live-rows unique index holds: the expression it reads, and how an answer names it. */
 interface UniqueTarget {
@@ -46,16 +47,19 @@ interface UniqueTarget {
  */
 const liveUniqueIndexes = async (
   runner: Readonly<RawSqlRunner>,
+  dialect: Dialect,
   tableName: string
 ): Promise<readonly Record<string, unknown>[]> => {
   const relation = databaseTableName(tableName)
   const base = getBaseTableName(relation)
-  return parseDatabaseDialectConfig().dialect === 'postgres'
-    ? executeRaw(
+  return dialect.kind !== 'sqlite'
+    ? executeRawOn(
+        dialect.kind,
         runner,
         sql`SELECT t.relname AS rel, ic.relname AS name, a.attname AS col, pg_get_indexdef(i.indexrelid) AS def FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid JOIN pg_class t ON t.oid = i.indrelid JOIN pg_namespace n ON n.oid = t.relnamespace LEFT JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = i.indkey[0] WHERE i.indisunique AND i.indnatts = 1 AND i.indpred IS NOT NULL AND n.nspname = 'public' AND t.relname IN (${relation}, ${base})`
       )
-    : executeRaw(
+    : executeRawOn(
+        dialect.kind,
         runner,
         sql`SELECT m.name AS rel, il.name AS name, ii.name AS col, x.sql AS def FROM sqlite_master AS m JOIN pragma_index_list(m.name) AS il JOIN pragma_index_info(il.name) AS ii LEFT JOIN sqlite_master AS x ON x.type = 'index' AND x.name = il.name WHERE m.type = 'table' AND m.name IN (${relation}, ${base}) AND il."unique" = 1 AND il.partial = 1 AND (SELECT COUNT(*) FROM pragma_index_info(il.name)) = 1`
       )
@@ -68,7 +72,7 @@ const liveUniqueIndexes = async (
  * field and language are read back from the name and confirmed by the stored
  * definition.
  */
-const targetOf = (row: Record<string, unknown>): UniqueTarget | undefined => {
+const targetOf = (dialect: Dialect, row: Record<string, unknown>): UniqueTarget | undefined => {
   const name = String(row['name'])
   const rel = String(row['rel'])
   const { col } = row
@@ -85,7 +89,7 @@ const targetOf = (row: Record<string, unknown>): UniqueTarget | undefined => {
     return undefined
   }
   return {
-    value: (alias) => languageValueSql(target.field, target.code, alias),
+    value: (alias) => languageValueSqlOn(dialect.kind, target.field, target.code, alias),
     label: languageUniqueLabel(target.field, target.code),
   }
 }
@@ -99,12 +103,13 @@ const targetOf = (row: Record<string, unknown>): UniqueTarget | undefined => {
  */
 export const findRestoreUniqueConflict = async (
   runner: Readonly<RawSqlRunner>,
+  dialect: Dialect,
   tableName: string,
   recordIds: readonly string[]
 ): Promise<string | undefined> => {
   if (recordIds.length === 0) return undefined
-  const targets = (await liveUniqueIndexes(runner, tableName)).flatMap((row) => {
-    const target = targetOf(row)
+  const targets = (await liveUniqueIndexes(runner, dialect, tableName)).flatMap((row) => {
+    const target = targetOf(dialect, row)
     return target === undefined ? [] : [target]
   })
   const table = tableIdentifier(tableName)
@@ -115,7 +120,8 @@ export const findRestoreUniqueConflict = async (
   for (const target of targets) {
     const mine = target.value('r')
     const other = target.value('o')
-    const hits = await executeRaw(
+    const hits = await executeRawOn(
+      dialect.kind,
       runner,
       sql`SELECT 1 AS hit FROM ${table} AS r WHERE r.id IN (${ids}) AND ${mine} IS NOT NULL AND EXISTS (SELECT 1 FROM ${table} AS o WHERE ${other} = ${mine} AND o.id <> r.id AND (o.deleted_at IS NULL OR o.id IN (${ids}))) LIMIT 1`
     )

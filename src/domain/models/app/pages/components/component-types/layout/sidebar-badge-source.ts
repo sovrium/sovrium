@@ -62,7 +62,7 @@ export const SidebarBadgeSourceSchema = Schema.Struct({
   variant: Schema.optional(
     Schema.Literals(['secondary', 'destructive']).annotate({
       description:
-        "Badge variant: 'secondary' (default) for a tally, 'destructive' for a count of failures — drawn only when non-zero, and repeated beside a collapsed group's label",
+        "Badge variant: 'secondary' (default) for a tally, 'destructive' for a count of failures, drawn only when non-zero, and repeated beside a collapsed group's label",
     })
   ),
 }).annotate({

@@ -23,23 +23,10 @@ import { defineArticle, defineSection } from './define'
 /**
  * Page SEO — the section manifest.
  *
- * Two articles about `pages[].meta`, and they are a SECTION of their own
- * rather than the tail of `pages` for one mechanical reason: a section
- * manifest is capped at 400 lines, and `pages` with these two in it reads
- * 434. The split follows the reading anyway — everything here is about what
- * a machine makes of the page rather than what a visitor does with it — and
- * the fragments stay beside `pages/`, because that is where the schema is.
- *
- * The third article, `seo-crawlers`, documents no `meta` key: it covers the
- * files every app serves beside its pages (`/sitemap.xml`, `/robots.txt`,
- * `/feed.xml`, the `.md` twins) and cites no story, because the stories behind
- * those routes are already cited by the `pages` articles that document the
- * options driving them, and a story renders in exactly one article.
- *
- * `MetaSchema` at depth 1 is the whole `meta` surface, so the three articles'
- * directives overlap by design: the overview table names every key, and the
- * `openGraph`, `twitter`, `favicons` and hint tables expand the ones that
- * carry a shape of their own.
+ * Why `pages[].meta` is a section of its own and why its directives overlap:
+ * `[internal ref]`, § `pages-seo`.
+ * Shape, ordering and the gates that hold a manifest: the same page,
+ * "The conventions every manifest follows".
  */
 export const section = defineSection({
   slug: 'pages-seo',
@@ -120,7 +107,7 @@ export const section = defineSection({
       slug: 'seo-crawlers',
       title: 'Crawlers, Sitemaps & Feeds',
       description:
-        "The machine-readable files every app serves — `/sitemap.xml`, `/robots.txt`, `/feed.xml` and each article's Markdown twin — what decides their contents, and what `sovrium build` writes.",
+        "The machine-readable files an app serves (/sitemap.xml, /robots.txt, /feed.xml, each article's Markdown twin): what fills them, what `sovrium build` writes.",
       keywords: [
         'sovrium',
         'sitemap',

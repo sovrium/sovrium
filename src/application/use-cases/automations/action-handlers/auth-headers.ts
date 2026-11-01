@@ -10,8 +10,8 @@ import { ConnectionRepository } from '@/application/ports/repositories/connectio
 import { logError } from '@/infrastructure/logging/logger'
 import { buildEnvLookup, resolveEnvInValue } from '../resolve-env-vars'
 import { unsetClientCredentialsVariable } from './client-credentials-token'
-import { resolveAppScopedToken, resolveUserScopedToken } from './connection-token-lookup'
-import { connectionScope } from './connection-token-refresh'
+import { resolveAppScopedToken, resolveUserScopedToken } from './connection/token-lookup'
+import { connectionScope } from './connection/token-refresh'
 import {
   buildStaticAuthHeader,
   unconfiguredConnectionReason,
@@ -19,7 +19,7 @@ import {
   type StaticAuthHeader,
 } from './static-auth-header'
 import { resolveTokenExchangeHeader, unsetTokenExchangeVariable } from './token-exchange-token'
-import type { ConnectionServices, RefreshOutcome } from './connection-token-refresh'
+import type { ConnectionServices, RefreshOutcome } from './connection/token-refresh'
 import type { ActionOutcome, AutomationContext, UnconfiguredConnection } from './shared'
 import type { App } from '@/domain/models/app'
 
@@ -139,6 +139,12 @@ export interface InjectedHeaders {
    * ({@link withAuthQuery}) in place of a header.
    */
   readonly query?: Readonly<Record<string, string>>
+  /**
+   * The names of the headers the connection's credential was put in, which the
+   * request names to the outbound guard so a redirect to another origin drops
+   * them (`Authorization` is dropped anyway; an API key's own header is not).
+   */
+  readonly credentialHeaders?: readonly string[]
 }
 
 /** The URL with the connection's key added as the query parameter it names, when it names one. */
@@ -175,7 +181,10 @@ const injectedFrom = (
   if ('unconfigured' in built) return { headers: baseHeaders, unconfigured: built.unconfigured }
   if ('error' in built) return { headers: baseHeaders, error: built.error }
   if ('query' in built) return { headers: baseHeaders, query: { [built.query]: built.value } }
-  return { headers: { ...baseHeaders, [built.header]: built.value } }
+  return {
+    headers: { ...baseHeaders, [built.header]: built.value },
+    credentialHeaders: [built.header],
+  }
 }
 
 const ensureConnectionExistsInDb = (
@@ -245,12 +254,18 @@ export const resolveConnectionHeaders = (
       const result = yield* resolveOAuth2AccessToken(withResolvedEnv(app, conn), automation)
       if (!result.ok) return { headers: baseHeaders, error: result.reason }
       const headers = { ...baseHeaders, Authorization: `Bearer ${result.token}` }
-      return result.fields === undefined ? { headers } : { headers, tokenFields: result.fields }
+      const credentialHeaders = ['Authorization']
+      return result.fields === undefined
+        ? { headers, credentialHeaders }
+        : { headers, credentialHeaders, tokenFields: result.fields }
     }
     if (conn.type === 'tokenExchange') {
       const result = yield* resolveTokenExchangeHeader(conn, buildEnvLookup(app.env, process.env))
       if (!result.ok) return { headers: baseHeaders, error: result.reason }
-      return { headers: { ...baseHeaders, [result.header]: result.value } }
+      return {
+        headers: { ...baseHeaders, [result.header]: result.value },
+        credentialHeaders: [result.header],
+      }
     }
     // Static auth types (apiKey/basic/bearer): the in-memory props are
     // sufficient to build the header, but we still require a DB row so

@@ -27,14 +27,15 @@
  */
 
 import { Effect, Option, Schema } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   adminReadPathParams,
   defineAdminRead,
   answerWithSchema,
 } from '@/application/use-cases/admin/admin-read-operation'
 import {
-  BuildConnectionDetail,
-  BuildConnectionsListWithUsage,
+  buildConnectionDetail,
+  buildConnectionsListWithUsage,
 } from '@/application/use-cases/admin/connections'
 import {
   listLinkCatalog,
@@ -67,7 +68,7 @@ const CONNECTION_LIST_RESOURCE_ID = 'connections'
  * `SOVRIUM_DEV_CLOCK` is set — so a link's 30-day click figure and the
  * analytics window the same page resolves (`$window.end`) end at one instant.
  */
-const nowAsDate = Effect.sync(() => new Date(serverNow().getTime()))
+const nowAsDate = ProcessEnv.pipe(Effect.map((env) => new Date(serverNow(env).getTime())))
 
 // ─── Links ───────────────────────────────────────────────────────────────────
 
@@ -246,7 +247,7 @@ const connectionsList = defineAdminRead<undefined>({
   },
   subject: 'connections list',
   decode: () => ({ _tag: 'Ok', input: undefined }),
-  read: (app) => BuildConnectionsListWithUsage(app),
+  read: (app) => buildConnectionsListWithUsage(app),
   audit: {
     action: AUDIT_ACTIONS.CONNECTION_LIST_QUERIED,
     resourceId: () => CONNECTION_LIST_RESOURCE_ID,
@@ -285,7 +286,7 @@ const connectionRead = defineAdminRead<string>({
     typeof raw['id'] === 'string' && raw['id'].length > 0
       ? { _tag: 'Ok', input: raw['id'] }
       : { _tag: 'NotFound' },
-  read: (app, id) => BuildConnectionDetail(id, app),
+  read: (app, id) => buildConnectionDetail(id, app),
   audit: {
     action: AUDIT_ACTIONS.CONNECTION_DETAIL_QUERIED,
     resourceId: (_app, id) => id,

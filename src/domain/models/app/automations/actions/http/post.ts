@@ -44,7 +44,7 @@ export const HttpPostActionSchema = Schema.Struct({
     ),
     body: Schema.optional(
       Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.Unknown)]).pipe(
-        Schema.annotate({ description: 'Request body — string or JSON object' })
+        Schema.annotate({ description: 'Request body: string or JSON object' })
       )
     ),
     contentType: Schema.optional(
@@ -84,7 +84,7 @@ export const HttpPostActionSchema = Schema.Struct({
     identifier: 'HttpPostAction',
     title: 'HTTP POST Action',
     description:
-      'Send POST requests to external services — defaults Content-Type to application/json',
+      'Send POST requests to external services. Defaults Content-Type to application/json',
   })
 )
 

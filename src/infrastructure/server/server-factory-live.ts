@@ -6,14 +6,19 @@
  */
 
 import { Effect, Layer } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { ServerFactory } from '@/application/ports/services/server-factory'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import { DatabaseUnownedLive } from '@/infrastructure/database/drizzle/layer'
+import { publishServerBootInstant } from '@/infrastructure/process/server-boot-instant'
+import { getSovriumVersion } from '@/infrastructure/process/version'
 import { holdDegradedListener } from '@/infrastructure/server/degraded-listener'
 import { createRenderApp } from '@/infrastructure/server/render-app'
 import {
   runDatabaseStartup,
   runDeferredStartupMaintenance,
 } from '@/infrastructure/server/startup-database'
+import { activateTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
 import { createServer } from './server'
 
 /**
@@ -42,12 +47,22 @@ export const ServerFactoryLive = Layer.effect(
     // shape the port declares. `phases` is the infrastructure array verbatim;
     // `StartupPhaseRow` is a narrower view of the same objects, not a copy.
     startDatabase: (app, options) =>
-      runDatabaseStartup(app, parseDatabaseDialectConfig(), {
-        ephemeral: options?.ephemeral ?? false,
-        authoredTableIds: options?.authoredTableIds,
-      }).pipe(Effect.map((phases) => ({ phases }))),
-    runDeferredMaintenance: (app) => runDeferredStartupMaintenance(app),
+      Effect.flatMap(ProcessEnv, (env) =>
+        runDatabaseStartup(app, parseDatabaseDialectConfig(env), {
+          ephemeral: options?.ephemeral ?? false,
+          authoredTableIds: options?.authoredTableIds,
+        })
+      ).pipe(Effect.map((phases) => ({ phases }))),
+    // A build starts no server and owns no runtime: the unowned database forwards to the client.
+    runDeferredMaintenance: (app) =>
+      runDeferredStartupMaintenance(app).pipe(Effect.provide(DatabaseUnownedLive)),
     hold: (config) => holdDegradedListener(config),
+    activateTelemetry: (appName) =>
+      // effect-promise: total -- `getSovriumVersion` wraps its `package.json` read in a try/catch and falls back to the build-time define, so it always resolves a string.
+      Effect.promise(() => getSovriumVersion()).pipe(
+        Effect.flatMap((version) => Effect.sync(() => activateTelemetry({ appName, version })))
+      ),
+    publishBootInstant: Effect.sync(() => publishServerBootInstant()),
     // No socket, no banner, neither boot chain — see `createRenderApp`. The
     // config arrives already narrowed to what a render reads, so this adapter
     // forwards it rather than having anything to strip out.

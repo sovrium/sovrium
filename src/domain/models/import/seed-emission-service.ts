@@ -66,8 +66,15 @@ export interface SeedAssetCopy {
 /** The seed half of a migration. */
 export interface SeedPlan {
   readonly files: readonly PlannedSeedFile[]
-  /** `seed/import/users.yaml`, when the records name collaborators. */
-  readonly users: readonly { readonly email: string; readonly name: string }[]
+  /**
+   * `seed/import/users.yaml`, when the records name collaborators or the source
+   * has accounts of its own; `invited` for a pending invitation.
+   */
+  readonly users: readonly {
+    readonly email: string
+    readonly name: string
+    readonly invited?: true
+  }[]
   /** The files the records reference: each snapshot file and where it is copied. */
   readonly assets: readonly SeedAssetCopy[]
   readonly section: DataSection
@@ -273,6 +280,20 @@ const assetsOf = (base: CanonicalBase): readonly SeedAssetCopy[] => {
   )
 }
 
+/** The accounts a base names, each with its name and, for a pending invitation, `invited`. */
+const seedUsersOf = (base: CanonicalBase): SeedPlan['users'] =>
+  base.users.map((user) => ({
+    email: user.email,
+    name: user.name ?? user.email.slice(0, user.email.indexOf('@')),
+    ...(user.state === 'invited' ? { invited: true as const } : {}),
+  }))
+
+/** The seed of a base's accounts alone, with no record: `--only auth`. */
+export const planAccountSeed = (base: CanonicalBase): SeedPlan => {
+  const users = seedUsersOf(base)
+  return { files: [], users, assets: [], section: { tables: [], users: users.length } }
+}
+
 /**
  * Plan the seed files of a mapped base.
  *
@@ -321,10 +342,7 @@ export const planSeedFiles = (
       records,
     }
   })
-  const users = base.users.map((user) => ({
-    email: user.email,
-    name: user.name ?? user.email.slice(0, user.email.indexOf('@')),
-  }))
+  const users = seedUsersOf(base)
   return {
     files,
     users,

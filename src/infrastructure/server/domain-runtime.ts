@@ -60,11 +60,14 @@
 import { Effect, Layer as LayerModule, ManagedRuntime } from 'effect'
 import { AgentSkills, type AgentSkillsShape } from '@/application/ports/services/agent-skills'
 import { AssetStore, type AssetStoreShape } from '@/application/ports/services/asset-store'
+import { refineAiComputeField } from '@/application/use-cases/ai/refine-field'
 import { makeMcpClientLayer } from '@/infrastructure/ai/mcp-client/mcp-client-live'
 import { makeDesignKitAssetsLive } from '@/infrastructure/assets/design-kit-assets-live'
 import { AutomationRuntimeLayer } from '@/infrastructure/automations/runtime-layer'
+import { VisitorSecretLive } from '@/infrastructure/crypto/visitor-secret-live'
 import { makeAiComputeListenerLayer } from '@/infrastructure/database/ai-compute-listener'
 import { makeAiKnowledgeListenerLayer } from '@/infrastructure/database/ai-knowledge-listener'
+import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
 import { AdminSearchRepositoryLive } from '@/infrastructure/database/repositories/admin-search-repository-live'
 import { AiActivityLogRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-activity-log-repository-live'
 import { AiFactsRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-facts-repository-live'
@@ -75,8 +78,12 @@ import { UserPresenceRepositoryLive } from '@/infrastructure/database/repositori
 import { FormSubmissionRepositoryLive } from '@/infrastructure/database/repositories/forms/form-submission-repository-live'
 import { DynamicRecordRepositoryLive } from '@/infrastructure/database/repositories/tables/dynamic-record-repository-live'
 import { ReadStateRepositoryLive } from '@/infrastructure/database/repositories/tables/read-state-repository-live'
+import { UpsertMatchRepositoryLive } from '@/infrastructure/database/repositories/tables/upsert-match-repository-live'
 import { createAppServicesLayer } from '@/infrastructure/layers/app-services-layer'
+import { EnvironmentLayer } from '@/infrastructure/layers/server-env-layer'
 import { logError } from '@/infrastructure/logging/logger'
+import { OnlinePeopleLive } from '@/infrastructure/realtime/online-people-live'
+import { RealtimeHubLive } from '@/infrastructure/realtime/realtime-hub-live'
 import type { App } from '@/domain/models/app'
 import type { Context, Layer } from 'effect'
 import type { Context as HonoContext } from 'hono'
@@ -129,6 +136,9 @@ const domainLayerFor = (
     LayerModule.succeed(AssetStore, assets ?? AssetStore.defaultValue()),
     // The agent skills this server's boot indexed (none when no agent lists one).
     LayerModule.succeed(AgentSkills, skills ?? AgentSkills.defaultValue()),
+    // The environment every use-case reads (`yield* ProcessEnv`), and the
+    // server's values decoded from it once (`yield* ServerEnv`).
+    EnvironmentLayer,
     createAppServicesLayer(app?.auth),
     AutomationRuntimeLayer,
     // The form-submission extras that are NOT in the automation runtime:
@@ -146,24 +156,34 @@ const domainLayerFor = (
     DynamicRecordRepositoryLive,
     // How far each person has read each parent record of a `readState` relationship.
     ReadStateRepositoryLive,
+    // The merge-field lookups an upsert's permission gates read before it writes.
+    UpsertMatchRepositoryLive,
     // When each person's last realtime connection closed (`auth.presence.lastSeen`).
     UserPresenceRepositoryLive,
+    OnlinePeopleLive,
     // The agent-approval mirror, reached from the cron-driven schedule runner
     // as well as from the approval routes.
     ApprovalRepositoryLive,
     // The operator console's global search index (`GET /api/admin/search`).
     AdminSearchRepositoryLive,
-    makeAiComputeListenerLayer(app),
+    makeAiComputeListenerLayer(app, refineAiComputeField),
     makeAiKnowledgeListenerLayer(app),
     // The external MCP servers the operator declared (`MCP_CLIENT_SERVERS`):
     // one session each, opened in the background at boot and closed with this
     // runtime. Needs the app for one boot refusal — an agent naming a server
     // the environment does not declare.
     makeMcpClientLayer(app),
+    RealtimeHubLive, // Channels, presence, connection caps and their sweeps: one hub per server.
+    VisitorSecretLive, // The day's analytics visitor secret: one per server, never persisted.
     // The design-system bundle's files, able to read this server's public
     // directory (the app's logo). LAST, so it replaces the directory-less
     // adapter `createAppServicesLayer` names: a later layer's service wins.
     makeDesignKitAssetsLive(publicDir)
+  ).pipe(
+    // The database client, owned by this runtime: acquired first, released
+    // last, so the pool exists before any layer above builds and closes only
+    // after every one of them has released (`drizzle/layer.ts`).
+    LayerModule.provideMerge(DatabaseLive)
   )
 
 /** The domain layer a server runtime provides, as one type. */

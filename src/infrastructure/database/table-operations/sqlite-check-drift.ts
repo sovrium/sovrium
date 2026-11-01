@@ -7,7 +7,6 @@
 
 import { Effect } from 'effect'
 import { diffCheckClauses } from '@/domain/kernel/sql/sql-check-clauses'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logDebug } from '@/infrastructure/logging/logger'
 import { getPhysicalTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, type SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
@@ -29,9 +28,9 @@ import type { Table } from '@/domain/models/app/tables'
  * reads as current once its clauses are.
  */
 
-/** The CHECK-bearing part of a table's DDL, as `generateCreateTableSQL` emits it. */
+/** The CHECK-bearing part of a table's SQLite DDL, as `generateCreateTableSQL` emits it. */
 const declaredConstraintDdl = (table: Table): string =>
-  generateTableConstraints(table, undefined, true).join(',\n')
+  generateTableConstraints(table, 'sqlite', undefined, true).join(',\n')
 
 /** Whether `liveDdl`, a table's stored CREATE TABLE text, enforces other CHECK rules than `table` declares. */
 const checkClausesStale = (table: Table, liveDdl: string): boolean => {
@@ -94,7 +93,7 @@ export const sqliteCheckClausesStale = (
   table: Table
 ): Effect.Effect<boolean, SQLExecutionError> =>
   Effect.gen(function* () {
-    if (!isSqliteRuntime()) return false
+    if (tx.dialect !== 'sqlite') return false
     const physicalTableName = getPhysicalTableName(table)
     const rows = yield* executeSQL(
       tx,

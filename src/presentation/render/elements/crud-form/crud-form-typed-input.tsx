@@ -12,6 +12,7 @@ import {
   toDateInputValue,
   type ControlAttributeField,
 } from '@/presentation/design/field-control-attributes'
+import { fieldDescribedBy } from '@/presentation/design/field-display'
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
 import { LOCAL_ZONE, toLocalInputValue } from '@/presentation/design/zoned-datetime'
 import type { ReactElement } from 'react'
@@ -36,6 +37,34 @@ export function inputTypeOf(field: TypedInputField & { readonly control?: string
  */
 export function typedInputAttributes(field: TypedInputField): Record<string, unknown> {
   return fieldWidgetOf(field.type) === 'number' ? numericInputAttributes(field) : {}
+}
+
+/** The state a skeleton control carries whatever its widget: what {@link controlStateAttributes} reads. */
+interface ControlStateField {
+  readonly name: string
+  readonly description?: string
+  readonly required?: boolean
+  readonly placeholder?: string
+  readonly autocomplete?: string
+  readonly readOnly?: boolean
+  readonly disabled?: boolean
+}
+
+/**
+ * The untyped half of a skeleton control, shared by the plain input and the
+ * multi-line box: required, placeholder, autocomplete, read-only, disabled and
+ * the `aria-describedby` naming the field's guidance. An empty placeholder or
+ * autocomplete draws no attribute.
+ */
+export function controlStateAttributes(field: ControlStateField): Record<string, unknown> {
+  return {
+    ...(field.required === true ? { required: true, 'data-required': 'true' } : {}),
+    ...(field.placeholder ? { placeholder: field.placeholder } : {}),
+    ...(field.autocomplete ? { autoComplete: field.autocomplete } : {}),
+    ...(field.readOnly === true ? { readOnly: true } : {}),
+    ...(field.disabled === true ? { disabled: true } : {}),
+    ...fieldDescribedBy(field),
+  }
 }
 
 /**

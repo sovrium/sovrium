@@ -1,6 +1,6 @@
 # Typography
 
-> `design.typeScale.families` maps a role to a typeface — family, fallback stack, tracking and web-font loading. The sizes live one article away.
+> `design.typeScale.families` maps a role to a typeface: family, fallback stack, tracking and web-font loading. The sizes live one article away.
 
 Each role key mints a `--font-{role}` custom property and a matching `font-{role}` utility, so type decisions live in config rather than scattered across `className` strings.
 
@@ -20,7 +20,7 @@ design:
         fallback: 'ui-monospace, monospace'
 ```
 
-Role keys are alphabetic and freely chosen. `heading`, `body` and `mono` are the conventional three — Sovrium's prebuilt components look for them — but a design that needs `display` or `caption` simply declares it. The map is open, so it publishes no table of its own; the table below is one face.
+Role keys are alphabetic and freely chosen. `heading`, `body` and `mono` are the conventional three, and Sovrium's prebuilt components look for them, but a design that needs `display` or `caption` simply declares it. The map is open, so it publishes no table of its own; the table below is one face.
 
 **Sizes and leading do not live here.** This key answers _which typeface_; how big an `h2` is and what leading it takes is `design.typeScale.steps`, in the Type Scale article. Three of the fields below are superseded and reach nothing.
 
@@ -30,6 +30,15 @@ Role keys are alphabetic and freely chosen. `heading`, `body` and `mono` are the
 
 `family` is the only required member.
 
+## What each face sets
+
+- `body` sets running text: the page, and whatever inherits from it.
+- `title` sets the headings. A design with no `title` sets them in `body`, then in the default.
+- `mono` replaces Geist Mono for code.
+- `sans` replaces Geist as the family `--font-sans` and the `font-sans` utility name.
+
+Declaring `body` leaves `sans` alone, and that is deliberate: `font-sans` is a class that says "the sans-serif", so a serif `body` must not turn it into a serif. An app set in one family everywhere declares that family under both keys. Geist is not fetched unless something still asks for it.
+
 ## The default typefaces
 
 A design that declares no families is set in Geist, with Geist Mono for code. Sovrium serves both itself, as `woff2` files under `/assets/fonts/` whose names change with their content, so a browser caches each one for a year and fetches it again only after an upgrade that changes it. No font CDN is ever contacted.
@@ -38,7 +47,7 @@ Every page preloads Geist, so its text paints in the right face without waiting 
 
 ## Loading a web font
 
-Give the role a `url` and Sovrium injects the stylesheet link for you. Nothing else is required — no manual `head` entry, no `@font-face` block.
+Give the role a `url` and Sovrium injects the stylesheet link for you. Nothing else is required: no manual `head` entry, no `@font-face` block.
 
 ```yaml
 design:
@@ -52,7 +61,7 @@ design:
 
 **Always pair `url` with `fallback`.** A remote font is a network request the first paint does not wait for. Without a fallback stack, text is laid out in the browser default and reflows when the font lands; with one, the swap is a change of typeface rather than a change of layout.
 
-To load several weights, request them in the `url` — a Google Fonts stylesheet takes `wght@400;600` — or point `url` at a self-hosted stylesheet declaring the `@font-face` rules you need. Self-hosting works the same way and keeps the request on your own origin, which matters when a third-party font CDN is not acceptable under your privacy posture.
+To load several weights, request them in the `url` (a Google Fonts stylesheet takes `wght@400;600`) or point `url` at a self-hosted stylesheet declaring the `@font-face` rules you need. Self-hosting works the same way and keeps the request on your own origin, which matters when a third-party font CDN is not acceptable under your privacy posture.
 
 ## The three fields that reach nothing
 

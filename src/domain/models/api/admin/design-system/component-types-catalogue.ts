@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ---------------------------------------------------------------------------
 // The catalogue, as rows
@@ -98,7 +98,7 @@ export const componentTypeRefusalStateSchema = Schema.Literals([
 ]).annotate({
   identifier: 'ComponentTypeRefusalState',
   description:
-    'Why this type is reported rather than drawn, as the catalogue’s own machine value — the literal a card stamps into `data-design-specimen-state`.',
+    'Why this type is reported rather than drawn, as the catalogue’s own machine value: the literal a card stamps into `data-design-specimen-state`.',
 })
 
 export const componentTypeSummarySchema = Schema.Struct({
@@ -112,7 +112,7 @@ export const componentTypeSummarySchema = Schema.Struct({
   }),
   title: Schema.String.annotate({
     description:
-      "Human-readable heading of this type's CATEGORY — the registry's only display string. Not a name for the type itself; the type literal is what an author writes.",
+      "Human-readable heading of this type's CATEGORY, the registry's only display string. Not a name for the type itself; the type literal is what an author writes.",
     examples: ['Interactive', 'Form controls'],
   }),
   // ─── THE ONE LINE THAT SAYS WHEN TO REACH FOR THIS TYPE ──────────────────
@@ -157,7 +157,7 @@ export const componentTypeSummarySchema = Schema.Struct({
   // live on the detail, where a page draws them.
   variantCount: Schema.Int.annotate({
     description:
-      'How many values this type’s variant axis carries. `0` — never absent — for the large majority that declare none.',
+      'How many values this type’s variant axis carries. `0`, never absent, for the large majority that declare none.',
   }),
   sizeCount: Schema.Int.annotate({
     description: 'How many values this type’s size axis carries; `0` when it declares none.',
@@ -185,11 +185,11 @@ export const componentTypeSummarySchema = Schema.Struct({
   // rather than adding one.
   propCount: Schema.Int.annotate({
     description:
-      'How many fields an author may write on this type — its own plus the shared modules it spreads. Never `0`: every catalogued type has at least one.',
+      'How many fields an author may write on this type: its own plus the shared modules it spreads. Never `0`: every catalogued type has at least one.',
   }),
   pageCount: Schema.Int.annotate({
     description:
-      'How many of the operator’s routes write this type anywhere in their component tree. `0` — never absent — for a type nobody uses.',
+      'How many of the operator’s routes write this type anywhere in their component tree. `0`, never absent, for a type nobody uses.',
   }),
   // ─── WHETHER THE CARD CARRIES A CANVAS ───────────────────────────────────
   //
@@ -213,7 +213,7 @@ export const componentTypeSummarySchema = Schema.Struct({
   refusalReason: optionalField(
     Schema.String.annotate({
       description:
-        'The catalogue’s own sentence for why this type is not drawn, when it has one on file. ABSENT for a drawn type, and absent for a refused one the catalogue has no sentence for — a card showing an empty reason would read as a rendering failure.',
+        'The catalogue’s own sentence for why this type is not drawn, when it has one on file. ABSENT for a drawn type, and absent for a refused one the catalogue has no sentence for, because a card showing an empty reason would read as a rendering failure.',
     })
   ),
   // ABSENT rather than `undefined`-valued for a drawn type, and absent for the
@@ -245,7 +245,7 @@ export const componentTypeSummarySchema = Schema.Struct({
   // mark would silently never appear and look exactly like a correct render.
   fixtureBacked: Schema.Boolean.annotate({
     description:
-      'Whether this type’s specimen draws PLATFORM FIXTURE ROWS. `true` for the data-bound types the catalogue draws, each of which reads the catalogue’s own fixture endpoint and never an operator table; `false` — never absent — for every other type.',
+      'Whether this type’s specimen draws PLATFORM FIXTURE ROWS. `true` for the data-bound types the catalogue draws, each of which reads the catalogue’s own fixture endpoint and never an operator table; `false`, never absent, for every other type.',
   }),
 }).annotate({
   strictKeys: true,
@@ -268,7 +268,7 @@ export const componentTypeCategorySchema = Schema.Struct({
     examples: ['interactive', 'form-controls'],
   }),
   title: Schema.String.annotate({
-    description: 'The registry’s own heading for this category — the string the kit index draws',
+    description: 'The registry’s own heading for this category: the string the kit index draws',
     examples: ['Interactive', 'Form controls'],
   }),
   count: Schema.Int.annotate({
@@ -286,7 +286,7 @@ export const componentTypeListResponseSchema = Schema.Struct({
     description: 'Every component type the registry publishes, in category order',
   }),
   total: Schema.Int.annotate({
-    description: 'How many types this response carries — the whole catalogue, never a page of it',
+    description: 'How many types this response carries: the whole catalogue, never a page of it',
   }),
   // ─── COUNTED HERE BECAUSE EVERY CONSUMER WOULD OTHERWISE COUNT ───────────
   //
@@ -317,7 +317,7 @@ export const componentTypeListResponseSchema = Schema.Struct({
   // would split into two hops and resolve nothing, silently.
   categoryCounts: Schema.Record(Schema.String, Schema.Int).annotate({
     description:
-      'The same per-category figures as `categories[].count`, keyed by slug — the shape a dot path can address. Derived from the same count, so the two can never disagree.',
+      'The same per-category figures as `categories[].count`, keyed by slug, the shape a dot path can address. Derived from the same count, so the two can never disagree.',
     examples: [{ interactive: 6, 'form-controls': 15 }],
   }),
 }).annotate({

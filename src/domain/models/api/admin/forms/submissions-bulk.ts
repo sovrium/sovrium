@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { uuid } from '@/domain/models/api/combinators/formats'
+import { uuid } from '@/domain/kernel/config-parsing/formats'
 import { formSubmissionAdminItemSchema } from './submissions-list'
 
 /**
@@ -57,7 +57,7 @@ export const formsSubmissionsBulkRequestSchema = Schema.Struct({
   ids: Schema.Array(uuid())
     .annotate({
       description:
-        'Submission ids to fetch (1-100). Order is preserved in the response. Missing or soft-deleted ids drop silently — compare request and response lengths to detect drops.',
+        'Submission ids to fetch (1-100). Order is preserved in the response. Missing or soft-deleted ids drop silently; compare request and response lengths to detect drops.',
     })
     .pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(100))),
 }).annotate({ identifier: 'FormsSubmissionsBulkRequest' })

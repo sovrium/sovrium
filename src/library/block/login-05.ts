@@ -5,20 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, param } from '@/library/manifest/block-kit'
+import { asComponent, param } from '@/library/kit/block-kit'
+import { LOGIN_NOTES, SIGN_IN_PARAM, bareScreen, loginParams } from '@/library/kit/login-block-kit'
+import { magicLinkForm, orSeparator, signUpLine, socials } from '@/library/kit/login-block-parts'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import {
-  LOGIN_NOTES,
-  SIGN_IN_PARAM,
-  bareScreen,
-  loginParams,
-} from '@/library/manifest/login-block-kit'
-import {
-  magicLinkForm,
-  orSeparator,
-  signUpLine,
-  socials,
-} from '@/library/manifest/login-block-parts'
 
 /** shadcn/ui's `login-05`, composed in config. */
 export const entry = defineLibraryEntry({

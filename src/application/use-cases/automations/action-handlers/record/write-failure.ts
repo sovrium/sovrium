@@ -1,0 +1,156 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+/**
+ * What an automation step reports when a record write is refused: which
+ * column, and why.
+ *
+ * `Failed to create record in windows` is correct and unactionable — the real
+ * reason sits on the driver error at the bottom of the `cause` chain. The step
+ * reports this in its run history (redacted, operator-only), so an item a loop
+ * tolerated still says which column refused it and why, without the operator
+ * bisecting the data by hand.
+ *
+ * It is built HERE, not on the error the write path raises, because that
+ * error's message also answers a public form submitter: the driver's sentence
+ * echoes values and names relations, and never reaches a client (S4).
+ *
+ * This only ATTRIBUTES a refusal the database has already made; it never
+ * decides validity.
+ */
+
+import { isBusinessRuleViolationError } from '@/domain/errors/business-rule-violation-error'
+import { findConstraintViolation } from '@/domain/errors/driver-failure'
+import { isFieldFormatViolationError } from '@/domain/errors/field-format-violation-error'
+import type { ActionOutcome } from '../shared'
+import type { RefusedWrite } from '@/domain/models/app/agents/agent-action-failure-service'
+
+interface ErrorNode {
+  readonly _tag?: unknown
+  readonly message?: unknown
+  readonly fieldName?: unknown
+  readonly query?: unknown
+  readonly params?: unknown
+  readonly cause?: unknown
+}
+
+const MAX_CAUSE_DEPTH = 8
+
+const causeChain = (error: unknown, depth = 0): readonly ErrorNode[] => {
+  if (depth >= MAX_CAUSE_DEPTH || error === null || typeof error !== 'object') return []
+  const node = error as ErrorNode
+  return [node, ...causeChain(node.cause, depth + 1)]
+}
+
+/** Drizzle's `Failed query: <SQL> params: <values>` wrapper: noise, never the reason. */
+const isOrmWrapper = (node: ErrorNode): boolean =>
+  typeof node.query === 'string' && node.params !== undefined
+
+/** The innermost readable message in the chain: the driver's own sentence. */
+const driverReason = (error: unknown): string | undefined =>
+  causeChain(error)
+    .slice(1)
+    .filter((node) => !isOrmWrapper(node))
+    .map((node) => node.message)
+    .filter((message): message is string => typeof message === 'string' && message.length > 0)
+    .at(-1)
+
+/**
+ * The submitted column whose value the driver echoed back (PostgreSQL's
+ * `invalid input syntax for type …: "<value>"` names the value, not the
+ * column). Only an unambiguous match names a column — never a guess.
+ */
+const columnOfEchoedValue = (
+  reason: string,
+  fields: Readonly<Record<string, unknown>>
+): string | undefined => {
+  const echoed = /: "(.*)"$/.exec(reason)?.[1]
+  if (echoed === undefined) return undefined
+  const matches = Object.entries(fields).filter(
+    ([, value]) =>
+      (typeof value === 'string' || typeof value === 'number') && String(value) === echoed
+  )
+  return matches.length === 1 ? matches[0]?.[0] : undefined
+}
+
+/**
+ * The refused write's own message, followed — when the driver said why — by
+ * the column it refused (when it can be told) and the driver's reason.
+ */
+export const describeWriteFailure = (
+  failure: unknown,
+  fields: Readonly<Record<string, unknown>>
+): string => {
+  const base = failure instanceof Error ? failure.message : String(failure)
+  const named = (failure as ErrorNode | null)?.fieldName
+  const fieldName = typeof named === 'string' ? named : undefined
+  const reason = driverReason(failure)
+  if (reason === undefined) return fieldName === undefined ? base : `${base}: ${fieldName}`
+  const column = fieldName ?? columnOfEchoedValue(reason, fields)
+  return column === undefined ? `${base}: ${reason}` : `${base}: ${column} — ${reason}`
+}
+
+/** Whether the database refused the write because another row already holds the value. */
+const isTakenValue = (failure: unknown): boolean =>
+  (failure as ErrorNode | null)?._tag === 'UniqueConstraintViolationError' ||
+  findConstraintViolation(failure) === 'unique'
+
+/**
+ * The refused write as the agent path may know it: whether the value was
+ * taken, and the column the database refused when it can be told — read off
+ * the failure's structure, never off its sentence. A taken value carries the
+ * column its write path attributed, which the agent sentence names only once
+ * the reader is judged to read every record holding the value.
+ */
+export const refusedWriteOf = (
+  failure: unknown,
+  fields: Readonly<Record<string, unknown>>
+): RefusedWrite => {
+  const named = (failure as ErrorNode | null)?.fieldName
+  if (isTakenValue(failure)) {
+    return typeof named === 'string' ? { unique: true, column: named } : { unique: true }
+  }
+  const reason = driverReason(failure)
+  const column =
+    typeof named === 'string'
+      ? named
+      : reason === undefined
+        ? undefined
+        : columnOfEchoedValue(reason, fields)
+  return column === undefined ? { unique: false } : { unique: false, column }
+}
+
+/** A refusal of the write's own values: it answers the same on every attempt. */
+const isValueRefusal = (node: unknown): boolean =>
+  isBusinessRuleViolationError(node) || isFieldFormatViolationError(node)
+
+/**
+ * The retry verdict of a refused write, read off the failure's TYPE: a write a
+ * table's business rule refused, or one of whose values breaks its column's
+ * format, is refused the same way on every attempt, so a `retry` policy must
+ * not spend its budget on it. Any other failure is left to the retry loop's own
+ * classification.
+ */
+export const retryVerdictOf = (failure: unknown): Pick<ActionOutcome, 'retryable'> =>
+  causeChain(failure).some(isValueRefusal) ? { retryable: false } : {}
+
+/**
+ * The failure outcome of a refused record write: the operator's sentence for
+ * the run history ({@link describeWriteFailure} on a create, the write's own
+ * message otherwise), the structured refusal the agent path reads, and the
+ * retry verdict ({@link retryVerdictOf}).
+ */
+export const writeFailureOutcome = (
+  failure: unknown,
+  fields: Readonly<Record<string, unknown>>,
+  error: string = describeWriteFailure(failure, fields)
+): ActionOutcome => ({
+  status: 'failure',
+  error,
+  refusedWrite: refusedWriteOf(failure, fields),
+  ...retryVerdictOf(failure),
+})

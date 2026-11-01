@@ -25,8 +25,10 @@ import {
   ALL_LANGUAGES,
   localizeStoredValue,
 } from '@/domain/models/app/languages/localized-value-service'
+import { isUserReferenceFieldType } from '@/domain/models/app/tables/field-type-classifier-service'
 import { recordTitleFields } from '@/domain/models/app/tables/record-title-service'
 import { mayReadRelatedField } from '@/domain/models/app/tables/related-field-read-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { readsTranslatableValue } from '@/domain/models/app/tables/translatable-read-service'
 import type { App } from '@/domain/models/app'
 
@@ -48,7 +50,7 @@ const displayFieldOf = (tables: App['tables'], field: SchemaField): unknown => {
   if (field.displayField !== undefined || field.relationType !== 'one-to-many') {
     return field.displayField
   }
-  const related = tables?.find((table) => table.name === field.relatedTable)
+  const related = findTableByName(tables, field.relatedTable)
   return recordTitleFields(related?.fields)[0]
 }
 
@@ -67,7 +69,7 @@ const isNonEmptyString = (value: unknown): value is string =>
 
 /** Does `table` declare a field called `fieldName`? */
 const tableDeclares = (tables: App['tables'], table: string, fieldName: string): boolean =>
-  tables?.find((t) => t.name === table)?.fields.some((f) => f.name === fieldName) === true
+  findTableByName(tables, table)?.fields.some((f) => f.name === fieldName) === true
 
 /**
  * The reader a label is resolved FOR.
@@ -161,7 +163,7 @@ export const getRelationshipDisplaySpecs = (
   reader: LabelReader,
   requested: readonly RequestedLabel[] = []
 ): readonly RelationshipDisplaySpec[] => {
-  const table = app?.tables?.find((t) => t.name === tableName)
+  const table = findTableByName(app?.tables, tableName)
   if (!app || !table) return []
   return mergeSpecs(app.tables, table.fields, requested).filter((spec) =>
     readerMaySee(app, reader, spec)
@@ -277,17 +279,6 @@ export const buildRecordDisplayLabels = (
 }
 
 /**
- * The field types that store an ACCOUNT id — the person a read surface should
- * name rather than the key it stores.
- */
-const USER_FIELD_TYPES: ReadonlySet<string> = new Set([
-  'user',
-  'created-by',
-  'updated-by',
-  'deleted-by',
-])
-
-/**
  * The fields of `tableName` that store an account id.
  *
  * No reader narrowing here, unlike a relationship's: the label is the account's
@@ -299,9 +290,9 @@ export const getUserDisplayFieldNames = (
   app: App | undefined,
   tableName: string
 ): readonly string[] =>
-  (app?.tables?.find((t) => t.name === tableName)?.fields ?? []).flatMap((field) => {
+  (findTableByName(app?.tables, tableName)?.fields ?? []).flatMap((field) => {
     const { name, type } = field as SchemaField
-    return isNonEmptyString(name) && typeof type === 'string' && USER_FIELD_TYPES.has(type)
+    return isNonEmptyString(name) && typeof type === 'string' && isUserReferenceFieldType(type)
       ? [name]
       : []
   })

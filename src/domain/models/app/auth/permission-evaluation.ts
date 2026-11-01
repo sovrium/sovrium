@@ -278,9 +278,10 @@ export const ANY_NON_VIEWER_WHEN_UNDECLARED: UndeclaredPolicy = { kind: 'any-non
  * Defer to a grant the call site computed itself.
  *
  * Used where the fallback is not a property of the ladder but of surrounding
- * context — bucket writes fall back to `defaultWriteGrant(app, bucket, session)`,
- * which weighs `bucket.public` against whether the app configures auth at all
- * (the buckets perm specs).
+ * context — bucket writes fall back to `defaultWriteGrant`, which weighs
+ * `bucket.public` against the caller's role (a public bucket takes undeclared
+ * uploads from an administrator only) and the built-in `system` bucket against
+ * whether the app configures auth at all (the buckets perm specs).
  */
 export const grantWhenUndeclared = (allowed: boolean): UndeclaredPolicy => ({
   kind: 'caller-grant',

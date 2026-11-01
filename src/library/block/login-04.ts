@@ -5,21 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, param } from '@/library/manifest/block-kit'
-import { defineLibraryEntry } from '@/library/manifest/define'
+import { asComponent, param } from '@/library/kit/block-kit'
 import {
   COMPACT_ROW,
   LOGIN_NOTES,
   loginParams,
   splitCardScreen,
-} from '@/library/manifest/login-block-kit'
+} from '@/library/kit/login-block-kit'
 import {
   bareHeader,
   orSeparator,
   passwordColumn,
   signUpLine,
   socials,
-} from '@/library/manifest/login-block-parts'
+} from '@/library/kit/login-block-parts'
+import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** shadcn/ui's `login-04`, composed in config. */
 export const entry = defineLibraryEntry({

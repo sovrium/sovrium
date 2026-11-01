@@ -12,6 +12,7 @@ import {
 } from '../../design/feedback-default-classes'
 import * as Renderers from '../elements'
 import { closesWithBadge } from '../page/badge-shell-inset'
+import { MAIN_REGION_ID } from '../page/main-region'
 import { SovriumBadge } from '../page/sovrium-badge'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { bubbleComponents } from './bubble-component'
@@ -74,6 +75,20 @@ function containerRepeatMarkers(component: unknown): Record<string, string> | un
     : { [REPEAT_ATTRIBUTE]: field }
 }
 
+/**
+ * A `main` container that names itself the page's main region (`id` is the skip
+ * link's target, see `page/page-main.tsx`) takes the focus the skip link moves
+ * to it, as the engine's own landmark does.
+ */
+function mainRegionFocus(
+  element: string,
+  props: Readonly<Record<string, unknown>>
+): { readonly tabIndex?: number } {
+  return element === 'main' && props['id'] === MAIN_REGION_ID && props['tabIndex'] === undefined
+    ? { tabIndex: -1 }
+    : {}
+}
+
 export const structuralComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   ...bubbleComponents,
   container: ({
@@ -96,12 +111,14 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
         | 'article'
         | undefined) ?? 'div'
     const repeatMarkers = containerRepeatMarkers(component)
+    const props = {
+      ...elementPropsWithSpacing,
+      ...repeatMarkers,
+      ...mainRegionFocus(element, elementPropsWithSpacing),
+    }
     return Renderers.renderHTMLElement({
       type: element,
-      props:
-        repeatMarkers === undefined
-          ? elementPropsWithSpacing
-          : { ...elementPropsWithSpacing, ...repeatMarkers },
+      props,
       content: content,
       // The scrolling inset of a window-high shell closes with the footer badge
       // (`page/badge-shell-inset.ts`), so the line never falls below the shell.

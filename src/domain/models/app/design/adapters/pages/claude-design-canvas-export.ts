@@ -10,6 +10,7 @@ import {
   type HtmlElementNode,
   type HtmlNode,
 } from '@/domain/kernel/sanitize/html-element-tree'
+import { escapeHtmlText } from '@/domain/kernel/sanitize/html-escaping'
 import { componentFolderName } from '@/domain/models/app/design/adapters/export/claude-design-export'
 import {
   PROTOTYPE_BOARD_FILE,
@@ -22,7 +23,6 @@ import {
   CANVAS_STAMP,
   drawnNode,
   drawnTextsOf,
-  escapeText,
   imageOriginsOf,
   nodesById,
   serializeBoardNodes,
@@ -344,7 +344,7 @@ const boardOf = (
     '<head>',
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${boardPolicyOf(imageOriginsOf(drawn))}">`,
-    `<title>${escapeText(`${page.tree.page} · ${appName}`)}</title>`,
+    `<title>${escapeHtmlText(`${page.tree.page} · ${appName}`)}</title>`,
     '<script src="./support.js"></script>',
     ...(input.bundle === undefined
       ? []

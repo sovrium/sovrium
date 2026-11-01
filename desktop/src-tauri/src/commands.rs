@@ -242,58 +242,30 @@ pub async fn create_project<R: Runtime>(
     Ok(project)
 }
 
-/// Scaffold a project from a configuration published at an https address.
+/// Inspect a configuration published at an https address, and show the one
+/// consent dialog a bundle link gets.
 ///
 /// The sibling of [`create_project`], and the same refusal applies: the shell
 /// composes nothing and fetches nothing. It hands an address to
-/// `sovrium init --from-url`, which owns the retrieval along with every guard
-/// that makes it safe — the SSRF check, the 15-second timeout, the 1 MB cap,
-/// decoding before writing, and the refusal of a remote `.ts` or a remote
-/// `$ref`. A second fetcher here would be a second threat model, and it would
-/// be the one nobody reviewed.
+/// `sovrium init --from-url --inspect`, which owns the retrieval along with
+/// every guard that makes it safe — the SSRF check, the 15-second timeout, the
+/// 1 MB cap, decoding before writing, and the refusal of a remote `.ts` or a
+/// remote `$ref`. A second fetcher here would be a second threat model, and it
+/// would be the one nobody reviewed.
+///
+/// Inspecting first is what lets the dialog say, before anything is written,
+/// whether the document contains code: an automation `code` step runs
+/// TypeScript with the project's access, whatever the config's format. The
+/// import ([`bundle_import`]) then fetches the address again pinned to the
+/// sha256 the dialog showed, so different bytes are refused, not written.
 ///
 /// The address passes the same gate a deep link does, because a URL typed into
 /// the window and a URL arriving from a web page deserve one answer, not two.
 #[tauri::command]
-pub async fn create_project_from_url<R: Runtime>(
-    app: AppHandle<R>,
-    parent_dir: String,
-    folder_name: String,
-    url: String,
-) -> Result<ProjectRef, String> {
-    if !is_safe_folder_name(&folder_name) {
-        return Err(format!(
-            "“{folder_name}” cannot be used as a folder name. Letters, numbers and dashes work best."
-        ));
-    }
-    let (url, _host) = crate::deeplink::parse_config_url(&url).map_err(|r| r.message())?;
-
-    let dir = PathBuf::from(&parent_dir).join(&folder_name);
-    is_usable_target(&dir)?;
-
-    let (ok, stdout, stderr) = sidecar::run_engine_once(
-        &app,
-        vec![
-            "init".into(),
-            "--from-url".into(),
-            url,
-            dir.to_string_lossy().into_owned(),
-        ],
-        None,
-    )
-    .await?;
-    if !ok {
-        let detail = if stderr.is_empty() { stdout } else { stderr };
-        return Err(format!("The project could not be created.\n\n{detail}"));
-    }
-
-    // No template: a project forked from an address has nothing to "reset to",
-    // and recording one would give the reset button a template the user never
-    // chose. `new` reads back which file `init --from-url` wrote — `app.json`
-    // for a `.json` address, `app.yaml` otherwise — rather than assuming one.
-    let project = ProjectRef::new(dir, None);
-    open_recorded(&app, project.clone())?;
-    Ok(project)
+pub fn inspect_from_url<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), String> {
+    let (url, host) = crate::deeplink::parse_config_url(&url).map_err(|r| r.message())?;
+    bundle_import::begin_document(&app, url, host);
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -323,9 +295,13 @@ pub struct BundleImported {
     pub warning: Option<String>,
 }
 
-/// Import the bundle the dialog is showing into `<parent_dir>/<folder_name>`.
+/// Import what the dialog is showing into `<parent_dir>/<folder_name>`: a
+/// bundle, or a config document inspected by [`inspect_from_url`].
 ///
-/// The archive and its sha256 are the ones held in Rust since the inspection,
+/// For a document the address and its sha256 are the ones held in Rust since
+/// the inspection, and the import is
+/// `init --from-url <url> <dir> --expect-sha256 <sha256>`. For a bundle,
+/// the archive and its sha256 are the ones held in Rust since the inspection,
 /// never values from the frontend, so the bytes imported are the bytes the
 /// dialog approved. The import is the engine's:
 /// `init --from-bundle <file> <dir> --expect-sha256 <sha256> --with-demo-data`,
@@ -340,47 +316,72 @@ pub async fn bundle_import<R: Runtime>(
     parent_dir: String,
     folder_name: String,
 ) -> Result<BundleImported, String> {
-    let inspection = bundle_import::ready_inspection(&app)
-        .ok_or_else(|| "There is no bundle waiting to be imported.".to_string())?;
+    let ready = bundle_import::ready_import(&app)
+        .ok_or_else(|| "There is no project waiting to be imported.".to_string())?;
     if !is_safe_folder_name(&folder_name) {
         return Err(format!(
             "“{folder_name}” cannot be used as a folder name. Letters, numbers and dashes work best."
         ));
     }
-    let file = inspection
-        .file
-        .clone()
-        .filter(|f| bundle_import::is_engine_download(f, &bundle_import::temp_root()))
-        .ok_or_else(|| {
-            "The downloaded bundle is no longer where Sovrium left it. Open the link again.".to_string()
-        })?;
-
+    let (ok, stdout, stderr) = match &ready {
+        bundle_import::ReadyImport::Bundle(inspection) => {
+            let file = inspection
+                .file
+                .clone()
+                .filter(|f| bundle_import::is_engine_download(f, &bundle_import::temp_root()))
+                .ok_or_else(|| {
+                    "The downloaded bundle is no longer where Sovrium left it. Open the link again."
+                        .to_string()
+                })?;
+            let dir = PathBuf::from(&parent_dir).join(&folder_name);
+            is_usable_target(&dir)?;
+            let data_dir = ProjectRef::new(dir.clone(), None).data_dir();
+            sidecar::run_engine_once_with_env(
+                &app,
+                vec![
+                    "init".into(),
+                    "--from-bundle".into(),
+                    file.to_string_lossy().into_owned(),
+                    dir.to_string_lossy().into_owned(),
+                    "--expect-sha256".into(),
+                    inspection.sha256.clone(),
+                    "--with-demo-data".into(),
+                ],
+                None,
+                // The shell's environment minus what would redirect storage: a
+                // `DATABASE_URL` in it would refuse the import, or seed that database.
+                bundle_import::import_env(
+                    std::env::vars_os(),
+                    vec![("SOVRIUM_DATA_DIR".into(), data_dir.into_os_string())],
+                ),
+            )
+            .await?
+        }
+        // The address is fetched again, so the import is pinned to the sha256
+        // the dialog showed: bytes changed since are refused, never written.
+        bundle_import::ReadyImport::Document { url, inspection } => {
+            let dir = PathBuf::from(&parent_dir).join(&folder_name);
+            is_usable_target(&dir)?;
+            sidecar::run_engine_once(
+                &app,
+                vec![
+                    "init".into(),
+                    "--from-url".into(),
+                    url.clone(),
+                    dir.to_string_lossy().into_owned(),
+                    "--expect-sha256".into(),
+                    inspection.sha256.clone(),
+                ],
+                None,
+            )
+            .await?
+        }
+    };
     let dir = PathBuf::from(&parent_dir).join(&folder_name);
-    is_usable_target(&dir)?;
-    let data_dir = ProjectRef::new(dir.clone(), None).data_dir();
 
-    let (ok, stdout, stderr) = sidecar::run_engine_once_with_env(
-        &app,
-        vec![
-            "init".into(),
-            "--from-bundle".into(),
-            file.to_string_lossy().into_owned(),
-            dir.to_string_lossy().into_owned(),
-            "--expect-sha256".into(),
-            inspection.sha256.clone(),
-            "--with-demo-data".into(),
-        ],
-        None,
-        // The shell's environment minus what would redirect storage: a
-        // `DATABASE_URL` in it would refuse the import, or seed that database.
-        bundle_import::import_env(
-            std::env::vars_os(),
-            vec![("SOVRIUM_DATA_DIR".into(), data_dir.into_os_string())],
-        ),
-    )
-    .await?;
-
-    // Detected from the folder: the engine writes `app.yaml` (A1, D5).
+    // Detected from the folder: the engine writes `app.yaml` (A1, D5), or
+    // `app.json` for a `.json` address. No template is recorded either way: a
+    // project imported from elsewhere has nothing to "reset to".
     let project = ProjectRef::new(dir, None);
     let written = project.config_path().is_file();
     if !ok && !written {
@@ -391,7 +392,11 @@ pub async fn bundle_import<R: Runtime>(
             bundle_import::engine_error(&stderr)
         ));
     }
-    let credentials = bundle_import::parse_credentials(&stdout);
+    // Only a bundle's `--with-demo-data` prints credentials.
+    let credentials = match ready {
+        bundle_import::ReadyImport::Bundle(_) => bundle_import::parse_credentials(&stdout),
+        bundle_import::ReadyImport::Document { .. } => None,
+    };
     drop(stdout);
     let warning = (!ok).then(|| bundle_import::engine_error(&stderr));
 

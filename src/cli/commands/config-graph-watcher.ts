@@ -7,6 +7,14 @@
 
 import { existsSync, readFileSync, watch } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
+import {
+  closeWatcher,
+  createDirectoryWatch,
+  type WatchFunction,
+  type WatcherRegistry,
+} from './config-graph-directory-watch'
+
+export type { WatchFunction } from './config-graph-directory-watch'
 
 /**
  * One `fs.watch` handle per file of the config graph, kept in sync with the
@@ -83,28 +91,6 @@ export interface ConfigGraphWatcher {
  * by an event has already had its record updated, so it is never reported
  * twice. Linux (inotify) arms synchronously and never needs it.
  */
-/**
- * The open handles, by the path or directory they watch.
- *
- * Mutable by nature: a registry that cannot take a handle and cannot release
- * one is not a registry. It is the single mutable seam of this module, and it
- * never escapes — `createConfigGraphWatcher` closes over both instances and
- * publishes only `sync` and `size`.
- */
-type WatcherRegistry = Map<string, WatchHandle>
-
-/** What this module needs from an open watch: the means to close it. */
-interface WatchHandle {
-  readonly close: () => void
-}
-
-/** `fs.watch` as this module calls it — injectable so a test can withhold events. */
-export type WatchFunction = (
-  path: string,
-  listener: (eventType: string, filename: string | Buffer | null) => void
-) => WatchHandle
-
-/** Options of {@link createConfigGraphWatcher}; the defaults are what the CLI runs. */
 export interface ConfigGraphWatcherOptions {
   readonly watch?: WatchFunction
   /**
@@ -250,14 +236,6 @@ const createReportingBackstop = (
   }
 }
 
-/** Close the watcher registered under `key` and forget it. */
-const closeWatcher = (registry: WatcherRegistry, key: string): void => {
-  const watcher = registry.get(key)
-  if (!watcher) return
-  watcher.close()
-  registry.delete(key)
-}
-
 /**
  * Make `registry` hold a watcher for exactly `keys`: a key it does not have is
  * opened through `open`, a key it has and `keys` does not is closed.
@@ -336,15 +314,13 @@ export const createConfigGraphWatcher = (
     report(join(dir, filename))
   }
 
-  const watchDir = (dir: string): void => {
-    try {
-      const watcher = watchFn(dir, (_eventType, filename) => handleDirEvent(dir, filename))
-      dirWatchers.set(dir, watcher)
-    } catch {
-      // An unreadable config directory leaves the per-file handles as the only
-      // coverage — which is exactly what this watcher had before.
-    }
-  }
+  const watchDir = createDirectoryWatch(watchFn, dirWatchers, {
+    onEvent: handleDirEvent,
+    onArrived: (dir) => {
+      ;[...(watchedNames.get(dir) ?? [])].forEach((name) => report(join(dir, name)))
+      backstop.schedule()
+    },
+  })
 
   const sync = (files: ReadonlyArray<string>): void => {
     backstop.track(files)

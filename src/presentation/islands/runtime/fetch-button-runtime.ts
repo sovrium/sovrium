@@ -134,6 +134,19 @@ function openFetchConfirmGate(
   messageSpan.textContent = message
   dialog.appendChild(messageSpan)
 
+  // Cancel first, the verb after it, as every confirm orders them. The visible
+  // text and the accessible name are set from the SAME resolved string, never
+  // two separate literals, which would be two places for the language to drift
+  // independently.
+  dialog.appendChild(
+    createGateButton({
+      label: cancelLabel,
+      ariaLabel: cancelLabel,
+      className:
+        'border-border text-foreground-subtle hover:bg-muted rounded-md border px-2 py-1 text-sm transition-colors',
+      onClick: () => dialog.remove(),
+    })
+  )
   dialog.appendChild(
     createGateButton({
       label: confirmLabel,
@@ -143,18 +156,6 @@ function openFetchConfirmGate(
         dialog.remove()
         onConfirm()
       },
-    })
-  )
-  // The visible text and the accessible name are set from the SAME resolved
-  // string, never two separate literals, which would be two places for the
-  // language to drift independently.
-  dialog.appendChild(
-    createGateButton({
-      label: cancelLabel,
-      ariaLabel: cancelLabel,
-      className:
-        'border-border text-foreground-subtle hover:bg-muted rounded-md border px-2 py-1 text-sm transition-colors',
-      onClick: () => dialog.remove(),
     })
   )
 

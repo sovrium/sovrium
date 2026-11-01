@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { componentFields } from '@/presentation/render/resolve/component-rewrite'
 import { resolveCalendarDateInputs } from './calendar-date-fields'
 import { forReader } from './caller-table-inputs'
 import {
@@ -209,7 +210,7 @@ export function resolveTypeSpecificInputs(
       ...withGridBadgeForm(
         forReader(resolveDataTableInputs(table, tables), table, component),
         badgeForm,
-        component
+        componentFields(component)
       ),
       dataTableGroupBy: resolveBoundView(component, table)?.groupBy,
       // The same `colorField` resolver as the three record views.

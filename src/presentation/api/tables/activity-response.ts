@@ -11,7 +11,7 @@
  */
 
 import { projectActivityActor } from './activity-reader-gate'
-import type { ActivityLogOutput } from '@/application/use-cases/list-activity-logs'
+import type { ActivityLogOutput } from '@/application/use-cases/activity/list-activity-logs'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import {
   normalizeSidebarPath,
@@ -122,7 +123,11 @@ export function resolveSidebarCurrentEntries(
 function hasSidebarGroups(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(hasSidebarGroups)
   if (!isRecord(value)) return false
-  if (value['type'] === 'sidebar' && Array.isArray(value['groups'])) return true
+  if (
+    value['type'] === 'sidebar' &&
+    (Array.isArray(value['groups']) || Array.isArray(value['footer']))
+  )
+    return true
   if (isBottomBar(value)) return true
   return Object.values(value).some(hasSidebarGroups)
 }
@@ -135,9 +140,33 @@ function transform(value: unknown, matcher: EntryMatcher): unknown {
     Object.entries(value).map(([key, child]) => [key, transform(child, matcher)])
   )
   if (isBottomBar(value)) return { ...mapped, navItems: markItems(value['navItems'], matcher) }
-  if (value['type'] !== 'sidebar' || !Array.isArray(value['groups'])) return mapped
+  if (value['type'] !== 'sidebar') return mapped
 
-  return { ...mapped, groups: markGroups(value['groups'], matcher) }
+  return {
+    ...mapped,
+    ...(Array.isArray(value['groups']) ? { groups: markGroups(value['groups'], matcher) } : {}),
+    ...(Array.isArray(mapped['footer'])
+      ? { footer: markFooterLinks(mapped['footer'], matcher) }
+      : {}),
+  }
+}
+
+/**
+ * Mark a `link` placed in a sidebar's `footer` whose destination is the page
+ * being read, as an entry is marked: `aria-current="page"` and `data-active`.
+ *
+ * A footer holds components rather than entries, so the mark lands on the
+ * link's own props, where the link renderer writes them onto its `<a>`. The
+ * match is the entry rule with its default, an exact address.
+ */
+function markFooterLinks(footer: readonly unknown[], matcher: EntryMatcher): readonly unknown[] {
+  return footer.map((component) => {
+    if (!isRecord(component) || component['type'] !== 'link') return component
+    const props = isRecord(component['props']) ? component['props'] : {}
+    const { href } = props
+    if (typeof href !== 'string' || !entryMatches(href, undefined, matcher)) return component
+    return { ...component, props: { ...props, 'aria-current': 'page', 'data-active': '' } }
+  })
 }
 
 /**
@@ -250,8 +279,4 @@ function marksCurrent(node: unknown): boolean {
   if (!isRecord(node)) return false
   if (node[CURRENT_ENTRY_KEY] === true) return true
   return Array.isArray(node['children']) && node['children'].some(marksCurrent)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

@@ -11,20 +11,23 @@ import {
   detectAmbiguousTableRenames,
   detectTableRenames,
 } from '../schema-migration/rename-detection'
-import { planTableRenames, type TableRenameStep } from '../schema-migration/table-operations'
+import {
+  ambiguousRenameMessage,
+  planTableRenames,
+  type TableRenameStep,
+} from '../schema-migration/table-operations'
 import { getExistingTableNames, getExistingViews } from '../sql/sql-execution'
+import type { TableChange } from './schema-dry-run'
+import type { LiveCatalogue } from '../schema-migration/table-classification'
 import type { TransactionLike } from '../sql/sql-execution'
 import type { Table } from '@/domain/models/app/tables'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 
-/** The live table and view names, as the migration's steps read them. */
-interface Catalog {
-  readonly tables: ReadonlySet<string>
-  readonly views: ReadonlySet<string>
-}
-
 /** The catalog once Step 3.5 has run: each renamed relation under its new name. */
-const afterTableRenames = (catalog: Catalog, renames: readonly TableRenameStep[]): Catalog => {
+const afterTableRenames = (
+  catalog: LiveCatalogue,
+  renames: readonly TableRenameStep[]
+): LiveCatalogue => {
   const from = new Set(renames.map((step) => step.from))
   const droppedViews = new Set(renames.flatMap((step) => step.droppedView ?? []))
   return {
@@ -33,6 +36,7 @@ const afterTableRenames = (catalog: Catalog, renames: readonly TableRenameStep[]
       ...renames.map((step) => step.to),
     ]),
     views: new Set([...catalog.views].filter((name) => !droppedViews.has(name))),
+    dialect: catalog.dialect,
   }
 }
 
@@ -71,9 +75,10 @@ export const planRelationSet = (
   authoredIds: AuthoredTableIds
 ): Effect.Effect<RelationPlan, never> =>
   Effect.gen(function* () {
-    const catalog: Catalog = {
+    const catalog: LiveCatalogue = {
       tables: new Set(yield* getExistingTableNames(tx)),
       views: new Set(yield* getExistingViews(tx)),
+      dialect: tx.dialect,
     }
     const ambiguous = detectAmbiguousTableRenames(tables, previousSchema, authoredIds)
     const renames =
@@ -90,3 +95,43 @@ export const planRelationSet = (
       Effect.succeed({ renames: [], ambiguous: [], steps: [], failure: error.message })
     )
   )
+
+/** A `rename` change for one Step 3.5 table rename (a name change under an authored id). */
+const planTableRename = (step: TableRenameStep): TableChange => ({
+  table: step.newName,
+  from: step.from,
+  relation: step.to,
+  kind: 'rename',
+  statements: step.statements,
+  unsimulated: false,
+  refusals: [],
+})
+
+/**
+ * The changes Steps 3.5 and 5.5 report on their own: each table rename, or the
+ * refusal of a rename cycle, and a catalog that could not be read.
+ */
+export const relationChanges = (relations: RelationPlan): readonly TableChange[] => [
+  ...(relations.ambiguous.length > 0
+    ? [
+        {
+          table: [...relations.ambiguous].toSorted().join(', '),
+          kind: 'rename' as const,
+          statements: [],
+          unsimulated: false,
+          refusals: [ambiguousRenameMessage(relations.ambiguous)],
+        },
+      ]
+    : relations.renames.map(planTableRename)),
+  ...(relations.failure === undefined
+    ? []
+    : [
+        {
+          table: '(renamed tables, and tables with lookup, rollup or count fields)',
+          kind: 'rename' as const,
+          statements: [],
+          unsimulated: true,
+          refusals: [`Could not read which relation holds each table's rows: ${relations.failure}`],
+        },
+      ]),
+]

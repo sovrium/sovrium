@@ -35,6 +35,10 @@ import { TableRepository } from '@/application/ports/repositories/tables/table-r
 import { callerReadScope } from '@/application/use-cases/tables/permissions/caller-read-authority'
 import { readerRowsOf } from '@/application/use-cases/tables/row-read-admission'
 import {
+  anonymousGrant,
+  servesNoAuthVisitor,
+} from '@/domain/models/app/auth/anonymous-grant-service'
+import {
   defaultLanguageTranslator,
   resolveInterpreterString,
 } from '@/domain/models/app/languages/translation-resolver'
@@ -46,7 +50,7 @@ import {
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { admitsRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { callerLinkReader } from './action-handlers/record-caller-gate'
+import { callerLinkReader } from './action-handlers/record/caller-gate'
 import { buildGuestSession, buildSyntheticSession, buildSystemSession } from './build-guest-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
@@ -76,12 +80,19 @@ const readPressedRow = (press: PressReference) =>
 
 /**
  * How the presser reads the pressed table: `'whole'` in an app without
- * sign-in (every row, every column), her read scope otherwise, or `undefined`
- * when she may not read the table at all.
+ * sign-in (every row, every column) when the table opens `read` to everyone,
+ * her read scope otherwise, or `undefined` when she may not read the table at
+ * all.
  */
 const readerScopeOf = (app: App, press: PressReference, userId: string | undefined) =>
   Effect.gen(function* () {
-    if (app.auth === undefined) return 'whole' as const
+    if (app.auth === undefined) {
+      // Every presser is the visitor: she reads a table that opens `read` to everyone, whole.
+      const table = app.tables?.find((candidate) => candidate.name === press.table)
+      return !servesNoAuthVisitor(app) || anonymousGrant(table, 'read', app)
+        ? ('whole' as const)
+        : undefined
+    }
     const session = userId === undefined ? buildGuestSession() : buildSyntheticSession(userId)
     const scope = yield* callerReadScope(app, session, press.table)
     // The rows the records API admits her: on a scope table, only those a grant names.

@@ -72,6 +72,7 @@ import { AttachmentLink } from '../parts/attachment-links'
 import { readsAsTrue } from '../runtime/cell-value-semantics'
 import { richTextPreview } from '../runtime/rich-text-preview'
 import { EMPTY_VALUE, isMissing } from './cell-empty'
+import { useGridString } from './island/grid-strings'
 import type { CellFieldOptions } from './cell-renderers'
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -245,11 +246,17 @@ export function BarcodeCell({
  */
 export function CheckboxCell({ value }: { value: unknown }): React.ReactNode {
   if (isMissing(value)) return EMPTY_VALUE
-  const checked = readsAsTrue(value)
+  return <CheckboxGlyph checked={readsAsTrue(value)} />
+}
+
+/** The tick or the cross, named in the page language (`checkbox.yes` / `checkbox.no`). */
+function CheckboxGlyph({ checked }: { readonly checked: boolean }): React.ReactNode {
+  const yes = useGridString('checkbox.yes', 'Yes')
+  const no = useGridString('checkbox.no', 'No')
   return (
     <span
       role="img"
-      aria-label={checked ? 'Yes' : 'No'}
+      aria-label={checked ? yes : no}
       className={computeCheckboxGlyphClasses({ checked })}
     >
       {checked ? '✓' : '✗'}

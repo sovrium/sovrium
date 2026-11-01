@@ -89,12 +89,12 @@ const isString = (value: unknown): value is string => typeof value === 'string'
 /** Keep `failure` as the project's last CLI failure, replacing the one before. */
 export const keepLastCliFailure = (
   failure: KeptCliFailure,
-  dataDir: string = parseDataDir()
+  dataDir: string = parseDataDir(process.env)
 ): void => writeJson(dataDir, LAST_FAILURE_FILE, failure)
 
 /** The project's last CLI failure, if one was kept. */
 export const readLastCliFailure = (
-  dataDir: string = parseDataDir()
+  dataDir: string = parseDataDir(process.env)
 ): KeptCliFailure | undefined => {
   const kept = readJson(join(reportsDir(dataDir), LAST_FAILURE_FILE)) as
     Partial<Record<keyof KeptCliFailure, unknown>> | undefined
@@ -227,7 +227,7 @@ const appendServerFailure = async (dataDir: string, entry: KeptServerFailure): P
  */
 export const keepServerFailure = (
   failure: KeptServerFailure,
-  dataDir: string = parseDataDir()
+  dataDir: string = parseDataDir(process.env)
 ): void => {
   const entry = { ...failure, logs: failure.logs.slice(0, MAX_KEPT_LOGS) }
   pendingWrites = pendingWrites
@@ -246,7 +246,7 @@ export const flushServerFailures = (): Promise<void> => pendingWrites
 /** The server error answered under `requestId`, if this project kept it. */
 export const findServerFailure = (
   requestId: string,
-  dataDir: string = parseDataDir()
+  dataDir: string = parseDataDir(process.env)
 ): KeptServerFailure | undefined =>
   readServerFailures(dataDir).find((failure) => failure.requestId === requestId)
 
@@ -257,7 +257,7 @@ export const findServerFailure = (
  */
 export const findLatestServerFailure = async (
   accept: (failure: KeptServerFailure) => boolean = () => true,
-  dataDir: string = parseDataDir()
+  dataDir: string = parseDataDir(process.env)
 ): Promise<KeptServerFailure | undefined> => {
   await flushServerFailures()
   return readServerFailures(dataDir).findLast(accept)

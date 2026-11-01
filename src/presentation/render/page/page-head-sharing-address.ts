@@ -19,14 +19,19 @@ import type { OpenGraph } from '@/domain/models/app/pages/meta'
 export const checkedAddress = (address: string | undefined): string | undefined =>
   address === undefined || toSafeAssetUrl(address) === undefined ? undefined : address
 
-/** The sharing card with its resolved `url` checked by {@link checkedAddress}. */
+/**
+ * The sharing card with its `url` resolved exactly as the canonical is — its
+ * `$t:` key in the served language, then `$app.*` / `$param.*` through the
+ * head's `references` — and checked by {@link checkedAddress}.
+ */
 export function withCheckedUrl(
   openGraph: OpenGraph | undefined,
   lang: string,
-  languages: Languages | undefined
+  languages: Languages | undefined,
+  references: (text: string) => string = (text) => text
 ): OpenGraph | undefined {
   if (openGraph?.url === undefined) return openGraph
   const { url, ...rest } = openGraph
-  const checked = checkedAddress(resolveTranslationPattern(url, lang, languages))
+  const checked = checkedAddress(references(resolveTranslationPattern(url, lang, languages)))
   return checked === undefined ? rest : { ...rest, url: checked }
 }

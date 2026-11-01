@@ -20,7 +20,6 @@ import {
   or,
   type SQL,
 } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   AdminFormsDatabaseError,
   AdminFormsRepository,
@@ -28,16 +27,21 @@ import {
   type AdminFormSubmissionDetailRow,
   type AdminFormSubmissionListRow,
   type AdminFormSubmissionRow,
+  type AdminSubmissionTriageRow,
   type AdminSubmissionsCountFilters,
   type AdminSubmissionsListFilters,
 } from '@/application/ports/repositories/forms/admin-forms-repository'
-import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
   formSubmissionsTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * The rows of one form that were SENT: a `draft` (`saveAndResume`) is a
@@ -136,6 +140,7 @@ const buildSearchConditions = (filters: AdminSubmissionsCountFilters): ReadonlyA
  * read on every page load and the join buys nothing when nobody is searching.
  */
 const listSubmissionsImpl = async (
+  db: PortableDb,
   filters: AdminSubmissionsListFilters
 ): Promise<ReadonlyArray<AdminFormSubmissionListRow>> => {
   const submissions = formSubmissionsTable()
@@ -171,7 +176,10 @@ const listSubmissionsImpl = async (
  * list's own predicates, the submitter join only when searching, no cursor and
  * no limit. Postgres answers `count()` as a bigint string, hence the `Number`.
  */
-const countSubmissionsImpl = async (filters: AdminSubmissionsCountFilters): Promise<number> => {
+const countSubmissionsImpl = async (
+  db: PortableDb,
+  filters: AdminSubmissionsCountFilters
+): Promise<number> => {
   const submissions = formSubmissionsTable()
   const users = authUsersTable()
   const conditions = buildListConditions(filters)
@@ -190,18 +198,8 @@ const countSubmissionsImpl = async (filters: AdminSubmissionsCountFilters): Prom
   return Number(rows[0]?.total ?? 0)
 }
 
-/**
- * Admin Forms Repository Implementation (Drizzle).
- *
- * Four dialect-aware reads over `system.form_submissions` backing the admin
- * forms-catalog metadata + the three submissions endpoints. All projection /
- * cursor / pagination logic lives in the `forms-overview` use case; this layer
- * emits only raw queries. Dialect resolution is handled by the per-call
- * `formSubmissionsTable()` selector (PG `system.form_submissions` vs SQLite
- * flat `system_form_submissions`) — moved verbatim from the former route.
- */
-export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
-  aggregateForForm: (formName) =>
+const members: MembersOverDatabase<typeof AdminFormsRepository> = {
+  aggregateForForm: (db) => (formName) =>
     wrap(async () => {
       const submissions = formSubmissionsTable()
       const rows = (await db
@@ -216,11 +214,11 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
       return rows[0] ?? { submissionCount: 0, lastSubmissionAt: null }
     }),
 
-  listSubmissions: (filters) => wrap(async () => listSubmissionsImpl(filters)),
+  listSubmissions: (db) => (filters) => wrap(async () => listSubmissionsImpl(db, filters)),
 
-  countSubmissions: (filters) => wrap(async () => countSubmissionsImpl(filters)),
+  countSubmissions: (db) => (filters) => wrap(async () => countSubmissionsImpl(db, filters)),
 
-  findSubmissionDetail: (formName, submissionId) =>
+  findSubmissionDetail: (db) => (formName, submissionId) =>
     wrap(async () => {
       const submissions = formSubmissionsTable()
       const rows = (await db
@@ -238,7 +236,7 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
       return rows[0]
     }),
 
-  findSubmissionsByIds: (formName, ids) =>
+  findSubmissionsByIds: (db) => (formName, ids) =>
     wrap(async () => {
       const submissions = formSubmissionsTable()
       // Soft-deleted rows drop silently (per D8: missing AND soft-deleted ids
@@ -257,7 +255,7 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
         )) as ReadonlyArray<AdminFormSubmissionRow>
     }),
 
-  listSubmissionsWithData: (formName, limit) =>
+  listSubmissionsWithData: (db) => (formName, limit) =>
     wrap(async () => {
       const submissions = formSubmissionsTable()
       return (await db
@@ -275,7 +273,28 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
         .limit(limit)) as ReadonlyArray<AdminFormSubmissionDetailRow>
     }),
 
-  listSubmissionsSince: (formName, since) =>
+  findSubmissionTriage: (db) => (ids) =>
+    ids.length === 0
+      ? wrap(async (): Promise<readonly AdminSubmissionTriageRow[]> => [])
+      : wrap(async () => {
+          const submissions = formSubmissionsTable()
+          const users = authUsersTable()
+          return (await db
+            .select({
+              id: submissions.id,
+              formName: submissions.formName,
+              submitterName: users.name,
+              submitterEmail: users.email,
+              guestEmail: submissions.guestEmail,
+              linkedRecordTable: submissions.linkedRecordTable,
+              linkedRecordId: submissions.linkedRecordId,
+            })
+            .from(submissions)
+            .leftJoin(users, eq(users.id, submissions.submitterUserId))
+            .where(inArray(submissions.id, [...ids]))) as ReadonlyArray<AdminSubmissionTriageRow>
+        }),
+
+  listSubmissionsSince: (db) => (formName, since) =>
     wrap(async () => {
       const submissions = formSubmissionsTable()
       return (await db
@@ -291,4 +310,16 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
           and(sentOf(formName), isNull(submissions.deletedAt), gte(submissions.submittedAt, since))
         )) as ReadonlyArray<AdminFormSubmissionRow>
     }),
-})
+}
+
+/**
+ * Admin Forms Repository Implementation (Drizzle).
+ *
+ * Four dialect-aware reads over `system.form_submissions` backing the admin
+ * forms-catalog metadata + the three submissions endpoints. All projection /
+ * cursor / pagination logic lives in the `forms-overview` use case; this layer
+ * emits only raw queries. Dialect resolution is handled by the per-call
+ * `formSubmissionsTable()` selector (PG `system.form_submissions` vs SQLite
+ * flat `system_form_submissions`) — moved verbatim from the former route.
+ */
+export const AdminFormsRepositoryLive = layerOverDatabase(AdminFormsRepository, members)

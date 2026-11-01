@@ -31,15 +31,16 @@ import { Effect } from 'effect'
 import { type Hono, type Context } from 'hono'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { claimBootstrapToken } from '@/application/use-cases/auth/bootstrap-token'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
+import { bootstrapClaimResponseSchema } from '@/domain/models/api/server/bootstrap'
 import { logError } from '@/infrastructure/logging/logger'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
   badRequest,
   errorBody,
   internalError,
   notFound,
 } from '@/presentation/api/runtime/auth-helpers'
+import { answerFailures, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 
 interface ClaimRequestBody {
@@ -51,9 +52,10 @@ interface ClaimRequestBody {
 /**
  * Whether this instance is still waiting for its first administrator.
  *
- * Reads the user count through `AuthRepository` off the request's domain
- * services rather than through a live `db` handle (W5b). The count query itself
- * is unchanged — same table, same projection.
+ * Reads the count of people who can sign in through `AuthRepository` off the
+ * request's domain services, the same count the boot uses to decide whether to
+ * print a token: the account an app's agent is stored as is not a person, so
+ * it never closes the door before the first administrator arrives.
  *
  * The failure branch is load-bearing and its RESPONSE is preserved exactly: if
  * the user table cannot be queried at all (`DATABASE_URL` unset during local
@@ -66,13 +68,12 @@ interface ClaimRequestBody {
  * (standing rule E6). An unreachable user table is an operator problem that
  * used to present only as a 404 on an endpoint nobody had reached for yet.
  */
-const isBootstrapMode = async (c: Context): Promise<boolean> => {
-  if (process.env.AUTH_ADMIN_EMAIL) return false
-  const userCount = await runDomainPromise(
-    c,
-    Effect.gen(function* () {
+const isBootstrapMode = () =>
+  Effect.gen(function* () {
+    if (process.env.AUTH_ADMIN_EMAIL) return false
+    const userCount = yield* Effect.gen(function* () {
       const authRepository = yield* AuthRepository
-      return yield* authRepository.countUsers
+      return yield* authRepository.countHumanUsers
     }).pipe(
       Effect.tapCause((cause) =>
         Effect.sync(() => logError('[bootstrap] user-count probe failed', cause))
@@ -83,9 +84,8 @@ const isBootstrapMode = async (c: Context): Promise<boolean> => {
       // -1 rather than a large number so the value can never equal 0 by accident.
       Effect.orElseSucceed(() => -1)
     )
-  )
-  return userCount === 0
-}
+    return userCount === 0
+  })
 
 const extractBearer = (header: string | undefined): string | undefined => {
   if (!header || !header.toLowerCase().startsWith('bearer ')) return undefined
@@ -109,69 +109,78 @@ const parseClaimBody = async (
   }
 }
 
-const handleClaim = async (c: Context, app: App) => {
-  if (!app.auth) {
-    return notFound(c, 'Bootstrap not available')
-  }
-
-  if (!(await isBootstrapMode(c))) {
-    return notFound(c, 'Bootstrap not available')
-  }
-
-  const token = extractBearer(c.req.header('authorization'))
-  if (!token) {
-    return c.json(
-      errorBody({ error: 'Missing bootstrap token', code: ApiErrorCode.UNAUTHORIZED }),
-      401
-    )
-  }
-
-  const body = await parseClaimBody(c.req.raw)
-  if (body === undefined) {
-    return badRequest(c, 'Invalid JSON body')
-  }
-
-  if (!isString(body.email) || !isString(body.password) || !isString(body.name)) {
-    return badRequest(c, 'Missing required fields: email, password, name')
-  }
-
-  // The claim runs on the server's domain services, which carry the bootstrap
-  // token store, the auth repository and the account provisioner built over
-  // this app's own auth engine.
-  const result = await runDomainPromise(
+const handleClaim = (c: Context, app: App) =>
+  runHandlerEffect(
     c,
-    claimBootstrapToken({
-      token,
-      email: body.email,
-      password: body.password,
-      name: body.name,
-    }).pipe(Effect.result)
-  )
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        if (!app.auth) {
+          return notFound(c, 'Bootstrap not available')
+        }
 
-  if (result._tag === 'Failure') {
-    const err = result.failure
-    switch (err._tag) {
-      case 'BootstrapTokenNotFoundError':
-      case 'BootstrapTokenExpiredError':
-      case 'BootstrapTokenAlreadyUsedError':
-        return c.json(
-          errorBody({
-            error: 'Invalid or expired bootstrap token',
-            code: ApiErrorCode.UNAUTHORIZED,
-          }),
-          401
+        if (!(yield* isBootstrapMode())) {
+          return notFound(c, 'Bootstrap not available')
+        }
+
+        const token = extractBearer(c.req.header('authorization'))
+        if (!token) {
+          return c.json(
+            errorBody({ error: 'Missing bootstrap token', code: ApiErrorCode.UNAUTHORIZED }),
+            401
+          )
+        }
+
+        // effect-promise: total -- a body that is not JSON is caught there and read as none.
+        const body = yield* Effect.promise(() => parseClaimBody(c.req.raw))
+        if (body === undefined) {
+          return badRequest(c, 'Invalid JSON body')
+        }
+
+        if (!isString(body.email) || !isString(body.password) || !isString(body.name)) {
+          return badRequest(c, 'Missing required fields: email, password, name')
+        }
+
+        // The claim runs on the server's domain services, which carry the bootstrap
+        // token store, the auth repository and the account provisioner built over
+        // this app's own auth engine.
+        const result = yield* claimBootstrapToken({
+          token,
+          email: body.email,
+          password: body.password,
+          name: body.name,
+        }).pipe(Effect.result)
+
+        if (result._tag === 'Failure') {
+          const err = result.failure
+          switch (err._tag) {
+            case 'BootstrapTokenNotFoundError':
+            case 'BootstrapTokenExpiredError':
+            case 'BootstrapTokenAlreadyUsedError':
+              return c.json(
+                errorBody({
+                  error: 'Invalid or expired bootstrap token',
+                  code: ApiErrorCode.UNAUTHORIZED,
+                }),
+                401
+              )
+            case 'BootstrapAdminCreationError':
+              logError('[bootstrap] admin creation failed', err.cause as Error)
+              return internalError(c, 'Failed to create admin user')
+            default:
+              logError('[bootstrap] database error', err as Error)
+              return internalError(c)
+          }
+        }
+
+        return shapedJson(
+          c,
+          { success: true, userId: result.success.userId, email: result.success.email },
+          bootstrapClaimResponseSchema
         )
-      case 'BootstrapAdminCreationError':
-        logError('[bootstrap] admin creation failed', err.cause as Error)
-        return internalError(c, 'Failed to create admin user')
-      default:
-        logError('[bootstrap] database error', err as Error)
-        return internalError(c)
-    }
-  }
-
-  return c.json({ success: true, userId: result.success.userId, email: result.success.email }, 200)
-}
+      })
+    )
+  )
 
 /**
  * Mount `POST /api/admin/bootstrap/claim`. The route is ALWAYS present

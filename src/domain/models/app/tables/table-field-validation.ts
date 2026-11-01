@@ -6,6 +6,7 @@
  */
 
 import { isNumericFormulaResult } from './formula-result-type-service'
+import type { RollupField } from './fields/field-types/relational/rollup-field'
 
 /**
  * Shared table field type for validation parameters.
@@ -311,6 +312,13 @@ const validateRollupAggregation = (params: {
 }
 
 /**
+ * A rollup field, told by its type tag. This runs inside `TableSchema`'s check,
+ * after every field has decoded, so the tag decides the shape.
+ */
+const isRollupField = (field: TableWithFields['fields'][number]): field is RollupField =>
+  field.type === 'rollup'
+
+/**
  * Validate all rollup fields across all tables.
  */
 export const validateAllRollupFields = (
@@ -320,13 +328,9 @@ export const validateAllRollupFields = (
   return tables
     .flatMap((table) =>
       table.fields
-        .filter((field) => field.type === 'rollup')
+        .filter(isRollupField)
         .map((rollupField) => {
-          const { relationshipField, relatedField, aggregation } = rollupField as unknown as {
-            relationshipField: string
-            relatedField: string
-            aggregation: string
-          }
+          const { relationshipField, relatedField, aggregation } = rollupField
 
           const relationshipError = validateRelationshipFieldReference({
             table,

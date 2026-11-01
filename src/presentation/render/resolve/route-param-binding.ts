@@ -6,6 +6,13 @@
  */
 
 import { normalizeRouteParamRef } from '@/domain/models/app/pages/route-param-ref'
+import {
+  componentField,
+  keyOf,
+  rewriteComponent,
+  tableBindingOf,
+  type ComponentBinding,
+} from './component-rewrite'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 
@@ -33,8 +40,10 @@ import type { DataFilter } from '@/domain/models/app/pages/components/data-sourc
  * An absent value is therefore unreachable in practice — `patternToRegex`
  * captures `([^/]+)`, so a matched route never yields an empty segment. It is
  * still handled rather than thrown on: the endpoint keeps its placeholder (the
- * island reports a failed load) and the filter compares against the empty
- * string (which matches no row). Both degrade to "no rows", never to a 500.
+ * island reports a failed load) and the filter matches no row (`in []`), never
+ * a comparison with the empty text. Both degrade to "no rows", never to a 500.
+ * A segment its column cannot hold is refused when the read compiles the
+ * filter (`pageReadFilterOf`), where the field's type is known.
  *
  * Pure: a new component is returned, the input is never mutated, and a
  * component with no route binding is returned unchanged by reference.
@@ -43,21 +52,20 @@ export function bindRouteParams(
   component: Component,
   routeParams: Readonly<Record<string, string>>
 ): Component {
-  const { dataSource } = component
+  const dataSource = componentField(component, 'dataSource')
   if (!dataSource) return component
 
   const system = substituteSystemEndpoint(dataSource, routeParams)
-  const filter = substituteFilterRefs(dataSource.filter, routeParams)
+  const filter = substituteFilterRefs(tableBindingOf(component)?.filter, routeParams)
   if (system === undefined && filter === undefined) return component
 
-  return {
-    ...component,
+  return rewriteComponent(component, {
     dataSource: {
       ...dataSource,
       ...(system !== undefined ? { system } : {}),
       ...(filter !== undefined ? { filter } : {}),
     },
-  } as Component
+  })
 }
 
 /**
@@ -75,20 +83,21 @@ export function bindRouteParams(
  * of a static endpoint.
  */
 function substituteSystemEndpoint(
-  dataSource: NonNullable<Component['dataSource']>,
+  dataSource: ComponentBinding,
   routeParams: Readonly<Record<string, string>>
 ): Record<string, unknown> | undefined {
-  const { system } = dataSource as { readonly system?: unknown }
+  const system = keyOf(dataSource, 'system')
   if (typeof system !== 'object' || system === null) return undefined
 
-  const { param, endpoint } = system as { param?: unknown; endpoint?: unknown }
+  const param = keyOf(system, 'param')
+  const endpoint = keyOf(system, 'endpoint')
   if (typeof param !== 'string' || typeof endpoint !== 'string') return undefined
 
   const placeholder = `:${param}`
   const value = routeParams[param]
   if (value === undefined || !endpoint.includes(placeholder)) return undefined
 
-  return { ...(system as Record<string, unknown>), endpoint: endpoint.replace(placeholder, value) }
+  return { ...system, endpoint: endpoint.replace(placeholder, value) }
 }
 
 /**
@@ -109,6 +118,9 @@ function substituteFilterRefs(
   return filter.map((condition) => {
     const ref = normalizeRouteParamRef(condition.value)
     if (!ref) return condition
-    return { ...condition, value: routeParams[ref.name] ?? '' }
+    const value = routeParams[ref.name]
+    return value === undefined || value === ''
+      ? { ...condition, operator: 'in' as const, value: [] }
+      : { ...condition, value }
   })
 }

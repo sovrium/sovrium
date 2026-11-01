@@ -30,7 +30,6 @@
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { isUniqueInEachLanguage } from '@/domain/models/app/tables/translatable-unique-service'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getPhysicalTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import {
@@ -277,7 +276,7 @@ export const sqliteConstraintsStale = (
   table: Table
 ): Effect.Effect<boolean, SQLExecutionError> =>
   Effect.gen(function* () {
-    if (!isSqliteRuntime()) return false
+    if (tx.dialect !== 'sqlite') return false
     if (yield* sqliteCheckClausesStale(tx, table)) return true
     if (yield* sqliteForeignKeyTargetsStale(tx, table)) return true
     const drift = yield* readUniqueShapeDrift(tx, table)

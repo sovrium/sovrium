@@ -8,7 +8,7 @@
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { Data, Effect, Schema } from 'effect'
 import { BackupWorkspace } from '@/application/ports/services/backup-workspace'
-import { requiredEnvNamesOf } from '@/application/use-cases/env/validate-required-env-vars'
+import { requiredEnvNamesOf } from '@/application/use-cases/config/validate-required-env-vars'
 import { deriveAppSlug } from '@/domain/models/app/name-service'
 import { isMarkdownSourceFile } from '@/domain/models/app/pages/markdown-source-file-service'
 import { SEED_IMPORT_LAYER } from '@/domain/models/seed/seed-jsonl'

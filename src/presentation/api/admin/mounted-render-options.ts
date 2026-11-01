@@ -17,11 +17,11 @@ import {
 import { callerFieldReaderOf } from '@/domain/models/app/tables/field-read-filter-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { stampRequestId } from '@/presentation/render/page/render-error-pages'
-import { resolveRequestBaseUrl } from '../../../domain/kernel/url/request-base-url'
 import {
   systemRecordFetcher,
   systemRowsFetcher,
 } from '../../../infrastructure/egress/system-rows-fetcher'
+import { resolveRequestBaseUrl } from '../runtime/request-origin'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
 import type { EmbeddedAppMount } from '@/application/ports/contracts/embedded-app-mount'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'

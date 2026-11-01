@@ -57,8 +57,8 @@ import type {
   ReadRecordLabels,
   ReadTableAsCaller,
 } from '@/application/ports/services/page-renderer'
-import type { TransformedRecord } from '@/application/use-cases/tables/record-transformer'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
+import type { TransformedRecord } from '@/domain/models/app/tables/record-transformer-service'
 import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
 import type { Context } from 'hono'
 

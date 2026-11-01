@@ -12,6 +12,7 @@ import { bottomDrawerComponents } from './bottom-drawer-component'
 import { codeBlockComponent } from './code-block-component'
 import { collapsibleComponents } from './collapsible-component'
 import { commandPaletteComponent } from './command-palette-component'
+import { consentChoiceComponent } from './consent-choice-component'
 import { dayCalendarComponents } from './day-calendar-component'
 import { designComponents } from './design-components'
 import { displayComponents } from './display-components'
@@ -45,7 +46,7 @@ import { textComponents } from './text-components'
 import { themeToggleComponent } from './theme-toggle-component'
 import { tocComponent } from './toc-component'
 import { treeComponent } from './tree-component'
-import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
+import type { ComponentRegistry } from './component-dispatch-config'
 
 /**
  * Component registry mapping component types to their renderer functions
@@ -58,7 +59,7 @@ import type { ComponentRenderer, DispatchableComponentType } from './component-d
  * - Special: card-*, navigation, list, etc.
  * - Islands: data-table, search-input (SSR placeholders for client-side React)
  */
-export const COMPONENT_REGISTRY: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
+export const COMPONENT_REGISTRY: ComponentRegistry = {
   ...structuralComponents,
   ...textComponents,
   ...mediaComponents,
@@ -125,8 +126,8 @@ export const COMPONENT_REGISTRY: Partial<Record<DispatchableComponentType, Compo
   'reorderable-list': reorderableListComponent,
   // `favorites-button` is never schema-authored — it is synthesized at render
   // time by `data-source-resolver` and injected into single-record-bound
-  // containers. The cast keeps the render-time-only type out of the
-  // schema-facing `Component['type']` union.
+  // containers. It is keyed through `SynthesizedOnlyComponentType`, which keeps
+  // the render-time-only type out of the schema-facing `Component['type']` union.
   'favorites-button': favoritesButtonComponent,
   // `command-palette` is never schema-authored — it is synthesized at render
   // time by `render-page` and appended to every page so the global `Cmd+K`
@@ -140,10 +141,13 @@ export const COMPONENT_REGISTRY: Partial<Record<DispatchableComponentType, Compo
   // its click behaviour is wired by the body-end theme-toggle runtime and the
   // no-FOUC head script (see PageBodyScripts / PageHead).
   'theme-toggle': themeToggleComponent,
+  // `consent-choice` — a visitor's own on-or-off choice about one purpose.
+  // Drawn hidden; the body-end consent runtime (`consent-choice-script.ts`)
+  // reads the stored choice, sets the real state and reveals it.
+  'consent-choice': consentChoiceComponent,
   // `toc` — table of contents. Schema author writes `{ type: 'toc' }`; the
   // page-level `resolvePageToc` pass walks the tree, assigns ids to every
   // heading, and plumbs the collected headings onto each toc component as
   // a render-time `tocHeadings` field that this renderer consumes.
   toc: tocComponent,
-} as Partial<Record<DispatchableComponentType, ComponentRenderer>> &
-  Record<string, ComponentRenderer>
+}

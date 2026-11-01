@@ -234,7 +234,21 @@ export interface ConfirmedIntent {
 export type BundleVerdict = 'verified' | 'unverified' | 'refused'
 
 /**
- * The bundle dialog's state, for a `sovrium://new?bundle=` link ([internal ref] A1).
+ * Where a consent dialog came from: a bundle archive, or one config document
+ * at an address. Mirrors `bundle_import::Road`.
+ */
+export type ImportRoad = 'bundle' | 'document'
+
+/** An automation step that runs TypeScript, as the engine names it. */
+export interface CodeStep {
+  readonly automation: string
+  readonly step: string
+}
+
+/**
+ * The consent dialog's state, for a `sovrium://new?bundle=` link ([internal ref] A1)
+ * and for a configuration's address, which reaches the same dialog after
+ * `sovrium init --from-url --inspect`.
  * Mirrors `bundle_import::BundleView`; the tag is `kind`.
  *
  * Held in Rust, not here: the shell may navigate this window back to its own
@@ -245,6 +259,8 @@ export type BundleView =
   | { readonly kind: 'fetching'; readonly host: string }
   | {
       readonly kind: 'ready'
+      /** A bundle carries a publisher verdict; a document never does. */
+      readonly road: ImportRoad
       /** Where the archive was downloaded from, after redirects. */
       readonly host: string
       /** The host the link named, when it differs from `host`. */
@@ -254,6 +270,8 @@ export type BundleView =
       readonly size: number
       readonly verdict: Exclude<BundleVerdict, 'refused'>
       readonly containsDemoData: boolean
+      /** Every automation step that runs code; empty when the project has none. */
+      readonly containsCode: readonly CodeStep[]
       readonly folderSuggestion: string
     }
   | { readonly kind: 'refused'; readonly host: string; readonly reason: string }
@@ -291,17 +309,18 @@ export const createProject = (
   template: string
 ): Promise<ProjectRef> => invoke('create_project', { parentDir, folderName, template })
 
-export const createProjectFromUrl = (
-  parentDir: string,
-  folderName: string,
-  url: string
-): Promise<ProjectRef> => invoke('create_project_from_url', { parentDir, folderName, url })
+/**
+ * Ask the engine to inspect a configuration's address. Writes nothing: the
+ * result arrives as the consent dialog (`onBundle`), and the project is only
+ * created from there, pinned to the bytes the dialog showed.
+ */
+export const inspectFromUrl = (url: string): Promise<void> => invoke('inspect_from_url', { url })
 
 /** The bundle dialog to show now, if a `bundle=` link is waiting. */
 export const bundlePending = (): Promise<BundleView | null> => invoke('bundle_pending')
 /**
- * Import the bundle the dialog shows. The archive and its sha256 are the ones
- * Rust holds from the inspection; the frontend only says where.
+ * Import what the dialog shows. The archive or address, and its sha256, are
+ * the ones Rust holds from the inspection; the frontend only says where.
  */
 export const bundleImport = (parentDir: string, folderName: string): Promise<BundleImported> =>
   invoke('bundle_import', { parentDir, folderName })

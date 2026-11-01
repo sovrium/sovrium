@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { accountMenu, appHeader } from '@/library/manifest/app-block-kit'
+import { accountMenu, appHeader } from '@/library/kit/app-block-kit'
 import {
   asComponent,
   flex,
@@ -14,9 +14,9 @@ import {
   PLACE_NOTE,
   stringParam,
   THEME_NOTE,
-} from '@/library/manifest/block-kit'
+} from '@/library/kit/block-kit'
+import { iconButtonLink } from '@/library/kit/navigation-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import { iconButtonLink } from '@/library/manifest/navigation-block-kit'
 
 /** The top bar inside an app: identity, search, notifications and the account. */
 export const entry = defineLibraryEntry({

@@ -25,6 +25,8 @@ export interface ToastConfig {
 
 export interface AuthState {
   readonly error?: string
+  /** The server's code for the error, which a declared `credentialError` answers. */
+  readonly code?: string
   readonly success?: string
   readonly isPending: boolean
   /**
@@ -42,12 +44,13 @@ export interface AuthState {
 function pickCredentials(
   fields: readonly AuthFormField[],
   values: Readonly<Record<string, string>>
-): { email: string; password: string } {
+): { email: string; password: string; name?: string } {
   const emailField = fields.find((f) => f.inputType === 'email')
   const passwordField = fields.find((f) => f.inputType === 'password')
   return {
     email: emailField ? (values[emailField.name] ?? '') : '',
     password: passwordField ? (values[passwordField.name] ?? '') : '',
+    name: values['name'], // a sign-up form asking for the person's name
   }
 }
 
@@ -60,21 +63,22 @@ const TWO_FACTOR_PENDING_MESSAGE =
   'Two-step verification is on — enter your code to finish signing in'
 
 /**
- * A refused password sign-in, in the page language: a wrong address or
- * password reads `auth.invalidCredentials` (handed over by the server where it
- * differs from English); any other refusal keeps the server's own sentence.
- * The API body itself stays English.
+ * A refused sign-in or sign-up, in the page language: the server files the
+ * words of a wrong address or password, and of an address that already holds
+ * an account, under the error code itself (`keyRefusalsByCode`) where they
+ * differ from English; any other refusal keeps the server's own sentence. The
+ * API body itself stays English.
  */
 const refusalOf = (
   error: { readonly code?: string; readonly message?: string },
-  words: Readonly<Record<string, string>> | undefined
-): string =>
-  (error.code === 'INVALID_EMAIL_OR_PASSWORD' && words?.['auth.invalidCredentials']) ||
-  (error.message ?? 'Authentication failed')
+  words: Readonly<Record<string, string>> | undefined,
+  fallback = 'Authentication failed'
+): string => (error.code !== undefined && words?.[error.code]) || (error.message ?? fallback)
 
 /** What an auth method resolved to: a refusal, a banner, or a page to open now. */
 interface AuthOutcome {
   readonly error?: string
+  readonly code?: string
   readonly success?: string
   /** A same-origin path to open at once (a sign-in that still owes its code). */
   readonly navigate?: string
@@ -103,7 +107,7 @@ async function handleLogin(
       ...(callbackURL !== undefined && { callbackURL }),
     })
   )
-  if (result.error) return { error: refusalOf(result.error, input.words) }
+  if (result.error) return { error: refusalOf(result.error, input.words), code: result.error.code }
   const pending = (result.data as { readonly twoFactorRedirect?: unknown } | null)
     ?.twoFactorRedirect
   if (pending !== true) return {}
@@ -111,17 +115,21 @@ async function handleLogin(
   return { success: input.words?.['twoFactor.pendingSignIn'] ?? TWO_FACTOR_PENDING_MESSAGE }
 }
 
-async function handleSignup(email: string, password: string): Promise<string | undefined> {
+/** A sign-up; an account whose form asks for no name is named after its address. */
+async function handleSignup(input: AuthMethodInput): Promise<string | undefined> {
+  const { email, password } = input
   const result = await authClient.signUp.email({
     email,
     password,
-    name: email.split('@')[0] ?? '',
+    name: input.name || (email.split('@')[0] ?? ''),
   })
-  return result.error ? (result.error.message ?? 'Sign up failed') : undefined
+  return result.error ? refusalOf(result.error, input.words, 'Sign up failed') : undefined
 }
 
 async function handleLogout(): Promise<string | undefined> {
   const result = await authClient.signOut()
+  // Forget this browser's language choice: the next person reads the default
+  localStorage.removeItem('sovrium_language')
   return result.error ? (result.error.message ?? 'Sign out failed') : undefined
 }
 
@@ -194,6 +202,7 @@ interface AuthMethodInput {
   readonly strategy: string | undefined
   readonly email: string
   readonly password: string
+  readonly name?: string
   /** Where a mailed sign-in link lands once verified; for a reset request, where its emailed link does. */
   readonly redirectUrl: string | undefined
   /** The form's `onSuccess.toast` config, when it declares one. */
@@ -230,7 +239,7 @@ async function executeAuthMethod(input: AuthMethodInput): Promise<AuthOutcome> {
       if (input.strategy === 'magicLink') return executeMagicLinkLogin(input)
       return handleLogin(input, toSafeRedirectPath(signInDestination(input.redirectUrl)))
     case 'signup':
-      return { error: await handleSignup(email, password) }
+      return { error: await handleSignup(input) }
     case 'logout':
       return { error: await handleLogout() }
     case 'resetPassword': {
@@ -309,12 +318,10 @@ function handleAuthSuccess(ctx: SubmitContext): void {
 export async function submitAuthForm(ctx: SubmitContext): Promise<void> {
   ctx.setState({ isPending: true })
   try {
-    const { email, password } = pickCredentials(ctx.fields, ctx.values)
     const result = await executeAuthMethod({
       method: ctx.method,
       strategy: ctx.strategy,
-      email,
-      password,
+      ...pickCredentials(ctx.fields, ctx.values),
       redirectUrl: ctx.redirectUrl,
       successToast: ctx.successToast,
       words: ctx.words,
@@ -327,9 +334,8 @@ export async function submitAuthForm(ctx: SubmitContext): Promise<void> {
       return
     }
     if (result.error) {
-      // The error first, drawn now; the submit given back takes the focus;
-      // only then the onError toast.
-      flushSync(() => ctx.setState({ error: result.error, isPending: false }))
+      // The error drawn first, then the focus back on the submit, then the onError toast.
+      flushSync(() => ctx.setState({ error: result.error, code: result.code, isPending: false }))
       ctx.form?.querySelector<HTMLElement>('button[type="submit"]')?.focus()
       fireToast(ctx.errorToast)
       return

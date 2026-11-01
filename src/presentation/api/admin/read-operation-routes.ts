@@ -32,11 +32,9 @@
 import { Effect, Schema } from 'effect'
 import { getCookie } from 'hono/cookie'
 import { isAdminReadText } from '@/application/use-cases/admin/admin-read-operation'
-import { resolveRequestBaseUrl } from '@/domain/kernel/url/request-base-url'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import { LANGUAGE_PREFERENCE_COOKIE } from '@/domain/models/app/languages/language-detection'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAdminReadHost } from '@/presentation/api/admin/admin-read-host'
 import { readComponents, withComponents } from '@/presentation/api/openapi/components-registry'
 import { effectJsonResponse, effectParameters } from '@/presentation/api/openapi/route-fragments'
@@ -45,7 +43,12 @@ import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
 import { validationFailureBody } from '@/presentation/api/runtime/effect-validator'
-import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import { resolveRequestBaseUrl } from '@/presentation/api/runtime/request-origin'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import type {
   AdminReadInvalidInput,
   AdminReadOperation,
@@ -81,39 +84,52 @@ function preferredLanguageOf(c: Context): { readonly preferredLanguage?: string 
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
-async function handleAdminRead(
-  c: Context,
-  operation: AdminReadOperation,
-  app: App
-): Promise<Response> {
+function handleAdminRead(c: Context, operation: AdminReadOperation, app: App): Promise<Response> {
   const session = (c as ContextWithSession).var.session!
-  const result = await runRequestEffect(
+  return runHandlerEffect(
     c,
-    Effect.result(
-      provideDomain(
-        c,
-        provideAdminReadHost(
-          operation.run({
-            app,
-            raw: readRawParameters(c, operation),
-            actorUserId: session.userId,
-            transport: 'api',
-            ...preferredLanguageOf(c),
-          }),
-          resolveRequestBaseUrl(c)
+    answerFailures(
+      c,
+      provideAdminReadHost(
+        operation.run({
+          app,
+          raw: readRawParameters(c, operation),
+          actorUserId: session.userId,
+          transport: 'api',
+          ...preferredLanguageOf(c),
+        }),
+        resolveRequestBaseUrl(c)
+      ).pipe(
+        Effect.flatMap((outcome) =>
+          outcome._tag === 'Ok'
+            ? answerAdminReadBody(c, outcome.body)
+            : Effect.sync(() => refuseAdminRead(c, operation, outcome))
         )
       )
     )
   )
-  if (result._tag === 'Failure') return toErrorResponse(c, result.failure)
-  return answerAdminRead(c, operation, result.success)
 }
 
-/** Map a surface-neutral result onto the admin API's status codes. */
-function answerAdminRead(
+/**
+ * The 200 of a read. The entry decoded the body against its own response schema
+ * before answering `Ok`, so the shape is not checked a second time here.
+ */
+function answerAdminReadBody(c: Context, body: unknown): Effect.Effect<Response> {
+  // A conditional read's own middleware overwrites this with its
+  // revalidation directive on the way out.
+  c.header('Cache-Control', 'no-store')
+  return isAdminReadText(body)
+    ? Effect.sync(() =>
+        c.text(body.body, 200, { ...body.headers, 'Content-Type': body.contentType })
+      )
+    : respondWith(c, Effect.succeed(body))
+}
+
+/** Map a surface-neutral refusal onto the admin API's status codes. */
+function refuseAdminRead(
   c: Context,
   operation: AdminReadOperation,
-  outcome: AdminReadResult
+  outcome: Exclude<AdminReadResult, { readonly _tag: 'Ok' }>
 ): Response {
   switch (outcome._tag) {
     case 'InvalidInput':
@@ -136,17 +152,6 @@ function answerAdminRead(
         },
         500
       )
-    case 'Ok':
-      // A conditional read's own middleware overwrites this with its
-      // revalidation directive on the way out.
-      c.header('Cache-Control', 'no-store')
-      if (isAdminReadText(outcome.body)) {
-        return c.text(outcome.body.body, 200, {
-          ...outcome.body.headers,
-          'Content-Type': outcome.body.contentType,
-        })
-      }
-      return c.json(outcome.body as Record<string, unknown>, 200)
   }
 }
 
@@ -173,17 +178,14 @@ function answerInvalidInput(c: Context, outcome: AdminReadInvalidInput): Respons
 
 /**
  * Chain one `GET` per operation onto a Hono app, in registry order.
- *
- * The live App is resolved per request through `resolveApp`, so a config swap
- * without restart is reflected on the next read.
  */
 export function chainAdminReadRoutes<T extends Hono>(
   honoApp: T,
-  resolveApp: () => App,
+  app: App,
   operations: ReadonlyArray<AdminReadOperation>
 ): T {
   return operations.reduce<T>((chained, operation) => {
-    const handler = (c: Context) => handleAdminRead(c, operation, resolveApp())
+    const handler = (c: Context) => handleAdminRead(c, operation, app)
     const conditional = operation.http?.conditional
     if (conditional === undefined) return chained.get(operation.path, handler) as T
     // The revalidation is a GET-only middleware on the path rather than a

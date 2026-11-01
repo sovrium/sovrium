@@ -45,7 +45,7 @@ import {
   toLinkRecord,
   updateAssignments,
 } from '@/infrastructure/database/link-row-codec'
-import type { DrizzleDB } from '@/infrastructure/database/drizzle/db'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 import type { SQL } from 'drizzle-orm'
 
 // Select the active dialect's table at module init. Importing the pg-core table
@@ -68,7 +68,7 @@ const liveRowWhere = (appName: string, slug: string, source: LinkSource): SQL | 
 
 /** List rows for the app, newest first. */
 const listLinks = (
-  db: Readonly<DrizzleDB>,
+  db: Readonly<PortableDb>,
   input: Readonly<ListLinksInput>
 ): Effect.Effect<readonly LinkRecord[], LinkDbError> =>
   Effect.gen(function* () {
@@ -91,7 +91,7 @@ const listLinks = (
 
 /** Resolve one row by slug. */
 const findLinkBySlug = (
-  db: Readonly<DrizzleDB>,
+  db: Readonly<PortableDb>,
   input: Readonly<FindLinkInput>
 ): Effect.Effect<LinkRecord | undefined, LinkDbError> =>
   Effect.gen(function* () {
@@ -117,7 +117,7 @@ const findLinkBySlug = (
 
 /** Insert a `source: 'db'` link; a live slug collision becomes a conflict. */
 const createLink = (
-  db: Readonly<DrizzleDB>,
+  db: Readonly<PortableDb>,
   input: Readonly<CreateLinkInput>
 ): Effect.Effect<LinkRecord, LinkSlugConflictError | LinkDbError> =>
   Effect.gen(function* () {
@@ -136,7 +136,7 @@ const createLink = (
 
 /** Patch a live `source: 'db'` link. */
 const updateLink = (
-  db: Readonly<DrizzleDB>,
+  db: Readonly<PortableDb>,
   input: Readonly<UpdateLinkInput>
 ): Effect.Effect<LinkRecord, LinkNotFoundError | LinkDbError> =>
   Effect.gen(function* () {
@@ -162,7 +162,7 @@ const updateLink = (
  * that satisfied one but not the other would be re-mintable yet invisible.
  */
 const archiveLink = (
-  db: Readonly<DrizzleDB>,
+  db: Readonly<PortableDb>,
   input: { readonly appName: string; readonly slug: string }
 ): Effect.Effect<LinkRecord, LinkNotFoundError | LinkDbError> =>
   Effect.gen(function* () {
@@ -183,7 +183,7 @@ const archiveLink = (
 
 /** Apply the overlay to an existing row of `source`; `undefined` when none. */
 const applyOverlay = (
-  db: Readonly<DrizzleDB>,
+  db: Readonly<PortableDb>,
   input: Readonly<SetLinkDisabledInput>
 ): Effect.Effect<LinkRecord | undefined, LinkDbError> =>
   Effect.gen(function* () {
@@ -213,7 +213,7 @@ const applyOverlay = (
 const NO_OVERLAY_ROW: LinkRecord | undefined = undefined
 
 const insertOverlay = (
-  db: Readonly<DrizzleDB>,
+  db: Readonly<PortableDb>,
   input: Readonly<SetLinkDisabledInput>
 ): Effect.Effect<LinkRecord | undefined, LinkDbError> => {
   const values = overlayValues({ ...input, now: new Date() })
@@ -236,7 +236,7 @@ const insertOverlay = (
 
 /** Set or lift the operator overlay, creating the config row on demand. */
 const setLinkDisabled = (
-  db: Readonly<DrizzleDB>,
+  db: Readonly<PortableDb>,
   input: Readonly<SetLinkDisabledInput>
 ): Effect.Effect<LinkRecord, LinkNotFoundError | LinkDbError> =>
   Effect.gen(function* () {
@@ -254,7 +254,7 @@ const setLinkDisabled = (
 
 /** Live `db` rows the config now claims and which are not yet stamped. */
 const listShadowCandidates = (
-  db: Readonly<DrizzleDB>,
+  db: Readonly<PortableDb>,
   input: Readonly<ShadowSweepInput>
 ): Effect.Effect<readonly LinkRecord[], LinkDbError> =>
   Effect.gen(function* () {
@@ -280,7 +280,7 @@ const listShadowCandidates = (
 
 /** Stamp `shadowed_at` on the named `db` rows. */
 const markShadowed = (
-  db: Readonly<DrizzleDB>,
+  db: Readonly<PortableDb>,
   input: { readonly appName: string; readonly slugs: readonly string[] }
 ): Effect.Effect<number, LinkDbError> =>
   Effect.gen(function* () {
@@ -308,7 +308,7 @@ const markShadowed = (
 
 /** Clear `shadowed_at` on stamped `db` rows the config no longer declares. */
 const clearShadowed = (
-  db: Readonly<DrizzleDB>,
+  db: Readonly<PortableDb>,
   input: Readonly<ShadowSweepInput>
 ): Effect.Effect<number, LinkDbError> =>
   Effect.gen(function* () {
@@ -340,7 +340,7 @@ const clearShadowed = (
 export const LinkRepositoryLive = Layer.effect(
   LinkRepository,
   Effect.gen(function* () {
-    const db = yield* Database
+    const { client: db } = yield* Database
     return LinkRepository.of({
       list: (input) => listLinks(db, input),
       findBySlug: (input) => findLinkBySlug(db, input),

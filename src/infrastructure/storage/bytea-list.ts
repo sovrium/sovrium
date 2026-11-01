@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
+import type { PgDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * The `LIKE` pattern matching every key that starts with `prefix`, read
@@ -43,12 +43,13 @@ export const readAllPages = async (
 
 /** One page of the keys under `prefix`, in key order, after `after`: at most `size` keys. */
 export const byteaListPage = async (
+  client: PgDb,
   prefix: string,
   after: string | undefined,
   size: number
 ): Promise<readonly string[]> => {
   const past = after === undefined ? sql`` : sql` AND key > ${after}`
-  const result = (await db.execute(sql`
+  const result = (await client.execute(sql`
     SELECT key FROM system.file_storage_metadata
     WHERE storage_provider = 'bytea' AND key LIKE ${literalPrefixPattern(prefix)} ESCAPE '\\'${past}
     ORDER BY key
@@ -62,5 +63,5 @@ export const byteaListPage = async (
  * no window cut before a caller's own filter runs (a listing filtered after a
  * cap would hide what sorts after the keys it leaves out).
  */
-export const byteaList = (prefix: string): Promise<readonly string[]> =>
-  readAllPages((after) => byteaListPage(prefix, after, BYTEA_LIST_PAGE), BYTEA_LIST_PAGE)
+export const byteaList = (client: PgDb, prefix: string): Promise<readonly string[]> =>
+  readAllPages((after) => byteaListPage(client, prefix, after, BYTEA_LIST_PAGE), BYTEA_LIST_PAGE)

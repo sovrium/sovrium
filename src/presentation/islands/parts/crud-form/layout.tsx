@@ -21,12 +21,15 @@ import {
   computeFieldSetClasses,
 } from '@/presentation/design/field-default-classes'
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
+import { recordLocked } from '@/presentation/design/locks-verdict'
 import { pendingControlProps } from '@/presentation/design/pending-state'
 import { renderPendingContent } from '@/presentation/design/spinner-mark'
+import { LockReason } from './field-help-text'
 import { type FieldDef, type FormRecordBinding, labelOf, renderField } from './fields'
+import { FormLockNotice } from './form-lock-notice'
 import { LoadedLinkLists } from './loaded-link-lists'
 import { FormRegions } from './main-aside'
-import { formAsideOf, type FormAsideLayout } from './main-aside-regions'
+import { columnSections, formAsideOf, type FormAsideLayout } from './main-aside-regions'
 import { SaveBar, type SaveBarState } from './save-bar'
 import { clearMarkOf, isMarkedCleared } from './wire-values'
 
@@ -113,6 +116,10 @@ function ClearControl(props: {
   )
 }
 
+/** Whether a submit refused the field: missing, over its limit, or named by the server. */
+const isInvalid = (field: FieldDef, props: RenderProps, invalidSet: Set<string>): boolean =>
+  invalidSet.has(field.name) || props.fieldError?.field === field.name
+
 /**
  * A visible field, as shadcn/ui's `Field`: its label, control and description,
  * then — when a submit refused it — its error. `data-invalid` marks the whole
@@ -120,13 +127,14 @@ function ClearControl(props: {
  */
 function renderVisibleField(field: FieldDef, props: RenderProps, invalidSet: Set<string>) {
   const value = props.values[field.name] ?? ''
-  const invalid = invalidSet.has(field.name)
+  const invalid = isInvalid(field, props, invalidSet)
   return (
     <div
       key={field.name}
       data-slot="field"
       data-orientation="vertical"
       {...(invalid && { 'data-invalid': 'true' })}
+      {...(field.disabled === true && { 'data-disabled': 'true' })}
       className={computeFieldClasses()}
     >
       {renderField({
@@ -137,6 +145,7 @@ function renderVisibleField(field: FieldDef, props: RenderProps, invalidSet: Set
         uiStrings: props.uiStrings,
         ...(props.binding === undefined ? {} : { binding: props.binding }),
       })}
+      <LockReason field={field} />
       {offersClear(field, value, props) && (
         <ClearControl
           field={field}
@@ -302,7 +311,7 @@ function SubmitButton({
       data-slot="button"
       data-crud-submit=""
       className={computeButtonDefaultClasses()}
-      disabled={locked}
+      disabled={locked || recordLocked(props.binding?.record) !== undefined}
       {...pendingControlProps(props.state.isPending)}
       {...(props.variant && { 'data-variant': props.variant })}
     >
@@ -333,6 +342,7 @@ function FormFooter({
 export function FormBody(props: FormBodyProps) {
   const { fields, values, state, onFieldChange, redirectUrl, useNativeForm, layout, binding } =
     props
+  const aside = formAsideOf(layout, props.aside)
   const fieldsOf = (subset: readonly FieldDef[]) => (
     <FormFields
       fields={subset}
@@ -342,7 +352,7 @@ export function FormBody(props: FormBodyProps) {
       invalidFields={state.invalidFields}
       layout={layout}
       {...(binding === undefined ? {} : { binding })}
-      {...(props.sections === undefined ? {} : { sections: props.sections })}
+      {...columnSections(props.sections, aside, subset)}
       uiStrings={props.uiStrings}
     />
   )
@@ -352,7 +362,6 @@ export function FormBody(props: FormBodyProps) {
       locked={props.saveBar?.changes === 0}
     />
   )
-  const aside = formAsideOf(layout, props.aside)
   return (
     <>
       {state.fieldError && (
@@ -361,11 +370,12 @@ export function FormBody(props: FormBodyProps) {
           fieldError={state.fieldError}
         />
       )}
+      <FormLockNotice binding={binding} />
       <FormRegions
         fields={fields}
         aside={aside}
         fieldsOf={fieldsOf}
-        submit={submit}
+        submit={props.saveBar === undefined ? submit : undefined}
       />
       {redirectUrl && useNativeForm && (
         <input
@@ -381,7 +391,9 @@ export function FormBody(props: FormBodyProps) {
         />
       )}
       {state.error && <div role="alert">{state.error}</div>}
-      {aside === undefined && <FormFooter bar={props.saveBar}>{submit}</FormFooter>}
+      {(aside === undefined || props.saveBar !== undefined) && (
+        <FormFooter bar={props.saveBar}>{submit}</FormFooter>
+      )}
     </>
   )
 }

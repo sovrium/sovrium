@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { BootstrapTokenRepository } from '@/application/ports/repositories/auth/bootstrap-token-repository'
 import type { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
@@ -17,6 +18,7 @@ import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { LocalAiProbe } from '@/application/ports/services/local-ai-probe'
 import type { PageRenderer } from '@/application/ports/services/page-renderer'
 import type { ServerFactory } from '@/application/ports/services/server-factory'
+import type { StaticOutputWriter } from '@/application/ports/services/static-output-writer'
 import type { StaticSiteGenerator } from '@/application/ports/services/static-site-generator'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { TypeScriptValidator } from '@/application/ports/services/typescript-validator'
@@ -88,11 +90,15 @@ export interface StartOptions {
 /** What `startServer` reads from its context; `createAppLayer` provides all of it. */
 export type StartServerRequirements =
   | ServerFactory
+  // The page-search index the boot writes under the data directory.
+  | StaticOutputWriter
   | PageRenderer
   | AccountProvisioner
   | AuthRepository
   // The boot sweep of automation runs a previous server left behind.
   | AutomationRunOutcomeRepository
+  // The boot sweep of analytics fields the `audience-only` profile excludes.
+  | AnalyticsRepository
   // Boot-time first-admin bootstrap. `createAppLayer` carries both reads, so
   // `startServer` names them rather than binding a layer of its own.
   | BootstrapTokenRepository

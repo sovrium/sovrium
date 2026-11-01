@@ -219,7 +219,7 @@ export const DensityFloorsSchema = Schema.Struct({
       Schema.annotate({
         title: 'Control Height Floor',
         description:
-          'Minimum inline-control height in px. Fixed at 24 — declaring it restates the guarantee, and no other value decodes.',
+          'Minimum inline-control height in px. Fixed at 24: declaring it restates the guarantee, and no other value decodes.',
       })
     )
   ),
@@ -230,7 +230,7 @@ export const DensityFloorsSchema = Schema.Struct({
       Schema.annotate({
         title: 'Hit Target Floor',
         description:
-          'Minimum interactive hit-target size in px. Fixed at 44 — declaring it restates the guarantee, and no other value decodes.',
+          'Minimum interactive hit-target size in px. Fixed at 44: declaring it restates the guarantee, and no other value decodes.',
       })
     )
   ),
@@ -270,7 +270,7 @@ export const DensitySchema = Schema.Struct({
       Schema.annotate({
         title: 'Default Density Step',
         description:
-          "The density step every page runs at when its zone assigns none: 'compact', 'cozy' or 'roomy'. Omitted, pages run at 'compact' — the spacing Sovrium has always rendered.",
+          "The density step every page runs at when its zone assigns none: 'compact', 'cozy' or 'roomy'. Omitted, pages run at 'compact', the spacing Sovrium has always rendered.",
         examples: ['cozy'],
       })
     )

@@ -6,93 +6,11 @@
  */
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { SQL_RESERVED_KEYWORDS } from '@/domain/kernel/sql/sql-reserved-keywords'
 import { castDivisionOperands } from './formula-numeric-cast'
 import { translatePortableFunctions } from './formula-portable-functions'
 import { formulaIsStableOnPostgres } from './formula-postgres-stability'
-
-/**
- * Reserved SQL keywords that require escaping when used in identifiers
- * Based on PostgreSQL reserved keywords list
- * @see https://www.postgresql.org/docs/current/sql-keywords-appendix.html
- */
-const SQL_RESERVED_KEYWORDS = new Set([
-  'select',
-  'insert',
-  'update',
-  'delete',
-  'from',
-  'where',
-  'join',
-  'inner',
-  'outer',
-  'left',
-  'right',
-  'full',
-  'cross',
-  'on',
-  'as',
-  'table',
-  'create',
-  'alter',
-  'drop',
-  'truncate',
-  'add',
-  'column',
-  'constraint',
-  'primary',
-  'foreign',
-  'key',
-  'references',
-  'unique',
-  'index',
-  'view',
-  'database',
-  'schema',
-  'grant',
-  'revoke',
-  'transaction',
-  'commit',
-  'rollback',
-  'union',
-  'intersect',
-  'except',
-  'group',
-  'having',
-  'order',
-  'limit',
-  'offset',
-  'distinct',
-  'all',
-  'any',
-  'some',
-  'exists',
-  'in',
-  'between',
-  'like',
-  'ilike',
-  'and',
-  'or',
-  'not',
-  'null',
-  'is',
-  'true',
-  'false',
-  'case',
-  'when',
-  'then',
-  'else',
-  'end',
-  'cast',
-  'default',
-  'check',
-  'user',
-  'current_user',
-  'session_user',
-  'current_date',
-  'current_time',
-  'current_timestamp',
-])
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Check if an identifier needs escaping due to reserved words
@@ -187,41 +105,6 @@ const formulaReferencesField = (formula: string, fieldName: string): boolean => 
 }
 
 /**
- * Check if a formula field needs trigger-based computation due to formula-to-formula dependencies
- *
- * PostgreSQL GENERATED columns cannot reference other generated columns.
- * This function returns true when:
- * 1. The formula directly references another formula field (e.g., 'doubled * 2' where 'doubled' is formula)
- * 2. The formula field is itself referenced by another formula field that needs trigger-based computation
- *    (transitive: if 'quadrupled' needs trigger because it references 'doubled', then 'doubled' also
- *    needs trigger so the trigger can read its computed value from NEW)
- *
- * @example
- * // fields: base (integer), doubled (formula: base * 2), quadrupled (formula: doubled * 2)
- * isFormulaReferencingFormulaField('doubled * 2', fields) // true (references formula 'doubled')
- * // But 'doubled' must ALSO be trigger-based because it's referenced by trigger-based 'quadrupled'
- * @public
- */
-export const isFormulaReferencingFormulaField = (
-  formula: string,
-  allFields?: readonly { name: string; type: string }[]
-): boolean => {
-  if (!allFields) return false
-
-  const formulaFields = allFields.filter(
-    (f) =>
-      f.type === 'formula' &&
-      'formula' in f &&
-      typeof (f as { formula?: string }).formula === 'string'
-  )
-
-  if (formulaFields.length === 0) return false
-
-  // Check if any formula field name appears in this formula text
-  return formulaFields.some((f) => formulaReferencesField(formula, f.name))
-}
-
-/**
  * Get the set of formula field names that need trigger-based computation
  * due to formula-to-formula dependencies.
  *
@@ -230,6 +113,7 @@ export const isFormulaReferencingFormulaField = (
  * are computed after triggers, so B's trigger can't read A's generated value.
  */
 export const getFormulaFieldsNeedingTrigger = (
+  dialect: DatabaseDialect,
   allFields: readonly { name: string; type: string }[]
 ): ReadonlySet<string> => {
   const formulaFields = allFields.filter(
@@ -245,7 +129,7 @@ export const getFormulaFieldsNeedingTrigger = (
   // PostgreSQL, those that engine marks STABLE — a date/datetime/time read as
   // text, a datetime converted through the time zone, `CONCAT`/`FORMAT` — which
   // it refuses as a generated column (see `formula-postgres-stability.ts`).
-  const onPostgres = !isSqliteRuntime()
+  const onPostgres = dialect === 'postgres'
   const directlyNeedsTrigger = new Set(
     formulaFields
       .filter(
@@ -576,22 +460,21 @@ export const translateFormulaToPostgres = (
 
 /**
  * Wrap numeric column references that are `/` division operands in a numeric
- * CAST so integer-by-integer division does not truncate. Two render modes:
- *
- *  - GENERATED-column path: bare references (`minutes / 60` →
- *    `CAST(minutes AS NUMERIC) / 60`).
- *  - TRIGGER path: alias-qualified references (run AFTER
- *    `qualifyColumnReferences`, `t.total_minutes / 60` →
- *    `CAST(t.total_minutes AS NUMERIC) / 60`) — FORMULA-127.
+ * CAST on `dialect` so integer-by-integer division does not truncate. Two render
+ * modes: the GENERATED-column path casts bare references (`minutes / 60` →
+ * `CAST(minutes AS NUMERIC) / 60`); the TRIGGER path, run AFTER
+ * `qualifyColumnReferences`, casts alias-qualified ones (`t.total_minutes / 60`
+ * → `CAST(t.total_minutes AS NUMERIC) / 60`) — FORMULA-127.
  *
  * Only `/` operands are cast (see `formula-numeric-cast` docs) so REPEAT/CHR
  * integer args and EXTRACT keywords are untouched.
  */
 export const castFormulaDivisionOperands = (
+  dialect: DatabaseDialect,
   formula: string,
   allFields: readonly { name: string; type: string; resultType?: string }[],
   prefix?: string
 ): string =>
-  castDivisionOperands(formula, allFields, (name) =>
+  castDivisionOperands(dialect, formula, allFields, (name) =>
     prefix !== undefined ? `${prefix}.${name}` : name
   )

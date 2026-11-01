@@ -5,15 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/**
- * A plain object — `{}` literal or `Object.create(null)` — as opposed to a
- * `Date`, a `Map` or any class instance, which carry meaning without own keys.
- */
-const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> => {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
-  const proto: unknown = Object.getPrototypeOf(value)
-  return proto === Object.prototype || proto === null
-}
+import { isPlainObject } from '@/domain/kernel/config-parsing/plain-object'
 
 /**
  * The one rule every surface reads `isEmpty` / `isNotEmpty` by: a value is

@@ -22,6 +22,8 @@ export interface CalendarFeedFields {
   readonly end?: string | undefined
   readonly title: string
   readonly description?: string | undefined
+  readonly location?: string | undefined
+  readonly url?: string | undefined
 }
 
 /** The most events one feed carries — the latest-starting ones. */
@@ -77,6 +79,10 @@ const timesOf = (
 
 const textOf = (value: unknown): string | undefined => (isEmpty(value) ? undefined : String(value))
 
+/** The text of the field a feed key names, or `undefined` when the key is unset or the value empty. */
+const optionalText = (row: CalendarFeedRow, field: string | undefined): string | undefined =>
+  field === undefined ? undefined : textOf(row.fields[field])
+
 /** The stable UID of a row's event: `{table}-{recordId}@{host}`. */
 export const calendarFeedUid = (tableName: string, recordId: string, host: string): string =>
   `${tableName}-${recordId}@${host}`
@@ -105,6 +111,8 @@ export const rowToCalendarEvent = (input: {
     stampMs: stamp,
     ...times,
     summary: textOf(row.fields[feed.title]),
-    description: feed.description === undefined ? undefined : textOf(row.fields[feed.description]),
+    description: optionalText(row, feed.description),
+    location: optionalText(row, feed.location),
+    url: optionalText(row, feed.url),
   }
 }

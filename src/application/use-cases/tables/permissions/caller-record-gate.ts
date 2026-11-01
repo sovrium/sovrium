@@ -29,6 +29,10 @@ import {
   buildGuestSession,
   buildSyntheticSession,
 } from '@/application/use-cases/automations/build-guest-session'
+import {
+  anonymousGrant,
+  servesNoAuthVisitor,
+} from '@/domain/models/app/auth/anonymous-grant-service'
 import { GUEST_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { SIGNED_OUT_VISITOR_ROLE } from '@/domain/models/app/auth/permission-evaluation'
 import {
@@ -38,6 +42,7 @@ import {
 } from '@/domain/models/app/tables/caller-record-gate-service'
 import { columnReadableBy } from '@/domain/models/app/tables/route-param-lookup-service'
 import { admitsRow } from '@/domain/models/app/tables/row-read-admission-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { readerListsEveryRow, readerRowsOf, rowsReaderMayNotList } from '../row-read-admission'
 import { loadCallerIdentity } from './caller-write-authority'
 import { loadCurrentUserContext, rowRuleScopeOf } from './row-level-enforcement'
@@ -107,8 +112,9 @@ const listAdmits = (
 /**
  * Whether the caller `userId` names — `undefined` for someone not signed in —
  * may read `record` of `tableName`: the table's read grant over the roles that
- * count on it, then its row-level read rule. An app with no `auth` block is the
- * full-access model. A table that is not declared, and every lookup fault,
+ * count on it, then its row-level read rule. On an app with no `auth` block
+ * every caller is the visitor, who reads only a table opening `read` to
+ * everyone (`anonymousGrant`), and every row of it. A table that is not declared, and every lookup fault,
  * answer `false`, and so does a record her list of the table does not admit —
  * one no grant of hers names, on a table where she reads only granted rows.
  */
@@ -120,8 +126,9 @@ export const callerReadsRecord = (input: {
 }): Effect.Effect<boolean, never, Requirements> =>
   Effect.gen(function* () {
     const { app, tableName, userId, record } = input
-    if (!app.auth) return true
-    const table = app.tables?.find((t) => t.name === tableName)
+    const table = findTableByName(app.tables, tableName)
+    // No `auth`: every caller is the visitor, who reads a table opening `read` to everyone.
+    if (!app.auth) return !servesNoAuthVisitor(app) || anonymousGrant(table, 'read', app)
     if (table === undefined) return false
     if (userId === undefined) {
       // Signed out: nothing about her resolves, but a rule naming no one is
@@ -161,7 +168,12 @@ export const callerRecordJudge = (
   userId: string
 ): Effect.Effect<CallerRecordJudge, never, Requirements> =>
   Effect.gen(function* () {
-    if (!app.auth) return { admits: () => true, listsAnyRow: true }
+    if (!app.auth) {
+      // No `auth`: every caller is the visitor, who reads a table opening `read` to everyone.
+      return !servesNoAuthVisitor(app) || anonymousGrant(table, 'read', app)
+        ? { admits: () => true, listsAnyRow: true }
+        : ADMITS_NOTHING
+    }
     const loaded = yield* loadCallerReader(app, userId, table)
     if (loaded === undefined) return ADMITS_NOTHING
     const { reader, context } = loaded
@@ -200,7 +212,7 @@ export const callerListsTable = (input: {
 }): Effect.Effect<boolean, never, Requirements> =>
   Effect.gen(function* () {
     const { app, tableName, userId } = input
-    const table = app.tables?.find((t) => t.name === tableName)
+    const table = findTableByName(app.tables, tableName)
     if (table === undefined) return false
     const judge = yield* callerRecordJudge(app, table, userId)
     return judge.listsAnyRow
@@ -222,7 +234,7 @@ export const callerReadsColumn = (input: {
 }): Effect.Effect<boolean, never, Requirements> =>
   Effect.gen(function* () {
     const { app, tableName, userId, field } = input
-    const table = app.tables?.find((t) => t.name === tableName)
+    const table = findTableByName(app.tables, tableName)
     if (table === undefined) return false
     if (userId === undefined) return columnReadableBy(app, tableName, undefined)(field)
     const loaded = yield* loadCallerReader(app, userId, table)

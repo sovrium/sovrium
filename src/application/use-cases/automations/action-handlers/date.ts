@@ -24,7 +24,8 @@
  * is the type's ONLY clock read — that isolation is what keeps the other seven
  * reproducible from a run's recorded inputs. No repository, port or I/O is
  * involved, so the work is wrapped in `Effect.sync` rather than
- * `Effect.tryPromise`.
+ * `Effect.tryPromise` — after the operator timezone is read off the
+ * {@link ProcessEnv} port (see {@link withOperatorZone}).
  *
  * Template references in `props` are resolved by the run loop's substitution
  * pass before a handler sees them, so every prop here is already concrete.
@@ -35,8 +36,9 @@
  */
 
 import { DateTime, Effect } from 'effect'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { formatWithTokens, parseWithTokens } from '@/domain/kernel/format/date-tokens'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import {
   CALENDAR_DIFF_UNITS,
   diffInUnits,
@@ -54,6 +56,17 @@ import {
 import type { ActionHandler, ActionOutcome } from './shared'
 
 const failure = (error: string): ActionOutcome => ({ status: 'failure', error })
+
+/**
+ * Run a synchronous operator body with the operator timezone (`SOVRIUM_TIMEZONE`,
+ * UTC when unset) — the zone a step that names none of its own works in. Read
+ * from the {@link ProcessEnv} port, never from the process, so a test sets it
+ * with `Effect.provideService` instead of mutating the environment.
+ */
+const withOperatorZone = (
+  body: (operatorZone: string) => ActionOutcome
+): Effect.Effect<ActionOutcome> =>
+  Effect.flatMap(ProcessEnv, (env) => Effect.sync(() => body(parseSovriumTimezone(env).zoneId)))
 
 const success = (output: Readonly<Record<string, unknown>>): ActionOutcome => ({
   status: 'success',
@@ -87,9 +100,9 @@ const WEEK_STARTS_ON = 1 as const
  * channel.
  */
 export const handleDateFormat: ActionHandler = (action, _app, _automation) =>
-  Effect.sync(() => {
+  withOperatorZone((operatorZone) => {
     const props = propsOf(action)
-    const timezone = resolveTimezone(props, 'format', resolveOperatorTimezone())
+    const timezone = resolveTimezone(props, 'format', operatorZone)
     if (!timezone.ok) return failure(timezone.error)
     const pattern = optionalString(props, 'pattern')
     if (pattern === undefined) return failure('date.format requires a `pattern`')
@@ -117,9 +130,9 @@ export const handleDateFormat: ActionHandler = (action, _app, _automation) =>
  * A malformed PATTERN is the opposite case — an author error — and does fail.
  */
 export const handleDateParse: ActionHandler = (action, _app, _automation) =>
-  Effect.sync(() => {
+  withOperatorZone((operatorZone) => {
     const props = propsOf(action)
-    const timezone = resolveTimezone(props, 'parse', resolveOperatorTimezone())
+    const timezone = resolveTimezone(props, 'parse', operatorZone)
     if (!timezone.ok) return failure(timezone.error)
     const pattern = optionalString(props, 'pattern')
     if (pattern === undefined) return failure('date.parse requires a `pattern`')
@@ -143,9 +156,9 @@ export const handleDateParse: ActionHandler = (action, _app, _automation) =>
 const shiftHandler =
   (operator: 'add' | 'subtract', sign: 1 | -1): ActionHandler =>
   (action, _app, _automation) =>
-    Effect.sync(() => {
+    withOperatorZone((operatorZone) => {
       const props = propsOf(action)
-      const timezone = resolveTimezone(props, operator, resolveOperatorTimezone())
+      const timezone = resolveTimezone(props, operator, operatorZone)
       if (!timezone.ok) return failure(timezone.error)
       const instant = resolveInstant(props, 'input', operator)
       if (!instant.ok) return failure(instant.error)
@@ -172,9 +185,9 @@ export const handleDateSubtract: ActionHandler = shiftHandler('subtract', -1)
  * sign, and magnitude is recoverable downstream where a lost sign is not.
  */
 export const handleDateDiff: ActionHandler = (action, _app, _automation) =>
-  Effect.sync(() => {
+  withOperatorZone((operatorZone) => {
     const props = propsOf(action)
-    const timezone = resolveTimezone(props, 'diff', resolveOperatorTimezone())
+    const timezone = resolveTimezone(props, 'diff', operatorZone)
     if (!timezone.ok) return failure(timezone.error)
     const unit = optionalString(props, 'unit')
     if (
@@ -213,9 +226,9 @@ export const handleDateDiff: ActionHandler = (action, _app, _automation) =>
 const boundaryHandler =
   (operator: 'startOf' | 'endOf'): ActionHandler =>
   (action, _app, _automation) =>
-    Effect.sync(() => {
+    withOperatorZone((operatorZone) => {
       const props = propsOf(action)
-      const timezone = resolveTimezone(props, operator, resolveOperatorTimezone())
+      const timezone = resolveTimezone(props, operator, operatorZone)
       if (!timezone.ok) return failure(timezone.error)
       const unit = optionalString(props, 'unit') as DateTime.DateTime.UnitSingular | undefined
       if (unit === undefined || !BOUNDARY_UNITS.has(unit)) {
@@ -249,9 +262,9 @@ export const handleDateEndOf: ActionHandler = boundaryHandler('endOf')
  * with the local time" is one step rather than `now` + `format`.
  */
 export const handleDateNow: ActionHandler = (action, _app, _automation) =>
-  Effect.sync(() => {
+  withOperatorZone((operatorZone) => {
     const props = propsOf(action)
-    const timezone = resolveTimezone(props, 'now', resolveOperatorTimezone())
+    const timezone = resolveTimezone(props, 'now', operatorZone)
     if (!timezone.ok) return failure(timezone.error)
     const instant = new Date()
     const pattern = optionalString(props, 'pattern')

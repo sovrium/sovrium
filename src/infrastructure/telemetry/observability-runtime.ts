@@ -31,7 +31,7 @@
  * acquired at boot and released by `disposeObsRuntime` on shutdown.
  *
  * Binary-safety: OTLP is imported by subpath (`OtlpLogger`/`OtlpMetrics`/
- * `OtlpSerialization`) plus `FetchHttpClient`, never an aggregate barrel (v3's
+ * `OtlpSerialization`) plus the bounded egress client, never an aggregate barrel (v3's
  * `@effect/opentelemetry` barrel pulled `@opentelemetry/*` and broke
  * `bun build --compile`; `effect/observability/index` would do the same).
  *
@@ -45,15 +45,16 @@
  */
 
 import { Duration, Effect, Layer, Logger, References, ManagedRuntime, Tracer } from 'effect'
-import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import * as HttpBody from 'effect/http/HttpBody'
 import * as OtlpExporter from 'effect/observability/OtlpExporter'
 import * as OtlpLogger from 'effect/observability/OtlpLogger'
 import * as OtlpMetrics from 'effect/observability/OtlpMetrics'
 import * as OtlpSerialization from 'effect/observability/OtlpSerialization'
 import * as OtlpTracer from 'effect/observability/OtlpTracer'
+import { isPlainObject } from '@/domain/kernel/config-parsing/plain-object'
 import { redactBoundQueryValues } from '@/domain/kernel/sanitize/bound-value-redaction'
 import { isDebugEnabled } from '@/infrastructure/process/env'
+import { otlpHttpClient } from './otlp-http-client'
 import { collectingTracer } from './span-collector'
 import { stdoutLogger } from './stdout-log-sink'
 import { getTelemetryConfig } from './telemetry-config'
@@ -160,13 +161,6 @@ export const uppercaseSeverityText = (data: OtlpLogger.LogsData): OtlpLogger.Log
   })),
 })
 
-/** An object literal (or a null-prototype one): the only object shape the walk rebuilds. */
-const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> => {
-  if (value === null || typeof value !== 'object') return false
-  const proto: unknown = Object.getPrototypeOf(value)
-  return proto === Object.prototype || proto === null
-}
-
 /**
  * Every string leaf of an export payload with query bound-value dumps redacted
  * (`redactBoundQueryValues`). Applied to logs AND traces: a log record's body is
@@ -224,7 +218,7 @@ const logTee = (logExport: LogExport | undefined): readonly Layer.Layer<never>[]
           url: logExport.endpoint,
           headers: logExport.headers,
           resource: otlpResource(),
-        }).pipe(Layer.provide(otlpSerializationJson), Layer.provide(FetchHttpClient.layer)),
+        }).pipe(Layer.provide(otlpSerializationJson), Layer.provide(otlpHttpClient)),
       ]
 
 /**
@@ -242,7 +236,7 @@ const metricsTee = (metricsExport: MetricsExport | undefined): readonly Layer.La
           headers: metricsExport.headers,
           resource: otlpResource(),
           exportInterval: Duration.millis(metricsExport.exportIntervalMs),
-        }).pipe(Layer.provide(otlpSerializationJson), Layer.provide(FetchHttpClient.layer)),
+        }).pipe(Layer.provide(otlpSerializationJson), Layer.provide(otlpHttpClient)),
       ]
 
 /**
@@ -304,7 +298,7 @@ const tracesTee = (
       ).pipe(
         Layer.provideMerge(OtlpExporter.layerFlusher),
         Layer.provide(otlpSerializationJson),
-        Layer.provide(FetchHttpClient.layer)
+        Layer.provide(otlpHttpClient)
       ),
     ]
   }

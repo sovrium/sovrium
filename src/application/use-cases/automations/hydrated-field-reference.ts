@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -57,7 +58,7 @@ export const hydratedFieldIdOf = (value: unknown): string | undefined => {
  * the raw id list.
  */
 export const singleUserFieldNames = (app: App, tableName: string): readonly string[] => {
-  const table = app.tables?.find((t) => t.name === tableName)
+  const table = findTableByName(app.tables, tableName)
   if (!table) return []
   return table.fields
     .filter((field): field is typeof field & { readonly allowMultiple?: boolean } => {

@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * What a grid's `columnsFrom` can actually read, judged on one page.
  *
@@ -27,9 +29,6 @@
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The rules of `columnsFrom: 'table'`. */
 const tableSourceViolations = (node: RawRecord, label: string): readonly string[] => {

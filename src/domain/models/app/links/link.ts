@@ -117,7 +117,7 @@ export const LinkSchema = Schema.Struct({
       Schema.annotate({
         title: 'Password',
         description:
-          'Gate this link behind a password prompt. Must be an $env. reference (e.g. $env.DECK_PASSWORD) — a literal would be committed to git.',
+          'Gate this link behind a password prompt. Must be an $env. reference (e.g. $env.DECK_PASSWORD), because a literal would be committed to git.',
       }),
       Schema.check(
         Schema.isPattern(/^\$env\.[A-Z][A-Z0-9_]*$/, {

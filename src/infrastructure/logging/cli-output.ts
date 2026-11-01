@@ -14,7 +14,7 @@
  * It imports **only `effect`**, and it must stay that way, for two reasons. The
  * first is cost: `logger.ts` pulls `@/infrastructure/telemetry/telemetry-sink`,
  * which is precisely what the `lazyImport*` discipline in
- * `src/cli/commands/utils.ts` exists to keep off the cold path of
+ * `src/cli/runtime/lazy-modules.ts` exists to keep off the cold path of
  * `sovrium --version` and `sovrium schema`. A CLI command must be able to import
  * this vocabulary eagerly without paying for telemetry.
  *
@@ -37,10 +37,8 @@
  * `[internal ref]`; pushing
  * it down into {@link formatDocument} would silently reorder documents that must
  * not be reordered — `seed`'s per-table report is emitted in table order and a
- * `⚠` row belongs where the table put it.
- *
- * The module grows one export at a time as commands migrate onto it. An emitter
- * with no caller is unused code, and `bun run clean` is right to say so.
+ * `⚠` row belongs where the table put it. The module grows one export at a time
+ * as commands migrate onto it: an emitter with no caller is unused code.
  *
  * ## The two streams are written differently, on purpose
  *
@@ -61,7 +59,7 @@
  * grammar of its own (a failure, a journal entry) gets a named emitter instead.
  */
 
-import { Effect } from 'effect'
+import { Console, Effect } from 'effect'
 import { logToStdout, writeStderrText } from './log-format'
 
 /**
@@ -144,14 +142,10 @@ export const renderDocument = (blocks: readonly CliBlock[]): Effect.Effect<void>
  * `3.6m` at or above one minute. No space before the unit — this is mono data,
  * not prose.
  *
- * The minute band was added when the toolchain adopted this vocabulary: a
- * `bun run quality` run is minutes long, and `215.0s` makes the reader do the
- * division. One decimal throughout, so the three bands read as one scale.
- *
- * The boundaries are exact and deliberately so: 999 ms is `999ms`, 1000 ms is
- * `1.0s`, 59_999 ms is `60.0s` and 60_000 ms is `1.0m`. A band that rounded
- * INTO its own boundary — `59_999` rendering as `1.0m` — would make two
- * different durations print the same string on either side of the edge.
+ * The minute band exists because `215.0s` makes the reader do the division;
+ * one decimal throughout, so the bands read as one scale. The boundaries are
+ * exact: 59_999 ms is `60.0s` and 60_000 ms is `1.0m` — a band rounding INTO its
+ * own edge would print two different durations as the same string.
  */
 export const formatDuration = (ms: number): string => {
   if (ms < 1000) return `${ms}ms`
@@ -162,15 +156,10 @@ export const formatDuration = (ms: number): string => {
 /**
  * A count and its noun, inflected (T29): `1 file`, `7 files`.
  *
- * The repository wrote `file(s)` in 200-odd places before this existed, which
- * T29 bans outright — the parenthetical is the writer declining to do the
- * arithmetic the reader then has to. It lives here rather than in `scripts/`
- * because `src/cli/` carries the same hack in six places; one implementation
- * serves the product CLI and the toolchain both.
- *
+ * T29 bans `file(s)`: the parenthetical declines the arithmetic the reader then
+ * has to do. One implementation serves the product CLI and the toolchain both.
  * `plural` is the escape hatch for a noun English does not pluralise with `s`
- * (`entry` → `entries`). It is a parameter rather than a rule because a rule
- * would be wrong often enough to be worse than nothing.
+ * (`entry` → `entries`) — a parameter, because a rule would be wrong too often.
  */
 export const inflect = (count: number, singular: string, plural?: string): string =>
   `${count} ${count === 1 ? singular : (plural ?? `${singular}s`)}`
@@ -275,6 +264,17 @@ export const renderStderr = (message: string): Effect.Effect<void> =>
  * to Bun's pretty printer — so those callers compose the string themselves.
  */
 export const printStderr = (message: string): void => Effect.runSync(renderStderr(message))
+
+/**
+ * One line to stdout, the twin of {@link renderStderr}, for a command's ANSWER
+ * (T31). Plain `Console.log` (Bun does not colour stdout): byte-identical to the
+ * `Effect.runSync(Console.log(x))` it replaces. It ignores the JSON log format,
+ * unlike {@link renderDocument} — a command's answer is not a log record.
+ */
+export const renderLine = (message: string): Effect.Effect<void> => Console.log(message)
+
+/** {@link renderLine} outside an Effect program — the spelling almost every command wants. */
+export const printLine = (message: string): void => Effect.runSync(renderLine(message))
 
 /**
  * Narrate the START of a long step to stderr (T6, T20): present participle plus

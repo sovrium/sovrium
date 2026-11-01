@@ -13,6 +13,7 @@ import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
+import type { AuthTriggerEvent } from '@/application/ports/contracts/auth-hook-policies'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 import type { Trigger } from '@/domain/models/app/automations/trigger'
@@ -20,11 +21,10 @@ import type { Trigger } from '@/domain/models/app/automations/trigger'
 /**
  * Names of the auth lifecycle events that an `auth` trigger can subscribe
  * to. Mirrors the union in `src/domain/models/app/automations/trigger/auth.ts`
- * verbatim — kept here as a value-level allow-list so we can index into it
- * without reaching into the trigger-schema module.
+ * verbatim. Declared on the auth-hook contract, which the Better Auth hooks
+ * dispatch through, and re-exported here for this use-case's own callers.
  */
-export type AuthTriggerEvent =
-  'signUp' | 'signIn' | 'signOut' | 'passwordReset' | 'emailVerified' | 'invitationAccepted'
+export type { AuthTriggerEvent }
 
 /**
  * Inputs to the auth-event trigger.
@@ -36,11 +36,6 @@ export type AuthTriggerEvent =
  * string for those leaves. The whole record is passed through unchanged so
  * downstream actions can read custom fields too.
  *
- * `processEnv` is captured at the hook boundary and threaded through to
- * `executeAutomationRun` so action handlers can resolve `$env.VAR_NAME`
- * references and secrets get redacted from run-history. Mirrors the
- * pattern used by `triggerRecordEventAutomations`.
- *
  * `userId` is surfaced to the engine for run-history attribution (the
  * "who triggered this" column). For auth events that's always the same
  * user as `user.id`.
@@ -49,7 +44,6 @@ export interface TriggerAuthEventInput {
   readonly app: App
   readonly event: AuthTriggerEvent
   readonly user: Readonly<Record<string, unknown>>
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly userId?: string
   /**
    * What the event says besides the account, beside `user` and `event` in
@@ -89,12 +83,12 @@ const findMatchingAuthAutomations = (
 /**
  * Fire all auth-triggered automations matching the given lifecycle event.
  *
- * The Better Auth `databaseHooks` block
- * (`src/infrastructure/auth/better-auth/auth-database-hooks.ts`) calls this
- * from a plain-async context via `runOnDomain(domainContext, …)` — the Effect
- * requirements are resolved by the server's domain runtime, so
- * the use case stays free of the dependency graph itself, matching the
- * pattern used by `triggerRecordEventAutomations`.
+ * The Better Auth hooks reach this through the `dispatchAuthEvent` policy the
+ * server binds into each auth instance
+ * (`src/infrastructure/server/auth-hook-policies.ts`), which runs it with
+ * `runOnDomain(domainContext, …)` — the Effect requirements are resolved by the
+ * server's domain runtime, so the use case stays free of the dependency graph
+ * itself, matching the pattern used by `triggerRecordEventAutomations`.
  *
  * Errors are absorbed at the boundary: a sign-up endpoint must not return
  * 500 because an automation crashed. The run row records the failure for
@@ -104,7 +98,7 @@ export const triggerAuthEventAutomations = (
   input: TriggerAuthEventInput
 ): Effect.Effect<void, never, ExecuteAutomationRunRequirements | AutomationPauseRepository> =>
   Effect.gen(function* () {
-    const { app, event, user, processEnv, userId } = input
+    const { app, event, user, userId } = input
     // Entry point: one read of the operational pauses per auth event.
     const pausedNames = yield* loadPausedAutomationNames
     const matching = findMatchingAuthAutomations(app, event, pausedNames)
@@ -117,7 +111,6 @@ export const triggerAuthEventAutomations = (
           automation,
           trigger,
           app,
-          processEnv,
           triggerData: { ...input.data, user, event } as TriggerData,
           userId,
         }),

@@ -2,7 +2,7 @@
 
 > Outbound calls to an external API, outgoing signed webhooks, and the response written back to an inbound one.
 
-## HTTP — outbound requests
+## HTTP: outbound requests
 
 Six operators. The generic `request` takes an explicit `method`; the verb operators are shorthands and accept a `connection` reference for an authenticated call.
 
@@ -17,11 +17,11 @@ Six operators. The generic `request` takes an explicit `method`; the verb operat
 
 <!-- sovrium:options HttpActionSchema -->
 
-`props.timeout` accepts 1000 to 120000 milliseconds and defaults to 15000. `connection` names a stored credential, which is what makes the call authenticated without a secret appearing in the configuration.
+`props.timeout` accepts a whole number of milliseconds from 1000 to 120000 and defaults to 15000. A value outside that window, or written as text, is never brought into range: the configuration is refused when it loads, and a call from code fails its step before anything is sent, naming `timeout`. `request` needs its `method` in the same way; a call from code without one fails rather than sending a GET. `connection` names a stored credential, which is what makes the call authenticated without a secret appearing in the configuration.
 
 ### `query`: parameters as values, not text glued into the URL
 
-`url` is a template, and a value placed in it is encoded for where it lands: in the path it stays one segment (`/`, `?` and `#` in it are encoded), in the query one value (`&` and `=` too). So `orders/{{trigger.data.id}}` always reads one order, and `?q={{trigger.data.term}}` sends a term like `Dupont & Fils` as a single parameter. A value that is a bare `.` or `..` fails the step. A `url` that is exactly one template (`'{{steps.list.response.body.next}}'`), a `$env.` reference, and the output of `urlEncode` are inserted as they are. For a path that spans several segments — a file path, an `owner/repo` pair — use `{{urlPath value}}`: it keeps the slashes, encodes each segment, and fails the step on a `..` segment. The `query` object below remains the clearest way to send several parameters: each value is resolved first (templates, `$env`), then percent-encoded on its own and appended to the `url`, after any query the `url` already carries.
+`url` is a template, and a value placed in it is encoded for where it lands: in the path it stays one segment (`/`, `?` and `#` in it are encoded), in the query one value (`&` and `=` too). So `orders/{{trigger.data.id}}` always reads one order, and `?q={{trigger.data.term}}` sends a term like `Dupont & Fils` as a single parameter. A value that is a bare `.` or `..` fails the step. A `url` that is exactly one template (`'{{steps.list.response.body.next}}'`), a `$env.` reference, and the output of `urlEncode` are inserted as they are. For a path that spans several segments (a file path, an `owner/repo` pair), use `{{urlPath value}}`: it keeps the slashes, encodes each segment, and fails the step on a `..` segment. The `query` object below remains the clearest way to send several parameters: each value is resolved first (templates, `$env`), then percent-encoded on its own and appended to the `url`, after any query the `url` already carries.
 
 ```yaml
 - name: findLead
@@ -36,17 +36,17 @@ Six operators. The generic `request` takes an explicit `method`; the verb operat
       status: [interested, contacted]
 ```
 
-A string or template is sent percent-encoded, a number or boolean as its literal text, and an array repeats its key once per item, in order (`status=interested&status=contacted`). A nested object has no single encoding across APIs and is refused when the config loads — write the flat key the API expects. On `post`, `put` and `patch` the query goes on the url and the body is sent unchanged.
+A string or template is sent percent-encoded, a number or boolean as its literal text, and an array repeats its key once per item, in order (`status=interested&status=contacted`). A nested object has no single encoding across APIs and is refused when the config loads: write the flat key the API expects. On `post`, `put` and `patch` the query goes on the url and the body is sent unchanged.
 
 ### `contentType` has no default
 
-Set it and Sovrium stamps the matching `Content-Type` **and** encodes the body to match — `form` URL-encodes a JSON-shaped body rather than announcing one encoding while sending another.
+Set it and Sovrium stamps the matching `Content-Type` **and** encodes the body to match: `form` URL-encodes a JSON-shaped body rather than announcing one encoding while sending another.
 
-Omit it and `post`, `put` and `patch` still send `application/json` for a JSON-shaped body, while `request` and `delete` send no `Content-Type` of their own. An explicit `Content-Type` in `headers` wins outright, over both the header and the encoding — which is the escape hatch for an API wanting something this vocabulary does not name.
+Omit it and `post`, `put` and `patch` still send `application/json` for a JSON-shaped body, while `request` and `delete` send no `Content-Type` of their own. An explicit `Content-Type` in `headers` wins outright, over both the header and the encoding, which is the escape hatch for an API wanting something this vocabulary does not name.
 
 ### A body written as JSON text
 
-A `body` given as a string is sent as written. When the request is sent as JSON — a `Content-Type: application/json` header, `contentType: json`, or `webhook/send`, which sends JSON unless its headers say otherwise — each value placed in that text is escaped as the content of a JSON string, so a quote or a backslash in it cannot end the string or add a key. A body given as an object is serialised as JSON and needs nothing of the kind.
+A `body` given as a string is sent as written. When the request is sent as JSON (a `Content-Type: application/json` header, `contentType: json`, or `webhook/send`, which sends JSON unless its headers say otherwise), each value placed in that text is escaped as the content of a JSON string, so a quote or a backslash in it cannot end the string or add a key. A body given as an object is serialised as JSON and needs nothing of the kind.
 
 ### What a non-2xx does
 
@@ -84,13 +84,13 @@ The step still fails: without `continueOnError` the run stops there, as it alway
       failure: '{{steps.check.error.code}}'
 ```
 
-A step that fails before any request is made — no `url`, or a `connection` whose credentials cannot be found — carries `error.message` only. The `ai` actions report their failures with the same `code` and `message` keys.
+A step that fails before any request is made (no `url`, or a `connection` whose credentials cannot be found) carries `error.message` only. The `ai` actions report their failures with the same `code` and `message` keys.
 
 Response bodies are read up to 64 KiB, and the rest is never downloaded: past the cap the body is cut there and the output's `truncated` flag is set; the key is absent otherwise, so a step can tell a clipped payload from an endpoint that genuinely returned nothing. An answer that never ends therefore costs 64 KiB, not the run.
 
 ### Private addresses and redirects
 
-The `url` may not point at a private, loopback or link-local address, and neither may any redirect it answers with. Every hop is checked before it is requested, whatever way the address is written (`[::ffff:127.0.0.1]` is `127.0.0.1`); up to five redirects are followed, over `http` as well as `https`, and a refused hop fails the step with `invalid_outbound_url_<reason>`. A redirect to another host does not carry the request's `Authorization` header. The same rules apply to `webhook/send`. Host names are not resolved before the check, so restrict the server's outbound traffic at the firewall when it shares a network with internal services; `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1` lifts the address rule for development.
+The `url` may not point at a private, loopback or link-local address, and neither may any redirect it answers with. Every hop is checked before it is requested, whatever way the address is written (`[::ffff:127.0.0.1]` is `127.0.0.1`); up to five redirects are followed, over `http` as well as `https`, and a refused hop fails the step with `invalid_outbound_url_<reason>`. A redirect to another origin does not carry the request's `Authorization` header, the header a `connection` put its key in, or a webhook's `X-Webhook-Signature`. The same rules apply to `webhook/send`. A host name is resolved before it is requested, and refused when any address it resolves to is private, loopback or link-local; the request is then sent to the address that was checked, so the name cannot answer differently in between. A request that leaves through an outbound proxy (`HTTPS_PROXY`, `HTTP_PROXY`) is resolved by the proxy instead, and a name the proxy alone can resolve is sent to it. `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1` lifts the address rule for development.
 
 ```yaml
 - name: createContact
@@ -103,9 +103,9 @@ The `url` may not point at a private, loopback or link-local address, and neithe
     body: { email: '{{trigger.data.email}}', name: '{{trigger.data.name}}' }
 ```
 
-Prefer `connection` over inlining a secret in a header. With one referenced, Sovrium attaches the right `Authorization` header and, for OAuth2, refreshes the token before it expires.
+Prefer `connection` over inlining a secret in a header. With one referenced, Sovrium attaches the right `Authorization` header and, for OAuth2, refreshes the token before it expires. The credential goes only to the connection's own service: the step's `url` must write its scheme and host in the config, and the request must go to the origin of the connection's `baseUrl` or one of its `allowedOrigins`, or the step fails and nothing is sent (see **Connections**).
 
-## Webhook — sending and responding
+## Webhook: sending and responding
 
 Two operators: `send` fires a signed outgoing webhook, and `response` writes the HTTP response for an automation that a webhook trigger started.
 

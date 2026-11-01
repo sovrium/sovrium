@@ -18,12 +18,9 @@
 // The bindings are everything a page names: the panels, their bodies, the tab
 // open first, the accessible name and test id, and the fill layout.
 
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consoleTabs = {
+export const consoleTabs: TemplateEncoded = {
   name: 'console-tabs',
   type: 'tabs',
   render: 'transparent',
@@ -60,4 +57,4 @@ export const consoleTabs = {
   panels: '$panels',
   layout: '$layout',
   children: '$children',
-} as unknown as Template
+}

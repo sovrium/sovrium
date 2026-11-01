@@ -45,7 +45,7 @@ export const PdfWatermarkActionSchema = Schema.Struct({
       TemplateStringSchema.pipe(
         Schema.annotate({
           description:
-            "The watermark text (supports template variables, e.g. 'COPY — {{trigger.data.client}}')",
+            "The watermark text (supports template variables, e.g. 'COPY: {{trigger.data.client}}')",
         })
       )
     ),
@@ -66,7 +66,7 @@ export const PdfWatermarkActionSchema = Schema.Struct({
   })
     .annotate({
       description:
-        'The PDF, the mark — `text` or `image` — how it is drawn, the pages it goes on, and where the result is written.',
+        'The PDF, the mark (`text` or `image`), how it is drawn, the pages it goes on, and where the result is written.',
     })
     .pipe(
       Schema.check(

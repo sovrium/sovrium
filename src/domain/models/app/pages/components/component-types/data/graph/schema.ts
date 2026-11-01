@@ -221,7 +221,7 @@ export const GraphLayoutSchema = Schema.Literals(['layered', 'lanes']).annotate(
   identifier: 'GraphLayout',
   title: 'Graph Layout',
   description:
-    "How the drawing places its nodes (default: 'layered' — ordered columns, edges between them). `lanes` draws one row per lane node followed by its chain of stations. Closed because the renderer draws each layout, and it draws these two; a value it cannot draw is refused at boot naming the value.",
+    "How the drawing places its nodes (default: 'layered', ordered columns with edges between them). `lanes` draws one row per lane node followed by its chain of stations. Closed because the renderer draws each layout, and it draws these two; a value it cannot draw is refused at boot naming the value.",
 })
 
 // ---------------------------------------------------------------------------
@@ -305,7 +305,7 @@ export const GraphColumnSchema = Schema.Struct({
   )
     .annotate({
       description:
-        'Node kinds this column admits, as the BOUND GRAPH spells them — open strings, never a platform vocabulary. Required: in an ordered partition, a column with no filter would draw every node a second time, which is a config nobody means.',
+        'Node kinds this column admits, as the BOUND GRAPH spells them: open strings, never a platform vocabulary. Required: in an ordered partition, a column with no filter would draw every node a second time, which is a config nobody means.',
       examples: [
         ['person', 'agent'],
         ['role', 'team', 'open'],
@@ -408,7 +408,7 @@ export const GraphLaneStationsSchema = Schema.Struct({
   )
     .annotate({
       description:
-        'Node kinds this track admits as STATIONS, as the BOUND GRAPH spells them — open strings, never a platform vocabulary. A lane’s stations are the chain of these reachable from its lane node, in the order the edges put them; no edge kind is named, because the only edges that can match are the ones arriving at a station.',
+        'Node kinds this track admits as STATIONS, as the BOUND GRAPH spells them: open strings, never a platform vocabulary. A lane’s stations are the chain of these reachable from its lane node, in the order the edges put them; no edge kind is named, because the only edges that can match are the ones arriving at a station.',
       examples: [['step']],
     })
     .pipe(Schema.check(Schema.isMinLength(1))),
@@ -422,7 +422,7 @@ export const GraphLaneStationsSchema = Schema.Struct({
   identifier: 'GraphLaneStations',
   title: 'Graph Lane Stations',
   description:
-    'The station track of a lanes drawing: which node kinds are stations, and the heading the track carries. Their ORDER is the graph’s — the chain reachable from the lane node — so there is no key to sort them by.',
+    'The station track of a lanes drawing: which node kinds are stations, and the heading the track carries. Their ORDER is the graph’s (the chain reachable from the lane node), so there is no key to sort them by.',
 })
 
 /**
@@ -498,7 +498,7 @@ export const GraphLanesSchema = Schema.Struct({
   )
     .annotate({
       description:
-        'Node kinds that DEFINE a lane, as the BOUND GRAPH spells them — open strings, never a platform vocabulary. One row is drawn per node admitted here, and its stations are the chain reachable from it.',
+        'Node kinds that DEFINE a lane, as the BOUND GRAPH spells them: open strings, never a platform vocabulary. One row is drawn per node admitted here, and its stations are the chain reachable from it.',
       examples: [['automation']],
     })
     .pipe(Schema.check(Schema.isMinLength(1))),
@@ -514,7 +514,7 @@ export const GraphLanesSchema = Schema.Struct({
   sortBy: Schema.optional(
     Schema.String.annotate({
       description:
-        'Node field the LANES are ordered by, top to bottom. Names a field of the bound graph’s nodes, so it is an open string; lanes not carrying it keep their source order after those that do. Omitted, the lanes are drawn in the order the endpoint emitted. There is deliberately no equivalent for STATIONS — their order is the chain the edges describe.',
+        'Node field the LANES are ordered by, top to bottom. Names a field of the bound graph’s nodes, so it is an open string; lanes not carrying it keep their source order after those that do. Omitted, the lanes are drawn in the order the endpoint emitted. There is deliberately no equivalent for STATIONS: their order is the chain the edges describe.',
       examples: ['label'],
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
@@ -554,7 +554,7 @@ export const GraphSelectionModeSchema = Schema.Literals(['single']).annotate({
   identifier: 'GraphSelectionMode',
   title: 'Graph Selection Mode',
   description:
-    'How many nodes may be selected at once. Closed at `single` because the renderer implements one selection behaviour — `multiple` would leave the reach set ambiguous (union or intersection) and is not defined.',
+    'How many nodes may be selected at once. Closed at `single` because the renderer implements one selection behaviour: `multiple` would leave the reach set ambiguous (union or intersection) and is not defined.',
 })
 
 /**
@@ -574,7 +574,7 @@ export const GraphReachSchema = Schema.Literals(['downstream', 'upstream', 'both
   identifier: 'GraphReach',
   title: 'Graph Reach',
   description:
-    "Which way the reach highlight walks the edges from the selected node (default: 'downstream' — what the selection reaches). `upstream` is the mirror question, `both` the whole connected component. Closed because a direction is platform vocabulary; the edges it walks are not.",
+    "Which way the reach highlight walks the edges from the selected node (default: 'downstream', what the selection reaches). `upstream` is the mirror question, `both` the whole connected component. Closed because a direction is platform vocabulary; the edges it walks are not.",
 })
 
 /**
@@ -614,7 +614,7 @@ export const GraphSelectionSchema = Schema.Struct({
   identifier: 'GraphSelection',
   title: 'Graph Selection',
   description:
-    'Makes the drawing’s nodes selectable and says which way the reach highlight walks from the selected one. Absent: the drawing is not selectable. The highlight is internal state — only the selected node’s id reaches the shared-filter bus.',
+    'Makes the drawing’s nodes selectable and says which way the reach highlight walks from the selected one. Absent: the drawing is not selectable. The highlight is internal state: only the selected node’s id reaches the shared-filter bus.',
 })
 
 /**

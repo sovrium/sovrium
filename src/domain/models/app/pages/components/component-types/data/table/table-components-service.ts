@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * Locating `type: 'table'` components in a RAW parsed config.
  *
@@ -24,9 +26,6 @@ export interface DataTableRowColorBinding {
   readonly dataSource?: { readonly table?: string }
   readonly rowColorField?: string
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
 
 /**
  * Collect every `type: 'table'` component anywhere in a parsed config.

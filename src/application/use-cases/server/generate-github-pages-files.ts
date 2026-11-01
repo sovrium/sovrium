@@ -26,14 +26,15 @@ export function generateGitHubPagesFiles(
       options.deployment === 'github-pages'
         ? Effect.gen(function* () {
             logDebug('Creating .nojekyll file for GitHub Pages...')
-            yield* Effect.tryPromise({
-              try: () => fs.writeFile(`${outputDir}/.nojekyll`, '', 'utf-8'),
-              catch: (error) =>
-                new StaticGenerationError({
-                  message: 'Failed to write .nojekyll',
-                  cause: error,
-                }),
-            })
+            yield* fs.writeFile(`${outputDir}/.nojekyll`, '').pipe(
+              Effect.mapError(
+                ({ cause: error }) =>
+                  new StaticGenerationError({
+                    message: 'Failed to write .nojekyll',
+                    cause: error,
+                  })
+              )
+            )
             return ['.nojekyll'] as const
           })
         : Effect.succeed([] as readonly string[])
@@ -47,14 +48,15 @@ export function generateGitHubPagesFiles(
         ? Effect.gen(function* () {
             const domain = new URL(options.baseUrl!).hostname
             logDebug(`Creating CNAME file for custom domain: ${domain}...`)
-            yield* Effect.tryPromise({
-              try: () => fs.writeFile(`${outputDir}/CNAME`, domain, 'utf-8'),
-              catch: (error) =>
-                new StaticGenerationError({
-                  message: 'Failed to write CNAME',
-                  cause: error,
-                }),
-            })
+            yield* fs.writeFile(`${outputDir}/CNAME`, domain).pipe(
+              Effect.mapError(
+                ({ cause: error }) =>
+                  new StaticGenerationError({
+                    message: 'Failed to write CNAME',
+                    cause: error,
+                  })
+              )
+            )
             return ['CNAME'] as const
           })
         : Effect.succeed([] as readonly string[])

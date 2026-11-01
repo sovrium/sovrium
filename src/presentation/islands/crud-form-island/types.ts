@@ -13,6 +13,7 @@ import type { FormStrings } from './form-strings'
 import type { FormAsideLayout } from '../parts/crud-form/main-aside-regions'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type { FormSectionLayout } from '@/domain/models/app/pages/components/component-types/data/form/sections-service'
+import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
 export type CrudOperation = 'update' | 'delete' | 'automation'
 
@@ -67,6 +68,10 @@ export interface CrudFormIslandProps {
   readonly confirm?: boolean
   readonly confirmMessage?: string
   readonly buttonLabel?: string
+  /** A delete button's own `confirm` (object form), the gate drawn before it deletes. */
+  readonly confirmGate?: ConfirmObject
+  /** That gate's Cancel word in the page language, when the confirm names none. */
+  readonly confirmCancelLabel?: string
   readonly variant?: string
   readonly className?: string
   readonly id?: string

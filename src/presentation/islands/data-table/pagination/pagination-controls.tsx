@@ -13,7 +13,7 @@ import {
 } from '@/presentation/design/table-default-classes'
 import { usePhoneViewport } from '../../hooks/use-phone-viewport'
 import { GridCaptionContext } from '../island/grid-caption'
-import { useGridString, useResultCount } from '../island/grid-strings'
+import { useGridString, useRowCount } from '../island/grid-strings'
 import { PagerEdgeButton } from './pager-edge-button'
 import { useNarrowBar } from './use-narrow-bar'
 import type { DataTableInstance } from '../island/table-features'
@@ -105,7 +105,7 @@ function usePagerLabels(input: {
     total,
   })
   // A bar that numbers no pages counts the rows instead of a range of them.
-  const count = useResultCount(total)
+  const count = useRowCount(total)
   return {
     // The rows before this page, which a bar numbering no pages has none of.
     offset: paged ? pageIndex * pageSize : 0,
@@ -324,6 +324,13 @@ function useCompactBar(trailing: PaginationControlsProps['trailing']) {
 }
 
 /**
+ * A bar drawing no page navigation is a count line, not a landmark: `role="none"`
+ * on the same `nav`, so a bar gaining or losing a page keeps its menus and focus.
+ */
+const barLandmark = (paged: boolean) =>
+  paged ? { 'aria-label': 'pagination' } : { role: 'none' as const }
+
+/**
  * The page-number pager.
  *
  * Two placement decisions stay at this call site rather than moving into the
@@ -358,7 +365,7 @@ export function PaginationControls(props: PaginationControlsProps) {
   return (
     <nav
       ref={bar.barRef}
-      aria-label="pagination"
+      {...barLandmark(paged)}
       data-slot="data-table-pagination"
       data-pagination
       // Where the page sits in the whole list, for a record sheet's `n of N`.

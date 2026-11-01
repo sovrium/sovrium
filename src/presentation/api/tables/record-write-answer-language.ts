@@ -11,6 +11,7 @@ import {
   requestedRecordLanguage,
 } from '@/domain/models/app/languages/localized-value-service'
 import { isLanguageMapShape } from '@/domain/models/app/tables/translatable-field-service'
+import { replaceResponse } from '@/presentation/api/runtime/replace-response'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -75,9 +76,6 @@ export const localizeWriteAnswer = async (
   const headers = new Headers(c.res.headers)
   headers.delete('content-length')
   const body = JSON.stringify(localizeAnswerBody(answer, names, read))
-  // Cleared first: assigning over a set response copies its old headers back.
-  // eslint-disable-next-line no-param-reassign -- Hono's middleware contract replaces the response by assignment
-  c.res = undefined
-  // eslint-disable-next-line no-param-reassign -- as above
-  c.res = new Response(body, { status, headers })
+  // Replaced outright: assigning over a set response would copy its old headers back.
+  replaceResponse(c, new Response(body, { status, headers }))
 }

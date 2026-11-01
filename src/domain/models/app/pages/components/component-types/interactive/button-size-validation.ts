@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * A button at an icon size (`icon`, `icon-xs`, `icon-sm`, `icon-lg`) draws its
  * `icon` alone, so it needs one, and it is named by its `label`, so it needs
@@ -15,9 +17,6 @@
  */
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const ICON_SIZES: ReadonlySet<string> = new Set(['icon', 'icon-xs', 'icon-sm', 'icon-lg'])
 

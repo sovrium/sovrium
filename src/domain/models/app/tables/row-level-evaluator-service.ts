@@ -458,7 +458,7 @@ const evaluateTriple = (
  * Evaluate a record against a row-level `when` predicate. Used for:
  *  - direct GET-by-id (404 if false)
  *  - PATCH / DELETE pre-checks (404 if false)
- *  - create.when validation (403 if false — scope leaks at insert time)
+ *  - create.when validation (404 if false, so the scope is not discoverable)
  *
  * Handles both forms:
  *  - single triple: the record's `field` value is compared against the

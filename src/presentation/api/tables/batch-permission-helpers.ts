@@ -14,9 +14,8 @@ import {
   hasUpdatePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
-  createValidationLayer,
+  provideValidationContext,
   formatValidationError,
 } from '@/presentation/api/middleware/validation'
 import { payloadTooLarge, notFound } from '@/presentation/api/runtime/auth-helpers'
@@ -29,12 +28,12 @@ import {
   validateRelationshipLinkLimits,
   validateSingleSelectOptions,
 } from '@/presentation/api/tables/validation'
+import type { App } from '@/domain/models/app'
 import type {
   RecordFieldValue,
   FormattedFieldValue,
   TransformedRecord,
-} from '@/application/use-cases/tables/record-transformer'
-import type { App } from '@/domain/models/app'
+} from '@/domain/models/app/tables/record-transformer-service'
 import type { Context } from 'hono'
 
 /** A write a batch route performs, named as the table grant that admits it. */
@@ -195,7 +194,7 @@ export function validateStrippedRecordsNotEmpty(config: {
 
 /**
  * Every per-VALUE rule the bulk write paths enforce, across every row — the
- * batch counterpart of {@link validateUpdateFieldValues}, and named to match
+ * batch counterpart of `checkedUpdateValues`, and named to match
  * it. `multi-select` declared options, `multi-select` `maxSelections`, a
  * `relationship` column's `maxLinked` cap, and the attachment-reference
  * confinement (a bulk write naming a foreign or unreachable file is refused
@@ -232,19 +231,19 @@ export function validateStrippedRecordsNotEmpty(config: {
  * @returns a formatted response for the first offending row — 422 for a
  *   membership violation, 400 for a cardinality one — or `undefined`
  */
-export async function validateBulkFieldValues(
+export const validateBulkFieldValues = (
   c: Context,
   app: App,
   records: readonly { readonly fields: Record<string, unknown> }[]
-): Promise<Response | undefined> {
+) => {
   const { tableName, userRole, userGroups, session } = getTableContext(c)
-  const layer = createValidationLayer(app, tableName, {
+  const withContext = provideValidationContext(app, tableName, {
     role: userRole,
     groups: userGroups,
     signedOut: isGuestSession(session.userId),
   })
 
-  const program = Effect.forEach(
+  return Effect.forEach(
     records,
     (record) =>
       Effect.gen(function* () {
@@ -255,9 +254,11 @@ export async function validateBulkFieldValues(
         yield* validateAttachmentReferences(record.fields)
       }).pipe(Effect.result),
     { concurrency: 1 }
-  ).pipe(Effect.provide(layer))
-
-  const results = await runDomainPromise(c, program)
-  const firstFailure = results.find((result) => result._tag === 'Failure')
-  return firstFailure === undefined ? undefined : formatValidationError(firstFailure.failure, c)
+  ).pipe(
+    withContext,
+    Effect.map((results) => {
+      const firstFailure = results.find((result) => result._tag === 'Failure')
+      return firstFailure === undefined ? undefined : formatValidationError(firstFailure.failure, c)
+    })
+  )
 }

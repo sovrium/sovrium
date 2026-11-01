@@ -39,7 +39,6 @@ import { projectAppTables } from './chat-table-projection'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
 import type { MutationTable } from '@/domain/models/app/agents/ai-chat-mutation-parser'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /** Table shape carrying the permissions block needed for RBAC checks. */
 type MutationTableWithPerms = MutationTable & { readonly permissions?: unknown }
@@ -62,8 +61,6 @@ export type MutationTurnResult =
 
 /** Inputs for evaluating a chat turn against the record-mutation pipeline. */
 export interface MutationTurnInput {
-  /** The server's resolved services, taken off the request that started the turn. */
-  readonly services: DomainContext
   readonly app: App | undefined
   readonly message: string
   /** The acting user's id — resolved to an email for activity attribution. */
@@ -95,12 +92,11 @@ const toMutationTables = (app: App | undefined): ReadonlyArray<MutationTableWith
  * table the app does not have: no command, a plain chat turn. A table she
  * lists but may not write keeps its refusal.
  */
-const listedMutationTables = async (
+const listedMutationTables = (
   input: MutationTurnInput,
   tables: ReadonlyArray<MutationTableWithPerms>
-): Promise<ReadonlyArray<MutationTableWithPerms>> =>
+) =>
   keepListedTables(
-    input.services,
     input.app,
     tables.filter((table) => passesChatTableGate(input.app, tables, table, input.reader)),
     input.reader
@@ -115,16 +111,14 @@ const listedMutationTables = async (
  * to the acting user's email without duplicating the
  * lookup.
  */
-export const resolveUserEmail = async (
-  services: DomainContext,
-  userId: string
-): Promise<string> => {
+export const resolveUserEmail = (userId: string) =>
   // The shared lookup logs a failure with its cause and reads it as no email;
   // the chat route is `requireAuth`-gated, so a miss falls back to the raw
   // user id rather than failing the chat turn.
-  const email = await Effect.runPromise(Effect.provide(findUserEmailById(userId), services))
-  return email ?? userId
-}
+  Effect.map(findUserEmailById(userId), (email) => email ?? userId)
+
+const NONE: MutationTurnResult = { kind: 'none' }
+const CANCELLED: MutationTurnResult = { kind: 'cancelled' }
 
 /** Affirmative / negative confirmation-reply detection. */
 const isAffirmative = (message: string): boolean => /^\s*(yes|y|confirm|ok|sure)\b/i.test(message)
@@ -153,62 +147,58 @@ const toTurnResult = (outcome: MutationOutcome): MutationTurnResult => {
  *  2. Otherwise, parse the message for a mutation intent and apply it.
  *  3. No mutation intent → `kind: 'none'` (plain chat turn).
  */
-export const evaluateMutationTurn = async (
-  input: MutationTurnInput
-): Promise<MutationTurnResult> => {
-  // ── confirmation path ──────────────────────────────────────────────────
-  if (input.confirmationToken !== undefined) {
-    const stored = consumeConfirmation(input.confirmationToken)
-    if (stored !== undefined) {
-      if (isNegative(input.message)) return { kind: 'cancelled' }
-      if (isAffirmative(input.message)) {
-        const outcome = await commitConfirmedMutation(input.services, stored)
-        return toTurnResult(outcome)
+export const evaluateMutationTurn = (input: MutationTurnInput) =>
+  Effect.gen(function* () {
+    // ── confirmation path ──────────────────────────────────────────────────
+    if (input.confirmationToken !== undefined) {
+      const stored = consumeConfirmation(input.confirmationToken, input.userId)
+      if (stored !== undefined) {
+        if (isNegative(input.message)) return CANCELLED
+        if (isAffirmative(input.message))
+          return toTurnResult(yield* commitConfirmedMutation(stored))
+        // Token present but the reply is neither yes nor no — treat as cancelled
+        // so a stray token never silently commits a destructive action.
+        return CANCELLED
       }
-      // Token present but the reply is neither yes nor no — treat as cancelled
-      // so a stray token never silently commits a destructive action.
-      return { kind: 'cancelled' }
     }
-  }
 
-  // ── intent path ────────────────────────────────────────────────────────
-  const { app } = input
-  const tables = toMutationTables(app)
-  const listed = await listedMutationTables(input, tables)
-  if (app === undefined || listed.length === 0) return { kind: 'none' }
-  const intent = parseMutationIntent(input.message, listed)
-  if (intent === undefined) return { kind: 'none' }
+    // ── intent path ────────────────────────────────────────────────────────
+    const { app } = input
+    const tables = toMutationTables(app)
+    const listed = yield* listedMutationTables(input, tables)
+    if (app === undefined || listed.length === 0) return NONE
+    const intent = parseMutationIntent(input.message, listed)
+    if (intent === undefined) return NONE
 
-  // Group memberships are resolved HERE, on the intent path, because the gap
-  // they close is a whole-path omission and not a confirmation-replay concern
-  // A `group:<name>` grant can never match a bare `userRole`, so passing
-  // only the role would make every group grant inert on the FIRST request as
-  // much as on a replay — the AI door and the records-API door disagreeing
-  // about who may open the same operation.
-  //
-  // The confirmation branch above deliberately does NOT re-resolve them: a
-  // stashed confirmation commits on the identity captured when it was issued,
-  // bounded by `AI_CONFIRMATION_TTL_MS`.
-  // Assignment roles too: the records route counts them on a table with
-  // row-level rules, so the AI door admits the same callers.
-  const [userEmail, userGroups, userAccessRoles] = await Promise.all([
-    resolveUserEmail(input.services, input.userId),
-    // The same services `resolveUserEmail` uses: this flow is reached from a
-    // turn evaluator several frames beneath the handler, so the server's set
-    // travels down with the turn rather than being rebound here.
-    Effect.runPromise(Effect.provide(getUserGroups(input.userId), input.services)),
-    Effect.runPromise(Effect.provide(getUserAccessRoles(input.userId), input.services)),
-  ])
-  const outcome = await applyMutation({
-    services: input.services,
-    intent,
-    userId: input.userId,
-    userRole: input.userRole,
-    userGroups,
-    userAccessRoles,
-    userEmail,
-    tables,
-    app,
+    // Group memberships are resolved HERE, on the intent path, because the gap
+    // they close is a whole-path omission and not a confirmation-replay concern
+    // A `group:<name>` grant can never match a bare `userRole`, so passing
+    // only the role would make every group grant inert on the FIRST request as
+    // much as on a replay — the AI door and the records-API door disagreeing
+    // about who may open the same operation.
+    //
+    // The confirmation branch above deliberately does NOT re-resolve them: a
+    // stashed confirmation commits on the identity captured when it was issued,
+    // bounded by `AI_CONFIRMATION_TTL_MS`.
+    // Assignment roles too: the records route counts them on a table with
+    // row-level rules, so the AI door admits the same callers.
+    const [userEmail, userGroups, userAccessRoles] = yield* Effect.all(
+      [
+        resolveUserEmail(input.userId),
+        getUserGroups(input.userId),
+        getUserAccessRoles(input.userId),
+      ],
+      { concurrency: 'unbounded' }
+    )
+    const outcome = yield* applyMutation({
+      intent,
+      userId: input.userId,
+      userRole: input.userRole,
+      userGroups,
+      userAccessRoles,
+      userEmail,
+      tables,
+      app,
+    })
+    return toTurnResult(outcome)
   })
-  return toTurnResult(outcome)
-}

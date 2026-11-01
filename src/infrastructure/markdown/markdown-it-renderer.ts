@@ -14,15 +14,15 @@
  * per-render token stream (via `attrSet`). The pure data shapes
  * (`MarkdownHeading`, `MarkdownDirective`, `MarkdownCodeBlock`,
  * `RenderedMarkdown`) plus pure helpers (`splitFrontmatter`, `scanDirectives`,
- * `filterTocHeadings`, `slugify`, `escapeHtml`, `parseDirectiveHeader`) stay
+ * `filterTocHeadings`, `slugify`, `parseDirectiveHeader`) stay
  * in `src/domain/kernel/markdown/markdown-renderer.ts` — those are pure string
  * transforms with no library dependency.
  *
  * Renderer configuration:
  *
- *  - `html: false`     → author raw HTML is dropped at parse time. Combined
- *    with the canonical `sanitizeRichTextHTML` upstream this preserves the
- *    the pages layout markdown pages requirement XSS guarantee under the new engine.
+ *  - `html: true` + the `drop_raw_html` core rule (`drop-raw-html.ts`) → raw
+ *    author HTML, comments included, is DROPPED: never emitted, never printed
+ *    as text (`html: false` would print `<!-- note -->` as a paragraph).
  *  - `linkify: true`   → bare URLs in body text autolink to `<a href=...>`
  *    (GFM-style autolinks — a pages markdown spec), schemaless domains
  *    (`example.com`, `www.example.com`) and credentialed URLs included.
@@ -45,13 +45,14 @@
 import MarkdownIt, { type MarkdownIt as MarkdownItInstance } from 'markdown-it'
 import container from 'markdown-it-container'
 import {
-  escapeHtml,
   scanDirectives,
   splitFrontmatter,
   type MarkdownHeading,
   type RenderedMarkdown,
 } from '@/domain/kernel/markdown/markdown-renderer'
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { parseFenceInfo } from '@/domain/models/app/pages/code-frame-defaults'
+import { dropRawHtml } from '@/infrastructure/markdown/drop-raw-html'
 import { pinLinkifyBehaviour } from '@/infrastructure/markdown/pin-linkify-behaviour'
 
 /**
@@ -87,15 +88,6 @@ type RenderEnv = {
 }
 
 /**
- * Walk markdown-it's parsed token stream and derive `{ id, level, text }`
- * for every `heading_open` token. Pure: no I/O, no mutation of inputs.
- *
- * markdown-it represents a heading as three consecutive tokens:
- *   `heading_open` → `inline` (whose `.content` is the rendered text) →
- *   `heading_close`. The slug is derived from the inline content; an empty
- *   slug falls back to `heading-N` (matching the historical renderer).
- */
-/**
  * Slugify a heading's text into the anchor `id` used on the rendered page.
  *
  * Exported so non-render consumers (e.g. the RSS feed builder for a single
@@ -112,6 +104,15 @@ export const slugify = (value: string): string =>
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
 
+/**
+ * Walk markdown-it's parsed token stream and derive `{ id, level, text }`
+ * for every `heading_open` token. Pure: no I/O, no mutation of inputs.
+ *
+ * markdown-it represents a heading as three consecutive tokens:
+ *   `heading_open` → `inline` (whose `.content` is the rendered text) →
+ *   `heading_close`. The slug is derived from the inline content; an empty
+ *   slug falls back to `heading-N` (matching the historical renderer).
+ */
 const extractHeadings = (tokens: readonly MdToken[]): readonly MarkdownHeading[] =>
   tokens
     .map((token, idx): MarkdownHeading | undefined => {
@@ -205,13 +206,14 @@ const directiveRender = (tokens: ReadonlyArray<ContainerToken>, idx: number): st
  */
 const createRenderer = () => {
   const md = new MarkdownIt({
-    html: false,
+    html: true,
     linkify: true,
     breaks: false,
     langPrefix: 'language-',
   })
 
   pinLinkifyBehaviour(md)
+  md.core.ruler.after('inline', 'drop_raw_html', dropRawHtml)
 
   // Link-scheme allowlist. markdown-it's default
   // `validateLink` rejects `javascript:`/`data:`/`vbscript:` by DROPPING the
@@ -285,8 +287,8 @@ const createRenderer = () => {
     const code = token.content.replace(/\n$/, '')
     const index = env.codeBlocks.length
     env.codeBlocks[index] = { lang, code, ...(title === undefined ? {} : { title }) }
-    const langAttr = lang.length > 0 ? ` class="language-${escapeHtml(lang)}"` : ''
-    return `<pre><code${langAttr} data-md-code="${index}">${escapeHtml(code)}</code></pre>\n`
+    const langAttr = lang.length > 0 ? ` class="language-${escapeHtmlAttribute(lang)}"` : ''
+    return `<pre><code${langAttr} data-md-code="${index}">${escapeHtmlAttribute(code)}</code></pre>\n`
   }
 
   return md
@@ -369,8 +371,8 @@ export const renderMarkdownInlineToHtml = (source: string): string =>
  * Render a markdown source string into HTML, with frontmatter and headings.
  *
  * The output `html` is safe to interpolate into a server-rendered React tree
- * via `dangerouslySetInnerHTML` because markdown-it runs with `html: false`
- * (raw author HTML is dropped at parse time). The full composed page HTML
+ * via `dangerouslySetInnerHTML` because every raw HTML token is dropped at
+ * parse time (the `drop_raw_html` core rule). The full composed page HTML
  * still passes through the canonical `sanitizeRichTextHTML` in the
  * presentation layer for defense in depth.
  */
@@ -412,8 +414,6 @@ export const renderMarkdownToHtml = (source: string): RenderedMarkdown => {
   }
 }
 
-// Re-export the pure types from domain so consumers can import either path.
-// The CANONICAL import path for these types is `@/domain/services/markdown/markdown-renderer`;
-// these re-exports exist so a single import of the infrastructure renderer is
-// enough for typical consumer files.
+// Re-exported so one import of the renderer is enough; the CANONICAL path for
+// these types is `@/domain/kernel/markdown/markdown-renderer`.
 export type { RenderedMarkdown } from '@/domain/kernel/markdown/markdown-renderer'

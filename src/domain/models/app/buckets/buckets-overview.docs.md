@@ -1,13 +1,13 @@
 # Buckets Overview
 
-> A named container for uploaded files, with its own size limit, accepted types and visibility — and the line between what the app declares and what the operator decides.
+> A named container for uploaded files, with its own size limit, accepted types and visibility, and the line between what the app declares and what the operator decides.
 
 Tables write into buckets through attachment fields, forms accept uploads into them, and the API exposes upload, download, signed-URL and image-transform endpoints per bucket.
 
 Two concerns are deliberately kept apart:
 
-- **Where the bytes live** — the storage backend — is an operator concern set with environment variables, and never appears in the app schema.
-- **How files are organised** — the buckets — is application configuration, declared in the top-level `buckets` array.
+- **Where the bytes live** (the storage backend) is an operator concern set with environment variables, and never appears in the app schema.
+- **How files are organised** (the buckets) is application configuration, declared in the top-level `buckets` array.
 
 ```yaml
 buckets:
@@ -25,7 +25,7 @@ buckets:
 
 <!-- sovrium:options BucketSchema depth=1 -->
 
-`name` is lowercase letters, digits and hyphens, starting with a letter, up to 63 characters. The ceiling and the leading-letter rule come from object-store prefix compatibility and are enforced offline, so a capitalised or digit-leading name fails validation — as does a duplicate anywhere in the array.
+`name` is lowercase letters, digits and hyphens, starting with a letter, up to 63 characters. The ceiling and the leading-letter rule come from object-store prefix compatibility and are enforced offline, so a capitalised or digit-leading name fails validation, as does a duplicate anywhere in the array.
 
 A name is **not a path prefix**. It is the recorded owner of every key uploaded through it, and no other bucket may write those keys.
 
@@ -46,9 +46,9 @@ An operator can also mark path prefixes public across every bucket, independentl
 
 Every app has a `system` bucket without declaring it, and `/api/buckets/system/...` is always served. It is **private when authentication is configured** and **public when it is not**: an app with no session system has nothing to gate on, so an anonymous form upload keeps working.
 
-It does two jobs. It stores the files of every attachment field that names no `bucket`, and the operator console lists it first, as the view of **every file linked to a record** — whichever bucket actually holds the file — with the table, record and field each one belongs to. When a record is deleted, its files stop appearing there.
+It does two jobs. It stores the files of every attachment field that names no `bucket`, and the operator console lists it first, as the view of **every file linked to a record**, whichever bucket actually holds the file, with the table, record and field each one belongs to. When a record is deleted, its files stop appearing there.
 
-The name `system` is reserved: a `buckets[]` entry called `system` fails validation. Declare a bucket of your own the moment you want different rules — the built-in one is a convenience, not a policy.
+The name `system` is reserved: a `buckets[]` entry called `system` fails validation. Declare a bucket of your own the moment you want different rules: the built-in one is a convenience, not a policy.
 
 ## Two buckets, one backend
 

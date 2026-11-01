@@ -159,8 +159,10 @@ const RECORD_COMPONENTS: Readonly<Record<string, RecordComponentRenderer>> = {
   },
   // An attachment field draws its file; any other value only as a web address
   // or a same-origin path — no other scheme is an image this card will fetch.
+  // A card is drawn in the browser, where the public directory is not to hand, so
+  // an `inlineSvg` here is the plain image a drawing falls back to everywhere.
   image: (child, record, key) => {
-    const src = resolveImageSource(String(child['src'] ?? ''), record)
+    const src = resolveImageSource(String(child['src'] ?? child['inlineSvg'] ?? ''), record)
     return src === undefined
       ? undefined
       : createElement('img', {

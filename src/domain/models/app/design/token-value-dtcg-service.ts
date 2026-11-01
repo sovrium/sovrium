@@ -311,19 +311,22 @@ export const parseCubicBezierValue = (
   const match = CUBIC_BEZIER.exec(raw.trim())
   if (!match) return undefined
   const parts = (match[1] ?? '').split(',').map((part) => Number(part.trim()))
-  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) return undefined
-  // The x ordinates, by position. Read through the array rather than by
-  // destructuring a fixed tuple, because the length check above is what makes
-  // them present and the compiler cannot see that.
-  const inRange = (ordinate: number | undefined): boolean =>
-    ordinate !== undefined && ordinate >= 0 && ordinate <= 1
-  // The tuple type is what DTCG's `cubicBezier` is, and the `length !== 4` guard
-  // above is what makes it true. Returning a bare `readonly number[]` pushed the
-  // obligation onto every caller, where it was discharged by a wider cast.
-  return inRange(parts[0]) && inRange(parts[2])
-    ? (parts as unknown as readonly [number, number, number, number])
-    : undefined
+  if (!isCubicBezier(parts)) return undefined
+  // The x ordinates must sit in [0, 1]; the y ordinates may overshoot.
+  return isUnitOrdinate(parts[0]) && isUnitOrdinate(parts[2]) ? parts : undefined
 }
+
+/** A cubic-bezier x ordinate: within `[0, 1]`. */
+const isUnitOrdinate = (ordinate: number): boolean => ordinate >= 0 && ordinate <= 1
+
+/**
+ * Four finite numbers: the tuple DTCG's `cubicBezier` is. The length check is
+ * what makes the tuple type true, so it is the guard that carries it.
+ */
+const isCubicBezier = (
+  parts: readonly number[]
+): parts is readonly [number, number, number, number] =>
+  parts.length === 4 && parts.every((part) => Number.isFinite(part))
 
 /**
  * Render a DTCG colour back to the shortest honest human-readable form.

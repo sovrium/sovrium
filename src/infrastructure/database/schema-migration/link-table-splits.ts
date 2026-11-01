@@ -47,7 +47,6 @@ import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { deriveLinkTableName } from '@/domain/models/app/tables/table-derived-name-validation'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logWarning } from '@/infrastructure/logging/logger'
 import { shouldUseView } from '../lookup/lookup-view-generators'
 import {
@@ -67,6 +66,7 @@ import {
 import { buildTablePrimaryKeyTypesMap } from '../table-operations/column-generators'
 import { countTableRows } from './table-operations'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /** A many-to-many field of the config, with the table declaring it. */
 type LinkField = {
@@ -85,8 +85,12 @@ export interface LinkTableSplit {
   readonly statements: readonly string[]
 }
 
-/** How the moves and copies build a link table: the DDL inputs every target shares. */
+/**
+ * How the moves and copies build a link table: the DDL inputs every target
+ * shares, and the engine of the live catalog they are planned against.
+ */
 interface DdlContext {
+  readonly dialect: DatabaseDialect
   readonly tableUsesView: ReadonlyMap<string, boolean>
   readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
 }
@@ -142,9 +146,9 @@ const keyColumnsOf = ({ table, field }: LinkField): string =>
 /** Move `from` to `link`'s own table, rows kept. */
 const moveStatements = (from: string, link: LinkField, ddl: DdlContext): readonly string[] => {
   const to = generateJunctionTableName(link.table, link.field)
-  if (isSqliteRuntime()) {
+  if (ddl.dialect === 'sqlite') {
     return [
-      generateJunctionTableDDL(link.table, link.field, ddl.tableUsesView, ddl.tablePrimaryKeyTypes),
+      generateJunctionTableDDL(link.table, link.field, ddl),
       `INSERT INTO ${quoted(to)} (${keyColumnsOf(link)}) SELECT ${keyColumnsOf(link)} FROM ${quoted(from)}`,
       `DROP TABLE ${quoted(from)}`,
     ]
@@ -168,14 +172,10 @@ const copyStatements = (
 ): readonly string[] => [
   ...links.flatMap((link) => {
     const to = generateJunctionTableName(link.table, link.field)
-    const create = isSqliteRuntime()
-      ? generateJunctionTableDDL(
-          link.table,
-          link.field,
-          ddl.tableUsesView,
-          ddl.tablePrimaryKeyTypes
-        )
-      : `CREATE TABLE IF NOT EXISTS ${quoted(to)} (LIKE ${quoted(from)} INCLUDING DEFAULTS INCLUDING INDEXES)`
+    const create =
+      ddl.dialect === 'sqlite'
+        ? generateJunctionTableDDL(link.table, link.field, ddl)
+        : `CREATE TABLE IF NOT EXISTS ${quoted(to)} (LIKE ${quoted(from)} INCLUDING DEFAULTS INCLUDING INDEXES)`
     return [
       create,
       // `WHERE 1 = 1`: SQLite would read a bare `ON` after the FROM as a join condition.
@@ -195,7 +195,7 @@ const planShared = (
   const [first] = links
   if (first === undefined) return []
   const from = deriveLinkTableName(first.table.name, first.field.relatedTable)
-  if (!isLiveRelation(existing, from)) return []
+  if (!isLiveRelation(existing, from, ddl.dialect)) return []
   const stored = storedLinksTo(
     first.table,
     sanitizeTableName(first.field.relatedTable),
@@ -206,7 +206,7 @@ const planShared = (
     const owner = currentFieldOf(only, links)
     if (owner === undefined) return []
     const to = generateJunctionTableName(owner.table, owner.field)
-    if (isLiveRelation(existing, to)) return []
+    if (isLiveRelation(existing, to, ddl.dialect)) return []
     return [{ from, to: [to], statements: moveStatements(from, owner, ddl) }]
   }
   return [
@@ -247,10 +247,10 @@ const planAlone = (
   ddl: DdlContext
 ): readonly LinkTableSplit[] => {
   const to = generateJunctionTableName(link.table, link.field)
-  if (isLiveRelation(existing, to)) return []
+  if (isLiveRelation(existing, to, ddl.dialect)) return []
   const from = namesBefore(link, previousSchema)
     .map((name) => `${to}_${sanitizeTableName(name)}`)
-    .find((candidate) => isLiveRelation(existing, candidate))
+    .find((candidate) => isLiveRelation(existing, candidate, ddl.dialect))
   return from === undefined ? [] : [{ from, to: [to], statements: moveStatements(from, link, ddl) }]
 }
 
@@ -271,21 +271,28 @@ const planRenamed = (
   const to = generateJunctionTableName(link.table, link.field)
   const pair = deriveLinkTableName(link.table.name, link.field.relatedTable)
   const from = `${pair}_${sanitizeTableName(renamedFrom)}`
-  if (from === to || !isLiveRelation(existing, from) || isLiveRelation(existing, to)) return []
+  if (
+    from === to ||
+    !isLiveRelation(existing, from, ddl.dialect) ||
+    isLiveRelation(existing, to, ddl.dialect)
+  )
+    return []
   return [{ from, to: [to], statements: moveStatements(from, link, ddl) }]
 }
 
 /**
  * The moves and copies that give each many-to-many field of `tables` its own
- * link table, given the live table names and the stored schema. Pure, like
- * `planLinkTableRenames`.
+ * link table, given the live table names, the engine they were read from and
+ * the stored schema. Pure, like `planLinkTableRenames`.
  */
 export const planLinkTableSplits = (
   tables: readonly Table[],
   existing: ReadonlySet<string>,
-  previousSchema: { readonly tables: readonly object[] } | undefined
+  previousSchema: { readonly tables: readonly object[] } | undefined,
+  dialect: DatabaseDialect
 ): readonly LinkTableSplit[] => {
   const ddl: DdlContext = {
+    dialect,
     tableUsesView: new Map(tables.map((table) => [table.name, shouldUseView(table)])),
     tablePrimaryKeyTypes: buildTablePrimaryKeyTypesMap(tables),
   }
@@ -336,7 +343,7 @@ export const splitSharedLinkTables = (
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const existing = new Set(yield* getExistingTableNames(tx))
-    const splits = planLinkTableSplits(tables, existing, previousSchema)
+    const splits = planLinkTableSplits(tables, existing, previousSchema, tx.dialect)
     for (const split of splits) {
       const { review } = split
       const count = review === undefined ? 0 : yield* countTableRows(tx, split.from)

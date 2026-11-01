@@ -393,36 +393,29 @@ type PublicViewCandidate = {
 }
 
 /**
- * The two shapes a PUBLIC view cannot keep its promise in.
+ * The one shape a PUBLIC view cannot keep its promise in.
  *
  * `{ public: true }` serves visitors with no account exactly the columns the
- * view lists, so:
- *  - a public view must list them — no `fields`, or an empty list, would leave
- *    "every column" as the answer by omission, the one answer it must never give;
- *  - it cannot sit on a table with `rowLevelPermissions` — the view-records
- *    read does not apply the row guard, and a visitor has no identity for a
- *    `$currentUser` predicate to match, so it would serve every row.
+ * view lists, so a public view must list them — no `fields`, or an empty list,
+ * would leave "every column" as the answer by omission, the one answer it must
+ * never give.
+ *
+ * A table's `rowLevelPermissions` do not refuse one: the view-records read
+ * applies the row rule to a visitor as to anyone, before the view's own
+ * filters. A rule that names no `$currentUser` keeps for her the rows it keeps
+ * for everyone, and a rule that names one keeps none, since she has no
+ * identity for it to match.
  *
  * @param views - Views of one table
- * @param hasRowLevelPermissions - Whether that table declares `rowLevelPermissions`
- * @returns Error object if a public view breaks either rule, undefined if valid
+ * @returns Error object if a public view lists no fields, undefined if valid
  */
 export const validatePublicViews = (
-  views: ReadonlyArray<PublicViewCandidate>,
-  hasRowLevelPermissions: boolean
+  views: ReadonlyArray<PublicViewCandidate>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
-  const publicViews = views.filter(isPublicView)
-  const withoutFields = publicViews.find((view) => (view.fields?.length ?? 0) === 0)
+  const withoutFields = views.filter(isPublicView).find((view) => (view.fields?.length ?? 0) === 0)
   if (withoutFields) {
     return {
       message: `view '${String(withoutFields.id)}' is public but declares no \`fields\` — a public view serves exactly the columns it lists`,
-      path: ['views'],
-    }
-  }
-  const [firstPublic] = publicViews
-  if (firstPublic && hasRowLevelPermissions) {
-    return {
-      message: `view '${String(firstPublic.id)}' is public but its table declares \`rowLevelPermissions\` — a visitor has no identity for a row rule to scope, so a public view would serve every row`,
       path: ['views'],
     }
   }

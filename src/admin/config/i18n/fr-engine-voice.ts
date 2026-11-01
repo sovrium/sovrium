@@ -45,8 +45,7 @@ export default {
   'sovrium.apiKeys.newKey': 'Ta nouvelle clé d’API',
   'sovrium.commandPalette.commandPlaceholder': 'Saisis une commande ou recherche…',
   'sovrium.commandPalette.searchAll': 'Rechercher dans toutes tes données',
-  'sovrium.commandPalette.startTyping':
-    'Commence à taper pour rechercher des enregistrements, des réponses, des fichiers, des automatisations et des utilisateurs.',
+  'sovrium.commandPalette.startTyping': 'Tape pour rechercher dans {kinds}.',
   'sovrium.component.configHint':
     'Ajoute-la à ce composant dans la configuration de l’application, puis redéploie.',
   'sovrium.component.refreshToRetry': 'Actualise la page pour réessayer.',
@@ -58,7 +57,7 @@ export default {
   'sovrium.filePreview.cannotShow':
     '{name} ne peut pas être affiché ici. Télécharge-le pour l’ouvrir.',
   'sovrium.fileUpload.dropPrompt': 'Dépose des fichiers ici',
-  'sovrium.form.confirmPrompt': 'Tu veux vraiment continuer ?',
+  'sovrium.form.confirmPrompt': 'Ça prend effet tout de suite.',
   'sovrium.form.dropFiles': 'Dépose des fichiers ici ou clique pour parcourir',
   'sovrium.form.selectUser': 'Choisis un utilisateur…',
   'sovrium.form.uploadFailed': 'L’envoi du fichier a échoué. Réessaie.',

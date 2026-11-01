@@ -20,7 +20,10 @@
  * 3. **A config extension?** `.yaml`, `.yml`, `.json` and nothing else.
  * 4. **A symlink?** Separate from question 1 on purpose: the TARGET can be a
  *    perfectly ordinary file inside the jail while the link is the escape hatch,
- *    so `linked.yaml` passes questions 1–3 and is refused here.
+ *    so `linked.yaml` passes questions 1–3 and is refused here. The same holds
+ *    for a linked DIRECTORY on the way to it: the real path of the target's
+ *    folder must lie inside the project's real path, both canonicalised, so a
+ *    `config/shared` link pointing elsewhere is refused too.
  *
  * The order is what makes each refusal say the useful thing. `.env` carries no
  * allowed extension, so asking question 3 first would refuse it by talking about
@@ -32,7 +35,7 @@
  * finds a path that works.
  */
 
-import { basename, extname, relative, resolve, sep } from 'node:path'
+import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import { parseDataDir } from '@/domain/models/process-env/data-dir'
 import { isPathWithin } from '@/domain/models/process-env/desktop'
 
@@ -104,7 +107,7 @@ const findProtectedLocation = (target: Readonly<LocatedTarget>): string | undefi
   // file unwritable — a "protection" that protects the config from being edited
   // is just a broken tool. So the rule applies only where the data dir is a
   // place inside, or beside, the project rather than above it.
-  const dataDir = parseDataDir()
+  const dataDir = parseDataDir(process.env)
   if (isPathWithin(dataDir, target.projectDir)) return undefined
   return isPathWithin(dataDir, target.absolutePath)
     ? nameDataDir(target.projectDir, dataDir)
@@ -141,22 +144,48 @@ export const refuseProtectedOrNonConfig = (
 }
 
 /**
+ * The real path of `dir`, or of its nearest ancestor that exists: a write may
+ * create a file in a folder that is not there yet, and the folders that are
+ * there decide where it lands.
+ */
+const realDirectory = async (dir: string): Promise<string> => {
+  const { realpath } = await import('node:fs/promises')
+  const real = await realpath(dir).catch(() => undefined)
+  if (real !== undefined) return real
+  const parent = dirname(dir)
+  return parent === dir ? dir : join(await realDirectory(parent), basename(dir))
+}
+
+/**
  * Bound 1's fourth question, the only one that has to touch the filesystem.
  *
  * `lstat` rather than `stat`, which is the whole point: `stat` follows the link
  * and reports on its target, so a symlink would be indistinguishable from the
- * ordinary file it points at.
+ * ordinary file it points at. Then the folder: its real path and the project's
+ * are compared real path to real path (so `/var` → `/private/var` is not an
+ * escape), and a folder reached through a link out of the project is refused.
  */
 export const refuseSymlink = async (
   target: Readonly<LocatedTarget>
 ): Promise<TargetRefusal | undefined> => {
   const { lstat } = await import('node:fs/promises')
   const stats = await lstat(target.absolutePath).catch(() => undefined)
-  if (stats?.isSymbolicLink() !== true) return undefined
+  if (stats?.isSymbolicLink() === true) {
+    return refuse(
+      `Refused: ${target.relativePath} is a symlink. A symlink can point anywhere, including out ` +
+        `of the project directory, so this tool writes real files only — name the file it points ` +
+        `at instead.`
+    )
+  }
+  const [realRoot, realFolder] = await Promise.all([
+    realDirectory(target.projectDir),
+    realDirectory(dirname(target.absolutePath)),
+  ])
+  if (isPathWithin(realRoot, realFolder)) return undefined
   return refuse(
-    `Refused: ${target.relativePath} is a symlink. A symlink can point anywhere, including out ` +
-      `of the project directory, so this tool writes real files only — name the file it points ` +
-      `at instead.`
+    `Refused: ${target.relativePath} is reached through a symlink that leads outside the ` +
+      `project directory. This tool writes real files inside the project only — name a path ` +
+      `whose folders are real.`
   )
 }
 

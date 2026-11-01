@@ -1,6 +1,6 @@
 # Attachment Fields & Storage
 
-> An attachment field stores a reference, not a file — which bucket the bytes land in, what the column actually holds, and why a returned URL is not a durable handle.
+> An attachment field stores a reference, not a file: which bucket the bytes land in, what the column actually holds, and why a returned URL is not a durable handle.
 
 ```yaml
 tables:
@@ -17,7 +17,7 @@ tables:
 
 ## Which bucket
 
-`bucket` names an entry in your buckets array. Omit it and the field writes to the built-in `system` bucket, whose visibility follows whether authentication is configured. A name the app does not declare is refused by `validate` and at start — `Table '<table>' field '<field>' references undefined bucket '<name>'` — whether or not the app declares any bucket. `system`, and `avatars`, which the engine serves on its own when the app declares none, are always accepted.
+`bucket` names an entry in your buckets array. Omit it and the field writes to the built-in `system` bucket, whose visibility follows whether authentication is configured. A name the app does not declare is refused by `validate` and at start (`Table '<table>' field '<field>' references undefined bucket '<name>'`), whether or not the app declares any bucket. `system`, and `avatars`, which the engine serves on its own when the app declares none, are always accepted.
 
 Two layers of limits then apply to the same upload, and **both must pass**.
 
@@ -30,7 +30,7 @@ Declaring the tighter of the two on the field keeps the intent next to the colum
 
 ## What the column holds
 
-The file reaches storage through the ordinary upload endpoint, which returns a key. **That key** — not the filename, not a URL — is what the column holds.
+The file reaches storage through the ordinary upload endpoint, which returns a key. **That key**, not the filename and not a URL, is what the column holds.
 
 With `storeMetadata` on, the column instead holds an object carrying the key plus the metadata captured at upload, such as dimensions or duration. Either shape resolves to the same stored object; the difference is only how much you can render without a second request.
 
@@ -38,11 +38,11 @@ With `storeMetadata` on, the column instead holds an object carrying the key plu
 
 An attachment value can reference a previously uploaded key only when that key was uploaded into the column's own bucket; inline `{ name, content }` values and multipart form uploads are stored there automatically, and existing rows and seeds are not re-checked.
 
-The writer's role must also be able to download from that bucket. A reference that fails either condition — or names a key storage has never recorded — is refused with a `400`, and the answer is the same in every case, so it never reveals whether a file exists.
+The writer's role must also be able to download from that bucket. A reference that fails either condition, or names a key storage has never recorded, is refused with a `400`, and the answer is the same in every case, so it never reveals whether a file exists.
 
 The key of a file attached to an AI chat is refused in every record write, its uploader's included: a chat attachment is served by the chat alone. A column bound to `avatars` in an app that declares no `avatars` bucket judges a reference as a download from the engine's own avatar bucket, so it takes a writer's avatar.
 
-An automation's record steps are held to the same rule, and a refused reference fails the step without writing anything. A step running as the person who triggered it (`runAs: triggering-user`) is judged as that person. A step that writes as nobody — a webhook, a schedule, a record event, any run without `runAs` that no one started by hand — may attach only a file an earlier step of the same run stored in the column's bucket, or an inline value. Any key that existed before the run is refused with the same message, whoever triggered the run and whoever stored the file. So is a key a `file/copy`, `file/move`, or a `file/upload` from a stored key wrote in the run: its bytes existed before the run. A copy of bytes the run brought in is attached like the original. The run's own files are kept across a pause: after an approval, a browser step's confirmation or a long wait, a step acting for nobody still attaches a file the run stored before it, unless that file changed while the run waited. An `automation/call` child run starts with none of its caller's files: a step acting for nobody there attaches only what the child run stored itself. To attach an existing file, run the step as a person (`runAs: triggering-user`, or a run started by hand); it is then judged on that person's download right. An inline value's `content` must be base64: text that is not is refused with a `400` naming the column, and nothing is written. An inline value is an upload, held to what an upload to the column's bucket is held to — its `name` is one file name, with no `/`, `\` or `..`, and its size and type fit the bucket's `maxFileSize` and `allowedMimeTypes` — and to the column's `maxFileSize`, `allowedFileTypes` and `maxFiles`. A value that breaks one is refused with a `400` naming the column. A record step of an automation stores an inline value the same way, and a refused one fails the step.
+An automation's record steps are held to the same rule, and a refused reference fails the step without writing anything. A step running as the person who triggered it (`runAs: triggering-user`) is judged as that person. A step that writes as nobody (a webhook, a schedule, a record event, any run without `runAs` that no one started by hand) may attach only a file an earlier step of the same run stored in the column's bucket, or an inline value. Any key that existed before the run is refused with the same message, whoever triggered the run and whoever stored the file. So is a key a `file/copy`, `file/move`, or a `file/upload` from a stored key wrote in the run: its bytes existed before the run. A copy of bytes the run brought in is attached like the original. The run's own files are kept across a pause: after an approval, a browser step's confirmation or a long wait, a step acting for nobody still attaches a file the run stored before it, unless that file changed while the run waited. An `automation/call` child run starts with none of its caller's files: a step acting for nobody there attaches only what the child run stored itself. To attach an existing file, run the step as a person (`runAs: triggering-user`, or a run started by hand); it is then judged on that person's download right. An inline value's `content` must be base64: text that is not is refused with a `400` naming the column, and nothing is written. An inline value is an upload, held to what an upload to the column's bucket is held to (its `name` is one file name, with no `/`, `\` or `..`, and its size and type fit the bucket's `maxFileSize` and `allowedMimeTypes`), and to the column's `maxFileSize`, `allowedFileTypes` and `maxFiles`. A value that breaks one is refused with a `400` naming the column. A record step of an automation stores an inline value the same way, and a refused one fails the step.
 
 An update checks only the columns it carries, and it checks them as new references. A client that echoes a whole record back therefore re-submits its attachment values too, and a seeded or legacy key that storage never recorded is refused there. Leave an unchanged attachment column out of the update rather than sending it back.
 
@@ -72,11 +72,11 @@ A bucket counts as public either through its own `public: true` flag or through 
 
 The two are **mutually exclusive by design**: in public mode the signed URL is deliberately absent, so a client can rely on the plain one never carrying a token, and on a signed one always meaning "this expires".
 
-Because the URL is minted per read, a record fetched an hour ago carries a link that has since died. Re-read the record rather than caching the URL — the key is the durable handle, and the URL is not. A page's row template gets the same address from `$record.<attachment>`, minted for each page view.
+Because the URL is minted per read, a record fetched an hour ago carries a link that has since died. Re-read the record rather than caching the URL: the key is the durable handle, and the URL is not. A page's row template gets the same address from `$record.<attachment>`, minted for each page view.
 
 ### The URL is bound to the field's own bucket
 
-The link a read attaches is built against the bucket the column declares, so a field pointing at `documents` returns a URL under `documents`. A column declaring no `bucket` falls back to the built-in `system` bucket — not to the first bucket in your array, which would make the target depend on the order you happened to write them in.
+The link a read attaches is built against the bucket the column declares, so a field pointing at `documents` returns a URL under `documents`. A column declaring no `bucket` falls back to the built-in `system` bucket, not to the first bucket in your array, which would make the target depend on the order you happened to write them in.
 
 The signature covers that bucket name along with the path, the operation and the expiry, so a URL minted for one bucket cannot be re-pointed at another by editing the query string.
 

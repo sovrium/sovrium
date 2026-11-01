@@ -27,7 +27,7 @@
  *    against its own column, so that column has one writer only.
  */
 
-import { walk } from './form-create-path-validation'
+import { objectNodes } from '@/domain/kernel/config-parsing/config-node-walk'
 import { isReferenceDefaultValue } from './form-field-helpers'
 import { NARROWABLE_COLUMN_TYPES, type FormChoiceShape } from './form-option-subset-service'
 import { classifyScalarSource } from './hidden-default-pin-service'
@@ -224,7 +224,7 @@ const refuseStrayPrefill = (
   }
   return pages.reduce<string | undefined>((found, page) => {
     if (found !== undefined) return found
-    const stray = [...walk(page.components), ...walk(page.layout)].reduce<
+    const stray = [...objectNodes(page.components), ...objectNodes(page.layout)].reduce<
       { readonly column: string; readonly value: string } | undefined
     >((hit, node) => hit ?? strayPrefill(narrowed, embeddingPrefillOf(node, form.name)), undefined)
     return stray === undefined

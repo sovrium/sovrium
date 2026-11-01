@@ -279,7 +279,48 @@ const ContentDirNavSchema = Schema.Struct({
    * ```
    */
   tabs: Schema.optional(ContentDirNavTabsSchema),
+
+  /**
+   * Where the docs tabs are drawn. `header` (the default) draws no tab list:
+   * the app's own header carries the zone links and reads the active one from
+   * `data-docs-active-zone`. `sidebar` draws the tabs at the top of the docs
+   * sidebar, each a link to its landing, the active one expanded with its
+   * groups. Needs `tabs` (refused at load without them).
+   */
+  tabsPlacement: Schema.optional(
+    Schema.Literals(['header', 'sidebar']).pipe(
+      Schema.annotate({
+        description:
+          "Where the docs tabs are drawn: 'header' (default) leaves them to the app's header; 'sidebar' lists them at the top of the docs sidebar, the current tab expanded. Needs tabs.",
+      })
+    )
+  ),
+
+  /**
+   * Draws the docs search field at the top of the docs sidebar: the page
+   * search answering per request, so it reaches the collection's articles and
+   * honours their front-matter access. A literal rather than a boolean so it
+   * names a place, like `tabsPlacement`.
+   */
+  search: Schema.optional(
+    Schema.Literal('sidebar').pipe(
+      Schema.annotate({
+        description:
+          "Draws the docs search field at the top of the docs sidebar. It finds the collection's articles the reader may open.",
+      })
+    )
+  ),
 }).pipe(
+  // The struct-level rule goes BEFORE the identifier annotation: annotated
+  // after it, the check would turn the node into an anonymous refinement and
+  // drop the `ContentDirNav` definition from the published JSON Schema.
+  Schema.check(
+    Schema.makeFilter((nav) =>
+      nav.tabsPlacement === 'sidebar' && nav.tabs === undefined
+        ? 'tabsPlacement "sidebar" needs nav.tabs: declare the tabs to draw, or drop tabsPlacement'
+        : true
+    )
+  ),
   Schema.annotate({
     identifier: 'ContentDirNav',
     title: 'Content Directory Navigation',
@@ -422,7 +463,7 @@ export const ContentDirSchema = Schema.Struct({
     Schema.String.pipe(
       Schema.annotate({
         description:
-          'Report-an-issue URL template for docs articles. Same placeholders as editUrl ({slug}, {path}, {lang}) but OPTIONAL — a bare issue-tracker URL with no placeholder is valid (passes through verbatim). Absent = no issue link (opt-in, default off). E.g. https://github.com/acme/repo/issues/new',
+          'Report-an-issue URL template for docs articles. Same placeholders as editUrl ({slug}, {path}, {lang}) but OPTIONAL: a bare issue-tracker URL with no placeholder is valid (passes through verbatim). Absent = no issue link (opt-in, default off). E.g. https://github.com/acme/repo/issues/new',
       }),
       Schema.check(Schema.isMinLength(1))
     )

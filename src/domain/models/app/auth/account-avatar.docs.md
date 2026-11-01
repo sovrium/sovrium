@@ -1,6 +1,6 @@
 # Profile Avatars
 
-> A signed-in user's own profile picture — two endpoints with no user id in either path, and an image URL nothing else may write.
+> A signed-in user's own profile picture: two endpoints with no user id in either path, and an image URL nothing else may write.
 
 The account is always the caller's, so one user can never write another's avatar.
 
@@ -65,7 +65,7 @@ pages:
 
 Nothing has to be declared. An app with no buckets at all still accepts a profile picture: the engine keeps one of its own under the same `avatars` name the minted URL carries, and serves it back from there. Profile pictures are a feature the binary provides, so they cannot depend on the host app having configured storage on their behalf.
 
-**The engine-owned location is private, and private is not the same as invisible.** A stored avatar is served to any **signed-in** caller — an avatar only its owner could load is not an avatar, since a member directory and every comment draw it beside a name. An **anonymous** caller gets `404` rather than `403`, so the URL can never be used to work out which accounts carry a picture.
+**The engine-owned location is private, and private is not the same as invisible.** A stored avatar is served to any **signed-in** caller. An avatar only its owner could load is not an avatar, since a member directory and every comment draw it beside a name. An **anonymous** caller gets `404` rather than `403`, so the URL can never be used to work out which accounts carry a picture.
 
 Declare a bucket named `avatars` when you want different rules, and the rules you write are the ones that apply. The engine-owned location is a fallback, never an override, so an app already serving public avatars keeps serving them.
 
@@ -88,13 +88,13 @@ The filename you send is **ignored**, and so is the content type you declare. Th
 | JPEG   | `.jpg`    |
 | WebP   | `.webp`   |
 
-Anything else — including a file that merely claims to be one of the three — answers `400` and leaves the existing avatar untouched.
+Anything else, including a file that merely claims to be one of the three, answers `400` and leaves the existing avatar untouched.
 
 Discarding the filename removes a whole class of problem rather than checking for it. The filename is the one part of an upload entirely chosen by the uploader, so path traversal, null bytes and an extension that disagrees with the content stop being checks that could be wrong and become shapes that cannot arrive. Reading the container header rather than the declared type means HTML calling itself an image is refused here, instead of being stored and later served from your own origin.
 
 ## The image URL is not writable
 
-`image` cannot be set by hand. Sending one to the update-user endpoint — or to sign-up, or to the admin user endpoints — answers `400`.
+`image` cannot be set by hand. Sending one to the update-user endpoint (or to sign-up, or to the admin user endpoints) answers `400`.
 
 Every non-null value is refused, including a well-formed URL pointing at your own avatars bucket. Shape would prove the URL points at this instance; it would not prove the object belongs to the caller, and that is the thing worth proving.
 

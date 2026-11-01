@@ -40,9 +40,7 @@ export const DEFAULT_API_IP_RATE_LIMIT = 1200
  * @throws Error naming the variable and the value when it is not a whole number
  *   above zero.
  */
-export const parseApiIpRateLimit = (
-  env: Readonly<Record<string, string | undefined>> = process.env
-): number => {
+export const parseApiIpRateLimit = (env: Readonly<Record<string, string | undefined>>): number => {
   const raw = env[API_IP_RATE_LIMIT_VAR]
   if (raw === undefined || raw.trim() === '') return DEFAULT_API_IP_RATE_LIMIT
   const value = parsePositiveIntEnv(raw)
@@ -60,6 +58,5 @@ export const parseApiIpRateLimit = (
  * or {@link DEFAULT_API_IP_RATE_LIMIT} when it is unset or invalid. Never throws
  * — the boot already refused an invalid value.
  */
-export const resolveApiIpRateLimit = (
-  env: Readonly<Record<string, string | undefined>> = process.env
-): number => parsePositiveIntEnv(env[API_IP_RATE_LIMIT_VAR]) ?? DEFAULT_API_IP_RATE_LIMIT
+export const resolveApiIpRateLimit = (env: Readonly<Record<string, string | undefined>>): number =>
+  parsePositiveIntEnv(env[API_IP_RATE_LIMIT_VAR]) ?? DEFAULT_API_IP_RATE_LIMIT

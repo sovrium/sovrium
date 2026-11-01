@@ -21,7 +21,7 @@ import { useKanbanFormat } from './use-kanban-format'
 import type { TableRecord } from '../runtime/types'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { FieldCondition } from '@/domain/models/app/tables/condition-operators'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 /** The board's classes for the record components a card slot draws. */
 const CARD_CHILD_CLASSES: CardChildClasses = {
@@ -39,6 +39,49 @@ const admitsRecord = (child: unknown, record: TableRecord): boolean =>
     (child as { readonly visibility?: { readonly record?: FieldCondition } }).visibility?.record,
     record
   )
+
+/** A `container` child's own attributes: its class and its test id, nothing else. */
+const containerAttributes = (child: Readonly<Record<string, unknown>>) => {
+  const { className, 'data-testid': testId } = (child['props'] ?? {}) as Readonly<
+    Record<string, unknown>
+  >
+  return {
+    className: typeof className === 'string' ? className : CARD_CONTAINER_CLASSES,
+    ...(typeof testId === 'string' && { 'data-testid': testId }),
+  }
+}
+
+/** A card container lays its children out as the card body does: one under the other. */
+const CARD_CONTAINER_CLASSES = 'flex flex-col gap-1'
+
+/**
+ * One card child, gated by its own `visibility.record`. A `container` groups
+ * children: each is bound to the card's record and gated on its own, and the
+ * container's gate shows or hides the group as one.
+ */
+function renderGatedChild(
+  child: Readonly<Record<string, unknown>>,
+  index: number,
+  record: TableRecord,
+  textRecord: TableRecord
+): ReactNode {
+  if (!admitsRecord(child, record)) return undefined
+  if (child['type'] !== 'container') {
+    return renderCardChild(child, textRecord, index, CARD_CHILD_CLASSES)
+  }
+  const children = Array.isArray(child['children']) ? child['children'] : []
+  return (
+    <div
+      key={`child-${String(index)}`}
+      data-component-type="container"
+      {...containerAttributes(child)}
+    >
+      {children.map((nested: Readonly<Record<string, unknown>>, at: number) =>
+        renderGatedChild(nested, at, record, textRecord)
+      )}
+    </div>
+  )
+}
 
 export function KanbanCardDefault({ record }: { readonly record: TableRecord }): ReactElement {
   // No template configured: render a minimal default with a title-ish field.
@@ -61,7 +104,7 @@ export function KanbanCardBody({
 }): ReactElement {
   const format = useKanbanFormat()
   // A TEXT site: each formatted field prints as the server prints it on a page.
-  const textRecord = withRecordTextFields(record, format.recordText, format.locale)
+  const textRecord = withRecordTextFields(record, format.recordText, format.locale, new Date())
   return (
     <>
       {coverImageSrc && (
@@ -72,11 +115,7 @@ export function KanbanCardBody({
         />
       )}
       <div className={KANBAN_CARD_BODY_CLASSES}>
-        {card.children?.map((child, index) =>
-          admitsRecord(child, record)
-            ? renderCardChild(child, textRecord, index, CARD_CHILD_CLASSES)
-            : undefined
-        )}
+        {card.children?.map((child, index) => renderGatedChild(child, index, record, textRecord))}
       </div>
       {/* The footer sits OUTSIDE the body's padding box so its top rule runs
           edge to edge — which is what makes it read as a division of the card

@@ -25,7 +25,7 @@ export const CodeElementTypeLiteral = Schema.Literal('code')
 export const CodeFrameSchema = Schema.Literals(['none', 'file', 'terminal']).annotate({
   title: 'Code Frame',
   description:
-    'Chrome drawn around the code block: none (bare pre), file (filename header), or terminal (shell-session header). Omit to let the frame be inferred — see the precedence rule on codeElementFields.',
+    'Chrome drawn around the code block: none (bare pre), file (filename header), or terminal (shell-session header). Omit to let the frame be inferred: see the precedence rule on codeElementFields.',
 })
 
 /**
@@ -96,7 +96,7 @@ export const codeElementFields = {
     Schema.Boolean.annotate({
       defaultNote: 'false',
       description:
-        'Draw a line-number gutter beside the code (default false). Opt-in — unlike the code-editor control, whose gutter is on by default. The numbers are chrome rather than content: they render outside `pre code` so they never land in the clipboard, exactly as `filename` does.',
+        'Draw a line-number gutter beside the code (default false). Opt-in, unlike the code-editor control, whose gutter is on by default. The numbers are chrome rather than content: they render outside `pre code` so they never land in the clipboard, exactly as `filename` does.',
     })
   ),
   filename: optStr(
@@ -110,9 +110,11 @@ export const codeElementFields = {
     description:
       'Show a copy-to-clipboard button on the block (default true). The payload is the COMMAND only: a framed block with `output` excludes the output, and the frame header excludes the filename.',
   }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(true))),
-  copyLabel: optStr('Accessible name and visible label of the copy button (default: "Copy")'),
+  copyLabel: optStr(
+    'Accessible name and visible label of the copy button (default: the `code.copy` engine word in the page language, "Copy" in English). Read at the top level or inside `props`'
+  ),
   copiedLabel: optStr(
-    'Visible label shown briefly after a successful copy (default: "Copied"). The button keeps its `copyLabel` accessible name across the flip, so a screen-reader user does not lose the control.'
+    'Visible label shown briefly after a successful copy (default: the `code.copied` engine word in the page language, "Copied" in English). The button keeps its `copyLabel` accessible name across the flip, so a screen-reader user does not lose the control.'
   ),
   output: optStr(
     'Output the command produces, rendered as a SECOND `<pre>` below the command inside the same frame. Implies codeFrame: "terminal" when codeFrame is omitted. Note for spec authors: a block with `output` puts TWO `<pre>` on the page, so a bare `page.locator("pre")` is strict-mode ambiguous.'

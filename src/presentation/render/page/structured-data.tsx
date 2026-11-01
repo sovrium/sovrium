@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
 import type { Page } from '@/domain/models/app/pages'
 
@@ -212,8 +213,15 @@ function renderAuthoredStructuredData(structuredData: object): Readonly<ReactEle
 export function StructuredDataScript({
   page,
   synthesized,
+  resolveText = (text) => text,
 }: {
   readonly page: Page
+  /**
+   * How each string of an AUTHORED document resolves before it is emitted —
+   * its `$t:` key in the served language, then its `$app.*` references — as
+   * `meta.title` does. Synthesised documents are already resolved text.
+   */
+  readonly resolveText?: (text: string) => string
   /**
    * Auto-synthesised JSON-LD documents for content-directory pages
    * Rendered ONLY when the author did not
@@ -222,7 +230,8 @@ export function StructuredDataScript({
    */
   readonly synthesized?: readonly Record<string, unknown>[]
 }): Readonly<ReactElement | undefined> {
-  const structuredData = resolveAuthoredStructuredData(page)
+  const authored = resolveAuthoredStructuredData(page)
+  const structuredData = authored ? mapStringsDeep(authored, resolveText) : authored
 
   // Author-provided schema is absent → fall back to auto-synthesised documents.
   if (!structuredData) return renderDirectJsonLdArray(synthesized ?? [])

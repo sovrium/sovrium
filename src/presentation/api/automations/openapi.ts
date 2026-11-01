@@ -11,14 +11,18 @@ import {
   formActionRequestSchema,
   listAutomationApprovalsQuerySchema,
   listAutomationApprovalsResponseSchema,
+  listAutomationsResponseSchema,
   listRunsQuerySchema,
   listRunsResponseSchema,
+  replayRunAcceptedResponseSchema,
   replayRunRequestSchema,
+  resolveApprovalResponseSchema,
   runDetailSchema,
   triggerResponseSchema,
+  webhookDeduplicatedResponseSchema,
   webhookDefaultResponseSchema,
 } from '@/domain/models/api/automations'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   effectJsonBody,
   effectJsonResponse,
@@ -41,16 +45,6 @@ const resolveApprovalPathSchema = Schema.Struct({
   approvalId: Schema.String.annotate({ description: 'Id of the approval request' }),
 })
 
-/** Body of a successful approve or reject. */
-const resolveApprovalResponseSchema = Schema.Struct({
-  success: Schema.Literal(true),
-  runId: Schema.String.annotate({ description: 'Id of the paused run' }),
-  approvalId: Schema.String.annotate({ description: 'Id of the resolved request' }),
-  status: Schema.Literals(['approved', 'rejected']).annotate({
-    description: 'The decision recorded on the request',
-  }),
-})
-
 const routes: readonly RouteSpec[] = [
   {
     method: 'post',
@@ -64,8 +58,8 @@ const routes: readonly RouteSpec[] = [
     },
     responses: {
       200: effectJsonResponse(
-        webhookDefaultResponseSchema,
-        'Synchronous run: the run id and status. A `webhook/response` action or `trigger.response` replaces this body with the one it declares.'
+        Schema.Union([webhookDefaultResponseSchema, webhookDeduplicatedResponseSchema]),
+        'Synchronous run: the run id and status. A `webhook/response` action or `trigger.response` replaces this body with the one it declares. A duplicate of a recent request is dropped and answers `deduplicated: true`, naming no run.'
       ),
       202: effectJsonResponse(
         Schema.Struct({
@@ -182,21 +176,7 @@ export const automationCollectionGroup: StaticGroupSpec = {
       description: 'Returns all configured automations with their trigger summary.',
       operationIdBase: 'listAutomations',
       responses: {
-        200: effectJsonResponse(
-          Schema.Array(
-            Schema.Struct({
-              name: Schema.String,
-              enabled: Schema.Boolean,
-              trigger: Schema.Unknown.annotate({
-                description: 'The first of `triggers`, secrets redacted (kept for older clients)',
-              }),
-              triggers: Schema.Array(Schema.Unknown).annotate({
-                description: 'Every trigger that starts the automation, secrets redacted',
-              }),
-            })
-          ),
-          'Automation list'
-        ),
+        200: effectJsonResponse(listAutomationsResponseSchema, 'Automation list'),
       },
     },
     {
@@ -245,7 +225,7 @@ export const automationCollectionGroup: StaticGroupSpec = {
       ),
       request: { body: effectJsonBody(replayRunRequestSchema) },
       responses: {
-        200: effectJsonResponse(triggerResponseSchema, 'Replay accepted'),
+        200: effectJsonResponse(replayRunAcceptedResponseSchema, 'Replay accepted'),
         400: errorResponse('Invalid request'),
         401: errorResponse('Not signed in'),
         403: errorResponse("New trigger data is an admin's alone"),

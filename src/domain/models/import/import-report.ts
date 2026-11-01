@@ -7,6 +7,11 @@
 
 import { Schema } from 'effect'
 import { migratedPagesReportSchema } from '@/domain/models/app/design/adapters/pages/migrate/migrated-pages-report'
+import {
+  importAuthSectionSchema,
+  importBucketsSectionSchema,
+  importPermissionsSectionSchema,
+} from './import-report-access'
 import { ImportDomainSchema, ImportExportKindSchema, ImportSourceToolSchema } from './import-source'
 
 /**
@@ -340,6 +345,9 @@ export const importReportDomainFields = {
   data: Schema.optional(importDataSectionSchema),
   automations: Schema.optional(importAutomationsSectionSchema),
   forms: Schema.optional(importFormsSectionSchema),
+  permissions: Schema.optional(importPermissionsSectionSchema),
+  auth: Schema.optional(importAuthSectionSchema),
+  buckets: Schema.optional(importBucketsSectionSchema),
 } as const
 
 /** The pages section of a run whose source has no page parser in this binary. */

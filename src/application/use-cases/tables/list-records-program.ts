@@ -26,8 +26,11 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { buildAiComputeProjections } from '@/application/use-cases/ai-compute/status-projection'
+import { ProcessEnv } from '@/application/ports/services/process-env'
+import { buildAiComputeProjections } from '@/application/use-cases/ai/status-projection'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { type TransformedRecord } from '@/domain/models/app/tables/record-transformer-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { caseFoldedSortFieldsOf } from '@/domain/models/app/tables/text-sort-service'
 import {
   answerOrderedAggregations,
@@ -43,12 +46,12 @@ import {
 } from './hidden-lookup-omission'
 import { processRecords, buildPaginationMeta, DEFAULT_PAGE_SIZE } from './list-helpers'
 import { lookupReadMasks, translatedFilter, withRuledRelatedText } from './lookup-read-masks'
+import { displayZoneOf } from './record-display-fields'
 import { orderedAnswerFor, readRecordGroups } from './record-groups'
 import {
   enrichRecordsWithManyToMany,
   enrichRecordsWithRelatedLabels,
 } from './record-link-enrichment'
-import { type TransformedRecord } from './record-transformer'
 import { filterToReaderRows, readerRowsOf } from './row-read-admission'
 import type { RequestedLabel } from './relationship-display-fields'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -165,7 +168,7 @@ const listGroups = (
   levels: readonly string[],
   lookupMasks: readonly LookupReadMask[]
 ) => {
-  const primaryKey = config.app.tables?.find((t) => t.name === config.tableName)?.primaryKey
+  const primaryKey = findTableByName(config.app.tables, config.tableName)?.primaryKey
   return readRecordGroups({
     app: config.app,
     tableName: config.tableName,
@@ -229,23 +232,20 @@ const buildRecordPage = (
   page: { readonly total: number; readonly preSliced: boolean }
 ) =>
   Effect.gen(function* () {
+    const env = yield* ProcessEnv
     const processed = processRecords({
       records,
-      app: config.app,
-      tableName: config.tableName,
-      userRole: config.userRole,
+      ...{ app: config.app, tableName: config.tableName, userRole: config.userRole },
       userGroups: config.userGroups ?? [],
-      format: config.format,
-      timezone: config.timezone,
-      language: config.language,
+      ...{ format: config.format, timezone: config.timezone, language: config.language },
+      ...displayZoneOf(config.format, env),
       fields: config.fields,
       ...(config.grants === undefined ? {} : { grants: config.grants }),
     })
     // B-01: signed or direct URLs on `'attachment'` JSONB field values.
     const enriched = enrichRecordsWithAttachmentUrls(processed, {
-      app: config.app,
-      tableName: config.tableName,
-      origin: config.origin ?? '',
+      ...{ app: config.app, tableName: config.tableName, origin: config.origin ?? '' },
+      env,
     })
     const pagination = buildPaginationMeta(page.total, config.limit, config.offset)
     const paginatedRecords = page.preSliced
@@ -339,8 +339,7 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
         groupBy,
       }
     )
-    const primaryKey = config.app.tables?.find((t) => t.name === tableName)?.primaryKey
-    const preSliced = true
+    const primaryKey = findTableByName(config.app.tables, tableName)?.primaryKey
     const records = yield* repo.listRecords({
       session,
       tableName,
@@ -367,7 +366,7 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
       { session, tableName, filter, includeDeleted, lookupMasks },
       records.length
     )
-    return { records, total, preSliced, lookupMasks }
+    return { records, total, preSliced: true, lookupMasks }
   })
 
 export function createListRecordsProgram(

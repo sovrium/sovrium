@@ -11,28 +11,29 @@ import {
   reportCommittedRows,
   type CommittedRowChange,
 } from '@/application/ports/services/record-change-feed'
+import { BusinessRuleViolationError } from '@/domain/errors'
 import { isLanguageMerge } from '@/domain/models/app/tables/translatable-write-service'
-import {
-  type ValidationError,
-  type DrizzleTransaction,
-  type DatabaseError,
-} from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { DatabaseError, type ValidationError, type PortableTx } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { languageMergeSql } from '@/infrastructure/database/sql/sql-translatable-writes'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { confirmBatchAccounts } from '../mutation-helpers/account-confirmation'
 import { injectUpdateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { encodeColumnValue } from '../mutation-helpers/column-value-encoding'
 import { fetchRecordsByIds } from '../mutation-helpers/record-fetch-helpers'
+import { judgeInTransaction } from '../mutation-helpers/rule-judgement'
 import { logCommittedRowChanges } from '../query-helpers/activity-log-helpers'
 import {
   wrapDatabaseErrorWithValidation,
   wrapWriteStatementError,
 } from '../statement/error-handling'
 import { databaseTableName, tableIdentifier, validateColumnName } from '../statement/validation'
+import type { InTransactionRuleJudge } from '@/application/ports/repositories/tables/in-transaction-rule-judge'
 import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect, TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * A batch update as ONE set-based write.
@@ -78,16 +79,18 @@ const mergeUpdates = (updates: readonly BatchUpdate[]): readonly MergedUpdate[] 
  * assignment for free. SQLite is typeless and needs none.
  */
 const readColumnTypes = async (
-  tx: Readonly<DrizzleTransaction>,
+  tx: Readonly<PortableTx>,
+  dialect: Dialect,
   tableName: string,
   columns: readonly string[]
 ): Promise<Readonly<Record<string, string>>> => {
-  if (isSqliteRuntime() || columns.length === 0) return {}
+  if (dialect.kind === 'sqlite' || columns.length === 0) return {}
   const names = sql.join(
     columns.map((column) => sql`${column}`),
     sql.raw(', ')
   )
-  const rows = await executeRaw(
+  const rows = await executeRawOn(
+    dialect.kind,
     tx,
     sql`SELECT a.attname AS column_name, format_type(a.atttypid, a.atttypmod) AS column_type
         FROM pg_attribute a
@@ -108,18 +111,24 @@ const readColumnTypes = async (
  * type where known. A translatable field's write merges into its stored map.
  */
 const typedValue = (
+  dialect: DatabaseDialect,
   column: string,
   value: unknown,
   columnType: string | undefined
 ): Readonly<SQL> => {
-  if (isLanguageMerge(value)) return languageMergeSql(column, value)
-  const encoded = encodeColumnValue(value, columnType?.endsWith('[]') ? 'ARRAY' : undefined)
+  if (isLanguageMerge(value)) return languageMergeSql(dialect, column, value)
+  const encoded = encodeColumnValue(
+    dialect,
+    value,
+    columnType?.endsWith('[]') ? 'ARRAY' : undefined
+  )
   // sql-literal: keyword -- a type name PostgreSQL's own format_type() returned
   return columnType === undefined ? encoded : sql`CAST(${encoded} AS ${sql.raw(columnType)})`
 }
 
 /** `col = CASE id WHEN … THEN … ELSE col END` for every written column. */
 const buildSetClause = (
+  dialect: DatabaseDialect,
   updates: readonly MergedUpdate[],
   columns: readonly string[],
   columnTypes: Readonly<Record<string, string>>
@@ -131,7 +140,7 @@ const buildSetClause = (
         .filter((update) => Object.hasOwn(update.fields, column))
         .map(
           (update) =>
-            sql`WHEN ${update.id} THEN ${typedValue(column, update.fields[column], columnTypes[column])}`
+            sql`WHEN ${update.id} THEN ${typedValue(dialect, column, update.fields[column], columnTypes[column])}`
         )
       const target = sql.identifier(column)
       return sql`${target} = CASE ${sql.identifier('id')} ${sql.join(whens, sql.raw(' '))} ELSE ${target} END`
@@ -153,19 +162,22 @@ const idList = (ids: readonly unknown[]): Readonly<SQL> =>
  * PostgreSQL's already reflects its `BEFORE` triggers.
  */
 const updateRows = async (
-  tx: Readonly<DrizzleTransaction>,
+  tx: Readonly<PortableTx>,
+  dialect: Dialect,
   tableName: string,
   updates: readonly MergedUpdate[]
 ): Promise<ReadonlyArray<Record<string, unknown>>> => {
   const columns = [...new Set(updates.flatMap((update) => Object.keys(update.fields)))]
-  const columnTypes = await readColumnTypes(tx, tableName, columns)
-  const setClause = buildSetClause(updates, columns, columnTypes)
-  const returned = await executeRaw(
+  const columnTypes = await readColumnTypes(tx, dialect, tableName, columns)
+  const setClause = buildSetClause(dialect.kind, updates, columns, columnTypes)
+  const returned = await executeRawOn(
+    dialect.kind,
     tx,
     sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id IN (${idList(updates.map((u) => u.id))}) RETURNING *`
   )
-  if (!isSqliteRuntime() || returned.length === 0) return returned
-  return executeRaw(
+  if (dialect.kind !== 'sqlite' || returned.length === 0) return returned
+  return executeRawOn(
+    dialect.kind,
     tx,
     sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id IN (${idList(returned.map((row) => row['id']))})`
   )
@@ -173,7 +185,7 @@ const updateRows = async (
 
 /** Write every update in one statement and answer the committed changes, in request order. */
 const writeBatch = (
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string,
   session: Readonly<Session>,
   merged: readonly MergedUpdate[]
@@ -181,7 +193,7 @@ const writeBatch = (
   Effect.gen(function* () {
     const onFailure = wrapWriteStatementError(`Failed to update a batch of records in ${tableName}`)
     const authorship = yield* Effect.tryPromise({
-      try: () => injectUpdateAuthorship({}, session.userId, tx, tableName),
+      try: () => injectUpdateAuthorship({}, session.userId, { tx, dialect }, tableName),
       catch: onFailure,
     })
     const updates = merged.map((update) => ({
@@ -189,12 +201,12 @@ const writeBatch = (
       fields: { ...update.fields, ...authorship },
     }))
     const before = yield* fetchRecordsByIds(
-      tx,
+      { tx, dialect },
       tableName,
       updates.map((update) => update.id)
     )
     const after = yield* Effect.tryPromise({
-      try: () => updateRows(tx, tableName, updates),
+      try: () => updateRows(tx, dialect, tableName, updates),
       catch: onFailure,
     })
     const previousById = new Map(before.map((row) => [String(row['id']), row] as const))
@@ -216,6 +228,33 @@ const writeBatch = (
   })
 
 /**
+ * The table's business rules, judged on every row of the batch as this
+ * transaction reads it (`rule-judgement.ts`) — after the accounts, before any
+ * row is written. A refusal fails the whole batch.
+ */
+const judgedBatch = (
+  on: TransactionOn,
+  tableName: string,
+  updates: readonly BatchUpdate[],
+  judge: InTransactionRuleJudge | undefined
+): Effect.Effect<void, BusinessRuleViolationError | DatabaseError> =>
+  judge === undefined
+    ? Effect.void
+    : Effect.tryPromise({
+        try: () =>
+          judgeInTransaction(
+            on,
+            tableName,
+            updates.map((update) => update.id),
+            judge
+          ),
+        catch: (error) =>
+          error instanceof BusinessRuleViolationError
+            ? error
+            : new DatabaseError(`Failed to read the records of a batch in ${tableName}`, error),
+      })
+
+/**
  * Batch update records
  *
  * Updates multiple records in one transaction and one statement. Records the
@@ -227,28 +266,43 @@ const writeBatch = (
  * @param updates - Array of records with id and fields to update (requires nested format)
  * @returns Effect resolving to array of updated records
  */
-export function batchUpdateRecords(
-  session: Readonly<Session>,
-  tableName: string,
-  updates: readonly BatchUpdate[],
-  accounts?: readonly AccountReference[]
-): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> {
-  return Effect.gen(function* () {
-    const merged = mergeUpdates(updates)
-    const committed =
-      merged.length === 0
-        ? []
-        : yield* withOutboxTransaction((changes: readonly CommittedRowChange[]) => changes)(
-            (tx) =>
-              Effect.andThen(confirmBatchAccounts(tx, accounts), () =>
-                writeBatch(tx, tableName, session, merged)
-              ),
-            wrapDatabaseErrorWithValidation(`Failed to batch update records in ${tableName}`)
-          )
-    // Logged and reported once the transaction has committed — a rolled-back
-    // batch changed nothing.
-    yield* logCommittedRowChanges(session, committed)
-    yield* reportCommittedRows(committed)
-    return committed.flatMap((change) => (change.row === undefined ? [] : [{ ...change.row }]))
-  })
-}
+export const batchUpdateRecords =
+  (db: PortableDb, dialect: Dialect) =>
+  (
+    session: Readonly<Session>,
+    tableName: string,
+    updates: readonly BatchUpdate[],
+    written: {
+      readonly accounts?: readonly AccountReference[] | undefined
+      readonly judge?: InTransactionRuleJudge | undefined
+    } = {}
+  ): Effect.Effect<
+    readonly Record<string, unknown>[],
+    DatabaseError | ValidationError | BusinessRuleViolationError
+  > => {
+    const { accounts, judge } = written
+    const wrap = wrapDatabaseErrorWithValidation(`Failed to batch update records in ${tableName}`)
+    return Effect.gen(function* () {
+      const merged = mergeUpdates(updates)
+      const committed =
+        merged.length === 0
+          ? []
+          : yield* withOutboxTransaction(
+              { client: db, dialect },
+              (changes: readonly CommittedRowChange[]) => changes
+            )(
+              (tx) =>
+                Effect.andThen(confirmBatchAccounts(tx, dialect, accounts), () =>
+                  Effect.andThen(judgedBatch({ tx, dialect }, tableName, updates, judge), () =>
+                    writeBatch({ tx, dialect }, tableName, session, merged)
+                  )
+                ),
+              (error) => (error instanceof BusinessRuleViolationError ? error : wrap(error))
+            )
+      // Logged and reported once the transaction has committed — a rolled-back
+      // batch changed nothing.
+      yield* logCommittedRowChanges(db, session, committed)
+      yield* reportCommittedRows(committed)
+      return committed.flatMap((change) => (change.row === undefined ? [] : [{ ...change.row }]))
+    })
+  }

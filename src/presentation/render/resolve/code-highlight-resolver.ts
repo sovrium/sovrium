@@ -51,6 +51,7 @@
  */
 
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
+import { hasCodeRoleClasses } from '@/domain/models/app/design/code-block-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { highlightCodeToHtml } from '@/infrastructure/markdown/shiki-highlighter'
 import type { App } from '@/domain/models/app'
@@ -74,13 +75,23 @@ export interface CodeHighlight {
 }
 
 /**
- * The language a page's code is read in: a `content` opening with a `$t:` key
- * resolves that key against it. Absent, the content is highlighted as written.
+ * How a page's code is read and drawn. `lang` is the language a `content`
+ * opening with a `$t:` key resolves against (absent, the content is highlighted
+ * as written); `roleClasses` adds each token's syntax role as a class
+ * ({@link hasCodeRoleClasses}).
  */
 export interface CodeContentLanguage {
   readonly lang: string
   readonly languages: Languages | undefined
+  readonly roleClasses?: boolean | undefined
 }
+
+/** The {@link CodeContentLanguage} of `app`'s code on a page read in `lang`. */
+export const codeContentLanguageOf = (app: App, lang: string): CodeContentLanguage => ({
+  lang,
+  languages: app.languages,
+  roleClasses: hasCodeRoleClasses(app.design),
+})
 
 /** A tree node as seen by the walker: a component, a `$ref`, or a plain string. */
 type TreeNode = unknown
@@ -109,6 +120,27 @@ const CLASS_ATTR_RE = /\bclass="([^"]*)"/
 function getChildren(node: TreeNode): readonly TreeNode[] | undefined {
   const { children } = node as { readonly children?: unknown }
   return Array.isArray(children) ? (children as readonly TreeNode[]) : undefined
+}
+
+/**
+ * Every child list a node draws: its own `children`, then each
+ * `responsive.<breakpoint>.children` override. A breakpoint's list REPLACES the
+ * node's children at that width (`responsive-children-builder.tsx`), so a
+ * `code` block placed there is drawn like any other and must be highlighted
+ * like one, or it falls back to the plain placeholder `<pre>`.
+ */
+function childListsOf(node: TreeNode): readonly (readonly TreeNode[])[] {
+  const own = getChildren(node)
+  const { responsive } = node as { readonly responsive?: unknown }
+  const overrides =
+    typeof responsive === 'object' && responsive !== null
+      ? Object.values(responsive).flatMap((variant: unknown) => {
+          if (typeof variant !== 'object' || variant === null) return []
+          const children = getChildren(variant)
+          return children && children.length > 0 ? [children] : []
+        })
+      : []
+  return own && own.length > 0 ? [own, ...overrides] : overrides
 }
 
 /** True for a walkable component node (not a string, not a `$ref` placeholder). */
@@ -147,7 +179,7 @@ function hasHighlightableCode(nodes: readonly TreeNode[] | undefined): boolean {
   return nodes.some((node) => {
     if (!isWalkable(node)) return false
     if (highlightRequestFor(node) !== undefined) return true
-    return hasHighlightableCode(getChildren(node))
+    return childListsOf(node).some(hasHighlightableCode)
   })
 }
 
@@ -165,7 +197,7 @@ function collectCodeNodes(nodes: readonly TreeNode[] | undefined): readonly Tree
   return nodes.flatMap((node) => {
     if (!isWalkable(node)) return []
     if (highlightRequestFor(node) !== undefined) return [node]
-    return collectCodeNodes(getChildren(node))
+    return childListsOf(node).flatMap(collectCodeNodes)
   })
 }
 
@@ -190,12 +222,34 @@ function attachHighlights(
     if (!isWalkable(node)) return node
     const highlight = resolved.find(([candidate]) => candidate === node)?.[1]
     if (highlight !== undefined) return { ...(node as object), codeHighlight: highlight }
+    if (childListsOf(node).length === 0) return node
     const children = getChildren(node)
-    if (children && children.length > 0) {
-      return { ...(node as object), children: attachHighlights(children, resolved) }
+    const { responsive } = node as { readonly responsive?: unknown }
+    return {
+      ...(node as object),
+      ...(children && children.length > 0
+        ? { children: attachHighlights(children, resolved) }
+        : {}),
+      ...(typeof responsive === 'object' && responsive !== null
+        ? { responsive: attachResponsiveHighlights(responsive, resolved) }
+        : {}),
     }
-    return node
   })
+}
+
+/** {@link attachHighlights} over each `responsive.<breakpoint>.children` override. */
+function attachResponsiveHighlights(
+  responsive: object,
+  resolved: readonly ResolvedHighlight[]
+): object {
+  return Object.fromEntries(
+    Object.entries(responsive).map(([breakpoint, variant]: readonly [string, unknown]) => {
+      if (typeof variant !== 'object' || variant === null) return [breakpoint, variant]
+      const children = getChildren(variant)
+      if (!children || children.length === 0) return [breakpoint, variant]
+      return [breakpoint, { ...variant, children: attachHighlights(children, resolved) }]
+    })
+  )
 }
 
 /**
@@ -227,7 +281,9 @@ async function resolveOne(
     language === undefined
       ? request.code
       : resolveTranslationPattern(request.code, language.lang, language.languages)
-  const highlighted = await highlightCodeToHtml(request.lang, code)
+  const highlighted = await highlightCodeToHtml(request.lang, code, {
+    roleClasses: language?.roleClasses,
+  })
   return [node, extractHighlight(sanitizeRichTextHTML(highlighted))]
 }
 

@@ -26,15 +26,17 @@ import {
   type ChunkSettings,
 } from '@/domain/models/app/agents/rag-chunking'
 import { INTRINSIC_DELETED_AT_COLUMN } from '@/domain/models/app/tables/system-fields'
-import { db } from '@/infrastructure/database'
-import { extractRows } from '@/infrastructure/database/sql/sql-utils'
+import { Database } from '@/infrastructure/database/drizzle/layer'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { bestEffort } from '@/infrastructure/logging/best-effort'
 import { logError } from '@/infrastructure/logging/logger'
-import { countRowsBy, embedChunksToRows, RagSyncLayer, swallowLogged } from './embed-pipeline'
+import { countRowsBy, embedChunksToRows, ragSyncLayerOver, swallowLogged } from './embed-pipeline'
+import type { RagSyncServices } from './embed-pipeline'
 import type { RagAgent } from './rag-agent-input'
 import type { NewEmbedding } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** A record loaded from a knowledge table — `id` plus the requested fields. */
 interface KnowledgeRecord {
@@ -63,24 +65,12 @@ export interface SyncKnowledgeStats {
   readonly totalChunks: number
 }
 
-/**
- * Run a portable read query and return the row objects. Postgres uses the
- * bun-sql `db.execute(...)` path (rows array, or `{ rows }` on older drivers);
- * SQLite uses the bun-sqlite `db.all(...)` path, which the PG-typed `db` facade
- * does not expose but the bun-sqlite runtime client does. Centralizing the
- * branch keeps the dialect seam in one place.
- */
-const runReadQuery = async (query: SQL): Promise<ReadonlyArray<Record<string, unknown>>> => {
-  if (isSqliteRuntime()) {
-    // `db.all` exists on the bun-sqlite runtime client; the PG facade type omits
-    // it, so reach it through a structural cast at this dialect seam.
-    const sqliteDb = db as unknown as {
-      all: (q: SQL) => ReadonlyArray<Record<string, unknown>>
-    }
-    return sqliteDb.all(query)
-  }
-  return extractRows(await db.execute(query))
-}
+/** The row objects a read query answers. */
+type Rows = ReadonlyArray<Record<string, unknown>>
+
+/** Run a read query on whichever engine holds the table. */
+const runReadQuery = ({ client, dialect }: DatabaseService, query: SQL): Promise<Rows> =>
+  executeRawOn(dialect.kind, client, query)
 
 /**
  * A knowledge table that could not be read — most often renamed or dropped out
@@ -100,6 +90,7 @@ class KnowledgeTableUnreadable extends Data.TaggedError('KnowledgeTableUnreadabl
  * to an empty list so a missing/renamed table never aborts the sync.
  */
 const loadKnowledgeRecords = (input: {
+  readonly database: DatabaseService
   readonly table: string
   readonly fields: ReadonlyArray<string>
   readonly filter: Readonly<Record<string, unknown>> | undefined
@@ -122,6 +113,7 @@ const loadKnowledgeRecords = (input: {
         sql` AND `
       )}`
       const rows = await runReadQuery(
+        input.database,
         // The table by its DATABASE name: `Help Articles` is stored as
         // `help_articles`, and `"Help Articles"` is a relation nobody created.
         sql`SELECT ${columns} FROM ${tableIdentifier(input.table)}${whereClause}`
@@ -233,7 +225,7 @@ const fieldGroupsOf = (entry: {
 const syncAgentKnowledge = (input: {
   readonly agent: AgentKnowledgeInput
   readonly chunkSettings: ChunkSettings
-}): Effect.Effect<SyncKnowledgeStats, never, AiService | AiEmbeddingRepository> =>
+}): Effect.Effect<SyncKnowledgeStats, never, AiService | AiEmbeddingRepository | Database> =>
   Effect.gen(function* () {
     const repo = yield* AiEmbeddingRepository
     const { agent } = input
@@ -242,8 +234,10 @@ const syncAgentKnowledge = (input: {
       .deleteBySourceIdPrefix(`table-agent:${agent.name}:`)
       .pipe(swallowLogged('agent embeddings not pre-cleared', { agent: agent.name }))
 
+    const database = yield* Database
     const pendingGroups = yield* Effect.forEach(agent.tables, (entry) =>
       loadKnowledgeRecords({
+        database,
         table: entry.table,
         fields: entry.fields,
         filter: entry.filter,
@@ -271,36 +265,32 @@ const syncAgentKnowledge = (input: {
     return { tables, totalChunks: rows.length } satisfies SyncKnowledgeStats
   })
 
-/**
- * Run knowledge sync for a list of agents. Returns per-agent stats.
- * Errors are swallowed — a sync failure must never block server startup.
- */
+/** Sync a list of agents; per-agent stats. Failures are swallowed: they never block the boot. */
 export const runSyncKnowledge = async (
-  agents: ReadonlyArray<AgentKnowledgeInput>
+  agents: ReadonlyArray<AgentKnowledgeInput>,
+  database: DatabaseService
 ): Promise<Readonly<Record<string, SyncKnowledgeStats>>> => {
   if (agents.length === 0) return {}
   const chunkSettings = resolveChunkSettings(process.env)
-  // `syncAgentKnowledge` has a `never` error channel — it swallows its own
-  // failures — so no per-agent `catchAll` is needed here.
+  // `syncAgentKnowledge` swallows its own failures: no per-agent `catchAll` here.
   const program = Effect.forEach(agents, (agent) =>
     syncAgentKnowledge({ agent, chunkSettings }).pipe(
       Effect.map((stats) => [agent.name, stats] as const)
     )
-  ).pipe(Effect.provide(RagSyncLayer))
-  const results = await Effect.runPromise(program).catch(
-    (): ReadonlyArray<readonly [string, SyncKnowledgeStats]> => []
-  )
+  ).pipe(Effect.provide(ragSyncLayerOver(database)))
+  const aborted = bestEffort('[ai-rag] knowledge sync aborted', { agents: String(agents.length) })
+  const results = await aborted.promise(Effect.runPromise(program), [])
   return Object.fromEntries(results)
 }
 
 /**
- * Startup runner — mirrors `runSyncAgentUsers`. Extracts table-knowledge
- * from `app.agents[]` and syncs it. Best-effort: a failure is logged but
- * never thrown.
+ * Startup runner — mirrors `runSyncAgentUsers`. Syncs the table-knowledge of
+ * `app.agents[]` and returns the per-agent stats; a failure is logged, never thrown.
  */
 export const runSyncKnowledgeAtStartup = async (input: {
   readonly agents: ReadonlyArray<RagAgent> | undefined
-}): Promise<void> => {
+  readonly database: DatabaseService
+}): Promise<Readonly<Record<string, SyncKnowledgeStats>>> => {
   const agents = (input.agents ?? [])
     .map((agent): AgentKnowledgeInput => {
       const tableEntries = (agent.knowledge?.tables ?? []).map((t) => ({
@@ -312,9 +302,10 @@ export const runSyncKnowledgeAtStartup = async (input: {
       return { name: agent.name, tables: tableEntries }
     })
     .filter((agent) => agent.tables.length > 0)
-  if (agents.length === 0) return
-  await runSyncKnowledge(agents).catch((error: unknown) => {
+  if (agents.length === 0) return {}
+  return runSyncKnowledge(agents, input.database).catch((error: unknown) => {
     logError('[ai-rag] knowledge sync failed', error)
+    return {}
   })
 }
 
@@ -343,26 +334,28 @@ export const buildKnowledgeBindings = (
   )
 
 /**
- * Load a single record (by id) from a knowledge table. Returns `undefined`
- * when the record is missing or excluded by the entry's equality filter.
+ * Load one record (by id) from a knowledge table; `undefined` when it is missing,
+ * filtered out, or its table unreadable (logged, never thrown at the write).
  */
-const loadSingleRecord = async (input: {
+const loadSingleRecord = (input: {
   readonly table: string
   readonly fields: ReadonlyArray<string>
   readonly filter: Readonly<Record<string, unknown>> | undefined
   readonly recordId: string
-}): Promise<KnowledgeRecord | undefined> => {
-  const records = await Effect.runPromise(
-    loadKnowledgeRecords({ table: input.table, fields: input.fields, filter: input.filter })
-  ).catch((): ReadonlyArray<KnowledgeRecord> => [])
-  return records.find((r) => r.id === input.recordId)
+}): Effect.Effect<KnowledgeRecord | undefined, never, Database> => {
+  const unread = bestEffort('[ai-rag] knowledge record not read', { table: input.table })
+  return unread
+    .effect<ReadonlyArray<KnowledgeRecord>>([])(
+      Effect.flatMap(Database, (database) => loadKnowledgeRecords({ ...input, database }))
+    )
+    .pipe(Effect.map((records) => records.find((r) => r.id === input.recordId)))
 }
 
 /**
- * Re-embed a single knowledge record after an `INSERT`/`UPDATE`
- * Pre-clears that record's prior embeddings so
- * an update replaces rather than duplicates. When the record no longer
- * matches the entry's filter, its embeddings are simply removed.
+ * Re-embed a single knowledge record after an `INSERT`/`UPDATE`, pre-clearing its
+ * prior embeddings so an update replaces rather than duplicates. When the record
+ * no longer matches the entry's filter, its embeddings are simply removed. A
+ * failure is logged and never fails the record write that triggered it.
  */
 export const embedKnowledgeRecord = async (input: {
   readonly agentName: string
@@ -371,6 +364,7 @@ export const embedKnowledgeRecord = async (input: {
   readonly fieldGroups?: ReadonlyArray<ReadonlyArray<string>> | undefined
   readonly filter: Readonly<Record<string, unknown>> | undefined
   readonly recordId: string
+  readonly rag: RagSyncServices
 }): Promise<void> => {
   const sourceId = `table-agent:${input.agentName}:${input.table}:${input.recordId}`
   const chunkSettings = resolveChunkSettings(process.env)
@@ -381,15 +375,8 @@ export const embedKnowledgeRecord = async (input: {
       .deleteBySourceIdPrefix(sourceId)
       .pipe(swallowLogged('record embeddings not pre-cleared', { sourceId }))
 
-    // effect-promise: total -- `loadSingleRecord` resolves its query through `Effect.runPromise(...).catch(() => [])`, so an unreadable table yields no record rather than rejecting.
-    const record = yield* Effect.promise(() =>
-      loadSingleRecord({
-        table: input.table,
-        fields: input.fields,
-        filter: input.filter,
-        recordId: input.recordId,
-      })
-    )
+    // An unreadable table yields no record: `loadSingleRecord` never fails.
+    const record = yield* loadSingleRecord(input)
     if (record === undefined) return
     const chunks = recordToChunks(input.table, record, fieldGroupsOf(input), chunkSettings)
     const rows = yield* embedChunksToRows(chunks, (chunk, embedding) =>
@@ -400,17 +387,19 @@ export const embedKnowledgeRecord = async (input: {
       .pipe(
         swallowLogged('record embeddings not persisted', { sourceId, rows: String(rows.length) })
       )
-  }).pipe(Effect.provide(RagSyncLayer))
-  await Effect.runPromise(program).catch(() => undefined)
+  }).pipe(Effect.provide(input.rag))
+  // The Promise boundary of a pg notification handler; the services are built.
+  await bestEffort('[ai-rag] re-embed aborted', { sourceId }).promise(Effect.runPromise(program))
 }
 
 /**
- * Remove every embedding for a single knowledge record after a `DELETE`.
+ * Remove a knowledge record's embeddings after a `DELETE`; a failure is only logged.
  */
 export const removeKnowledgeRecordEmbeddings = async (input: {
   readonly agentName: string
   readonly table: string
   readonly recordId: string
+  readonly rag: RagSyncServices
 }): Promise<void> => {
   const sourceId = `table-agent:${input.agentName}:${input.table}:${input.recordId}`
   const program = Effect.gen(function* () {
@@ -418,6 +407,6 @@ export const removeKnowledgeRecordEmbeddings = async (input: {
     yield* repo
       .deleteBySourceIdPrefix(sourceId)
       .pipe(swallowLogged('record embeddings not removed', { sourceId }))
-  }).pipe(Effect.provide(RagSyncLayer))
-  await Effect.runPromise(program).catch(() => undefined)
+  }).pipe(Effect.provide(input.rag))
+  await bestEffort('[ai-rag] removal aborted', { sourceId }).promise(Effect.runPromise(program))
 }

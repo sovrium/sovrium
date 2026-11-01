@@ -58,7 +58,7 @@ export interface SovriumTimezone {
  * @throws Error naming the variable and the value when the zone is unknown.
  */
 export const parseSovriumTimezone = (
-  env: Readonly<Record<string, string | undefined>> = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): SovriumTimezone => {
   const raw = env[SOVRIUM_TIMEZONE_VAR]?.trim() ?? ''
   if (raw === '') return { zoneId: SOVRIUM_TIMEZONE_DEFAULT }

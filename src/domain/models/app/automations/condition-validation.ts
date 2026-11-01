@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { nestedLists } from './reserved-step-name-validation'
 
 /**
@@ -119,9 +120,6 @@ export interface RecordFilterIssue {
 }
 
 type Raw = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is Raw =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const refusalMessage = (step: string, operator: string): string =>
   operator === 'matches'

@@ -190,6 +190,57 @@ export const CanonicalRecordSchema = Schema.Struct({
 
 export type CanonicalRecord = Schema.Schema.Type<typeof CanonicalRecordSchema>
 
+/**
+ * One row-level security policy, as PostgreSQL stores it in `pg_policies`.
+ *
+ * The expressions are kept VERBATIM, in the deparsed form the catalogue
+ * returns (`(auth.uid() = owner_id)`, `(( SELECT auth.uid() AS uid) = owner_id)`):
+ * translating them is the mapper's job, and the report quotes an untranslated
+ * one exactly as the source held it.
+ */
+export const CanonicalPolicySchema = Schema.Struct({
+  name: Schema.String.annotate({ description: 'The policy name (`policyname`)' }).check(
+    Schema.isMinLength(1)
+  ),
+  permissive: Schema.Boolean.annotate({
+    description:
+      'True for a PERMISSIVE policy, OR-ed with its siblings; false for a RESTRICTIVE one, AND-ed with them',
+  }),
+  roles: Schema.Array(Schema.String).annotate({
+    description: 'The database roles the policy applies to (`public`, `anon`, `authenticated`, …)',
+  }),
+  command: Schema.Literals(['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'ALL']).annotate({
+    description: 'The command the policy governs (`cmd`)',
+  }),
+  using: Schema.optional(
+    Schema.String.annotate({
+      description: 'The USING expression (`qual`), which rows an existing-row command reaches',
+    })
+  ),
+  check: Schema.optional(
+    Schema.String.annotate({
+      description: 'The WITH CHECK expression (`with_check`), what a written row must satisfy',
+    })
+  ),
+}).annotate({
+  identifier: 'CanonicalPolicy',
+  description: 'One row-level security policy of a source table, in the source’s own words.',
+})
+
+/** Whether a source table enforced row-level security, and its policies. */
+export const CanonicalRowSecuritySchema = Schema.Struct({
+  enabled: Schema.Boolean.annotate({
+    description:
+      'Whether row-level security was enabled on the table. A table without it answered every caller holding the project key',
+  }),
+  policies: Schema.Array(CanonicalPolicySchema).annotate({
+    description: 'The policies defined on the table, enabled or not',
+  }),
+}).annotate({
+  identifier: 'CanonicalRowSecurity',
+  description: 'The row-level security of a source table.',
+})
+
 /** One source table: its fields, its views and its records. */
 export const CanonicalTableSchema = Schema.Struct({
   sourceId: Schema.String.annotate({ description: "The table's id in the source" }),
@@ -203,6 +254,12 @@ export const CanonicalTableSchema = Schema.Struct({
   records: Schema.Array(CanonicalRecordSchema).annotate({
     description: 'The records, in the order the source served them',
   }),
+  rowSecurity: Schema.optional(
+    CanonicalRowSecuritySchema.annotate({
+      description:
+        'The row-level security the table enforced. Absent for a source with no such notion; present, it is translated or the table is written closed',
+    })
+  ),
 }).annotate({
   identifier: 'CanonicalTable',
   description: 'One table of a source base.',
@@ -222,6 +279,51 @@ export const NeverImportableSchema = Schema.Struct({
   description: 'A part of the source app that no export file and no API exposes.',
 })
 
+/** One file bucket of the source, with the objects it holds. */
+export const CanonicalBucketSchema = Schema.Struct({
+  sourceId: Schema.String.annotate({ description: "The bucket's id in the source" }),
+  name: Schema.String.annotate({ description: 'The bucket name the source showed' }).check(
+    Schema.isMinLength(1)
+  ),
+  public: Schema.Boolean.annotate({
+    description: 'Whether the source served its files to anyone without a key',
+  }),
+  maxFileSize: Schema.optional(
+    Schema.Int.annotate({ description: 'The largest file it accepted, in bytes' }).check(
+      Schema.isGreaterThan(0)
+    )
+  ),
+  allowedMimeTypes: Schema.optional(
+    Schema.Array(Schema.String).annotate({
+      description: 'The media types it accepted; absent when it accepted any',
+    })
+  ),
+  objects: Schema.Array(
+    Schema.Struct({
+      path: Schema.String.annotate({
+        description: 'The object path inside the bucket, as the source names it',
+      }).check(Schema.isMinLength(1)),
+      asset: Schema.optional(
+        Schema.String.annotate({
+          description:
+            'The downloaded bytes inside the snapshot, `assets/<sha256>.<ext>`; absent when the download was skipped',
+        }).check(Schema.isPattern(/^assets\/[0-9a-f]{64}(?:\.[A-Za-z0-9]+)?$/))
+      ),
+      mimeType: Schema.optional(
+        Schema.String.annotate({ description: 'The media type the source recorded' })
+      ),
+      size: Schema.optional(
+        Schema.Int.annotate({ description: 'The size the source recorded, in bytes' }).check(
+          Schema.isGreaterThanOrEqualTo(0)
+        )
+      ),
+    })
+  ).annotate({ description: 'The objects it holds, in path order' }),
+}).annotate({
+  identifier: 'CanonicalBucket',
+  description: 'One file bucket of the source and its objects.',
+})
+
 /** The decoded result of one table-source adapter. */
 export const CanonicalBaseSchema = Schema.Struct({
   tool: ImportSourceToolSchema,
@@ -234,11 +336,35 @@ export const CanonicalBaseSchema = Schema.Struct({
     Schema.Struct({
       email: Schema.String.annotate({ description: "The collaborator's email address" }),
       name: Schema.optional(Schema.String.annotate({ description: "The collaborator's name" })),
+      state: Schema.optional(
+        Schema.Literals(['unclaimed', 'invited']).annotate({
+          description:
+            'How the account is seeded: `unclaimed`, the default, with no password and no invitation; `invited`, as a pending invitation, for a person the source invited who never accepted',
+        })
+      ),
     })
   ).annotate({
     description:
-      'The collaborators the records name, each once. They become seeded accounts with no password and no invitation',
+      'The collaborators the records name, and the accounts of a source that has its own (Supabase), each once. They become seeded accounts with no password',
   }),
+  skippedUsers: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        reason: Schema.Literals(['anonymous', 'no-email', 'deleted']).annotate({
+          description:
+            'Why the source account was not imported: an anonymous sign-in, an account with no email (phone sign-in only), or one the source had deleted',
+        }),
+        count: Schema.Int.annotate({ description: 'How many accounts were skipped for it' }).check(
+          Schema.isGreaterThan(0)
+        ),
+      })
+    ).annotate({ description: 'The source accounts that were not imported, counted by reason' })
+  ),
+  buckets: Schema.optional(
+    Schema.Array(CanonicalBucketSchema).annotate({
+      description: 'The file buckets of the source, for a source that has them (Supabase Storage)',
+    })
+  ),
   neverImportable: Schema.Array(NeverImportableSchema).annotate({
     description: 'What the source holds that cannot be read at all',
   }),

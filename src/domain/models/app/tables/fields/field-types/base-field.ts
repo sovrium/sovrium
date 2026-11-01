@@ -84,7 +84,7 @@ const baseFieldStruct = Schema.Struct({
           'Author-written guidance rendered beside the field (under the control on a form, beside the value in a sheet) and associated with the control via aria-describedby. Unlike a placeholder it persists once the user starts typing.',
         examples: [
           'Excluding VAT, in euros.',
-          'We only use this to send the receipt — it is never shared.',
+          'We only use this to send the receipt. It is never shared.',
           'Format: SIRET, 14 digits, no spaces.',
         ],
       }),

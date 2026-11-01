@@ -39,7 +39,7 @@ export const RecordBatchCreateActionSchema = Schema.Struct({
       TemplateStringSchema.pipe(
         Schema.annotate({
           description:
-            'Template variable referencing an array of record data objects (e.g., "{{transform.result}}")',
+            'A template naming the list of record data objects to create, such as "{{transform.result}}". Filled in, it must be a list; a code step passes the list itself',
         })
       )
     ),

@@ -161,7 +161,7 @@ pub fn run() {
             commands::settings_read,
             commands::settings_write,
             commands::create_project,
-            commands::create_project_from_url,
+            commands::inspect_from_url,
             commands::bundle_pending,
             commands::bundle_import,
             commands::bundle_discard,
@@ -204,6 +204,11 @@ pub fn run() {
             // arrive here, so there is one stop path rather than one per
             // entry point — and an orphaned `sovrium start` holding a port is
             // exactly what a second launch would then fail against.
+            //
+            // `single-instance` keeps its lock until Tauri's cleanup, which runs
+            // after this handler returns. So a launch that arrives during the
+            // stop is forwarded to this exiting process and starts nothing; it
+            // cannot start beside an engine that still holds the port.
             if matches!(event, RunEvent::Exit) {
                 sidecar::stop(app);
             }

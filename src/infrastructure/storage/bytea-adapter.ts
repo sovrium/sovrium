@@ -11,14 +11,13 @@ import {
   storageObjectNotFound,
 } from '@/application/ports/services/storage-service'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { db } from '@/infrastructure/database'
 import { hasBuiltDbClient } from '@/infrastructure/database/drizzle/db-bun'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { pingThroughMaintenanceSlot } from '@/infrastructure/database/sql/postgres-connection-budget'
 import { devTimelineCreatedAt } from '@/infrastructure/process/server-boot-instant'
 import { notClaimed } from './catalog-claim'
 import type { BucketBinding } from '@/application/ports/services/storage-service'
+import type { PgDb, PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * The value the `bucket` column takes for a binding.
@@ -106,11 +105,10 @@ export const bucketBindingPermitsWrite = (
  * erasure builds this layer per call) reuse the pool: a second connection
  * beside it could exceed `DATABASE_POOL_MAX`. Rejects when unreachable.
  */
-export const byteaValidateAndInit = async (): Promise<void> => {
-  const config = parseDatabaseDialectConfig()
-  await (config.dialect === 'postgres' && !hasBuiltDbClient()
-    ? pingThroughMaintenanceSlot(config.databaseUrl)
-    : db.execute(sql`SELECT 1`))
+export const byteaValidateAndInit = async (client: PgDb, databaseUrl: string): Promise<void> => {
+  await (hasBuiltDbClient()
+    ? client.execute(sql`SELECT 1`)
+    : pingThroughMaintenanceSlot(databaseUrl))
 }
 
 /**
@@ -120,6 +118,7 @@ export const byteaValidateAndInit = async (): Promise<void> => {
  * read of a payload's bytes: there is no unbounded one.
  */
 export const byteaDownloadWithin = async (
+  client: PgDb,
   key: string,
   bucket: BucketBinding,
   maxBytes: number
@@ -127,7 +126,7 @@ export const byteaDownloadWithin = async (
   // An unattributed caller compares nothing; a bucket-scoped one must match the
   // recorded binding, and a NULL binding matches no bucket (fail closed).
   const bucketPredicate = bucket === UNATTRIBUTED_BUCKET ? sql`` : sql`AND m.bucket = ${bucket}`
-  const result = (await db.execute(sql`
+  const result = (await client.execute(sql`
     SELECT octet_length(b.content) AS size,
       CASE WHEN octet_length(b.content) <= ${maxBytes}::bigint THEN b.content END AS content
     FROM system.file_storage_bytea b
@@ -155,8 +154,8 @@ export const payloadWithinOf = (row: Readonly<Record<string, unknown>>): Uint8Ar
  * when no bytea payload is stored under `key`. The payload cascades off its
  * catalog row, so on this provider the store and the catalog are one.
  */
-export const byteaStoredSize = async (key: string): Promise<number | undefined> => {
-  const result = (await db.execute(sql`
+export const byteaStoredSize = async (client: PgDb, key: string): Promise<number | undefined> => {
+  const result = (await client.execute(sql`
     SELECT octet_length(b.content) AS size
     FROM system.file_storage_bytea b
     JOIN system.file_storage_metadata m ON m.id = b.metadata_id
@@ -178,9 +177,13 @@ export const payloadSizeOf = (rows: readonly Record<string, unknown>[]): number 
  * Throws "File not found: <key>" when no row matches, so the route handler
  * can return 404 via `isNotFoundError`.
  */
-export const byteaDelete = async (key: string, bucket: BucketBinding): Promise<void> => {
+export const byteaDelete = async (
+  client: PgDb,
+  key: string,
+  bucket: BucketBinding
+): Promise<void> => {
   const bucketPredicate = bucket === UNATTRIBUTED_BUCKET ? sql`` : sql`AND bucket = ${bucket}`
-  const result = (await db.execute(sql`
+  const result = (await client.execute(sql`
     DELETE FROM system.file_storage_metadata
     WHERE key = ${key} AND storage_provider = 'bytea' ${bucketPredicate}
     RETURNING key
@@ -195,8 +198,8 @@ export const byteaDelete = async (key: string, bucket: BucketBinding): Promise<v
  * `system.file_storage_metadata`. Used for total-storage quota enforcement
  * (`STORAGE_MAX_TOTAL_SIZE`). Returns 0 when the table is empty.
  */
-export const byteaGetTotalBytes = async (): Promise<number> => {
-  const result = (await db.execute(sql`
+export const byteaGetTotalBytes = async (client: PgDb): Promise<number> => {
+  const result = (await client.execute(sql`
     SELECT COALESCE(SUM(size), 0) AS total
     FROM system.file_storage_metadata
     WHERE storage_provider = 'bytea'
@@ -258,7 +261,7 @@ export const pinnedCreatedAtSql = () => {
  * The local provider — the zero-config SQLite default — relies on this path, and
  * the bun:sqlite runtime has no `db.execute()`.
  */
-export const writeFileMetadata = async (file: CatalogWrite): Promise<void> => {
+export const writeFileMetadata = async (client: PortableDb, file: CatalogWrite): Promise<void> => {
   const values = catalogRowValues(file)
   const { filename, mimeType: baseMimeType, size, storageProvider, bucket: bucketValue } = values
   const files = fileStorageMetadataTable()
@@ -267,7 +270,7 @@ export const writeFileMetadata = async (file: CatalogWrite): Promise<void> => {
   // `IS NOT DISTINCT FROM` because this path must also run on SQLite, where that
   // operator does not exist — the two-branch form says the same thing on both.
   const ownerUnchanged = bucketValue === null ? isNull(files.bucket) : eq(files.bucket, bucketValue)
-  const written = await db
+  const written = await client
     .insert(files)
     .values(values)
     .onConflictDoUpdate({
@@ -275,7 +278,7 @@ export const writeFileMetadata = async (file: CatalogWrite): Promise<void> => {
       // `bucket` is absent from the SET list on purpose: a write REPLACES bytes,
       // it never MOVES an object between buckets. `uploadedById` and
       // `generatedBy` are absent too: an overwrite never changes who the
-      // catalog records behind the object (see `byteaUpload`).
+      // catalog records behind the object (see `byteaUploadIn`).
       set: { filename, mimeType: baseMimeType, size, storageProvider },
       setWhere: ownerUnchanged,
     })
@@ -283,7 +286,7 @@ export const writeFileMetadata = async (file: CatalogWrite): Promise<void> => {
   if (written.length === 0) {
     // The conflicting row belongs to a different bucket, so the guarded update
     // matched nothing. Not-found shaped for the same anti-enumeration reason as
-    // `byteaUpload` (`./bytea-upload`).
+    // `byteaUploadIn` (`./bytea-upload`).
     throw storageObjectNotFound(file.key)
   }
 }
@@ -298,7 +301,11 @@ export const writeFileMetadata = async (file: CatalogWrite): Promise<void> => {
  * Drizzle query builder so it works on both PostgreSQL and SQLite (same
  * rationale as {@link writeFileMetadata}).
  */
-export const deleteFileMetadata = async (key: string, bucket: BucketBinding): Promise<boolean> => {
+export const deleteFileMetadata = async (
+  client: PortableDb,
+  key: string,
+  bucket: BucketBinding
+): Promise<boolean> => {
   const files = fileStorageMetadataTable()
   // `eq(files.bucket, bucket)` is never true for a NULL binding, so an object
   // with no recorded owner is refused rather than deleted (fail closed).
@@ -306,14 +313,14 @@ export const deleteFileMetadata = async (key: string, bucket: BucketBinding): Pr
     bucket === UNATTRIBUTED_BUCKET
       ? eq(files.key, key)
       : and(eq(files.key, key), eq(files.bucket, bucket))
-  const deleted = await db.delete(files).where(predicate).returning({ key: files.key })
+  const deleted = await client.delete(files).where(predicate).returning({ key: files.key })
   return deleted.length > 0
 }
 
 /**
  * Read the catalog row for `key` from the file_storage_metadata catalog. Every
  * provider (S3, local, bytea) keeps this table in sync via {@link writeFileMetadata}
- * / `byteaUpload` (`./bytea-upload`), so this is the provider-agnostic source for a file's
+ * / `byteaUploadIn` (`./bytea-upload`), so this is the provider-agnostic source for a file's
  * content type / size / last-modified timestamp. Returns `undefined` when no
  * file is stored under `key`.
  *
@@ -323,6 +330,7 @@ export const deleteFileMetadata = async (key: string, bucket: BucketBinding): Pr
  * `db.execute()`). Same rationale as {@link writeFileMetadata}.
  */
 export const readFileMetadata = async (
+  client: PortableDb,
   key: string
 ): Promise<
   | {
@@ -336,7 +344,7 @@ export const readFileMetadata = async (
   | undefined
 > => {
   const files = fileStorageMetadataTable()
-  const rows = await db
+  const rows = await client
     .select({
       mimeType: files.mimeType,
       size: files.size,
@@ -356,7 +364,7 @@ export const readFileMetadata = async (
   const modified =
     row.modified instanceof Date
       ? row.modified.toISOString()
-      : new Date(row.modified as unknown as string).toISOString()
+      : new Date(row.modified as string).toISOString()
   return {
     contentType: row.mimeType,
     size: Number(row.size),

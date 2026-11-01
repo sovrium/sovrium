@@ -23,13 +23,13 @@
  */
 
 import { Effect } from 'effect'
-import { EmitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { emitAuditEvent } from '@/application/use-cases/admin/audit-log-emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { logError } from '@/infrastructure/logging/logger'
 import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import type { EmitAuditInput } from '@/application/use-cases/admin/audit-log/emit'
+import type { EmitAuditInput } from '@/application/use-cases/admin/audit-log-emit'
 import type { Actor } from '@/domain/models/api/admin/envelope/actor'
 
 /**
@@ -72,7 +72,7 @@ const authorActor = (author: UserActAuthor): Effect.Effect<Actor, never, AuthRep
  * failing the request now would tell the caller it had not.
  */
 const emit = (input: EmitAuditInput): Effect.Effect<void, never, AuditLogRepository> =>
-  EmitAuditEvent(input)
+  emitAuditEvent(input)
 
 /**
  * Write the entry for an act on an account. Every act this module records is

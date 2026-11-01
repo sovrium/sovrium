@@ -6,10 +6,11 @@
  */
 
 import { Effect } from 'effect'
-import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
+import { BatchValidationError } from '@/application/ports/repositories/tables/batch-repository'
+import { DatabaseError } from '@/infrastructure/database'
 import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
 import { databaseTableName } from '../statement/validation'
-import { BatchValidationError } from './batch-helpers'
+import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /** The checks an upsert passes before it writes anything. */
 
@@ -45,10 +46,10 @@ export function validateMergeFieldsPresent(
  * batch (dialect-aware) — the table's shape does not change between records.
  */
 async function requiredFieldsOf(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   tableName: string
 ): Promise<readonly string[]> {
-  const columns = await listTableColumns(tx, databaseTableName(tableName))
+  const columns = await listTableColumns(dialect.kind, tx, databaseTableName(tableName))
   // System fields that are auto-generated (exclude from validation). The
   // literal author columns are filled by `injectCreateAuthorship` on insert.
   const autoFields = new Set(['id', 'created_at', 'updated_at', 'created_by', 'updated_by'])
@@ -74,14 +75,14 @@ const missingRequiredFieldsIn = (
  * Validate all records have required fields BEFORE processing
  */
 export function validateAllRecordsHaveRequiredFields(
-  tx: Readonly<DrizzleTransaction>,
+  on: TransactionOn,
   tableName: string,
   recordsData: readonly Record<string, unknown>[]
 ): Effect.Effect<void, BatchValidationError> {
   return Effect.gen(function* () {
     if (recordsData.length === 0) return
     const requiredFields = yield* Effect.tryPromise({
-      try: () => requiredFieldsOf(tx, tableName),
+      try: () => requiredFieldsOf(on, tableName),
       catch: (error) =>
         new BatchValidationError({
           message: 'Failed to validate record',

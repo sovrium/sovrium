@@ -7,12 +7,12 @@
 
 import { useMemo } from 'react'
 import { useRecordSelectionToggle } from '../hooks/use-lazy-shared-filter-publisher'
+import { ViewError, ViewMissing, type ViewStrings } from '../parts/view-states'
 import { resolvePageTimezone } from '../runtime/page-timezone'
-import { CalendarError, CalendarLoading, CalendarMissingDateField } from './calendar-states'
+import { CalendarLoading } from './calendar-skeleton'
 import { CalendarViewComponent } from './calendar-view'
 import { recordsToCalendarEvents } from './record-to-event'
 import { useCalendarRecords } from './use-calendar-records'
-import type { CalendarStrings } from './calendar-states'
 import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
 import type {
   CalendarEventConfig,
@@ -26,7 +26,7 @@ import type { ReactElement } from 'react'
 
 interface CalendarIslandProps {
   /** The calendar's own words in the page language, where they differ from English. */
-  readonly uiStrings?: CalendarStrings
+  readonly uiStrings?: ViewStrings
   readonly dataSource?: {
     /** DB-table binding — ABSENT for a system-source binding. */
     readonly table?: string
@@ -85,6 +85,19 @@ function useZones(fieldTimeZones: Readonly<Record<string, string>> | undefined):
   return { pageZone, zoneOf }
 }
 
+/** The calendar's shared view states, and its English for them. */
+const WORDS = {
+  'calendar.loadFailed': 'Failed to load calendar records: {error}',
+  'calendar.missingDateField': 'Calendar is missing required {setting} configuration.',
+} as const
+const MISSING = {
+  sentence: 'calendar.missingDateField',
+  setting: 'dateField',
+  hint: true,
+  words: WORDS,
+} as const
+const FAILED = { of: 'calendar', words: WORDS } as const
+
 export default function CalendarIsland({
   dataSource,
   dateField,
@@ -106,10 +119,10 @@ export default function CalendarIsland({
   const select = useRecordSelectionToggle(publishes)
   const { pageZone, zoneOf } = useZones(fieldTimeZones)
 
-  const state = { error, strings: uiStrings }
-  if (!dateField) return <CalendarMissingDateField {...state} />
-  if (isLoading) return <CalendarLoading {...state} />
-  if (isError) return <CalendarError {...state} />
+  const strings = uiStrings
+  if (!dateField) return <ViewMissing {...{ ...MISSING, strings }} />
+  if (isLoading) return <CalendarLoading strings={strings} />
+  if (isError) return <ViewError {...{ ...FAILED, error, strings }} />
 
   const events = recordsToCalendarEvents(data?.records ?? [], {
     dateField,

@@ -71,7 +71,7 @@ export const SsoProviderSchema = Schema.Struct({
     Schema.Array(EmailDomainSchema).pipe(
       Schema.annotate({
         description:
-          'Email domains this provider is authoritative for. A sign-in that starts from an email address in one of them is routed here, and an existing account with such an address is linked on first SSO sign-in.',
+          'Email domains this provider is authoritative for. A sign-in that starts from an email address in one of them is routed here, no password account can be opened or moved onto one of them, and an existing account with such an address whose own address was verified is linked on first SSO sign-in.',
         examples: [['acme.com', 'acme.fr']],
       })
     )
@@ -83,8 +83,8 @@ export const SsoProviderSchema = Schema.Struct({
     Schema.Boolean.pipe(
       Schema.annotate({
         description:
-          'Whether a first sign-in creates an account. false admits only accounts that already exist — invited, created by an admin, or provisioned through SCIM.',
-        defaultNote: 'auth.allowSignUp, itself true by default',
+          'Whether a first sign-in creates an account. false admits only accounts that already exist: invited, created by an admin, or provisioned through SCIM.',
+        defaultNote: 'auth.allowSignUp, itself false by default',
       })
     )
   ),
@@ -119,7 +119,7 @@ export const AuthSsoConfigSchema = Schema.Array(SsoProviderSchema).pipe(
   Schema.annotate({
     title: 'Single sign-on',
     description:
-      'Identity providers users can sign in with, over OpenID Connect or SAML 2.0. Declared in config only — providers cannot be registered at runtime.',
+      'Identity providers users can sign in with, over OpenID Connect or SAML 2.0. Declared in config only; providers cannot be registered at runtime.',
   })
 )
 

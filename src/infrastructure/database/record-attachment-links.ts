@@ -29,15 +29,15 @@ import {
   recordTitleOf,
   type TitleCandidateField,
 } from '@/domain/models/app/tables/record-title-service'
-import { db } from '@/infrastructure/database'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { logError } from '@/infrastructure/logging/logger'
-import { executeRaw } from './sql/dialect-execute'
 import {
   collectAttachmentColumns,
   recoverBinding,
   type AttachmentColumn,
 } from './storage-bucket-backfill'
 import type { App } from '@/domain/models/app'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** One stored file referenced by one attachment cell of one live record. */
 export interface RecordAttachmentLink {
@@ -91,12 +91,14 @@ export const bindingsOfCell = (
  * the same pass: an operator reads a quote number, not a 32-hex id.
  */
 const linksOfColumn = async (
+  { client: db, dialect }: DatabaseService,
   target: Readonly<AttachmentColumn>,
   fields: readonly TitleCandidateField[]
 ): Promise<readonly RecordAttachmentLink[]> => {
   const titles = recordTitleFields(fields).filter((name) => name !== target.column)
   const titleColumns = titles.map((name) => sql`, ${sql.identifier(name)}`)
-  const rows = await executeRaw(
+  const rows = await executeRawOn(
+    dialect.kind,
     db,
     sql`SELECT ${sql.identifier(target.primaryKey)} AS row_id, ${sql.identifier(target.column)} AS value${sql.join(titleColumns)}
         FROM ${sql.identifier(target.relation)}
@@ -127,7 +129,7 @@ class AttachmentColumnReadError extends Data.TaggedError('AttachmentColumnReadEr
 /**
  * How many attachment columns are read at once.
  *
- * Every column read takes a slot from the SHARED pool (`db`), on a request path,
+ * Every column read takes a slot from the SHARED pool, on a request path,
  * and the column count is config-bounded rather than small — an app with ten
  * attachment fields would otherwise hold all ten default slots for the length of
  * one listing, starving every other request behind it, the admin session lookup
@@ -142,13 +144,14 @@ const ATTACHMENT_COLUMN_READ_CONCURRENCY = 2
  * than failing the listing: one broken table must not hide every other file.
  */
 export const listRecordAttachmentLinks = (
+  { client: db, dialect }: DatabaseService,
   app: Readonly<App>
 ): Effect.Effect<readonly RecordAttachmentLink[]> =>
   Effect.forEach(
     collectAttachmentColumns(app),
     (target) =>
       Effect.tryPromise({
-        try: () => linksOfColumn(target, titleFieldsOf(app, target.table)),
+        try: () => linksOfColumn({ client: db, dialect }, target, titleFieldsOf(app, target.table)),
         catch: (cause) => new AttachmentColumnReadError({ cause }),
       }).pipe(
         Effect.catch(({ cause }) =>

@@ -72,7 +72,7 @@ export const declaredViewportWidth = (component: Component | undefined): number 
  *
  * The HEIGHT is not set here. The framed document measures itself and grows its
  * own frame, because it is the only party that knows how tall it is — see
- * `application/use-cases/admin/design-system-component-frame.ts`.
+ * `application/use-cases/design/component-frame.ts`.
  */
 const frameStyle = (width: number): Record<string, string> => ({
   width: `${width}px`,

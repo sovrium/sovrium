@@ -5,12 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { scimGroupRequestSchema, scimPatchRequestSchema } from '@/domain/models/api/scim'
+import { Effect } from 'effect'
+import { scimGroupRequestSchema, scimPatchRequestSchema } from '@/domain/models/api/auth/scim'
 import {
   applyMemberChanges,
   isScimRefusal,
   scimMemberChanges,
 } from '@/domain/models/app/auth/scim-service'
+import { answerFailures, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import { recordScimWrite } from './scim-audit'
 import {
   SCIM_BASE_PATH,
@@ -21,7 +23,15 @@ import {
   toScimGroup,
   toScimList,
 } from './scim-resources'
-import { readDeclaredGroups, setGroupMembers, type ScimAuthContext } from './scim-store'
+import {
+  isUnverifiedSelfRegistered,
+  readDeclaredGroups,
+  readUser,
+  scimStore,
+  setGroupMembers,
+  UNVERIFIED_ACCOUNT_DETAIL,
+  type ScimAuthContext,
+} from './scim-store'
 import type { ScimGroupRow } from './scim-resources'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -35,101 +45,184 @@ import type { Context, Hono } from 'hono'
 
 type ContextOf = () => Promise<ScimAuthContext>
 
-/** Write a group's new member list, and record it when it changed. */
-const writeMembers = async (
+/** Whether any account `ids` adds to the group is one the directory may not manage. */
+const addsUnmanageable = (ctx: ScimAuthContext, group: ScimGroupRow, ids: readonly string[]) =>
+  Effect.gen(function* () {
+    const added = ids.filter((id) => !group.memberIds.includes(id))
+    const refused = yield* Effect.forEach(
+      added,
+      (id) =>
+        Effect.gen(function* () {
+          const user = yield* scimStore(() => readUser(ctx, id))
+          return (
+            user !== undefined && (yield* scimStore(() => isUnverifiedSelfRegistered(ctx, user)))
+          )
+        }),
+      { concurrency: 'unbounded' }
+    )
+    return refused.includes(true)
+  })
+
+/**
+ * Write a group's new member list, and record it when it changed. Adding an
+ * account opened here on an unverified address is refused (409), and nothing
+ * is written.
+ */
+const writeMembers = (
+  c: Context,
   ctx: ScimAuthContext,
   group: ScimGroupRow,
   next: readonly string[]
-): Promise<void> => {
-  const same =
-    next.length === group.memberIds.length && next.every((id) => group.memberIds.includes(id))
-  if (same) return
-  await setGroupMembers(ctx, group, next)
-  await recordScimWrite('scim.group.members.updated', group.id)
-}
+) =>
+  Effect.gen(function* () {
+    const same =
+      next.length === group.memberIds.length && next.every((id) => group.memberIds.includes(id))
+    if (same) return undefined
+    if (yield* addsUnmanageable(ctx, group, next)) {
+      return scimError(409, UNVERIFIED_ACCOUNT_DETAIL, 'uniqueness')
+    }
+    yield* scimStore(() => setGroupMembers(ctx, group, next))
+    yield* recordScimWrite('scim.group.members.updated', group.id)
+    return undefined
+  })
 
 /** The group again, as stored after a write. */
-const reread = async (
-  c: Context,
-  app: App,
-  ctx: ScimAuthContext,
-  id: string
-): Promise<Response> => {
-  const group = (await readDeclaredGroups(ctx, app)).find((candidate) => candidate.id === id)
-  return group === undefined
-    ? scimError(404, 'Group not found')
-    : scimJson(toScimGroup(scimOrigin(c), group))
-}
+const reread = (c: Context, app: App, ctx: ScimAuthContext, id: string) =>
+  Effect.gen(function* () {
+    const group = (yield* scimStore(() => readDeclaredGroups(ctx, app))).find(
+      (candidate) => candidate.id === id
+    )
+    return group === undefined
+      ? scimError(404, 'Group not found')
+      : scimJson(toScimGroup(scimOrigin(c), group))
+  })
 
-const list = (app: App, context: ContextOf) => async (c: Context) => {
-  const groups = await readDeclaredGroups(await context(), app)
-  const filter = /^\s*displayName\s+eq\s+"([^"]*)"\s*$/i.exec(c.req.query('filter') ?? '')?.[1]
-  const selected = filter === undefined ? groups : groups.filter((group) => group.name === filter)
-  const origin = scimOrigin(c)
-  return scimJson(
-    toScimList(
-      selected.map((group) => toScimGroup(origin, group)),
-      selected.length,
-      1
+const list = (app: App, context: ContextOf) => (c: Context) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const ctx = yield* scimStore(() => context())
+        const groups = yield* scimStore(() => readDeclaredGroups(ctx, app))
+        const filter = /^\s*displayName\s+eq\s+"([^"]*)"\s*$/i.exec(
+          c.req.query('filter') ?? ''
+        )?.[1]
+        const selected =
+          filter === undefined ? groups : groups.filter((group) => group.name === filter)
+        const origin = scimOrigin(c)
+        return scimJson(
+          toScimList(
+            selected.map((group) => toScimGroup(origin, group)),
+            selected.length,
+            1
+          )
+        )
+      })
     )
   )
-}
 
-const read = (app: App, context: ContextOf) => async (c: Context) =>
-  reread(c, app, await context(), c.req.param('id') ?? '')
+const read = (app: App, context: ContextOf) => (c: Context) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const ctx = yield* scimStore(() => context())
+        return yield* reread(c, app, ctx, c.req.param('id') ?? '')
+      })
+    )
+  )
 
 /** POST adopts a declared group (setting its members when given); an undeclared one is refused. */
-const adopt = (app: App, context: ContextOf) => async (c: Context) => {
-  const decoded = await decodeScimBody(c, scimGroupRequestSchema, 'Group')
-  if (decoded instanceof Response) return decoded
-  const ctx = await context()
-  const group = (await readDeclaredGroups(ctx, app)).find(
-    (candidate) => candidate.name === decoded.displayName
-  )
-  if (group === undefined) {
-    return scimError(400, 'Only the groups declared in auth.groups exist', 'invalidValue')
-  }
-  const { members } = decoded
-  if (members !== undefined)
-    await writeMembers(
-      ctx,
-      group,
-      members.map((member) => member.value)
+const adopt = (app: App, context: ContextOf) => (c: Context) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const decoded = yield* scimStore(() => decodeScimBody(c, scimGroupRequestSchema, 'Group'))
+        if (decoded instanceof Response) return decoded
+        const ctx = yield* scimStore(() => context())
+        const group = (yield* scimStore(() => readDeclaredGroups(ctx, app))).find(
+          (candidate) => candidate.name === decoded.displayName
+        )
+        if (group === undefined) {
+          return scimError(400, 'Only the groups declared in auth.groups exist', 'invalidValue')
+        }
+        const { members } = decoded
+        const refused =
+          members === undefined
+            ? undefined
+            : yield* writeMembers(
+                c,
+                ctx,
+                group,
+                members.map((member) => member.value)
+              )
+        if (refused !== undefined) return refused
+        const stored = (yield* scimStore(() => readDeclaredGroups(ctx, app))).find(
+          (candidate) => candidate.id === group.id
+        )
+        return scimJson(toScimGroup(scimOrigin(c), stored ?? group), 201)
+      })
     )
-  const stored = (await readDeclaredGroups(ctx, app)).find((candidate) => candidate.id === group.id)
-  return scimJson(toScimGroup(scimOrigin(c), stored ?? group), 201)
-}
-
-const patch = (app: App, context: ContextOf) => async (c: Context) => {
-  const decoded = await decodeScimBody(c, scimPatchRequestSchema, 'PatchOp')
-  if (decoded instanceof Response) return decoded
-  const ctx = await context()
-  const id = c.req.param('id') ?? ''
-  const group = (await readDeclaredGroups(ctx, app)).find((candidate) => candidate.id === id)
-  if (group === undefined) return scimError(404, 'Group not found')
-  const changes = scimMemberChanges(decoded.Operations)
-  if (isScimRefusal(changes)) return scimError(400, changes.detail, changes.scimType)
-  await writeMembers(ctx, group, applyMemberChanges(group.memberIds, changes))
-  return reread(c, app, ctx, id)
-}
-
-const replace = (app: App, context: ContextOf) => async (c: Context) => {
-  const decoded = await decodeScimBody(c, scimGroupRequestSchema, 'Group')
-  if (decoded instanceof Response) return decoded
-  const ctx = await context()
-  const id = c.req.param('id') ?? ''
-  const group = (await readDeclaredGroups(ctx, app)).find((candidate) => candidate.id === id)
-  if (group === undefined) return scimError(404, 'Group not found')
-  if (decoded.displayName !== group.name) {
-    return scimError(400, 'A declared group cannot be renamed', 'mutability')
-  }
-  await writeMembers(
-    ctx,
-    group,
-    (decoded.members ?? []).map((member) => member.value)
   )
-  return reread(c, app, ctx, id)
-}
+
+const patch = (app: App, context: ContextOf) => (c: Context) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const decoded = yield* scimStore(() => decodeScimBody(c, scimPatchRequestSchema, 'PatchOp'))
+        if (decoded instanceof Response) return decoded
+        const ctx = yield* scimStore(() => context())
+        const id = c.req.param('id') ?? ''
+        const group = (yield* scimStore(() => readDeclaredGroups(ctx, app))).find(
+          (candidate) => candidate.id === id
+        )
+        if (group === undefined) return scimError(404, 'Group not found')
+        const changes = scimMemberChanges(decoded.Operations)
+        if (isScimRefusal(changes)) return scimError(400, changes.detail, changes.scimType)
+        const refused = yield* writeMembers(
+          c,
+          ctx,
+          group,
+          applyMemberChanges(group.memberIds, changes)
+        )
+        return refused ?? (yield* reread(c, app, ctx, id))
+      })
+    )
+  )
+
+const replace = (app: App, context: ContextOf) => (c: Context) =>
+  runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const decoded = yield* scimStore(() => decodeScimBody(c, scimGroupRequestSchema, 'Group'))
+        if (decoded instanceof Response) return decoded
+        const ctx = yield* scimStore(() => context())
+        const id = c.req.param('id') ?? ''
+        const group = (yield* scimStore(() => readDeclaredGroups(ctx, app))).find(
+          (candidate) => candidate.id === id
+        )
+        if (group === undefined) return scimError(404, 'Group not found')
+        if (decoded.displayName !== group.name) {
+          return scimError(400, 'A declared group cannot be renamed', 'mutability')
+        }
+        const refused = yield* writeMembers(
+          c,
+          ctx,
+          group,
+          (decoded.members ?? []).map((member) => member.value)
+        )
+        return refused ?? (yield* reread(c, app, ctx, id))
+      })
+    )
+  )
 
 /** Mount the Groups endpoints. */
 export const chainScimGroupRoutes = (hono: Hono, app: App, context: ContextOf): Hono => {

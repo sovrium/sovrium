@@ -181,26 +181,27 @@
                     {
                       "type": "native-select",
                       "props": {
-                        "id": "users-role-filter",
-                        "label": "$t:admin.users.filter.role",
+                        "id": "users-access-filter",
+                        "label": "$t:admin.users.filter.access",
                         "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
                       },
                       "emptyOption": {
-                        "label": "$t:admin.users.filter.allRoles"
+                        "label": "$t:admin.users.filter.access.everyone"
                       },
                       "publishes": {
                         "bindTo": "users-filter",
-                        "param": "role"
+                        "param": "consoleAccess"
                       },
-                      "dataSource": {
-                        "system": {
-                          "endpoint": "/api/admin/roles",
-                          "rowsKey": "roles",
-                          "idKey": "name"
+                      "options": [
+                        {
+                          "value": "yes",
+                          "label": "$t:admin.users.filter.access.yes"
                         },
-                        "valueKey": "name",
-                        "labelKey": "label"
-                      }
+                        {
+                          "value": "no",
+                          "label": "$t:admin.users.filter.access.no"
+                        }
+                      ]
                     },
                     {
                       "type": "native-select",
@@ -258,6 +259,90 @@
                   ]
                 },
                 {
+                  "type": "container",
+                  "key": "users-access-hint",
+                  "element": "div",
+                  "props": {
+                    "className": "-mt-4 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground",
+                    "data-testid": "users-console-access-hint"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "content": "$t:admin.users.filter.access.hintYes"
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "contents [&>li]:list-none"
+                      },
+                      "dataSource": {
+                        "system": {
+                          "endpoint": "/api/admin/roles",
+                          "rowsKey": "roles",
+                          "idKey": "name"
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "visibility": {
+                            "record": {
+                              "field": "consoleAccess",
+                              "eq": true
+                            }
+                          },
+                          "props": {
+                            "className": "text-foreground"
+                          },
+                          "content": "$record.label"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "props": {
+                        "className": "ml-2"
+                      },
+                      "content": "$t:admin.users.filter.access.hintNo"
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "contents [&>li]:list-none"
+                      },
+                      "dataSource": {
+                        "system": {
+                          "endpoint": "/api/admin/roles",
+                          "rowsKey": "roles",
+                          "idKey": "name"
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "visibility": {
+                            "record": {
+                              "field": "consoleAccess",
+                              "eq": false
+                            }
+                          },
+                          "props": {
+                            "className": "text-foreground"
+                          },
+                          "content": "$record.label"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
                   "component": "console-grid",
                   "key": "grid",
                   "vars": {
@@ -282,7 +367,8 @@
                       {
                         "field": "name",
                         "label": "$t:admin.common.name",
-                        "width": 180
+                        "width": 180,
+                        "secondaryField": "selfLabel"
                       },
                       {
                         "field": "roleLabel",
@@ -401,6 +487,34 @@
                             }
                           },
                           {
+                            "label": "$t:admin.users.endAll",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/api/auth/admin/revoke-user-sessions",
+                              "method": "POST",
+                              "body": {
+                                "userId": "$record.id"
+                              },
+                              "responseEnvelope": "better-auth",
+                              "onSuccess": {
+                                "type": "toast",
+                                "message": "$t:admin.users.sessionsEnded",
+                                "refetch": "admin-users-grid"
+                              }
+                            },
+                            "confirm": {
+                              "title": "$t:admin.users.endConfirm",
+                              "message": "$t:admin.users.endMessage",
+                              "role": "alertdialog",
+                              "confirmLabel": "$t:admin.users.endSessions",
+                              "cancelLabel": "$t:admin.common.cancel"
+                            },
+                            "visibleWhen": {
+                              "field": "self",
+                              "eq": false
+                            }
+                          },
+                          {
                             "label": "$t:admin.users.ban",
                             "action": {
                               "type": "fetch",
@@ -418,16 +532,21 @@
                             },
                             "confirm": {
                               "message": "$t:admin.users.banMessage",
-                              "title": "$t:admin.users.confirmBan",
+                              "title": "$t:admin.users.banConfirm",
                               "role": "alertdialog",
-                              "confirmLabel": "$t:admin.users.confirmBan",
+                              "confirmLabel": "$t:admin.users.ban",
                               "cancelLabel": "$t:admin.common.cancel"
                             },
                             "visibleWhen": {
-                              "field": "banned",
+                              "field": "self",
                               "eq": false
                             },
-                            "variant": "destructive"
+                            "variant": "destructive",
+                            "disabledWhen": {
+                              "field": "banned",
+                              "eq": true
+                            },
+                            "disabledReason": "$t:admin.users.alreadyBanned"
                           },
                           {
                             "label": "$t:admin.common.liftBan",
@@ -449,6 +568,36 @@
                               "field": "banned",
                               "eq": true
                             }
+                          },
+                          {
+                            "label": "$t:admin.users.delete",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/api/auth/admin/remove-user",
+                              "method": "POST",
+                              "body": {
+                                "userId": "$record.id"
+                              },
+                              "responseEnvelope": "better-auth",
+                              "onSuccess": {
+                                "type": "toast",
+                                "message": "$t:admin.users.deleted",
+                                "refetch": "admin-users-grid"
+                              }
+                            },
+                            "confirm": {
+                              "title": "$t:admin.users.deleteConfirm",
+                              "message": "$t:admin.users.deleteMessage",
+                              "role": "alertdialog",
+                              "confirmLabel": "$t:admin.users.delete",
+                              "cancelLabel": "$t:admin.common.cancel",
+                              "irreversible": true
+                            },
+                            "visibleWhen": {
+                              "field": "self",
+                              "eq": false
+                            },
+                            "variant": "destructive"
                           }
                         ]
                       }
@@ -462,7 +611,12 @@
                       "type": "navigate",
                       "path": "/users/$record.id"
                     },
-                    "viewOptions": "toolbar"
+                    "viewOptions": "toolbar",
+                    "emptyDescription": "$t:admin.users.empty.guidance",
+                    "countLabel": {
+                      "one": "$t:admin.count.users.one",
+                      "other": "$t:admin.count.users.other"
+                    }
                   }
                 }
               ]
@@ -583,7 +737,7 @@
                               "message": "$t:admin.users.invite.revokeMessage",
                               "title": "$t:admin.users.invite.revokeConfirm",
                               "role": "alertdialog",
-                              "confirmLabel": "$t:admin.common.confirm",
+                              "confirmLabel": "$t:admin.users.invite.revokeAffirm",
                               "cancelLabel": "$t:admin.common.cancel"
                             }
                           }
@@ -591,7 +745,12 @@
                       }
                     ],
                     "emptyMessage": "$t:admin.users.invite.none",
-                    "viewOptions": "toolbar"
+                    "viewOptions": "toolbar",
+                    "emptyDescription": "$t:admin.users.invite.none.guidance",
+                    "countLabel": {
+                      "one": "$t:admin.count.invitations.one",
+                      "other": "$t:admin.count.invitations.other"
+                    }
                   }
                 }
               ]

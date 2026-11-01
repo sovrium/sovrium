@@ -51,25 +51,13 @@
  * first call and reused for subsequent renders.
  */
 
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import {
+  CODE_TOKEN_ROLE_BY_LIGHT_HEX,
   DEFAULT_CODE_BLOCK_DARK_THEME,
   DEFAULT_CODE_BLOCK_THEME,
 } from '@/domain/models/app/design/code-block-service'
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
-
-/**
- * Encode the verbatim source for use inside the un-highlighted fallback
- * placeholder. Identical to the renderer's own escaper, inlined to keep the
- * infrastructure module's external surface to one well-known dependency
- * (shiki) plus internal helpers.
- */
-const escapeHtml = (value: string): string =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 
 /**
  * The process-wide Shiki `codeToHtml`, resolved once. Re-entry-safe:
@@ -208,11 +196,29 @@ const styleToDarkColorClass = (style: string): string | undefined => {
 }
 
 /**
- * Build the class-based transformer described in the module-doc. Pre-built so
- * each highlight call reuses the same shapes (no per-call allocation cost
- * inside the hot path).
+ * How one highlight call draws its spans.
+ *
+ * `roleClasses` adds the syntax role of each token beside its colour classes
+ * (`tok-comment`, `tok-keyword`, …), read off the light colour the highlighter
+ * resolved. Set only when the app declares `design.code`: without it the markup
+ * is byte-identical to what every app drew before the key existed.
  */
-const CLASS_BASED_TRANSFORMER: ShikiTransformerLike = {
+export interface CodeHighlightOptions {
+  readonly roleClasses?: boolean | undefined
+}
+
+/** The role class of a `tok-XXXXXX` light colour class, or `undefined` when it names no role. */
+const roleClassOf = (colorClass: string): string | undefined => {
+  const role = CODE_TOKEN_ROLE_BY_LIGHT_HEX[colorClass.slice('tok-'.length)]
+  return role === undefined ? undefined : `tok-${role}`
+}
+
+/**
+ * Build the class-based transformer described in the module-doc. Both variants
+ * are pre-built so each highlight call reuses the same shapes (no per-call
+ * allocation cost inside the hot path).
+ */
+const classBasedTransformer = (roleClasses: boolean): ShikiTransformerLike => ({
   name: 'sovrium-class-based',
   pre(hast) {
     // Drop background/foreground style — colors come from the code-block CSS
@@ -233,13 +239,21 @@ const CLASS_BASED_TRANSFORMER: ShikiTransformerLike = {
     if (darkColorClass !== undefined) {
       this.addClassToHast(hast, darkColorClass)
     }
+    // The syntax role, beside the colours, when the design declares `code`.
+    const roleClass = roleClasses && colorClass !== undefined ? roleClassOf(colorClass) : undefined
+    if (roleClass !== undefined) {
+      this.addClassToHast(hast, roleClass)
+    }
     // Drop ALL inline style on token spans regardless of whether we mapped a
     // color — uncolored tokens (whitespace) must not carry residual style.
     if (hast.properties !== undefined && 'style' in hast.properties) {
       delete hast.properties.style
     }
   },
-}
+})
+
+const CLASS_BASED_TRANSFORMER = classBasedTransformer(false)
+const ROLE_CLASS_TRANSFORMER = classBasedTransformer(true)
 
 /**
  * Render a single fenced code-block to highlighted HTML. Returns an
@@ -249,18 +263,21 @@ const CLASS_BASED_TRANSFORMER: ShikiTransformerLike = {
 const highlightOne = async (
   codeToHtml: ShikiCodeToHtml,
   lang: string,
-  code: string
+  code: string,
+  options: CodeHighlightOptions
 ): Promise<string> => {
   if (lang.length === 0) {
     // Tagless fences degrade to plain escaped output — Shiki would reject an
     // empty lang and we want a clean structural pre/code anyway.
-    return `<pre><code>${escapeHtml(code)}</code></pre>`
+    return `<pre><code>${escapeHtmlAttribute(code)}</code></pre>`
   }
   try {
     return await codeToHtml(code, {
       lang,
       ...SHIKI_PALETTE_OPTIONS,
-      transformers: [CLASS_BASED_TRANSFORMER],
+      transformers: [
+        options.roleClasses === true ? ROLE_CLASS_TRANSFORMER : CLASS_BASED_TRANSFORMER,
+      ],
     })
   } catch (error) {
     logWarning(
@@ -268,7 +285,7 @@ const highlightOne = async (
         error instanceof Error ? error.message : String(error)
       }`
     )
-    return `<pre><code class="language-${escapeHtml(lang)}">${escapeHtml(code)}</code></pre>`
+    return `<pre><code class="language-${escapeHtmlAttribute(lang)}">${escapeHtmlAttribute(code)}</code></pre>`
   }
 }
 
@@ -306,11 +323,13 @@ const PLACEHOLDER_RE =
  * `codeBlocks` is empty (no fenced blocks in the source).
  *
  * The themes are shadcn/ui's default pair, `github-light` and `github-dark`;
- * no config key chooses them.
+ * no config key chooses them. `options.roleClasses` adds each token's syntax
+ * role as a class ({@link CodeHighlightOptions}).
  */
 export const highlightCodeBlocks = async (
   html: string,
-  codeBlocks: readonly { readonly lang: string; readonly code: string }[]
+  codeBlocks: readonly { readonly lang: string; readonly code: string }[],
+  options: CodeHighlightOptions = {}
 ): Promise<string> => {
   if (codeBlocks.length === 0) return html
   const codeToHtml = await getShiki()
@@ -319,7 +338,7 @@ export const highlightCodeBlocks = async (
   // (it is invoked once per placeholder during the regex scan).
   const highlighted = await Promise.all(
     codeBlocks.map(async ({ lang, code }, index) =>
-      withFenceIndexClass(await highlightOne(codeToHtml, lang, code), index)
+      withFenceIndexClass(await highlightOne(codeToHtml, lang, code, options), index)
     )
   )
 
@@ -344,6 +363,10 @@ export const highlightCodeBlocks = async (
  * a pages markdown spec). `getShiki` is cached process-wide, so calling this
  * once per block on a page costs a single engine load.
  */
-export const highlightCodeToHtml = async (lang: string, code: string): Promise<string> => {
-  return highlightOne(await getShiki(), lang, code)
+export const highlightCodeToHtml = async (
+  lang: string,
+  code: string,
+  options: CodeHighlightOptions = {}
+): Promise<string> => {
+  return highlightOne(await getShiki(), lang, code, options)
 }

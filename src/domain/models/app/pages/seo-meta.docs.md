@@ -1,6 +1,6 @@
 # SEO & Metadata
 
-> The page `meta` block — title, description and canonical URL, plus Open Graph and social-card metadata for sharing.
+> The page `meta` block: title, description and canonical URL, plus Open Graph and social-card metadata for sharing.
 
 A page's `meta` property controls everything rendered into the document head. Values support `$record.*` and `$frontmatter.*` substitution, so collection and markdown pages produce per-record SEO without a second configuration pass.
 
@@ -33,11 +33,11 @@ pages:
 
 **The character limits are schema constraints, not advice.** A `title` over 60 characters, or a `description` over 160, fails `sovrium validate`. This catches a runaway `$record.title` binding offline rather than in a search result.
 
-The numbers themselves are a practice rather than a search-engine rule: Google states no length limit for either, and truncates what it shows by pixel width, not by character count. Sixty and 160 are the lengths that usually survive that truncation on a desktop result, which is why Sovrium enforces them — a shorter title is never penalised, a longer one is simply cut.
+The numbers themselves are a practice rather than a search-engine rule: Google states no length limit for either, and truncates what it shows by pixel width, not by character count. Sixty and 160 are the lengths that usually survive that truncation on a desktop result, which is why Sovrium enforces them. A shorter title is never penalised, a longer one is simply cut.
 
 **`noindex` wins over `robots`.** A page with `noindex: true` says `noindex` in its robots tag whatever else its `robots` string asks: `robots: follow` beside it renders `noindex, follow`. The tag, the sitemap and the `X-Robots-Tag` of a Markdown twin read the same rule, so a page the sitemap leaves out never tells crawlers to index it. A `robots` string that asks for indexing (`index`, or `all`) beside `noindex: true` says two opposite things, and `sovrium validate` refuses it, naming both keys.
 
-**A canonical names one address per language.** A page whose path names no language (`/about`) is served at `/en/about` and `/fr/about`, and each must declare its own address, or search engines read the other languages as duplicates. Write the canonical as a `$t:` key followed by the rest of the address — `canonical: '$t:seo.base/about'`, with `seo.base` translated to `https://example.com/en` and `https://example.com/fr` — and each language renders its own. A key missing in one language follows the usual fallback (`fallback`, then `default`); the key itself is never printed. In an app with more than one language and `BASE_URL` set, such a page with no canonical at all names its own address in each language: `/fr/about` declares `https://example.com/fr/about`.
+**A canonical names one address per language.** A page whose path names no language (`/about`) is served at `/en/about` and `/fr/about`, and each must declare its own address, or search engines read the other languages as duplicates. Write the canonical as a `$t:` key followed by the rest of the address (`canonical: '$t:seo.base/about'`, with `seo.base` translated to `https://example.com/en` and `https://example.com/fr`), and each language renders its own. A key missing in one language follows the usual fallback (`fallback`, then `default`); the key itself is never printed. In an app with more than one language and `BASE_URL` set, such a page with no canonical at all names its own address in each language: `/fr/about` declares `https://example.com/fr/about`.
 
 `$app.origin` and the other `$app.*` references resolve in a canonical as they do in the title and description, so `canonical: '$app.origin/blog/$record.slug'` names the page on the host the request arrived on.
 
@@ -58,7 +58,7 @@ pages:
       - { type: text, element: h1, content: 'Pricing' }
 ```
 
-Either spelling works as a key — the short code, `fr`, or the full locale, `fr-FR`. The exact tag is matched first, then the primary subtag, so a page resolved to `fr-FR` still finds an `fr` entry, while a deliberate `pt-BR` entry is never shadowed by a `pt` one. Which spelling a page is resolved to is covered in **Languages**.
+Either spelling works as a key: the short code, `fr`, or the full locale, `fr-FR`. The exact tag is matched first, then the primary subtag, so a page resolved to `fr-FR` still finds an `fr` entry, while a deliberate `pt-BR` entry is never shadowed by a `pt` one. Which spelling a page is resolved to is covered in **Languages**.
 
 ## `openGraph`
 
@@ -66,13 +66,17 @@ Either spelling works as a key — the short code, `fr`, or the full locale, `fr
 
 Open Graph metadata for rich social previews, where `determiner` is the word preceding the title in a sentence. `siteName` renders `og:site_name`, which tells a platform the page belongs to a larger site; the flat `og:site_name` key on `meta` is a shorthand for the same tag. In an app that declares more than one language, a page with `openGraph` also lists every other language as an `og:locale:alternate` in `language_TERRITORY` form (`fr_FR`), read from each language's `locale`, so a platform can offer the share in its reader's language; the page's own `og:locale` is never repeated, and a language declared without a territory is left out.
 
-**The sharing image is the part platforms are strictest about.** Use a PNG or JPEG of 1200 by 630 pixels — a 1.91:1 ratio, under 8 MB. WebP is acceptable, since every major platform has rendered it since late 2024. **Never AVIF**: X, LinkedIn, Slack and iMessage all fail to render it, and the link then shares with no image at all, so `sovrium validate` refuses an `openGraph.image` or `twitter.image` whose path ends in `.avif`. Only the path is read, so a query string such as `og.avif?v=2` is refused too. This is the one place the rule for committed images is reversed — imagery on the page itself should be AVIF or WebP, but a sharing card should not. `imageAlt` renders `og:image:alt`; Sovrium does not yet emit the image's width and height, so a platform fetches the image before it can draw the first preview. The refusal covers the two sharing images only: a favicon and an image named in structured data are read by search engines, which render AVIF, so neither is checked.
+A page that declares `openGraph` without a `locale` renders `og:locale` from the language it is served in (`fr_FR` on a `/fr/` page); `locale` also takes a `$t:` key, for a different value per language. A card declared without a `title` takes the page's resolved `meta.title`, as a card without a description takes its description.
+
+**The sharing image is the part platforms are strictest about.** Use a PNG or JPEG of 1200 by 630 pixels, a 1.91:1 ratio, under 8 MB. WebP is acceptable, since every major platform has rendered it since late 2024. **Never AVIF**: X, LinkedIn, Slack and iMessage all fail to render it, and the link then shares with no image at all, so `sovrium validate` refuses an `openGraph.image` or `twitter.image` whose path ends in `.avif`. Only the path is read, so a query string such as `og.avif?v=2` is refused too. This is the one place the rule for committed images is reversed: imagery on the page itself should be AVIF or WebP, but a sharing card should not. `imageAlt` renders `og:image:alt`; Sovrium does not yet emit the image's width and height, so a platform fetches the image before it can draw the first preview. The refusal covers the two sharing images only: a favicon and an image named in structured data are read by search engines, which render AVIF, so neither is checked.
 
 `openGraph.image` also takes a `$t:` key, for a card per language, and a path starting with `/`; either is emitted as a full address on the host the request arrived on. `openGraph.url` takes a `$t:` key the same way as `canonical`, so each language shares its own address.
 
-A sharing image that resolves to an empty value — a record whose cover attachment is blank — emits no `og:image` or `twitter:image` tag, so the network chooses its own preview.
+`openGraph.url` resolves `$app.*` and `$record.*` exactly as `canonical` does, so `$app.origin/blog/$record.slug` shares the page's own address. An attachment field used as `openGraph.image` or `twitter.image` is shared as the file's address (the bucket's files address on a public bucket, a signed link on a private one), made absolute on the host the request arrived on. Any other `meta` value naming an attachment field reads the same address, never the stored file details.
 
-**Descriptions agree.** `openGraph.description` resolves exactly as `meta.description` does, a `$record` value behind a `$t:` key included. When a page declares `openGraph` without a `description`, `og:description` takes the page's resolved `meta.description`; a page that declares no `openGraph` gains no tag.
+A sharing image that resolves to an empty value (a record whose cover attachment is blank) emits no `og:image` or `twitter:image` tag, so the network chooses its own preview.
+
+**Card values agree.** Every text value of a card, `title`, `description` and `imageAlt` on `openGraph` and on `twitter`, resolves exactly as the matching `meta` value does: a `$frontmatter` reference on a markdown page and a `$record` value behind a `$t:` key included. A frontmatter key the article does not declare resolves to nothing, so its tag is left out rather than printing the reference. When a page declares `openGraph` without a `description`, `og:description` takes the page's resolved `meta.description`; a page that declares no `openGraph` gains no tag.
 
 **Addresses from a record are checked.** A `canonical` or `openGraph.url` that resolves from a `$record` value is emitted only when it is an `http:` or `https:` address or a path on the site; anything else, such as a `javascript:` value an editor typed, leaves the tag out and the rest of the head unchanged.
 
@@ -80,16 +84,16 @@ A sharing image that resolves to an empty value — a record whose cover attachm
 
 <!-- sovrium:options TwitterCardSchema depth=2 -->
 
-Social-card metadata, where `card` is the only required property. The image rules above apply unchanged: `summary_large_image` crops to 2:1, so keep the subject away from the top and bottom edges of a 1200 by 630 image. The limits here are tighter than the core `title` and `description` limits, which is why they are separate properties rather than inherited ones. When a page declares `twitter` without a `description`, `twitter:description` takes the resolved `openGraph.description` — what X reads in its absence — and otherwise the resolved `meta.description`.
+Social-card metadata, where `card` is the only required property. The image rules above apply unchanged: `summary_large_image` crops to 2:1, so keep the subject away from the top and bottom edges of a 1200 by 630 image. The limits here are tighter than the core `title` and `description` limits, which is why they are separate properties rather than inherited ones. When a page declares `twitter` without a `title` or a `description`, each takes the resolved `openGraph` value (what X reads in its absence), and otherwise the resolved `meta` value.
 
 ## Elsewhere
 
-JSON-LD, favicons and the resource hints — `preload`, `dnsPrefetch` and `customElements` — are all `meta` properties too, documented in **Structured Data & Favicons**.
+JSON-LD, favicons and the resource hints (`preload`, `dnsPrefetch` and `customElements`) are all `meta` properties too, documented in **Structured Data & Favicons**.
 
 ## Related reading
 
-- **Structured Data & Favicons** — JSON-LD, icons, resource hints.
-- **Pages Overview** — `sitemap` and `rss`, which complement `meta`.
-- **Collection & Markdown Pages** — per-record and per-article metadata.
-- **Languages** — the language codes `i18n` is keyed by.
-- **Media Components** — the images these tags reference.
+- **Structured Data & Favicons**: JSON-LD, icons, resource hints.
+- **Pages Overview**: `sitemap` and `rss`, which complement `meta`.
+- **Collection & Markdown Pages**: per-record and per-article metadata.
+- **Languages**: the language codes `i18n` is keyed by.
+- **Media Components**: the images these tags reference.

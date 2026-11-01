@@ -6,23 +6,30 @@
  */
 
 /**
- * THE `/api/*` chain.
+ * THE `/api/*` sequence.
  *
- * One expression registers every API route in one order, because Hono RPC type
- * inference requires method chaining rather than `.route()` mounting. Anything
- * with a life of its own has been lifted out — the boot-state resets, the eco
- * stack, the request guards, the health handler, the authorisation gates and
- * the `/api/admin/*` family all live beside this file — so what is left is the
- * SEQUENCE, which is the thing that cannot be split.
+ * Every API route family registers here, in one order, as one row of a table.
+ * The ORDER is the contract: Hono runs middleware registered with `.use()`
+ * only for routes registered AFTER it, so the request guards and per-path
+ * authorisation gates (`api-auth-guards.ts`) come first and every family row
+ * follows them. Anything with a life of its own has been lifted out — the
+ * boot-state resets, the eco stack, the request guards, the health handler,
+ * the authorisation gates and the `/api/admin/*` family all live beside this
+ * file — so what is left is the SEQUENCE.
+ *
+ * No client reads a type off this composition. The islands' typed RPC client
+ * reads the three table slugs' own method chains (`api/client.ts`), so method
+ * chaining for type inference lives inside those slugs and nowhere here.
  */
 
+import { resolveAnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
+import { resolvePrivacySignals } from '@/domain/models/app/analytics/privacy-signals-service'
 import { linkTargets } from '@/domain/models/app/links'
 import { createAvatarProfileStore } from '@/infrastructure/auth/better-auth/avatar-profile-store'
 import { FormRenderers } from '@/infrastructure/layers/form-renderer-layer'
 import { resetBootState } from '@/infrastructure/server/middleware/boot-state-reset'
 import { applyEcoStack } from '@/infrastructure/server/middleware/eco-stack'
 import { chainActiveScopeRoutes } from '@/presentation/api/admin/active-scope-routes'
-import { chainNotificationTriggerRoutes } from '@/presentation/api/admin/notification-trigger-routes'
 import { chainUserDirectoryRoutes } from '@/presentation/api/admin/user-directory-routes'
 import { chainAgentApprovalRoutes } from '@/presentation/api/agents/approval-routes'
 import { chainAiChatElicitationRoutes } from '@/presentation/api/agents/chat-elicitation-routes'
@@ -36,10 +43,12 @@ import { chainAiChatAttachmentRoutes } from '@/presentation/api/ai/attachment-ro
 import { chainAiTranscriptionRoutes } from '@/presentation/api/ai/transcription-routes'
 import { chainAnalyticsRoutes } from '@/presentation/api/analytics/routes'
 import { chainAccountRoutes } from '@/presentation/api/auth/account-routes'
+import { chainExpiredAuthRowsRoutes } from '@/presentation/api/auth/expired-rows-routes'
 import { chainAuthRoutes } from '@/presentation/api/auth/routes'
 import { chainScimRoutes } from '@/presentation/api/auth/scim-routes'
 import { chainEmailLinkRoutes } from '@/presentation/api/automations/email-link-routes'
 import { chainNotificationRoutes } from '@/presentation/api/automations/notification-routes'
+import { chainNotificationTriggerRoutes } from '@/presentation/api/automations/notification-trigger-routes'
 import { chainAutomationRoutes } from '@/presentation/api/automations/routes'
 import { chainRunRetentionRoutes } from '@/presentation/api/automations/run-retention-routes'
 import { chainBucketRoutes } from '@/presentation/api/buckets/routes'
@@ -60,322 +69,180 @@ import { chainTableRetentionRoutes } from '@/presentation/api/tables/table-reten
 import { chainWebhookOutboxRoutes } from '@/presentation/api/tables/webhook-outbox-routes'
 import { chainAdminApiRoutes } from './admin/routes'
 import { applyApiAuthGuards } from './middleware/api-auth-guards'
-import { getLiveApp } from './runtime/live-app-store'
 import { handleHealthCheck } from './server/health-routes'
 import type { App } from '@/domain/models/app'
 // Type-only: the value arrives as the `auth` parameter of `createApiRoutes`.
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { Hono } from 'hono'
 
+type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
+
 /**
- * Create API routes using method chaining pattern
- *
- * Located in Infrastructure layer because this is route composition/wiring
- * (infrastructure concern), not route handler logic (presentation concern).
- *
- * **Why Chaining?**
- * Hono RPC requires method chaining (not .route() mounting) for proper type inference.
- * This allows the RPC client to extract route types automatically.
- *
- * **Pattern**:
- * ```typescript
- * const app = new Hono()
- *   .get('/api/health', handler)
- *   .get('/api/users/:id', handler)
- *   .post('/api/users', handler)
- * ```
- *
- * **Why Not .route()?**
- * ```typescript
- * // ❌ This breaks RPC type inference
- * app.route('/api', subApp)
- * ```
- *
- * See: https://hono.dev/docs/guides/best-practices#building-a-larger-application
- *
- * @param app - Validated application configuration from AppSchema
- * @param honoApp - Hono instance to chain routes onto
- * @returns Hono app with all API routes chained
+ * One row of the sequence: registers its routes or middleware on the app.
+ * Hono's `get`/`use`/`on`/`route` register on the instance they are called on
+ * and return it, so every row writes the SAME app and nothing is threaded
+ * through. A row's return value is ignored.
  */
-export const createApiRoutes = <T extends Hono>(
-  app: App,
+type RouteStep = (hono: Hono) => unknown
 
-  honoApp: T,
-  // Built once in `createHonoApp` and passed in. Constructing it here,
-  // unconditionally, would load the Better Auth package on every boot even
-  // though every use below sits behind an `app.auth` branch. `undefined`
-  // exactly when `app.auth` is absent.
-  auth?: Readonly<ReturnType<typeof createAuthInstance>>,
-  // The router's own session reader, so the page searches filter by the same
-  // `checkPageAccess` input a visit is judged on. `undefined` without `auth`.
-  getSession?: PageReaderResolver
-) => {
-  // Reset every in-process singleton that must not outlive this boot.
-  resetBootState()
-
-  // Eco middleware stack + the low-data opt-out route, in mount order.
-  const honoWithEcoHeader = applyEcoStack(honoApp)
-
-  // Create health check endpoint
-  const honoWithHealth = honoWithEcoHeader.get('/api/health', async (c) =>
-    handleHealthCheck(c, app, auth)
-  )
-
-  // Transport guards, rate limits, session extraction and every per-path
-  // authorisation gate — applied as one block, in the order that is the
-  // contract. See `api-auth-guards.ts`.
-  const honoWithAuth = applyApiAuthGuards(honoWithHealth, app, auth)
-
-  // Chain table routes (always register, returns empty array if no tables configured)
-  // Routes now have access to session via c.var.session
-  // Pass app configuration for table metadata lookup (tableId → table name mapping).
-  //
-  // Supply a live-App resolver so a table added by a schema
-  // `POST /draft/publish` (which swaps the live App + applies additive DDL
-  // without a restart) is immediately resolvable by `validateTable` and
-  // queryable by the record handlers. `getLiveApp()` returns the published
-  // snapshot once a publish has happened; before any publish it is undefined
-  // and the resolver falls back to the boot `app`.
-  const resolveLiveApp = (): App => (getLiveApp() as App | undefined) ?? app
-  const honoWithTables = chainTableRoutes(honoWithAuth, app, resolveLiveApp)
-
-  // Chain activity routes (activity log access)
-  const honoWithActivity = chainActivityRoutes(honoWithTables, resolveLiveApp)
-
-  // Chain analytics routes only when analytics is enabled (not undefined, not false)
-  // When analytics is not configured, all /api/analytics/* endpoints return 404 (no routes registered)
-  const analyticsEnabled = app.analytics !== undefined && app.analytics !== false
-  const honoWithAnalytics = analyticsEnabled
-    ? chainAnalyticsRoutes(honoWithActivity, {
-        appName: app.name,
-        retentionDays: typeof app.analytics === 'object' ? app.analytics.retentionDays : undefined,
-        excludedPaths: typeof app.analytics === 'object' ? app.analytics.excludedPaths : undefined,
-        respectDoNotTrack:
-          typeof app.analytics === 'object' ? app.analytics.respectDoNotTrack : undefined,
-        // Lets `/api/analytics/targets` name the destination each recorded
-        // `targetIndex` resolves to TODAY. Read through `resolveLiveApp` (not
-        // the boot `app`) so a reload that re-points a link is reflected without
-        // a restart; an index the current list no longer covers reports null
-        // rather than being dropped from the split.
-        resolveLinks: () =>
-          (resolveLiveApp().links ?? []).map((link) => ({
-            slug: link.slug,
-            destinations: linkTargets(link).map((target) => target.to),
-          })),
-        // The read endpoints admit the live app's top role beside `admin`.
-        resolveApp: resolveLiveApp,
-      })
-    : honoWithActivity
-
-  // Chain automation routes (webhook triggers + run history listing)
-  // Always registered: when no automations are configured, /api/automations/*
-  // returns 404 by virtue of automation lookup failing inside the handler.
-  const honoWithAutomations = chainEmailLinkRoutes(
-    chainAutomationRoutes(honoWithAnalytics, app, getSession)
-  )
-
-  // Chain OAuth2 connection routes (authorize, callback, status, disconnect).
-  // Reads `app.connections[]` for provider configuration; per-user tokens
-  // persist to system.connection_tokens encrypted at rest.
-  const honoWithConnections = chainConnectionRoutes(honoWithAutomations, app)
-
-  // (share-link routes removed Task #18 — feature cut per user Decision #3)
-
-  // Chain bucket routes (file access with per-bucket public/private enforcement)
-  const honoWithBuckets = chainBucketRoutes(honoWithConnections, app)
-
-  // Chain standalone-form routes (canonical GET /forms/:name + custom-path
-  // aliases + POST /api/forms/:name/submissions). Always registered;
-  // handlers return 404 when the requested form is not declared in
-  // `app.forms[]` so apps without forms behave identically. Renderers
-  // are injected here (composition root) because the route file lives
-  // in the presentation layer and cannot import the React renderer
-  // from `presentation/rendering/forms` directly under the layer rules.
-  // The table API's answer for the caller narrows the form page as an embedded form.
-  const honoWithForms = chainFormRoutes(honoWithBuckets, app, {
-    ...FormRenderers,
-    readTableAsCaller: (c) => callerTableReaders(c).readTableAsCaller,
-  })
-
-  // Every `/api/admin/*` read, chained in one place. See `api-admin-routes.ts`.
-  const honoWithAdminLinks = chainAdminApiRoutes(honoWithForms, app, resolveLiveApp)
-
-  // Chain generic AI chat route (POST /api/ai/chat). Always registered;
-  // when AI is not configured (`AI_PROVIDER` unset) the handler returns
-  // 503 with a JSON error envelope. Auth gating (401 when unauthenticated)
-  // is applied above via `authMiddleware + requireAuth` on `/api/ai/chat`.
-  // Chat dictation (POST /api/ai/transcriptions) rides beside it: same
-  // surface, same rate-limit settings, and its own 404-for-anonymous gate.
-  // Chat attachments (POST/GET /api/ai/chat/attachments) ride beside them, with
-  // the same 404-for-anonymous gate.
-  // Answering a question an agent asked (POST /api/ai/chat/elicitations/:id)
-  // rides beside them, with the same 404-for-anyone-else gate. Editing a
-  // question and regenerating an answer ride beside the conversation reads,
-  // behind the same `/api/ai/conversations/*` auth chain.
-  const honoWithAiChat = chainAiConversationBranchRoutes(
-    chainAiChatElicitationRoutes(
-      chainAiChatAttachmentRoutes(
-        chainAiTranscriptionRoutes(chainAiChatRoutes(honoWithAdminLinks, app), app),
-        app
-      )
-    ),
-    app
-  )
-
-  // Chain AI MCP cross-cutting status routes (X-1). Always registered: when
-  // MCP_SERVER_ENABLED / MCP_ENABLED / MCP_CLIENT_SERVERS env vars are unset
-  // the GET handlers return JSON 404 so the API shape stays stable. The
-  // server's actual JSON-RPC `/mcp` route is mounted separately by
-  // `setupMcpRoutes` and is gated by `MCP_ENABLED` (default-off).
-  // Chain AI MCP status routes then AI agent action + human-in-the-loop
-  // approval routes (POST /api/agents/:name/execute, approval lifecycle
-  // endpoints, agent config readback). Both are always registered; handlers
-  // return 404 for agents not declared in `app.agents`, keeping the API shape
-  // stable across configs. Combined into one binding to stay within the
-  // `max-statements` cap for this composition-root function.
-  const honoWithAgents = chainAgentScheduleRoutes(
-    chainAgentApprovalRoutes(chainAiMcpStatusRoutes(honoWithAiChat, app), app),
-    app
-  )
-
-  // Chain RAG routes (the AI RAG requirement-*): config / similarity-search / rebuild /
-  // agent-config readback. `rebuild` and `search` enforce their own gates inside
-  // `rag-route.ts` (so 401 stays distinguishable from 403/404), and that
-  // requires the session to be ATTACHED first — hence `authMiddleware` on all
-  // three paths when `app.auth` is configured.
-  //
-  // `search` joined this list with the RAG read boundary, and had to: without the middleware
-  // its own gate reads no session even for a caller holding a perfectly valid
-  // cookie, so it would 401 EVERY caller rather than only anonymous ones. The
-  // gate and its prerequisite move together.
-  //
-  // `config` and `status` name the knowledge directory's files and the
-  // embedding model, so they require a session outright (401, like `search`).
-  const honoWithRagAuth =
-    auth !== undefined
-      ? (honoWithAgents
-          .use('/api/ai/rag/rebuild', authMiddleware(auth))
-          .use('/api/ai/rag/search', authMiddleware(auth))
-          .use('/api/ai/rag/status', authMiddleware(auth))
-          .use('/api/ai/rag/config', authMiddleware(auth))
-          .use('/api/ai/agents/*', authMiddleware(auth)) as typeof honoWithAgents)
-      : honoWithAgents
-  if (auth !== undefined) {
-    honoWithRagAuth
-      .use('/api/ai/rag/status', requireAuth())
-      .use('/api/ai/rag/config', requireAuth())
+/**
+ * The analytics family's settings, or `undefined` when analytics is off (not
+ * configured, or `false`): then no `/api/analytics/*` route is registered and
+ * every such path answers 404.
+ */
+const analyticsRouteConfig = (app: App) => {
+  if (app.analytics === undefined || app.analytics === false) return undefined
+  const settings = typeof app.analytics === 'object' ? app.analytics : undefined
+  return {
+    appName: app.name,
+    retentionDays: settings?.retentionDays,
+    excludedPaths: settings?.excludedPaths,
+    // Both default to true: an unset key honours the signal, as documented.
+    ...resolvePrivacySignals(app.analytics),
+    // `audience-only` unless the operator wrote `profile: full`.
+    profile: resolveAnalyticsProfile(app.analytics),
+    // Lets `/api/analytics/targets` name the destination each recorded
+    // `targetIndex` resolves to; an index the current list no longer covers
+    // reports null rather than being dropped from the split.
+    resolveLinks: () =>
+      (app.links ?? []).map((link) => ({
+        slug: link.slug,
+        destinations: linkTargets(link).map((target) => target.to),
+      })),
+    // The read endpoints admit the app's top role beside `admin`.
+    app,
   }
-  const honoWithRag = chainRagRoutes(honoWithRagAuth, app)
-
-  // Chain agent facts-memory routes: per-agent
-  // learned-facts chat + recall on `/api/ai/agents/:name/chat` and
-  // `/api/ai/agents/:name/recall`. Always registered; handlers return 404 for
-  // agents not declared in `app.agents`. The `/api/ai/agents/*` auth chain is
-  // installed above alongside `chainRagRoutes` when `app.auth` is configured.
-  const honoWithAiFacts = chainAiFactsRoutes(honoWithRag, app)
-
-  // Chain active-scope session routes (P-6). Always registered: when
-  // `auth.scopeTables` is unset, handlers return 404 — keeping the API
-  // shape stable across configurations. Session validation lives inside
-  // the handlers so 401 / 403 / 404 can be distinguished cleanly per spec.
-  const honoWithActiveScope = chainActiveScopeRoutes(honoWithAiFacts, app)
-
-  // Chain account self-service + GDPR routes (D3/D4/D5): GET
-  // /api/account/export, POST /api/account/delete, POST
-  // /api/account/purge-due. Always registered; the export/delete handlers
-  // return 401 when no session is attached, and `purge-due` runs the
-  // hard-delete scheduler. The `/api/account/*` auth chain is installed
-  // above when `app.auth` is configured.
-  const honoWithAccount = chainAccountRoutes(
-    honoWithActiveScope,
-    app,
-    createAvatarProfileStore(auth)
-  )
-
-  // Chain favorites routes:
-  // GET/POST/DELETE /api/favorites. Always registered; handlers return 401
-  // when no session is attached (the `/api/favorites` auth chain is installed
-  // above when `app.auth` is configured).
-  // Internal trigger routes of the operator-notification jobs (the
-  // interrupted-run sweep and the hourly failure roll-up), the webhook outbox
-  // and the table and run-history retention sweeps. Always registered,
-  // and 404 without the internal scheduler token — the same gate as
-  // `purge-due` above.
-  const honoWithNotificationTriggers = chainRunRetentionRoutes(
-    chainTableRetentionRoutes(
-      chainWebhookOutboxRoutes(
-        chainNotificationTriggerRoutes(honoWithAccount, resolveLiveApp),
-        resolveLiveApp
-      ),
-      resolveLiveApp
-    )
-  )
-
-  const honoWithFavorites = chainNotificationRoutes(
-    chainFavoriteRoutes(honoWithNotificationTriggers, resolveLiveApp),
-    resolveLiveApp
-  )
-
-  // Chain the user directory: GET /api/users/directory. Always registered; the
-  // handler returns 401 when no session is attached (the `/api/users/*` auth
-  // chain is installed above when `app.auth` is configured).
-  const honoWithUserDirectory = chainUserDirectoryRoutes(honoWithFavorites, resolveLiveApp)
-
-  // Chain recent-item + command-palette search routes
-  // GET/POST /api/recent and GET /api/command-search. Always registered; the
-  // `/api/recent` + `/api/command-search` auth chains are installed above when
-  // `app.auth` is configured.
-  const honoWithRecent = chainRecentRoutes(honoWithUserDirectory, resolveLiveApp)
-  // Palette request ceiling (the pages command search hardening requirement, [internal ref]),
-  // registered HERE rather than in either arm of the auth ternary above: the
-  // route is reachable anonymously, so the limiter has to apply on the no-auth
-  // branch too, and this point is downstream of BOTH arms. Mounted before the
-  // handler so a rejected request never reaches the per-table fan-out.
-  const honoWithCommandSearch = chainPageSearchRoutes(
-    chainCommandSearchRoutes(
-      honoWithRecent
-        .use('/api/command-search', commandSearchRateLimitMiddleware)
-        // Session-scoped page search: reachable
-        // anonymously too, so it shares the palette's per-IP ceiling.
-        .use('/api/search/pages', commandSearchRateLimitMiddleware),
-      app,
-      getSession
-    ),
-    app,
-    getSession
-  )
-
-  // Chain realtime presence routes: GET /api/realtime/presence.
-  // Always registered; the handler returns 401 when no session is attached
-  // (the `/api/realtime/presence` auth chain is installed above when
-  // `app.auth` is configured).
-  const honoWithRealtime = chainRealtimeRoutes(honoWithCommandSearch, app, getSession)
-
-  // Chain SCIM provisioning (mounted only when `auth.scim` is declared)
-  const honoWithScim = chainScimRoutes(honoWithRealtime, app, auth)
-
-  // Chain auth routes (role manipulation prevention)
-  return chainAuthRoutes(honoWithScim, app, auth)
 }
 
 /**
- * Type export for Hono RPC client
- *
- * This type is used by the RPC client to provide full type safety
- * and autocomplete for API calls on the frontend.
- *
- * **Important**: This type must be extracted from the chained result,
- * not from a sub-app mounted with .route()
- *
- * @example
- * ```typescript
- * import { hc } from 'hono/client'
- * import type { ApiType } from '@/infrastructure/server/route-setup/api-routes'
- *
- * const client = hc<ApiType>('http://localhost:3000')
- * const res = await client.api.health.$get()
- * const data = await res.json() // Fully typed HealthResponse!
- * ```
- * @public
+ * The session the RAG and agent-facts routes judge. `rebuild` and `search`
+ * enforce their own gates inside `agents/rag-routes.ts` (so 401 stays distinguishable
+ * from 403/404), which requires the session to be ATTACHED first — without
+ * the middleware a gate reads no session even for a caller holding a valid
+ * cookie, and would 401 every caller. `config` and `status` name the knowledge
+ * directory's files and the embedding model, so they require a session
+ * outright. Nothing is registered without auth.
  */
-export type ApiType = ReturnType<typeof createApiRoutes<Hono>>
+const guardRagRoutes = (hono: Hono, auth: AuthInstance | undefined): void => {
+  if (auth === undefined) return
+  hono
+    .use('/api/ai/rag/rebuild', authMiddleware(auth))
+    .use('/api/ai/rag/search', authMiddleware(auth))
+    .use('/api/ai/rag/status', authMiddleware(auth))
+    .use('/api/ai/rag/config', authMiddleware(auth))
+    .use('/api/ai/agents/*', authMiddleware(auth))
+    .use('/api/ai/rag/status', requireAuth())
+    .use('/api/ai/rag/config', requireAuth())
+}
+
+/**
+ * Every `/api/*` registration, in order. Each family is always registered
+ * unless its row says otherwise; a family whose entity is not declared answers
+ * 404 from its handler, so the API shape stays stable across configurations.
+ */
+const apiRouteSteps = (
+  app: App,
+  auth: AuthInstance | undefined,
+  getSession: PageReaderResolver | undefined
+): readonly RouteStep[] => {
+  const analytics = analyticsRouteConfig(app)
+  return [
+    applyEcoStack,
+    (hono) => hono.get('/api/health', async (c) => handleHealthCheck(c, app, auth)),
+    // Transport guards, rate limits, session extraction and every per-path
+    // authorisation gate, as one block, ahead of every family below.
+    (hono) => applyApiAuthGuards(hono, app, auth),
+    // Tables first: the session is on `c.var.session`; `app` maps tableId → name.
+    (hono) => chainTableRoutes(hono, app),
+    (hono) => chainActivityRoutes(hono, app),
+    (hono) => (analytics === undefined ? hono : chainAnalyticsRoutes(hono, analytics)),
+    // Webhook triggers + run history; an unknown automation is a handler 404.
+    (hono) => chainAutomationRoutes(hono, app, getSession),
+    chainEmailLinkRoutes,
+    // OAuth2 connections: `app.connections[]` configures providers; per-user
+    // tokens persist to system.connection_tokens, encrypted at rest.
+    (hono) => chainConnectionRoutes(hono, app),
+    // Files, with per-bucket public/private enforcement.
+    (hono) => chainBucketRoutes(hono, app),
+    // Standalone forms (GET /forms/:name, custom-path aliases, submissions).
+    // The renderers are injected here, at the composition root, because the
+    // presentation route file cannot import the React renderer under the layer
+    // rules; the caller's table answer narrows a form page as an embedded form.
+    (hono) =>
+      chainFormRoutes(hono, app, {
+        ...FormRenderers,
+        readTableAsCaller: (c) => callerTableReaders(c).readTableAsCaller,
+      }),
+    // Every `/api/admin/*` read. See `admin/routes.ts`.
+    (hono) => chainAdminApiRoutes(hono, app),
+    // AI chat (503 when no `AI_PROVIDER`), dictation, attachments, answering an
+    // agent's question, then editing a question / regenerating an answer.
+    (hono) => chainAiChatRoutes(hono, app),
+    (hono) => chainAiTranscriptionRoutes(hono, app),
+    (hono) => chainAiChatAttachmentRoutes(hono, app),
+    chainAiChatElicitationRoutes,
+    (hono) => chainAiConversationBranchRoutes(hono, app),
+    // MCP status (JSON 404 while the MCP env vars are unset; the JSON-RPC
+    // `/mcp` route is `setupMcpRoutes`'), agent execution + approvals, schedules.
+    (hono) => chainAiMcpStatusRoutes(hono, app),
+    (hono) => chainAgentApprovalRoutes(hono, app),
+    (hono) => chainAgentScheduleRoutes(hono, app),
+    (hono) => guardRagRoutes(hono, auth),
+    (hono) => chainRagRoutes(hono, app),
+    // Per-agent learned facts, behind the `/api/ai/agents/*` session above.
+    (hono) => chainAiFactsRoutes(hono, app),
+    // Session validation lives in the handlers, so 401/403/404 stay distinct.
+    (hono) => chainActiveScopeRoutes(hono, app),
+    // Account self-service + GDPR export, delete and the purge-due scheduler.
+    (hono) => chainAccountRoutes(hono, app, createAvatarProfileStore(auth)),
+    // Internal scheduler triggers: operator notifications, the webhook outbox,
+    // table and run-history retention, expired sign-in rows. 404 without the
+    // scheduler token.
+    (hono) => chainNotificationTriggerRoutes(hono, app),
+    (hono) => chainWebhookOutboxRoutes(hono, app),
+    (hono) => chainTableRetentionRoutes(hono, app),
+    chainRunRetentionRoutes,
+    chainExpiredAuthRowsRoutes,
+    (hono) => chainFavoriteRoutes(hono, app),
+    (hono) => chainNotificationRoutes(hono, app),
+    (hono) => chainUserDirectoryRoutes(hono, app),
+    (hono) => chainRecentRoutes(hono, app),
+    // The palette's per-IP ceiling, ahead of its handlers and outside the auth
+    // guards: both routes are reachable anonymously, so the limiter must hold
+    // with and without auth, and a refused request never reaches the fan-out.
+    (hono) =>
+      hono
+        .use('/api/command-search', commandSearchRateLimitMiddleware)
+        .use('/api/search/pages', commandSearchRateLimitMiddleware),
+    (hono) => chainCommandSearchRoutes(hono, app, getSession),
+    (hono) => chainPageSearchRoutes(hono, app, getSession),
+    (hono) => chainRealtimeRoutes(hono, app, getSession),
+    // SCIM provisioning, registered only when `auth.scim` is declared.
+    (hono) => chainScimRoutes(hono, app, auth),
+    // Role-manipulation prevention.
+    (hono) => chainAuthRoutes(hono, app, auth),
+  ]
+}
+
+/**
+ * Register every `/api/*` route on `honoApp`, in the order that is the contract.
+ *
+ * @param app - Validated application configuration from AppSchema
+ * @param honoApp - Hono instance to register the routes on
+ * @param auth - Built once in `createHonoApp` and passed in, so Better Auth is
+ *   not loaded on a boot without `app.auth`. `undefined` exactly then.
+ * @param getSession - The router's own session reader, so the page searches
+ *   filter by the same `checkPageAccess` input a visit is judged on.
+ * @returns `honoApp`, with every API route registered
+ */
+export const createApiRoutes = (
+  app: App,
+  honoApp: Hono,
+  auth?: AuthInstance,
+  getSession?: PageReaderResolver
+): Hono => {
+  // Reset every in-process singleton that must not outlive this boot.
+  resetBootState()
+  apiRouteSteps(app, auth, getSession).forEach((step) => step(honoApp))
+  return honoApp
+}

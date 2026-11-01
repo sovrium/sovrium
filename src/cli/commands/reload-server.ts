@@ -1,0 +1,396 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { classifyConfigChange } from '@/application/use-cases/config/classify-config-change'
+import { lazyImportCli, lazyImportIndex } from '@/cli/runtime/lazy-modules'
+import { messageAsConfigFinding } from '@/domain/kernel/config-parsing/decode-report-format'
+import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
+import { searchIndexDir } from '@/domain/models/process-env/data-dir'
+import { printJournalWarning } from '@/infrastructure/logging/cli-output'
+import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
+import { computeConfigHash } from '@/infrastructure/server/lock-file'
+import { asMissingRefRefusal } from './missing-ref-refusal'
+import { restartServer } from './reload-restart'
+import type { ConfigChangeVerdict } from '@/application/use-cases/config/classify-config-change'
+import type { StartOptions } from '@/application/use-cases/server/start-server-options'
+import type { ConfigFinding } from '@/domain/kernel/config-parsing/decode-report-format'
+import type { App, AppEncoded } from '@/domain/models/app'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
+import type { SimpleServer } from '@/index'
+
+/**
+ * The outcome of a successful reload: the server now serving, the files the
+ * reloaded config is made of — the set the watcher must follow from now on —
+ * and the config the next save will be diffed against, decoded and raw.
+ *
+ * The RAW config is retained alongside the decoded one because it is the only
+ * form `start()` accepts, and a rollback has to be able to boot the last-good
+ * config again. Keeping it here rather than re-reading the file is what makes
+ * "last good" mean the bytes that actually booted, rather than whatever is on
+ * disk at the moment the rollback needs them — which, after a bad save, is
+ * precisely the thing that does not boot.
+ */
+export interface ReloadSuccess {
+  readonly ok: true
+  readonly server: SimpleServer
+  readonly files: ReadonlyArray<string>
+  readonly app: App
+  readonly rawApp: AppEncoded
+  readonly anchor: ConfigAnchor
+}
+
+/**
+ * What the reload did to the LISTENER, which is the only thing the operator's
+ * browser tab cares about and the only thing the printed sentence may claim.
+ *
+ * The three are mutually exclusive and exhaustive, and each maps to exactly one
+ * sentence (see `describeReloadFailure` in `start.ts`). Making this a value
+ * rather than a comment is the point: a constant message printed on every path
+ * would emit "the previous server is still serving" over a dead port and send
+ * the operator looking for the fault in their browser.
+ */
+export type ReloadServerState =
+  /** Nothing was stopped — the pre-flight refused the save, or it never got that far. */
+  | 'kept'
+  /** It was stopped, the new config would not boot, and the last-good one came back. */
+  | 'rolled-back'
+  /** It was stopped, the new config would not boot, and neither would the old one. */
+  | 'down'
+
+/** How far a failing reload got, for the operator and for the log. */
+export type ReloadFailurePhase = 'load' | 'preflight' | 'boot'
+
+/** A reload that did not happen, and what it left behind. */
+export interface ReloadFailure {
+  readonly ok: false
+  /**
+   * The files the attempt READ, even though it failed.
+   *
+   * Re-deriving the watched set only from a successful reload would leave a
+   * file unwatched when a save introduces a `$ref` and then fails — and that
+   * file is the one the operator is about to edit, because it is the one that
+   * is wrong. Empty only when the load itself
+   * failed and there is nothing to report.
+   */
+  readonly files: ReadonlyArray<string>
+  readonly phase: ReloadFailurePhase
+  readonly serverState: ReloadServerState
+  /**
+   * The refusal, in the words the operator acts on. Non-empty only for a
+   * pre-flight refusal, which is prose rather than a fault and must not be
+   * rendered through a stack formatter.
+   */
+  readonly refusals: readonly string[]
+  /**
+   * The SAME refusal, located and structured — the shape `sovrium validate
+   * --json` publishes and the shape the status file records.
+   *
+   * Never empty. `refusals` and `error` are for a person reading a terminal;
+   * this is for the two readers that are not there — the supervisor polling
+   * `status.json` and the browser tab holding an open dev-reload stream. A
+   * refusal that could not be located is still published here with an empty
+   * `path`, so a caller reading only this field has seen every reason.
+   */
+  readonly findings: readonly ConfigFinding[]
+  readonly error: unknown
+  /** Why the rollback ALSO failed, on `down` and nowhere else. */
+  readonly rollbackError: unknown
+  /** The server the watcher must hold from now on — a rollback replaces it. */
+  readonly server: SimpleServer
+}
+
+/** What one save produced. */
+export type ReloadOutcome = ReloadSuccess | ReloadFailure
+
+/** Everything one reload needs. An object because there are several of them. */
+export interface ReloadServerParams {
+  /** Path of the config graph's root file. */
+  readonly filePath: string
+  readonly currentServer: SimpleServer
+  /** The decoded config the running server was built from. */
+  readonly currentApp: App
+  /** The raw config the running server was built from — what a rollback boots. */
+  readonly currentRawApp: AppEncoded
+  /** The anchor the running server publishes as `X-Sovrium-Config`. */
+  readonly currentAnchor: ConfigAnchor
+  readonly options: StartOptions
+  /**
+   * Called once the save has been classified and BEFORE anything is done about
+   * it, so the watcher can tell the operator which of the two paths this save
+   * is taking — and, on a restart, which key forced it.
+   */
+  readonly announce: (verdict: ConfigChangeVerdict) => void
+}
+
+/** What identifies the config a server is running, on boot and on reload. */
+export interface ConfigAnchor {
+  /** Hash published as `X-Sovrium-Config` and recorded in the lock file. */
+  readonly configHash: string
+  /** Absolute path of the config's root file; `''` when the config is inline. */
+  readonly configPath: string
+}
+
+/**
+ * Resolve the anchor for a config, from its file when there is one.
+ *
+ * ONE definition of "which config is this", shared by the boot call in
+ * `handleStartCommand` and by every `--watch` reload. Keeping the two in step
+ * matters more than the three lines it saves: the hash is what
+ * `X-Sovrium-Config` publishes and what the lock file records, so a boot and a
+ * reload that hashed different bytes would make a server disagree with itself
+ * about what it is running.
+ *
+ * `configFile` is absent only for an inline config (`APP_SCHEMA=…`), which has
+ * no file to read and no path to record — the config's own serialization is
+ * then the only thing there is to hash.
+ */
+export const resolveConfigAnchor = async (
+  configFile: string | undefined,
+  inlineConfig: AppEncoded
+): Promise<ConfigAnchor> =>
+  configFile
+    ? {
+        configHash: computeConfigHash(await readFile(configFile, 'utf-8')),
+        configPath: resolve(configFile),
+      }
+    : { configHash: computeConfigHash(JSON.stringify(inlineConfig)), configPath: '' }
+
+/**
+ * Whether a config declares a page-scoped `search-input`, and therefore wants the
+ * search artifacts materialized.
+ *
+ * The reload path holds the encoded `AppEncoded`; `hasPageSearchComponent`
+ * reads only `.pages` and `.components` as an untyped tree, so it takes the
+ * authored config as it is.
+ *
+ * The BOOT path no longer comes through here: `startServer` asks the same
+ * question of the already-decoded `App` (`resolveEffectivePublicDir` in
+ * `application/use-cases/server/start-server.ts`) and needs no cast at all.
+ */
+const needsSearchIndex = (rawApp: AppEncoded): boolean => hasPageSearchComponent(rawApp)
+
+/**
+ * Build the page-search index for a config, reporting failures to `onError`.
+ *
+ * The index is a BUILD ARTIFACT, not a lazily-computed response: it is written
+ * under the data directory (`searchIndexDir`, never the app's `public/`
+ * folder) and the static-asset route then serves it as an ordinary file. The BOOT emission belongs to `startServer` now, so this is
+ * the RELOAD half only — a `--watch` developer who adds a page would otherwise
+ * watch it render correctly and stay unfindable, silently, because the search
+ * box keeps working and simply returns nothing. It runs before the watcher
+ * reports the reload done, so "the page is live" and "the page is findable"
+ * become true together.
+ *
+ * A failure is always swallowed: an index that could not be built must not
+ * take the server down with it. `onError` decides only how it is REPORTED —
+ * the watcher labels its line `[watch]`.
+ */
+const buildSearchIndex = async (
+  rawApp: AppEncoded,
+  searchDir: string,
+  onError: (error: unknown) => void
+): Promise<void> => {
+  const { prebuildSearchIndex } = await lazyImportIndex()
+  // `await`, not `return`: the indexer resolves with a value this function
+  // deliberately does not surface, and returning `.catch(onError)` directly
+  // would widen the result to `boolean | void`.
+  await prebuildSearchIndex(rawApp, searchDir).catch(onError)
+}
+
+/** Rebuild the page-search index for a reloaded config. */
+const rebuildSearchIndex = async (rawApp: AppEncoded, searchDir: string): Promise<void> => {
+  if (!needsSearchIndex(rawApp)) return
+  return buildSearchIndex(rawApp, searchDir, (error) => {
+    // A WARNING, not an error (T41): the reload itself succeeded and the pages
+    // are live — only the search index behind them is stale. A multi-line cause
+    // is split into stamped continuation rows by the printer.
+    printJournalWarning('watch', `Search index not rebuilt: ${formatRuntimeError(error)}`)
+  })
+}
+
+/**
+ * Reload the server from a changed config file.
+ *
+ * Called when any file of the config graph changes during `--watch`. Loads the
+ * new config, decodes it ONCE, classifies the change, and then takes one of
+ * two paths: an in-place handler swap into the live listener, or a pre-flight
+ * followed by a full teardown and rebind. Uses dynamic imports to avoid loading
+ * native modules at startup.
+ *
+ * DECODE BEFORE ANYTHING ELSE. `start()` decodes too, through this same shared
+ * pipeline and deterministically, so running it here is a pre-flight rather
+ * than a second opinion — and it is what makes the watcher's "keep the old
+ * server running on error" promise true for the class of error a `--watch`
+ * operator actually produces: a typo'd property never costs them the port. The
+ * decoded value is then handed onward rather than re-derived, so one save
+ * decodes once.
+ *
+ * IT RETURNS ITS FAILURES RATHER THAN THROWING THEM, and that is the point of
+ * the shape. A thrown error says what went wrong and nothing about what became
+ * of the listener, so the caller had no choice but to print one fixed sentence
+ * over three different outcomes — and it printed the reassuring one. A
+ * {@link ReloadOutcome} carries `serverState`, so the sentence is derived from
+ * what happened instead of assumed.
+ */
+export const reloadServer = async (params: ReloadServerParams): Promise<ReloadOutcome> => {
+  const loaded = await loadAndDecode(params)
+  if ('failure' in loaded) return loaded.failure
+
+  const { rawApp, files, app, authoredTableIds, anchor, verdict } = loaded
+  if (verdict.kind === 'hot') {
+    await params.currentServer.reload(app, anchor.configHash)
+    return finishReload(params, { server: params.currentServer, files, app, rawApp, anchor })
+  }
+
+  // The expensive path. Ask everything that is answerable while the listener is
+  // still bound, BEFORE touching it — a refusal here costs the operator a log
+  // line, where the same refusal one step later costs them their port.
+  const { preflightRestartReload } = await import('./reload-preflight')
+  const refusals = await preflightRestartReload(app, authoredTableIds)
+  if (refusals.length > 0) {
+    // A pre-flight refusal is prose with no position — it relates declarations
+    // the decoder already accepted individually — so each one is published
+    // whole under an empty path rather than given an invented one.
+    return refused(params, {
+      files,
+      phase: 'preflight',
+      refusals,
+      findings: refusals.map((refusal) => messageAsConfigFinding(refusal)),
+      error: undefined,
+    })
+  }
+
+  const restarted = await restartServer(params, rawApp, anchor)
+  if (!restarted.booted) {
+    return {
+      ok: false,
+      files,
+      phase: 'boot',
+      serverState: restarted.serverState,
+      refusals: [],
+      findings: [messageAsConfigFinding(formatRuntimeError(restarted.error))],
+      error: restarted.error,
+      rollbackError: restarted.rollbackError,
+      server: restarted.server,
+    }
+  }
+
+  return finishReload(params, { server: restarted.server, files, app, rawApp, anchor })
+}
+
+/** A failure that never touched the listener. */
+const refused = (
+  params: ReloadServerParams,
+  detail: {
+    readonly files: ReadonlyArray<string>
+    readonly phase: ReloadFailurePhase
+    readonly refusals: readonly string[]
+    readonly findings: readonly ConfigFinding[]
+    readonly error: unknown
+  }
+): ReloadFailure => ({
+  ok: false,
+  files: detail.files,
+  phase: detail.phase,
+  serverState: 'kept',
+  refusals: detail.refusals,
+  findings: detail.findings,
+  error: detail.error,
+  rollbackError: undefined,
+  server: params.currentServer,
+})
+
+/** What a load produced, or the failure that stands in for it. */
+type LoadedConfig =
+  | {
+      readonly rawApp: AppEncoded
+      readonly files: ReadonlyArray<string>
+      readonly app: App
+      /** The ids the author WROTE, from the same decode — the pre-flight reads renames from them. */
+      readonly authoredTableIds: AuthoredTableIds
+      readonly anchor: ConfigAnchor
+      readonly verdict: ConfigChangeVerdict
+    }
+  | { readonly failure: ReloadFailure }
+
+/** A load that threw, as the failure the watcher reports. */
+const loadFailure = async (params: ReloadServerParams, thrown: unknown): Promise<ReloadFailure> => {
+  const missing = await asMissingRefRefusal(params.filePath, thrown)
+  return refused(params, {
+    files: missing?.files ?? [],
+    phase: 'load',
+    refusals: [],
+    findings: [messageAsConfigFinding(missing?.error.message ?? formatRuntimeError(thrown))],
+    error: missing?.error ?? thrown,
+  })
+}
+
+/**
+ * Read the config graph, decode it, and classify the save — every step of which
+ * happens while the running server is untouched, so any failure here is `kept`
+ * by construction.
+ */
+const loadAndDecode = async (params: ReloadServerParams): Promise<LoadedConfig> => {
+  const { filePath, currentApp, announce } = params
+  const { loadSchemaGraphForReload } = await lazyImportCli()
+  const { decodeAppConfigObject } = await import('@/application/use-cases/config/decode-app-config')
+  const { ConfigRejectedError } = await import('@/domain/errors/config-rejected')
+
+  const loaded = await loadSchemaGraphForReload(filePath).then(
+    (result) => result,
+    (error: unknown) => ({ error })
+  )
+  if ('error' in loaded) return { failure: await loadFailure(params, loaded.error) }
+
+  const { config: rawApp, files } = loaded
+  const decoded = decodeAppConfigObject(rawApp)
+  if (!decoded.valid) {
+    const error = new ConfigRejectedError(decoded.errors.join('\n'))
+    // `files` even on a refusal: the save may have introduced a `$ref` the
+    // watcher has to start following, and the file it introduced is the one the
+    // operator is about to correct.
+    //
+    // The structured half comes from the SAME decode rather than being parsed
+    // back out of the prose above — which is the point of the pipeline
+    // returning both, and the only way the two can be guaranteed to describe
+    // the same mistake.
+    return {
+      failure: refused(params, {
+        files,
+        phase: 'load',
+        refusals: [],
+        findings: decoded.findings,
+        error,
+      }),
+    }
+  }
+
+  const anchor = await resolveConfigAnchor(filePath, rawApp)
+  const verdict = classifyConfigChange(currentApp, decoded.app)
+  announce(verdict)
+  return {
+    rawApp,
+    files,
+    app: decoded.app,
+    authoredTableIds: decoded.authoredTableIds,
+    anchor,
+    verdict,
+  }
+}
+
+/** Rebuild the derived artifacts a reloaded config owns, and report success. */
+const finishReload = async (
+  params: ReloadServerParams,
+  success: Omit<ReloadSuccess, 'ok'>
+): Promise<ReloadSuccess> => {
+  if (!params.options.publicDirOptOut) {
+    await rebuildSearchIndex(success.rawApp, searchIndexDir(process.env, process.pid))
+  }
+  return { ok: true, ...success }
+}

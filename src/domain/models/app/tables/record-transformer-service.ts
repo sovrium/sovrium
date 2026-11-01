@@ -1,0 +1,599 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import {
+  ALL_LANGUAGES,
+  localizeStoredValue,
+} from '@/domain/models/app/languages/localized-value-service'
+import { serializeDriverValue } from '@/domain/models/app/tables/driver-value-service'
+import { isSingleAttachmentFieldType } from '@/domain/models/app/tables/field-type-classifier-service'
+import { toStringRelationshipValue } from '@/domain/models/app/tables/record-id-service'
+import { TEXT_STORED_JSON_FIELD_TYPES } from '@/domain/models/app/tables/stored-json-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
+import { translatableReadFieldsOf } from '@/domain/models/app/tables/translatable-read-service'
+import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
+import { formatFieldForDisplay, type FormatResult } from './display-formatter-service'
+import type { App } from '@/domain/models/app'
+
+/** The operator timezone when `SOVRIUM_TIMEZONE` is unset — the zone it then resolves to. */
+const OPERATOR_TIMEZONE_UNSET = 'UTC'
+
+/**
+ * Field value types supported by record transformation
+ */
+export type RecordFieldValue =
+  string | number | boolean | readonly unknown[] | Readonly<Record<string, unknown>> | null
+
+/**
+ * Formatted field value with optional display formatting
+ */
+export interface FormattedFieldValue {
+  readonly value: RecordFieldValue
+  readonly displayValue?: string
+  readonly timezone?: string
+  readonly displayTimezone?: string
+  readonly allowedFileTypes?: readonly string[]
+  readonly maxFileSize?: number
+  readonly maxFileSizeDisplay?: string
+}
+
+/**
+ * Transformed record structure for API responses (Airtable-style)
+ *
+ * System fields (id, createdAt, updatedAt, createdBy, updatedBy) are at root level.
+ * User-defined fields are nested under the `fields` property.
+ */
+export interface TransformedRecord {
+  readonly id: string
+  readonly fields: Record<string, RecordFieldValue | FormattedFieldValue>
+  readonly createdAt: string
+  readonly updatedAt: string
+  readonly createdBy?: string
+  readonly updatedBy?: string
+  readonly deletedBy?: string
+}
+
+/**
+ * Convert a value to ISO 8601 datetime string
+ *
+ * @param value - Value to convert (Date object or string)
+ * @returns ISO 8601 datetime string
+ */
+const toISOString = (value: unknown): string => {
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+  if (typeof value === 'string') {
+    // Already ISO-8601 (has the date/time `T` separator) → pass through.
+    if (value.includes('T')) return value
+    // SQLite's `CURRENT_TIMESTAMP` yields a bare UTC "YYYY-MM-DD HH:MM:SS" string
+    // (no T/Z/ms) that fails the ISO-8601 response validator. Normalise it while
+    // PRESERVING UTC — `new Date("YYYY-MM-DD HH:MM:SS")` would parse as LOCAL time
+    // and shift the instant, so append the explicit `T`/`Z` before parsing.
+    const normalized = new Date(`${value.replace(' ', 'T')}Z`)
+    return Number.isNaN(normalized.getTime()) ? value : normalized.toISOString()
+  }
+  return new Date().toISOString()
+}
+
+/**
+ * Numeric field types that should return number values in API responses.
+ * PostgreSQL DECIMAL/NUMERIC types are returned as strings by database drivers,
+ * so we coerce them to numbers based on the field's schema type.
+ *
+ * Per the field-value wire-representation contract, `decimal` is
+ * DELIBERATELY EXCLUDED from this set: `decimal` is the precision-preserving
+ * escape hatch and must round-trip as a STRING on BOTH dialects (mirroring
+ * PostgreSQL's own numeric→string driver behavior to avoid binary-float
+ * precision loss beyond 2^53). The ergonomic money/ratio types (currency /
+ * percentage) stay numbers and ARE coerced here. `decimal` is handled
+ * separately by STRING_DECIMAL_FIELD_TYPES below (which stringifies the SQLite
+ * NUMERIC-affinity number read-back so it matches Postgres's string form).
+ */
+const NUMERIC_FIELD_TYPES: ReadonlySet<string> = new Set([
+  'currency',
+  'number',
+  'integer',
+  'percentage',
+  'percent',
+  'rating',
+  'duration',
+])
+
+/**
+ * Boolean field types whose stored value must be coerced to a JS boolean in
+ * API responses.
+ * SQLite has no native boolean type — a `checkbox`/`boolean` column maps to
+ * `INTEGER` and reads back as `0`/`1`. PostgreSQL returns a real `boolean`.
+ * Coercing here makes the records-API response dialect-independent: callers
+ * always see `true`/`false`. On PostgreSQL the value is already a boolean, so
+ * the coercion is an identity no-op.
+ */
+const BOOLEAN_FIELD_TYPES: ReadonlySet<string> = new Set(['checkbox', 'boolean', 'bool'])
+
+/**
+ * Field types whose value is JSON-serialized as TEXT on SQLite but stored
+ * natively (TEXT[] / JSONB) on PostgreSQL.
+ *
+ * On PostgreSQL these deserialize to a native JS array / object; on SQLite they
+ * read back as the raw JSON string (e.g. `'["a","b"]'`). Coercing here makes the
+ * records-API response dialect-independent: callers always see a parsed array /
+ * object. The coercion is type-guarded (only a `string` value is parsed), so on
+ * PostgreSQL — where the value is already an array/object — it is a no-op, which
+ * also makes double-application idempotent.
+ *
+ * `array` belongs here for exactly the same reason `multi-select` does, and its
+ * absence was an enumeration omission rather than a decision: the two types are
+ * IDENTICAL at every other layer — both compile to `TEXT[]` on PostgreSQL
+ * (`sql-type-mappings.ts`), both collapse to `TEXT` holding JSON on SQLite, and
+ * both are written through the same `bindJsonb` encoder. Only membership of
+ * this Set differed, so `multi-select` came back as `['a']` and `array` came
+ * back as the string `'["a"]'` on the default engine.
+ *
+ * `multiple-attachments` is the same omission a second time, and it hid longer
+ * because something else was quietly covering for it. It shares every layer with
+ * `json` — `JSONB` on PostgreSQL, `TEXT` holding JSON on SQLite
+ * (`sql-type-mappings.ts`), same write encoder — so on SQLite it read back as
+ * the raw document `'[{"filename":"a.pdf"}]'`. What masked that is
+ * `attachment-url-enricher.ts`, which re-parses the cell itself before minting
+ * download URLs: a property of the THREE call sites that run it (list, get-one,
+ * create — `programs.ts`), not of the field type. PATCH, batch-create and
+ * restore do not run the enricher, so the same stored row answered with an array
+ * or with a string depending on which verb asked. Membership here fixes the
+ * shape at the transformer, which every read path shares.
+ */
+const JSON_DESERIALIZED_FIELD_TYPES: ReadonlySet<string> = TEXT_STORED_JSON_FIELD_TYPES
+
+/**
+ * The one rollup aggregation whose result is an ARRAY rather than a scalar.
+ *
+ * `rollup` cannot join {@link JSON_DESERIALIZED_FIELD_TYPES} wholesale — that
+ * Set is keyed on field TYPE, and seven of the eight aggregations produce a
+ * scalar. Parsing those would be actively destructive rather than merely
+ * useless: `JSON.parse` turns a `decimal` SUM read back as the string `'12.50'`
+ * into the NUMBER `12.5`, silently undoing the precision-preserving string
+ * contract that `stringifyDecimalField` exists to uphold two
+ * functions below.
+ *
+ * So the discriminator is the aggregation, not the type. On SQLite an
+ * `ARRAYUNIQUE` rollup is `json_group_array(...)` — TEXT holding JSON — for the
+ * same reason `array` and `multi-select` are: the engine has no array type.
+ * On PostgreSQL it is a native `text[]` and the parse is a no-op, exactly as it
+ * is for the four types above.
+ */
+const ARRAY_VALUED_ROLLUP_AGGREGATION = 'ARRAYUNIQUE'
+
+/**
+ * Field types whose value must round-trip as a STRING on BOTH dialects.
+ *
+ * PostgreSQL `DECIMAL` deserializes to a precision-preserving string; SQLite
+ * `NUMERIC` affinity deserializes to a native JS number. Per the decided
+ * contract, raw `decimal` is a string on both dialects (currency /
+ * percentage stay numbers — they are handled by NUMERIC_FIELD_TYPES). Coercing here is
+ * type-guarded (only a `number` value is stringified), so on PostgreSQL — where
+ * the value is already a string — it is a no-op and double-application is
+ * idempotent.
+ */
+const STRING_DECIMAL_FIELD_TYPES: ReadonlySet<string> = new Set(['decimal'])
+
+/**
+ * Apply displayName override to an attachment object.
+ * When an attachment has a displayName property, the API response uses
+ * displayName as the filename, giving callers a user-friendly label
+ * without altering the stored filename.
+ */
+function applyAttachmentDisplayName(value: RecordFieldValue): RecordFieldValue {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return value
+  const attachment = value as Record<string, unknown>
+  if (!attachment['displayName']) return value
+  return { ...attachment, filename: attachment['displayName'] }
+}
+
+/**
+ * Look up a field's type from the app schema
+ */
+const getFieldType = (
+  app: Readonly<App>,
+  tableName: string,
+  fieldName: string
+): string | undefined => {
+  const table = findTableByName(app.tables, tableName)
+  return table?.fields.find((f) => f.name === fieldName)?.type
+}
+
+/**
+ * Does this field carry JSON-as-TEXT on SQLite and a native array/object on
+ * PostgreSQL?
+ *
+ * Three answers, one question: a member of {@link JSON_DESERIALIZED_FIELD_TYPES},
+ * a `user` field holding several people (a list column, like a multi-select),
+ * or the one rollup aggregation yielding an array ({@link ARRAY_VALUED_ROLLUP_AGGREGATION}).
+ * Kept as one predicate so the read path has ONE place to ask.
+ */
+const isJsonDeserializedField = (
+  app: Readonly<App>,
+  tableName: string,
+  fieldName: string
+): boolean => {
+  const field = app.tables
+    ?.find((t) => t.name === tableName)
+    ?.fields.find((f) => f.name === fieldName)
+  if (!field) return false
+  if (JSON_DESERIALIZED_FIELD_TYPES.has(field.type) || isUserListField(field)) return true
+  return (
+    field.type === 'rollup' &&
+    'aggregation' in field &&
+    typeof field.aggregation === 'string' &&
+    field.aggregation.toUpperCase() === ARRAY_VALUED_ROLLUP_AGGREGATION
+  )
+}
+
+/**
+ * Coerce a string value to a number if the field type is numeric.
+ * Returns the original value unchanged for non-numeric field types.
+ */
+const coerceNumericField = (
+  fieldName: string,
+  value: RecordFieldValue,
+  app: Readonly<App>,
+  tableName: string
+): RecordFieldValue => {
+  if (typeof value !== 'string') return value
+  const fieldType = getFieldType(app, tableName, fieldName)
+  if (!fieldType || !NUMERIC_FIELD_TYPES.has(fieldType)) return value
+  const num = Number(value)
+  return !isNaN(num) && isFinite(num) ? num : value
+}
+
+/**
+ * Coerce a checkbox/boolean field value to a JS boolean.
+ *
+ * Accepts the SQLite `0`/`1` integer representation (and the `'0'`/`'1'` /
+ * `'true'`/`'false'` string forms) and normalizes to `true`/`false`. `null`
+ * is preserved (an unset boolean). Returns the value unchanged for non-boolean
+ * field types — so on PostgreSQL (already a real boolean) this is a no-op.
+ */
+const coerceBooleanField = (
+  fieldName: string,
+  value: RecordFieldValue,
+  app: Readonly<App>,
+  tableName: string
+): RecordFieldValue => {
+  const fieldType = getFieldType(app, tableName, fieldName)
+  if (!fieldType || !BOOLEAN_FIELD_TYPES.has(fieldType)) return value
+  if (value === null || typeof value === 'boolean') return value
+  if (typeof value === 'number') return value !== 0
+  if (typeof value === 'string') return value === '1' || value.toLowerCase() === 'true'
+  return value
+}
+
+/**
+ * Deserialize a JSON-as-TEXT field value back to its parsed array/object form.
+ *
+ * Only applies to the {@link JSON_DESERIALIZED_FIELD_TYPES} field types and only
+ * when the value is a string (the SQLite case). On PostgreSQL the value is
+ * already a native array/object, so this is a no-op — which also makes
+ * double-application idempotent. A string that fails to parse is left unchanged.
+ */
+const deserializeJsonField = (
+  fieldName: string,
+  value: RecordFieldValue,
+  app: Readonly<App>,
+  tableName: string
+): RecordFieldValue => {
+  if (typeof value !== 'string') return value
+  if (!isJsonDeserializedField(app, tableName, fieldName)) return value
+  try {
+    return JSON.parse(value) as RecordFieldValue
+  } catch {
+    return value
+  }
+}
+
+/**
+ * Stringify a `decimal` field value to match PostgreSQL's precision-preserving
+ * string representation.
+ *
+ * Only applies to `decimal` field types and only when the value is a number (the
+ * SQLite case). On PostgreSQL the value is already a string, so this is a no-op —
+ * which also makes double-application idempotent.
+ */
+const stringifyDecimalField = (
+  fieldName: string,
+  value: RecordFieldValue,
+  app: Readonly<App>,
+  tableName: string
+): RecordFieldValue => {
+  if (typeof value !== 'number') return value
+  const fieldType = getFieldType(app, tableName, fieldName)
+  if (!fieldType || !STRING_DECIMAL_FIELD_TYPES.has(fieldType)) return value
+  return String(value)
+}
+
+/**
+ * Convert string numbers to numeric values (used in display format path)
+ */
+const parseNumericString = (value: unknown, processedValue: RecordFieldValue): RecordFieldValue => {
+  // Coerce string numbers to numeric values for numeric field types
+  if (typeof value === 'string') {
+    const num = Number(value)
+    return !isNaN(num) && isFinite(num) ? num : processedValue
+  }
+  return typeof value === 'number' ? value : processedValue
+}
+
+/**
+ * Build formatted field value with optional metadata
+ */
+function buildFormattedValue(
+  fieldValue: RecordFieldValue,
+  formatResult: Readonly<FormatResult>
+): FormattedFieldValue {
+  const base: FormattedFieldValue = {
+    value: fieldValue,
+    displayValue: formatResult.displayValue,
+  }
+
+  return {
+    ...base,
+    ...(formatResult.timezone ? { timezone: formatResult.timezone } : {}),
+    ...(formatResult.displayTimezone ? { displayTimezone: formatResult.displayTimezone } : {}),
+    ...(formatResult.allowedFileTypes ? { allowedFileTypes: formatResult.allowedFileTypes } : {}),
+    ...(formatResult.maxFileSize !== undefined ? { maxFileSize: formatResult.maxFileSize } : {}),
+    ...(formatResult.maxFileSizeDisplay
+      ? { maxFileSizeDisplay: formatResult.maxFileSizeDisplay }
+      : {}),
+  }
+}
+
+/**
+ * Apply type-aware coercions for fields without display formatting:
+ * - Coerce numeric strings to numbers
+ * - Apply displayName override for single attachment fields
+ */
+function processRawField(
+  key: string,
+  value: RecordFieldValue,
+  app: App,
+  tableName: string
+): RecordFieldValue {
+  const numeric = coerceNumericField(key, value, app, tableName)
+  const decimalString = stringifyDecimalField(key, numeric, app, tableName)
+  const jsonParsed = deserializeJsonField(key, decimalString, app, tableName)
+  const coerced = coerceBooleanField(key, jsonParsed, app, tableName)
+  const fieldType = getFieldType(app, tableName, key)
+  return fieldType && isSingleAttachmentFieldType(fieldType)
+    ? applyAttachmentDisplayName(coerced)
+    : coerced
+}
+
+/**
+ * A relationship value names the related record by its id, and a record id
+ * reads as a string — in the raw and the display format alike.
+ */
+const relationshipAsString = (
+  key: string,
+  value: RecordFieldValue,
+  schema: Readonly<{ readonly app?: App; readonly tableName?: string }> | undefined
+): RecordFieldValue =>
+  schema?.app !== undefined &&
+  schema.tableName !== undefined &&
+  getFieldType(schema.app, schema.tableName, key) === 'relationship'
+    ? (toStringRelationshipValue(value) as RecordFieldValue)
+    : value
+
+/**
+ * Process a single field value with optional display formatting
+ */
+const processFieldValue = (
+  key: string,
+  value: unknown,
+  options?: Readonly<{
+    readonly format?: 'display'
+    readonly app?: App
+    readonly tableName?: string
+    readonly timezone?: string
+    readonly operatorTimezone?: string
+  }>
+): Readonly<RecordFieldValue | FormattedFieldValue> => {
+  // Check if app schema info is available for type-aware processing
+  const hasSchemaInfo = options?.app && options?.tableName
+
+  const processedValue = relationshipAsString(
+    key,
+    serializeDriverValue(key, value, options) as RecordFieldValue,
+    options
+  )
+
+  // Apply display formatting if requested
+  if (options?.format !== 'display' || !hasSchemaInfo) {
+    return hasSchemaInfo
+      ? processRawField(key, processedValue, options.app!, options.tableName!)
+      : processedValue
+  }
+
+  // For display formatting, pass the original value (may be string or number from database)
+  const formatResult = formatFieldForDisplay({
+    fieldName: key,
+    value,
+    app: options.app!,
+    tableName: options.tableName!,
+    timezoneOverride: options.timezone,
+    operatorTimezone: options.operatorTimezone ?? OPERATOR_TIMEZONE_UNSET,
+  })
+
+  if (formatResult === undefined) {
+    return processedValue
+  }
+
+  // For formatted fields, use the original value (preserve number type)
+  const fieldValue = parseNumericString(value, processedValue)
+
+  return buildFormattedValue(fieldValue, formatResult)
+}
+
+/**
+ * Check if a field is defined in the table schema
+ */
+const isTableField = (
+  fieldName: string,
+  app: Readonly<App> | undefined,
+  tableName: string | undefined
+): boolean => {
+  if (!app || !tableName) return false
+  const table = findTableByName(app.tables, tableName)
+  return Boolean(table?.fields.some((f) => f.name === fieldName))
+}
+
+/**
+ * Build fields object including created_at/updated_at if they're defined as table fields
+ */
+const buildFieldsObject = (
+  userFields: Readonly<Record<string, unknown>>,
+  createdAt: unknown,
+  updatedAt: unknown,
+  options?: {
+    readonly app?: App
+    readonly tableName?: string
+  }
+): Readonly<Record<string, unknown>> => {
+  const hasCreatedAtField = isTableField('created_at', options?.app, options?.tableName)
+  const hasUpdatedAtField = isTableField('updated_at', options?.app, options?.tableName)
+
+  return {
+    ...userFields,
+    ...(hasCreatedAtField && createdAt !== undefined ? { created_at: createdAt } : {}),
+    ...(hasUpdatedAtField && updatedAt !== undefined ? { updated_at: updatedAt } : {}),
+  }
+}
+
+/** How a record is transformed for its reader. */
+export interface TransformOptions {
+  readonly format?: 'display'
+  readonly app?: App
+  readonly tableName?: string
+  readonly timezone?: string
+  /**
+   * The operator timezone (`SOVRIUM_TIMEZONE`) a `format: 'display'` date falls
+   * back to after the request's `timezone` and the field's own zone. The caller
+   * reads it from the environment; absent means the variable is unset, i.e. UTC.
+   * Every display-format caller passes it.
+   */
+  readonly operatorTimezone?: string
+  /**
+   * The language translatable fields are served in: a declared code resolves
+   * each to one string, `*` keeps each map of the declared languages. Absent,
+   * the same map — for machine consumers, which receive every declared
+   * language.
+   */
+  readonly language?: string | undefined
+}
+
+/** A translatable cell (or a lookup's list of them) as its reader receives it. */
+const localizeCell = (value: unknown, app: App, language: string | undefined): RecordFieldValue => {
+  if (Array.isArray(value)) return value.map((item) => localizeCell(item, app, language))
+  // No language is every DECLARED language: a removed one stays in storage, never served.
+  // eslint-disable-next-line unicorn/no-null -- an empty cell answers JSON `null` on the records API, never a dropped key
+  return localizeStoredValue(value, language ?? ALL_LANGUAGES, app.languages) ?? null
+}
+
+/** The fields of the record's table holding translatable content (none without a schema). */
+const translatableFieldsOf = (options: TransformOptions | undefined): ReadonlySet<string> =>
+  options?.app && options.tableName
+    ? translatableReadFieldsOf(options.app, options.tableName)
+    : new Set<string>()
+
+/** One field of a record as its reader receives it: localized, or processed as before. */
+const transformFieldValue = (
+  key: string,
+  value: unknown,
+  options: TransformOptions | undefined,
+  translatable: ReadonlySet<string>
+): RecordFieldValue | FormattedFieldValue =>
+  translatable.has(key) && options?.app
+    ? localizeCell(value, options.app, options.language)
+    : (processFieldValue(key, value, options) as RecordFieldValue | FormattedFieldValue)
+
+/**
+ * Transform a raw database record into the API response format (Airtable-style)
+ *
+ * This utility standardizes record transformation across all table endpoints:
+ * - Converts id to string
+ * - Nests user-defined fields under `fields` property (Airtable-style)
+ * - Keeps system fields (id, createdAt, updatedAt) at root level
+ * - Normalizes created_at/updated_at to ISO strings (or current timestamp if missing)
+ * - Converts Date objects in field values to ISO 8601 strings for API compliance
+ * - Optionally applies display formatting when format=display is requested
+ *
+ * @param record - Raw database record
+ * @param options - Transformation options
+ * @returns Transformed record for API response
+ */
+export const transformRecord = (
+  record: Readonly<Record<string, unknown>>,
+  options?: TransformOptions
+): TransformedRecord => {
+  // Extract system fields including authorship metadata
+  const {
+    id,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    created_by: createdBy,
+    updated_by: updatedBy,
+    deleted_by: deletedBy,
+    deleted_at: deletedAt,
+    ...liveFields
+  } = record
+
+  // A live record carries no deletion timestamp: the key rides in `fields` only
+  // when it holds a value, i.e. on a record read from the trash or through
+  // `includeDeleted=true`. The rule is uniform, including for a table that
+  // declares its own `deleted-at` field.
+  const userFields =
+    deletedAt === null || deletedAt === undefined
+      ? liveFields
+      : { ...liveFields, deleted_at: deletedAt }
+
+  // Build user fields, potentially including created_at/updated_at if they're table fields
+  const fieldsToTransform = buildFieldsObject(userFields, createdAt, updatedAt, options)
+
+  // Translatable fields (and lookups of them) are served in the reader's language.
+  const translatable = translatableFieldsOf(options)
+
+  // Convert Date objects to ISO strings in user fields and optionally format for display
+  const transformedFields = Object.entries(fieldsToTransform).reduce<
+    Record<string, RecordFieldValue | FormattedFieldValue>
+  >(
+    (acc, [key, value]) => ({
+      ...acc,
+      [key]: transformFieldValue(key, value, options, translatable),
+    }),
+    {}
+  )
+
+  return {
+    id: String(id),
+    fields: transformedFields,
+    createdAt: createdAt ? toISOString(createdAt) : new Date().toISOString(),
+    updatedAt: updatedAt ? toISOString(updatedAt) : new Date().toISOString(),
+    ...(createdBy ? { createdBy: String(createdBy) } : {}),
+    ...(updatedBy ? { updatedBy: String(updatedBy) } : {}),
+    ...(deletedBy ? { deletedBy: String(deletedBy) } : {}),
+  }
+}
+
+/**
+ * Transform multiple database records into API response format
+ *
+ * @param records - Array of raw database records
+ * @param options - Transformation options
+ * @returns Array of transformed records (mutable for API response compatibility)
+ */
+export const transformRecords = (
+  records: readonly Record<string, unknown>[],
+  options?: TransformOptions
+): readonly TransformedRecord[] => records.map((record) => transformRecord(record, options))

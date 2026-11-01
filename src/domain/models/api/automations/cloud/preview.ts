@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { deployRequestSchema, deployResponseSchema } from '../automations'
 
 /**
@@ -44,7 +44,7 @@ export const previewResponseSchema = Schema.Struct({
   }),
   previewUrl: Schema.String.annotate({
     description:
-      "The https address the preview answers at once live — the share address, the cloud's to choose. The CLI prints it as given and never builds it",
+      "The https address the preview answers at once live: the share address, the cloud's to choose. The CLI prints it as given and never builds it",
   }).check(Schema.isMinLength(1)),
   expiresAt: Schema.String.annotate({
     description:

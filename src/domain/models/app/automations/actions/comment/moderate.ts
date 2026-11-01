@@ -70,7 +70,7 @@ export const CommentModerateActionSchema = Schema.Struct({
     identifier: 'CommentModerateAction',
     title: 'Comment Moderate Action',
     description:
-      "Set the moderation status of one comment of a record's thread — approved, pending or rejected — without touching its content, as the system or under the triggering user's moderator permission",
+      "Set the moderation status of one comment of a record's thread (approved, pending or rejected) without touching its content, as the system or under the triggering user's moderator permission",
     howTo:
       "Approve a queued comment: give the thread (`table`, `recordId`), the comment's id and `status: approved`. To change what the comment says, use `operator: update` instead.",
   })

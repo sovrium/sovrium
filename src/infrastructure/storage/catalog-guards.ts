@@ -14,13 +14,11 @@
 import { inArray } from 'drizzle-orm'
 import { Clock, Effect, Option, Semaphore } from 'effect'
 import {
-  StorageError,
   UNATTRIBUTED_BUCKET,
   storageKeySpellingTaken,
   storageObjectNotFound,
 } from '@/application/ports/services/storage-service'
 import { storageKeyCollisionForm } from '@/domain/kernel/identity/storage-key'
-import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   bucketBindingMatches,
@@ -31,14 +29,15 @@ import {
 } from './bytea-adapter'
 import { isClaimed } from './catalog-claim'
 import { findOtherStoredSpelling } from './key-spelling-catalog'
+import { attemptStorage, toStorageError } from './storage-attempt'
 import type {
   BucketBinding,
   StorageService,
   StoredSpelling,
+  StorageError,
 } from '@/application/ports/services/storage-service'
 import type { StorageKeyComparison } from '@/domain/kernel/identity/storage-key'
-
-const makeError = (cause: unknown): StorageError => new StorageError({ cause })
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /** How one provider's store tells keys apart, and which catalog rows are its own. */
 export type SpellingStore = StorageKeyComparison & { readonly provider: string }
@@ -53,6 +52,7 @@ export type SpellingStore = StorageKeyComparison & { readonly provider: string }
  * never distinguishing "wrong bucket" from "absent" to a caller.
  */
 export const assertBucketBinding = (
+  client: PortableDb,
   key: string,
   bucket: BucketBinding
 ): Effect.Effect<void, StorageError> => {
@@ -61,55 +61,48 @@ export const assertBucketBinding = (
   // address keys that may have been written to the object store out of band.
   // A key a replacing write has claimed but not stored yet is still absent.
   if (bucket === UNATTRIBUTED_BUCKET) {
-    return Effect.tryPromise({
-      try: () => isClaimed(key),
-      catch: (e: unknown) => makeError(e),
-    }).pipe(
+    return attemptStorage(() => isClaimed(client, key)).pipe(
       Effect.flatMap((claimed) =>
-        claimed ? Effect.fail(makeError(storageObjectNotFound(key))) : Effect.void
+        claimed ? Effect.fail(toStorageError(storageObjectNotFound(key))) : Effect.void
       )
     )
   }
-  return Effect.tryPromise({
-    try: () => readFileMetadata(key),
-    catch: (e: unknown) => makeError(e),
-  }).pipe(
+  return attemptStorage(() => readFileMetadata(client, key)).pipe(
     Effect.flatMap((meta) =>
       meta && bucketBindingMatches(bucket, meta.bucket)
         ? Effect.void
-        : Effect.fail(makeError(storageObjectNotFound(key)))
+        : Effect.fail(toStorageError(storageObjectNotFound(key)))
     )
   )
 }
 
 /** File metadata lookup shared by every provider — reads `system.file_storage_metadata`. */
-export const getMetadataFromCatalog: StorageService['Service']['getMetadata'] = (key, bucket) =>
-  Effect.tryPromise({ try: () => readFileMetadata(key), catch: (e: unknown) => makeError(e) }).pipe(
-    Effect.flatMap((meta) =>
-      meta && bucketBindingMatches(bucket, meta.bucket)
-        ? Effect.succeed({
-            key,
-            contentType: meta.contentType,
-            size: meta.size,
-            lastModified: meta.lastModified,
-            ...(meta.bucket === null ? {} : { bucket: meta.bucket }),
-            ...(meta.uploadedBy === null ? {} : { uploadedBy: meta.uploadedBy }),
-            ...(meta.generatedBy === null ? {} : { generatedBy: meta.generatedBy }),
-          })
-        : Effect.fail(makeError(storageObjectNotFound(key)))
+export const getMetadataFromCatalog =
+  (client: PortableDb): StorageService['Service']['getMetadata'] =>
+  (key, bucket) =>
+    attemptStorage(() => readFileMetadata(client, key)).pipe(
+      Effect.flatMap((meta) =>
+        meta && bucketBindingMatches(bucket, meta.bucket)
+          ? Effect.succeed({
+              key,
+              contentType: meta.contentType,
+              size: meta.size,
+              lastModified: meta.lastModified,
+              ...(meta.bucket === null ? {} : { bucket: meta.bucket }),
+              ...(meta.uploadedBy === null ? {} : { uploadedBy: meta.uploadedBy }),
+              ...(meta.generatedBy === null ? {} : { generatedBy: meta.generatedBy }),
+            })
+          : Effect.fail(toStorageError(storageObjectNotFound(key)))
+      )
     )
-  )
 
 /** The provider's `findOtherSpelling`: the catalog row a write at a key would land on. */
 export const findOtherSpellingIn =
-  (store: Readonly<SpellingStore>) =>
+  (client: PortableDb, store: Readonly<SpellingStore>) =>
   (key: string): Effect.Effect<Option.Option<StoredSpelling>, StorageError> =>
     Clock.currentTimeMillis.pipe(
       Effect.flatMap((nowMs) =>
-        Effect.tryPromise({
-          try: () => findOtherStoredSpelling(key, store, nowMs),
-          catch: (e: unknown) => makeError(e),
-        })
+        attemptStorage(() => findOtherStoredSpelling(client, key, store, nowMs))
       ),
       Effect.map(Option.fromNullishOr)
     )
@@ -125,16 +118,20 @@ export const findOtherSpellingIn =
  * refusal, which a route answers with a conflict.
  */
 export const assertNoOtherSpelling = (
+  client: PortableDb,
   key: string,
   bucket: BucketBinding,
   store: Readonly<SpellingStore>
 ): Effect.Effect<void, StorageError> =>
-  findOtherSpellingIn(store)(key).pipe(
+  findOtherSpellingIn(
+    client,
+    store
+  )(key).pipe(
     Effect.map(Option.getOrUndefined),
     Effect.flatMap((other) => {
       if (other === undefined) return Effect.void
       return Effect.fail(
-        makeError(
+        toStorageError(
           bucketBindingPermitsWrite(bucket, other.bucket ?? null)
             ? storageKeySpellingTaken(key)
             : storageObjectNotFound(key)
@@ -148,9 +145,12 @@ export const assertNoOtherSpelling = (
  * never upserted, so `taken` comes back, and nothing changes, when a row is
  * already recorded at the key — whoever's, in whatever bucket.
  */
-export const insertFileMetadataOnly = async (file: CatalogWrite): Promise<'written' | 'taken'> => {
+export const insertFileMetadataOnly = async (
+  client: PortableDb,
+  file: CatalogWrite
+): Promise<'written' | 'taken'> => {
   const files = fileStorageMetadataTable()
-  const inserted = await db
+  const inserted = await client
     .insert(files)
     .values(catalogRowValues(file))
     .onConflictDoNothing({ target: files.key })
@@ -159,22 +159,22 @@ export const insertFileMetadataOnly = async (file: CatalogWrite): Promise<'writt
 }
 
 /** The provider's `catalogBuckets`: one read of the catalog rows of `keys`. */
-export const catalogBucketsOf = (
-  keys: readonly string[]
-): Effect.Effect<ReadonlyMap<string, string | undefined>, StorageError> =>
-  keys.length === 0
-    ? Effect.succeed(new Map())
-    : Effect.tryPromise({
-        try: async () => {
-          const files = fileStorageMetadataTable()
-          const rows = await db
-            .select({ key: files.key, bucket: files.bucket })
-            .from(files)
-            .where(inArray(files.key, [...keys]))
-          return new Map(rows.map((row) => [row.key, row.bucket ?? undefined] as const))
-        },
-        catch: (e: unknown) => makeError(e),
-      })
+export const catalogBucketsOf =
+  (client: PortableDb) =>
+  (keys: readonly string[]): Effect.Effect<ReadonlyMap<string, string | undefined>, StorageError> =>
+    keys.length === 0
+      ? Effect.succeed(new Map())
+      : Effect.tryPromise({
+          try: async () => {
+            const files = fileStorageMetadataTable()
+            const rows = await client
+              .select({ key: files.key, bucket: files.bucket })
+              .from(files)
+              .where(inArray(files.key, [...keys]))
+            return new Map(rows.map((row) => [row.key, row.bucket ?? undefined] as const))
+          },
+          catch: toStorageError,
+        })
 
 /** One lock per comparison form a write is in flight for, with how many writes hold or wait on it. */
 const spellingLocks = new Map<string, { readonly lock: Semaphore.Semaphore; holders: number }>()

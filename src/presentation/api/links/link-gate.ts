@@ -16,7 +16,7 @@
  * `resolveLinkOutcome` is ever asked where to send anyone.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   LinkRepository,
   type LinkRecord,
@@ -25,8 +25,6 @@ import {
   buildEnvLookup,
   resolveEnvInString,
 } from '@/application/use-cases/automations/resolve-env-vars'
-import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
-import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
 import type { App } from '@/domain/models/app'
 import type { ResolvableLink } from '@/domain/models/app/links/link-resolver'
 import type { Context } from 'hono'
@@ -97,32 +95,32 @@ const storedToResolvable = (row: LinkRecord): ResolvableLink => ({
  * this function has stopped reading them.
  *
  * The DB is consulted ONLY on a config miss, so an app whose links are entirely
- * config-declared pays no query per redirect.
+ * config-declared pays no query per redirect. The repository is the one the
+ * domain runtime resolved at boot, read off THIS request.
  */
-export const resolveDeclaredOrStored = async (
+export const resolveDeclaredOrStored = (
   app: App,
   declared: ResolvableLink | undefined,
   slug: string
-): Promise<ResolvedDefinition | undefined> => {
-  const program = Effect.gen(function* () {
-    const repository = yield* LinkRepository
-    return yield* repository.findBySlug({ appName: app.name, slug })
-  })
+) =>
+  Effect.gen(function* () {
+    const program = Effect.gen(function* () {
+      const repository = yield* LinkRepository
+      return yield* repository.findBySlug({ appName: app.name, slug })
+    })
 
-  const row = await Effect.runPromise(
-    program.pipe(
-      Effect.provide(LinkRepositoryLive.pipe(Layer.provide(DatabaseLive))),
+    const row = yield* program.pipe(
       // A database that cannot answer must not take the config links down with
       // it: a config-declared link is fully resolvable from memory, so the
       // failure degrades the overlay, not the redirect.
       // effect-swallow: stated in full two lines up — a config-declared link resolves entirely from memory, so losing the database row costs the overlay and nothing else.
       Effect.orElseSucceed(() => undefined)
     )
-  )
 
-  const overlayDisabled = row?.disabledAt !== null && row?.disabledAt !== undefined
+    const overlayDisabled = row?.disabledAt !== null && row?.disabledAt !== undefined
 
-  if (declared !== undefined) return { link: declared, overlayDisabled }
-  if (row === undefined || row.shadowedAt !== null) return undefined
-  return { link: storedToResolvable(row), overlayDisabled }
-}
+    if (declared !== undefined) return { link: declared, overlayDisabled }
+    if (row === undefined || row.shadowedAt !== null) return undefined
+    const stored: ResolvedDefinition = { link: storedToResolvable(row), overlayDisabled }
+    return stored
+  })

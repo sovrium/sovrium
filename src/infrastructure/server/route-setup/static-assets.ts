@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
+import { resolvePrivacySignals } from '@/domain/models/app/analytics/privacy-signals-service'
+import { analyticsConsentHold } from '@/domain/models/app/consent/consent-version-service'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { searchIndexDir } from '@/domain/models/process-env/data-dir'
 import { generateTrackingScript } from '@/infrastructure/analytics/tracking-script'
@@ -29,6 +30,7 @@ import {
 } from '@/infrastructure/css/versioned-css-path'
 import { logError } from '@/infrastructure/logging/logger'
 import { adminMountsFor, scopedAppForMount } from '../admin-mounts'
+import { runRequestEffect } from '../run-request-effect'
 import {
   ENTRY_CACHE_CONTROL,
   assetCacheControl,
@@ -84,6 +86,9 @@ const resolveCssApp = (requestedHash: string, operatorApp: App): App => {
  *
  * Serves dynamically compiled CSS with theme tokens at /assets/output.css
  *
+ * The compile runs through {@link runRequestEffect}, as every request program
+ * does, so it is traced under the request's own span and logged with it.
+ *
  * @param honoApp - Hono application instance
  * @param app - Application configuration
  * @returns Hono app with CSS route configured
@@ -93,7 +98,7 @@ export function setupCSSRoute(honoApp: Readonly<Hono>, app: App): Readonly<Hono>
     honoApp
       .get('/assets/output.css', async (c) => {
         try {
-          const result = await Effect.runPromise(compileCSS(app))
+          const result = await runRequestEffect(c, compileCSS(app))
 
           return c.text(result.css, 200, {
             'Content-Type': 'text/css',
@@ -126,7 +131,7 @@ export function setupCSSRoute(honoApp: Readonly<Hono>, app: App): Readonly<Hono>
         try {
           const requestedHash = parseVersionedCssHash(c.req.param('file'))
           const cssApp = resolveCssApp(requestedHash, app)
-          const result = await Effect.runPromise(compileCSS(cssApp))
+          const result = await runRequestEffect(c, compileCSS(cssApp))
           const isCurrent = requestedHash === getVersionedCssHash(cssApp)
           return c.text(result.css, 200, {
             'Content-Type': 'text/css',
@@ -189,12 +194,11 @@ export function setupAnalyticsScriptRoute(honoApp: Readonly<Hono>, app: App): Re
 
   if (!analyticsEnabled) return honoApp
 
-  const respectDoNotTrack =
-    typeof app.analytics === 'object' ? app.analytics.respectDoNotTrack !== false : true
   const scriptContent = generateTrackingScript(
     '/api/analytics/collect',
     app.name,
-    respectDoNotTrack
+    resolvePrivacySignals(app.analytics),
+    analyticsConsentHold(app.consent)
   )
 
   return honoApp.get('/assets/analytics.js', (c) => {
@@ -310,7 +314,7 @@ export async function setupStaticAssets(
   // `setupPublicDirRoute` is async: it realpath()s the directory once at mount
   // (see its docstring); a missing directory returns the app unchanged.
   const withSearch = hasPageSearchComponent(app)
-    ? await setupPublicDirRoute(withAssets, searchIndexDir())
+    ? await setupPublicDirRoute(withAssets, searchIndexDir(process.env, process.pid))
     : withAssets
   const withPublic = publicDir
     ? await setupPublicDirRoute(withSearch, publicDir, privateRealpaths)

@@ -16,12 +16,10 @@
  * rule's; neither is repeated here. Pure: no I/O, no schema import.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { collectComponentsOfType } from '@/domain/models/app/pages/components/component-field-references'
 
 type RawRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is RawRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The declared type of `field` on `table`, or `undefined` when either is unknown. */
 function fieldType(config: unknown, table: string, field: string): unknown {

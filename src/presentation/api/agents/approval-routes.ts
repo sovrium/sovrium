@@ -36,54 +36,37 @@
  * of whether the action is auto-executed or queued for approval.
  */
 
-import { MirrorApprovalCreate } from '@/application/use-cases/agents/approval'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { Effect } from 'effect'
+import {
+  agentListResponseSchema,
+  agentUsageResponseSchema,
+  serializedAgentSchema,
+} from '@/domain/models/api/agents/agents'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import {
   agentToolRefusal,
-  requiresApproval,
   resolveAgentLimits,
 } from '@/domain/models/app/agents/agent-gate-validation'
-import { buildApprovalRecord } from '@/domain/models/app/agents/approval-record-service'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
-import { requireDomainContext } from '@/infrastructure/logging/request-effect'
-import {
-  getAgentUsage,
-  isTokenBudgetExhausted,
-  recordTokenUsage,
-  releaseConcurrencySlot,
-} from '@/infrastructure/process/agent-limits'
+import { getAgentUsage } from '@/infrastructure/ai/agents/agent-limits'
 import {
   checkAgentListPermission,
   checkTriggerPermission,
-  mayTriggerAgents,
+  judgeAgentTriggers,
 } from '@/presentation/api/agents/agent-trigger-guard'
 import { agentNotFound, findAgent } from '@/presentation/api/runtime/agent-lookup'
 import { errorBody, notFoundBody } from '@/presentation/api/runtime/auth-helpers'
-import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { recordAgentActivity } from './agent-activity-log'
-import { callAgentAi } from './agent-ai-call'
-import { checkExecutionGates, checkLimitGates, tokenBudgetExhausted } from './agent-execution-gates'
+import { answerFailures, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
+import { runAgentAction, type ExecuteRequestBody } from './agent-action-run'
+import { checkExecutionGates } from './agent-execution-gates'
 import { serializeAgent } from './agent-presenter'
 import { decideAsApprover, type Decision } from './approval-decision'
-import { runApprovalMirror, toMirrorRecord } from './approval-mirror'
-import { serializeApproval } from './approval-presenter'
-import {
-  listApprovals,
-  openApproval,
-  readApproval,
-  recordFeedAction,
-} from './approval-store-access'
+import { answerApproval, answerApprovals } from './approval-presenter'
+import { listApprovals, readApproval } from './approval-store-access'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
+import type { DomainServices } from '@/infrastructure/logging/request-effect'
 import type { Context, Hono } from 'hono'
-
-interface ExecuteRequestBody {
-  readonly action?: unknown
-  readonly message?: unknown
-  readonly table?: unknown
-  readonly recordId?: unknown
-  readonly fields?: unknown
-}
 
 /**
  * Generic action label for a conversational agent turn — used when the caller
@@ -140,185 +123,85 @@ const isToolAccessDenied = (
     app
   ) !== undefined
 
+/** The execute request's body; one that does not parse reads as empty. */
+const readExecuteBody = (c: Context): Effect.Effect<ExecuteRequestBody> =>
+  // effect-promise: total -- a rejected parse is caught here and reads as an empty body.
+  Effect.promise(async () => (await c.req.json().catch(() => ({}))) as ExecuteRequestBody)
+
+/** Answer a whole handler's program once, on the request's services. */
+const handled =
+  <E>(program: (c: Context) => Effect.Effect<Response, E, DomainServices>) =>
+  (c: Context): Promise<Response> =>
+    runHandlerEffect(c, answerFailures(c, program(c)))
+
 /**
- * Log an agent action in both activity sinks and return who started its run.
- *
- * The action appears in activity monitoring with
- * actor_type='agent' and actor_name set to the agent name. An AI agent perms spec
- * / -007: it also joins the `GET /api/activity` `entries` feed, alongside
- * approval decisions, carrying the table and row it targets — the records read
- * gate a non-admin reader is held to — and the account id of whoever started
- * the run, the one identity the feed's audience rule trusts.
+ * The agent a route addresses, or the 404 standing in for it: undeclared, or
+ * outside the caller's trigger grant — the two are told apart by nobody.
  */
-const logAgentAction = async (
-  c: Context,
-  agentName: string,
-  action: string,
-  body: ExecuteRequestBody
-): Promise<string | undefined> => {
-  const targetTable = typeof body.table === 'string' ? body.table : undefined
-  const recordId =
-    typeof body.recordId === 'string' || typeof body.recordId === 'number'
-      ? String(body.recordId)
-      : undefined
-  const startedById = getSessionContext(c as Context)?.userId
-  await recordAgentActivity(requireDomainContext(c), { actorName: agentName, action, targetTable })
-  await recordFeedAction(requireDomainContext(c), {
-    action,
-    agentName,
-    targetTable,
-    recordId,
-    runStartedById: startedById,
+const resolveAgent = (c: Context, app: App | undefined) =>
+  Effect.gen(function* () {
+    const agent = findAgent(app, c.req.param('name') ?? '')
+    if (!agent) return { refusal: agentNotFound(c) }
+    const refusal = yield* checkTriggerPermission(c, agent, app)
+    return refusal ? { refusal } : { agent }
   })
-  return startedById
-}
 
-/**
- * Run the agent action once it has passed all pre-flight gates: perform the
- * observational AI round-trip, write the activity-log entry, and either
- * complete immediately or queue an approval request.
- */
-const runAgentAction = async (
-  c: Context,
-  agent: Agent,
-  body: ExecuteRequestBody,
-  action: string
-): Promise<Response> => {
-  const { name: agentName } = agent
+const handleExecute = (app: App | undefined) =>
+  handled((c) =>
+    Effect.gen(function* () {
+      // `permissions.trigger` governs
+      // who may invoke this agent. FIRST of every gate — see the placement note on
+      // `checkTriggerPermission`. Both the 503 below and the limiters after it
+      // answer differently for a declared agent than an undeclared one, and the
+      // limiters record the attempts they admit.
+      const target = yield* resolveAgent(c, app)
+      if (target.refusal) return target.refusal
+      const { agent } = target
 
-  // Rate + concurrency gates. A `queued`
-  // response is returned WITHOUT calling the AI provider — the action is
-  // deferred, not executed.
-  const limitGate = checkLimitGates(c, agent)
-  if (limitGate) return limitGate
+      // With no AI provider configured at all, the declared agent is
+      // INERT — discoverable but not runnable. Degrade the execute path gracefully
+      // with 503 rather than proceeding to the AI round-trip (which has no
+      // reachable provider). Checked before every other gate so no work — rate
+      // limiting, body parsing, RBAC — happens for an unrunnable agent. The
+      // loud-fail path for an explicitly-misconfigured provider is enforced at
+      // startup, so a booted server with an unset `AI_PROVIDER` is unambiguously
+      // the inert case.
+      if (!isAiProviderConfigured(process.env)) {
+        return c.json(
+          errorBody({
+            error: 'AI provider not configured — the assistant is currently unavailable.',
+            code: ApiErrorCode.SERVICE_UNAVAILABLE,
+          }),
+          503
+        )
+      }
 
-  // A concurrency slot is now held — release it on every exit path below.
-  try {
-    return await executeWithinSlot(c, agent, body, action)
-  } finally {
-    releaseConcurrencySlot(agentName)
-  }
-}
+      const gateResponse = checkExecutionGates(c, agent)
+      if (gateResponse) return gateResponse
 
-/**
- * Execute the agent action while holding a concurrency slot: AI round-trip,
- * token accounting, activity log, and the completed / approval-pending /
- * token-exhausted decision.
- */
-const executeWithinSlot = async (
-  c: Context,
-  agent: Agent,
-  body: ExecuteRequestBody,
-  action: string
-): Promise<Response> => {
-  const { name: agentName } = agent
-  const limits = resolveAgentLimits(agent.limits)
-  const payload: Record<string, unknown> = {
-    action,
-    ...(typeof body.table === 'string' && { table: body.table }),
-    ...(body.recordId !== undefined && { recordId: body.recordId }),
-    ...(body.fields !== undefined && { fields: body.fields }),
-  }
+      const body = yield* readExecuteBody(c)
+      const action = resolveExecuteAction(body)
+      if (action === '') {
+        return c.json(
+          errorBody({
+            error: 'Either `action` or `message` is required and must be a non-empty string.',
+            code: ApiErrorCode.BAD_REQUEST,
+          }),
+          400
+        )
+      }
 
-  // The AI round-trip is observational; its `usage.total_tokens` feeds the
-  // per-day token budget.
-  const tokensUsed = await callAgentAi(requireDomainContext(c), agent, action)
-  recordTokenUsage(agentName, tokensUsed)
+      // An AI agent def spec / [internal ref]: an action outside the agent's
+      // tools allowlist — or one its role lacks RBAC permission for — is denied
+      // as 404 to prevent enumeration. Checked before the AI round-trip so a
+      // disallowed call never reaches the LLM provider.
+      if (isToolAccessDenied(agent, body, action, app)) {
+        return c.json(notFoundBody(`Agent '${agent.name}' cannot access this resource.`), 404)
+      }
 
-  // Once the daily token budget can no longer cover
-  // another LLM round-trip, the action fails with an explicit error. The AI
-  // call above has already been made (and observed) — the budget check is
-  // post-call so the provider round-trip is never silently skipped.
-  if (isTokenBudgetExhausted(agentName, limits.maxTokensPerDay)) {
-    return tokenBudgetExhausted(c, agentName)
-  }
-
-  const startedById = await logAgentAction(c, agentName, action, body)
-
-  if (!requiresApproval(agent, action)) {
-    return c.json({ status: 'completed', approvalRequired: false, agent: agentName }, 200)
-  }
-
-  const record = buildApprovalRecord({
-    id: crypto.randomUUID(),
-    nowMs: Date.now(),
-    agent,
-    action,
-    payload,
-    requestedById: startedById,
-  })
-  await openApproval(requireDomainContext(c), record)
-  await runApprovalMirror(requireDomainContext(c), MirrorApprovalCreate(toMirrorRecord(record)))
-
-  return c.json(
-    {
-      status: 'pending_approval',
-      approvalRequired: true,
-      approvalId: record.id,
-      agent: agentName,
-    },
-    202
+      return yield* runAgentAction(c, agent, body, action)
+    })
   )
-}
-
-const handleExecute =
-  (app: App | undefined) =>
-  async (c: Context): Promise<Response> => {
-    const agentName = c.req.param('name') ?? ''
-    const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c)
-
-    // `permissions.trigger` governs
-    // who may invoke this agent. FIRST of every gate — see the placement note on
-    // `checkTriggerPermission`. Both the 503 below and the limiters after it
-    // answer differently for a declared agent than an undeclared one, and the
-    // limiters record the attempts they admit.
-    const triggerRefusal = await checkTriggerPermission(c, agent, app)
-    if (triggerRefusal) return triggerRefusal
-
-    // With no AI provider configured at all, the declared agent is
-    // INERT — discoverable but not runnable. Degrade the execute path gracefully
-    // with 503 rather than proceeding to the AI round-trip (which has no
-    // reachable provider). Checked before every other gate so no work — rate
-    // limiting, body parsing, RBAC — happens for an unrunnable agent. The
-    // loud-fail path for an explicitly-misconfigured provider is enforced at
-    // startup, so a booted server with an unset `AI_PROVIDER` is unambiguously
-    // the inert case.
-    if (!isAiProviderConfigured(process.env)) {
-      return c.json(
-        errorBody({
-          error: 'AI provider not configured — the assistant is currently unavailable.',
-          code: ApiErrorCode.SERVICE_UNAVAILABLE,
-        }),
-        503
-      )
-    }
-
-    const gateResponse = checkExecutionGates(c, agent)
-    if (gateResponse) return gateResponse
-
-    const body = (await c.req.json().catch(() => ({}))) as ExecuteRequestBody
-    const action = resolveExecuteAction(body)
-    if (action === '') {
-      return c.json(
-        errorBody({
-          error: 'Either `action` or `message` is required and must be a non-empty string.',
-          code: ApiErrorCode.BAD_REQUEST,
-        }),
-        400
-      )
-    }
-
-    // An AI agent def spec / [internal ref]: an action outside the agent's
-    // tools allowlist — or one its role lacks RBAC permission for — is denied
-    // as 404 to prevent enumeration. Checked before the AI round-trip so a
-    // disallowed call never reaches the LLM provider.
-    if (isToolAccessDenied(agent, body, action, app)) {
-      return c.json(notFoundBody(`Agent '${agentName}' cannot access this resource.`), 404)
-    }
-
-    return runAgentAction(c, agent, body, action)
-  }
 
 /**
  * The agent collection.
@@ -330,36 +213,38 @@ const handleExecute =
  * collection cannot hand a member the `systemPrompt` that
  * `GET /api/agents/:name` withholds from them.
  *
- * The narrowing is `mayTriggerAgents`, not `mayTriggerAgent` in a
- * `Promise.all`. Every verdict here concerns the same caller, so the per-agent
- * form asked the `user` table for the same row once per declared agent — and
- * fired them simultaneously, making the inventory a pooled fan-out as wide as
- * the app's agent list.
+ * The narrowing is `judgeAgentTriggers`, one verdict per agent for one role
+ * read. Every verdict here concerns the same caller, so a per-agent read would
+ * ask the `user` table for the same row once per declared agent — and fire
+ * them simultaneously, making the inventory a pooled fan-out as wide as the
+ * app's agent list.
  */
-const handleListAgents =
-  (app: App | undefined) =>
-  async (c: Context): Promise<Response> => {
-    const listRefusal = await checkAgentListPermission(c, app)
-    if (listRefusal) return listRefusal
-    const agents = app?.agents ?? []
-    const visible = await mayTriggerAgents(c, agents, app)
-    return c.json(
-      agents.filter((_agent, index) => visible[index] === true).map(serializeAgent),
-      200
-    )
-  }
+const handleListAgents = (app: App | undefined) =>
+  handled((c) =>
+    Effect.gen(function* () {
+      const listRefusal = yield* checkAgentListPermission(c, app)
+      if (listRefusal) return listRefusal
+      const agents = app?.agents ?? []
+      const visible = yield* judgeAgentTriggers(c, agents, app)
+      return shapedJson(
+        c,
+        agents.filter((_agent, index) => visible[index] === true).map(serializeAgent),
+        agentListResponseSchema
+      )
+    })
+  )
 
-const handleGetAgent =
-  (app: App | undefined) =>
-  async (c: Context): Promise<Response> => {
-    const agentName = c.req.param('name') ?? ''
-    const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c)
-    // The readback serves `systemPrompt`, `instructions` and the tool
-    // allowlist — the exact material a prompt injection is built from, so it
-    // carries the same gate as invocation.
-    return (await checkTriggerPermission(c, agent, app)) ?? c.json(serializeAgent(agent), 200)
-  }
+const handleGetAgent = (app: App | undefined) =>
+  handled((c) =>
+    Effect.map(
+      // The readback serves `systemPrompt`, `instructions` and the tool
+      // allowlist — the exact material a prompt injection is built from, so it
+      // carries the same gate as invocation.
+      resolveAgent(c, app),
+      (target) =>
+        target.refusal ?? shapedJson(c, serializeAgent(target.agent), serializedAgentSchema)
+    )
+  )
 
 /**
  * Daily token-usage readback.
@@ -367,85 +252,85 @@ const handleGetAgent =
  * Reports the agent's tokens consumed during the current UTC day alongside
  * its effective `maxTokensPerDay` budget. The counter resets at midnight UTC.
  */
-const handleGetUsage =
-  (app: App | undefined) =>
-  async (c: Context): Promise<Response> => {
-    const agentName = c.req.param('name') ?? ''
-    const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c)
-    // Token spend is the operator's cost ledger for this agent; an anonymous
-    // caller has no business reading it.
-    const refusal = await checkTriggerPermission(c, agent, app)
-    if (refusal) return refusal
-    const limits = resolveAgentLimits(agent.limits)
-    return c.json(getAgentUsage(agentName, limits.maxTokensPerDay), 200)
-  }
+const handleGetUsage = (app: App | undefined) =>
+  handled((c) =>
+    Effect.map(
+      // Token spend is the operator's cost ledger for this agent; an anonymous
+      // caller has no business reading it.
+      resolveAgent(c, app),
+      (target) => {
+        if (target.refusal) return target.refusal
+        const { agent } = target
+        const limits = resolveAgentLimits(agent.limits)
+        return shapedJson(
+          c,
+          getAgentUsage(agent.name, limits.maxTokensPerDay),
+          agentUsageResponseSchema
+        )
+      }
+    )
+  )
 
-const handleListApprovals =
-  (app: App | undefined) =>
-  async (c: Context): Promise<Response> => {
-    const agentName = c.req.param('name') ?? ''
-    const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c)
-    // A pending approval carries the queued action's payload — table, record id
-    // and field values the agent is about to write. At least as sensitive as
-    // the `systemPrompt` the readback gate withholds.
-    const refusal = await checkTriggerPermission(c, agent, app)
-    if (refusal) return refusal
-    const statusFilter = c.req.query('status')
-    const all = await listApprovals(requireDomainContext(c), agentName)
-    const filtered =
-      statusFilter === undefined ? all : all.filter((record) => record.status === statusFilter)
-    return c.json({ approvals: filtered.map(serializeApproval) }, 200)
-  }
+const handleListApprovals = (app: App | undefined) =>
+  handled((c) =>
+    Effect.gen(function* () {
+      // A pending approval carries the queued action's payload — table, record id
+      // and field values the agent is about to write. At least as sensitive as
+      // the `systemPrompt` the readback gate withholds.
+      const target = yield* resolveAgent(c, app)
+      if (target.refusal) return target.refusal
+      const statusFilter = c.req.query('status')
+      const all = yield* listApprovals(target.agent.name)
+      const filtered =
+        statusFilter === undefined ? all : all.filter((record) => record.status === statusFilter)
+      return answerApprovals(c, filtered)
+    })
+  )
 
-const handleGetApproval =
-  (app: App | undefined) =>
-  async (c: Context): Promise<Response> => {
-    const agentName = c.req.param('name') ?? ''
-    const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c)
-    const refusal = await checkTriggerPermission(c, agent, app)
-    if (refusal) return refusal
-    const approvalId = c.req.param('id') ?? ''
-    const record = await readApproval(requireDomainContext(c), approvalId)
-    if (!record || record.agentName !== agentName) {
-      return c.json(notFoundBody(`Approval '${approvalId}' not found.`), 404)
-    }
-    return c.json(serializeApproval(record), 200)
-  }
+const handleGetApproval = (app: App | undefined) =>
+  handled((c) =>
+    Effect.gen(function* () {
+      const target = yield* resolveAgent(c, app)
+      if (target.refusal) return target.refusal
+      const approvalId = c.req.param('id') ?? ''
+      const record = yield* readApproval(approvalId)
+      if (!record || record.agentName !== target.agent.name) {
+        return c.json(notFoundBody(`Approval '${approvalId}' not found.`), 404)
+      }
+      return answerApproval(c, record)
+    })
+  )
 
-const handleDecision =
-  (app: App | undefined, decision: Decision) =>
-  async (c: Context): Promise<Response> => {
-    const agentName = c.req.param('name') ?? ''
-    const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c)
-    // Before the approval lookup: a caller the trigger list does not admit learns
-    // nothing about which approval ids exist, and decides on none of them.
-    const refusal = await checkTriggerPermission(c, agent, app)
-    if (refusal) return refusal
-    const approvalId = c.req.param('id') ?? ''
-    const record = await readApproval(requireDomainContext(c), approvalId)
-    if (!record || record.agentName !== agentName) {
-      return c.json(notFoundBody(`Approval '${approvalId}' not found.`), 404)
-    }
+const handleDecision = (app: App | undefined, decision: Decision) =>
+  handled((c) =>
+    Effect.gen(function* () {
+      // Before the approval lookup: a caller the trigger list does not admit learns
+      // nothing about which approval ids exist, and decides on none of them.
+      const target = yield* resolveAgent(c, app)
+      if (target.refusal) return target.refusal
+      const { agent } = target
+      const approvalId = c.req.param('id') ?? ''
+      const record = yield* readApproval(approvalId)
+      if (!record || record.agentName !== agent.name) {
+        return c.json(notFoundBody(`Approval '${approvalId}' not found.`), 404)
+      }
 
-    if (record.status !== 'pending') {
-      return c.json(
-        {
-          ...errorBody({
-            error: `Approval '${approvalId}' is already ${record.status}.`,
-            code: ApiErrorCode.CONFLICT,
-          }),
-          status: record.status,
-        },
-        409
-      )
-    }
+      if (record.status !== 'pending') {
+        return c.json(
+          {
+            ...errorBody({
+              error: `Approval '${approvalId}' is already ${record.status}.`,
+              code: ApiErrorCode.CONFLICT,
+            }),
+            status: record.status,
+          },
+          409
+        )
+      }
 
-    return decideAsApprover(c, { app, agent, record, decision })
-  }
+      return yield* decideAsApprover(c, { app, agent, record, decision })
+    })
+  )
 
 /**
  * Chain agent action + approval routes onto a Hono app.

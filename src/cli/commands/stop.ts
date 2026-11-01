@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console } from 'effect'
-import { printFailure } from '@/infrastructure/logging/cli-output'
+import { refuseCommand } from '@/cli/runtime/run-command'
+import { printLine } from '@/infrastructure/logging/cli-output'
 import { readLockFile, removeLockFile, waitForProcessExit } from '@/infrastructure/server/lock-file'
 
 /**
@@ -15,11 +15,10 @@ import { readLockFile, removeLockFile, waitForProcessExit } from '@/infrastructu
 export const handleStopCommand = async (): Promise<void> => {
   const lockData = await readLockFile()
   if (!lockData) {
-    printFailure({
+    return refuseCommand({
       headline: 'No server is running.',
       guidance: "Start one with 'sovrium start <config>'.",
     })
-    process.exit(1)
   }
 
   // Whether the signal landed decides what we are allowed to claim afterwards.
@@ -43,11 +42,10 @@ export const handleStopCommand = async (): Promise<void> => {
   if (!exited) {
     // Keep the lock file: it is still TRUE. Removing it here would hide a live
     // server from `sovrium start`, which would then boot a second one beside it.
-    printFailure({
+    return refuseCommand({
       headline: `Server (PID ${lockData.pid}) did not exit within 5s after SIGTERM.`,
       guidance: `Force it with 'kill -9 ${lockData.pid}', then run 'sovrium stop' again to clear the lock.`,
     })
-    process.exit(1)
   }
 
   // Belt-and-braces: the server removes its own lock file on the way out.
@@ -55,11 +53,9 @@ export const handleStopCommand = async (): Promise<void> => {
 
   // No guidance line on the success path: the inverse of `stop` is `start`, and
   // an operator who just stopped a server knows it (T18).
-  Effect.runSync(
-    Console.log(
-      wasRunning
-        ? 'Server stopped.'
-        : `Server was not running — removed a stale lock file for PID ${lockData.pid}.`
-    )
+  printLine(
+    wasRunning
+      ? 'Server stopped.'
+      : `Server was not running — removed a stale lock file for PID ${lockData.pid}.`
   )
 }

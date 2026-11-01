@@ -33,12 +33,13 @@
  */
 
 import { Effect } from 'effect'
-import { LockFileWriteError } from '@/infrastructure/errors/lock-file-write-error'
-import { ServerReloadError } from '@/infrastructure/errors/server-reload-error'
+import { ServerReloadError } from '@/domain/errors/server-reload-error'
+import { Database, type DatabaseService } from '@/infrastructure/database/drizzle/layer'
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
 import { notifyDevReload } from '@/infrastructure/realtime/dev-reload-channel'
 import { purgeStaleCalendarFeedAddresses } from '@/infrastructure/server/calendar-feed-purge'
 import { writeLockFile as writeLockFileToDisk } from '@/infrastructure/server/lock-file'
+import { LockFileWriteError } from '@/infrastructure/server/lock-file-write-error'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
@@ -60,6 +61,8 @@ export interface ServerReloadDeps {
    * the new config's buckets allow.
    */
   readonly swapHandler: (honoApp: Readonly<Hono>, app: App) => void
+  /** The `Database` this server's runtime owns: a swap's writes go through its lease. */
+  readonly database: DatabaseService
   /** Absolute config path recorded in the lock file; `''` when there is none. */
   readonly configPath: string
   /** A silent server owns no lock file and registers no cleanup — see `createServer`. */
@@ -140,7 +143,9 @@ export const createServerReload =
       // A swap applies the new config without the boot chain, so it deletes the
       // feed addresses of tables the new config no longer publishes here.
       // Best-effort: it logs and never fails the reload.
-      yield* purgeStaleCalendarFeedAddresses(app)
+      yield* purgeStaleCalendarFeedAddresses(app).pipe(
+        Effect.provideService(Database, deps.database)
+      )
 
       if (!deps.silent) {
         yield* refreshLockFile(deps.server.port ?? 0, configHash, deps.configPath)

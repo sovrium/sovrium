@@ -123,7 +123,7 @@ export const readEmbeddedAgentFile = async (name: string): Promise<string> => {
 export const readEmbeddedSkillFrontmatter = async (
   name: string
 ): Promise<EmbeddedSkillFrontmatter> => {
-  const parsed = parseSkillFrontmatter(await readEmbeddedSkillFile(name, 'SKILL.md'))
+  const parsed = parseSkillFrontmatter(await readEmbeddedSkillFile(name, 'SKILL.md'), Bun.YAML)
   if (!parsed.ok) {
     throw new Error(
       `Embedded skill '${name}' has no readable frontmatter: SKILL.md must open with a ` +

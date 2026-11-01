@@ -127,7 +127,7 @@ export const resolveEmailTransport = (env: Env): EmailTransportResolution => {
  * HTTP transport whose credentials are missing — at boot, so the operator
  * learns it before the first message is lost rather than after.
  */
-export const parseEmailTransport = (env: Env = process.env): EmailTransport => {
+export const parseEmailTransport = (env: Env): EmailTransport => {
   const resolution = resolveEmailTransport(env)
   if (!resolution.ok) {
     // eslint-disable-next-line functional/no-throw-statements -- a boot-time refusal: the caller turns it into a startup failure before the port binds.

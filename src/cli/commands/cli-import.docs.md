@@ -21,35 +21,37 @@ sovrium import .sovrium-imports/crm --config app.yaml --write --apply  # write, 
 
 ## Which page for which tool
 
-| Tool                                                                | What it brings            | Page                                                                                             |
-| ------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------ |
-| CSV, XLSX, Google Sheets, Zapier Tables                             | tables and records        | [Migrating Tables and Records](/en/docs/cli-import-tables)                                       |
-| Airtable, Notion                                                    | tables, records, links    | [Migrating From Airtable and Notion](/en/docs/cli-import-airtable-notion)                        |
-| Baserow, Retool Database, Webflow CMS, Zite                         | tables, records, links    | [Migrating From Baserow, Retool Database, Webflow CMS and Zite](/en/docs/cli-import-databases)   |
-| n8n, Make, Zapier, Retool Workflows, Baserow, Webflow form webhooks | automations               | [Migrating Automations](/en/docs/cli-import-automations)                                         |
-| Typeform, Tally, Fillout, Webflow forms                             | forms and their responses | [Migrating Forms](/en/docs/cli-import-forms)                                                     |
-| Jotform, Google Forms, Microsoft Forms                              | forms and their responses | [Migrating Forms From Jotform, Google Forms and Microsoft Forms](/en/docs/cli-import-forms-more) |
+| Tool                                                                | What it brings                                     | Page                                                                                                     |
+| ------------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| CSV, XLSX, Google Sheets, Zapier Tables                             | tables and records                                 | [Migrating Tables and Records](/en/docs/cli-import-tables)                                               |
+| Airtable, Notion                                                    | tables, records, links                             | [Migrating From Airtable and Notion](/en/docs/cli-import-airtable-notion)                                |
+| Baserow, Retool Database, Webflow CMS, Zite                         | tables, records, links                             | [Migrating From Baserow, Retool Database, Supabase, Webflow CMS and Zite](/en/docs/cli-import-databases) |
+| Supabase                                                            | tables, records, access rules, users, file buckets | [Migrating From Baserow, Retool Database, Supabase, Webflow CMS and Zite](/en/docs/cli-import-databases) |
+| n8n, Make, Zapier, Retool Workflows, Baserow, Webflow form webhooks | automations                                        | [Migrating Automations](/en/docs/cli-import-automations)                                                 |
+| Typeform, Tally, Fillout, Webflow forms                             | forms and their responses                          | [Migrating Forms](/en/docs/cli-import-forms)                                                             |
+| Jotform, Google Forms, Microsoft Forms                              | forms and their responses                          | [Migrating Forms From Jotform, Google Forms and Microsoft Forms](/en/docs/cli-import-forms-more)         |
 
 ## Stage one: fetch a snapshot
 
 `fetch` reads the tool's API, read-only, and writes a snapshot folder. It is the only step that touches the network.
 
-| Source URI                      | Reads                              | Token from                |
-| ------------------------------- | ---------------------------------- | ------------------------- |
-| `airtable:<baseId>`             | an Airtable base                   | `AIRTABLE_TOKEN`          |
-| `notion:<databaseId>`           | a Notion database                  | `NOTION_TOKEN`            |
-| `sheets:<spreadsheetId>`        | a Google spreadsheet               | `GOOGLE_TOKEN`            |
-| `baserow:<instance URL>#<dbId>` | a Baserow database                 | `BASEROW_TOKEN`           |
-| `retool-db:$env.RETOOL_DB_URL`  | a Retool Database                  | `RETOOL_DB_URL` (its URL) |
-| `webflow:<siteId>`              | Webflow CMS, forms, form webhooks  | `WEBFLOW_TOKEN`           |
-| `zite:<databaseId>`             | a Zite database                    | `ZITE_TOKEN`              |
-| `n8n:<instance URL>`            | the workflows of an n8n instance   | `N8N_API_KEY`             |
-| `make:<zone>/<teamId>`          | the scenarios of a Make team       | `MAKE_TOKEN`              |
-| `typeform:[<host>/]<formId>`    | a Typeform form and its responses  | `TYPEFORM_TOKEN`          |
-| `tally:<formId>`                | a Tally form and its submissions   | `TALLY_TOKEN`             |
-| `fillout:[eu/]<formId>`         | a Fillout form and its submissions | `FILLOUT_TOKEN`           |
-| `jotform:[eu/\|hipaa/]<formId>` | a Jotform form and its submissions | `JOTFORM_API_KEY`         |
-| `gforms:<formId>`               | a Google form and its responses    | `GOOGLE_TOKEN`            |
+| Source URI                      | Reads                              | Token from                                                                      |
+| ------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------- |
+| `airtable:<baseId>`             | an Airtable base                   | `AIRTABLE_TOKEN`                                                                |
+| `notion:<databaseId>`           | a Notion database                  | `NOTION_TOKEN`                                                                  |
+| `sheets:<spreadsheetId>`        | a Google spreadsheet               | `GOOGLE_TOKEN`                                                                  |
+| `baserow:<instance URL>#<dbId>` | a Baserow database                 | `BASEROW_TOKEN`                                                                 |
+| `retool-db:$env.RETOOL_DB_URL`  | a Retool Database                  | `RETOOL_DB_URL` (its URL)                                                       |
+| `supabase:$env.SUPABASE_DB_URL` | a Supabase project                 | `SUPABASE_DB_URL` (its URL); files: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
+| `webflow:<siteId>`              | Webflow CMS, forms, form webhooks  | `WEBFLOW_TOKEN`                                                                 |
+| `zite:<databaseId>`             | a Zite database                    | `ZITE_TOKEN`                                                                    |
+| `n8n:<instance URL>`            | the workflows of an n8n instance   | `N8N_API_KEY`                                                                   |
+| `make:<zone>/<teamId>`          | the scenarios of a Make team       | `MAKE_TOKEN`                                                                    |
+| `typeform:[<host>/]<formId>`    | a Typeform form and its responses  | `TYPEFORM_TOKEN`                                                                |
+| `tally:<formId>`                | a Tally form and its submissions   | `TALLY_TOKEN`                                                                   |
+| `fillout:[eu/]<formId>`         | a Fillout form and its submissions | `FILLOUT_TOKEN`                                                                 |
+| `jotform:[eu/\|hipaa/]<formId>` | a Jotform form and its submissions | `JOTFORM_API_KEY`                                                               |
+| `gforms:<formId>`               | a Google form and its responses    | `GOOGLE_TOKEN`                                                                  |
 
 Each source's page says how to get its token and which permissions it needs. A source URI the fetch does not know is refused with the list of schemes, and an export file is refused with the conversion command to run instead.
 
@@ -58,6 +60,7 @@ Each source's page says how to get its token and which permissions it needs. A s
 - **The snapshot is a folder you can keep.** By default it is `.sovrium-imports/<tool>-<timestamp>/`, which `fetch` adds to `.gitignore`. `--out` puts it elsewhere, but never inside your instance's data directory (`.sovrium/`) nor inside a folder it serves its static files from (`public/`, or `SOVRIUM_PUBLIC_DIR`). It holds `snapshot.json` (the tool, its API version, when, the export kind, a SHA-256 per file), `raw/` (what the API returned, page by page, untouched, plus the fetch's own index of the attachments it downloaded) and `assets/` (attachments, named by the SHA-256 of their bytes and downloaded during the fetch because their links expire).
 - **A large source resumes.** `snapshot.json` is rewritten after every page with the cursor of the next one. If a fetch stops (a rate limit, a dropped connection), it says so and keeps what it read: run the same command into the same folder and it continues where it stopped. A folder that already holds a finished snapshot keeps it: to take a fresh one, fetch into a new folder. Each request has a timeout, transient failures are retried, and a `429` is waited out, for `Retry-After` when the tool sends one and the tool's documented lockout otherwise.
 - `--skip-attachments` downloads no file and counts each attachment as skipped; `--only tables` reads the schema and no record.
+- **An attachment is downloaded only from a public address.** Its link, and every redirect it follows (five at most), is refused when it points at a private, loopback or link-local address, written as one or reached through a host name that resolves to one, unless private outbound requests are allowed on this machine (`SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1`). A refused file is counted as skipped. The source's token is sent only to the source's own address, never to a host a redirect leads to.
 
 A conversion refuses a snapshot whose fetch did not finish, or whose files no longer hash to what `snapshot.json` recorded.
 
@@ -76,7 +79,7 @@ The conversion reads a snapshot written by `fetch`, or an export file the tool g
 - **Nothing is overwritten.** A table, form or automation whose name your config already holds is refused, naming it. `--prefix <p>` imports under new names: one value, spelled for each target, so `--prefix crm_` gives the table `crm_contacts` and the automation `crm-weekly-digest`. A re-run that would write exactly what your config already holds is not a clash: it changes nothing.
 - **The migrated app is validated first.** Your config with every new entry in place is checked once, before any file is written, and refused with the same finding `sovrium validate` would print.
 - **A TypeScript config is never edited.** `--write` writes one sidecar per entry (`tables/<name>.table.json`, `automations/<name>.automation.json`, …) and prints the import lines to add.
-- `--only tables,data,automations,forms` restricts what is converted. `--only data` writes the seed files and leaves the config untouched.
+- `--only tables,data,automations,forms` restricts what is converted, as do `auth` and `buckets` for a Supabase project's users and file buckets. `--only data` writes the seed files and leaves the config untouched.
 
 ## What lands where
 

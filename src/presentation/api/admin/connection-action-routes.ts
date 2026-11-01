@@ -31,7 +31,7 @@
  * threaded in by the route-setup composition root.
  *
  * Auth gating is wired upstream by `authMiddleware` + `requireAdminTier()` on the
- * `/api/admin/connections/*` wildcard (api-routes.ts) — the tier-aware guard
+ * `/api/admin/connections/*` wildcard (`middleware/admin-route-guards.ts`) — the tier-aware guard
  * admits a custom top role (partner's `engineer`) and 404s `member`/anon (S1
  * anti-enumeration). NO literal `role === 'admin'` check lives here.
  *
@@ -40,6 +40,7 @@
  * `upsertForUser`; the clientSecret is never serialized.
  */
 
+import { randomBytes } from 'node:crypto'
 import { Data, Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
@@ -49,7 +50,8 @@ import {
 } from '@/application/ports/services/oauth-state-store'
 import { generateCodeVerifier, generateOAuthState } from '@/domain/kernel/identity/pkce'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { connectionAuthorizeResponseSchema } from '@/domain/models/api/admin/connections/connections'
+import { successResponseSchema } from '@/domain/models/api/common'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   buildAuthorizeUrl,
@@ -63,9 +65,10 @@ import {
   type OAuth2AuthCodeProps,
   type OAuth2Props,
 } from '@/presentation/api/connections/oauth2-props'
-import { errorBody, requireSession, notFound } from '@/presentation/api/runtime/auth-helpers'
+import { requireSession, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import { answerFailures, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
+import { actionError } from './connection-action-errors'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -76,33 +79,6 @@ class AdminConnectionActionError extends Data.TaggedError('AdminConnectionAction
   readonly operation: string
   readonly cause: unknown
 }> {}
-
-/**
- * Status -> canonical code and human-readable wording for a connection action.
- *
- * `satisfies` is the point: widening {@link actionError}'s status union without
- * deciding what the new status MEANS breaks this table at compile time, rather
- * than letting the new status inherit whatever the last branch happened to say.
- */
-const ACTION_ERROR_BY_STATUS = {
-  400: { code: ApiErrorCode.BAD_REQUEST, message: 'The connection action was refused' },
-  500: { code: ApiErrorCode.INTERNAL_ERROR, message: 'The connection action failed' },
-  502: {
-    code: ApiErrorCode.BAD_GATEWAY,
-    message: 'The connection provider could not be reached',
-  },
-} satisfies Record<400 | 500 | 502, { readonly code: ApiErrorCode; readonly message: string }>
-
-/**
- * A connection-action refusal.
- *
- * Builds the canonical envelope rather than a bare `{ error }` — which would be
- * a second wire shape, with no `message` for a human and no `code` to branch
- * on — and keeps the short slug in `error`,
- * which is what `[internal ref]` matches on.
- */
-const actionError = (c: Context, status: 400 | 500 | 502, error: string) =>
-  c.json(errorBody({ error, ...ACTION_ERROR_BY_STATUS[status] }), status)
 
 interface ConnectionConfigDef {
   readonly name: string
@@ -117,17 +93,6 @@ const findConfig = (app: App, name: string): ConnectionConfigDef | undefined => 
 }
 
 /**
- * Run an Effect program against THIS request's connection services, return Either.
- *
- * Takes the Hono context because the services come from the runtime the running
- * server owns, resolved once at boot — see `provideDomain`.
- */
-const runAdmin = <A, E>(
-  c: Context,
-  program: Effect.Effect<A, E, ConnectionRepository | ConnectionTokenRepository | OAuthStateStore>
-) => runOnRequest(c, program)
-
-/**
  * Resolve a runtime `system.connections` row by id or name. The tagged result
  * cleanly distinguishes a hit, a per-resource miss, and a lookup failure (the
  * raw row is a `Record<string, unknown>`, so a plain `{ response }` union would
@@ -138,28 +103,28 @@ type LookupResult =
   | { readonly _tag: 'Missing' }
   | { readonly _tag: 'Failed'; readonly response: Response }
 
-const lookupConnection = async (
+const lookupConnection = (
   c: Context,
   key: { readonly by: 'id' | 'name'; readonly value: string }
-): Promise<LookupResult> => {
-  const result = await runAdmin(
-    c,
-    Effect.gen(function* () {
-      const connRepo = yield* ConnectionRepository
-      const op = key.by === 'id' ? connRepo.findById(key.value) : connRepo.findByName(key.value)
-      return yield* op.pipe(
-        Effect.mapError(
-          (cause) => new AdminConnectionActionError({ operation: `find_${key.by}`, cause })
-        )
+): Effect.Effect<LookupResult, never, ConnectionRepository> =>
+  Effect.gen(function* () {
+    const connRepo = yield* ConnectionRepository
+    const op = key.by === 'id' ? connRepo.findById(key.value) : connRepo.findByName(key.value)
+    return yield* op.pipe(
+      Effect.mapError(
+        (cause) => new AdminConnectionActionError({ operation: `find_${key.by}`, cause })
       )
+    )
+  }).pipe(
+    Effect.match({
+      onFailure: (failure): LookupResult => {
+        logError('[admin] connection lookup failed', failure, requestLogAttributes(c))
+        return { _tag: 'Failed', response: actionError(c, 500, 'connection_lookup_failed') }
+      },
+      onSuccess: (row): LookupResult =>
+        row === undefined ? { _tag: 'Missing' } : { _tag: 'Found', row },
     })
   )
-  if (result._tag === 'Failure') {
-    logError('[admin] connection lookup failed', result.failure, requestLogAttributes(c))
-    return { _tag: 'Failed', response: actionError(c, 500, 'connection_lookup_failed') }
-  }
-  return result.success === undefined ? { _tag: 'Missing' } : { _tag: 'Found', row: result.success }
-}
 
 // ─── authorize (id-keyed) ───────────────────────────────────────────────────
 
@@ -168,11 +133,11 @@ const lookupConnection = async (
  * oauth2, AND a matching oauth2 config block with the auth-code fields must be
  * present. Returns the validated props or a Response to return verbatim.
  */
-const resolveAuthorizeProps = async (
+const resolveAuthorizeProps = (
   c: Context,
   app: App,
   row: ConnectionRow
-): Promise<{ readonly props: OAuth2AuthCodeProps } | { readonly response: Response }> => {
+): { readonly props: OAuth2AuthCodeProps } | { readonly response: Response } => {
   // Only oauth2 connections have an authorize action — an apiKey/bearer/basic
   // connection holds a static secret and has no consent flow → 400.
   if (String(row['type']) !== 'oauth2') {
@@ -217,48 +182,55 @@ const saveAuthorizeState = ({
       )
   })
 
-async function handleAuthorize(c: Context, app: App): Promise<Response> {
+function handleAuthorize(c: Context, app: App): Promise<Response> | Response {
   const auth = requireSession(c)
   if (!auth.ok) return auth.response
   const { session } = auth
   const id = c.req.param('id')
   if (id === undefined || id === '') return notFound(c, 'No such connection')
 
-  const lookup = await lookupConnection(c, { by: 'id', value: id })
-  if (lookup._tag === 'Failed') return lookup.response
-  // Unknown connection id → anti-enum 404 (per-resource miss; the tier guard
-  // already 404s non-admin callers).
-  if (lookup._tag === 'Missing') return notFound(c, 'No such connection')
-  const { row } = lookup
-
-  const resolved = await resolveAuthorizeProps(c, app, row)
-  if ('response' in resolved) return resolved.response
-  const { props } = resolved
-
-  const state = generateOAuthState()
-  const codeVerifier = isPkceActive(props.pkce) ? generateCodeVerifier() : undefined
-
-  const saveResult = await runAdmin(
+  return runHandlerEffect(
     c,
-    saveAuthorizeState({
-      state,
-      connectionName: String(row['name']),
-      userId: session.userId,
-      codeVerifier,
-      redirectUri: props.redirectUri,
-      returnTo: c.req.query('returnTo'),
+    Effect.gen(function* () {
+      const lookup = yield* lookupConnection(c, { by: 'id', value: id })
+      if (lookup._tag === 'Failed') return lookup.response
+      // Unknown connection id → anti-enum 404 (the tier guard already 404s non-admins).
+      if (lookup._tag === 'Missing') return notFound(c, 'No such connection')
+      const { row } = lookup
+
+      const resolved = resolveAuthorizeProps(c, app, row)
+      if ('response' in resolved) return resolved.response
+      const { props } = resolved
+
+      const state = generateOAuthState(randomBytes)
+      const codeVerifier = isPkceActive(props.pkce) ? generateCodeVerifier(randomBytes) : undefined
+
+      const saveResult = yield* Effect.result(
+        saveAuthorizeState({
+          state,
+          connectionName: String(row['name']),
+          userId: session.userId,
+          codeVerifier,
+          redirectUri: props.redirectUri,
+          returnTo: c.req.query('returnTo'),
+        })
+      )
+      if (saveResult._tag === 'Failure') {
+        logError(
+          '[admin] connection authorize state save failed',
+          saveResult.failure,
+          requestLogAttributes(c)
+        )
+        return actionError(c, 500, 'state_save_failed')
+      }
+
+      return shapedJson(
+        c,
+        { authorizationUrl: buildAuthorizeUrl(props, state, codeVerifier) },
+        connectionAuthorizeResponseSchema
+      )
     })
   )
-  if (saveResult._tag === 'Failure') {
-    logError(
-      '[admin] connection authorize state save failed',
-      saveResult.failure,
-      requestLogAttributes(c)
-    )
-    return actionError(c, 500, 'state_save_failed')
-  }
-
-  return c.json({ authorizationUrl: buildAuthorizeUrl(props, state, codeVerifier) }, 200)
 }
 
 // ─── callback (name-keyed) ──────────────────────────────────────────────────
@@ -305,88 +277,79 @@ const parseCallbackInputs = (c: Context): CallbackInputs | { readonly response: 
  * to the original operator. Returns the matched entry or a Response (400 for a
  * forged/mismatched/replayed state — refused BEFORE any /token POST).
  */
-const consumeCallbackState = async (
-  c: Context,
-  inputs: CallbackInputs,
-  userId: string
-): Promise<OAuthStateEntry | { readonly response: Response }> => {
-  const consume = await runAdmin(
-    c,
-    Effect.gen(function* () {
-      const store = yield* OAuthStateStore
-      return yield* store
+const consumeCallbackState = (c: Context, inputs: CallbackInputs, userId: string) =>
+  Effect.gen(function* () {
+    const store = yield* OAuthStateStore
+    const consume = yield* Effect.result(
+      store
         .consume(inputs.state)
         .pipe(
           Effect.mapError(
             (cause) => new AdminConnectionActionError({ operation: 'state.consume', cause })
           )
         )
-    })
-  )
-  if (consume._tag === 'Failure') {
-    logError(
-      '[admin] connection callback state consume failed',
-      consume.failure,
-      requestLogAttributes(c)
     )
-    return { response: actionError(c, 500, 'state_consume_failed') }
-  }
-  const entry = consume.success
-  // Unknown/expired state OR a state issued for a different connection → 400.
-  if (entry === undefined || entry.connectionName !== inputs.name) {
-    return { response: actionError(c, 400, 'invalid_state_or_mismatch') }
-  }
-  // Defense-in-depth: bind the state to the operator who issued it.
-  if (entry.userId !== userId) {
-    return { response: actionError(c, 400, 'state_user_mismatch') }
-  }
-  return entry
-}
+    if (consume._tag === 'Failure') {
+      logError(
+        '[admin] connection callback state consume failed',
+        consume.failure,
+        requestLogAttributes(c)
+      )
+      return { response: actionError(c, 500, 'state_consume_failed') }
+    }
+    const entry = consume.success
+    // Unknown/expired state OR a state issued for a different connection → 400.
+    if (entry === undefined || entry.connectionName !== inputs.name) {
+      return { response: actionError(c, 400, 'invalid_state_or_mismatch') }
+    }
+    // Defense-in-depth: bind the state to the operator who issued it.
+    if (entry.userId !== userId) {
+      return { response: actionError(c, 400, 'state_user_mismatch') }
+    }
+    return entry
+  })
 
 /**
  * Validate the callback's state then resolve the config props + the runtime
  * connection row id. Returns a ready-to-exchange context or a Response verbatim.
  */
-async function resolveCallback(
-  c: Context,
-  app: App,
-  userId: string
-): Promise<ResolvedCallback | { readonly response: Response }> {
-  const inputs = parseCallbackInputs(c)
-  if ('response' in inputs) return inputs
+const resolveCallback = (c: Context, app: App, userId: string) =>
+  Effect.gen(function* () {
+    const inputs = parseCallbackInputs(c)
+    if ('response' in inputs) return inputs
 
-  const entry = await consumeCallbackState(c, inputs, userId)
-  if ('response' in entry) return entry
+    const entry = yield* consumeCallbackState(c, inputs, userId)
+    if ('response' in entry) return entry
 
-  const conn = findConfig(app, inputs.name)
-  if (conn === undefined || conn.type !== 'oauth2') {
-    return { response: notFound(c, 'No such connection') }
-  }
-  // Resolve `$env.VAR` placeholders before the /token exchange so the
-  // clientId/clientSecret/tokenUrl/redirectUri sent to the provider are the
-  // real values, not literal `$env.…` strings.
-  const resolvedProps = resolveOAuth2PropsEnv(conn.props as unknown as OAuth2Props, app)
-  const fieldsCheck = requireAuthCodeFields(
-    c,
-    resolvedProps,
-    `/api/admin/connections/${inputs.name}/callback`
-  )
-  if ('response' in fieldsCheck) return { response: fieldsCheck.response }
+    const conn = findConfig(app, inputs.name)
+    if (conn === undefined || conn.type !== 'oauth2') {
+      return { response: notFound(c, 'No such connection') }
+    }
+    // Resolve `$env.VAR` placeholders before the /token exchange so the
+    // clientId/clientSecret/tokenUrl/redirectUri sent to the provider are the
+    // real values, not literal `$env.…` strings.
+    const resolvedProps = resolveOAuth2PropsEnv(conn.props as unknown as OAuth2Props, app)
+    const fieldsCheck = requireAuthCodeFields(
+      c,
+      resolvedProps,
+      `/api/admin/connections/${inputs.name}/callback`
+    )
+    if ('response' in fieldsCheck) return { response: fieldsCheck.response }
 
-  const lookup = await lookupConnection(c, { by: 'name', value: inputs.name })
-  if (lookup._tag === 'Failed') return { response: lookup.response }
-  if (lookup._tag === 'Missing') return { response: notFound(c, 'No such connection') }
+    const lookup = yield* lookupConnection(c, { by: 'name', value: inputs.name })
+    if (lookup._tag === 'Failed') return { response: lookup.response }
+    if (lookup._tag === 'Missing') return { response: notFound(c, 'No such connection') }
 
-  return {
-    props: fieldsCheck.props,
-    connectionId: String(lookup.row['id']),
-    userId,
-    scope: resolvedProps.scope === 'user' ? 'user' : 'app',
-    code: inputs.code,
-    codeVerifier: entry.codeVerifier,
-    returnTo: entry.returnTo,
-  }
-}
+    return {
+      props: fieldsCheck.props,
+      connectionId: String(lookup.row['id']),
+      userId,
+      scope: resolvedProps.scope === 'user' ? 'user' : 'app',
+      code: inputs.code,
+      codeVerifier: entry.codeVerifier,
+      returnTo: entry.returnTo,
+    } satisfies ResolvedCallback
+  })
 
 /**
  * Persist the exchanged token (encrypted at rest) into the store the
@@ -430,96 +393,108 @@ const persistToken = (input: {
     )
   })
 
-async function handleCallback(c: Context, app: App): Promise<Response> {
+function handleCallback(c: Context, app: App): Promise<Response> | Response {
   const auth = requireSession(c)
   if (!auth.ok) return auth.response
   const { session } = auth
 
-  const ctx = await resolveCallback(c, app, session.userId)
-  if ('response' in ctx) return ctx.response
-
-  const exchange = await exchangeCodeForToken(ctx.props, ctx.code, ctx.codeVerifier)
-  if (!exchange.ok) return actionError(c, 502, 'token_exchange_failed')
-  const accessToken = exchange.tokens.access_token
-  if (accessToken === undefined || accessToken === '') {
-    return actionError(c, 502, 'token_response_missing_access_token')
-  }
-
-  const persistResult = await runAdmin(
+  return runHandlerEffect(
     c,
-    persistToken({
-      connectionId: ctx.connectionId,
-      userId: ctx.userId,
-      scope: ctx.scope,
-      tokens: exchange.tokens,
-      accessToken,
-      tokenFields: exchange.fields,
-    })
-  )
-  if (persistResult._tag === 'Failure') {
-    logError(
-      '[admin] connection callback token persistence failed',
-      persistResult.failure,
-      requestLogAttributes(c)
-    )
-    return actionError(c, 500, 'token_persistence_failed')
-  }
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const ctx = yield* resolveCallback(c, app, session.userId)
+        if ('response' in ctx) return ctx.response
 
-  // Land back where the gesture started when that is a same-origin path, else
-  // on the connections page. The redirect carries no token/secret material (S4).
-  return c.redirect(toSafeRedirectPath(ctx.returnTo) ?? '/_admin/connections', 302)
+        const exchange = yield* Effect.tryPromise({
+          try: () => exchangeCodeForToken(ctx.props, ctx.code, ctx.codeVerifier),
+          catch: (cause) => new AdminConnectionActionError({ operation: 'token.exchange', cause }),
+        })
+        if (!exchange.ok) return actionError(c, 502, 'token_exchange_failed')
+        const accessToken = exchange.tokens.access_token
+        if (accessToken === undefined || accessToken === '') {
+          return actionError(c, 502, 'token_response_missing_access_token')
+        }
+
+        const persistResult = yield* Effect.result(
+          persistToken({
+            connectionId: ctx.connectionId,
+            userId: ctx.userId,
+            scope: ctx.scope,
+            tokens: exchange.tokens,
+            accessToken,
+            tokenFields: exchange.fields,
+          })
+        )
+        if (persistResult._tag === 'Failure') {
+          logError(
+            '[admin] connection callback token persistence failed',
+            persistResult.failure,
+            requestLogAttributes(c)
+          )
+          return actionError(c, 500, 'token_persistence_failed')
+        }
+
+        // Land back where the gesture started when that is a same-origin path, else
+        // on the connections page. The redirect carries no token/secret material (S4).
+        return c.redirect(toSafeRedirectPath(ctx.returnTo) ?? '/_admin/connections', 302)
+      })
+    )
+  )
 }
 
 // ─── disconnect (id-keyed) ──────────────────────────────────────────────────
 
-async function handleDisconnect(c: Context): Promise<Response> {
+function handleDisconnect(c: Context): Promise<Response> | Response {
   const auth = requireSession(c)
   if (!auth.ok) return auth.response
   const id = c.req.param('id')
   if (id === undefined || id === '') return notFound(c, 'No such connection')
 
-  const result = await runAdmin(
+  const disconnect = Effect.gen(function* () {
+    const connRepo = yield* ConnectionRepository
+    const row = yield* connRepo
+      .findById(id)
+      .pipe(
+        Effect.mapError((cause) => new AdminConnectionActionError({ operation: 'find_id', cause }))
+      )
+    if (row === undefined) return { found: false as const }
+    const tokenRepo = yield* ConnectionTokenRepository
+    const connectionId = String(row['id'])
+    // Clear BOTH stores. Clearing only the shared row would leave a
+    // pre-upgrade per-user row behind, and the adoption on the injection
+    // path would then resurrect the credential the operator just revoked —
+    // on the cron jobs, which are exactly the callers nobody is watching.
+    yield* tokenRepo
+      .deleteForConnection(connectionId)
+      .pipe(
+        Effect.mapError(
+          (cause) => new AdminConnectionActionError({ operation: 'deleteForConnection', cause })
+        )
+      )
+    yield* tokenRepo
+      .deleteForApp({ connectionId })
+      .pipe(
+        Effect.mapError(
+          (cause) => new AdminConnectionActionError({ operation: 'deleteForApp', cause })
+        )
+      )
+    return { found: true as const }
+  })
+  return runHandlerEffect(
     c,
-    Effect.gen(function* () {
-      const connRepo = yield* ConnectionRepository
-      const row = yield* connRepo
-        .findById(id)
-        .pipe(
-          Effect.mapError(
-            (cause) => new AdminConnectionActionError({ operation: 'find_id', cause })
-          )
-        )
-      if (row === undefined) return { found: false as const }
-      const tokenRepo = yield* ConnectionTokenRepository
-      const connectionId = String(row['id'])
-      // Clear BOTH stores. Clearing only the shared row would leave a
-      // pre-upgrade per-user row behind, and the adoption on the injection
-      // path would then resurrect the credential the operator just revoked —
-      // on the cron jobs, which are exactly the callers nobody is watching.
-      yield* tokenRepo
-        .deleteForConnection(connectionId)
-        .pipe(
-          Effect.mapError(
-            (cause) => new AdminConnectionActionError({ operation: 'deleteForConnection', cause })
-          )
-        )
-      yield* tokenRepo
-        .deleteForApp({ connectionId })
-        .pipe(
-          Effect.mapError(
-            (cause) => new AdminConnectionActionError({ operation: 'deleteForApp', cause })
-          )
-        )
-      return { found: true as const }
+    Effect.match(disconnect, {
+      onFailure: (failure) => {
+        logError('[admin] connection disconnect failed', failure, requestLogAttributes(c))
+        return actionError(c, 500, 'disconnect_failed')
+      },
+      // Unknown connection id → anti-enum 404.
+      onSuccess: ({ found }) =>
+        found
+          ? shapedJson(c, { success: true }, successResponseSchema)
+          : notFound(c, 'No such connection'),
     })
   )
-  if (result._tag === 'Failure') {
-    logError('[admin] connection disconnect failed', result.failure, requestLogAttributes(c))
-    return actionError(c, 500, 'disconnect_failed')
-  }
-  // Unknown connection id → anti-enum 404.
-  if (!result.success.found) return notFound(c, 'No such connection')
-  return c.json({ success: true }, 200)
 }
 
 /**

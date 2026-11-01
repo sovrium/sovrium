@@ -20,8 +20,8 @@
  */
 
 import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
 import { periodPresetSchema } from '@/domain/models/api/admin/envelope/period-preset'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 
 /**
  * Query parameters accepted by `GET /api/admin/automations/overview`.
@@ -112,7 +112,7 @@ export const automationsOverviewResponseSchema = Schema.Struct({
     }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
     runs_24h: Schema.Int.annotate({
       description:
-        'Runs that started in the last 24 hours and are about something — every run that is not routine, and every failure — regardless of the requested period.',
+        'Runs that started in the last 24 hours and are about something (every run that is not routine, and every failure), regardless of the requested period.',
     }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
     routine_runs_24h: Schema.Int.annotate({
       description:
@@ -136,7 +136,7 @@ export const automationsOverviewResponseSchema = Schema.Struct({
   }).annotate({ description: 'Bucketed time series for chart rendering.' }),
   points: Schema.Array(seriesPointSchema).annotate({
     description:
-      'The same buckets as `series.points`, in the same order, at the top level of the response — the shape a chart binding reads, since it looks a series up by one flat key.',
+      'The same buckets as `series.points`, in the same order, at the top level of the response. That is the shape a chart binding reads, since it looks a series up by one flat key.',
   }),
 }).annotate({ identifier: 'AutomationsOverviewResponse' })
 

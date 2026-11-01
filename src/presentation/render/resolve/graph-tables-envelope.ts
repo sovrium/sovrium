@@ -30,6 +30,10 @@
  * source exactly as they read an endpoint.
  */
 
+import {
+  anonymousGrant,
+  servesNoAuthVisitor,
+} from '@/domain/models/app/auth/anonymous-grant-service'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import {
   buildGraphTablesEnvelope,
@@ -122,8 +126,15 @@ const entryFilters = (
 
 /** Whether the visitor may read `field` of `tableName`. */
 const mayReadField = (ctx: ReadContext, tableName: string, field: string): boolean => {
-  // No `auth`: every field is readable but a write-only one, which no one reads.
-  if (!ctx.app.auth) return !isWriteOnlyField(ctx.app, tableName, field)
+  // No `auth`: every field of a table that opens `read` to everyone is readable
+  // but a write-only one, which no one reads; no field of any other table is.
+  if (!ctx.app.auth) {
+    const table = ctx.app.tables?.find((t) => t.name === tableName)
+    return (
+      (!servesNoAuthVisitor(ctx.app) || anonymousGrant(table, 'read', ctx.app)) &&
+      !isWriteOnlyField(ctx.app, tableName, field)
+    )
+  }
   const reader = callerReaderFromSession(ctx.session, ctx.app)
   const caller = { role: reader?.role ?? 'guest', groups: reader?.groups ?? [] }
   const kept = filterReadableFields({

@@ -14,52 +14,47 @@
 
 import { Effect, Option } from 'effect'
 import { AgentApprovalStore } from '@/application/ports/services/agent-approval-store'
-import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import type {
   AgentActionFeedEntry,
   ApprovalDecisionFeedEntry,
 } from '@/application/ports/services/agent-approval-store'
 import type { ApprovalRecord } from '@/domain/models/app/agents/approval-record-service'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 const onStore = <A>(
-  services: DomainContext,
   use: (store: AgentApprovalStore['Service']) => Effect.Effect<A>
-): Promise<A> => runOnDomain(services, Effect.flatMap(Effect.service(AgentApprovalStore), use))
+): Effect.Effect<A, never, AgentApprovalStore> =>
+  Effect.flatMap(Effect.service(AgentApprovalStore), use)
 
 /** Keep an approval that paused no turn. */
-export const openApproval = (services: DomainContext, record: ApprovalRecord): Promise<void> =>
-  onStore(services, (store) => store.open(record))
+export const openApproval = (
+  record: ApprovalRecord
+): Effect.Effect<void, never, AgentApprovalStore> => onStore((store) => store.open(record))
 
 /** The approval as of now, or `undefined` for an unknown id. */
 export const readApproval = (
-  services: DomainContext,
   id: string
-): Promise<ApprovalRecord | undefined> =>
-  onStore(services, (store) => Effect.map(store.get(id), Option.getOrUndefined))
+): Effect.Effect<ApprovalRecord | undefined, never, AgentApprovalStore> =>
+  onStore((store) => Effect.map(store.get(id), Option.getOrUndefined))
 
 /** Every approval of `agentName`, each as of now. */
 export const listApprovals = (
-  services: DomainContext,
   agentName: string
-): Promise<ReadonlyArray<ApprovalRecord>> => onStore(services, (store) => store.list(agentName))
+): Effect.Effect<ReadonlyArray<ApprovalRecord>, never, AgentApprovalStore> =>
+  onStore((store) => store.list(agentName))
 
 /** Apply a decision's `patch`; `undefined` for an unknown id. */
 export const decideApproval = (
-  services: DomainContext,
   id: string,
   patch: Partial<ApprovalRecord>
-): Promise<ApprovalRecord | undefined> =>
-  onStore(services, (store) => Effect.map(store.decide(id, patch), Option.getOrUndefined))
+): Effect.Effect<ApprovalRecord | undefined, never, AgentApprovalStore> =>
+  onStore((store) => Effect.map(store.decide(id, patch), Option.getOrUndefined))
 
 /** Put an approval decision on the activity feed. */
 export const recordApprovalDecision = (
-  services: DomainContext,
   entry: ApprovalDecisionFeedEntry
-): Promise<void> => onStore(services, (store) => store.recordDecision(entry))
+): Effect.Effect<void, never, AgentApprovalStore> => onStore((store) => store.recordDecision(entry))
 
 /** Put an agent action on the activity feed. */
 export const recordFeedAction = (
-  services: DomainContext,
   entry: AgentActionFeedEntry
-): Promise<void> => onStore(services, (store) => store.recordAction(entry))
+): Effect.Effect<void, never, AgentApprovalStore> => onStore((store) => store.recordAction(entry))

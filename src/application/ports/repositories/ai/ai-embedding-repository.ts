@@ -47,7 +47,7 @@ export interface EmbeddingSearchResult {
   readonly agentName: string | null
   readonly sourceRef: string | null
   readonly content: string
-  /** Cosine similarity in `[0, 1]` — `1 - cosine_distance`. */
+  /** Cosine similarity in `[-1, 1]` — `1 - cosine_distance`. */
   readonly similarity: number
   /**
    * The names of the fields whose values a table chunk holds (its

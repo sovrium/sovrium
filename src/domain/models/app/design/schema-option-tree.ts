@@ -25,20 +25,20 @@
  *
  * ─── THE AST TAGS ARE `Objects` AND `Arrays`, NOT `TypeLiteral`/`TupleType` ─
  *
- * Effect 4 spells an object node `Objects` (carrying `propertySignatures`) and
- * an array node `Arrays` (carrying `elements` and `rest`) — not the
- * `TypeLiteral` / `TupleType` a reader coming from another schema library will
- * reach for first, and not the spelling Effect 3 used. A walker written against
- * the wrong tags does not throw. It silently descends nowhere and publishes one
- * flat level, which renders as a Configuration section that looks complete and
- * is not.
- *
- * A second trap one level down: `Arrays.rest` is an array of NODES directly, so
- * the element is `rest[0]` and `rest[0].type` is `undefined`. Both were probed
- * against effect 4.0.0 rather than assumed.
+ * A walker written against the wrong tags does not throw: it descends nowhere
+ * and publishes one flat level that looks complete. Every tag this walk reads
+ * comes from `kernel/config-parsing/schema-ast.ts`, whose tripwire test holds
+ * the spellings against the installed Effect.
  */
 
 import { Schema } from 'effect'
+import {
+  AST_TAG,
+  arrayElement,
+  isTag,
+  objectFields,
+  unionMembers,
+} from '@/domain/kernel/config-parsing/schema-ast'
 import {
   astOf,
   decodedDefaults,
@@ -273,7 +273,7 @@ const annotationOf = (node: SchemaNode, key: string): string | undefined =>
 
 /** A literal node's value as a string, or `undefined` when it carries none. */
 const literalText = (node: SchemaNode): string | undefined => {
-  if (node._tag !== 'Literal') return undefined
+  if (!isTag(node, AST_TAG.literal)) return undefined
   const { literal } = node
   return typeof literal === 'string' || typeof literal === 'number' || typeof literal === 'boolean'
     ? String(literal)
@@ -282,19 +282,18 @@ const literalText = (node: SchemaNode): string | undefined => {
 
 /** The members of a union every branch of which is a literal, else `undefined`. */
 const enumValuesOf = (node: SchemaNode): readonly string[] | undefined => {
-  if (node._tag !== 'Union' || node.types === undefined) return undefined
-  const members = node.types.filter((member) => member._tag !== 'Undefined')
-  if (members.length === 0) return undefined
+  const members = unionMembers(node)?.filter((member) => !isTag(member, AST_TAG.undefined))
+  if (members === undefined || members.length === 0) return undefined
   const values = members.map(literalText)
   return values.every((value): value is string => value !== undefined) ? values : undefined
 }
 
 /** The node a `Suspend` stands for, expanded once. */
 const suspendedNode = (node: SchemaNode): SchemaNode | undefined => {
-  const { thunk } = node as { readonly thunk?: unknown }
+  const { thunk } = node
   if (typeof thunk !== 'function') return undefined
   try {
-    const resolved = (thunk as () => unknown)()
+    const resolved = thunk()
     return (
       astOf(resolved) ??
       (typeof resolved === 'object' && resolved !== null ? (resolved as SchemaNode) : undefined)
@@ -304,13 +303,13 @@ const suspendedNode = (node: SchemaNode): SchemaNode | undefined => {
   }
 }
 
-/** The element node of an array — `rest[0]`, which IS the node, not `{ type }`. */
-const elementOf = (node: SchemaNode): SchemaNode | undefined => node.rest?.[0] ?? node.elements?.[0]
+/** A union's members other than the `Undefined` / `Null` an optional or nullable adds. */
+const definedMembers = (node: SchemaNode): readonly SchemaNode[] =>
+  (unionMembers(node) ?? []).filter((m) => !isTag(m, AST_TAG.undefined) && !isTag(m, AST_TAG.null))
 
 /** Whether this node has a subtree the walk could descend into. */
 const isContainer = (node: SchemaNode): boolean =>
-  (node._tag === 'Objects' && (node.propertySignatures?.length ?? 0) > 0) ||
-  (node._tag === 'Arrays' && elementOf(node) !== undefined)
+  objectFields(node).length > 0 || arrayElement(node) !== undefined
 
 /**
  * The words a node publishes: its own, else the wrapper's.
@@ -389,13 +388,13 @@ const walk = (
 ): readonly RawOption[] => {
   if (node === undefined) return []
   const inner = unwrapOptional(node)
-  if (inner._tag === 'Suspend') return walkSuspend(inner, path, context)
+  if (isTag(inner, AST_TAG.suspend)) return walkSuspend(inner, path, context)
 
   const described = describedBy(node, inner)
   const closed = closedValueRow(inner, path, described)
   if (closed !== undefined) return [closed]
 
-  if (inner._tag === 'Union')
+  if (isTag(inner, AST_TAG.union))
     return withFieldWords(walkUnion(inner, path, context), path, described)
 
   const self: RawOption = { path, kind: kindOf(inner), ...described }
@@ -413,9 +412,7 @@ const walk = (
  * What it does contribute is its words; see {@link withFieldWords}.
  */
 const walkUnion = (inner: SchemaNode, path: string, context: WalkContext): readonly RawOption[] =>
-  (inner.types ?? [])
-    .filter((member) => member._tag !== 'Undefined' && member._tag !== 'Null')
-    .flatMap((member) => walk(member, path, context))
+  definedMembers(inner).flatMap((member) => walk(member, path, context))
 
 /**
  * Let the field's OWN sentence outrank the sentences of its branches.
@@ -476,11 +473,11 @@ const walkChildren = (
   path: string,
   context: WalkContext
 ): readonly RawOption[] =>
-  inner._tag === 'Objects'
-    ? (inner.propertySignatures ?? []).flatMap((property) =>
+  isTag(inner, AST_TAG.objects)
+    ? objectFields(inner).flatMap((property) =>
         walk(property.type, `${path}.${String(property.name)}`, deeper(context))
       )
-    : walk(elementOf(inner), `${path}[]`, deeper(context))
+    : walk(arrayElement(inner), `${path}[]`, deeper(context))
 
 /**
  * The description a merged group may publish: the one every describing branch
@@ -868,20 +865,18 @@ const topLevelEntriesOf = (
   expanded: readonly SchemaNode[]
 ): readonly { readonly name: string; readonly type: SchemaNode }[] => {
   const inner = unwrapOptional(node)
-  if (inner._tag === 'Suspend') {
+  if (isTag(inner, AST_TAG.suspend)) {
     if (expanded.includes(inner)) return []
     const resolved = suspendedNode(inner)
     return resolved === undefined ? [] : topLevelEntriesOf(resolved, [...expanded, inner])
   }
-  if (inner._tag === 'Objects')
-    return (inner.propertySignatures ?? []).map((property) => ({
+  if (isTag(inner, AST_TAG.objects))
+    return objectFields(inner).map((property) => ({
       name: String(property.name),
       type: property.type,
     }))
-  if (inner._tag === 'Union')
-    return (inner.types ?? [])
-      .filter((member) => member._tag !== 'Undefined' && member._tag !== 'Null')
-      .flatMap((member) => topLevelEntriesOf(member, expanded))
+  if (isTag(inner, AST_TAG.union))
+    return definedMembers(inner).flatMap((member) => topLevelEntriesOf(member, expanded))
   return []
 }
 
@@ -1020,7 +1015,7 @@ const parseOptionPath = (path: string): readonly PathSegment[] | undefined => {
 /** A node with its optional wrapper removed and its `Suspend` chain expanded. */
 const resolveNode = (node: SchemaNode, expanded: readonly SchemaNode[]): SchemaNode => {
   const inner = unwrapOptional(node)
-  if (inner._tag !== 'Suspend' || expanded.includes(inner)) return inner
+  if (!isTag(inner, AST_TAG.suspend) || expanded.includes(inner)) return inner
   const resolved = suspendedNode(inner)
   return resolved === undefined ? inner : resolveNode(resolved, [...expanded, inner])
 }
@@ -1036,10 +1031,10 @@ const resolveNode = (node: SchemaNode, expanded: readonly SchemaNode[]): SchemaN
  */
 const propertyTypeOf = (node: SchemaNode, name: string): SchemaNode | undefined => {
   const inner = resolveNode(node, [])
-  if (inner._tag === 'Objects')
-    return inner.propertySignatures?.find((property) => String(property.name) === name)?.type
-  if (inner._tag === 'Union')
-    return (inner.types ?? []).reduce<SchemaNode | undefined>(
+  if (isTag(inner, AST_TAG.objects))
+    return objectFields(inner).find((property) => String(property.name) === name)?.type
+  if (isTag(inner, AST_TAG.union))
+    return (unionMembers(inner) ?? []).reduce<SchemaNode | undefined>(
       (found, member) => found ?? propertyTypeOf(member, name),
       undefined
     )
@@ -1049,9 +1044,9 @@ const propertyTypeOf = (node: SchemaNode, name: string): SchemaNode | undefined 
 /** The element type behind one `[]`, searching union branches the same way. */
 const elementTypeOf = (node: SchemaNode): SchemaNode | undefined => {
   const inner = resolveNode(node, [])
-  if (inner._tag === 'Arrays') return elementOf(inner)
-  if (inner._tag === 'Union')
-    return (inner.types ?? []).reduce<SchemaNode | undefined>(
+  if (isTag(inner, AST_TAG.arrays)) return arrayElement(inner)
+  if (isTag(inner, AST_TAG.union))
+    return (unionMembers(inner) ?? []).reduce<SchemaNode | undefined>(
       (found, member) => found ?? elementTypeOf(member),
       undefined
     )

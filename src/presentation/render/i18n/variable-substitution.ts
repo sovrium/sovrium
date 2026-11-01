@@ -6,7 +6,7 @@
  */
 
 import { toKebabCase } from '@/presentation/design/string-utils'
-import type { Component } from '@/domain/models/app/pages/components'
+import type { ComponentEntry } from '@/presentation/render/resolve/component-rewrite'
 
 /**
  * Resolves a dot-notation path in an object
@@ -124,10 +124,10 @@ export function substituteVariableValues(value: unknown, vars?: Record<string, u
  * // ['Hello', { type: 'span', content: 'World' }]
  * ```
  */
-export function substituteChildrenVariables(
-  children: ReadonlyArray<Component | string> | undefined,
+export function substituteChildrenVariables<T extends ComponentEntry>(
+  children: ReadonlyArray<T> | undefined,
   vars?: Record<string, unknown>
-): ReadonlyArray<Component | string> | undefined {
+): ReadonlyArray<T> | undefined {
   // A non-list is the `$children` slot marker of a template node: it is
   // filled by the placement's own components, which never take the vars.
   if (!Array.isArray(children) || !vars) {

@@ -102,7 +102,7 @@ export const BucketSchema = Schema.Struct({
       Schema.annotate({
         defaultNote: 'false',
         description:
-          'Whether files are publicly accessible. Defaults to false (private). Public buckets serve files without signed URLs.',
+          'Whether files are publicly accessible. Defaults to false (private). Public buckets serve files without signed URLs, and take uploads from administrators only unless permissions.upload says otherwise.',
       })
     )
   ),

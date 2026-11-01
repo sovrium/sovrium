@@ -7,7 +7,7 @@
 
 import type { EngineComponentType } from '@/domain/models/app/pages/components/component-types/component-type-union'
 import type { TextElementSchema } from '@/domain/models/app/pages/components/component-types/content'
-import type { LayoutProperty } from '@/domain/models/app/pages/page-merge-layout-service'
+import type { LayoutProperty } from '@/domain/models/app/pages/merge/layout-service'
 
 /**
  * The vocabulary the three page migration tables share: Webflow

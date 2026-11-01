@@ -33,9 +33,11 @@
  * be read top to bottom.
  */
 
+import { Effect } from 'effect'
 import { requestSearch } from '@/domain/kernel/url/request-search'
 import { renderLinkGatePage } from '@/domain/models/app/links/link-gate-page'
 import { QR_MARKER_PARAM, resolveLinkOutcome } from '@/domain/models/app/links/link-resolver'
+import { answerNotFound, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import { creditedClicks, recordClick, visitorContext } from './link-click-analytics'
 import {
   gatePassword,
@@ -69,59 +71,64 @@ export function setupLinkRoutes(honoApp: Readonly<Hono>, app: App): Readonly<Hon
    * path is how a gated link ends up honouring a lifecycle window on one verb
    * and not the other.
    */
-  const handle = async (c: Context): Promise<Response> => {
-    const { slug: token, isSvg } = splitSvgVariant(c.req.param('token') ?? '')
+  const handle = (c: Context): Promise<Response> =>
+    runHandlerEffect(
+      c,
+      Effect.gen(function* () {
+        const { slug: token, isSvg } = splitSvgVariant(c.req.param('token') ?? '')
 
-    // ONE canonical address per link. The slug is the analytics join key, so two
-    // spellings would split one campaign across two rows — and the address gets
-    // printed, where a reader's capitalisation is not under anyone's control.
-    if (token !== token.toLowerCase()) return c.redirect(canonicalPath(token, isSvg), 301)
+        // ONE canonical address per link. The slug is the analytics join key, so two
+        // spellings would split one campaign across two rows — and the address gets
+        // printed, where a reader's capitalisation is not under anyone's control.
+        if (token !== token.toLowerCase()) return c.redirect(canonicalPath(token, isSvg), 301)
 
-    const resolved = await resolveDeclaredOrStored(app, bySlug.get(token), token)
-    if (resolved === undefined) return c.notFound()
-    const { link, overlayDisabled } = resolved
+        const resolved = yield* resolveDeclaredOrStored(app, bySlug.get(token), token)
+        if (resolved === undefined) return yield* answerNotFound(c)
+        const { link, overlayDisabled } = resolved
 
-    // The console's overlay may only ever be MORE restrictive than the file
-    // So it is applied as a floor over whatever the definition
-    // says rather than merged into it — an operator killing a link during an
-    // incident must not be able to bring back one the config has switched off.
-    if (overlayDisabled) return isSvg ? respondWithQr(c, GONE, token) : respondGone(c, GONE)
+        // The console's overlay may only ever be MORE restrictive than the file
+        // So it is applied as a floor over whatever the definition
+        // says rather than merged into it — an operator killing a link during an
+        // incident must not be able to bring back one the config has switched off.
+        if (overlayDisabled) return isSvg ? respondWithQr(c, GONE, token) : respondGone(c, GONE)
 
-    const supplied = await submittedPassword(c)
-    const outcome = resolveLinkOutcome(link, {
-      now: new Date(),
-      clickCount: await creditedClicks(c, app.name, link, token),
-      requestSearch: requestSearch(c),
-      draw: Math.random(),
-      visitor: visitorContext(c),
-      passwordSatisfied: verifyPassword(gatePassword(app, link), supplied),
-    })
+        // effect-promise: total -- a body that cannot be parsed reads as no password.
+        const supplied = yield* Effect.promise(() => submittedPassword(c))
+        const outcome = resolveLinkOutcome(link, {
+          now: new Date(),
+          clickCount: yield* creditedClicks(app.name, link, token),
+          requestSearch: requestSearch(c),
+          draw: Math.random(),
+          visitor: visitorContext(c),
+          passwordSatisfied: verifyPassword(gatePassword(app, link), supplied),
+        })
 
-    // A QR code encodes the link's ADDRESS, not its destination, so a gate is
-    // irrelevant to it — the visitor meets the gate when they follow the code.
-    if (isSvg) return respondWithQr(c, outcome, token)
-    if (outcome.kind === 'gone') return respondGone(c, outcome)
-    if (outcome.kind === 'gated') {
-      // `no-store` for the same reason the redirect carries it, and one more:
-      // a cached interstitial would keep prompting after the gate was removed.
-      c.header('Cache-Control', 'no-store')
-      return c.html(renderLinkGatePage(token, supplied !== undefined), 200)
-    }
+        // A QR code encodes the link's ADDRESS, not its destination, so a gate is
+        // irrelevant to it — the visitor meets the gate when they follow the code.
+        if (isSvg) return respondWithQr(c, outcome, token)
+        if (outcome.kind === 'gone') return respondGone(c, outcome)
+        if (outcome.kind === 'gated') {
+          // `no-store` for the same reason the redirect carries it, and one more:
+          // a cached interstitial would keep prompting after the gate was removed.
+          c.header('Cache-Control', 'no-store')
+          return c.html(renderLinkGatePage(token, supplied !== undefined), 200)
+        }
 
-    recordClick(c, app, {
-      slug: token,
-      destination: outcome.location,
-      targetIndex: outcome.targetIndex,
-      isScan: new URLSearchParams(requestSearch(c)).get(QR_MARKER_PARAM) !== null,
-    })
+        recordClick(c, app, {
+          slug: token,
+          destination: outcome.location,
+          targetIndex: outcome.targetIndex,
+          isScan: new URLSearchParams(requestSearch(c)).get(QR_MARKER_PARAM) !== null,
+        })
 
-    // `no-store` is the header that makes the whole feature honest: a cached
-    // redirect would keep sending visitors to a destination after it was
-    // re-pointed, and would silently defeat both `maxClicks` and `validUntil`
-    // because the browser would never ask again.
-    c.header('Cache-Control', 'no-store')
-    return c.redirect(outcome.location, 302)
-  }
+        // `no-store` is the header that makes the whole feature honest: a cached
+        // redirect would keep sending visitors to a destination after it was
+        // re-pointed, and would silently defeat both `maxClicks` and `validUntil`
+        // because the browser would never ask again.
+        c.header('Cache-Control', 'no-store')
+        return c.redirect(outcome.location, 302)
+      })
+    )
 
   return honoApp.get('/l/:token', handle).post('/l/:token', handle)
 }

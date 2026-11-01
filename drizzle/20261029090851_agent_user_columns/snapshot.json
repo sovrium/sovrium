@@ -1,0 +1,81 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "925bcf64-7bdd-4dd0-8113-339fc5a88336",
+  "prevIds": [
+    "b7125eda-393c-49fc-b575-611ac81f37a3"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "auth",
+        "user",
+        "type"
+      ],
+      "writes": [
+        "s|col|auth.user.type",
+        "n|col|auth.user.type",
+        "e|col|auth.user.type"
+      ],
+      "reads": [
+        "n|tbl|auth.user",
+        "n|sch|auth"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "auth",
+        "user",
+        "deleted_at"
+      ],
+      "writes": [
+        "s|col|auth.user.deleted_at",
+        "n|col|auth.user.deleted_at",
+        "e|col|auth.user.deleted_at"
+      ],
+      "reads": [
+        "n|tbl|auth.user",
+        "n|sch|auth"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "auth",
+        "table": "user",
+        "name": "type",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "auth",
+        "table": "user",
+        "name": "deleted_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

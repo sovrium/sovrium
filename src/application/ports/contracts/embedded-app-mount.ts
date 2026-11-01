@@ -8,7 +8,7 @@
 /**
  * Where the embedded operator console is mounted — the data contract, alone.
  *
- * Split out of `application/use-cases/mount/embedded-app-mount.ts` in W5c, and
+ * Split out of `application/use-cases/admin/embedded-app-mount.ts` in W5c, and
  * the reason is a layer boundary rather than file size. Three layers read this
  * shape: the infrastructure resolver that builds it from the embedded preset,
  * the presentation routes that serve the mount, and {@link

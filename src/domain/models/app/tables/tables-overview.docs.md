@@ -1,10 +1,10 @@
 # Tables Overview
 
-> Configure data tables — structure, table-level properties, and the base field properties every field type shares.
+> Configure data tables: structure, table-level properties, and the base field properties every field type shares.
 
 Tables define your data models. Each table is a distinct entity (users, products, orders) whose `fields` declare the columns that records can store. Tables are the foundation of a Sovrium app: pages render their records, forms write to them, automations react to their changes, and the REST and MCP APIs expose them.
 
-A table has at minimum an `id`, a `name`, and a `fields` array. Everything else — primary keys, indexes, constraints, views, permissions, webhooks, and AI exposure — is optional and layered on top.
+A table has at minimum an `id`, a `name`, and a `fields` array. Everything else (primary keys, indexes, constraints, views, permissions, webhooks, and AI exposure) is optional and layered on top.
 
 ```yaml
 tables:
@@ -24,7 +24,7 @@ Each entry in the `tables` array accepts the following properties.
 
 `id` is auto-generated from the table's position in the array when omitted, and `fields` requires at least one entry. Everything else may be left out.
 
-The top-level `unique` array is sugar rather than a distinct mechanism: a single-field entry folds into that field's own `unique`, and a multi-field entry becomes a unique index. Single-column foreign keys are likewise not declared here — they are created for you from every `relationship` field. `foreignKeys` exists only for a reference spanning several columns at once.
+The top-level `unique` array is sugar rather than a distinct mechanism: a single-field entry folds into that field's own `unique`, and a multi-field entry becomes a unique index. Single-column foreign keys are likewise not declared here. They are created for you from every `relationship` field. `foreignKeys` exists only for a reference spanning several columns at once.
 
 ## Naming a table for people
 
@@ -41,14 +41,14 @@ tables:
 
 - `labelPlural` names the table as a collection: its row in the operator console sidebar and table directory, the record grid's accessible name, and the command palette's "Create new record in …" action.
 - `label` names one record's table: the accessible name of a generated edit form, "Edit Ligne de facture".
-- When `labelPlural` is unset, `label` is used, then `name`. When `label` is unset, `name` is used. The singular is never guessed from the plural. The operator console, which names your tables to an operator rather than to your users, ends on the name made readable instead — `site_visits` reads `Site visits` in its sidebar, breadcrumb and grid. It names a field that declares no `label` the same way, in sentence case, in its grid's column headers and its record sheet — `due_date` reads `Due date`.
+- When `labelPlural` is unset, `label` is used, then `name`. When `label` is unset, `name` is used. The singular is never guessed from the plural. The operator console, which names your tables to an operator rather than to your users, ends on the name made readable instead: `site_visits` reads `Site visits` in its sidebar, breadcrumb and grid. It names a field that declares no `label` the same way, in sentence case, in its grid's column headers and its record sheet: `due_date` reads `Due date`.
 - Either may be a `$t:<key>` translation key, resolved against the active language like a field's `label`.
 
 Exported files keep the `name` in their file name (`invoice_lines-2026-10-14.csv`): a file name is something you script against, not prose.
 
 ## Soft delete is the default
 
-Deleting a record sets `deleted_at` and `deleted_by` and leaves the row recoverable. Irreversible erasure is a separate operation on the records API — `?permanent=true`, admin-only on every table, or `?purge=true`, which also removes the record's attached files. **Records: Soft Delete and Restore** has both.
+Deleting a record sets `deleted_at` and `deleted_by` and leaves the row recoverable. Irreversible erasure is a separate operation on the records API: `?permanent=true`, admin-only on every table, or `?purge=true`, which also removes the record's attached files. **Records: Soft Delete and Restore** has both.
 
 **`allowForceDelete` is accepted and not read.** It validates, and nothing in the engine consults it: there is no per-table force-delete endpoint, so setting it neither grants nor withholds anything. Whether a hard delete is possible on a table is decided entirely by the caller's role on `?permanent=true`, which this flag does not affect in either direction. Do not reach for it to protect a ledger, and do not reach for it to open one up.
 
@@ -62,7 +62,7 @@ Every field extends a common base, whatever its type.
 
 `default` is deliberately absent from that list. It is type-specific rather than shared: most value-carrying fields (text, numeric, selection, date, colour) expose a `default` whose value type matches the field, while system fields, relational fields and computed fields do not. Each field-type article states whether its types accept one.
 
-A field that declares both `required` and `default` may still be omitted by a write — the column supplies the value.
+A field that declares both `required` and `default` may still be omitted by a write: the column supplies the value.
 
 ## A richer table
 

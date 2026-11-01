@@ -17,6 +17,7 @@ import { LinkField } from './record-drawer-link-input'
 import { ReadOnlyValue } from './record-drawer-read-only-value'
 import { StructuredValue } from './record-drawer-structured-value'
 import { TypedField } from './record-drawer-typed-input'
+import { readRecordPath } from './record-drawer-visibility'
 import type { RecordDrawerField, RawRecord } from './record-drawer-field'
 import type { ReactElement, ReactNode } from 'react'
 
@@ -289,7 +290,7 @@ export function ReadOnlyDetail({
       <>
         <StructuredValue
           renderAs={field.renderAs ?? 'json'}
-          value={record[field.name]}
+          value={readRecordPath(record, field.name)}
         />
         <EntryDescription field={field} />
       </>
@@ -299,7 +300,7 @@ export function ReadOnlyDetail({
     <>
       <ReadOnlyFieldValue
         field={field}
-        value={withDisplayLabels(record)[field.name]}
+        value={readRecordPath(withDisplayLabels(record), field.name)}
       />
       <EntryDescription field={field} />
       <RefinementStatus

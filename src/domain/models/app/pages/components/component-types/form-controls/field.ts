@@ -53,7 +53,7 @@ export const fieldFields = {
     Schema.String.annotate({
       title: 'Legend',
       description:
-        "Makes the field a fieldset named by this legend, its children grouped inside it — an address's street and city. shadcn/ui's FieldSet and FieldLegend.",
+        "Makes the field a fieldset named by this legend, its children grouped inside it, such as an address's street and city. shadcn/ui's FieldSet and FieldLegend.",
     })
   ),
   fieldTitle: Schema.optional(

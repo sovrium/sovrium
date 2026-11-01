@@ -8,8 +8,10 @@
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { listFilesUnder, optionalNumber } from './file-ops'
-import { actionAttributes, stringProp } from './shared'
+import { decodedHandler, type DecodedAction } from './decoded-handler'
+import { listFilesUnder } from './file/ops'
+import { FileListSettings } from './file/settings'
+import { actionAttributes } from './shared'
 import { starterMayReach, starterStanding, type StarterStanding } from './starter-file-gate'
 import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { App } from '@/domain/models/app'
@@ -25,6 +27,9 @@ import type { App } from '@/domain/models/app'
  */
 
 type Storage = Effect.Success<typeof StorageService>
+
+/** A `file/list` step, its settings decoded where it was dispatched. */
+type FileListAction = DecodedAction<typeof FileListSettings>
 
 /** How many keys one page of a hand-started listing reads. */
 export const STARTER_LIST_PAGE = 1000
@@ -111,14 +116,12 @@ const walkPages = (
 
 /** The listing of a judged run: its reachable keys, `limit` applied, or the listing error. */
 const pagedListing = (
-  action: Readonly<Record<string, unknown>>,
+  action: FileListAction,
   judge: { readonly app: App; readonly automation: AutomationContext },
   standing: Extract<StarterStanding, { readonly kind: 'judged' }>
 ): Effect.Effect<ActionOutcome, never, StorageService> =>
   Effect.gen(function* () {
-    const p = (action['props'] as Readonly<Record<string, unknown>> | undefined) ?? {}
-    const prefix = stringProp(p, 'prefix')
-    const limit = optionalNumber(p, 'limit')
+    const { prefix, limit } = action.props
     const storage = yield* StorageService
     const keys = yield* walkPages(
       storage,
@@ -138,10 +141,19 @@ const pagedListing = (
  * starter may reach, and `limit` counts those, never the keys left out, so a
  * prefix holding only refused files lists like one holding nothing. A run
  * whose gate is open lists as `listFilesUnder` always did.
+ *
+ * Its settings are decoded before either road is taken (`decoded-handler.ts`):
+ * a list outside them — a `limit` given as text by a code step, an agent or
+ * an MCP client — is refused on the hand-started road as on the open one.
  */
-export const gatedFileList: ActionHandler = (action, app, automation) =>
-  Effect.gen(function* () {
-    const standing = yield* starterStanding(app, automation)
-    if (standing.kind === 'open') return yield* listFilesUnder(action, Effect.succeed)
-    return yield* pagedListing(action, { app, automation }, standing)
-  }).pipe(Effect.withSpan('automations.gated-file-list', { attributes: actionAttributes(action) }))
+export const gatedFileList: ActionHandler = decodedHandler(
+  FileListSettings,
+  (action, app, automation) =>
+    Effect.gen(function* () {
+      const standing = yield* starterStanding(app, automation)
+      if (standing.kind === 'open') return yield* listFilesUnder(action, Effect.succeed)
+      return yield* pagedListing(action, { app, automation }, standing)
+    }).pipe(
+      Effect.withSpan('automations.gated-file-list', { attributes: actionAttributes(action) })
+    )
+)

@@ -197,7 +197,7 @@ const scheduleImpl =
     // failure — a shared helper that returned `Result<Cron, string>` would
     // collapse the cause chain to a flat message.
     Effect.gen(function* () {
-      const timezone = options?.timezone ?? resolveOperatorTimezone()
+      const timezone = options?.timezone ?? resolveOperatorTimezone(process.env)
       const jobId = options?.jobId ?? generateJobId()
 
       const zone = yield* Effect.try({

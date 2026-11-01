@@ -42,12 +42,12 @@ export const registerWeeklyDigestScheduler = (
   app: App
 ): Effect.Effect<string | undefined, never, CronScheduler | WeeklyDigestSendServices> =>
   Effect.gen(function* () {
-    if (parseSovriumNotifyDigest() === 'off') return undefined
+    if (parseSovriumNotifyDigest(process.env) === 'off') return undefined
     const services = yield* Effect.context<WeeklyDigestSendServices>()
     const scheduler = yield* CronScheduler
     return yield* scheduler
       .schedule(
-        parseSovriumNotifyDigestCron(),
+        parseSovriumNotifyDigestCron(process.env),
         () =>
           runScheduledWeeklyDigest(app).pipe(
             Effect.provide(services),
@@ -58,7 +58,7 @@ export const registerWeeklyDigestScheduler = (
             Effect.catchCause(() => Effect.void),
             Effect.asVoid
           ),
-        { jobId: WEEKLY_DIGEST_JOB_ID, timezone: resolveOperatorTimezone() }
+        { jobId: WEEKLY_DIGEST_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
       )
       .pipe(
         Effect.catch((err) =>

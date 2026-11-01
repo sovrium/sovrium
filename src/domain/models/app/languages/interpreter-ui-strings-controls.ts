@@ -158,6 +158,11 @@ export const CONTROL_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
     en: 'Invalid email or password',
     fr: 'Adresse e-mail ou mot de passe incorrect',
   },
+  /** The sign-up form's refusal of an address that already holds an account (`USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`). */
+  'auth.userExists': {
+    en: 'User already exists. Use another email.',
+    fr: 'Un compte existe déjà avec cette adresse e-mail',
+  },
 
   // ---- The grid's phone View menu, folding Group by, Hide fields and Row height ----
   'datatable.viewOptions': { en: 'View', fr: 'Affichage' },
@@ -191,10 +196,19 @@ export const CONTROL_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   'commandPalette.toggleDarkMode': { en: 'Toggle dark mode', fr: 'Basculer le mode sombre' },
   'commandPalette.darkModeOn': { en: 'Dark mode enabled', fr: 'Mode sombre activé' },
   'commandPalette.lightModeOn': { en: 'Light mode enabled', fr: 'Mode clair activé' },
+  /** `{kinds}` lists the kinds of data the app declares (`commandPalette.kindNoun.*`). */
   'commandPalette.startTyping': {
-    en: 'Start typing to search records, submissions, files, automations and users.',
-    fr: 'Commencez à taper pour rechercher des enregistrements, des réponses, des fichiers, des automatisations et des utilisateurs.',
+    en: 'Type to search {kinds}.',
+    fr: 'Tapez pour rechercher dans {kinds}.',
   },
+  'commandPalette.searchData': { en: 'Search data', fr: 'Rechercher dans les données' },
+  /** `{query}` is what the reader typed; `{kinds}` as in `startTyping`. */
+  'commandPalette.searchIn': {
+    en: 'Search “{query}” in {kinds}',
+    fr: 'Rechercher « {query} » dans {kinds}',
+  },
+  /** The word before the last kind of a list (`records, runs and users`). */
+  'commandPalette.kindsAnd': { en: 'and', fr: 'et' },
   'commandPalette.searching': { en: 'Searching…', fr: 'Recherche en cours…' },
   /** `{query}` is what the reader typed. */
   'commandPalette.noResultsFor': {

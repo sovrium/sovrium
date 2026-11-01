@@ -21,6 +21,7 @@
  * `--write` stops on it, naming the page.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import type { MigratedPagesReport } from '@/domain/models/app/design/adapters/pages/migrate/migrated-pages-report'
 
 type Json = Readonly<Record<string, unknown>>
@@ -38,16 +39,13 @@ export interface PageAdmission {
   readonly refused: readonly Refused[]
 }
 
-const isObject = (value: unknown): value is Json =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 /**
  * Every `formRef` in a page, at any depth. The walk is generic on purpose: it
  * reads every object and array, so no node kind that nests children escapes it.
  */
 export const formRefsOf = (value: unknown): readonly string[] => {
   if (Array.isArray(value)) return value.flatMap(formRefsOf)
-  if (!isObject(value)) return []
+  if (!isRecord(value)) return []
   const own = typeof value['formRef'] === 'string' ? [value['formRef']] : []
   return [...own, ...Object.values(value).flatMap(formRefsOf)]
 }
@@ -60,7 +58,7 @@ export const formRefsOf = (value: unknown): readonly string[] => {
  */
 export const renameFormRefs = (value: unknown, renames: ReadonlyMap<string, string>): unknown => {
   if (Array.isArray(value)) return value.map((item) => renameFormRefs(item, renames))
-  if (!isObject(value)) return value
+  if (!isRecord(value)) return value
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [
       key,
@@ -123,7 +121,7 @@ export const admitMigratedPages = (
 ): PageAdmission => {
   const names = new Set(context.existingPages.map((page) => textOf(page['name'])))
   const paths = new Set(context.existingPages.map((page) => textOf(page['path'])))
-  return pages.filter(isObject).reduce<PageAdmission>(
+  return pages.filter(isRecord).reduce<PageAdmission>(
     (state, page) => {
       const refusal = refusalOf(page, context, names, paths)
       return refusal === undefined

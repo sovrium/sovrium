@@ -74,7 +74,7 @@ export const designZoneRowSchema = Schema.Struct({
     })
   ).annotate({
     description:
-      'The `design.voice` fields this zone inherits — declared by the app and NOT named by this zone — as rows, in schema declaration order. EMPTY when the zone overrides every field the app declares, and empty when the app declares no voice at all.',
+      'The `design.voice` fields this zone inherits (declared by the app and NOT named by this zone), as rows, in schema declaration order. EMPTY when the zone overrides every field the app declares, and empty when the app declares no voice at all.',
   }),
   // The GATE beside the list, on the same parity `pageCount` has beside
   // `routes`: `visibility.record` has no length operator, so `inherited.length`
@@ -84,7 +84,7 @@ export const designZoneRowSchema = Schema.Struct({
   // zone still writes under the app's rules is false.
   inheritedCount: Schema.Int.annotate({
     description:
-      'How many `design.voice` fields this zone inherits. `0` — never absent — for a zone that overrides every field the app declares, and for every zone of an app declaring no voice.',
+      'How many `design.voice` fields this zone inherits. `0`, never absent, for a zone that overrides every field the app declares, and for every zone of an app declaring no voice.',
   }),
 }).annotate({
   strictKeys: true,

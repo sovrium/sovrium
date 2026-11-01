@@ -38,8 +38,8 @@
  * undercount, but LOUD rather than silent: there is no `catch → 0` guard here
  * to swallow it.)
  *
- * The SQL itself was already portable — `countAsIntSelectClause()` /
- * `castToFloat()` emit per-dialect casts — so the driver call was the only
+ * The SQL itself was already portable — `countAsIntSelectClause` and the
+ * dialect's `castToFloat` emit per-dialect casts — so the driver call was the only
  * dialect-bound part.
  */
 
@@ -53,19 +53,19 @@ import {
   type DynamicRecordReadScope,
 } from '@/application/ports/repositories/tables/dynamic-record-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { db } from '@/infrastructure/database'
+import { Database, type Dialect } from '@/infrastructure/database/drizzle/layer'
 import { makeDbWrap, passingFilterRefusal } from '@/infrastructure/database/sql/db-effect'
-import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawTypedOn } from '@/infrastructure/database/sql/dialect-execute'
 import { generateSqlConditionFragment } from '@/infrastructure/database/table-queries/filter-operators'
 import {
   buildUserFilterConditions,
-  castToFloat,
   countAsIntSelectClause,
 } from '@/infrastructure/database/table-queries/query-helpers/aggregation-helpers'
 import { maskedRelation } from '@/infrastructure/database/table-queries/query-helpers/lookup-read-mask'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import type { LookupReadMask } from '@/application/ports/repositories/tables/table-repository'
 import type { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Wrap a DB promise, adapting failures to DynamicRecordError — except a filter
@@ -83,6 +83,7 @@ const wrap = makeDbWrap(passingFilterRefusal((cause) => new DynamicRecordError({
  * but the structured-query path uses only `conditions`.
  */
 const conditionsClause = (
+  dialect: Dialect,
   filter: DynamicRecordFilter | undefined,
   conditions: ReadonlyArray<DynamicRecordCondition> | undefined,
   readScope?: DynamicRecordReadScope | undefined
@@ -90,14 +91,14 @@ const conditionsClause = (
   const filterFragment =
     filter === undefined
       ? undefined
-      : generateSqlConditionFragment(filter.column, 'equals', filter.value)
+      : generateSqlConditionFragment(dialect.kind, filter.column, 'equals', filter.value)
   const conditionFragments = (conditions ?? []).map((c) =>
-    generateSqlConditionFragment(c.column, c.operator, c.value)
+    generateSqlConditionFragment(dialect.kind, c.column, c.operator, c.value)
   )
   // The caller's row-level read rule, rendered by the same tree walker the
   // records list uses for it, so both answer the same rows.
   const scopeFragments =
-    readScope === undefined ? [] : buildUserFilterConditions({ and: [readScope] })
+    readScope === undefined ? [] : buildUserFilterConditions(dialect.kind, { and: [readScope] })
   const all = [
     ...(filterFragment ? [filterFragment] : []),
     ...conditionFragments,
@@ -126,12 +127,13 @@ const selectClause = (columns: ReadonlyArray<string> | undefined) =>
  * value the reader may read.
  */
 const relationOf = (
+  database: { readonly db: PortableDb; readonly dialect: Dialect },
   table: string,
   masks: readonly LookupReadMask[] | undefined
 ): Effect.Effect<Readonly<SQL>, DynamicRecordError | UncompilableFilterOperatorError> =>
   masks === undefined || masks.length === 0
     ? Effect.succeed(sql`${tableIdentifier(table)}`)
-    : maskedRelation(db, table, masks).pipe(
+    : maskedRelation({ runner: database.db, dialect: database.dialect }, table, masks).pipe(
         Effect.mapError(passingFilterRefusal((cause) => new DynamicRecordError({ cause })))
       )
 
@@ -141,39 +143,52 @@ const relationOf = (
  * Every method issues raw parameterised SQL against the `public`-schema table
  * the engine created from `app.tables[]`.
  */
-export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository, {
-  count: (input) =>
-    Effect.flatMap(relationOf(input.table, input.lookupMasks), (relation) =>
-      wrap(async () => {
-        const query = sql`SELECT ${countAsIntSelectClause()} AS count FROM ${relation}${conditionsClause(input.filter, input.conditions, input.readScope)}`
-        const result = await executeRawTyped<{ readonly count: number }>(db, query)
-        return toFiniteCount(result[0]?.count)
-      })
-    ),
+export const DynamicRecordRepositoryLive = Layer.effect(
+  DynamicRecordRepository,
+  Effect.map(Database, ({ client: db, dialect }) =>
+    DynamicRecordRepository.of({
+      count: (input) =>
+        Effect.flatMap(relationOf({ db, dialect }, input.table, input.lookupMasks), (relation) =>
+          wrap(async () => {
+            const query = sql`SELECT ${countAsIntSelectClause(dialect)} AS count FROM ${relation}${conditionsClause(dialect, input.filter, input.conditions, input.readScope)}`
+            const result = await executeRawTypedOn<{ readonly count: number }>(
+              dialect.kind,
+              db,
+              query
+            )
+            return toFiniteCount(result[0]?.count)
+          })
+        ),
 
-  aggregate: (input) =>
-    Effect.flatMap(relationOf(input.table, input.lookupMasks), (relation) =>
-      wrap(async () => {
-        const aggExpr =
-          input.fn === 'AVG'
-            ? castToFloat(sql`AVG(${sql.identifier(input.column)})`)
-            : castToFloat(sql`SUM(${sql.identifier(input.column)})`)
-        const query = sql`SELECT ${aggExpr} AS value FROM ${relation}${conditionsClause(input.filter, undefined, input.readScope)}`
-        const result = await executeRawTyped<{ readonly value: number | null }>(db, query)
-        const value = result[0]?.value
-        return value === null || value === undefined ? undefined : Number(value)
-      })
-    ),
+      aggregate: (input) =>
+        Effect.flatMap(relationOf({ db, dialect }, input.table, input.lookupMasks), (relation) =>
+          wrap(async () => {
+            const aggExpr =
+              input.fn === 'AVG'
+                ? dialect.sql.castToFloat(sql`AVG(${sql.identifier(input.column)})`)
+                : dialect.sql.castToFloat(sql`SUM(${sql.identifier(input.column)})`)
+            const query = sql`SELECT ${aggExpr} AS value FROM ${relation}${conditionsClause(dialect, input.filter, undefined, input.readScope)}`
+            const result = await executeRawTypedOn<{ readonly value: number | null }>(
+              dialect.kind,
+              db,
+              query
+            )
+            const value = result[0]?.value
+            return value === null || value === undefined ? undefined : Number(value)
+          })
+        ),
 
-  list: (input) =>
-    Effect.flatMap(relationOf(input.table, input.lookupMasks), (relation) =>
-      wrap(async () => {
-        const orderBy =
-          input.sortColumn !== undefined
-            ? sql` ORDER BY ${sql.identifier(input.sortColumn)} ${input.sortDirection === 'asc' ? sql.raw('ASC') : sql.raw('DESC')}`
-            : sql``
-        const query = sql`SELECT ${selectClause(input.columns)} FROM ${relation}${conditionsClause(input.filter, input.conditions, input.readScope)}${orderBy} LIMIT ${input.limit}`
-        return await executeRawTyped<Record<string, unknown>>(db, query)
-      })
-    ),
-})
+      list: (input) =>
+        Effect.flatMap(relationOf({ db, dialect }, input.table, input.lookupMasks), (relation) =>
+          wrap(async () => {
+            const orderBy =
+              input.sortColumn !== undefined
+                ? sql` ORDER BY ${sql.identifier(input.sortColumn)} ${input.sortDirection === 'asc' ? sql.raw('ASC') : sql.raw('DESC')}`
+                : sql``
+            const query = sql`SELECT ${selectClause(input.columns)} FROM ${relation}${conditionsClause(dialect, input.filter, input.conditions, input.readScope)}${orderBy} LIMIT ${input.limit}`
+            return await executeRawTypedOn<Record<string, unknown>>(dialect.kind, db, query)
+          })
+        ),
+    })
+  )
+)

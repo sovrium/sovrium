@@ -28,7 +28,9 @@
  *    validates THAT, and sends again — at most {@link MAX_REDIRECT_HOPS} times.
  *    The method and body change the way `fetch` would change them (303, and a
  *    301/302 to a POST, become a body-less GET), and a hop to another origin
- *    drops the credentials headers, as `fetch` does.
+ *    drops the credentials headers, as `fetch` does. A request whose body
+ *    carries a secret (`bodyCarriesSecret`) is never re-sent to another origin:
+ *    the redirect is refused instead.
  * 4. Reads the final body up to `maxBodyBytes`, then cancels the stream and
  *    reports `truncated: true` — the rest is never downloaded.
  *
@@ -38,12 +40,13 @@
  * It belongs to fetching a configuration, where the document becomes the app; an
  * http action the operator pointed at `http://` may be redirected over `http://`.
  *
- * Hostnames are resolved only when the caller passes `resolveHost`: a name
- * that resolves to a private address, or that cannot be resolved outside a
- * proxy, is then refused on every hop, and the hop is SENT to the address that
- * was checked (`host-resolution.ts`), so the name cannot answer differently
- * between the check and the connection. Without `resolveHost`, a name is
- * judged by its spelling alone.
+ * Every hop's host name is resolved before it is sent, by the machine's
+ * resolver unless the caller passes another: a name that resolves to a private
+ * address, or that cannot be resolved outside a proxy, is refused on every hop,
+ * and the hop is SENT to the address that was checked (`host-resolution.ts`),
+ * so the name cannot answer differently between the check and the connection.
+ * A caller that passes `resolveHost: null` opts out and has a name judged by
+ * its spelling alone; it says why at the call site.
  *
  * ## Errors
  *
@@ -61,6 +64,7 @@ import {
 import {
   judgeHost,
   pinnedRequest,
+  systemResolveHost,
   type HostVerdict,
   type ResolveHost,
 } from '@/infrastructure/egress/host-resolution'
@@ -82,12 +86,22 @@ export interface GuardedFetchOptions {
    */
   readonly credentialHeaders?: readonly string[]
   /**
-   * Resolve each hop's host name, refuse it when it points at an address the
-   * guard refuses as a literal or cannot be resolved outside a proxy, and send
-   * the hop to the address checked (`host-resolution.ts`). Absent, a name is
-   * judged by its spelling alone, as it always was.
+   * The body itself carries a secret (a client secret, a refresh token, a
+   * stored credential sent to a token endpoint). A redirect that would re-send
+   * that body to another origin (307 or 308) is refused rather than followed,
+   * since no header can be stripped from a body.
    */
-  readonly resolveHost?: ResolveHost
+  readonly bodyCarriesSecret?: boolean
+  /**
+   * How each hop's host name is resolved before it is judged. Absent, the
+   * machine's resolver (`systemResolveHost`): the name is refused when it
+   * points at an address the guard refuses as a literal, or cannot be resolved
+   * outside a proxy, and the hop is sent to the address checked
+   * (`host-resolution.ts`). A resolver passed here replaces the machine's.
+   * `null` opts out — the name is judged by its spelling alone — and every
+   * such call site says why on a `// resolve-host: off -- <reason>` comment.
+   */
+  readonly resolveHost?: ResolveHost | null
 }
 
 /** The final answer, its body already read up to the cap. @public */
@@ -104,7 +118,8 @@ export interface GuardedResponse {
 }
 
 /** Why a request was not sent. @public */
-export type GuardedFetchRefusalReason = OutboundUrlReason | 'too-many-redirects'
+export type GuardedFetchRefusalReason =
+  OutboundUrlReason | 'too-many-redirects' | 'cross-origin-redirect'
 
 /** @public */
 export type GuardedFetchResult =
@@ -215,6 +230,26 @@ const concat = (chunks: readonly Uint8Array[], total: number, keep: number): Uin
   return keep < total ? out.slice(0, keep) : out
 }
 
+/** How one hop's host is sent: resolved by the machine unless the caller says otherwise. */
+const hopVerdict = (
+  url: URL,
+  resolveHost: ResolveHost | null | undefined
+): Promise<HostVerdict> => {
+  if (resolveHost === null) return Promise.resolve({ kind: 'as-is' })
+  return judgeHost(url, resolveHost ?? systemResolveHost)
+}
+
+/** Whether following the hop would carry a secret-bearing body to another origin. */
+const resendsSecretElsewhere = (
+  options: GuardedFetchOptions,
+  hop: { readonly from: URL; readonly to: URL },
+  following: RequestShape
+): boolean =>
+  options.bodyCarriesSecret === true &&
+  hop.from.origin !== hop.to.origin &&
+  following.body !== undefined &&
+  following.body !== null
+
 /** One request, then either the answer or the next decision. */
 const requestHop = async (
   url: URL,
@@ -222,10 +257,7 @@ const requestHop = async (
   options: GuardedFetchOptions,
   hopsLeft: number
 ): Promise<GuardedFetchResult> => {
-  const verdict: HostVerdict =
-    options.resolveHost === undefined
-      ? { kind: 'as-is' }
-      : await judgeHost(url, options.resolveHost)
+  const verdict = await hopVerdict(url, options.resolveHost)
   if (verdict.kind === 'refused') return refusal('private-host', verdict.detail)
   // The request goes to the address that was checked; `url` stays the address
   // every redirect, origin and credential decision below is made against.
@@ -253,17 +285,16 @@ const requestHop = async (
   const next = URL.parse(location, url.href)
   const validation = validateOutboundUrl(next?.href ?? location)
   if (!validation.ok) return refusal(validation.issue.reason, 'redirect')
-  return requestHop(
-    validation.url,
-    nextRequest(
-      response.status,
-      { from: url, to: validation.url },
-      init,
-      options.credentialHeaders
-    ),
-    options,
-    hopsLeft - 1
+  const following = nextRequest(
+    response.status,
+    { from: url, to: validation.url },
+    init,
+    options.credentialHeaders
   )
+  if (resendsSecretElsewhere(options, { from: url, to: validation.url }, following)) {
+    return refusal('cross-origin-redirect', validation.url.origin)
+  }
+  return requestHop(validation.url, following, options, hopsLeft - 1)
 }
 
 /**

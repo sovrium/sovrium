@@ -47,9 +47,11 @@ export function validateMultiSelectOptions(
 
     const firstUndeclared = undeclared[0]
     if (firstUndeclared) {
-      return yield* Effect.fail(
-        new FieldFormatError(firstUndeclared.message, firstUndeclared.field, undeclared)
-      )
+      return yield* new FieldFormatError({
+        message: firstUndeclared.message,
+        field: firstUndeclared.field,
+        errors: undeclared,
+      })
     }
   })
 }
@@ -87,9 +89,11 @@ export function validateMultiSelectSelectionLimits(
 
     const firstOverflowing = overflowing[0]
     if (firstOverflowing) {
-      return yield* Effect.fail(
-        new FieldValidationError(firstOverflowing.message, firstOverflowing.field, overflowing)
-      )
+      return yield* new FieldValidationError({
+        message: firstOverflowing.message,
+        field: firstOverflowing.field,
+        errors: overflowing,
+      })
     }
   })
 }

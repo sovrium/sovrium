@@ -7,11 +7,12 @@
 
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { refuseCommand } from '@/cli/runtime/run-command'
 import {
   CONFIG_TSCONFIG,
   CONFIG_TYPES_DECLARATION,
 } from '@/infrastructure/assets/embedded-config-types.generated'
-import { printDocument, printFailure } from '@/infrastructure/logging/cli-output'
+import { printDocument } from '@/infrastructure/logging/cli-output'
 
 /**
  * `sovrium types` — emit the TypeScript authoring surface into a directory.
@@ -116,17 +117,13 @@ export const handleTypesCommand = async (options: TypesCommandOptions = {}): Pro
   const targetDir = options.outputDir ?? process.cwd()
 
   const result = await writeConfigTypesFiles(targetDir).catch((error: unknown) => {
-    printFailure({
+    return refuseCommand({
       headline: `Could not write the TypeScript authoring files into ${targetDir}.`,
       detail: [error instanceof Error ? error.message : String(error)],
       guidance:
         'Check the directory exists and is writable, or pass a different one with\n' +
         '  sovrium types --output <dir>',
     })
-    // `return` (not a bare call): `process.exit` is typed `never`, so returning
-    // it keeps the catch's type `never` and `result` non-nullable. A bare call
-    // would widen `result` to `… | void` and force a check that can never fire.
-    return process.exit(1)
   })
 
   printDocument([

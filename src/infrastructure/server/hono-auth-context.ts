@@ -15,17 +15,19 @@
  * it.
  */
 
+import { Context } from 'effect'
 import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { resolveTrustedForwardedIp } from '@/domain/kernel/url/client-ip'
 import { isAdminEquivalent } from '@/domain/models/app'
 import { toGrantingRole } from '@/domain/models/app/auth/roles/granting-role-service'
 import { isSessionBindingValid } from '@/domain/models/app/auth/session-binding-validation'
-import {
-  parseTrustedProxyHops,
-  TRUSTED_PROXY_HOPS_DEFAULT,
-} from '@/domain/models/process-env/proxy'
+import { hasSessionCookie } from '@/domain/models/app/auth/session-cookie'
+import { resolveTrustedProxyHops } from '@/domain/models/process-env/proxy'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { logWarning } from '@/infrastructure/logging/logger'
 import { runOnDomain } from '@/infrastructure/server/domain-runtime'
+import { makeAuthHookPolicies } from './auth-hook-policies'
+import type { SessionCookie } from '@/application/ports/contracts/hono-app-config'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
@@ -40,13 +42,7 @@ import type { DomainContext } from '@/infrastructure/server/domain-runtime'
  * API's own reader (`presentation/api/middleware/client-ip.ts`), which logs
  * the cause.
  */
-const decodeTrustedProxyHops = (): number => {
-  try {
-    return parseTrustedProxyHops()
-  } catch {
-    return TRUSTED_PROXY_HOPS_DEFAULT
-  }
-}
+const decodeTrustedProxyHops = (): number => resolveTrustedProxyHops(process.env)
 
 /**
  * Whether the session this request carries was issued to this client.
@@ -87,20 +83,110 @@ const signInMethodOf = (session: object): string | undefined => {
   return typeof value === 'string' && value !== '' ? value : undefined
 }
 
+type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
+
+/** Whether the instance keeps an account cookie (an option this engine's own config leaves out). */
+const storesAccountCookie = (options: object): boolean =>
+  (options as { readonly account?: { readonly storeAccountCookie?: boolean } }).account
+    ?.storeAccountCookie === true
+
+/**
+ * The cookies signing out expires, read off the auth instance's own cookie
+ * configuration — names (with the `__Secure-` prefix on a secure bind) and
+ * attributes alike — so a refused session is cleared exactly as sign-out
+ * clears it.
+ */
+const signOutCookiesOf = async (
+  authInstance: AuthInstance
+): Promise<{ readonly cookies: readonly SessionCookie[]; readonly sessionData: SessionCookie }> => {
+  const context = await authInstance.$context
+  const { sessionToken, sessionData, accountData, dontRememberToken } = context.authCookies
+  const cookies = [
+    sessionToken,
+    sessionData,
+    ...(storesAccountCookie(context.options) ? [accountData] : []),
+    ...(context.oauthConfig.storeStateStrategy === 'cookie'
+      ? [context.createAuthCookie('oauth_state')]
+      : []),
+    dontRememberToken,
+  ]
+  const toSessionCookie = ({ name, attributes }: typeof sessionToken): SessionCookie => ({
+    name,
+    attributes: {
+      path: attributes.path,
+      domain: attributes.domain,
+      secure: attributes.secure,
+      httpOnly: attributes.httpOnly,
+      sameSite: attributes.sameSite,
+      partitioned: attributes.partitioned,
+    },
+  })
+  return { cookies: cookies.map(toSessionCookie), sessionData: toSessionCookie(sessionData) }
+}
+
+/** The names of the cookies a `Cookie` header carries. */
+const cookieNamesIn = (cookieHeader: string | null): readonly string[] =>
+  (cookieHeader ?? '').split(';').flatMap((pair) => {
+    const separator = pair.indexOf('=')
+    return separator === -1 ? [] : [pair.slice(0, separator).trim()]
+  })
+
+/**
+ * The session cookies to expire for each request whose session the page tier
+ * refused or found ended, keyed by the request's own headers: the reader marks
+ * the request as it answers it, and the page route reads the mark before it
+ * redirects.
+ */
+const buildEndedSession = (
+  signOut: Awaited<ReturnType<typeof signOutCookiesOf>>,
+  ended: WeakSet<Headers>
+): ((headers: Headers) => readonly SessionCookie[] | undefined) => {
+  const { cookies, sessionData } = signOut
+  return (headers) => {
+    if (!ended.has(headers)) return undefined
+    // A large cookie cache is split into numbered chunks; sign-out clears those too.
+    const chunks = cookieNamesIn(headers.get('cookie'))
+      .filter((name) => name.startsWith(`${sessionData.name}.`))
+      .map((name) => ({ name, attributes: sessionData.attributes }))
+    return [...cookies, ...chunks]
+  }
+}
+
+/**
+ * The session this request may hold, or `undefined`.
+ *
+ * A request carrying a session cookie that names no live session, or a session
+ * this client may not hold, is answered as anonymous AND recorded in `ended`,
+ * so the page route can expire its cookies and tell the sign-in page.
+ */
+const readBoundSession = async (
+  authInstance: AuthInstance,
+  headers: Headers,
+  trustedProxyHops: number,
+  ended: WeakSet<Headers>
+) => {
+  const session = await authInstance.api.getSession({ headers })
+  const refused = session
+    ? !isBoundToThisClient(session.session, headers, trustedProxyHops)
+    : hasSessionCookie(headers.get('cookie') ?? undefined)
+  if (refused) ended.add(headers)
+  return refused ? undefined : (session ?? undefined)
+}
+
 /**
  * Builds a getSession callback from an auth instance for page access control
  */
 function buildGetSession(
-  authInstance: Readonly<ReturnType<typeof createAuthInstance>>,
+  authInstance: AuthInstance,
   app: Readonly<App>,
-  domainContext: DomainContext
+  domainContext: DomainContext,
+  ended: WeakSet<Headers>
 ): (headers: Headers) => Promise<SessionInfo | undefined> {
   const trustedProxyHops = decodeTrustedProxyHops()
   return async (headers) => {
     try {
-      const session = await authInstance.api.getSession({ headers })
+      const session = await readBoundSession(authInstance, headers, trustedProxyHops, ended)
       if (!session) return undefined
-      if (!isBoundToThisClient(session.session, headers, trustedProxyHops)) return undefined
       // Admin plugin adds `role` to user at runtime (not in base type), and
       // `language` is an `additionalFields` column, absent from it for the same
       // reason. Both are widened here.
@@ -192,16 +278,32 @@ export const resolveAuthContext = async (
   readonly runtime: AuthRuntime | undefined
   readonly authInstance: Readonly<ReturnType<typeof createAuthInstance>> | undefined
   readonly getSession: ((headers: Headers) => Promise<SessionInfo | undefined>) | undefined
+  readonly endedSession: ((headers: Headers) => readonly SessionCookie[] | undefined) | undefined
 }> => {
-  if (!app.auth) return { runtime: undefined, authInstance: undefined, getSession: undefined }
+  if (!app.auth) {
+    return {
+      runtime: undefined,
+      authInstance: undefined,
+      getSession: undefined,
+      endedSession: undefined,
+    }
+  }
 
   const runtime = await import('@/infrastructure/auth/better-auth/server-runtime')
   // Create auth instance once — shared between auth routes and page session extraction.
-  // `app.connections` is forwarded to the user-create databaseHook so the
-  // test-mode token seeder (no-op in production) can auto-populate
-  // `system.connection_tokens` for newly registered users without
-  // requiring each spec to drive the real OAuth round-trip.
-  const authInstance = runtime.createAuthInstance(app.auth, app.connections, app, domainContext)
+  const database = Context.get(domainContext, Database)
+  const authInstance = runtime.createAuthInstance(app.auth, {
+    policies: makeAuthHookPolicies(database, domainContext),
+    appMeta: app,
+    domainContext,
+    database,
+  })
 
-  return { runtime, authInstance, getSession: buildGetSession(authInstance, app, domainContext) }
+  const ended = new WeakSet<Headers>()
+  return {
+    runtime,
+    authInstance,
+    getSession: buildGetSession(authInstance, app, domainContext, ended),
+    endedSession: buildEndedSession(await signOutCookiesOf(authInstance), ended),
+  }
 }

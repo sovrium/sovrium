@@ -22,14 +22,14 @@ export const ChartSeriesSchema = Schema.Struct({
   color: Schema.optional(
     Schema.Union([
       Schema.String.annotate({
-        description: 'Series color — theme token name or hex value (e.g. #3b82f6)',
+        description: 'Series color: theme token name or hex value (e.g. #3b82f6)',
       }),
       Schema.Struct({
         light: Schema.String.annotate({
-          description: 'Series color in the light scheme — theme token name or hex value',
+          description: 'Series color in the light scheme: theme token name or hex value',
         }),
         dark: Schema.String.annotate({
-          description: 'Series color in the dark scheme — theme token name or hex value',
+          description: 'Series color in the dark scheme: theme token name or hex value',
         }),
       }).annotate({
         title: 'Series Color Per Scheme',
@@ -37,7 +37,7 @@ export const ChartSeriesSchema = Schema.Struct({
       }),
     ]).annotate({
       description:
-        'Series color — a theme token name or hex value, or { light, dark } for one per colour scheme',
+        'Series color: a theme token name or hex value, or { light, dark } for one per colour scheme',
     })
   ),
   /** Lucide icon drawn before the series name in the legend */

@@ -36,8 +36,8 @@ import type { SessionHono } from '@/presentation/api/middleware/admin-route-guar
 const MCP_CLIENT_READS = ['/api/ai/mcp/client/status', '/api/ai/mcp/client/tools'] as const
 
 /** `requireAdminTier`, refusing with the unknown-route 404 instead of the admin one. */
-const requireAdminAsUnknownRoute = (resolveAppForTier: () => App) => {
-  const gate = requireAdminTier(resolveAppForTier)
+const requireAdminAsUnknownRoute = (app: App) => {
+  const gate = requireAdminTier(app)
   return async (c: ContextWithSession, next: () => Promise<void>): Promise<Response | void> => {
     const admitted = { value: false }
     const refusal = await gate(c, async () => {
@@ -52,13 +52,13 @@ const requireAdminAsUnknownRoute = (resolveAppForTier: () => App) => {
 export const chainMcpClientRouteGuards = (
   honoApp: SessionHono,
   auth: Readonly<ReturnType<typeof createAuthInstance>> | undefined,
-  resolveAppForTier: () => App
+  app: App
 ): SessionHono =>
   MCP_CLIENT_READS.reduce<SessionHono>(
     (acc, path) =>
       (auth === undefined ? acc : acc.use(path, authMiddleware(auth))).use(
         path,
-        requireAdminAsUnknownRoute(resolveAppForTier)
+        requireAdminAsUnknownRoute(app)
       ) as SessionHono,
     honoApp
   )

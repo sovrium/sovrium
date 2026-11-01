@@ -39,7 +39,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /** A node or edge identifier: non-empty, unique within its collection. */
 const specimenGraphId = (description: string) =>
@@ -64,7 +64,7 @@ const specimenGraphNodeSchema = Schema.Struct({
   ),
   kind: specimenGraphNodeKindSchema,
   label: Schema.String.annotate({
-    description: 'The name the drawing writes on the node — a person, a team or a project.',
+    description: 'The name the drawing writes on the node: a person, a team or a project.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   family: optionalField(
     Schema.String.annotate({
@@ -81,7 +81,7 @@ const specimenGraphNodeSchema = Schema.Struct({
   state: optionalField(
     Schema.Literals(['active', 'paused', 'disabled']).annotate({
       description:
-        'The operational state the drawing weighs a node by — all three appear, so each weight is drawn.',
+        'The operational state the drawing weighs a node by. All three appear, so each weight is drawn.',
     })
   ),
   detail: optionalField(
@@ -124,7 +124,7 @@ const specimenGraphEdgeSchema = Schema.Struct({
  */
 export const specimenGraphResponseSchema = Schema.Struct({
   nodes: Schema.Array(specimenGraphNodeSchema).annotate({
-    description: 'Every node of the fixture graph — people, teams and projects.',
+    description: 'Every node of the fixture graph: people, teams and projects.',
   }),
   edges: Schema.Array(specimenGraphEdgeSchema).annotate({
     description: 'Every edge of the fixture graph; each one names two of the `nodes`.',

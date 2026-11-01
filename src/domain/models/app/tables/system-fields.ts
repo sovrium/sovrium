@@ -67,7 +67,7 @@ export const AUTHORSHIP_TABLE_COLUMNS = ['created_by', 'updated_by', 'deleted_by
  * these are live row keys that a `columns[].field` legitimately resolves
  * against.
  *
- * @see application/use-cases/tables/utils/record-transformer.ts
+ * @see domain/models/app/tables/record-transformer-service.ts
  */
 export const PROMOTED_SYSTEM_FIELD_NAMES = [
   'createdAt',

@@ -40,6 +40,7 @@ import {
   rowPassesRule,
 } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { loadSessionIdentity } from './caller-write-authority'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -110,7 +111,7 @@ export const callerReadScope = (
   AuthRepository | DataSourceRepository | TableRepository
 > =>
   Effect.gen(function* () {
-    const table = app.tables?.find((t) => t.name === tableName)
+    const table = findTableByName(app.tables, tableName)
     if (table === undefined) return undefined
     const identity = yield* loadSessionIdentity(app, session.userId, table)
     if (identity === undefined) return undefined

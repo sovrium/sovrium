@@ -1,6 +1,6 @@
 # Assets
 
-> Ship private files with your config — templates, fonts, images, sample data — that actions read and no route ever serves.
+> Ship private files with your config (templates, fonts, images, sample data) that actions read and no route ever serves.
 
 `assets` lists files that live in the project directory beside the config. They are read once when the app starts and checked, then available to every action that reads a template or a file, by their path:
 
@@ -15,9 +15,9 @@ assets:
     kind: html
 ```
 
-An action names one with `{ asset: <path> }` — `template: { asset: templates/badge.svg }`, or a `pdf/merge` input `{ asset: legal/terms.pdf }`. Declaring a file is what makes it an asset: a file that merely sits beside the config cannot be read this way. Inside an HTML template, a relative URL equal to a declared path (`<img src="images/logo.png">`, `url(fonts/Inter.woff2)`) is served from the asset, so the render never reaches the network for it.
+An action names one with `{ asset: <path> }`: `template: { asset: templates/badge.svg }`, or a `pdf/merge` input `{ asset: legal/terms.pdf }`. Declaring a file is what makes it an asset: a file that merely sits beside the config cannot be read this way. Inside an HTML template, a relative URL equal to a declared path (`<img src="images/logo.png">`, `url(fonts/Inter.woff2)`) is served from the asset, so the render never reaches the network for it.
 
-**No route serves an asset**: not the pages, not the public directory, and not the bucket file API. An asset therefore never sits inside the public directory: one whose real path — symbolic links followed — is inside it is refused, by `validate` for the `public/` directory beside the config, and when the app starts for the directory it serves, naming the path. That is the difference with `public/`, whose every file is downloadable. Files a business user replaces without a config change belong in a bucket instead (`template: { key, bucket }`).
+**No route serves an asset**: not the pages, not the public directory, and not the bucket file API. An asset therefore never sits inside the public directory: one whose real path (symbolic links followed) is inside it is refused, by `validate` for the `public/` directory beside the config, and when the app starts for the directory it serves, naming the path. That is the difference with `public/`, whose every file is downloadable. Files a business user replaces without a config change belong in a bucket instead (`template: { key, bucket }`).
 
 <!-- sovrium:options AssetSchema -->
 
@@ -43,7 +43,7 @@ Each of these is refused by `sovrium validate` and stops the app from starting, 
 
 ## Sample data
 
-A template asset may carry `sampleData`: the path of a declared data asset (`.json`, `.yaml`) or an object, shaped like the `data` of the action that reads it. `sovrium render` previews the template with it; an automation never reads it — a run renders only the values its step passes.
+A template asset may carry `sampleData`: the path of a declared data asset (`.json`, `.yaml`) or an object, shaped like the `data` of the action that reads it. `sovrium render` previews the template with it; an automation never reads it. A run renders only the values its step passes.
 
 ```yaml
 assets:

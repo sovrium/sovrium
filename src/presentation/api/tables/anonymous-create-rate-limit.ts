@@ -19,7 +19,7 @@
  * already accountable and is not limited here.
  */
 
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { DEFAULT_ANTI_SPAM } from '@/domain/models/app/forms/anti-spam-defaults'
 import { checkAndRecord } from '@/infrastructure/forms/form-rate-limiter'

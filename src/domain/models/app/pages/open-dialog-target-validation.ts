@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * A page decode rule for the `openDialog` action: `component` must name a
  * `dialog` declared on the same page.
@@ -26,9 +28,6 @@
  */
 
 type Node = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is Node =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every object reachable from `value`, itself included. */
 const objectsIn = (value: unknown): readonly Node[] => {

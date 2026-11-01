@@ -8,6 +8,8 @@
 import { mcp } from '@better-auth/mcp'
 import { jwt } from 'better-auth/plugins'
 import { loginPageOf } from '@/domain/models/app/auth/login-page-service'
+import { isAdminTier } from '@/domain/models/app/auth/roles'
+import { roleSegments } from '@/domain/models/app/auth/roles/role-write-validation'
 import { isAnonymousClientRegistrationEnabled } from '@/domain/models/process-env/oauth'
 import { mcpResourceIdentifier } from '../mcp-resource-identity'
 import type { Auth } from '@/domain/models/app/auth'
@@ -32,8 +34,9 @@ import type { Auth } from '@/domain/models/app/auth'
  *
  * Sovrium-tuned defaults:
  *
- * - `allowDynamicClientRegistration: true` — required so MCP clients (Claude
- *   Desktop, ChatGPT Dev Mode) can self-register without operator action.
+ * - `allowDynamicClientRegistration: true` — the RFC 7591 endpoint is served,
+ *   but only an administrator registers a client unless the operator opens it
+ *   (see `clientPrivileges` below).
  * - `accessTokenExpiresIn: 3600` (1h)      — industry standard.
  * - `refreshTokenExpiresIn: 30 * 24 * 3600` (30d) — industry standard.
  * - `loginPage`                            — the app's `auth.loginPage` (default `/login`).
@@ -49,6 +52,24 @@ import type { Auth } from '@/domain/models/app/auth'
  * route wiring is complete and we know which knobs schema authors actually
  * need vs which stay operator-only.
  */
+/**
+ * The `clientPrivileges` decision. Upstream reads `undefined` or `false` as a
+ * refusal, so every action is answered explicitly:
+ *
+ * - `create`: an admin-tier session, or anyone when the operator set
+ *   `SOVRIUM_OAUTH_ANONYMOUS_CLIENT_REGISTRATION=true`.
+ * - `configure-client-credentials-scopes`: refused, as upstream refuses it
+ *   when no hook is configured.
+ * - every other action: allowed, as with no hook; upstream still checks that
+ *   the caller owns the client.
+ */
+const mayActOnClient = (authConfig: Auth, action: string, role: unknown): boolean => {
+  if (action === 'configure-client-credentials-scopes') return false
+  if (action !== 'create') return true
+  if (isAnonymousClientRegistrationEnabled(process.env)) return true
+  return roleSegments(role).some((segment) => isAdminTier(segment, { auth: authConfig }))
+}
+
 export const buildOauthServerPlugin = (authConfig?: Auth) => {
   if (!authConfig) return []
 
@@ -96,9 +117,19 @@ export const buildOauthServerPlugin = (authConfig?: Auth) => {
       // Dynamic Client Registration (RFC 7591)
       //
       // MCP clients self-register before driving an authorization-code flow.
-      // The plugin guards /register with TWO separate checks: one for dynamic
-      // registration, one for session presence. `allowDynamicClientRegistration`
-      // stays `true` so a signed-in user can self-register a client.
+      // Three settings decide who may register:
+      //
+      // - `allowDynamicClientRegistration: true` serves the RFC 7591 endpoint.
+      // - `clientPrivileges` (below) decides, for a caller WITH a session,
+      //   whether it may create a client: only an administrator (an admin-tier
+      //   role, the same predicate the operator plane uses), unless the
+      //   operator opened registration with the environment variable below,
+      //   which then admits every caller. A refused member gets upstream's 401
+      //   and nothing is written to `auth.oauth_client`. A client's name is what
+      //   the consent screen shows the user, so letting any member write one is
+      //   a phishing primitive inside the app's own domain.
+      // - `allowUnauthenticatedClientRegistration` decides the caller WITHOUT a
+      //   session.
       //
       // `allowUnauthenticatedClientRegistration` is the second check, and it is
       // now OFF by default. It was hardcoded `true`, which made
@@ -126,7 +157,9 @@ export const buildOauthServerPlugin = (authConfig?: Auth) => {
       // re-opens it).
       // ──────────────────────────────────────────────────────────────────────
       allowDynamicClientRegistration: true,
-      allowUnauthenticatedClientRegistration: isAnonymousClientRegistrationEnabled(),
+      allowUnauthenticatedClientRegistration: isAnonymousClientRegistrationEnabled(process.env),
+      clientPrivileges: ({ action, user }) =>
+        mayActOnClient(authConfig, action, (user as { readonly role?: unknown } | undefined)?.role),
 
       // ──────────────────────────────────────────────────────────────────────
       // Token lifetimes (industry-standard defaults)

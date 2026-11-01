@@ -6,7 +6,6 @@
  */
 
 import { and, desc, eq, gte, sql, type SQL } from 'drizzle-orm'
-import { Layer } from 'effect'
 import {
   ActivityLogRepository,
   ActivityLogDatabaseError,
@@ -15,18 +14,21 @@ import {
   type ActivityLogPageQuery,
 } from '@/application/ports/repositories/analytics/activity-log-repository'
 import { resolveActorUserId } from '@/domain/models/app/auth/guest-session'
-import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
   resolveDialectSchema,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type Dialect,
+  type DatabaseService,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
 import { makeDbWrap, passingFilterRefusal } from '@/infrastructure/database/sql/db-effect'
-import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawTypedOn } from '@/infrastructure/database/sql/dialect-execute'
 import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
-import { dateIntervalAgo } from '@/infrastructure/database/sql/dialect-sql-helpers'
-import { isInValueSet } from '@/infrastructure/database/sql/value-set-membership'
 import {
   admissionCondition,
   admissionForFilters,
@@ -37,6 +39,7 @@ import {
   databaseTableName,
   tableIdentifier,
 } from '@/infrastructure/database/table-queries/statement/validation'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
 
@@ -52,41 +55,50 @@ const wrapPassingRefusal = makeDbWrap(
 const idAsText = sql`CAST(${sql.identifier('id')} AS TEXT)`
 
 /** The columns `tableName` holds, as the database reports them. */
-const tableColumns = async (tableName: string): Promise<ReadonlySet<string>> =>
-  new Set((await listTableColumns(db, databaseTableName(tableName))).map((column) => column.name))
+const tableColumns = async (
+  { client, dialect }: DatabaseService,
+  tableName: string
+): Promise<ReadonlySet<string>> =>
+  new Set(
+    (await listTableColumns(dialect.kind, client, databaseTableName(tableName))).map(
+      (column) => column.name
+    )
+  )
 
 /** The record ids the activity of the last year names for `tableName`. */
-const loggedRecordIds = (tableName: string) =>
+const loggedRecordIds = (db: PortableDb, dialect: Dialect, tableName: string) =>
   db
     .select({ recordId: activityLogs.recordId })
     .from(activityLogs)
     .where(
       and(
         eq(activityLogs.tableName, tableName),
-        gte(activityLogs.createdAt, dateIntervalAgo(1, 'year'))
+        gte(activityLogs.createdAt, dialect.sql.dateIntervalAgo(1, 'year'))
       )
     )
 
 /** Each `rule` table's columns, read one table after another (no pool fan-out). */
 const ruleTableColumns = (
+  database: DatabaseService,
   tableNames: readonly string[]
 ): Promise<ReadonlyMap<string, ReadonlySet<string>>> =>
   tableNames.reduce<Promise<ReadonlyMap<string, ReadonlySet<string>>>>(
     async (done, tableName) =>
-      new Map([...(await done), [tableName, await tableColumns(tableName)]]),
+      new Map([...(await done), [tableName, await tableColumns(database, tableName)]]),
     Promise.resolve(new Map())
   )
 
 /** The WHERE of the activity list: retention, filters, and the reader's admission. */
 
 const pageCondition = (
+  dialect: Dialect,
   query: ActivityLogPageQuery,
   columnsOf: ReadonlyMap<string, ReadonlySet<string>>
 ): SQL | undefined => {
   const { filters } = query
   const admission = admissionForFilters(query.admission, filters)
   return and(
-    gte(activityLogs.createdAt, dateIntervalAgo(1, 'year')),
+    gte(activityLogs.createdAt, dialect.sql.dateIntervalAgo(1, 'year')),
     filters.tableName === undefined ? undefined : eq(activityLogs.tableName, filters.tableName),
     filters.action === undefined ? undefined : eq(activityLogs.action, filters.action),
     filters.userId === undefined ? undefined : eq(activityLogs.userId, filters.userId),
@@ -94,6 +106,7 @@ const pageCondition = (
     admission === 'everything'
       ? undefined
       : admissionCondition(
+          dialect,
           admission,
           { tableName: activityLogs.tableName, recordId: activityLogs.recordId },
           (tableName) => columnsOf.get(tableName) ?? new Set()
@@ -102,11 +115,16 @@ const pageCondition = (
 }
 
 /** One page of the admitted, filtered activity, and how many entries match in all. */
-const listActivityPage = async (query: ActivityLogPageQuery): Promise<ActivityLogPage> => {
+const listActivityPage = async (
+  db: PortableDb,
+  dialect: Dialect,
+  query: ActivityLogPageQuery
+): Promise<ActivityLogPage> => {
   const columnsOf = await ruleTableColumns(
+    { client: db, dialect },
     ruleTables(admissionForFilters(query.admission, query.filters))
   )
-  const where = pageCondition(query, columnsOf)
+  const where = pageCondition(dialect, query, columnsOf)
   // Resolve the dialect-correct auth users table per call — the user
   // table lives at `auth.user` on Postgres and `auth_user` on SQLite.
   // Capturing it locally keeps the leftJoin + projection columns aligned.
@@ -177,32 +195,29 @@ const toActivityLog = (row: {
       : null,
 })
 
-/**
- * Activity Log Repository Implementation
- *
- * Uses Drizzle ORM query builder for type-safe, SQL-injection-proof queries.
- */
-export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
+const members: MembersOverDatabase<typeof ActivityLogRepository> = {
   /**
    * One page of the activity of the last year, with the count of every entry
    * the filters and the reader's admission match — both judged here, so a
    * reader's page costs two statements however many records it names.
    */
-  listPage: (query) => wrapPassingRefusal(async () => listActivityPage(query)),
+  listPage: (db, dialect) => (query) =>
+    wrapPassingRefusal(async () => listActivityPage(db, dialect, query)),
 
   /**
    * The live rows of one table an activity gate judges, in one statement.
    */
-  liveRecords: (query) =>
+  liveRecords: (db, dialect) => (query) =>
     wrapPassingRefusal(async () => {
-      const columns = await tableColumns(query.tableName)
+      const columns = await tableColumns({ client: db, dialect }, query.tableName)
       const recordIds =
         query.recordIds === 'logged'
-          ? sql`${idAsText} IN (${loggedRecordIds(query.tableName)})`
-          : isInValueSet(idAsText, query.recordIds)
-      return executeRawTyped<Readonly<Record<string, unknown>>>(
+          ? sql`${idAsText} IN (${loggedRecordIds(db, dialect, query.tableName)})`
+          : dialect.sql.isInValueSet(idAsText, query.recordIds)
+      return executeRawTypedOn<Readonly<Record<string, unknown>>>(
+        dialect.kind,
         db,
-        sql`SELECT * FROM ${tableIdentifier(query.tableName)} WHERE ${liveRowCondition(columns, query.rule)} AND ${recordIds}`
+        sql`SELECT * FROM ${tableIdentifier(query.tableName)} WHERE ${liveRowCondition(dialect.kind, columns, query.rule)} AND ${recordIds}`
       )
     }),
 
@@ -213,7 +228,7 @@ export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
    * `system`) is resolved to NULL here exactly as the activity-log helpers do —
    * an insert carrying the sentinel would fail the foreign key.
    */
-  create: (log) =>
+  create: (db) => (log) =>
     wrap(async () => {
       const result = await db
         .insert(activityLogs)
@@ -233,4 +248,11 @@ export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
 
       return result[0]!
     }),
-})
+}
+
+/**
+ * Activity Log Repository Implementation
+ *
+ * Uses Drizzle ORM query builder for type-safe, SQL-injection-proof queries.
+ */
+export const ActivityLogRepositoryLive = layerOverDatabase(ActivityLogRepository, members)

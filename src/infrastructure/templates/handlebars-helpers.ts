@@ -28,6 +28,7 @@
  * alias costs nothing and closes a silent-failure hole.
  */
 
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { dropOptions, isOptionsHash, optionalStr, toNumber, toStr } from './helper-coercion'
 import {
@@ -73,7 +74,6 @@ import {
   camelCase,
   capitalizePreservingWords,
   clamp,
-  escapeHtml,
   extractAll,
   formatNumber,
   kebabCase,
@@ -172,7 +172,7 @@ const registerStringHelpers = (hbs: Hbs): void => {
 
 const registerHtmlHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('stripHtml', (v: unknown) => stripHtml(toStr(v)))
-  hbs.registerHelper('escapeHtml', (v: unknown) => escapeHtml(toStr(v)))
+  hbs.registerHelper('escapeHtml', (v: unknown) => escapeHtmlAttribute(toStr(v)))
   hbs.registerHelper('unescapeHtml', (v: unknown) => unescapeHtml(toStr(v)))
 }
 
@@ -275,7 +275,7 @@ const registerDateFormatHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('now', isoNow)
   hbs.registerHelper('today', (...args: readonly unknown[]) => {
     const ops = dropOptions(args)
-    return formatDate(serverNow(), 'yyyy-MM-dd', optionalStr(ops, 0))
+    return formatDate(serverNow(process.env), 'yyyy-MM-dd', optionalStr(ops, 0))
   })
 }
 

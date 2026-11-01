@@ -6,12 +6,11 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { PURGED_AUTH_TABLES, PURGED_SYSTEM_TABLES } from './account-purge-coverage'
 import { deleteCatalogRows } from './account-purge-objects'
-import { executeRaw, type RawSqlRunner } from './sql/dialect-execute'
 import { systemTableExists } from './sql/dialect-introspection'
-import { authTableRef, systemTableRef } from './sql/dialect-sql'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The individual statements of the erasure that each need their own predicate
@@ -74,21 +73,23 @@ const USER_OWNED_GATED_SYSTEM_TABLES = ['comment_read_state', 'user_access'] as 
  * @param userId - the user being erased.
  */
 export async function deleteCensusRows(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string
 ): Promise<readonly string[]> {
   for (const entry of PURGED_SYSTEM_TABLES) {
     if (entry.table === 'file_storage_metadata') continue
-    await executeRaw(
+    await executeRawOn(
+      dialect.kind,
       tx,
-      sql`DELETE FROM ${systemTableRef(entry.table)} WHERE ${sql.identifier(entry.column)} = ${userId}`
+      sql`DELETE FROM ${dialect.sql.systemTableRef(entry.table)} WHERE ${sql.identifier(entry.column)} = ${userId}`
     )
   }
 
   for (const entry of PURGED_AUTH_TABLES) {
-    await executeRaw(
+    await executeRawOn(
+      dialect.kind,
       tx,
-      sql`DELETE FROM ${authTableRef(entry.table)} WHERE ${sql.identifier(entry.column)} = ${userId}`
+      sql`DELETE FROM ${dialect.sql.authTableRef(entry.table)} WHERE ${sql.identifier(entry.column)} = ${userId}`
     )
   }
   // The object catalog, whose deleted keys the bytes are removed by after the commit.
@@ -113,12 +114,13 @@ export async function deleteCensusRows(
  * @param userId - the user being erased.
  */
 export async function deleteAiToolCallRows(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string
 ): Promise<void> {
-  await executeRaw(
+  await executeRawOn(
+    dialect.kind,
     tx,
-    sql`DELETE FROM ${systemTableRef('ai_tool_calls')}
+    sql`DELETE FROM ${dialect.sql.systemTableRef('ai_tool_calls')}
         WHERE caller_type IN ('oauth', 'user') AND caller_id = ${userId}`
   )
 }
@@ -140,12 +142,13 @@ export async function deleteAiToolCallRows(
  * @param userId - the user being erased.
  */
 export async function shedLinkAuthorIdentifier(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string
 ): Promise<void> {
-  await executeRaw(
+  await executeRawOn(
+    dialect.kind,
     tx,
-    sql`UPDATE ${systemTableRef('links')} SET created_by = NULL WHERE created_by = ${userId}`
+    sql`UPDATE ${dialect.sql.systemTableRef('links')} SET created_by = NULL WHERE created_by = ${userId}`
   )
 }
 
@@ -166,12 +169,13 @@ export async function shedLinkAuthorIdentifier(
  * @param userId - the user being erased.
  */
 export async function shedDesignSystemShareMinterIdentifier(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string
 ): Promise<void> {
-  await executeRaw(
+  await executeRawOn(
+    dialect.kind,
     tx,
-    sql`UPDATE ${systemTableRef('design_system_shares')} SET created_by = NULL WHERE created_by = ${userId}`
+    sql`UPDATE ${dialect.sql.systemTableRef('design_system_shares')} SET created_by = NULL WHERE created_by = ${userId}`
   )
 }
 
@@ -183,14 +187,16 @@ export async function shedDesignSystemShareMinterIdentifier(
  * @param userId - the user being erased.
  */
 export async function deleteUserOwnedGatedSystemRows(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string
 ): Promise<void> {
-  const runner = tx as RawSqlRunner
-
   for (const tableName of USER_OWNED_GATED_SYSTEM_TABLES) {
-    if (await systemTableExists(runner, tableName)) {
-      await executeRaw(tx, sql`DELETE FROM ${systemTableRef(tableName)} WHERE user_id = ${userId}`)
+    if (await systemTableExists(dialect.kind, tx, tableName)) {
+      await executeRawOn(
+        dialect.kind,
+        tx,
+        sql`DELETE FROM ${dialect.sql.systemTableRef(tableName)} WHERE user_id = ${userId}`
+      )
     }
   }
 }
@@ -214,15 +220,15 @@ export async function deleteUserOwnedGatedSystemRows(
  * @param userId - the user being erased.
  */
 export async function shedGrantIssuerIdentifier(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string
 ): Promise<void> {
-  const runner = tx as RawSqlRunner
-  if (!(await systemTableExists(runner, 'user_access'))) return
+  if (!(await systemTableExists(dialect.kind, tx, 'user_access'))) return
 
-  await executeRaw(
+  await executeRawOn(
+    dialect.kind,
     tx,
-    sql`UPDATE ${systemTableRef('user_access')} SET created_by = NULL WHERE created_by = ${userId}`
+    sql`UPDATE ${dialect.sql.systemTableRef('user_access')} SET created_by = NULL WHERE created_by = ${userId}`
   )
 }
 
@@ -261,22 +267,24 @@ export async function shedGrantIssuerIdentifier(
  * @param erasedEmail - their email, captured before the user row is deleted.
  */
 export async function deleteAiActivityRows(
-  tx: Readonly<DrizzleTransaction>,
+  { tx, dialect }: TransactionOn,
   userId: string,
   erasedEmail: string | undefined
 ): Promise<void> {
-  await executeRaw(
+  await executeRawOn(
+    dialect.kind,
     tx,
-    sql`DELETE FROM ${systemTableRef('ai_activity_logs')}
+    sql`DELETE FROM ${dialect.sql.systemTableRef('ai_activity_logs')}
         WHERE actor_type = 'user' AND actor_name = ${userId}`
   )
 
   // Matched as a separate statement rather than one `OR`-ed predicate so a user
   // whose email could not be read is never turned into an empty-string match.
   if (erasedEmail === undefined) return
-  await executeRaw(
+  await executeRawOn(
+    dialect.kind,
     tx,
-    sql`DELETE FROM ${systemTableRef('ai_activity_logs')}
+    sql`DELETE FROM ${dialect.sql.systemTableRef('ai_activity_logs')}
         WHERE (actor_type = 'user' AND actor_name = ${erasedEmail}) OR user_email = ${erasedEmail}`
   )
 }

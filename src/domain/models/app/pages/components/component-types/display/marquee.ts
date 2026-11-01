@@ -38,7 +38,7 @@ export const MarqueeGapSchema = Schema.String.pipe(
   Schema.annotate({
     title: 'Marquee Gap',
     description:
-      'CSS length separating marquee items, e.g. "2rem" or "24px". Applied to the child GROUP, not the track: a gap on the track would make the 50% translate under-shoot by half a gap and stutter once per cycle.',
+      'CSS length separating marquee items, e.g. "2rem" or "24px". It separates every pair of items, the seam where the band loops included. Applied to the child GROUP, not the track: a gap on the track would make the 50% translate under-shoot by half a gap and stutter once per cycle.',
     examples: ['2rem', '24px', '0'],
   }),
   Schema.check(Schema.isPattern(/^(0|\d+(\.\d+)?(px|rem|em|%))$/))

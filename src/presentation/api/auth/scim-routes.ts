@@ -6,10 +6,10 @@
  */
 
 import { buildEnvLookup, resolveSecretInString } from '@/domain/models/app/env-reference-service'
-import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
 import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import { constantTimeEqual } from '@/presentation/api/runtime/constant-time-equal'
+import { rateLimitedResponse } from '@/presentation/api/runtime/rate-limit-response'
 import { getRateLimitWindowMs } from './auth-route-utils'
 import { chainScimDiscoveryRoutes } from './scim-discovery'
 import { chainScimGroupRoutes } from './scim-groups'

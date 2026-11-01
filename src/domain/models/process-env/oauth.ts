@@ -78,7 +78,7 @@ export const OAuthServerEnvSchema = Schema.Struct({
  * the endpoint, which is exactly what a permissive coercion would do.
  */
 export const isAnonymousClientRegistrationEnabled = (
-  env: NodeJS.ProcessEnv = process.env
+  env: Readonly<Record<string, string | undefined>>
 ): boolean => {
   const result = Schema.decodeUnknownResult(OAuthServerEnvSchema)({
     anonymousClientRegistration: env['SOVRIUM_OAUTH_ANONYMOUS_CLIENT_REGISTRATION'],

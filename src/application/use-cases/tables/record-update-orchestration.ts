@@ -19,11 +19,15 @@
  *
  * The order is fixed, and the unit tests pin it:
  *
+ *  0. clean the values and check their formats (`record-write-values.ts`)
  *  1. read the operational pauses — is a record-update automation armed?
- *  2. read the row as it stands (it feeds steps 3, 5, 6 and 8)
+ *  2. read the row as it stands (it feeds the rules and steps 3, 5, 6 and 8)
+ *  2b. judge the table's business rules on the stored row and the change —
+ *     after every permission was judged by the door, so a caller who cannot
+ *     reach the row was answered 404 before any rule speaks
  *  3. stamp `published_at` on first publication, merge the SQLite AI baseline
- *  4. write (the optimistic-lock token is compared INSIDE the write), recording
- *     the table's update webhook deliveries in the same transaction
+ *  4. write — the rules judged again INSIDE its transaction, on the row as it
+ *     stands there, and the lock token compared — recording its deliveries
  *  5. dispatch the armed automations, with the previous row for `watchFields`
  *  6. deliver the webhook deliveries the write recorded
  *  7. signal the AI-compute write phase, detached — it outlives the request
@@ -33,26 +37,35 @@
  */
 
 import { Effect } from 'effect'
-import { StorageService } from '@/application/ports/services/storage-service'
-import { signalAiComputeWritePhase } from '@/application/use-cases/ai-compute/enqueue-refinement'
+import { signalAiComputeWritePhase } from '@/application/use-cases/ai/enqueue-refinement'
 import { loadPausedAutomationNames } from '@/application/use-cases/automations/paused-automation-names'
+import { startInTrackedBackground } from '@/application/use-cases/automations/tracked-background'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { triggersOfType } from '@/domain/models/app/automations/trigger-entries-service'
-import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
-import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { applyAiComputeBaseline } from '@/domain/models/app/tables/ai-compute-apply-baseline'
-import { logError } from '@/infrastructure/logging/logger'
-import { rawGetRecordProgram } from './read-record-programs'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
+import { judgedRowsOf, prepareRuleJudge, refuseUnderRules } from './permissions/business-rule-gate'
 import { storedRowOf } from './record-stored-row'
+import {
+  collectReplacedAttachments,
+  deleteStoredFiles,
+  readPreviousLinkLists,
+  readReplacedRow,
+  type ReplacedAttachment,
+} from './record-update-replaced'
 import { deliverRecordWebhooks, withRecordWebhooks } from './record-webhook-outbox'
+import { checkedWriteValues } from './record-write-values'
 import { updateRecordProgram } from './write-record-programs'
 import type { LinkReader } from './linked-row-visibility'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { InTransactionRuleJudge } from '@/application/ports/repositories/tables/in-transaction-rule-judge'
+import type { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import type {
   DeliveryMode,
   OutboxedWrite,
   RecordWebhookDispatcher,
 } from '@/application/ports/services/record-webhook-dispatcher'
+import type { StorageService } from '@/application/ports/services/storage-service'
 import type { TriggerRequester } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { TriggerRecordEventInput } from '@/application/use-cases/automations/trigger-record-event'
 import type { App } from '@/domain/models/app'
@@ -62,12 +75,6 @@ export type StoredRow = Readonly<Record<string, unknown>>
 
 /** The write's answer: the record as the writer may read it, or `{}` for no row. */
 export type UpdatedRecord = Effect.Success<ReturnType<typeof updateRecordProgram>>
-
-/** A superseded stored object, paired with the bucket it was written under. */
-export interface ReplacedAttachment {
-  readonly key: string
-  readonly bucket: string
-}
 
 /** Everything one update needs to know about the caller and the change. */
 export interface RecordUpdateInput {
@@ -93,9 +100,7 @@ export interface RecordUpdateInput {
   readonly linkLists?: 'replace'
   /** Whether the runtime engine is SQLite, which has no BEFORE trigger for the AI baseline. */
   readonly isSqlite: boolean
-  /** Process env captured at the route boundary, for the automations' `$env` lookups. */
-  readonly processEnv: Readonly<Record<string, string | undefined>>
-  /** Whether the request waits for its webhook deliveries (it does, by default). */
+  /** Whether the write waits for its webhook deliveries; unnamed, the caller's receipt decides. */
   readonly deliveryMode?: DeliveryMode
   /**
    * Whether the stored files the write replaced are deleted (`delete`, the
@@ -109,6 +114,8 @@ export interface RecordUpdateInput {
    * being served after the bytes it was derived from are gone.
    */
   readonly forgetDerivedVariants: (key: string) => void
+  /** The request origin, for the attachment URLs of the echo. */
+  readonly origin?: string
 }
 
 /**
@@ -118,8 +125,27 @@ export interface RecordUpdateInput {
  */
 export interface RecordUpdateSteps<E, R, RD = never, RA = never> {
   readonly loadPausedNames: Effect.Effect<ReadonlySet<string>, never, R>
-  readonly readRow: Effect.Effect<StoredRow | undefined, never, R>
-  readonly write: (fields: StoredRow) => Effect.Effect<OutboxedWrite<UpdatedRecord>, E, R | RD>
+  /**
+   * The row as it stood, `undefined` when there is none. A read that fails
+   * fails the update: its rules cannot be judged, so it is never written.
+   */
+  readonly readRow: Effect.Effect<StoredRow | undefined, E, R>
+  /**
+   * Refuse a change the table's business rules forbid, judged on the row as it
+   * stood, and answer those rules for the write to judge again inside its
+   * transaction (`undefined` for a table without rules).
+   */
+  readonly authorizeRules: (
+    previous: StoredRow | undefined,
+    fields: StoredRow
+  ) => Effect.Effect<InTransactionRuleJudge | undefined, E, R>
+  /** The row as it stood, with the many-to-many links the change names as they stood. */
+  readonly readPreviousLinks: (previous: StoredRow) => Effect.Effect<StoredRow, never, R>
+  /** Write the change, `judge` judging it on the row inside the write's transaction. */
+  readonly write: (
+    fields: StoredRow,
+    judge: InTransactionRuleJudge | undefined
+  ) => Effect.Effect<OutboxedWrite<UpdatedRecord>, E, R | RD>
   readonly dispatchAutomations: (input: TriggerRecordEventInput) => Effect.Effect<void, never, RA>
   readonly deliverWebhooks: (deliveryIds: readonly string[]) => Effect.Effect<void, never, RD>
   readonly signalAiCompute: (
@@ -135,7 +161,7 @@ export interface UpdateScope {
   readonly tableName: string
 }
 
-const tableOf = ({ app, tableName }: UpdateScope) => app.tables?.find((t) => t.name === tableName)
+const tableOf = ({ app, tableName }: UpdateScope) => findTableByName(app.tables, tableName)
 
 /**
  * Auto-`published_at` convention: a table with a `single-select` `status` and a
@@ -177,27 +203,6 @@ export function mergeAiBaseline(
   }
 }
 
-/**
- * The stored files a write replaces: every `single-attachment` field the write
- * names whose previous value is a non-empty key different from the new one.
- */
-export function collectReplacedAttachments(
-  scope: UpdateScope,
-  previous: StoredRow,
-  written: StoredRow
-): readonly ReplacedAttachment[] {
-  const { app, tableName } = scope
-  return (tableOf(scope)?.fields ?? [])
-    .filter((f) => f.type === 'single-attachment' && f.name in written)
-    .flatMap((f) => {
-      const old = previous[f.name]
-      if (typeof old !== 'string' || old.length === 0 || old === written[f.name]) return []
-      return [
-        { key: old, bucket: resolveFieldBucket(app, tableName, f.name) ?? SYSTEM_BUCKET_NAME },
-      ]
-    })
-}
-
 /** Whether a live (not paused) record-update automation targets this table. */
 export function hasArmedUpdateTrigger(
   { app, tableName }: UpdateScope,
@@ -237,10 +242,7 @@ export function flattenUpdatedRecord(updated: WrittenRecord): StoredRow {
  * Resolves to the written record, or `undefined` when the write touched no row.
  */
 export function orchestrateRecordUpdate<E, R, RD = never, RA = never>(
-  input: Pick<
-    RecordUpdateInput,
-    'app' | 'tableName' | 'fields' | 'isSqlite' | 'processEnv' | 'requester'
-  > & {
+  input: Pick<RecordUpdateInput, 'app' | 'tableName' | 'fields' | 'isSqlite' | 'requester'> & {
     readonly userId: string
     /** When the update happens, as an ISO 8601 instant. */
     readonly nowIso: string
@@ -251,9 +253,13 @@ export function orchestrateRecordUpdate<E, R, RD = never, RA = never>(
   return Effect.gen(function* () {
     const armed = hasArmedUpdateTrigger(input, yield* steps.loadPausedNames)
     const previous = yield* steps.readRow
+    const judge = yield* steps.authorizeRules(previous, input.fields)
     const published = applyPublishedAtConvention(input, previous, input.fields, input.nowIso)
     const fields = mergeAiBaseline(input, published, previous, input.isSqlite)
-    const written = yield* steps.write(fields)
+    // A run reads the links as they stood, so they are read before the write.
+    const before =
+      armed && previous !== undefined ? yield* steps.readPreviousLinks(previous) : previous
+    const written = yield* steps.write(fields, judge)
     const updated = written.value
     if (armed) {
       yield* steps.dispatchAutomations({
@@ -261,8 +267,7 @@ export function orchestrateRecordUpdate<E, R, RD = never, RA = never>(
         tableName,
         event: 'update',
         record: isWritten(updated) ? storedRowOf(updated) : {},
-        ...(previous === undefined ? {} : { previousRecord: { ...previous } }),
-        processEnv: input.processEnv,
+        ...(before === undefined ? {} : { previousRecord: { ...before } }),
         userId: input.userId,
         ...(input.requester === undefined ? {} : { requester: input.requester }),
       })
@@ -278,80 +283,80 @@ export function orchestrateRecordUpdate<E, R, RD = never, RA = never>(
   }).pipe(Effect.withSpan('tables.orchestrate-record-update', { attributes: { tableName } }))
 }
 
-/**
- * Delete stored files, one at a time, each failure logged and swallowed: a file
- * already gone must never fail the update that superseded it.
- */
-const deleteStoredFiles = (
-  refs: readonly ReplacedAttachment[],
-  forgetDerivedVariants: (key: string) => void
-) =>
-  Effect.forEach(
-    refs,
-    ({ key, bucket }) =>
-      Effect.gen(function* () {
-        const storage = yield* StorageService
-        yield* storage['delete'](key, bucket)
-        yield* Effect.sync(() => forgetDerivedVariants(key))
-      }).pipe(
-        Effect.tapCause((cause) =>
-          Effect.sync(() =>
-            logError('[tables] could not delete a replaced attachment', cause, { key, bucket })
-          )
-        ),
-        // effect-swallow: the record already points at its new file; an object
-        // that cannot be removed is logged above and must not undo the update.
-        Effect.ignoreCause
-      ),
-    { discard: true }
-  )
+/** What an update fails with: the read's and the write's own errors, and a business rule's refusal. */
+type UpdateError =
+  | Effect.Error<ReturnType<typeof readReplacedRow>>
+  | Effect.Error<ReturnType<typeof updateRecordProgram>>
+  | Effect.Error<ReturnType<typeof refuseUnderRules>>
 
 /** What the update's own steps run on — the automations' dispatch aside. */
 type UpdateRequirements =
+  | Effect.Services<ReturnType<typeof readReplacedRow>>
+  | Effect.Services<ReturnType<ReturnType<typeof readPreviousLinkLists>>>
   | Effect.Services<ReturnType<typeof updateRecordProgram>>
   | Effect.Services<typeof loadPausedAutomationNames>
   | Effect.Services<ReturnType<typeof signalAiComputeWritePhase>>
+  | AutomationFiberBridge
+  | Effect.Services<ReturnType<typeof prepareRuleJudge>>
   | StorageService
 
 /**
- * The row an update replaces. It only feeds the conventions and the cleanup:
- * a failed read leaves them without a previous row, and the write reports its
- * own error.
+ * The rules' step of an update: the row as it stood and the change as sent,
+ * the caller's role read against `exemptRoles`; the same rules then go to the
+ * write. A row that does not exist is left to the write (not found).
  */
-const readReplacedRow = ({ session, tableName, recordId }: RecordUpdateInput) =>
-  rawGetRecordProgram(session, tableName, recordId).pipe(
-    Effect.map((row) => row ?? undefined),
-    Effect.tapCause((cause) =>
-      Effect.sync(() =>
-        logError('[tables] could not read the row an update replaces', cause, { tableName })
-      )
-    ),
-    // effect-swallow: the read only feeds the conventions and the cleanup;
-    // logged above, and the write that follows reports its own failure.
-    Effect.orElseSucceed(() => undefined)
-  )
+const updateRulesStep =
+  (input: RecordUpdateInput) => (previous: StoredRow | undefined, fields: StoredRow) =>
+    prepareRuleJudge(
+      {
+        ...{ app: input.app, tableName: input.tableName, userId: input.session.userId },
+        ...(input.userRole === undefined ? {} : { userRole: input.userRole }),
+        ...(input.userGroups === undefined ? {} : { userGroups: input.userGroups }),
+      },
+      (rows) => {
+        const existing = rows.get(input.recordId)
+        return existing === undefined ? [] : [{ op: 'update', existing, change: fields }]
+      }
+    ).pipe(
+      Effect.tap((judge) => refuseUnderRules(judge, judgedRowsOf(input.recordId, previous))),
+      Effect.withSpan('tables.update-rules-step', { attributes: { tableName: input.tableName } })
+    )
 
 /**
  * One update with every side effect it carries, its record automations started by
  * `dispatchAutomations`: the records API's own dispatch for every road but an
  * automation step, which hands its run's record-event channel (see
- * `record-write-roads.ts`). Fails with the write's own errors.
+ * `record-write-roads.ts`). Its values pass the rules every record write obeys
+ * first (`record-write-values.ts`): a `rich-text` value is stored cleaned, a
+ * malformed `email` or `url` refuses the update before the row is read. Fails
+ * with that refusal or the write's own errors.
  */
 export function updateRecordVia<RA>(
   input: RecordUpdateInput,
   dispatchAutomations: (input: TriggerRecordEventInput) => Effect.Effect<void, never, RA>
 ) {
+  return checkedWriteValues(input.app, input.tableName, input.fields).pipe(
+    Effect.flatMap((fields) => updateCheckedRecord({ ...input, fields }, dispatchAutomations)),
+    Effect.withSpan('tables.update-record-via', { attributes: { tableName: input.tableName } })
+  )
+}
+
+/** {@link updateRecordVia} once its values passed the write value rules. */
+function updateCheckedRecord<RA>(
+  input: RecordUpdateInput,
+  dispatchAutomations: (input: TriggerRecordEventInput) => Effect.Effect<void, never, RA>
+) {
   const { session, app, tableName, recordId } = input
-  type WriteError = Effect.Error<ReturnType<typeof updateRecordProgram>>
-  return orchestrateRecordUpdate<WriteError, UpdateRequirements, RecordWebhookDispatcher, RA>(
+  return orchestrateRecordUpdate<UpdateError, UpdateRequirements, RecordWebhookDispatcher, RA>(
     { ...input, userId: session.userId, nowIso: new Date().toISOString() },
     {
       loadPausedNames: loadPausedAutomationNames,
       readRow: readReplacedRow(input),
-      write: (fields) =>
+      readPreviousLinks: readPreviousLinkLists(input),
+      authorizeRules: updateRulesStep(input),
+      write: (fields, judge) =>
         updateRecordProgram(session, tableName, recordId, {
-          fields,
-          app,
+          ...{ fields, app, judge },
           ...(input.userRole === undefined ? {} : { userRole: input.userRole }),
           ...(input.userGroups === undefined ? {} : { userGroups: input.userGroups }),
           ...(input.linkReader === undefined ? {} : { linkReader: input.linkReader }),
@@ -360,25 +365,24 @@ export function updateRecordVia<RA>(
             : { expectedUpdatedAt: input.expectedUpdatedAt }),
           ...(input.auditContext === undefined ? {} : { auditContext: input.auditContext }),
           ...(input.linkLists === undefined ? {} : { linkLists: input.linkLists }),
+          ...(input.origin === undefined ? {} : { origin: input.origin }),
         }).pipe(withRecordWebhooks(app, tableName)),
       dispatchAutomations,
-      deliverWebhooks: (deliveryIds) =>
-        deliverRecordWebhooks(app, deliveryIds, input.deliveryMode ?? 'await'),
-      // Detached: the enqueue and its status writes outlive the request, and
-      // read the same `AiService` this program was provided.
+      deliverWebhooks: (deliveryIds) => deliverRecordWebhooks(app, deliveryIds, input.deliveryMode),
+      // In the tracked background: the enqueue and its status writes outlive
+      // the request, drain with the server, and read the same `AiService` this
+      // program was provided.
       signalAiCompute: (record, old) =>
-        Effect.asVoid(
-          Effect.forkDetach(
-            signalAiComputeWritePhase({
-              app,
-              tableName,
-              op: 'update',
-              recordId,
-              incoming: input.fields,
-              old,
-              record,
-            })
-          )
+        startInTrackedBackground(
+          signalAiComputeWritePhase({
+            app,
+            tableName,
+            op: 'update',
+            recordId,
+            incoming: input.fields,
+            old,
+            record,
+          })
         ),
       deleteAttachments: (refs) =>
         input.replacedAttachments === 'keep'

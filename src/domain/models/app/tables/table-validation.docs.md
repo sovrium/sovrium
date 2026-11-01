@@ -1,6 +1,6 @@
 # Validation
 
-> The two layers a table's data passes through — config-time decoding when the app boots, and per-write record checks.
+> The two layers a table's data passes through: config-time decoding when the app boots, and per-write record checks.
 
 Sovrium validates at two moments. **Config time**: the whole configuration is decoded with Effect Schema when the app starts, so a malformed table definition stops the boot rather than surfacing months later as a bad row. **Runtime**: every write is checked against the field rules, the CHECK constraints and the permissions in force.
 
@@ -18,9 +18,11 @@ Most of what a field validates comes from its own properties rather than from a 
 | `maxLength`           | `rich-text`, `ai-summary`                        | Caps the character length. A `rich-text` write over the cap is refused; an `ai-summary` is TRUNCATED to it instead, because the model rather than the caller produced the value |
 | `maxSelections`       | `multi-select`                                   | Caps the choices, and cannot exceed the option count                                                                                                                            |
 | `options`             | `single-select`, `multi-select`, `status`        | Values come from the declared option list                                                                                                                                       |
-| format                | `email`, `url`                                   | RFC 5322, and an absolute URL                                                                                                                                                   |
+| format                | `email`, `url`                                   | RFC 5322, and an absolute `http` or `https` address                                                                                                                             |
 | `targetLanguage`      | `ai-translate`                                   | An ISO 639-1 code, optionally region-suffixed                                                                                                                                   |
 | `categories` / `tags` | `ai-categorize` / `ai-tag`                       | At least two entries, with no duplicates                                                                                                                                        |
+
+The `email` and `url` formats hold on every road that writes a record: the records API, one record or a batch, an upsert, a CSV import, a hosted form, an automation step and the MCP tools. A batch one of whose records breaks a format stores none of them.
 
 ## What config-time decoding enforces
 
@@ -29,13 +31,13 @@ Most of what a field validates comes from its own properties rather than from a 
 - A field may be named after a SQL keyword, such as `values` or `window`: the engine quotes the name in every statement it generates, so the table boots and its lookups and formulas read the field the same way on SQLite and PostgreSQL. A short list of words, `order` among them, is still refused.
 - A table name starts with a letter and holds letters, digits, underscores, hyphens and plain spaces; a tab, a line break or any other whitespace is refused.
 - Two tables may not be stored under the same database name. `Open Deals`, `open_deals` and `open-deals` all become `open_deals`, so declaring two of them is refused, with a message naming both.
-- A table is refused when its stored name — or a many-to-many link table's — is one the engine serves itself (`user_access`, `design_system_specimens`) or one another table also takes. A link table is named from the two tables it joins, source first: `orders` linked to `clients` keeps its links in `orders_clients`.
+- A table is refused when its stored name (or a many-to-many link table's) is one the engine serves itself (`user_access`, `design_system_specimens`) or one another table also takes. A link table is named from the two tables it joins, source first: `orders` linked to `clients` keeps its links in `orders_clients`.
 - Index names and constraint names are unique within the table and match the same identifier pattern.
 - A primary key names real fields.
 - Indexes, top-level `unique` entries, permissions, views and webhooks name real fields.
 - `count`, `rollup` and `lookup` name an existing `relationship` field in the same table.
 - Formula fields reference fields that exist.
-- Webhook names are unique, and a `payload` selector names a real field — the implicit `id` always counts as one.
+- Webhook names are unique, and a `payload` selector names a real field; the implicit `id` always counts as one.
 
 Each of these is a decode error with a path, not a warning: the app does not start.
 
@@ -49,11 +51,13 @@ constraints:
   - { name: chk_active_members_have_email, check: '(is_active = false) OR (email IS NOT NULL)' }
 ```
 
+A rule that depends on the record's state or on another record, with a message the person writing reads, is declared in the table's `rules` instead: a `lock` keeps fields from changing while the stored record matches a condition, a `transition` lists the moves a status may make, and a `validate` states a condition the record must meet after the write. They bind every caller, admins and automations included. See [Table Rules](/en/docs/table-rules).
+
 ## Uniqueness and integrity
 
 - Single-field: `unique: true` on the field, or a top-level `unique: [{ fields: [slug] }]`. It covers the records that are not in the trash: a value held only by a deleted record can be used again, and restoring that record while another one holds its value is refused with `409`. The rule spans every record, including those a caller may not read; a write refused over a value held by a record she may not read answers her the `404` of a write out of her reach, not a `409`.
 - Composite: a top-level `unique: [{ fields: [tenant_id, slug] }]`, which becomes a unique index over the records that are not in the trash, like a single field. A unique index declared under `indexes` keeps the shape you write: it counts deleted records unless it carries a `where`.
-- Partial: a unique index carrying a `where` clause — a unique slug only among rows that are not soft-deleted, for instance.
+- Partial: a unique index carrying a `where` clause, such as a unique slug only among rows that are not soft-deleted.
 - On an existing table: turning `unique` on, for a field already there or for one being added, is enforced on both engines, and turning it off drops the constraint. While two or more rows that are not in the trash share a value of that field, the migration is refused before anything is written. The refusal names the table, the field, the number of rows and the duplicated values, and nothing is changed, so cleaning those rows or reverting the edit lets the next boot through. A new unique field with a default is refused the same way when the table already holds two records that are not in the trash, because each of them would get the default.
 - Relational: a `relationship` field creates its foreign key with `onDelete` and `onUpdate` actions; a reference spanning several columns is declared with `foreignKeys`. A unique key that a `foreignKeys` entry references, a `unique` field or a composite top-level `unique`, stays unique over every record, deleted ones included, because the database accepts a reference only to such a key.
 

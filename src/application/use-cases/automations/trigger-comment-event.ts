@@ -22,6 +22,7 @@ import {
 import { createdByFieldNames } from '@/domain/models/app/tables/authorship-fields'
 import { evaluateRecordAgainstPredicate } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveMentionedEmails, resolveThreadParticipants } from './comment-trigger-recipients'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
@@ -50,9 +51,6 @@ import type { Table } from '@/domain/models/app/tables/table'
  * it from the body's `@[<user id>]` markup merged with the request's
  * `mentions` array, and keeps only people who can read the record
  * (`comment-mention-programs.ts`). This use case trusts that list.
- *
- * `processEnv` mirrors `triggerRecordEventAutomations` so action handlers
- * can resolve `$env.VAR_NAME` and so secrets get redacted from history.
  */
 export interface TriggerCommentEventInput {
   readonly app: App
@@ -80,7 +78,6 @@ export interface TriggerCommentEventInput {
   /** `null` for a comment the app wrote (an automation's `runAs: system`): no author account. */
   readonly author: { readonly id: string; readonly email: string; readonly name: string } | null
   readonly mentions: readonly string[]
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /** How many automation writes deep the comment was written; omitted means 0 (a person's post). */
   readonly depth?: number
 }
@@ -257,7 +254,6 @@ const dispatchSingleCommentAutomation = (params: {
       automation,
       trigger,
       app: input.app,
-      processEnv: input.processEnv,
       triggerData,
       userId: input.author?.id,
       ...(input.depth === undefined ? {} : { recordEventDepth: input.depth }),
@@ -332,7 +328,7 @@ export const triggerCommentEventAutomations = (
     if (!record) return
 
     const triggerData = yield* buildEnvelopeForComment(input, record)
-    const table = input.app.tables?.find((t) => t.name === input.tableName)
+    const table = findTableByName(input.app.tables, input.tableName)
 
     yield* Effect.forEach(
       matching,

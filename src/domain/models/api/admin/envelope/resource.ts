@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * Canonical resource block embedded in every audit-log entry.
@@ -24,16 +24,16 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
 export const resourceSchema = Schema.Struct({
   type: Schema.String.annotate({
     description:
-      'Namespaced resource type (dot-separated, e.g. `table.record`, `automation.run`, `bucket.file`). Open string — validated by the action catalog, not by this schema.',
+      'Namespaced resource type (dot-separated, e.g. `table.record`, `automation.run`, `bucket.file`). Open string, validated by the action catalog, not by this schema.',
   }),
   id: Schema.String.annotate({
     description:
-      'Resource identifier as a string. Numeric ids (record row ids) are stringified for uniformity; string ids (UUIDs, slugs) pass through unchanged. Audit log is immutable and append-only — even after force-delete the id is preserved here.',
+      'Resource identifier as a string. Numeric ids (record row ids) are stringified for uniformity; string ids (UUIDs, slugs) pass through unchanged. Audit log is immutable and append-only: even after force-delete the id is preserved here.',
   }),
   name: optionalField(
     Schema.String.annotate({
       description:
-        'Human-friendly label for the resource (e.g. table slug, file path, automation name). Optional — present when the resource has a meaningful display name.',
+        'Human-friendly label for the resource (e.g. table slug, file path, automation name). Optional; present when the resource has a meaningful display name.',
     })
   ),
 }).annotate({ identifier: 'AuditResource' })

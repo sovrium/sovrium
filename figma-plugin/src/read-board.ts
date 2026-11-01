@@ -30,7 +30,7 @@ import {
   type FigmaPageDocument,
   type FigmaPageNode,
 } from '@/domain/models/api/admin/design-system/adapter-figma-pages'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import { figmaPagePathOf } from '@/domain/models/app/design/adapters/pages/figma-pages-export'
 import type { FigmaPort, PortSceneNode } from './figma-port'
 import {

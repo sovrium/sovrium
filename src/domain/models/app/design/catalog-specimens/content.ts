@@ -298,7 +298,7 @@ const DISPLAY_SPECIMENS: readonly CatalogSpecimen[] = [
         {
           type: 'container',
           props: { id: 'voice' },
-          content: { title: 'Can I override voice?', body: 'Per zone, yes — see Voice.' },
+          content: { title: 'Can I override voice?', body: 'Per zone, yes. See Voice.' },
         },
       ],
     }),
@@ -318,8 +318,8 @@ const DISPLAY_SPECIMENS: readonly CatalogSpecimen[] = [
       element: 'div',
       props: { className: 'flex flex-col gap-1' },
       children: [
-        { type: 'item', content: 'Invoice inv_0292 — Atelier Verne' },
-        { type: 'item', content: 'Invoice inv_0291 — Maison Delcourt' },
+        { type: 'item', content: 'Invoice inv_0292, Atelier Verne' },
+        { type: 'item', content: 'Invoice inv_0291, Maison Delcourt' },
       ],
     }),
   },
@@ -414,7 +414,7 @@ const DISPLAY_SPECIMENS: readonly CatalogSpecimen[] = [
       state: 'needs-data-source',
       note:
         'Draws ONE field of the record the page it sits on is bound to. This page is bound to no ' +
-        'record — and binding it to one of yours is what the confidentiality bound forbids — so ' +
+        'record, and binding it to one of yours is what the confidentiality bound forbids, so ' +
         'there is nothing for it to read. The field CONTROLS it draws from are in the composed ' +
         'form below.',
     },

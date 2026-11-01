@@ -8,15 +8,17 @@
 import { Schema } from 'effect'
 import {
   CHAT_TOOL_PREVIEW_MAX_CHARS,
+  chatElicitationCancelledResponseSchema,
   chatRequestSchema,
   chatResponseSchema,
+  chatStopResponseSchema,
   elicitationAnswerSchema,
 } from '@/domain/models/api/ai/chat'
 import {
   transcriptionRequestFieldsSchema,
   transcriptionResponseSchema,
 } from '@/domain/models/api/ai/transcriptions'
-import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import {
   effectJsonBody,
   effectJsonResponse,
@@ -99,9 +101,7 @@ export const aiChatGroup: StaticGroupSpec = {
         202: {
           content: {
             'application/json': {
-              schema: effectSchema(
-                Schema.Struct({ status: Schema.Literal('stopping'), sessionId: Schema.String })
-              ),
+              schema: effectSchema(chatStopResponseSchema),
             },
           },
           description: 'The turn is stopping',
@@ -154,12 +154,7 @@ export const aiChatGroup: StaticGroupSpec = {
           content: {
             'text/event-stream': { schema: effectSchema(Schema.String) },
             'application/json': {
-              schema: effectSchema(
-                Schema.Struct({
-                  status: Schema.Literal('cancelled'),
-                  elicitationId: Schema.String,
-                })
-              ),
+              schema: effectSchema(chatElicitationCancelledResponseSchema),
             },
           },
           description:

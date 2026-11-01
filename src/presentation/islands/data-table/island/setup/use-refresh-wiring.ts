@@ -6,6 +6,8 @@
  */
 
 import { useCallback } from 'react'
+import { settledReadState } from '@/domain/models/app/pages/read-state-gate-service'
+import { useReadState } from '../../../hooks/use-read-state'
 import { useRealtimeSubscription } from '../../../hooks/use-realtime-subscription'
 import { useGridRefresh, useSortRefusal } from '../../../hooks/use-sort-refusal'
 import { removeRowThenRefreshOnce } from '../../row-actions/deleted-row-refresh'
@@ -51,6 +53,15 @@ export function useRefreshWiring(
     onRefresh: handleRefresh,
     onRowDeleted: handleRowDeleted,
   })
+
+  // What the latest read answered, for the buttons that follow this grid by
+  // its id or its channel (`hiddenWhenRead` / `disabledWhenRead`).
+  const { dataSource } = ctx.params
+  useReadState(
+    dataSource.bindTo ?? dataSource.system?.bindTo,
+    settledReadState(records.query.isError, records.query.data?.records.length),
+    ctx.params.searchSourceId
+  )
 
   // Realtime mode: subscribe to live change events for the bound table. Each
   // `change` event invalidates the query, triggering a re-fetch that re-applies

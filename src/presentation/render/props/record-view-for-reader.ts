@@ -29,6 +29,10 @@
  * component is returned as written.
  */
 
+import {
+  componentFields,
+  synthesizedComponent,
+} from '@/presentation/render/resolve/component-rewrite'
 import { readableFieldsForComponent } from './caller-table-inputs'
 import type { CallerTableView } from '@/application/ports/services/page-renderer'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -177,6 +181,6 @@ export function recordViewForReader(
   const declared = new Set(table.fields.map((f) => f.name))
   const isHidden: IsHidden = (field) =>
     typeof field === 'string' && declared.has(field) && !readable.has(field)
-  const narrowed = narrow(bindingForReader(component as Bag, isHidden), isHidden)
-  return narrowed === 'withheld' ? 'withheld' : (narrowed as Component)
+  const narrowed = narrow(bindingForReader(componentFields(component), isHidden), isHidden)
+  return narrowed === 'withheld' ? 'withheld' : synthesizedComponent(narrowed)
 }

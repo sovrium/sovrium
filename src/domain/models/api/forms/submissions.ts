@@ -6,10 +6,10 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime, uuid } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { paginationSchema } from '../combinators/common'
-import { withDefault } from '../combinators/schema-defaults'
+import { looseIsoDateTime, uuid } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import { paginationSchema } from '../common'
+import { withDefault } from '../schema-defaults'
 import { formNameSchema } from './forms'
 
 /**
@@ -31,37 +31,6 @@ export const submissionStatusSchema = Schema.Literals([
 ]).annotate({ description: 'Submission lifecycle state' })
 
 /**
- * File metadata embedded in submission data for attachment fields.
- */
-export const submissionFileMetadataSchema = Schema.Struct({
-  url: Schema.String.annotate({ description: 'Storage URL (signed when bucket is private)' }),
-  name: Schema.String.annotate({ description: 'Original filename' }),
-  size: Schema.Int.annotate({ description: 'File size in bytes' }).pipe(
-    Schema.check(Schema.isGreaterThanOrEqualTo(0))
-  ),
-  mimeType: Schema.String.annotate({ description: 'MIME type of the uploaded file' }),
-}).annotate({ identifier: 'SubmissionFileMetadata' })
-
-/**
- * Submitter context recorded on every ledger row.
- *
- * Per the forms anti spam requirement, the IP is HASHED (SHA-256 with per-app salt) before
- * persistence; the raw IP is never stored or returned.
- */
-export const submissionMetaSchema = Schema.Struct({
-  submittedAt: looseIsoDateTime({ description: 'ISO 8601 submission timestamp' }),
-  submitterUserId: Schema.NullOr(
-    Schema.String.annotate({
-      description: 'Authenticated user id (null for anonymous public-form submissions)',
-    })
-  ),
-  submitterIpHash: Schema.String.annotate({
-    description: 'SHA-256 hash of submitter IP with per-app salt',
-  }),
-  submitterUserAgent: optionalField(Schema.String),
-}).annotate({ identifier: 'SubmissionMeta' })
-
-/**
  * Body of `POST /api/forms/{name}/submissions`.
  *
  * The shape of `data` is dynamic (depends on the form's fields[]), so the API
@@ -79,35 +48,38 @@ export const createSubmissionRequestSchema = Schema.Struct({
 }).annotate({ identifier: 'CreateSubmissionRequest' })
 
 /**
- * Response for `POST /api/forms/{name}/submissions` (success) and
- * `GET /api/forms/{name}/submissions/{id}`.
+ * Response for `POST /api/forms/{name}/submissions` from a JSON client. A native
+ * form post is answered with a redirect instead.
  */
 export const submissionResponseSchema = Schema.Struct({
-  id: uuid({ description: 'Submission ledger row id (UUID)' }),
-  formId: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
-  formName: formNameSchema,
-  status: submissionStatusSchema,
-  statusReason: optionalField(
-    Schema.NullOr(
-      Schema.String.annotate({ description: 'Populated when status is failed or spam' })
-    )
-  ),
-  data: Schema.Record(Schema.String, Schema.Unknown).annotate({
-    description: 'Validated submission data; attachment fields contain SubmissionFileMetadata',
+  submissionId: Schema.NullOr(Schema.String).annotate({
+    description: 'Submission ledger row id, or null when no ledger row was kept for this answer',
   }),
-  linkedRecord: Schema.NullOr(
-    Schema.Struct({
-      table: Schema.String,
-      id: Schema.String,
-    }).annotate({
-      description: 'Bound-table row reference when submitTo.table was set; null otherwise',
+  linkedRecordId: Schema.NullOr(Schema.String).annotate({
+    description: 'Id of the row written to the bound table, or null when no row was written',
+  }),
+  record: Schema.Record(Schema.String, Schema.Unknown).annotate({
+    description: 'The accepted values keyed by field name',
+  }),
+  editUrl: optionalField(
+    Schema.String.annotate({
+      description: 'Private link to edit this answer, for a form that allows editing it',
     })
   ),
-  meta: submissionMetaSchema,
-  completedAt: Schema.NullOr(
-    looseIsoDateTime({ description: 'ISO 8601 timestamp when status reached done/failed/spam' })
-  ),
 }).annotate({ identifier: 'SubmissionResponse' })
+
+/** Response for an edit through a private link, from a JSON client. */
+export const submissionEditResponseSchema = Schema.Struct({
+  submissionId: Schema.String.annotate({ description: 'Id of the edited submission' }),
+}).annotate({ identifier: 'SubmissionEditResponse' })
+
+/**
+ * Response for `POST /api/forms/{name}/drafts`. The resume link travels only in
+ * the mail, so the answer states when it expires and nothing else.
+ */
+export const formDraftSavedResponseSchema = Schema.Struct({
+  expiresAt: looseIsoDateTime({ description: 'ISO 8601 timestamp when the resume link expires' }),
+}).annotate({ identifier: 'FormDraftSavedResponse' })
 
 /**
  * Compact submission item for list endpoints.
@@ -148,23 +120,3 @@ export const exportSubmissionsRequestSchema = Schema.Struct({
     looseIsoDateTime({ description: 'Filter: submitted on or before this ISO 8601 timestamp' })
   ),
 }).annotate({ identifier: 'ExportSubmissionsRequest' })
-
-/**
- * TypeScript types inferred from the schemas.
- * @public
- */
-export type SubmissionStatus = typeof submissionStatusSchema.Type
-/** @public */
-export type SubmissionFileMetadata = typeof submissionFileMetadataSchema.Type
-/** @public */
-export type SubmissionMeta = typeof submissionMetaSchema.Type
-/** @public */
-export type CreateSubmissionRequest = typeof createSubmissionRequestSchema.Type
-/** @public */
-export type SubmissionResponse = typeof submissionResponseSchema.Type
-/** @public */
-export type SubmissionSummary = typeof submissionSummarySchema.Type
-/** @public */
-export type ListSubmissionsResponse = typeof listSubmissionsResponseSchema.Type
-/** @public */
-export type ExportSubmissionsRequest = typeof exportSubmissionsRequestSchema.Type

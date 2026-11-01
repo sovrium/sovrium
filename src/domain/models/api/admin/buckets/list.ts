@@ -35,11 +35,14 @@
  */
 
 import { Schema } from 'effect'
-import { coercedBoolean } from '@/domain/models/api/combinators/coerce'
-import { looseIsoDateTime, uuid } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { cursorPaginationQuerySchema, cursorPaginationResponseSchema } from '../../combinators'
-import { withDefault } from '../../combinators/schema-defaults'
+import { coercedBoolean } from '@/domain/kernel/config-parsing/coerce'
+import { looseIsoDateTime, uuid } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
+import {
+  cursorPaginationQuerySchema,
+  cursorPaginationResponseSchema,
+} from '../../cursor-pagination'
+import { withDefault } from '../../schema-defaults'
 import { adminEnvelopeSchema } from '../envelope/admin-envelope'
 
 /**
@@ -86,7 +89,7 @@ export const bucketSchema = Schema.Struct({
   region: Schema.NullOr(
     Schema.String.annotate({
       description:
-        'AWS region (S3 buckets only — for local and bytea providers this field is `null`).',
+        'AWS region (S3 buckets only; for local and bytea providers this field is `null`).',
     })
   ),
   public: Schema.Boolean.annotate({
@@ -132,7 +135,7 @@ export const bucketAdminItemSchema = Schema.Struct({
   label: optionalField(
     Schema.String.annotate({
       description:
-        "The bucket's name as a person reads it: its `name` made readable — hyphens and underscores as spaces, the first letter capitalised (`quote-documents` reads `Quote documents`). A bucket declares no label of its own. Display text only; links and the file routes use `name`.",
+        "The bucket's name as a person reads it: its `name` made readable: hyphens and underscores as spaces, the first letter capitalised (`quote-documents` reads `Quote documents`). A bucket declares no label of its own. Display text only; links and the file routes use `name`.",
       examples: ['Quote documents'],
     })
   ),

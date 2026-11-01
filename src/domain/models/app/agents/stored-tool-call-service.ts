@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * What a chat turn keeps of the tool calls it ran.
  *
@@ -44,9 +46,6 @@ export interface ToolCallResultSource {
   readonly content: string
   readonly table?: string | undefined
 }
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The result text as JSON, or `undefined` when it is prose (a refusal, an error). */
 const parsedResult = (content: string): unknown => {

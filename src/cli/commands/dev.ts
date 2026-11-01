@@ -31,13 +31,14 @@
  * and both have finished before the server starts.
  */
 
-import { mkdir, readFile, rm } from 'node:fs/promises'
+import { readFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { isHeadless, openInBrowser } from '@/cli/runtime/browser-launch'
 import {
   devAdminEmail,
   devDataDir,
   devOpenUrl,
+  externalDatabaseRefusal,
   readDevSession,
   resolveDevPassword,
   writeDevSession,
@@ -49,9 +50,12 @@ import {
   type OpenOutcome,
   type OtherInstance,
 } from '@/cli/runtime/dev-session-block'
+import { defineFlags, flag } from '@/cli/runtime/flag-schema'
 import { prepareProjectData } from '@/cli/runtime/project-data'
+import { stopCommand, withFlagsAsync } from '@/cli/runtime/run-command'
 import { parseDataDir } from '@/domain/models/process-env/data-dir'
 import { parseProjectDir } from '@/domain/models/process-env/desktop'
+import { ensurePrivateDirectory } from '@/infrastructure/filesystem/private-modes'
 import { printDocument, printStderr } from '@/infrastructure/logging/cli-output'
 import {
   isProcessRunning,
@@ -67,6 +71,8 @@ export interface DevCommandOptions {
   readonly configFile?: string
   /** `false` under `--no-open`. */
   readonly open: boolean
+  /** `--external-database`: the `DATABASE_URL` database is meant for development. */
+  readonly externalDatabase: boolean
   readonly publicDir?: string | false
 }
 
@@ -127,8 +133,7 @@ const prepareData = (input: {
     seedEnv: { SOVRIUM_SEED_PASSWORD: password },
   })
   if (!prepared.ok) {
-    printStderr(`Error: could not create the dev account ${email}.\n${prepared.output}`)
-    return process.exit(1)
+    return stopCommand(1, `Error: could not create the dev account ${email}.\n${prepared.output}`)
   }
   if (prepared.seed === 'failed') printStderr(prepared.seedOutput)
   return { adminCreated: prepared.adminCreated, seed: prepared.seed }
@@ -152,23 +157,28 @@ const refuseInvalidConfig = async (configFile: string): Promise<void> => {
   const { parsed, refSources } = await loadConfigForValidationWithSources(configFile)
   const outcome = await validateParsedConfig(parsed, refSources, configFile)
   if (outcome.valid) return
-  printStderr(`Error: Validation failed.\n\n${outcome.report.join('\n')}`)
-  process.exit(1)
+  return stopCommand(1, `Error: Validation failed.\n\n${outcome.report.join('\n')}`)
 }
+
+/** The flags `sovrium dev` reads. */
+export const devFlags = defineFlags({
+  noOpen: flag.switch('--no-open'),
+  externalDatabase: flag.switch('--external-database'),
+})
 
 /**
  * Handle `sovrium dev` from the parsed command line: the browser opens unless
- * `--no-open` is among the arguments.
+ * `--no-open` is among the arguments, and a `DATABASE_URL` database is used
+ * only under `--external-database`.
  */
-export const handleDevCommand = (
-  parsed: Pick<DevCommandOptions, 'configFile' | 'publicDir'>,
-  argv: readonly string[]
-): Promise<void> =>
+export const handleDevCommand = withFlagsAsync(devFlags, ({ configFile, publicDir, flags }) =>
   runDevSession({
-    configFile: parsed.configFile,
-    publicDir: parsed.publicDir,
-    open: !argv.includes('--no-open'),
+    configFile,
+    publicDir,
+    open: !flags.noOpen,
+    externalDatabase: flags.externalDatabase,
   })
+)
 
 /**
  * Point the data and lock dirs at the dev dir and turn dev mode on — before any
@@ -179,17 +189,23 @@ const enterDevEnvironment = async (): Promise<{
   readonly devDir: string
   readonly other: OtherInstance | undefined
 }> => {
-  const devDir = devDataDir(parseProjectDir())
-  const normalLockPath = lockFilePathIn(process.env['SOVRIUM_LOCK_DIR'] || parseDataDir())
+  const devDir = devDataDir(parseProjectDir(process.env))
+  const normalLockPath = lockFilePathIn(
+    process.env['SOVRIUM_LOCK_DIR'] || parseDataDir(process.env)
+  )
   process.env['SOVRIUM_DATA_DIR'] = devDir
   process.env['SOVRIUM_LOCK_DIR'] = devDir
   process.env['SOVRIUM_DEV_MODE'] = 'on'
   return { devDir, other: await readLiveLock(normalLockPath) }
 }
 
-/** The config, its decoded app and the dev account — or exit 1, with nothing changed. */
+/**
+ * The config, its decoded app and the dev account — or exit 1, with nothing
+ * changed, on an invalid config, a refused password or a refused database.
+ */
 const loadDevApp = async (
-  requested: string | undefined
+  requested: string | undefined,
+  externalDatabase: boolean
 ): Promise<{
   readonly configFile: string
   readonly app: App
@@ -203,8 +219,16 @@ const loadDevApp = async (
   const { resolvePasswordPolicy } = await import('@/domain/models/app/auth/password-policy')
   const resolution = resolveDevPassword(process.env, resolvePasswordPolicy(app.auth).minLength)
   if ('refusal' in resolution) {
-    printStderr(resolution.refusal)
-    return process.exit(1)
+    return stopCommand(1, resolution.refusal)
+  }
+  const refusal = externalDatabaseRefusal(
+    process.env,
+    externalDatabase,
+    resolution.source,
+    app.auth !== undefined
+  )
+  if (refusal !== undefined) {
+    return stopCommand(1, refusal)
   }
   return { configFile, app, email: devAdminEmail(app.name), password: resolution.password }
 }
@@ -226,12 +250,15 @@ const runDevSession = async (options: DevCommandOptions): Promise<void> => {
   if (lock !== undefined && isProcessRunning(lock.pid)) {
     return printRunningSession(lock, devDir, options.configFile, other)
   }
-  // An invalid config exits 1 here, before anything is deleted.
-  const { configFile, app, email, password } = await loadDevApp(options.configFile)
+  // An invalid config, or a DATABASE_URL dev may not use, exits 1 here, before anything is written.
+  const { configFile, app, email, password } = await loadDevApp(
+    options.configFile,
+    options.externalDatabase
+  )
   // A database on disk under the dev dir is reset; a DATABASE_URL one is never dropped.
   const kept = (process.env['DATABASE_URL'] ?? '') !== ''
   if (!kept) await rm(devDir, { recursive: true, force: true })
-  await mkdir(devDir, { recursive: true })
+  ensurePrivateDirectory(devDir)
   const prepared = prepareData({ app, configFile, devDir, email, password })
   prefillDevMode(app, email, password)
 
@@ -280,7 +307,7 @@ const printBootedSession = async (input: {
     signInUrl: openUrl,
     startedAt: new Date().toISOString(),
   })
-  const open = openSession(openUrl, options.open, resolveListenUnix() !== undefined)
+  const open = openSession(openUrl, options.open, resolveListenUnix(process.env) !== undefined)
   printDocument(
     formatDevSessionBlock({
       appName: app.name,

@@ -6,18 +6,18 @@
  */
 
 import { eq } from 'drizzle-orm'
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import {
   OAuthServerDatabaseError,
   OAuthServerRepository,
   type OAuthAccessTokenRecord,
   type OAuthClientRecord,
 } from '@/application/ports/repositories/auth/oauth-server-repository'
-import { db } from '@/infrastructure/database'
 import {
   authOauthAccessTokensTable,
   authOauthClientsTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
 /** Wrap a DB promise, adapting failures to `OAuthServerDatabaseError`. */
@@ -58,36 +58,45 @@ const decodeClient = (row: Readonly<Record<string, unknown>>): OAuthClientRecord
  * zero-config default; a repository pinned to either dialect fails on the
  * other, which is a failure this project has already shipped once.
  */
-export const OAuthServerRepositoryLive = Layer.succeed(OAuthServerRepository, {
-  findClientByClientId: (clientId: string) =>
-    wrap(async () => {
-      const clients = authOauthClientsTable()
-      const rows = await db.select().from(clients).where(eq(clients.clientId, clientId)).limit(1)
-      const row = rows[0]
-      return row === undefined ? undefined : decodeClient(row)
-    }),
+export const OAuthServerRepositoryLive = Layer.effect(
+  OAuthServerRepository,
+  Effect.map(Database, ({ client: db }) =>
+    OAuthServerRepository.of({
+      findClientByClientId: (clientId: string) =>
+        wrap(async () => {
+          const clients = authOauthClientsTable()
+          const rows = await db
+            .select()
+            .from(clients)
+            .where(eq(clients.clientId, clientId))
+            .limit(1)
+          const row = rows[0]
+          return row === undefined ? undefined : decodeClient(row)
+        }),
 
-  findAccessToken: (token: string) =>
-    wrap(async () => {
-      const accessTokens = authOauthAccessTokensTable()
-      const rows = await db
-        .select()
-        .from(accessTokens)
-        .where(eq(accessTokens.token, token))
-        .limit(1)
-      const row = rows[0]
-      if (row === undefined) return undefined
-      // Passed through rather than normalised: `userId` and `scopes` are
-      // nullable columns and the introspection handler already maps both to
-      // `undefined` when it builds the RFC 7662 body, so a second conversion
-      // here would be a shape change with no reader.
-      const record: OAuthAccessTokenRecord = {
-        clientId: row.clientId,
-        userId: row.userId,
-        scopes: row.scopes,
-        expiresAt: row.expiresAt,
-        createdAt: row.createdAt,
-      }
-      return record
-    }),
-})
+      findAccessToken: (token: string) =>
+        wrap(async () => {
+          const accessTokens = authOauthAccessTokensTable()
+          const rows = await db
+            .select()
+            .from(accessTokens)
+            .where(eq(accessTokens.token, token))
+            .limit(1)
+          const row = rows[0]
+          if (row === undefined) return undefined
+          // Passed through rather than normalised: `userId` and `scopes` are
+          // nullable columns and the introspection handler already maps both to
+          // `undefined` when it builds the RFC 7662 body, so a second conversion
+          // here would be a shape change with no reader.
+          const record: OAuthAccessTokenRecord = {
+            clientId: row.clientId,
+            userId: row.userId,
+            scopes: row.scopes,
+            expiresAt: row.expiresAt,
+            createdAt: row.createdAt,
+          }
+          return record
+        }),
+    })
+  )
+)

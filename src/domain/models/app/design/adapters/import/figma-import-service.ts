@@ -14,12 +14,12 @@
  * the first other file is light, and any further file is reported.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   adapterError,
   adapterOk,
   baseName,
   flattenTree,
-  isObject,
   namesDark,
   parseJson,
   resolveAliases,
@@ -42,7 +42,7 @@ interface ModeFile {
 
 const readModeFile = (file: SourceFile): ModeFile | undefined => {
   const document = parseJson(file.text)
-  return isObject(document) ? { file, tokens: flattenTree(document, 'dtcg') } : undefined
+  return isRecord(document) ? { file, tokens: flattenTree(document, 'dtcg') } : undefined
 }
 
 /** Figma files → canonical tokens. */

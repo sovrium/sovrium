@@ -13,21 +13,19 @@
  * never the approver's, and every decision is recorded in the activity log.
  */
 
+import { Effect } from 'effect'
 import { dispatchAgentAction } from '@/application/use-cases/agents/agent-action-dispatch'
 import { resumeApprovedTurn } from '@/application/use-cases/agents/agent-approval-resume'
-import { MirrorApprovalUpdate } from '@/application/use-cases/agents/approval'
+import { mirrorApprovalUpdate } from '@/application/use-cases/agents/approval'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
-import {
-  requireDomainContext,
-  runDomainPromise,
-  runOnDomain,
-} from '@/infrastructure/logging/request-effect'
+import { ApiErrorCode } from '@/domain/models/api/error'
+import { mayApproveOwnRequest } from '@/domain/models/app/agents/agent-gate-validation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { errorBody, notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { resolveRoleLevel } from './agent-roles'
-import { runApprovalMirror, runApproverIdentityLookup, toMirrorRecord } from './approval-mirror'
-import { serializeApproval } from './approval-presenter'
+import { approverIdentityOrBlank, mirrorBestEffort, toMirrorRecord } from './approval-mirror'
+import { answerApproval } from './approval-presenter'
 import { decideApproval, recordApprovalDecision } from './approval-store-access'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
@@ -51,35 +49,67 @@ interface DecisionInput {
  * approval is pending: it needs a session (401) and a role level at least the
  * agent's (404 otherwise).
  */
-export const decideAsApprover = async (
+export const decideAsApprover = (
   c: Readonly<Context>,
   { app, agent, record, decision }: DecisionInput
-): Promise<Response> => {
-  const session = getSessionContext(c as Context)
-  const approver = await resolveApprover(c as Context, session?.userId)
-  if (!approver) {
-    return c.json(
-      errorBody({
-        error: 'Authentication is required to decide on an approval.',
-        code: ApiErrorCode.UNAUTHORIZED,
-      }),
-      401
-    )
-  }
+) =>
+  Effect.gen(function* () {
+    const session = getSessionContext(c as Context)
+    const approver = yield* resolveApprover(session?.userId)
+    if (!approver) {
+      return c.json(
+        errorBody({
+          error: 'Authentication is required to decide on an approval.',
+          code: ApiErrorCode.UNAUTHORIZED,
+        }),
+        401
+      )
+    }
 
-  const agentLevel = resolveRoleLevel(app, agent.role)
-  const approverLevel = resolveRoleLevel(app, approver.role)
-  if (approverLevel < agentLevel) {
-    return c.json(
-      notFoundBody(
-        `Role level ${approverLevel.toString()} is insufficient to decide on an agent with role level ${agentLevel.toString()}.`
-      ),
-      404
-    )
-  }
+    const agentLevel = resolveRoleLevel(app, agent.role)
+    const approverLevel = resolveRoleLevel(app, approver.role)
+    if (approverLevel < agentLevel) {
+      return c.json(
+        notFoundBody(
+          `Role level ${approverLevel.toString()} is insufficient to decide on an agent with role level ${agentLevel.toString()}.`
+        ),
+        404
+      )
+    }
 
-  return applyDecision(c, { record, decision, approver, agent, app })
+    if (refusesOwnApproval({ app, record, decision, approver })) return ownApprovalRefused(c)
+
+    return yield* applyDecision(c, { record, decision, approver, agent, app })
+  })
+
+/**
+ * Is this the person who asked for a held side effect, approving it herself?
+ * An email, a web request or a file change asked for in a chat is approved by
+ * someone else, unless she is admin-equivalent (`mayApproveOwnRequest`). She
+ * may always reject it.
+ */
+export const refusesOwnApproval = (input: {
+  readonly app: App | undefined
+  readonly record: ApprovalRecord
+  readonly decision: Decision
+  readonly approver: { readonly id: string; readonly role: string }
+}): boolean => {
+  const { app, record, decision, approver } = input
+  if (decision !== 'approve' || approver.id !== record.requestedById) return false
+  const adminEquivalent = app !== undefined && isAdminEquivalent(approver.role, app)
+  return !mayApproveOwnRequest(record.action, adminEquivalent)
 }
+
+/** The 403 for {@link refusesOwnApproval}: the approval stays pending. */
+export const ownApprovalRefused = (c: Readonly<Context>): Response =>
+  c.json(
+    errorBody({
+      error:
+        'An email, a web request or a file change you asked an agent for is approved by someone else. You can reject it.',
+      code: ApiErrorCode.FORBIDDEN,
+    }),
+    403
+  )
 
 interface Approver {
   readonly id: string
@@ -89,17 +119,48 @@ interface Approver {
 }
 
 /** Resolve the approving user from the session, including role, name + email. */
-const resolveApprover = async (
-  c: Context,
-  userId: string | undefined
-): Promise<Approver | undefined> => {
-  if (userId === undefined) return undefined
-  const role = await runDomainPromise(c, getUserRole(userId))
-  const { email, name } = await runApproverIdentityLookup(requireDomainContext(c), userId)
-  return { id: userId, name, email, role }
-}
+const resolveApprover = (userId: string | undefined) =>
+  Effect.gen(function* () {
+    if (userId === undefined) return undefined
+    const role = yield* getUserRole(userId)
+    const { email, name } = yield* approverIdentityOrBlank(userId)
+    return { id: userId, name, email, role } satisfies Approver
+  })
 
-const applyDecision = async (
+/**
+ * Record a decision where every approval decision lands: on the approval
+ * itself, its database mirror and the activity feed. An approved action is
+ * recorded as executed under the AGENT's identity, never the approver's.
+ * Answers the approval as it now reads.
+ */
+export const recordApprovalOutcome = (input: {
+  readonly record: ApprovalRecord
+  readonly decision: Decision
+  readonly approver: Omit<Approver, 'role'>
+}) =>
+  Effect.gen(function* () {
+    const { record, decision, approver } = input
+    const nextStatus: ApprovalStatus = decision === 'approve' ? 'approved' : 'rejected'
+    const decided = yield* decideApproval(record.id, {
+      status: nextStatus,
+      approvedByEmail: approver.email,
+      ...(decision === 'approve' && { actionExecuted: true, executedAs: record.agentName }),
+    })
+    const next = decided ?? record
+
+    yield* mirrorBestEffort(mirrorApprovalUpdate(toMirrorRecord(next)))
+
+    yield* recordApprovalDecision({
+      action: decision === 'approve' ? 'approval.approved' : 'approval.rejected',
+      approvalId: next.id,
+      agentName: next.agentName,
+      actor: { id: approver.id, name: approver.name, email: approver.email },
+      runStartedById: next.requestedById,
+    })
+    return next
+  })
+
+const applyDecision = (
   c: Readonly<Context>,
   input: {
     readonly record: ApprovalRecord
@@ -108,52 +169,26 @@ const applyDecision = async (
     readonly agent: Agent
     readonly app: App | undefined
   }
-): Promise<Response> => {
-  const { record, decision, approver } = input
-  const nextStatus: ApprovalStatus = decision === 'approve' ? 'approved' : 'rejected'
-  // Approved actions execute under the AGENT's identity, never the approver's.
-  const services = requireDomainContext(c as Context)
-  const next =
-    (await decideApproval(services, record.id, {
-      status: nextStatus,
-      approvedByEmail: approver.email,
-      ...(decision === 'approve' && { actionExecuted: true, executedAs: record.agentName }),
-    })) ?? record
-
-  await runApprovalMirror(services, MirrorApprovalUpdate(toMirrorRecord(next)))
-
-  await recordApprovalDecision(services, {
-    action: decision === 'approve' ? 'approval.approved' : 'approval.rejected',
-    approvalId: next.id,
-    agentName: next.agentName,
-    actor: { id: approver.id, name: approver.name, email: approver.email },
-    runStartedById: next.requestedById,
+) =>
+  Effect.gen(function* () {
+    const { record, decision, approver } = input
+    const next = yield* recordApprovalOutcome({ record, decision, approver })
+    if (decision === 'approve') yield* resumeTurn(input.agent, input.app, next.id)
+    return answerApproval(c, next)
   })
-
-  if (decision === 'approve') await resumeTurn(c, input.agent, input.app, next.id)
-  return c.json(serializeApproval(next), 200)
-}
 
 /**
  * Run the approved action and finish the agent turn it paused, under the
  * agent's identity. An approval opened by `/execute` paused no turn and runs
  * nothing here.
  */
-const resumeTurn = async (
-  c: Readonly<Context>,
-  agent: Agent,
-  app: App | undefined,
-  approvalId: string
-): Promise<void> => {
-  if (app === undefined) return
-  await runOnDomain(
-    requireDomainContext(c as Context),
-    resumeApprovedTurn({
-      approvalId,
-      agent,
-      app,
-      runActionFor: (caller) => (action, props) =>
-        dispatchAgentAction({ app, agentName: agent.name, action, props, caller }),
-    })
-  )
-}
+const resumeTurn = (agent: Agent, app: App | undefined, approvalId: string) =>
+  app === undefined
+    ? Effect.void
+    : resumeApprovedTurn({
+        approvalId,
+        agent,
+        app,
+        runActionFor: (caller) => (action, props) =>
+          dispatchAgentAction({ app, agentName: agent.name, action, props, caller }),
+      })

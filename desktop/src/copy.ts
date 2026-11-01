@@ -91,6 +91,12 @@ export const fromUrl = {
     'Sovrium records where the file came from, so you can check it later.',
   ],
   notHttps: 'That needs to be an https address.',
+  /**
+   * The button writes nothing: it has the engine check the address, then shows
+   * the consent dialog, where the project is created. So it says what it does.
+   */
+  checkAction: 'Check this address',
+  checking: 'Checking…',
 } as const
 
 // ---------------------------------------------------------------------------
@@ -119,11 +125,17 @@ export const fromUrl = {
  * account's own email.
  */
 export const bundle = {
-  fetchingTitle: 'Checking a starter app…',
+  /**
+   * The fetching and refused screens serve both roads (a bundle link and a
+   * configuration's address) and are not told which, so they say only what is
+   * true of both: something was downloaded and checked, and nothing was added.
+   */
+  fetchingTitle: 'Checking it before you decide…',
   fetchingLead: (host: string): string =>
-    `Downloading it from ${host} and checking every file. Nothing becomes a project, and ` +
+    `Downloading it from ${host} and checking what it holds. Nothing becomes a project, and ` +
     'nothing from it runs, until you agree.',
   title: 'Open this starter app?',
+  documentTitle: 'Open this configuration?',
   hostLabel: 'From',
   viaLabel: (linkHost: string): string => `redirected from ${linkHost}`,
   nameLabel: 'App',
@@ -140,14 +152,22 @@ export const bundle = {
     'nothing from it has run. It becomes a project only if you create one — do that only if ' +
     'you trust whoever sent you the link.',
   demoData: 'Includes demo data, and an admin account to sign in with.',
+  /**
+   * When the project runs code. These are the sentences `sovrium init` prints
+   * for the same project (`src/cli/commands/init-code-notice.ts`), word for
+   * word, so the window and the terminal say one thing.
+   */
+  containsCode: 'This project contains code — read it before you start it.',
+  codeStep: (automation: string, step: string): string =>
+    `The automation ${automation} runs TypeScript in its step ${step}, with the access the project has.`,
   folderLabel: 'Folder name',
   importAction: 'Create project',
   importing: 'Creating…',
   cancel: 'Cancel',
-  refusedTitle: 'This starter app was refused',
+  refusedTitle: 'Sovrium refused to open it',
   refusedLead: (host: string): string =>
-    `The bundle from ${host} failed a check, so nothing was added and nothing from it ran. ` +
-    'If you expected it to work, send this reason to whoever shared the link:',
+    `What came from ${host} failed a check, so nothing was added and nothing from it ran. ` +
+    'If you expected it to work, send this reason to whoever gave you the address:',
   close: 'Close',
   credentialsTitle: 'Your project is ready',
   credentialsLead:

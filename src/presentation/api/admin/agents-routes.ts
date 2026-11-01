@@ -38,10 +38,7 @@ import type { Hono } from 'hono'
 
 /**
  * Chain the admin/agents read routes onto a Hono app.
- *
- * The live App is resolved per request through `resolveApp`, so a config swap
- * without restart is reflected in agent resolution.
  */
-export function chainAdminAgentsRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
-  return chainAdminReadRoutes(honoApp, resolveApp, AGENTS_READ_OPERATIONS)
+export function chainAdminAgentsRoutes<T extends Hono>(honoApp: T, app: App): T {
+  return chainAdminReadRoutes(honoApp, app, AGENTS_READ_OPERATIONS)
 }

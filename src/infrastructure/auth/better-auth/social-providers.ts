@@ -6,6 +6,7 @@
  */
 
 import { getStrategy } from '@/domain/models/app/auth'
+import { isSignUpOpen } from '@/domain/models/app/auth/sign-up-service'
 import type { Auth } from '@/domain/models/app/auth'
 
 /**
@@ -14,7 +15,8 @@ import type { Auth } from '@/domain/models/app/auth'
  * Credentials are loaded from environment variables using the pattern:
  * - {PROVIDER}_CLIENT_ID (e.g., GOOGLE_CLIENT_ID)
  * - {PROVIDER}_CLIENT_SECRET (e.g., GOOGLE_CLIENT_SECRET)
- * `allowSignUp: false` closes each provider to identities without an account.
+ * Sign-up is closed unless `auth.allowSignUp: true`: while closed, each provider
+ * refuses identities without an account.
  */
 export const buildSocialProviders = (authConfig?: Auth) => {
   const oauthStrategy = getStrategy(authConfig, 'oauth')
@@ -28,7 +30,7 @@ export const buildSocialProviders = (authConfig?: Auth) => {
         [provider]: {
           clientId: process.env[`${envVarPrefix}_CLIENT_ID`] || '',
           clientSecret: process.env[`${envVarPrefix}_CLIENT_SECRET`] || '',
-          disableSignUp: authConfig?.allowSignUp === false, // every door, not just the form
+          disableSignUp: !isSignUpOpen(authConfig), // every door, not just the form
         },
       }
     },

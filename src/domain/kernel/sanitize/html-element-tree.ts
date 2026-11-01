@@ -25,6 +25,7 @@
  */
 
 import sanitizeHtml from 'sanitize-html'
+import { escapeHtmlDoubleQuotedAttribute, escapeHtmlText } from './html-escaping'
 
 /** An element: its lower-case tag, its attributes (decoded), and its children in order. */
 export interface HtmlElementNode {
@@ -54,41 +55,12 @@ export type HtmlTreeResult =
   | { readonly ok: true; readonly nodes: readonly HtmlNode[] }
   | { readonly ok: false; readonly reason: 'too-large' | 'too-deep' }
 
-type HtmlEvent =
-  | { readonly event: 'open'; readonly tag: string; readonly attributes: Record<string, string> }
-  | { readonly event: 'close' }
-  | { readonly event: 'text'; readonly text: string }
-
 /** The elements whose content is raw text the tree never reads. */
 const RAW_TEXT_TAGS: ReadonlySet<string> = new Set(['script', 'style'])
 
 /** `sanitize-html` hands text over escaped (`&`, `<`, `>`); undo exactly that. */
 const unescapeText = (text: string): string =>
   text.replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&')
-
-/** The parser's events, in document order. */
-const eventsOf = (html: string): readonly HtmlEvent[] => {
-  // eslint-disable-next-line functional/prefer-immutable-types -- the local accumulator of a streaming parser's callbacks, never shared
-  const events: HtmlEvent[] = []
-  const record = (event: HtmlEvent): string => {
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, no-restricted-syntax -- the one append the accumulator above exists for
-    events.push(event)
-    return ''
-  }
-  // eslint-disable-next-line functional/no-expression-statements -- the parse IS the call; its sanitised output is not used
-  sanitizeHtml(html, {
-    allowedTags: false,
-    allowedAttributes: false,
-    // Nothing is emitted, so no tag is "allowed" into any output.
-    allowVulnerableTags: true,
-    // Every element's text but a raw-text element's reaches `textFilter`.
-    nonTextTags: [...RAW_TEXT_TAGS],
-    onOpenTag: (tag, attributes) => record({ event: 'open', tag, attributes: { ...attributes } }),
-    onCloseTag: () => record({ event: 'close' }),
-    textFilter: (text) => record({ event: 'text', text: unescapeText(text) }),
-  })
-  return events
-}
 
 /** An open element while the tree is built: its children are appended in place. */
 interface OpenFrame {
@@ -97,40 +69,44 @@ interface OpenFrame {
   readonly children: readonly HtmlNode[]
 }
 
+/*
+ * `sanitize-html` reports a parse ONLY through side-effecting callbacks, so the
+ * tree is built inside them: one stack of open frames, each frame's child list
+ * appended in place while its element is open (copying a sibling list per child
+ * made a wide document quadratic). All of it is local to one parse and never
+ * shared; the finished tree is handed out read-only.
+ */
+/* eslint-disable functional/immutable-data, functional/no-expression-statements, functional/prefer-immutable-types, no-restricted-syntax -- the parser's callback contract: the tree is built by mutating one parse's local stack, as described above */
+
 /** A child appended to a frame, adjacent text runs merged. */
-const appendChild = (frame: OpenFrame, child: HtmlNode): undefined => {
-  // The frame's own list, appended to in place while its element is open:
-  // copying the sibling list per child made a wide document quadratic.
+const appendChild = (frame: OpenFrame, child: HtmlNode): void => {
   const children = frame.children as HtmlNode[]
   const last = children.at(-1)
-  const merged: HtmlNode =
-    child.kind === 'text' && last?.kind === 'text'
-      ? { kind: 'text', text: last.text + child.text }
-      : child
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- the in-place append described above
-  children[merged === child ? children.length : children.length - 1] = merged
-  return undefined
+  if (child.kind === 'text' && last?.kind === 'text') {
+    children[children.length - 1] = { kind: 'text', text: last.text + child.text }
+  } else {
+    children.push(child)
+  }
 }
 
 /** The innermost open frame closed into its parent; the root is never closed. */
-// eslint-disable-next-line functional/prefer-immutable-types -- the parse's own stack, popped in place
-const closeTop = (stack: OpenFrame[]): undefined => {
-  if (stack.length <= 1) return undefined
-  // eslint-disable-next-line functional/immutable-data, no-restricted-syntax -- the parse's own stack
+const closeTop = (stack: OpenFrame[]): void => {
+  if (stack.length <= 1) return
   const top = stack.pop() as OpenFrame
-  const node: HtmlElementNode = {
+  appendChild(stack.at(-1) as OpenFrame, {
     kind: 'element',
     tag: top.tag,
     attributes: top.attributes,
     children: RAW_TEXT_TAGS.has(top.tag) ? [] : top.children,
-  }
-  return appendChild(stack.at(-1) as OpenFrame, node)
+  })
 }
 
 /** Every frame the input left open closed, innermost first, as a browser does. */
-// eslint-disable-next-line functional/prefer-immutable-types -- the parse's own stack
-const closeAll = (stack: OpenFrame[]): undefined =>
-  stack.length <= 1 ? undefined : (closeTop(stack) ?? closeAll(stack))
+const closeAll = (stack: OpenFrame[]): void => {
+  if (stack.length <= 1) return
+  closeTop(stack)
+  closeAll(stack)
+}
 
 /**
  * Read some HTML into its inert tree, in time linear in the input: every
@@ -141,21 +117,39 @@ const closeAll = (stack: OpenFrame[]): undefined =>
 export const parseHtmlElementTree = (html: string): HtmlTreeResult => {
   if (html.length > MAX_HTML_LENGTH) return { ok: false, reason: 'too-large' }
   const root: OpenFrame = { tag: '', attributes: {}, children: [] }
-  // eslint-disable-next-line functional/prefer-immutable-types -- the open elements of one parse, local and never shared
   const stack: OpenFrame[] = [root]
-  const tooDeep = eventsOf(html).some((event) => {
-    if (event.event === 'open') {
-      if (stack.length > MAX_HTML_DEPTH) return true
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, no-restricted-syntax -- the parse's own stack
-      stack.push({ tag: event.tag.toLowerCase(), attributes: event.attributes, children: [] })
-      return false
-    }
-    if (event.event === 'close') return closeTop(stack) !== undefined
-    return appendChild(stack.at(-1) as OpenFrame, { kind: 'text', text: event.text }) !== undefined
+  // Past the depth bound the rest of the parse is ignored: the answer is a refusal.
+  const state = { tooDeep: false }
+  sanitizeHtml(html, {
+    allowedTags: false,
+    allowedAttributes: false,
+    // Nothing is emitted, so no tag is "allowed" into any output.
+    allowVulnerableTags: true,
+    // Every element's text but a raw-text element's reaches `textFilter`.
+    nonTextTags: [...RAW_TEXT_TAGS],
+    onOpenTag: (tag, attributes) => {
+      if (state.tooDeep) return
+      if (stack.length > MAX_HTML_DEPTH) {
+        state.tooDeep = true
+        return
+      }
+      stack.push({ tag: tag.toLowerCase(), attributes: { ...attributes }, children: [] })
+    },
+    onCloseTag: () => {
+      if (!state.tooDeep) closeTop(stack)
+    },
+    textFilter: (text) => {
+      if (!state.tooDeep)
+        appendChild(stack.at(-1) as OpenFrame, { kind: 'text', text: unescapeText(text) })
+      return ''
+    },
   })
-  if (tooDeep) return { ok: false, reason: 'too-deep' }
-  return closeAll(stack) ?? { ok: true, nodes: root.children }
+  if (state.tooDeep) return { ok: false, reason: 'too-deep' }
+  closeAll(stack)
+  return { ok: true, nodes: root.children }
 }
+
+/* eslint-enable functional/immutable-data, functional/no-expression-statements, functional/prefer-immutable-types, no-restricted-syntax -- end of the parse */
 
 /** The elements HTML writes with no end tag. */
 const VOID_TAGS: ReadonlySet<string> = new Set([
@@ -174,18 +168,15 @@ const VOID_TAGS: ReadonlySet<string> = new Set([
   'wbr',
 ])
 
-const escapeText = (text: string): string =>
-  text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-
-const escapeAttribute = (value: string): string => escapeText(value).replaceAll('"', '&quot;')
-
 /** An attribute name HTML can carry: no space, quote, `=`, `<`, `>` or `/`. */
 const isAttributeName = (name: string): boolean => /^[^\s"'<>/=]+$/.test(name)
 
 const attributesText = (attributes: Readonly<Record<string, string>>): string =>
   Object.entries(attributes)
     .filter(([name]) => isAttributeName(name))
-    .map(([name, value]) => (value === '' ? ` ${name}` : ` ${name}="${escapeAttribute(value)}"`))
+    .map(([name, value]) =>
+      value === '' ? ` ${name}` : ` ${name}="${escapeHtmlDoubleQuotedAttribute(value)}"`
+    )
     .join('')
 
 /**
@@ -201,7 +192,7 @@ export const serializeHtmlNodes = (
 ): string =>
   nodes
     .map((node) => {
-      if (node.kind === 'text') return writeText(escapeText(node.text))
+      if (node.kind === 'text') return writeText(escapeHtmlText(node.text))
       const open = `<${node.tag}${attributesText(node.attributes)}>`
       if (VOID_TAGS.has(node.tag)) return open
       const inner = RAW_TEXT_TAGS.has(node.tag) ? '' : serializeHtmlNodes(node.children, writeText)

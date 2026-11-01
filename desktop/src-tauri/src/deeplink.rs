@@ -69,12 +69,14 @@ pub const SCHEME: &str = "sovrium";
 
 /// Allowed shape of a template identifier.
 ///
-/// Either an embedded slug (`crm`) or an `owner/repo`-ish pair, in lowercase
-/// kebab with digits. Deliberately narrower than "what `init` might accept": the
-/// shell's job is to refuse everything it does not recognise, and `init`'s job is
-/// to refuse what is left. Path traversal, absolute paths, shell metacharacters,
+/// An embedded slug (`crm`) and nothing else: lowercase kebab with digits, no
+/// `/`. Deliberately narrower than "what `init` might accept": `init` also takes
+/// an `owner/repo` and scaffolds that repository, `app.ts` included, and the app
+/// then runs that file as code. A link must never be able to name a template the
+/// binary does not ship, so the shell refuses that shape outright rather than
+/// warning about it. Path traversal, absolute paths, shell metacharacters,
 /// whitespace and non-ASCII all fail this before anything sees them.
-pub const TEMPLATE_PATTERN: &str = "^[a-z0-9-]+(/[a-z0-9._-]+)?$";
+pub const TEMPLATE_PATTERN: &str = "^[a-z0-9-]+$";
 
 /// What a valid `sovrium://` link asks for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,32 +165,11 @@ fn truncate(s: &str, max: usize) -> String {
 /// dependency, and an explicit character walk is auditable line by line, which
 /// a regex on a security boundary is not.
 fn is_valid_template(value: &str) -> bool {
-    if value.is_empty() || value.len() > 100 {
-        return false;
-    }
-    let mut segments = value.split('/');
-    let Some(first) = segments.next() else {
-        return false;
-    };
-    let second = segments.next();
-    if segments.next().is_some() {
-        return false; // more than one slash
-    }
-    let first_ok =
-        !first.is_empty() && first.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
-    let second_ok = match second {
-        None => true,
-        Some(s) => {
-            !s.is_empty()
-                && s.chars().all(|c| {
-                    c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '.' || c == '_'
-                })
-                // `..` is the traversal spelling `.` and `_` would otherwise
-                // permit; refuse it explicitly rather than by luck.
-                && !s.contains("..")
-        }
-    };
-    first_ok && second_ok
+    !value.is_empty()
+        && value.len() <= 100
+        && value
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
 /// Parse one link into an [`Intent`], or say why not.
@@ -303,7 +284,8 @@ pub fn parse_config_url(raw: &str) -> Result<(String, String), Refusal> {
 pub fn confirmation_prompt(intent: &Intent) -> Option<String> {
     match intent {
         Intent::NewFromTemplate { template } => Some(format!(
-            "A link is asking Sovrium to create a new project from the “{template}” template.\n\n\
+            "A link is asking Sovrium to create a new project from the “{template}” template, \
+             one of the templates Sovrium ships.\n\n\
              Nothing is created until you choose a folder."
         )),
         Intent::NewFromUrl { host, url } => Some(format!(
@@ -377,12 +359,13 @@ pub fn handle<R: Runtime>(app: &AppHandle<R>, raw: String) {
             return;
         }
 
-        // The frontend now asks for a folder and calls `create_project` or
-        // `create_project_from_url`. Nothing has been written at this point,
-        // and nothing will be until the user has picked where — the dialog
-        // above confirmed the LINK, not the write. A URL intent is carried no
-        // further than this: the shell never fetches it, and `init --from-url`
-        // does the retrieving behind its own SSRF guard.
+        // The frontend now asks for a folder and calls `create_project`, or
+        // `inspect_from_url`, whose consent dialog asks for the folder after
+        // the engine has said what the document contains. Nothing has been
+        // written at this point, and nothing will be until the user has picked
+        // where — the dialog above confirmed the LINK, not the write. A URL
+        // intent is carried no further than this: the shell never fetches it,
+        // and `init --from-url` does the retrieving behind its own SSRF guard.
         let confirmed_intent = match intent {
             Intent::NewFromTemplate { template } => ConfirmedIntent {
                 template: Some(template),
@@ -483,13 +466,27 @@ mod tests {
     }
 
     #[test]
-    fn accepts_an_owner_repo_template() {
-        assert_eq!(
-            parse("sovrium://new?template=acme/starter-kit.v2"),
-            Ok(Intent::NewFromTemplate {
-                template: "acme/starter-kit.v2".into()
-            })
-        );
+    fn refuses_an_owner_repo_template() {
+        // Only a template the binary ships may be named by a link: an
+        // `owner/repo` would scaffold a repository nobody reviewed, code and all.
+        for remote in [
+            "sovrium://new?template=acme/starter-kit.v2",
+            "sovrium://new?template=attacker/repo",
+            "sovrium://new?template=acme%2Frepo",
+        ] {
+            assert!(
+                matches!(parse(remote), Err(Refusal::BadTemplate(_))),
+                "should refuse {remote}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_template_prompt_names_the_bundled_source() {
+        let intent = parse("sovrium://new?template=crm").unwrap();
+        let prompt = confirmation_prompt(&intent).unwrap();
+        assert!(prompt.contains("“crm” template"));
+        assert!(prompt.contains("one of the templates Sovrium ships"));
     }
 
     #[test]
@@ -865,10 +862,14 @@ mod tests {
         // TEMPLATE_PATTERN is quoted in docs and in the shell's error copy. If
         // the hand-written walk and the published pattern ever disagree, the
         // published one becomes a lie — so pin the pairing here.
-        assert_eq!(TEMPLATE_PATTERN, "^[a-z0-9-]+(/[a-z0-9._-]+)?$");
+        assert_eq!(TEMPLATE_PATTERN, "^[a-z0-9-]+$");
         assert!(is_valid_template("crm"));
         assert!(is_valid_template("a-b-c"));
-        assert!(is_valid_template("a/b_c.d"));
+        assert!(is_valid_template("hello-world2"));
+        assert!(!is_valid_template("a/b"));
+        assert!(!is_valid_template("a/b_c.d"));
+        assert!(!is_valid_template("a.b"));
+        assert!(!is_valid_template("a_b"));
         assert!(!is_valid_template(""));
         assert!(!is_valid_template("-".repeat(101).as_str()));
     }

@@ -55,7 +55,7 @@ export const PdfSplitActionSchema = Schema.Struct({
   })
     .annotate({
       description:
-        "The PDF to split, how to cut it — `ranges`, `every`, or neither for one file per page — and where the parts are written. `{n}` in the output `filename` or `key` is the part number from 1; without it, '-{n}' goes before the extension ('invoice.pdf' → 'invoice-1.pdf').",
+        "The PDF to split, how to cut it (`ranges`, `every`, or neither for one file per page), and where the parts are written. `{n}` in the output `filename` or `key` is the part number from 1; without it, '-{n}' goes before the extension ('invoice.pdf' → 'invoice-1.pdf').",
     })
     .pipe(
       Schema.check(

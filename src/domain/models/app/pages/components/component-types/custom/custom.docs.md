@@ -1,8 +1,8 @@
 # Reusable Components
 
-> Define a component template once in `app.components` and instantiate it across pages with `$ref` and `vars`, so a shared UI pattern has a single source of truth — plus `customHTML`, the escape hatch for markup the kit does not cover.
+> Define a component template once in `app.components` and instantiate it across pages with `$ref` and `vars`, so a shared UI pattern has a single source of truth, plus `customHTML`, the escape hatch for markup the kit does not cover.
 
-The same UI pattern usually appears on several pages — a feature badge, a section header, a call-to-action block. Copying its component tree into each page means every future change has to be made in every copy.
+The same UI pattern usually appears on several pages: a feature badge, a section header, a call-to-action block. Copying its component tree into each page means every future change has to be made in every copy.
 
 `app.components` is a library of named templates. Define the pattern once, with `$variable` placeholders where the content differs:
 
@@ -29,27 +29,27 @@ pages:
           subtitle: One config file. A complete app.
 ```
 
-A template with no `$variable` placeholders is placed with `$ref` alone — `vars` may be omitted. In a YAML or JSON config, `$ref: section-header` is a template name because it has no `/` or `.`; a value that does, like `./header.yaml`, includes a file instead (see Multi-File Configs).
+A template with no `$variable` placeholders is placed with `$ref` alone, and `vars` may be omitted. In a YAML or JSON config, `$ref: section-header` is a template name because it has no `/` or `.`; a value that does, like `./header.yaml`, includes a file instead (see Multi-File Configs).
 
-A name that matches no template in `app.components` is refused when the config is validated or the app starts, in both placement forms — `$ref: plan-card` and `component: plan-card` — so a typo never reaches a page.
+A name that matches no template in `app.components` is refused when the config is validated or the app starts, in both placement forms (`$ref: plan-card` and `component: plan-card`), so a typo never reaches a page.
 
 A placement may carry a `key` beside `vars`, like any component of the page, which names that placement for the tools that read your pages (see The Component Model). A page export draws a placement expanded, as a visitor sees it, but treats it as one node: its inside belongs to the template, and to every page that places it. The components a page passes to its slots are the exception: they are the page's own nodes, which a design tool may edit.
 
 ## Template properties
 
-| Property   | Description                                                                                              |
-| ---------- | -------------------------------------------------------------------------------------------------------- |
-| `name`     | Unique kebab-case identifier used by `$ref`. Must start with a lowercase letter.                         |
-| `type`     | The component type the template renders — any type a page can use.                                       |
-| `props`    | Component properties. Values may contain `$variable` placeholders.                                       |
-| `content`  | Text content. May contain `$variable` placeholders.                                                      |
-| `children` | Nested child components, which may themselves carry placeholders — or `$children`, the slot (see below). |
-| `render`   | `named` (the default) or `transparent`: draw exactly what the tree draws written inline (see below).     |
-| `inputs`   | The values a placement passes, by name and kind: `text`, `number`, `boolean`, `json` or `slot`.          |
+| Property   | Description                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------- |
+| `name`     | Unique kebab-case identifier used by `$ref`. Must start with a lowercase letter.                        |
+| `type`     | The component type the template renders: any type a page can use.                                       |
+| `props`    | Component properties. Values may contain `$variable` placeholders.                                      |
+| `content`  | Text content. May contain `$variable` placeholders.                                                     |
+| `children` | Nested child components, which may themselves carry placeholders, or `$children`, the slot (see below). |
+| `render`   | `named` (the default) or `transparent`: draw exactly what the tree draws written inline (see below).    |
+| `inputs`   | The values a placement passes, by name and kind: `text`, `number`, `boolean`, `json` or `slot`.         |
 
 ## Slots: a template around the page's own components
 
-A template can leave a place for the components of the page that places it. Write `children: $children` on the node that should hold them — at any depth, or on the template's root — and pass those components as the placement's `children`. This is how an application shell is declared once:
+A template can leave a place for the components of the page that places it. Write `children: $children` on the node that should hold them (at any depth, or on the template's root), and pass those components as the placement's `children`. This is how an application shell is declared once:
 
 ```yaml
 components:
@@ -84,11 +84,11 @@ pages:
           - { type: text, element: h1, content: Clients }
 ```
 
-Every placement form takes `children` — `component:` and `$ref:`, with or without `vars`.
+Every placement form takes `children`: `component:` and `$ref:`, with or without `vars`.
 
 | Rule                      | Detail                                                                                                                                                                             |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Whose components they are | The page's. They are read in the page's scope — the page's record, `$t:` keys and visibility rules — and a template placed among them expands like any other placement.            |
+| Whose components they are | The page's. They are read in the page's scope (the page's record, `$t:` keys and visibility rules), and a template placed among them expands like any other placement.             |
 | The template's `vars`     | Reach the template's own nodes only, never the components in the slot.                                                                                                             |
 | No `children`             | A slotted template placed without `children` draws its slot empty.                                                                                                                 |
 | One slot of each name     | `$children` is marked once per template, and so is each named slot. A template marking `$children` twice is refused.                                                               |
@@ -147,7 +147,7 @@ A placeholder is a `$` followed by an alphanumeric name (`$title`, `$iconName`).
 
 | Rule               | Detail                                                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| Key format         | Starts with a letter, alphanumeric only — `$titleColor`, not `$title-color`.                                      |
+| Key format         | Starts with a letter, alphanumeric only: `$titleColor`, not `$title-color`.                                       |
 | Value types        | String, number, or boolean. For an input of kind `json`, any JSON list or object: see Structured Template Inputs. |
 | Where they resolve | In `props` values, in `content`, and at any depth inside `children`.                                              |
 
@@ -172,9 +172,9 @@ pages:
         vars: { color: green, icon: lock, label: 'Self-hosted' }
 ```
 
-Component names must be unique across the library — a duplicate would make a `$ref` ambiguous, and it is rejected when the config is decoded.
+Component names must be unique across the library. A duplicate would make a `$ref` ambiguous, and it is rejected when the config is decoded.
 
-**Templates versus page components.** `app.components` holds patterns you instantiate. Anything used exactly once belongs inline in the page that uses it — a template referenced from a single place adds indirection without removing duplication.
+**Templates versus page components.** `app.components` holds patterns you instantiate. Anything used exactly once belongs inline in the page that uses it. A template referenced from a single place adds indirection without removing duplication.
 
 ## `customHTML`
 

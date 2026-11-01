@@ -111,8 +111,8 @@ const FORM_CONTROL_SPECIMENS: readonly CatalogSpecimen[] = [
     refusal: {
       state: 'needs-data-source',
       note:
-        'Searches a table of yours and links the row it finds. This page is bound to no table — ' +
-        'and binding it to one of yours is what the confidentiality bound forbids — so there are ' +
+        'Searches a table of yours and links the row it finds. This page is bound to no table, ' +
+        'and binding it to one of yours is what the confidentiality bound forbids, so there are ' +
         'no candidates for it to offer. Its states, its paging and its create path are drawn as ' +
         'authored option sections on its own page.',
     },

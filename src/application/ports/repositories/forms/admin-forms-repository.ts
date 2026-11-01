@@ -139,6 +139,22 @@ export interface AdminFormSubmissionListRow extends AdminFormSubmissionRow {
   readonly data?: unknown
 }
 
+/**
+ * What a submission's ledger row says about who sent it and what it created:
+ * the account behind `submitter_user_id` (its name and email), the guest email
+ * a guest submission left, and the record it wrote into its `submitTo` table.
+ * Never an address, a hash or a user agent.
+ */
+export interface AdminSubmissionTriageRow {
+  readonly id: string
+  readonly formName: string | null
+  readonly submitterName: string | null
+  readonly submitterEmail: string | null
+  readonly guestEmail: string | null
+  readonly linkedRecordTable: string | null
+  readonly linkedRecordId: string | null
+}
+
 export class AdminFormsRepository extends Context.Service<
   AdminFormsRepository,
   {
@@ -201,6 +217,14 @@ export class AdminFormsRepository extends Context.Service<
       formName: string,
       limit: number
     ) => Effect.Effect<readonly AdminFormSubmissionDetailRow[], AdminFormsDatabaseError>
+
+    /**
+     * The sender and the created record of each of `ids`, in ONE read (a page
+     * of the inbox costs one query, never one per row). Missing ids drop.
+     */
+    readonly findSubmissionTriage: (
+      ids: readonly string[]
+    ) => Effect.Effect<readonly AdminSubmissionTriageRow[], AdminFormsDatabaseError>
 
     /**
      * Non-deleted submissions for `formName` at or after `since`, without the

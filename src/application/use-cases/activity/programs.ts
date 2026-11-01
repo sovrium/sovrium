@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import {
   ActivityRepository,
+  type ActivityLogWithUser,
   type ActivityDatabaseError,
   type ActivityNotFoundError,
 } from '@/application/ports/repositories/analytics/activity-repository'
@@ -30,7 +31,9 @@ export class InvalidActivityIdError {
  */
 const ACTIVITY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export const GetActivityById = (activityId: string) =>
+export const getActivityById = (
+  activityId: string
+): Effect.Effect<ActivityLogWithUser, GetActivityByIdError, ActivityRepository> =>
   Effect.gen(function* () {
     // Activity IDs are UUIDs. Anything else is a malformed request, not a
     // lookup miss, so it fails here rather than reaching the database.

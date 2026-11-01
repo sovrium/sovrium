@@ -29,6 +29,11 @@ export interface EmailConfig {
   readonly host: string
   readonly port: number
   readonly secure: boolean
+  /**
+   * Refuse to send unless a connection that is not TLS from the first byte
+   * upgrades with STARTTLS first. Absent reads as `false`.
+   */
+  readonly requireTLS?: boolean
   readonly auth: {
     readonly user: string
     readonly pass: string
@@ -100,6 +105,7 @@ export function createTransporter(
     host: config.host,
     port: config.port,
     secure: config.secure,
+    requireTLS: config.requireTLS ?? false,
     auth: config.auth,
     connectionTimeout: resolveSmtpTimeout('SMTP_CONNECTION_TIMEOUT'),
     greetingTimeout: resolveSmtpTimeout('SMTP_GREETING_TIMEOUT'),

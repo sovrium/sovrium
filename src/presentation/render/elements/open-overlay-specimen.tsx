@@ -23,7 +23,6 @@
  * emits no island marker, so nothing hydrates it, and no script opens it.
  */
 
-import { renderToStaticMarkup } from 'react-dom/server'
 import {
   DRAWER_CONTENT_CLASSES,
   DRAWER_DESCRIPTION_CLASSES,
@@ -260,15 +259,22 @@ function drawerDepiction({ content }: { readonly content: OpenOverlayContent }):
   )
 }
 
-/** One overlay drawn open inside its own frame, as markup. */
-export function renderOpenOverlay(kind: OpenOverlayKind, content: OpenOverlayContent): string {
+/**
+ * One overlay drawn open inside its own frame. The caller renders it with
+ * `renderToStaticMarkup` and places it through `<StaticMarkup>`, where the
+ * sanitize rule can see the markup is engine-rendered.
+ */
+export function openOverlayElement(
+  kind: OpenOverlayKind,
+  content: OpenOverlayContent
+): ReactElement {
   const depiction =
     kind === 'sheet'
       ? sheetDepiction({ content })
       : kind === 'drawer'
         ? drawerDepiction({ content })
         : dialogDepiction({ kind, content })
-  return renderToStaticMarkup(
+  return (
     <div
       data-slot="overlay-frame"
       data-specimen-open="true"

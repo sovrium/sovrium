@@ -49,8 +49,12 @@
  * the agent that produced them.
  */
 
-import { isCallerDeniedAgentAction } from '@/domain/models/app/agents/agent-gate-validation'
+import {
+  isActionRefusedToCaller,
+  isCallerDeniedAgentAction,
+} from '@/domain/models/app/agents/agent-gate-validation'
 import { isSystemAgentName } from '@/domain/models/app/agents/agent-identity'
+import { buildAgentActionTools } from '@/domain/models/app/agents/agent-turn-service'
 import {
   buildSystemAgent,
   type SystemAgentTable,
@@ -60,6 +64,7 @@ import { resolveAgentTemperature } from '@/presentation/api/runtime/agent-ai-con
 import type { AgentCaller } from '@/application/ports/services/agent-approval-store'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
+import type { ChatToolDefinition } from '@/domain/models/app/agents/ai-chat-tools'
 
 /**
  * Resolve `{{appName}}` and `{{userRole}}` template variables in an agent's
@@ -153,7 +158,7 @@ const resolveAgentToolTables = (app: App, agent: Agent): ReadonlyArray<string> |
  * one she may create in — never a table the records API answers her as
  * unknown. With no one to answer, the whole allowlist.
  */
-export const actionTablesFor =
+const actionTablesFor =
   (
     agent: Agent,
     app: App | undefined,
@@ -169,6 +174,36 @@ export const actionTablesFor =
         !isCallerDeniedAgentAction({ action, table, caller: caller.grantOn(table) }, app)
     )
   }
+
+/**
+ * The agent as a turn offers it to its model: answering a person, without the
+ * actions no person may set in motion (`isActionRefusedToCaller`), so the
+ * model is never told of a tool it could only be refused. With no one to
+ * answer, unchanged.
+ */
+const agentOfferedTo = (agent: Agent, caller: AgentCaller | undefined): Agent =>
+  caller === undefined || agent.tools === undefined
+    ? agent
+    : {
+        ...agent,
+        tools: {
+          ...agent.tools,
+          actions: agent.tools.actions.filter((action) => !isActionRefusedToCaller(action)),
+        },
+      }
+
+/**
+ * The agent's action tools for one chat turn: the actions it may offer the
+ * person it answers ({@link agentOfferedTo}), each naming the tables she may
+ * reach with it ({@link actionTablesFor}).
+ */
+export const agentActionToolsFor = (
+  agent: Agent,
+  app: App | undefined,
+  caller: AgentCaller | undefined,
+  listed: ReadonlySet<string>
+): readonly ChatToolDefinition[] =>
+  buildAgentActionTools(agentOfferedTo(agent, caller), actionTablesFor(agent, app, caller, listed))
 
 /**
  * Default temperature applied when neither the agent nor the `AI_TEMPERATURE`

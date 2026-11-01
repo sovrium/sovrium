@@ -28,7 +28,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Effect, Option, Schema } from 'effect'
-import { readValueFlag } from '@/cli/runtime/flag-vocabulary'
+import { CliRefusal } from '@/cli/runtime/run-command'
 import { deployRequestSchema } from '@/domain/models/api/automations/automations'
 import {
   APP_ADDRESS_PATTERN,
@@ -39,9 +39,10 @@ import {
 } from '@/domain/models/api/automations/cloud/app-address'
 import { deriveAppSlug } from '@/domain/models/app/name-service'
 import { renderStderr } from '@/infrastructure/logging/cli-output'
-import { CliRefusal, callCloud, describeUnreachable, say } from './cloud-session'
+import { callCloud, describeUnreachable, say } from './cloud-session'
 import { resolveProjectRoot } from './option-parsing'
 import type { SignedInCloud } from './cloud-sign-in'
+import type { ValueFlagReading } from '@/cli/runtime/flag-schema'
 import type { AppAddressApp, CloudLink } from '@/domain/models/api/automations/cloud/app-address'
 
 /** Where the address came from: `--app`, the project's link, or the config `name`. */
@@ -110,9 +111,9 @@ const nameItWithApp = "Name the app with --app, for example 'sovrium deploy --ap
  * would send the command to an app nobody named.
  */
 export const explicitAddress = (
-  argv: readonly string[]
+  appFlag: ValueFlagReading
 ): Effect.Effect<string | undefined, CliRefusal> => {
-  const { given, value: app } = readValueFlag(argv, '--app')
+  const { given, value: app } = appFlag
   if (given && app === undefined) {
     return Effect.fail(
       new CliRefusal({

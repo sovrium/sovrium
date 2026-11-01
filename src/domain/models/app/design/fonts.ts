@@ -83,7 +83,7 @@ export const FontConfigItemSchema = Schema.Struct({
       Schema.annotate({
         title: 'Font Weights',
         description:
-          'Superseded — reaches nothing. Only `weights[0]` was ever read, by a renderer since removed, and it never reached an `@font-face` rule. Declare the weight per step under `design.typeScale.steps`, and request the faces you need through `url`.',
+          'Superseded: reaches nothing. Only `weights[0]` was ever read, by a renderer since removed, and it never reached an `@font-face` rule. Declare the weight per step under `design.typeScale.steps`, and request the faces you need through `url`.',
         examples: [
           [400, 700],
           [300, 400, 500, 600, 700],
@@ -103,7 +103,7 @@ export const FontConfigItemSchema = Schema.Struct({
       Schema.annotate({
         title: 'Font Size',
         description:
-          'Superseded — reaches nothing. It never became a CSS custom property and does not set the document base size. Declare the size per step under `design.typeScale.steps`.',
+          'Superseded: reaches nothing. It never became a CSS custom property and does not set the document base size. Declare the size per step under `design.typeScale.steps`.',
         examples: ['16px', '1rem', '14px'],
       })
     )
@@ -113,7 +113,7 @@ export const FontConfigItemSchema = Schema.Struct({
       Schema.annotate({
         title: 'Line Height',
         description:
-          'Superseded — reaches nothing. No CSS custom property is emitted for it. Declare the leading per step under `design.typeScale.steps`.',
+          'Superseded: reaches nothing. No CSS custom property is emitted for it. Declare the leading per step under `design.typeScale.steps`.',
         examples: ['1.5', '1.75', '24px'],
       })
     )
@@ -151,7 +151,8 @@ export const FontConfigItemSchema = Schema.Struct({
 export const FontsConfigSchema = Schema.Record(Schema.String, FontConfigItemSchema).pipe(
   Schema.annotate({
     title: 'Font Configuration',
-    description: 'Typography design tokens for font families and styles',
+    description:
+      "The app's faces, keyed by role: `body` sets running text, `title` sets headings, `mono` sets code, and `sans` replaces the default sans that `--font-sans` and the `font-sans` utility name. Declaring `body` leaves `sans` alone. Any other key adds a `font-<key>` utility.",
   }),
   // Keys: any string in the key position, and the pattern enforced by
   // `isPropertyNames`, so a mistyped key is refused by name at its own path

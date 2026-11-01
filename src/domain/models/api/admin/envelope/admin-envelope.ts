@@ -45,8 +45,8 @@
  */
 
 import { Schema } from 'effect'
-import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { looseIsoDateTime } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { actorSchema } from './actor'
 
 /**
@@ -69,7 +69,7 @@ export const adminEnvelopeSchema = Schema.Struct({
   deletedAt: Schema.NullOr(
     looseIsoDateTime({
       description:
-        'ISO 8601 UTC timestamp of soft-delete; null for active rows. Always present so the dashboard renders the soft-delete badge consistently — `_admin.deletedAt !== null` is the single source of truth across every domain.',
+        'ISO 8601 UTC timestamp of soft-delete; null for active rows. Always present so the dashboard renders the soft-delete badge consistently: `_admin.deletedAt !== null` is the single source of truth across every domain.',
     })
   ),
   metadata: optionalField(

@@ -30,7 +30,7 @@ export const presentationComponentArticles = [
     slug: 'display-components',
     title: 'Display Components',
     description:
-      'The eleven types that present content rather than list it — empty states, scroll areas, swatches, avatars, description lists, marquees, accordions, tabs, list items, a single record field, and the timeline.',
+      'The eleven types that present content: empty state, scroll area, swatch, avatar, description list, marquee, accordion, tabs, list item, record field, timeline.',
     keywords: ['sovrium', 'static table', 'empty state', 'scroll area', 'swatch', 'design token'],
     order: 3228,
     sidebarLabel: 'Display Components',
@@ -83,7 +83,7 @@ export const presentationComponentArticles = [
     slug: 'navigation-components',
     title: 'Navigation Components',
     description:
-      'The eight types that move a reader around — navigation-menu, dropdown-menu, context-menu, menubar, breadcrumb, command-palette, notification-bell and pagination.',
+      'The eight types that move a reader around: navigation-menu, dropdown-menu, context-menu, menubar, breadcrumb, command-palette, notification-bell, pagination.',
     keywords: [
       'sovrium',
       'navigation menu',
@@ -181,8 +181,8 @@ export const presentationComponentArticles = [
     slug: 'interactive-components',
     title: 'Interactive Components',
     description:
-      'The clickable, inline primitives — button, link, alert, badge, button-group and theme-toggle.',
-    keywords: ['sovrium', 'button', 'link', 'alert', 'badge', 'status badge'],
+      'The clickable, inline primitives — button, link, alert, badge, button-group, theme-toggle and consent-choice.',
+    keywords: ['sovrium', 'button', 'link', 'alert', 'badge', 'status badge', 'opt-out'],
     order: 3244,
     sidebarLabel: 'Interactive Components',
     body: interactiveComponentsBody,
@@ -192,6 +192,7 @@ export const presentationComponentArticles = [
       componentType('alert'),
       componentType('badge'),
       componentType('theme-toggle'),
+      componentType('consent-choice'),
     ],
     stories: [
       'US-DESIGN-SYSTEM-COMPONENT-TYPES-INTERACTIVE',
@@ -202,6 +203,7 @@ export const presentationComponentArticles = [
       'US-PAGES-INTERACTIVITY-INTERACTIVE-PATTERNS-INTERACTIVE-UI-LIFECYCLE',
       'US-PAGES-INTERACTIVITY-INTERACTIVE-PATTERNS-SESSION-IDENTITY',
       'US-PAGES-INTERACTIVITY-INTERACTIVE-PATTERNS-SESSION-TEXT',
+      'US-PAGES-INTERACTIVITY-CONSENT-CHOICE',
       'US-PAGES-NAVIGATION-006',
     ],
   }),
@@ -209,7 +211,7 @@ export const presentationComponentArticles = [
     slug: 'action-allow-origins',
     title: 'Sending a member to another site',
     description:
-      'How an action sends the member to the address its run returned — a payment checkout — on the exact origins its `onSuccess.allowOrigins` lists, and refuses any other.',
+      'How an action sends the member to the address its run returned, such as a checkout, on the exact origins `onSuccess.allowOrigins` lists, refusing any other.',
     keywords: [
       'sovrium',
       'allowOrigins',

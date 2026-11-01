@@ -8,11 +8,14 @@
 import { Effect } from 'effect'
 import { EmailCssInliner } from '@/application/ports/services/email-css-inliner'
 import { emailTextFromHtml } from '@/domain/kernel/sanitize/email-text'
-import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
-import { pictureFileCheck, placeMediaInEmail } from './document-media'
-import { documentRenderSetup, type DocumentRenderSetup } from './document-render-setup'
-import { documentDataOf, isRecord, type Raw } from './document-run'
-import { readTemplateSource, renderTemplateText, templateContext } from './document-template'
+import {
+  sanitizeRichTextHTMLReportingLinks,
+  type DroppedLink,
+} from '@/domain/kernel/sanitize/html-sanitization'
+import { pictureFileCheck, placeMediaInEmail } from './document/media'
+import { documentRenderSetup, type DocumentRenderSetup } from './document/render-setup'
+import { documentDataOf, isRecord, type Raw } from './document/run'
+import { readTemplateSource, renderTemplateText, templateContext } from './document/template'
 import { starterFileGate, type StarterFileGate } from './starter-file-gate'
 import type { ActionRunContext, AutomationContext } from './shared'
 import type { EmailAttachment } from '@/application/ports/services/email-sender'
@@ -37,6 +40,8 @@ export interface TemplatedEmail {
   readonly text: string
   /** The pictures the HTML shows inline, by content id. */
   readonly inline: ReadonlyArray<EmailAttachment>
+  /** The links the sanitizer kept as text only, their scheme being one email does not keep. */
+  readonly droppedLinks: readonly DroppedLink[]
   /** The subject, when `subject` is a template source. */
   readonly subject?: string
 }
@@ -85,7 +90,9 @@ export const templatedEmail = Effect.fn('automations.email-templated-body')(func
     authored && props['inlineCss'] !== false
       ? yield* (yield* EmailCssInliner).inline(placed.html)
       : placed.html
-  const html = sanitizeRichTextHTML(styled, { profile: authored ? 'email' : 'rich-text' })
+  const { html, droppedLinks } = sanitizeRichTextHTMLReportingLinks(styled, {
+    profile: authored ? 'email' : 'rich-text',
+  })
   const text =
     props['text'] === undefined
       ? emailTextFromHtml(html)
@@ -97,6 +104,7 @@ export const templatedEmail = Effect.fn('automations.email-templated-body')(func
     html,
     text,
     inline: placed.inline,
+    droppedLinks,
     ...(subject === undefined ? {} : { subject: subject.trim() }),
   } satisfies TemplatedEmail
 })

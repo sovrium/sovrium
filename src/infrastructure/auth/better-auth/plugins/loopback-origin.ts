@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { declaredBaseUrl } from '@/domain/models/process-env/server'
+
 const LOOPBACK_HOST = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/
 
 /**
@@ -19,7 +21,7 @@ const LOOPBACK_HOST = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/
  * wins, so a deployment never derives anything from a header.
  */
 export const loopbackRequestOrigin = (headers: Headers | undefined): string | undefined => {
-  if ((process.env['BASE_URL'] ?? '') !== '') return undefined
+  if (declaredBaseUrl(process.env) !== undefined) return undefined
   const host = headers?.get('host') ?? ''
   return LOOPBACK_HOST.test(host) ? `http://${host}` : undefined
 }

@@ -35,7 +35,7 @@
  * With `RAG_SQLITE_VEC` unset (the default), the Drizzle `countingLogger`
  * (`database/drizzle/db-bun.ts`) observes 100% of request-path SQL issued by
  * application code and by Better Auth (whose `drizzleAdapter` consumes the
- * same `db` proxy), on both dialects. It does NOT observe driver-issued
+ * same memoised client), on both dialects. It does NOT observe driver-issued
  * transaction control — on Postgres, `BEGIN`/`COMMIT`/`ROLLBACK` are issued by
  * `client.begin` and never route through a `PreparedQuery`; on SQLite,
  * NESTED-transaction `savepoint` statements DO route through the session and

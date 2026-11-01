@@ -55,7 +55,6 @@ export interface AutomationCallRunners {
     readonly trigger: Trigger
     readonly automationId: string
     readonly app: App
-    readonly processEnv: Readonly<Record<string, string | undefined>>
     readonly triggerData: {
       readonly input: Readonly<Record<string, unknown>>
       readonly caller: string
@@ -180,7 +179,6 @@ const buildSubAutomationRun = (
       trigger: triggerOfTypeOrFirst(target, 'automation-call'),
       automationId,
       app: ctx.app,
-      processEnv: ctx.processEnv,
       triggerData: { input: inputData, caller: ctx.automation.name, depth: newDepth },
       handlers: ctx.handlers,
       userId: ctx.automation.userId,

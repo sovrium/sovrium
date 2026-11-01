@@ -17,28 +17,29 @@ import { Effect } from 'effect'
 import { runSyncAgentUsers } from '@/infrastructure/auth/agent-user-sync'
 import { seedMcpResourceServerClient } from '@/infrastructure/auth/better-auth/mcp-resource-server'
 import { runOrgTeamSeeding } from '@/infrastructure/auth/better-auth/org-team-seeder'
-import { runSeedAllConnectionDefinitions } from '@/infrastructure/connections/test-token-seeder'
+import { runSeedAllConnectionDefinitions } from '@/infrastructure/connections/connection-definition-seeder'
+import { countTokensEncryptedWithAnotherKey } from '@/infrastructure/connections/token-key-survey'
 import { runAdminSearchIndexPurge } from '@/infrastructure/database/admin-search-index-purge'
 import {
   filterRagKnowledgeByRole,
   runRagKnowledgeStartup,
 } from '@/infrastructure/database/ai-knowledge-listener'
 import { runAttachmentUrlBackfill } from '@/infrastructure/database/attachment-url-backfill'
+import { Database, DatabaseUnownedLive } from '@/infrastructure/database/drizzle/layer'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { runLegacyRunScrub } from '@/infrastructure/database/legacy-run-scrub'
 import { runLinkShadowSweep } from '@/infrastructure/database/link-shadow-sweep'
 import { BootLedgerRepositoryLive } from '@/infrastructure/database/repositories/admin/boot-ledger-repository-live'
-import { countTokensEncryptedWithAnotherKey } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import { initializeSchema } from '@/infrastructure/database/schema/schema-initializer'
 import { reconcileUserForeignKeys } from '@/infrastructure/database/schema/user-foreign-key-reconciler'
 import { reconcileUserListColumns } from '@/infrastructure/database/schema/user-list-column-reconciler'
 import { runStorageBucketBackfill } from '@/infrastructure/database/storage-bucket-backfill'
 import { reconcileTimestamptzColumns } from '@/infrastructure/database/timestamptz-column-reconciler'
-import { StartupMaintenanceError } from '@/infrastructure/errors/startup-maintenance-error'
 import { logError, logWarning } from '@/infrastructure/logging/logger'
 import { captureBootLedgerEntry } from '@/infrastructure/server/boot-ledger-capture'
 import { purgeStaleCalendarFeedAddresses } from '@/infrastructure/server/calendar-feed-purge'
 import { databaseStartupLabel } from '@/infrastructure/server/startup-degradation-phases'
+import { StartupMaintenanceError } from '@/infrastructure/server/startup-maintenance-error'
 import type { App } from '@/domain/models/app'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
@@ -217,20 +218,27 @@ export const runDatabaseStartup = (
     // kept the records they read, which no later erasure could reach. PRE-bind
     // so no reader is shown a value the upgrade is about to empty, and BEFORE
     // the search purge so the rebuilt index never holds them.
-    // effect-promise: total -- `runLegacyRunScrub` wraps its whole body in a try/catch that logs; a failure leaves the markers for the next start.
-    Effect.flatMap(() => Effect.promise(() => runLegacyRunScrub(app))),
-    // effect-promise: total -- `runAdminSearchIndexPurge` wraps its whole body in a try/catch that logs; that is what "never blocks startup" above means, and it is the callee's own guarantee rather than this call site's.
-    Effect.flatMap(() => Effect.promise(() => runAdminSearchIndexPurge())),
+    Effect.flatMap(() => Database),
+    Effect.flatMap((database) =>
+      Effect.andThen(
+        // effect-promise: total -- `runLegacyRunScrub` wraps its whole body in a try/catch that logs; a failure leaves the markers for the next start.
+        Effect.promise(() => runLegacyRunScrub(app, database)),
+        // effect-promise: total -- `runAdminSearchIndexPurge` wraps its whole body in a try/catch that logs; that is what "never blocks startup" above means, and it is the callee's own guarantee rather than this call site's.
+        Effect.promise(() => runAdminSearchIndexPurge(database))
+      )
+    ),
     Effect.flatMap(() =>
       // effect-promise: total -- `runSeedAllConnectionDefinitions` runs its program through `Effect.result` and logs a failure; it resolves either way.
       Effect.promise(() => runSeedAllConnectionDefinitions({ connections: app.connections }))
     ),
-    Effect.flatMap(() =>
+    Effect.flatMap(() => Database),
+    Effect.flatMap((database) =>
       // effect-promise: total -- `runSyncAgentUsers` awaits `syncAgentUsers(...).catch(...)`, so a sync failure is logged inside and never rejects.
-      Effect.promise(() => runSyncAgentUsers({ agents: app.agents, hasAuth: !!app.auth }))
+      Effect.promise(() => runSyncAgentUsers({ agents: app.agents, hasAuth: !!app.auth, database }))
     ),
+    Effect.flatMap(() => Database),
     // effect-promise: total -- `runOrgTeamSeeding` wraps its whole body in a try/catch that logs.
-    Effect.flatMap(() => Effect.promise(() => runOrgTeamSeeding(app))), // org + team seeding
+    Effect.flatMap(({ client }) => Effect.promise(() => runOrgTeamSeeding(client, app))), // org + team seeding
     // Delete the calendar feed addresses of tables this config no longer
     // publishes. Best-effort (it logs and never fails the boot), and skipped by
     // a render-and-exit command, which applies no config to a running instance.
@@ -248,12 +256,14 @@ export const runDatabaseStartup = (
     // MCP validation step, replacing its actionable message
     // ("MCP env validation failed: ...") with a bare decode failure — which is
     // what an operator would then have to debug.
-    Effect.flatMap(() =>
+    Effect.flatMap(() => Database),
+    Effect.flatMap(({ client }) =>
       // effect-promise: total -- the trailing `.catch(() => undefined)` absorbs every rejection; MCP client seeding is skipped entirely unless both auth and MCP are on, and a failure must not take the boot with it.
       Effect.promise(() =>
         seedMcpResourceServerClient({
           hasAuth: !!app.auth,
           mcpEnabled: process.env['MCP_ENABLED'] === 'true',
+          client,
         }).catch(() => undefined)
       )
     ),
@@ -266,17 +276,18 @@ export const runDatabaseStartup = (
     // They resolve opposite ways on purpose. Connection tokens are user data, so
     // the survey counts and warns and changes nothing. JWKS rows are derived key
     // material, so they are regenerated — see `rekeyUnreadableJwks`.
-    Effect.flatMap(() =>
+    Effect.flatMap(() => Database),
+    Effect.flatMap(({ client }) =>
       Effect.tryPromise({
         try: async () => ({
-          foreignKeyIdCount: await countTokensEncryptedWithAnotherKey(),
+          foreignKeyIdCount: await countTokensEncryptedWithAnotherKey(client),
           // JWKS rows only exist for an app that configured auth, so an app
           // without one has nothing to rekey and must not load `better-auth/crypto`
           // to discover that. `jwksRekeyWarningPhases(0)` emits no phase, so the
           // banner is byte-identical to the pre-lazy behaviour.
           rekeyedJwksCount: app.auth
             ? await import('@/infrastructure/auth/better-auth/server-runtime').then((runtime) =>
-                runtime.rekeyUnreadableJwks()
+                runtime.rekeyUnreadableJwks(client)
               )
             : 0,
         }),
@@ -302,7 +313,10 @@ export const runDatabaseStartup = (
       ...foreignKeyIdWarningPhases(foreignKeyIdCount),
       ...jwksRekeyWarningPhases(rekeyedJwksCount),
       { label: databaseStartupLabel(dialectConfig), type: 'success' as const },
-    ])
+    ]),
+    // The boot reads the database before the server runtime that owns the
+    // client exists, so its repositories run over the unowned database.
+    Effect.provide(DatabaseUnownedLive)
   )
 }
 
@@ -323,42 +337,47 @@ export const runDatabaseStartup = (
  * immediately reads a backfilled attachment URL or queries embedded knowledge
  * observed a half-finished boot. Keeping them here still recovers most of the
  * win, because the listener is already bound when they run.
+ *
+ * The two backfills run over the `Database` the caller provides: the server's
+ * own runtime for a server, the unowned database for a build that starts none.
  */
-export const runDeferredStartupMaintenance = (app: App): Effect.Effect<void, never> =>
+export const runDeferredStartupMaintenance = (app: App): Effect.Effect<void, never, Database> =>
   // Each step is `tryPromise` rather than `promise`: the trailing `catchCause`
   // absorbs the outcome either way, but a DEFECT skips the remaining steps of
   // this chain while a typed failure is what the chain is written to expect.
-  Effect.tryPromise({
-    try: () => runAttachmentUrlBackfill(app),
-    catch: (cause) => new StartupMaintenanceError(cause),
-  }).pipe(
-    // AFTER the URL repair: that pass rewrites the stored `url` onto the bucket
-    // the column declares, and this one reads those URLs to attribute objects.
-    // Running it first would attribute them to the stale bucket.
-    Effect.flatMap(() =>
-      Effect.tryPromise({
-        try: () => runStorageBucketBackfill(app),
-        catch: (cause) => new StartupMaintenanceError(cause),
-      })
-    ),
-    Effect.flatMap(() =>
-      Effect.tryPromise({
-        try: () => runRagKnowledgeStartup(filterRagKnowledgeByRole(app)),
-        catch: (cause) => new StartupMaintenanceError(cause),
-      })
-    ),
-    // Reconcile runtime-minted links against the slugs `app.links[]` now
-    // declares. Deferred rather than a migration step because the checksum fast
-    // path skips migrations entirely, which would mean skipping the sweep on
-    // exactly the boot where the config changed.
-    Effect.flatMap(() =>
-      Effect.tryPromise({
-        try: () => runLinkShadowSweep(app),
-        catch: (cause) => new StartupMaintenanceError(cause),
-      })
-    ),
-    Effect.asVoid,
-    Effect.catchCause((cause) =>
-      Effect.sync(() => logError('[server] deferred startup maintenance failed', cause))
+  Effect.flatMap(Database, (database) =>
+    Effect.tryPromise({
+      try: () => runAttachmentUrlBackfill(database, app),
+      catch: (cause) => new StartupMaintenanceError(cause),
+    }).pipe(
+      // AFTER the URL repair: that pass rewrites the stored `url` onto the bucket
+      // the column declares, and this one reads those URLs to attribute objects.
+      // Running it first would attribute them to the stale bucket.
+      Effect.flatMap(() =>
+        Effect.tryPromise({
+          try: () => runStorageBucketBackfill(database, app),
+          catch: (cause) => new StartupMaintenanceError(cause),
+        })
+      ),
+      Effect.flatMap(() =>
+        Effect.tryPromise({
+          try: () => runRagKnowledgeStartup(database, filterRagKnowledgeByRole(app)),
+          catch: (cause) => new StartupMaintenanceError(cause),
+        })
+      ),
+      // Reconcile runtime-minted links against the slugs `app.links[]` now
+      // declares. Deferred rather than a migration step because the checksum fast
+      // path skips migrations entirely, which would mean skipping the sweep on
+      // exactly the boot where the config changed.
+      Effect.flatMap(() =>
+        Effect.tryPromise({
+          try: () => runLinkShadowSweep(app),
+          catch: (cause) => new StartupMaintenanceError(cause),
+        })
+      ),
+      Effect.asVoid,
+      Effect.catchCause((cause) =>
+        Effect.sync(() => logError('[server] deferred startup maintenance failed', cause))
+      )
     )
   )

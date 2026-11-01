@@ -15,8 +15,8 @@
  *  - The admitted parts reach the model as references the AI adapter resolves
  *    (`infrastructure/ai/attachment-parts.ts`), and are stored as references:
  *    never the bytes, never the text read from them.
- *  - On a later turn, {@link replayStoredHistory} rebuilds earlier questions
- *    from their stored parts, and {@link loadCarriedFiles} gives a turn that
+ *  - On a later turn, {@link readStoredHistory} rebuilds earlier questions
+ *    from their stored parts, and {@link readCarriedFiles} gives a turn that
  *    replays no history the files its conversation was sent, so a file stays
  *    readable for the rest of its conversation. An edited or regenerated
  *    question is answered with its own files again ({@link readmitStoredParts}).
@@ -31,9 +31,8 @@ import {
 } from '@/application/use-cases/ai/chat-attachments'
 import { loadChatHistory } from '@/application/use-cases/ai/conversation-memory'
 import { isModelImageType } from '@/domain/kernel/identity/attachment-content-type'
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { ApiErrorCode } from '@/domain/models/api/error'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { AiMessagePart } from '@/application/ports/repositories/ai/ai-memory-repository'
 import type {
@@ -42,7 +41,6 @@ import type {
   MessagePart,
 } from '@/application/ports/services/ai-service'
 import type { ChatMessagePart } from '@/domain/models/api/ai/chat'
-import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { Context } from 'hono'
 
 /** A message's parts once admitted: as the model reads them, and as they are kept. */
@@ -90,41 +88,53 @@ const admitted = (
   return { content: pairs.map(([model]) => model), stored: pairs.map(([, kept]) => kept) }
 }
 
+/** A request's parts admitted, or the answer refusing them. */
+type PartsAdmission = { readonly admitted?: AdmittedTurnParts } | { readonly refusal: Response }
+
 /**
  * Admit a request's parts, or answer the refusal. `undefined` parts (a message
  * sent as text alone) admit nothing and refuse nothing.
  */
-export const admitTurnParts = async (
+export const admitTurnParts = (
   c: Context,
   request: {
     readonly userId: string
     readonly sessionId: string
     readonly parts: ReadonlyArray<ChatMessagePart> | undefined
   }
-): Promise<{ readonly admitted?: AdmittedTurnParts } | { readonly refusal: Response }> => {
+) => {
   const { parts } = request
-  if (parts === undefined) return {}
-  const attachmentIds = parts.flatMap((part) => (part.type === 'text' ? [] : [part.attachmentId]))
-  if (attachmentIds.length === 0) return { admitted: admitted(parts, []) }
-  const claim = claimChatAttachments({
-    userId: request.userId,
-    sessionId: request.sessionId,
-    attachmentIds,
-    readsImages: readsImages(),
-  })
-  const result = await runRequestEffect(c, provideDomain(c, claim).pipe(Effect.result))
-  if (result._tag === 'Success') return { admitted: admitted(parts, result.success) }
-  const { failure } = result
-  if (failure._tag === 'ChatAttachmentNotFound') {
-    return { refusal: notFound(c, 'Attachment not found.') }
-  }
+  const attachmentIds = (parts ?? []).flatMap((part) =>
+    part.type === 'text' ? [] : [part.attachmentId]
+  )
+  return (
+    parts === undefined || attachmentIds.length === 0
+      ? Effect.succeed([])
+      : claimChatAttachments({
+          userId: request.userId,
+          sessionId: request.sessionId,
+          attachmentIds,
+          readsImages: readsImages(),
+        })
+  ).pipe(
+    Effect.match({
+      onFailure: (failure): PartsAdmission => ({ refusal: refusalOf(c, failure) }),
+      onSuccess: (refs): PartsAdmission =>
+        parts === undefined ? {} : { admitted: admitted(parts, refs) },
+    })
+  )
+}
+
+/** The answer to a message whose files could not be admitted. */
+const refusalOf = (c: Context, failure: { readonly _tag: string }): Response => {
+  if (failure._tag === 'ChatAttachmentNotFound') return notFound(c, 'Attachment not found.')
   if (failure._tag === 'ChatAttachmentImageUnreadable') {
     const error = 'This assistant cannot read images: send the picture as a file it can read.'
-    return { refusal: c.json(errorBody({ error, code: ApiErrorCode.VALIDATION_ERROR }), 422) }
+    return c.json(errorBody({ error, code: ApiErrorCode.VALIDATION_ERROR }), 422)
   }
   logError('[ai-chat] admitting a message’s attachments failed', failure)
   const error = 'Failed to read the attachments of this message.'
-  return { refusal: c.json(errorBody({ error, code: ApiErrorCode.INTERNAL_ERROR }), 500) }
+  return c.json(errorBody({ error, code: ApiErrorCode.INTERNAL_ERROR }), 500)
 }
 
 /**
@@ -186,17 +196,13 @@ const replayFailed =
  * Earlier messages of a conversation as the model reads them: a question sent
  * as parts is rebuilt from them, its files as references read anew this turn.
  */
-export const replayStoredHistory = async (
-  services: DomainContext,
-  userId: string,
-  messages: ReadonlyArray<StoredMessage>
-): Promise<ReadonlyArray<ChatMessage>> => {
+export const readStoredHistory = (userId: string, messages: ReadonlyArray<StoredMessage>) => {
   const unread = messages.map((message): ChatMessage =>
     message.role === 'user' && message.parts !== undefined
       ? { role: 'user', content: unreadableParts(message.parts) }
       : { role: message.role, content: message.content }
   )
-  const program = Effect.forEach(messages, (message) =>
+  return Effect.forEach(messages, (message) =>
     message.role !== 'user' || message.parts === undefined
       ? Effect.succeed<ChatMessage>({ role: message.role, content: message.content })
       : Effect.map(replayStoredParts({ userId, parts: message.parts }), (parts): ChatMessage => ({
@@ -207,41 +213,31 @@ export const replayStoredHistory = async (
     // effect-swallow: logged in replayFailed; each file is named as unreadable rather than the turn failing
     Effect.catch(replayFailed<ReadonlyArray<ChatMessage>>(unread))
   )
-  return Effect.runPromise(Effect.provide(program, services))
 }
 
 /**
  * The files sent in `messages`, for a turn that replays none of their text:
  * a file stays readable for the rest of its conversation.
  */
-export const carriedFilesOf = async (
-  services: DomainContext,
-  userId: string,
-  messages: ReadonlyArray<StoredMessage>
-): Promise<ReadonlyArray<MessagePart>> => {
+export const readFilesOf = (userId: string, messages: ReadonlyArray<StoredMessage>) => {
   const parts = messages.flatMap((message) =>
     message.role === 'user' ? (message.parts ?? []) : []
   )
-  if (parts.length === 0) return []
-  const program = replayStoredParts({ userId, parts, filesOnly: true }).pipe(
-    Effect.map((replayed) => replayed.map(toMessagePart)),
+  if (parts.length === 0) return Effect.succeed<ReadonlyArray<MessagePart>>([])
+  return replayStoredParts({ userId, parts, filesOnly: true }).pipe(
+    Effect.map((replayed): ReadonlyArray<MessagePart> => replayed.map(toMessagePart)),
     // effect-swallow: logged in replayFailed; each file is named as unreadable rather than the turn failing
     Effect.catch(replayFailed(unreadableParts(parts, true)))
   )
-  return Effect.runPromise(Effect.provide(program, services))
 }
 
 /**
  * The files sent earlier in a conversation, for a turn that replays none of its
  * text (an agent-bound turn, a stream).
  */
-export const loadCarriedFiles = async (
-  services: DomainContext,
-  userId: string,
-  sessionId: string
-): Promise<ReadonlyArray<MessagePart>> => {
-  if (userId === 'anonymous') return []
-  const history = loadChatHistory({ userId, sessionId }).pipe(
+export const readCarriedFiles = (userId: string, sessionId: string) => {
+  if (userId === 'anonymous') return Effect.succeed<ReadonlyArray<MessagePart>>([])
+  return loadChatHistory({ userId, sessionId }).pipe(
     Effect.map((messages) =>
       messages.flatMap((message): StoredMessage[] =>
         message.role === 'user'
@@ -250,10 +246,9 @@ export const loadCarriedFiles = async (
       )
     ),
     // effect-swallow: logged in replayFailed; with no history read there is no file known to name
-    Effect.catch(replayFailed<ReadonlyArray<StoredMessage>>([]))
+    Effect.catch(replayFailed<ReadonlyArray<StoredMessage>>([])),
+    Effect.flatMap((messages) => readFilesOf(userId, messages))
   )
-  const messages = await Effect.runPromise(Effect.provide(history, services))
-  return carriedFilesOf(services, userId, messages)
 }
 
 /**
@@ -261,16 +256,10 @@ export const loadCarriedFiles = async (
  * (an edit, a regeneration): each upload the caller still holds is read from
  * its bucket again, exactly as on any later turn of its conversation.
  */
-export const readmitStoredParts = async (
-  services: DomainContext,
-  userId: string,
-  stored: ReadonlyArray<AiMessagePart>
-): Promise<AdmittedTurnParts> => {
-  const program = replayStoredParts({ userId, parts: stored }).pipe(
+export const readmitStoredParts = (userId: string, stored: ReadonlyArray<AiMessagePart>) =>
+  replayStoredParts({ userId, parts: stored }).pipe(
     Effect.map((replayed) => replayed.map(toMessagePart)),
     // effect-swallow: logged in replayFailed; each file is named as unreadable rather than the turn failing
-    Effect.catch(replayFailed(unreadableParts(stored)))
+    Effect.catch(replayFailed(unreadableParts(stored))),
+    Effect.map((content): AdmittedTurnParts => ({ content, stored }))
   )
-  const content = await Effect.runPromise(Effect.provide(program, services))
-  return { content, stored }
-}

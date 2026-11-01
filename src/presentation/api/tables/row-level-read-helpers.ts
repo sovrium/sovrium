@@ -20,14 +20,20 @@
  * imposed by `[internal ref]`.
  */
 
+import { Effect } from 'effect'
+import {
+  authorizeRead,
+  judgeTableGrant,
+  type Verdict,
+} from '@/application/use-cases/tables/permissions/authorize-record-verbs'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { emptyListRecordsResponseSchema } from '@/domain/models/api/tables/tables'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
-import { hasReadPermissionForCaller } from '@/domain/models/app/auth/permission-evaluator-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { shapedJson } from '@/presentation/api/runtime/run-effect'
 import {
-  passesTableRoleGate,
   projectReadPredicateClause,
   recordPassesPredicate,
   type RowLevelGuardContext,
@@ -70,7 +76,7 @@ export const NOT_FOUND_RESPONSE = (c: Context): Response => notFound(c)
  *
  * It carries `appliedQuery: null` for the same reason every other list response
  * does: presence of the key — not its value — is what tells the grid the server
- * owns the filtering (`src/domain/models/api/combinators/search.ts`). Omitting it on
+ * owns the filtering (`src/domain/models/api/search-term.ts`). Omitting it on
  * this branch alone would make "the guard denied you" indistinguishable from
  * "this endpoint does not search", so a denied grid would switch its in-memory
  * filter back on and the ROUTE's own contract would depend on the caller's
@@ -81,33 +87,46 @@ export const NOT_FOUND_RESPONSE = (c: Context): Response => notFound(c)
  * omission of the key is deliberate (`handleListTrash` ignores `?q=`).
  */
 export const EMPTY_LIST_RESPONSE = (c: Context): Response =>
-  c.json({ records: [], pagination: { total: 0, limit: 0, offset: 0 }, appliedQuery: null }, 200)
+  shapedJson(
+    c,
+    { records: [], pagination: { total: 0, limit: 0, offset: 0 }, appliedQuery: null },
+    emptyListRecordsResponseSchema
+  )
+
+/** {@link EMPTY_LIST_RESPONSE} for the trash, which carries no `appliedQuery`. */
+export const EMPTY_TRASH_RESPONSE = (c: Context): Response =>
+  shapedJson(
+    c,
+    { records: [], pagination: { total: 0, limit: 0, offset: 0 } },
+    emptyListRecordsResponseSchema
+  )
 
 /**
- * Non-guard (role-only) read gate shared by the list and get handlers:
- * evaluate the table read permission against the user's effective roles
- * (global role + every `group:<name>`). Whether the caller is signed out is the
- * session's identity — the guest sentinel the auth middleware injects, or no
- * session at all — never the name of her role.
- *
- * `onDeny` selects the denial response shape. Per S1 anti-enumeration, BOTH
- * list and single-record denials return 404 (`NOT_FOUND_RESPONSE`): a denied
- * read must not confirm that the table or record exists. `FORBIDDEN_RESPONSE`
- * is kept exported for legitimate non-authz uses, but the read gates always
- * pass `NOT_FOUND_RESPONSE` as `onDeny`.
+ * The table read verdict for the list and get handlers. Under row-level rules
+ * it is the read verdict for the caller the guard resolved; on a table without
+ * them, the table's read grant over her effective roles (account role + every
+ * `group:<name>`). Whether the caller is signed out is the session's identity —
+ * the guest sentinel the auth middleware injects, or no session at all — never
+ * the name of her role.
  */
-function checkRoleOnlyReadGate(
-  input: ReadGateInput,
-  onDeny: (c: Context) => Response
-): Response | undefined {
-  const { c, app, table, userRole, userGroups } = input
+function tableReadVerdict(input: ReadGateInput): Verdict {
+  const { c, app, table, userRole, userGroups, guard } = input
+  if (guard) return Effect.runSync(authorizeRead(table, guard))
   const session = getSessionContext(c)
-  const caller = {
+  return judgeTableGrant(table, 'read', {
     effectiveRoles: buildEffectiveRoles(userRole, userGroups),
+    allTables: app,
     signedOut: session === undefined || isGuestSession(session.userId),
-  }
-  return hasReadPermissionForCaller(table, caller, app) ? undefined : onDeny(c)
+  })
 }
+
+/**
+ * Per S1 anti-enumeration, BOTH list and single-record denials return 404
+ * (`NOT_FOUND_RESPONSE`): a denied read must not confirm that the table or
+ * record exists.
+ */
+const readGateResponse = (input: ReadGateInput): Response | undefined =>
+  tableReadVerdict(input)._tag === 'Allowed' ? undefined : NOT_FOUND_RESPONSE(input.c)
 
 export interface ReadGateInput {
   readonly c: Context
@@ -128,11 +147,7 @@ export interface ReadGateInput {
  * to an unauthorized caller).
  */
 export function checkListReadGate(input: ReadGateInput): Response | undefined {
-  const { c, table, guard } = input
-  if (guard) {
-    return passesTableRoleGate(table, 'read', guard) ? undefined : NOT_FOUND_RESPONSE(c)
-  }
-  return checkRoleOnlyReadGate(input, NOT_FOUND_RESPONSE)
+  return readGateResponse(input)
 }
 
 /**
@@ -141,11 +156,7 @@ export function checkListReadGate(input: ReadGateInput): Response | undefined {
  * paths — a denied fetch must not confirm the record's existence.
  */
 export function checkGetReadGate(input: ReadGateInput): Response | undefined {
-  const { c, table, guard } = input
-  if (guard) {
-    return passesTableRoleGate(table, 'read', guard) ? undefined : NOT_FOUND_RESPONSE(c)
-  }
-  return checkRoleOnlyReadGate(input, NOT_FOUND_RESPONSE)
+  return readGateResponse(input)
 }
 
 /**

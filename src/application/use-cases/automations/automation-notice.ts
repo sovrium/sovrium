@@ -25,6 +25,7 @@
 
 import { Effect } from 'effect'
 import { EmailSender } from '@/application/ports/services/email-sender'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { resolveNotificationRecipients } from '@/application/use-cases/admin/resolve-notification-recipients'
 import { formatAppIdentity } from '@/domain/kernel/format/app-identity'
 import { parseSovriumNotifyAutomations } from '@/domain/models/process-env/notifications'
@@ -134,17 +135,14 @@ export const deliverAutomationNotice = (input: {
   readonly app: App
   readonly content: AutomationNoticeContent
   readonly exclude?: string | undefined
-  readonly env?: NoticeEnv | undefined
 }): Effect.Effect<number, never, AuthRepository | EmailSender> =>
   Effect.gen(function* () {
-    const env = input.env ?? process.env
+    const env = yield* ProcessEnv
     if (parseSovriumNotifyAutomations(env) === 'off') return 0
     const excluded = input.exclude?.toLowerCase()
-    const recipients = (yield* resolveNotificationRecipients(
-      input.app,
-      'automationAlerts',
-      env
-    )).filter((address) => address.toLowerCase() !== excluded)
+    const recipients = (yield* resolveNotificationRecipients(input.app, 'automationAlerts')).filter(
+      (address) => address.toLowerCase() !== excluded
+    )
     if (recipients.length === 0) return 0
     // effect-promise: total -- getSovriumVersion never rejects; it degrades to '0.0.0'
     const engineVersion = yield* Effect.promise(() => getSovriumVersion())

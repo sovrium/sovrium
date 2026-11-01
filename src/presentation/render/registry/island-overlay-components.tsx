@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { createElement, Fragment } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   MENU_TRIGGER_CONTENT_CLASSES,
@@ -15,11 +16,12 @@ import {
   computeContextMenuTriggerClasses,
   computeMenuLabelTriggerClasses,
 } from '@/presentation/design/navigation-default-classes'
+import { StaticMarkup } from '@/presentation/design/static-markup'
 import { isZeroJsDialog } from '@/presentation/render/registry/island-component-types'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import {
   isOpenSpecimen,
-  renderOpenMenuPopup,
+  openMenuPopupElement,
 } from '@/presentation/render/resolve/open-specimen-markup'
 import { computeLinkClasses } from '../../design/interactive-content-default-classes'
 import { splitSlots } from '../elements/slot-children'
@@ -37,6 +39,7 @@ import {
   withResolvedMenuItemIcons,
 } from './island-overlay-props-builders'
 import { withOpenSpecimen } from './open-overlay-components'
+import { overlayLoadingLabel } from './overlay-loading-label'
 import { buildPopoverProps } from './popover-props-builder'
 import { renderRecordBoundDrawer } from './record-bound-drawer'
 import type {
@@ -89,16 +92,16 @@ const withTranslatedProps = <T extends ComponentDispatchConfig>(context: T): T =
  *
  * Extracted from the renderer rather than written inline for the ordinary
  * reason: the dispatch below already reads six fields off two prop bags, and a
- * third branch inside it crosses the complexity ceiling. Returning the markup
+ * third branch inside it crosses the complexity ceiling. Returning the element
  * (never a boolean beside it) is also what keeps ONE source of truth for
  * "is this drawn open" at the call site.
  */
 const drawnOpenMenu = (
   rawProps: Record<string, unknown> | undefined,
   props: { readonly menuItems?: unknown; readonly popupVariant?: unknown }
-): string | undefined =>
+): ReactElement | undefined =>
   isOpenSpecimen(rawProps)
-    ? renderOpenMenuPopup({
+    ? openMenuPopupElement({
         menuItems: Array.isArray(props.menuItems) ? props.menuItems : [],
         surface: props.popupVariant === 'inverted' ? 'inverted' : 'default',
       })
@@ -154,7 +157,7 @@ export const islandOverlayComponents: Partial<
           aria-modal="true"
           aria-label={(rawProps?.title as string) ?? 'Dialog'}
         >
-          <p>Loading...</p>
+          <p>{overlayLoadingLabel(context)}</p>
         </div>
         {renderExportOnlyMarkup(childrenHtml + footerHtml, isExportedNode(component))}
       </div>
@@ -178,7 +181,7 @@ export const islandOverlayComponents: Partial<
           aria-modal="true"
           aria-label={(rawProps?.title as string) ?? 'Alert'}
         >
-          <p>Loading...</p>
+          <p>{overlayLoadingLabel(context)}</p>
         </div>
       </div>
     )
@@ -280,7 +283,7 @@ export const islandOverlayComponents: Partial<
           role="dialog"
           aria-label={(rawProps?.title as string) ?? 'Drawer'}
         >
-          <p>Loading...</p>
+          <p>{overlayLoadingLabel(context)}</p>
         </div>
       </div>
     )
@@ -306,8 +309,8 @@ export const islandOverlayComponents: Partial<
     // authored `props.className` (when present) so a styled CTA does not flash
     // from an unstyled placeholder to the styled trigger on hydration.
     const authoredClassName = elementProps['className'] as string | undefined
-    const openMenuHtml = drawnOpenMenu(rawProps, props)
-    const depicted = openMenuHtml !== undefined
+    const openMenu = drawnOpenMenu(rawProps, props)
+    const depicted = openMenu !== undefined
     return (
       <div
         data-island={depicted ? undefined : 'dropdown-menu'}
@@ -354,11 +357,10 @@ export const islandOverlayComponents: Partial<
           )}
           <NavChevronDown />
         </button>
-        {openMenuHtml !== undefined && (
-          // Markup from the island's own `MenuPopupBody`, produced server-side
-          // from decoded config — see `presentation/rendering/open-specimen-markup.ts`.
-          // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
-          <div dangerouslySetInnerHTML={{ __html: openMenuHtml }} />
+        {openMenu !== undefined && (
+          // The island's own `MenuPopupBody`, rendered server-side from decoded
+          // config — see `render/resolve/open-specimen-markup.ts`.
+          <StaticMarkup html={renderToStaticMarkup(openMenu)} />
         )}
       </div>
     )
@@ -370,7 +372,7 @@ export const islandOverlayComponents: Partial<
   'context-menu': ({ rawProps, elementProps, component, renderedChildren }) => {
     const c = (component ?? {}) as Record<string, unknown>
     const menuItems = withResolvedMenuItemIcons(c['menuItems'] ?? rawProps?.menuItems)
-    const childrenHtml = toHtml(renderedChildren)
+    const childrenHtml = renderToStaticMarkup(createElement(Fragment, null, ...renderedChildren))
     const className = computeContextMenuTriggerClasses(elementProps.className as string | undefined)
     const props = {
       menuItems,
@@ -385,12 +387,11 @@ export const islandOverlayComponents: Partial<
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
-        <div
+        <StaticMarkup
+          html={childrenHtml}
           data-slot="context-menu-trigger"
           id={elementProps.id as string | undefined}
           className={className}
-          // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
-          dangerouslySetInnerHTML={{ __html: childrenHtml }}
         />
       </div>
     )

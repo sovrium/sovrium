@@ -11,10 +11,13 @@ import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { escapeCsvCell } from '@/domain/kernel/format/csv-format'
 import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
 import { NUMBER_FIELD_TYPES } from '@/domain/models/app/tables/stored-value-service'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import {
+  answerFailures,
+  runHandlerEffect,
+  toErrorResponse,
+} from '@/presentation/api/runtime/run-effect'
 import {
   csvCellValue,
   jsonExportRow,
@@ -30,7 +33,7 @@ import {
   type CsvColumn,
 } from './export-language-columns'
 import { validateFilterParam } from './field-permission-validation'
-import { passesTableRoleGate, resolveGuardForTable } from './row-level-guard'
+import { guardForTable, passesTableRoleGate, type RowLevelGuardContext } from './row-level-guard'
 import { buildListFilter, type FilterStructure } from './row-level-read-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -219,7 +222,7 @@ interface ExportReadGateInput {
   readonly table: ReturnType<NonNullable<App['tables']>['find']>
   readonly userRole: string
   readonly userGroups: readonly string[]
-  readonly guard: ReturnType<typeof resolveGuardForTable> extends Promise<infer T> ? T : never
+  readonly guard: RowLevelGuardContext | undefined
 }
 
 /**
@@ -309,63 +312,70 @@ function buildEmptyExportResponse(
   return buildEmptyCsvResponse(tableFieldNames, tableName, languages)
 }
 
-export async function handleExportTableCsv(c: Context, app: App) {
-  const { session, tableName, userRole, userGroups } = getTableContext(c)
-  const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-
-  const { filter, format, visibleFields } = parseExportQuery(c)
-
-  const gateError = checkExportGates({
-    c,
-    app,
-    table,
-    tableName,
-    userRole,
-    userGroups,
-    guard,
-    filter,
-  })
-  if (gateError) return gateError
-
-  // Column NAMES are a read surface too: the empty export emits this list as
-  // its header, and the populated one takes its column ORDER from it.
-  const reader = { session, role: userRole, groups: userGroups }
-  const { withheld, tableFieldNames } = await readerExportColumns(c, app, table, reader)
-  const languages = languageColumnsOf(app, tableName)
-
-  // Z-3 read predicate: AND-merge the row-level read clause onto the
-  // request-supplied filter. Sentinels short-circuit to an empty response
-  // when the predicate resolves to "match nothing" or fails projection.
-  const finalFilter: FilterStructure | 'empty' | 'reject' = buildListFilter(
-    table,
-    guard,
-    undefined,
-    filter as FilterStructure
-  )
-  if (finalFilter === 'empty' || finalFilter === 'reject') {
-    return buildEmptyExportResponse(format, tableName, tableFieldNames, languages)
-  }
-
-  const program = createListRecordsProgram({
-    session,
-    tableName,
-    app,
-    userRole,
-    userGroups,
-    filter: finalFilter,
-    limit: Number.MAX_SAFE_INTEGER,
-  })
-  const either = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
-  // A table whose reader may read no field fails the list as a table that
-  // does not exist, and the export answers it as such — CSV and JSON alike.
-  if (either._tag === 'Failure') return toErrorResponse(c, either.failure)
-  const shape = { attachments: attachmentFieldNames(table), visibleFields, withheld }
-  if (format === 'json') return buildJsonResponse(either.success.records, tableName, shape)
-  return buildCsvResponse(either.success.records, tableFieldNames, tableName, {
-    ...shape,
-    links: relationshipFieldNames(table),
-    numbers: numberFieldNames(table),
-    languages,
-  })
+export function handleExportTableCsv(c: Context, app: App) {
+  return runHandlerEffect(c, answerFailures(c, exportResponse(c, app)))
 }
+
+/** Gate, read and render an export, as one program. */
+const exportResponse = (c: Context, app: App) =>
+  Effect.gen(function* () {
+    const { session, tableName, userRole, userGroups } = getTableContext(c)
+    const table = app.tables?.find((t) => t.name === tableName)
+    const guard = yield* guardForTable(session, { userRole, userGroups }, table, app)
+
+    const { filter, format, visibleFields } = parseExportQuery(c)
+
+    const gateError = checkExportGates({
+      c,
+      app,
+      table,
+      tableName,
+      userRole,
+      userGroups,
+      guard,
+      filter,
+    })
+    if (gateError) return gateError
+
+    // Column NAMES are a read surface too: the empty export emits this list as
+    // its header, and the populated one takes its column ORDER from it.
+    const reader = { session, role: userRole, groups: userGroups }
+    const { withheld, tableFieldNames } = yield* readerExportColumns(app, table, reader)
+    const languages = languageColumnsOf(app, tableName)
+
+    // Z-3 read predicate: AND-merge the row-level read clause onto the
+    // request-supplied filter. Sentinels short-circuit to an empty response
+    // when the predicate resolves to "match nothing" or fails projection.
+    const finalFilter: FilterStructure | 'empty' | 'reject' = buildListFilter(
+      table,
+      guard,
+      undefined,
+      filter as FilterStructure
+    )
+    if (finalFilter === 'empty' || finalFilter === 'reject') {
+      return buildEmptyExportResponse(format, tableName, tableFieldNames, languages)
+    }
+
+    const either = yield* Effect.result(
+      createListRecordsProgram({
+        session,
+        tableName,
+        app,
+        userRole,
+        userGroups,
+        filter: finalFilter,
+        limit: Number.MAX_SAFE_INTEGER,
+      })
+    )
+    // A table whose reader may read no field fails the list as a table that
+    // does not exist, and the export answers it as such — CSV and JSON alike.
+    if (either._tag === 'Failure') return toErrorResponse(c, either.failure)
+    const shape = { attachments: attachmentFieldNames(table), visibleFields, withheld }
+    if (format === 'json') return buildJsonResponse(either.success.records, tableName, shape)
+    return buildCsvResponse(either.success.records, tableFieldNames, tableName, {
+      ...shape,
+      links: relationshipFieldNames(table),
+      numbers: numberFieldNames(table),
+      languages,
+    })
+  })

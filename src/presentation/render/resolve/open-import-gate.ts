@@ -6,6 +6,10 @@
  */
 
 import {
+  anonymousGrant,
+  servesNoAuthVisitor,
+} from '@/domain/models/app/auth/anonymous-grant-service'
+import {
   IMPORT_FIELD_LABELS_KEY,
   IMPORT_OPTION_LABELS_KEY,
   optionLabelsInEveryLanguage,
@@ -54,9 +58,11 @@ export function openImportTable(node: unknown): string | undefined {
 /** Whether the caller may create in `tableName`, the way the records API will judge it. */
 function mayCreate(tableName: string, ctx: OpenImportGateContext): boolean {
   if (ctx.granted !== undefined && !ctx.granted.has('edit-operations')) return false
-  if (!ctx.app.auth) return true
-  if (ctx.session === undefined) return false
   const table = ctx.app.tables?.find((candidate) => candidate.name === tableName)
+  // No `auth`: a visitor creates only where the table opens `create` to everyone.
+  if (!ctx.app.auth)
+    return !servesNoAuthVisitor(ctx.app) || anonymousGrant(table, 'create', ctx.app)
+  if (ctx.session === undefined) return false
   return hasCreatePermissionForRoles(table, writeGateRoles(ctx.session), ctx.app)
 }
 

@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { translateFormulaToSqlite } from './formula-sqlite-translation'
 import { translateFormulaToPostgres } from './formula-utils'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * The dialect seam for formula SQL.
@@ -39,9 +39,10 @@ import { translateFormulaToPostgres } from './formula-utils'
  * than left to fail at the first write.
  */
 export const translateFormula = (
+  dialect: DatabaseDialect,
   formula: string,
   allFields?: readonly { name: string; type: string }[]
 ): string =>
-  isSqliteRuntime()
+  dialect === 'sqlite'
     ? translateFormulaToSqlite(formula, allFields)
     : translateFormulaToPostgres(formula, allFields)

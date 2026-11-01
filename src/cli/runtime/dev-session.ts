@@ -65,6 +65,37 @@ export const resolveDevPassword = (
 }
 
 /**
+ * Why `sovrium dev` refuses the `DATABASE_URL` database, or `undefined` when it
+ * may use it. That database is not the disposable one under `.sovrium/dev/`:
+ * a `.env` still pointing at production would otherwise gain an admin whose
+ * password is printed in the manual. So it takes `--external-database`, and
+ * then a password of the developer's own — never {@link DEV_ADMIN_PASSWORD}.
+ * An app that declares no `auth` creates no account, so it needs no password.
+ * Neither refusal prints the password.
+ */
+export const externalDatabaseRefusal = (
+  env: Readonly<Record<string, string | undefined>>,
+  externalDatabase: boolean,
+  passwordSource: 'default' | 'env',
+  hasAuth: boolean
+): string | undefined => {
+  if ((env['DATABASE_URL'] ?? '') === '') return undefined
+  if (!externalDatabase) {
+    return (
+      'Error: DATABASE_URL names a database outside .sovrium/dev/ — nothing was created.\n\n' +
+      'If that database is meant for development, run sovrium dev --external-database.'
+    )
+  }
+  if (hasAuth && passwordSource === 'default') {
+    return (
+      'Error: --external-database needs SOVRIUM_DEV_PASSWORD — nothing was created.\n\n' +
+      'Set SOVRIUM_DEV_PASSWORD to the password the dev accounts take in that database.'
+    )
+  }
+  return undefined
+}
+
+/**
  * The page `sovrium dev` opens: the app's sign-in page when the app declares
  * `auth` AND a page at that path (a localized path counts when one of its
  * languages has it), else the app's root.

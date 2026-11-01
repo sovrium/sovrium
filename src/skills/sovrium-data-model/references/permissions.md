@@ -23,7 +23,7 @@ This file is the permission grammar: how a table, a field, a row and a bucket sa
 Sovrium's table and bucket defaults are open, so a safe app is one where every table and every bucket says who may do what.
 
 - **Write a `permissions` block on every table**, even one you think is internal. A table with no block stays open to every role except `viewer` — custom roles included.
-- **Set `auth.allowSignUp: false` for an internal tool or a customer portal.** It defaults to `true`, and every self-registered account gets the default role, so an open table plus open sign-up means anyone on the internet who fills in the form.
+- **Leave `auth.allowSignUp` closed for an internal tool or a customer portal.** It defaults to `false`; writing `true` gives every self-registered account the default role, so an open table plus open sign-up means anyone on the internet who fills in the form.
 - **Declare `upload` and `download` on every bucket**, and `delete` where the uploader rule does not fit (see Bucket permissions below).
 - Widen deliberately, one operation and one role at a time, and test each widening.
 
@@ -120,7 +120,7 @@ Create test users per role; sign in as each (see `sovrium-app`, `references/api-
 
 - Treating "logged in" as authorisation (`read: authenticated` on payroll).
 - Leaving a table with no block and assuming it is admin-only.
-- Leaving `allowSignUp` at its default on an internal tool.
+- Writing `allowSignUp: true` on an internal tool.
 - A bucket with no `upload` or `download` declared, so any signed-in user can add files to it and read every file in it.
 - Hiding rows with a page filter instead of a row predicate.
 - One role per person.

@@ -67,7 +67,12 @@ export const requestExchangedToken = async (
         headers: { 'Content-Type': contentType, Accept: 'application/json' },
         body: payload,
       },
-      { timeoutMs: OAUTH_CALLBACK_TIMEOUT_MS, maxBodyBytes: TOKEN_RESPONSE_MAX_BYTES }
+      // The body is the stored credential: never re-sent to another origin.
+      {
+        timeoutMs: OAUTH_CALLBACK_TIMEOUT_MS,
+        maxBodyBytes: TOKEN_RESPONSE_MAX_BYTES,
+        bodyCarriesSecret: true,
+      }
     )
     if (!sent.ok) return { ok: false, error: `token_invalid_url_${sent.reason}` }
     const { response } = sent

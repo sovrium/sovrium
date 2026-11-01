@@ -25,6 +25,14 @@ import { renderNow } from '@/presentation/render/page/render-clock'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
 import { bindAuthSource, bindAuthSourcesInTree } from './auth-source-binding'
 import { withCallerTableView } from './caller-table-stamp'
+import {
+  componentField,
+  entryAsComponent,
+  keyOf,
+  rewriteComponent,
+  tableBindingOf,
+  type ComponentField,
+} from './component-rewrite'
 import { resolveCurrentUserFiltersInTree } from './current-user-filter-pass'
 import { scopeTablesOf } from './current-user-resolver'
 import {
@@ -35,17 +43,11 @@ import {
   type DataSourceDb,
   type DataSourceSectionResult,
 } from './data-source-contracts'
-import {
-  checkFieldErrors,
-  denyWhenUnreadable,
-  gateNestedInheritedRecord,
-  gateNestedTableBinding,
-  holdsInheritedRecord,
-  resolveByMode,
-  resolveRenderPlan,
-} from './data-source-modes'
+import { checkFieldErrors, resolveByMode } from './data-source-modes'
 import { resolveIslandShortCircuit, stampNestedIslands } from './data-source-rows'
 import { drawsOwnRows, resolveRowNestedLists } from './nested-row-lists'
+import { gateNestedInheritedRecord, gateNestedTableBinding } from './nested-table-gates'
+import { denyWhenUnreadable, holdsInheritedRecord, resolveRenderPlan } from './read-plan-gates'
 import { bindRouteParams } from './route-param-binding'
 import { withSsoProviders } from './sso-provider-stamp'
 import { isDroppedWithheld, isWithheldOverUnreadableTable } from './withheld-component'
@@ -80,10 +82,14 @@ function validateDataSourcePrereqs(
  * calendar, a gallery, a chart, a timeline, a KPI), whose `dataSource.view`
  * names a view of a table that exists.
  */
+/** Whether a binding names a declared view. */
+const declaresView = (binding: ComponentField<'dataSource'> | undefined): boolean =>
+  keyOf(binding, 'view') !== undefined
+
 function readsThroughDeclaredView(component: Component, matchedTable: unknown): boolean {
   return (
     matchedTable !== undefined &&
-    component.dataSource?.view !== undefined &&
+    declaresView(componentField(component, 'dataSource')) &&
     (component.type === 'table' ||
       (component.type !== 'sheet' && isWithheldOverUnreadableTable(component)))
   )
@@ -117,7 +123,7 @@ async function resolveComponent(
   // A layout container carries no binding of its own, but may HOST one: descend
   // to stamp the island props of any data-bound descendant whose island-ness is
   // decided here rather than by its component type (a `list`, above all).
-  if (!component.dataSource) {
+  if (!componentField(component, 'dataSource')) {
     return resolveNestedSingleRecords(stampNestedIslands(component, { app, routeParams }), ctx)
   }
 
@@ -128,7 +134,7 @@ async function resolveComponent(
   const islandStamped = resolveIslandShortCircuit(component, routeParams, app)
   if (islandStamped) return islandStamped
 
-  const { table: tableName, fields: requestedFields } = component.dataSource
+  const { table: tableName, fields: requestedFields } = tableBindingOf(component)!
   const matchedTable = (app.tables ?? []).find((t) => t.name === tableName)
   // A component bound to one of its table's VIEWS reads through the view's own
   // records route, and it is that route's grant — the VIEW's, under which a
@@ -216,7 +222,10 @@ type ResolveContext = Parameters<typeof resolveComponent>[1]
  * Identity-preserving: a subtree with nothing to resolve comes back by reference.
  */
 function isResolvedHere(node: Component, routeParams: Readonly<Record<string, string>>): boolean {
-  const binding = node.dataSource as { readonly mode?: string; readonly table?: unknown }
+  const binding = componentField(node, 'dataSource') as {
+    readonly mode?: string
+    readonly table?: unknown
+  }
   return (
     (binding.mode === 'single' || binding.mode === 'search') &&
     typeof binding.table === 'string' &&
@@ -234,8 +243,8 @@ const isSentinel = (value: unknown): value is PageSentinel =>
 /** One nested child: descend a container, resolve a record, gate a grid. */
 async function resolveNestedChild(child: NestedChild, ctx: ResolveContext): Promise<NestedResult> {
   if (typeof child === 'string' || isComponentReferenceNode(child)) return child
-  const node = child as Component
-  if (!node.dataSource) return resolveNestedSingleRecords(node, ctx)
+  const node = entryAsComponent(child)
+  if (!componentField(node, 'dataSource')) return resolveNestedSingleRecords(node, ctx)
   if (isResolvedHere(node, ctx.routeParams)) return resolveComponent(node, ctx)
   // A section drawing its rows HERE from a `children` template (cards bound to
   // a table): one container down it would otherwise ship its template once,
@@ -270,9 +279,9 @@ async function resolveNestedResponsive(
   host: Component,
   ctx: ResolveContext
 ): Promise<DataSourceSectionResult> {
-  const { responsive } = host as { readonly responsive?: unknown }
+  const responsive = componentField(host, 'responsive')
   if (typeof responsive !== 'object' || responsive === null) return host
-  const entries = Object.entries(responsive as Record<string, unknown>)
+  const entries: readonly (readonly [string, unknown])[] = Object.entries(responsive)
   const variants = await Promise.all(
     entries.map(async ([, variant]) => {
       const { children } = (variant ?? {}) as { readonly children?: unknown }
@@ -288,7 +297,7 @@ async function resolveNestedResponsive(
   if (sentinel !== undefined) return sentinel
   if (variants.every((variant, index) => variant === entries[index]?.[1])) return host
   const next = Object.fromEntries(entries.map(([breakpoint], i) => [breakpoint, variants[i]]))
-  return { ...host, responsive: next } as Component
+  return rewriteComponent(host, { responsive: next })
 }
 
 /**
@@ -307,7 +316,7 @@ async function resolveNestedSingleRecords(
   const children = host.children as ReadonlyArray<NestedChild> | undefined
   const own = children && children.length > 0 ? await resolveNestedList(children, ctx) : children
   if (isSentinel(own)) return own
-  const withOwn = own === children ? host : ({ ...host, children: own } as Component)
+  const withOwn = own === children ? host : rewriteComponent(host, { children: own })
   return resolveNestedResponsive(withOwn, ctx)
 }
 

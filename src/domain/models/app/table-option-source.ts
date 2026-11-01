@@ -145,7 +145,7 @@ export const SelectOptionSourceSchema = Schema.Struct({
     Schema.Finite.pipe(
       Schema.annotate({
         description:
-          'Maximum number of options to resolve. Default 100, hard max 1000 — the list is server-rendered into the page.',
+          'Maximum number of options to resolve. Default 100, hard max 1000, because the list is server-rendered into the page.',
         examples: [50, 200],
       }),
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(1000))
@@ -210,7 +210,7 @@ export const RecordLookupDefaultSchema = Schema.Struct({
   identifier: 'RecordLookupDefault',
   title: 'Record Lookup Default',
   description:
-    'Preselects a related record by a stable attribute — the row of `lookup.table` meeting `lookup.where` — resolved on the server each time the form is served. For a relationship column only.',
+    'Preselects a related record by a stable attribute (the row of `lookup.table` meeting `lookup.where`), resolved on the server each time the form is served. For a relationship column only.',
 })
 
 export type RecordLookupDefault = Schema.Schema.Type<typeof RecordLookupDefaultSchema>

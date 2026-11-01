@@ -8,22 +8,23 @@
 Usage: sovrium admin create <email> [config] [options]
 ```
 
-Provision an admin user directly in the database. This is the bootstrap path — it needs no running server and no full config.
+Provision an admin user directly in the database. This is the bootstrap path: it needs no running server and no full config.
 
 ```bash
 sovrium admin create me@example.com                             # prompt for the password
 sovrium admin create me@example.com --password 's3cret-pass'    # CI, provisioning scripts
+printf '%s' "$ADMIN_PASSWORD" | sovrium admin create me@example.com --password-stdin
 sovrium admin create me@example.com app.yaml                    # resolve auth from a config
 sovrium admin create me@example.com --name 'Ines Moreau'        # set the display name
 ```
 
-The password is prompted for with echo disabled unless `--password` is supplied. The auth configuration is resolved in order: the config path given as the **fourth positional argument**, after the verb and the email, then `APP_SCHEMA`, then a minimal built-in default — so the bare form works with no config file at all. There is no `--config` flag, and passing one is refused before the command runs. Migrations run first, so this also works against an empty database.
+The password is prompted for with echo disabled unless `--password` or `--password-stdin` is supplied. `--password-stdin` reads it from standard input, one trailing newline dropped: prefer it in scripts, since a value given to `--password` sits on the command line, where any user of the machine can read it in the process list. An empty input, or `--password` given too, is refused with exit `1` before anything is created. The auth configuration is resolved in order: the config path given as the **fourth positional argument**, after the verb and the email, then `APP_SCHEMA`, then a minimal built-in default, so the bare form works with no config file at all. There is no `--config` flag, and passing one is refused before the command runs. Migrations run first, so this also works against an empty database.
 
 The account's display name, the one the console's users page shows, comes from `--name`, else from `AUTH_ADMIN_NAME` when it is set and not blank (the same variable the first-start bootstrap reads), else `Administrator`. The value is trimmed. A `--name` that is empty or only spaces is refused with exit `1` before anything is created: an empty flag is usually an unset shell variable, not a request for the default.
 
 Two things to know before scripting it:
 
-- **No TTY and no `--password` is an error.** In a non-interactive shell you must pass `--password`, or the command exits `1` rather than hanging on a prompt.
+- **No TTY and no password option is an error.** In a non-interactive shell you must pass `--password-stdin` or `--password`, or the command exits `1` rather than hanging on a prompt.
 - **It is idempotent.** If the email already has an account, nothing is changed, its name included.
 
 If the resolved config has no `auth` block, the command refuses and tells you to add one.
@@ -62,7 +63,7 @@ sovrium secret generate auth >> .env     # append just AUTH_SECRET
 sovrium secret generate encryption       # the encryption key only
 ```
 
-**Nothing is written to disk.** The `.env` lines go to stdout — so redirection works cleanly — and the explanatory notes go to stderr. Sovrium never silently persists a credential somewhere it might get committed.
+**Nothing is written to disk.** The `.env` lines go to stdout (so redirection works cleanly), and the explanatory notes go to stderr. Sovrium never silently persists a credential somewhere it might get committed.
 
 Neither secret has to be set. An unset `SOVRIUM_ENCRYPTION_KEY` is generated and kept in the data directory on first start, and `AUTH_SECRET` is derived from it. Generate them when you want to manage them yourself.
 
@@ -83,9 +84,9 @@ Encryption key adopted — written to /srv/app/.sovrium/encryption-key (mode 060
 
 Three outcomes, and the third is the point:
 
-- **Nothing in the environment** — refuses, naming the variable it expected. Nothing is written.
-- **The same key is already persisted** — says so and exits `0`, so a deploy script can run it on every release.
-- **A different key is already stored** — refuses and leaves the file untouched.
+- **Nothing in the environment**: refuses, naming the variable it expected. Nothing is written.
+- **The same key is already persisted**: says so and exits `0`, so a deploy script can run it on every release.
+- **A different key is already stored**: refuses and leaves the file untouched.
 
 Overwriting a different key would make everything encrypted under the stored one unreadable, and only you know which of the two is authoritative. Keep the persisted key by unsetting the variable, or delete the file first if the environment holds the key your data was actually encrypted with.
 
@@ -99,19 +100,19 @@ Usage: sovrium update [--insecure-skip-checksum]
 
 Update Sovrium to the latest release. What happens depends on how it was installed, which the command detects for you:
 
-- **binary** — self-replaces from GitHub Releases, on Unix.
-- **homebrew** — delegates to `brew upgrade sovrium/tap/sovrium`.
-- **scoop** — delegates to `scoop update sovrium`.
-- **docker** — prints the `docker pull` instruction.
-- **desktop** — declines, and points at the app that owns it.
+- **binary**: self-replaces from GitHub Releases, on Unix.
+- **homebrew**: delegates to `brew upgrade sovrium/tap/sovrium`.
+- **scoop**: delegates to `scoop update sovrium`.
+- **docker**: prints the `docker pull` instruction.
+- **desktop**: declines, and points at the app that owns it.
 
-A self-replace downloads the release archive over HTTPS and checks it against the release's published sha256 before anything is replaced. If that checksum cannot be fetched or read, or does not match, the command exits `1` and the installed binary stays as it was — run it again, and if it keeps failing, report it to security@sovrium.com rather than installing by hand.
+A self-replace downloads the release archive over HTTPS and checks it against the release's published sha256 before anything is replaced. If that checksum cannot be fetched or read, or does not match, the command exits `1` and the installed binary stays as it was. Run it again, and if it keeps failing, report it to security@sovrium.com rather than installing by hand.
 
-The checksum proves the download is intact, not who built it, because it comes from the same release page. So the command also checks the archive's Ed25519 signature, `<archive>.sig`, against the release keys built into the binary you are running. A signature that is missing, unreadable, made over other bytes, or made by a key the binary does not trust is refused the same way: exit `1`, nothing replaced. A release key is trusted from the date the binary records for it, and a new key ships in one release before releases are signed with it, so the binary you have already trusts the key that signs your next update. `--insecure-skip-checksum` installs without either check; it is announced before the download and the result says neither the checksum nor the signature was verified, so use it only when you have verified the archive some other way. The download gives up when it makes no progress for 30 seconds, and a failed or stalled download leaves the installed binary as it was. The new binary is written beside the old one and then swapped in with a single rename, so the update either completes or changes nothing. If the binary lives in a directory you cannot write to — typically one it was installed into with `sudo` — the command says so and exits `1` without touching it; run it as that directory's owner, or reinstall with the install script into a directory you own.
+The checksum proves the download is intact, not who built it, because it comes from the same release page. So the command also checks the archive's Ed25519 signature, `<archive>.sig`, against the release keys built into the binary you are running. A signature that is missing, unreadable, made over other bytes, or made by a key the binary does not trust is refused the same way: exit `1`, nothing replaced. A release key is trusted from the date the binary records for it, and a new key ships in one release before releases are signed with it, so the binary you have already trusts the key that signs your next update. `--insecure-skip-checksum` installs without either check; it is announced before the download and the result says neither the checksum nor the signature was verified, so use it only when you have verified the archive some other way. The download gives up when it makes no progress for 30 seconds, and a failed or stalled download leaves the installed binary as it was. The new binary is written beside the old one and then swapped in with a single rename, so the update either completes or changes nothing. If the binary lives in a directory you cannot write to (typically one it was installed into with `sudo`), the command says so and exits `1` without touching it; run it as that directory's owner, or reinstall with the install script into a directory you own.
 
-To find the newest release, the command asks GitHub's releases API, which allows an address 60 anonymous requests an hour — a shared office or CI address can spend them. Set `GH_TOKEN` or `GITHUB_TOKEN` (read in that order, as the `gh` CLI does) to a GitHub token and the request carries it, under the far larger authenticated quota. The token is read from the environment only, and is sent to the releases API alone, never to the host the release files come from. When the anonymous quota is spent, the command does not give up: it reads the newest version from the redirect of `github.com/sovrium/sovrium/releases/latest/download/…`, which the API quota does not count, says it did so, and verifies that release like any other. If that fails too, it stops with `GitHub API rate limit reached, resets at HH:MM`, in your local time, and replaces nothing.
+To find the newest release, the command asks GitHub's releases API, which allows an address 60 anonymous requests an hour, and a shared office or CI address can spend them. Set `GH_TOKEN` or `GITHUB_TOKEN` (read in that order, as the `gh` CLI does) to a GitHub token and the request carries it, under the far larger authenticated quota. The token is read from the environment only, and is sent to the releases API alone, never to the host the release files come from. When the anonymous quota is spent, the command does not give up: it reads the newest version from the redirect of `github.com/sovrium/sovrium/releases/latest/download/…`, which the API quota does not count, says it did so, and verifies that release like any other. If that fails too, it stops with `GitHub API rate limit reached, resets at HH:MM`, in your local time, and replaces nothing.
 
-A reply that arrives but is not a release — a captive portal's or a proxy's HTML page answered with `200`, or JSON with no release in it — is not a network failure, and the command does not call it one. It stops with `The GitHub releases API answered HTTP 200 with an unreadable reply (content type text/html; charset=utf-8). Nothing was replaced.`, naming the status and the content type it actually got, so you know to look at the proxy or sign in to the network rather than at your connection. `Could not reach the GitHub releases API` is kept for a request that got no answer at all.
+A reply that arrives but is not a release (a captive portal's or a proxy's HTML page answered with `200`, or JSON with no release in it) is not a network failure, and the command does not call it one. It stops with `The GitHub releases API answered HTTP 200 with an unreadable reply (content type text/html; charset=utf-8). Nothing was replaced.`, naming the status and the content type it actually got, so you know to look at the proxy or sign in to the network rather than at your connection. `Could not reach the GitHub releases API` is kept for a request that got no answer at all.
 
 | Variable       | Default | Description                                                                                        |
 | -------------- | ------- | -------------------------------------------------------------------------------------------------- |
@@ -120,9 +121,9 @@ A reply that arrives but is not a release — a captive portal's or a proxy's HT
 
 Delegating to Homebrew and Scoop rather than self-replacing is deliberate: it keeps the package manager's own version ledger correct. Docker containers cannot self-update, so that path prints the pull command instead.
 
-Homebrew and Scoop installs are recognised by where the binary itself lives — under Homebrew's `Cellar/sovrium/` or Scoop's `apps/sovrium/` — not by the package manager's environment variables. A binary installed with the install script therefore updates itself in place, even on a machine that also has Homebrew or Scoop.
+Homebrew and Scoop installs are recognised by where the binary itself lives (under Homebrew's `Cellar/sovrium/` or Scoop's `apps/sovrium/`), not by the package manager's environment variables. A binary installed with the install script therefore updates itself in place, even on a machine that also has Homebrew or Scoop.
 
-A container is not detected either: the official `ghcr.io/sovrium/sovrium` image declares itself by setting `SOVRIUM_INSTALL_METHOD=docker`, which is what makes it print the pull command — under Docker, Podman or Kubernetes alike. A binary installed with the install script inside a container, such as a devcontainer or a CI job, updates itself like any other. If you build your own image by copying the binary in, set `SOVRIUM_INSTALL_METHOD=docker` there too, so `sovrium update` does not try to replace a file your image owns.
+A container is not detected either: the official `ghcr.io/sovrium/sovrium` image declares itself by setting `SOVRIUM_INSTALL_METHOD=docker`, which is what makes it print the pull command under Docker, Podman or Kubernetes alike. A binary installed with the install script inside a container, such as a devcontainer or a CI job, updates itself like any other. If you build your own image by copying the binary in, set `SOVRIUM_INSTALL_METHOD=docker` there too, so `sovrium update` does not try to replace a file your image owns.
 
 Detection is overridable with `SOVRIUM_INSTALL_METHOD`, which honours those five names and ignores anything else. A raw Windows binary that Scoop does not manage is pointed at Scoop or Docker rather than attempting to overwrite a running `.exe`.
 
@@ -139,8 +140,8 @@ update check — it replaces the app and this engine together, so the two
 never end up on different versions.
 ```
 
-It replaces nothing — no download, no package manager, no rename — and it reaches neither the network nor a package manager on the way. Two updaters racing leaves a shell and a sidecar on different versions, each expecting a command surface the other does not have.
+It replaces nothing (no download, no package manager, no rename), and it reaches neither the network nor a package manager on the way. Two updaters racing leaves a shell and a sidecar on different versions, each expecting a command surface the other does not have.
 
-It exits **`0`**, exactly as the `docker` branch does. Both are the same shape of answer — _this install is managed elsewhere, and here is where_ — and both leave the system in the state you asked for. A non-zero exit would make a wrapper script treat a correct refusal as a failure, and would tell a desktop user their app is broken when it is not.
+It exits **`0`**, exactly as the `docker` branch does. Both are the same shape of answer (_this install is managed elsewhere, and here is where_), and both leave the system in the state you asked for. A non-zero exit would make a wrapper script treat a correct refusal as a failure, and would tell a desktop user their app is broken when it is not.
 
 The same marker silences the background "a newer version is available" notice: a prompt to run a command that will decline is worse than silence, and the app surfaces available updates in its own interface.

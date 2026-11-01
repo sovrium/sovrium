@@ -1,6 +1,6 @@
 # Search Components
 
-> The components that put a search box on a page — `search-input` and its two roles, the `list` result display, and the ⌘K palette.
+> The components that put a search box on a page: `search-input` and its two roles, the `list` result display, and where the ⌘K palette is documented.
 
 Tables declare what is searchable and a binding declares how a query runs (**Search Overview**). These are the components that let a visitor type one.
 
@@ -14,16 +14,16 @@ Tables declare what is searchable and a binding declares how a query runs (**Sea
 
 One component draws every search box, and what it declares says what the box searches. The two mechanisms look identical in the markup and behave nothing alike:
 
-| Declares                       | What the box searches                                                                                                                                                                             |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `publishes: { bindTo, param }` | Nothing on its own. It publishes the query on a channel, and every data component subscribed to the channel narrows its own records to what the query matches.                                    |
-| `scope: page`                  | Your pages, in its own results panel — by default the public ones through a prebuilt static index; with `index: session`, the ones the current reader may open, answered by the server per query. |
+| Declares                       | What the box searches                                                                                                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `publishes: { bindTo, param }` | Nothing on its own. It publishes the query on a channel, and every data component subscribed to the channel narrows its own records to what the query matches.                                   |
+| `scope: page`                  | Your pages, in its own results panel: by default the public ones through a prebuilt static index; with `index: session`, the ones the current reader may open, answered by the server per query. |
 
-A box must declare **exactly one** of the two. A default would hand an author who declared neither the other mechanism, silently: an input publishing to nobody, or a search box with no index behind it. Neither failure shows up as an error — the box renders, and simply never finds anything. `scope: subscribers`, where a component named the box's id in its `dataSource.bindTo`, was removed in 0.39 and is refused at load, naming `publishes`.
+A box must declare **exactly one** of the two. A default would hand an author who declared neither the other mechanism, silently: an input publishing to nobody, or a search box with no index behind it. Neither failure shows up as an error: the box renders, and simply never finds anything. `scope: subscribers`, where a component named the box's id in its `dataSource.bindTo`, was removed in 0.39 and is refused at load, naming `publishes`.
 
 A key belonging to the other role is **ignored, not rejected**: `maxResults` on a box that publishes validates and does nothing, as do `debounceMs` and `minQueryLength` under `scope: page`. The full option table sits with the rest of the content components, in **Content Components**.
 
-### `publishes` — narrowing the data components
+### `publishes`: narrowing the data components
 
 ```yaml
 name: my-app
@@ -47,11 +47,11 @@ pages:
           itemTemplate: { title: $record.name, subtitle: $record.description }
 ```
 
-`bindTo` names a channel, not a component: every data component subscribed to `products` narrows to the records the records API's `?q=` matches, combined with every other control publishing on the same channel. A data component draws no search box of its own — a `search` key on one is refused at load — so the box above a grid, a board or a list is always a `search-input`; the library block `block/data-table-toolbar` places one with a facet, a filter bar, Export and New.
+`bindTo` names a channel, not a component: every data component subscribed to `products` narrows to the records the records API's `?q=` matches, combined with every other control publishing on the same channel. A data component draws no search box of its own (a `search` key on one is refused at load), so the box above a grid, a board or a list is always a `search-input`; the library block `block/data-table-toolbar` places one with a facet, a filter bar, Export and New.
 
 `debounceMs` and `minQueryLength` describe the query stream the box publishes, so declaring them once governs every component on the channel. Below `minQueryLength` the subscribers show their unfiltered rows rather than freezing on the last query, and clearing the box always restores them.
 
-### `scope: page` — the static public-page index
+### The static public-page index: `scope: page`
 
 ```yaml
 name: my-app
@@ -65,17 +65,17 @@ pages:
         maxResults: 10
 ```
 
-**The scope is the switch.** The moment a `search-input` with `scope: page` appears anywhere in the page tree — including a breakpoint's `responsive.<bp>.children` and inside a shared component a page places — `sovrium build` and `sovrium start` emit the index; no environment variable and no top-level configuration is involved. A box that publishes builds nothing, so an app full of search boxes over its data pays no index cost.
+**The scope is the switch.** The moment a `search-input` with `scope: page` appears anywhere in the page tree (including a breakpoint's `responsive.<bp>.children` and inside a shared component a page places), `sovrium build` and `sovrium start` emit the index; no environment variable and no top-level configuration is involved. A box that publishes builds nothing, so an app full of search boxes over its data pays no index cost.
 
 What gets emitted is a JSON index and a small runtime the box queries in the browser, served at `/sovrium-search/index.json` and `/sovrium-search/runtime.js`. `sovrium build` writes them under `<outputDir>/sovrium-search/`, as part of the site it produces. `sovrium start` writes them under the data directory (`SOVRIUM_DATA_DIR`), beside the database, and serves them from there: starting an app never writes into its own folder, so `public/` holds only what you put in it. The index is TF-IDF over each page's text, with a double weight for words that also appear in the page title, and it carries a short excerpt per page.
 
 What gets indexed is narrower than "every page", in three ways worth knowing before you rely on it:
 
-- **Public pages only** — `access` omitted or `access: 'all'` — for the static index; see `index: session`. A page gated by `access: 'authenticated'`, by a role array or by a `require` rule is absent from the index, and `sovrium build` emits no static HTML for it either.
+- **Public pages only** (`access` omitted or `access: 'all'`) for the static index; see `index: session`. A page gated by `access: 'authenticated'`, by a role array or by a `require` rule is absent from the index, and `sovrium build` emits no static HTML for it either.
 - **No underscore paths.** A path beginning `/_` stays out, on the same convention that keeps it out of the static build.
 - **No chrome.** Only the page's `<main>` region is read, so a word from your header, nav or footer does not match on every page at once, and each excerpt is about the page rather than about the layout.
 
-### `index: session` — the pages this reader may open
+### The pages this reader may open: `index: session`
 
 A box with `index: session` does not read the static file. Each query goes to `GET /api/search/pages?q=`, and the server answers with the pages the reader may open: public pages for a visitor who is not signed in, plus the gated pages and `contentDir` articles their role allows once they are. A page whose title holds the words is listed before one that only mentions them, whatever the collection order, and an article gated by the `access` in its own front matter is found only by the roles it names. The static index is untouched and stays public-only, so a public box and a session box can sit on the same site. An omitted `index` means `public`: forgetting the key gives a box that searches less than you meant, never more.
 
@@ -96,7 +96,7 @@ pages:
 
 The server searches the text you wrote: each page's title and its text components, and each article's title and markdown, indexed on its first 16 KB. It never indexes a value rendered from a record, nor a part of a page bound to data or shown under `visibility`, so a reader cannot find a word they could not have read on the page. A component placed by reference contributes no text either. An article is found by whoever may open the page that publishes it, and a page embedding a form the reader may not use is left out, as the router refuses to open it for them. Answers carry at most ten results and `Cache-Control: private`, because they depend on who asks.
 
-## `list` — the result display
+## `list`: the result display
 
 `list` is designed as a search-first display and is the natural companion for a subscriber-scoped input: one item template per record, optional highlighting of the matched terms, dividers, and a load-more control.
 
@@ -139,82 +139,17 @@ pages:
 
 `highlight` wraps matched terms in the rendered item text and is off by default.
 
-A reader who may not read a field the list names searches and sees the list without it: a `searchFields` entry on that field is not searched, and an `itemTemplate` slot — `subtitle`, `badge` or any other — whose `$record.*` names it is left out. The page does not name the field.
+A reader who may not read a field the list names searches and sees the list without it: a `searchFields` entry on that field is not searched, and an `itemTemplate` slot (`subtitle`, `badge` or any other) whose `$record.*` names it is left out. The page does not name the field.
 
 ## The ⌘K palette
 
-Sovrium appends its own command palette to every page and binds ⌘K / Ctrl+K to it. You get it for nothing — no configuration at all — and it searches every table you may read, plus your own pages. **Search Overview** has what it returns and who sees what.
-
-Every palette shows the keys that drive it in a footer under its list — ↑ ↓ to move, ↵ to open, Esc to close — in the page language (« naviguer », « ouvrir », « fermer » in French; renamed under `sovrium.commandPalette.hintNavigate`, `hintOpen` and `hintClose`).
-
-Its « create a record » dialogs offer a table's text fields, and only those its reader may read: a field the reader's role may not read is not named in the page at all.
-
-### Switching it off app-wide
-
-That becomes a problem exactly once: when your app ships its own ⌘K overlay, because both open on the same keystroke.
-
-<!-- sovrium:options PaletteSchema -->
-
-```yaml
-name: my-app
-palette: { enabled: false }
-```
-
-With `enabled: false` no palette is rendered and no global keybinding is registered, leaving the keystroke free. Leave the block out entirely unless you are opting out.
-
-### Placing one yourself
-
-Appending it everywhere and switching it off app-wide are two coarse states, and neither can say _the palette on this page searches my endpoint_. Declaring a `command` component is the third: a page carrying one keeps exactly that palette, and the engine appends nothing on top — two palettes on one keystroke open two overlays.
-
-It renders no visible markup. The overlay is built in the browser on the first ⌘K and cached, so the page carries only a configuration block and its runtime.
-
-<!-- sovrium:options CommandPaletteSearchSchema -->
-
-```yaml
-name: my-app
-pages:
-  - name: Shell
-    path: /
-    components:
-      - type: command
-        search:
-          endpoint: /api/my-search
-          placeholder: Search everything
-          kindLabels: { record: Records, form: Forms }
-```
-
-Omit `search` and you get the built-in quick actions — go to a page, create a record, toggle dark mode — placed where you put the component rather than appended. Declaring `search` **replaces** them: a mode, not an addition, for the same one-keystroke reason.
-
-The endpoint is one you write. The value must be a path on this instance: anything not starting with `/` is refused, so `sovrium validate` catches a cross-origin value offline instead of the palette querying somewhere else at runtime. It is **not** the engine's own `/api/command-search`, whose response is a different shape.
-
-The palette appends `?q=<term>` (or `&q=` when your path already carries a query string), sends the request with credentials, and expects results **already grouped**:
-
-```json
-{
-  "query": "acme",
-  "groups": [
-    {
-      "type": "record",
-      "results": [
-        {
-          "type": "record",
-          "entityId": "42",
-          "title": "Acme Corp",
-          "href": "/customers/42",
-          "updatedAt": "2026-09-23T08:00:00.000Z"
-        }
-      ]
-    }
-  ]
-}
-```
-
-`title` is the row's text, `href` is where selecting it navigates, and `type` plus `entityId` identify the row. `kindLabels` turns a GROUP's `type` into its heading, so the list reads as nouns rather than tokens. A `type` the map does not name prints as itself, except the kinds the operator console's own search returns — `record`, `submission`, `run`, `user`, `file`, `conversation`, `connection` — which are headed in the page language, as is the kind word beside each of their rows. A `record` row whose `href` points into one of your tables (`…/tables/<name>?record=…`) prints that table's plural label before its title — `Client companies · Heartgold Industries` — so two records of two tables never read alike; every other row carries its kind beside it. Two rows may share an `entityId`: each is told apart by its `href`. On a page with no SPA navigation, selecting a row loads its `href` as a link would. Anything that is not a `200` carrying this shape renders the no-results state — the palette never reports a fetch error to the visitor.
+Sovrium appends a command palette to every page and binds ⌘K / Ctrl+K to it, with no configuration. Switching it off app-wide with `palette`, and placing one yourself with a `command` component that searches your own endpoint, are both in **Command Palette**.
 
 ## Related reading
 
-- **Search Overview** — the four mechanisms and which one a configuration reaches.
-- **Full-Text Search** — `indexed` and `fullTextSearch` on a field.
-- **Content Components** — the `search-input` option table.
-- **Data Tables** — the grid, its columns and the controls composed above it.
-- **Data Components** — every component a `dataSource` can drive.
+- **Search Overview**: the four mechanisms and which one a configuration reaches.
+- **Command Palette**: the ⌘K overlay, switching it off, and placing your own.
+- **Full-Text Search**: `indexed` and `fullTextSearch` on a field.
+- **Content Components**: the `search-input` option table.
+- **Data Tables**: the grid, its columns and the controls composed above it.
+- **Data Components**: every component a `dataSource` can drive.

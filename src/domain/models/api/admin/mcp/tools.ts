@@ -48,7 +48,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 /**
  * Which family a tool belongs to.
@@ -73,7 +73,7 @@ export const mcpToolCategorySchema = Schema.Literals([
 ]).annotate({
   identifier: 'McpToolCategory',
   description:
-    "Which family the tool belongs to: a table, an action template or a manual automation — the three a config exposes — or `admin`, the read tools mirroring the admin API that an admin credential is offered. `admin` rows are listed only when that category is requested. A discriminant — the heading a reader sees is the console's own copy.",
+    "Which family the tool belongs to: a table, an action template or a manual automation (the three a config exposes), or `admin`, the read tools mirroring the admin API that an admin credential is offered. `admin` rows are listed only when that category is requested. A discriminant: the heading a reader sees is the console's own copy.",
 })
 
 /** @public */
@@ -97,7 +97,7 @@ export const mcpToolListingSchema = Schema.Struct({
   category: mcpToolCategorySchema,
   description: Schema.String.annotate({
     description:
-      "The tool's own one-line description, from the shared builders the wire-format compiler also calls — the same string an AI client receives. Platform-published data about the tool, not console copy.",
+      "The tool's own one-line description, from the shared builders the wire-format compiler also calls: the same string an AI client receives. Platform-published data about the tool, not console copy.",
   }),
 }).annotate({ identifier: 'McpToolListing' })
 
@@ -118,11 +118,11 @@ export type McpToolListing = typeof mcpToolListingSchema.Type
 export const mcpToolsResponseSchema = Schema.Struct({
   tools: Schema.Array(mcpToolListingSchema).annotate({
     description:
-      'The exposed tools, in catalogue order (tables, then actions, then automations). Empty when the config exposes none — which is the DEFAULT posture, since nothing is exposed without an explicit `aiAccess`. The admin read tools appear only under `?category=admin`.',
+      'The exposed tools, in catalogue order (tables, then actions, then automations). Empty when the config exposes none, which is the DEFAULT posture, since nothing is exposed without an explicit `aiAccess`. The admin read tools appear only under `?category=admin`.',
   }),
   total: Schema.Finite.annotate({
     description:
-      'How many tools match this request — narrowed by `category` when the param is present, the whole catalogue otherwise.',
+      'How many tools match this request, narrowed by `category` when the param is present, the whole catalogue otherwise.',
   }),
 }).annotate({ identifier: 'McpToolsResponse' })
 

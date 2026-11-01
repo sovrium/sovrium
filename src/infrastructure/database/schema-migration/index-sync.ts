@@ -116,10 +116,16 @@ export const syncIndexes = (
     // path hands `generateIndexStatements` (see `applyTableFeatures`), so an
     // index on a view-backed table lands on `<name>_base` under the name it
     // was first created with.
-    const createStatements = generateIndexStatements({ ...table, name: physicalTableName })
+    const createStatements = generateIndexStatements(
+      { ...table, name: physicalTableName },
+      tx.dialect
+    )
 
     // A long-text field no longer declared `fullTextSearch` loses its index.
-    const wordSearchDrops = generateWordSearchIndexDrops({ ...table, name: physicalTableName })
+    const wordSearchDrops = generateWordSearchIndexDrops(
+      { ...table, name: physicalTableName },
+      tx.dialect
+    )
 
     // Execute drop statements first, then create statements
     yield* executeSQLStatements(tx, [...dropStatements, ...wordSearchDrops, ...createStatements])

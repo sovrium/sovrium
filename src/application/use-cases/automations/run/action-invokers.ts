@@ -84,6 +84,7 @@ const dispatchedContext = (
 ): Pick<
   ActionRunContext,
   | 'envLookup'
+  | 'env'
   | 'templates'
   | 'invokeTemplate'
   | 'invokeNativeAction'
@@ -92,6 +93,7 @@ const dispatchedContext = (
   | 'recordEvents'
 > => ({
   envLookup: ctx.envLookup,
+  env: ctx.processEnv,
   templates: ctx.templates,
   invokeTemplate: buildTemplateInvoker(ctx, acc, invocationStack, scope),
   invokeNativeAction: buildNativeActionInvoker(ctx, acc, invocationStack, scope),

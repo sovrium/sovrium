@@ -7,12 +7,12 @@
 
 import { Effect } from 'effect'
 import { DatabaseError } from '@/infrastructure/database'
-import { db } from '@/infrastructure/database/drizzle'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
 import { activeCommentById } from './comment-query-predicates'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
@@ -23,10 +23,13 @@ type CommentStatus = 'approved' | 'pending' | 'rejected'
  * Get comment by ID for authorization check: who wrote it, where, and its
  * moderation status — what a delete decides on and announces.
  */
-export function getCommentForAuth(config: {
-  readonly session: Readonly<Session>
-  readonly commentId: string
-}): Effect.Effect<
+export function getCommentForAuth(
+  db: PortableDb,
+  config: {
+    readonly session: Readonly<Session>
+    readonly commentId: string
+  }
+): Effect.Effect<
   | {
       readonly id: string
       readonly userId: string | null

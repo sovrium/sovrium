@@ -35,7 +35,7 @@ forms:
 
 ## Order comes from the groups
 
-Once `fieldGroups` exists it drives the layout: sections render in array order, and each field renders in the position its group gives it. Grouping can therefore reorder a form without touching the `fields` array — that array keeps defining _what_ the fields are, and the groups define _where_ they appear.
+Once `fieldGroups` exists it drives the layout: sections render in array order, and each field renders in the position its group gives it. Grouping can therefore reorder a form without touching the `fields` array. That array keeps defining _what_ the fields are, and the groups define _where_ they appear.
 
 A field you never list still renders. It falls through to the bottom, after every section, in source order. Grouping half a form is valid: the named fields get headings, and the rest trail behind as an unlabelled block.
 
@@ -54,7 +54,7 @@ The rule is evaluated server-side. On first render there are no answers yet, so 
 
 ### A hidden section drops its values
 
-When a group's condition is false at submit time, every field under it is **stripped from the payload** before the table write and the ledger write. A value the submitter typed while the section was open — and then hid again by changing the trigger — is not persisted.
+When a group's condition is false at submit time, every field under it is **stripped from the payload** before the table write and the ledger write. A value the submitter typed while the section was open, and then hid again by changing the trigger, is not persisted.
 
 Never put a field you always need inside a conditional group. The rule is not "skip validation"; it is "this section was not part of the form".
 

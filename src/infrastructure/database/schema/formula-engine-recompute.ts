@@ -28,6 +28,7 @@ import {
 import { getStoredFormulaEngineVersion } from './migration-audit-trail'
 import type { TableChange } from './schema-dry-run'
 import type { Table } from '@/domain/models/app/tables'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Whether the stored formula values were computed by an older engine: a
@@ -64,8 +65,11 @@ export const storedFormulaEngineCurrent = (row: StoredChecksumRow): boolean => {
 }
 
 /** The tables whose rows hold a trigger-computed formula to recompute. */
-export const tablesWithStoredFormulas = (tables: readonly Table[]): readonly Table[] =>
-  tables.filter((table) => triggerFormulaBackfillStatements(table).length > 0)
+export const tablesWithStoredFormulas = (
+  tables: readonly Table[],
+  dialect: DatabaseDialect
+): readonly Table[] =>
+  tables.filter((table) => triggerFormulaBackfillStatements(table, dialect).length > 0)
 
 /**
  * Recompute every trigger-computed formula of every existing table, once, when
@@ -79,7 +83,7 @@ export const recomputeFormulasForOlderEngine = (
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     if (!(yield* formulaEngineOutdated(tx))) return
-    const targets = yield* Effect.filter(tablesWithStoredFormulas(tables), (table) =>
+    const targets = yield* Effect.filter(tablesWithStoredFormulas(tables, tx.dialect), (table) =>
       tableExists(tx, getPhysicalTableName(table))
     )
     logDebug('[schema] an older formula engine stored the formula values — recomputing', {
@@ -105,7 +109,7 @@ export const planFormulaRecomputes = (
     // effect-swallow: an unreadable stamp is the state before the column's migration, which leaves `0` — older than this binary — so "recompute" is the faithful plan, not a hidden failure.
     const outdated = yield* formulaEngineOutdated(tx).pipe(Effect.orElseSucceed(() => true))
     if (!outdated) return []
-    const existing = yield* Effect.filter(tablesWithStoredFormulas(tables), (table) =>
+    const existing = yield* Effect.filter(tablesWithStoredFormulas(tables, tx.dialect), (table) =>
       tableExists(tx, getPhysicalTableName(table)).pipe(
         // effect-swallow: a table whose existence cannot be read is left out of this report line only; its create or alter line already says what the plan knows about it.
         Effect.orElseSucceed(() => false)
@@ -115,7 +119,7 @@ export const planFormulaRecomputes = (
       table: table.name,
       relation: getPhysicalTableName(table),
       kind: 'recompute',
-      statements: triggerFormulaBackfillStatements(table),
+      statements: triggerFormulaBackfillStatements(table, tx.dialect),
       unsimulated: false,
       refusals: [],
     }))

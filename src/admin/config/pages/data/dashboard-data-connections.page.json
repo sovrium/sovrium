@@ -266,7 +266,13 @@
                       "url": "/api/admin/connections/$record.id/disconnect",
                       "method": "POST"
                     },
-                    "confirm": "$t:admin.connections.action.disconnectConfirm",
+                    "confirm": {
+                      "title": "$t:admin.connections.action.disconnectConfirm",
+                      "message": "$t:admin.connections.action.disconnectMessage",
+                      "role": "alertdialog",
+                      "confirmLabel": "$t:admin.connections.action.disconnect",
+                      "cancelLabel": "$t:admin.common.cancel"
+                    },
                     "visibleWhen": {
                       "field": "rowAction",
                       "in": ["disconnect", "reconnect"]
@@ -278,7 +284,11 @@
             ],
             "emptyMessage": "$t:admin.connections.empty",
             "noMatchMessage": "$t:admin.connections.noMatch",
-            "viewOptions": "toolbar"
+            "viewOptions": "toolbar",
+            "countLabel": {
+              "one": "$t:admin.count.connections.one",
+              "other": "$t:admin.count.connections.other"
+            }
           }
         }
       ]

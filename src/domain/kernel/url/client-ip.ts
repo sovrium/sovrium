@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { blankToUndefined } from '@/domain/kernel/config-parsing/blank-text'
+
 /**
  * Client-IP resolution — the single rule every rate limiter, spam guard and
  * abuse counter keys on.
@@ -56,11 +58,6 @@ export const parseForwardedForChain = (header: string | undefined): readonly str
         .split(',')
         .map((entry) => entry.trim())
         .filter((entry) => entry !== '')
-
-const presentOrUndefined = (value: string | undefined): string | undefined => {
-  const trimmed = value?.trim()
-  return trimmed === undefined || trimmed === '' ? undefined : trimmed
-}
 
 /**
  * The address a forwarding header may be believed to carry, or `undefined` when
@@ -115,10 +112,10 @@ export const resolveTrustedForwardedIp = (input: {
   const hopCounted = chain[chain.length - input.trustedProxyHops]
   if (hopCounted !== undefined) return hopCounted
 
-  const cloudflare = presentOrUndefined(input.cfConnectingIp)
+  const cloudflare = blankToUndefined(input.cfConnectingIp)
   if (cloudflare !== undefined) return cloudflare
 
-  return presentOrUndefined(input.realIp)
+  return blankToUndefined(input.realIp)
 }
 
 /**
@@ -129,7 +126,7 @@ export const resolveTrustedForwardedIp = (input: {
  * never be skipped for want of an address.
  */
 export const resolveClientIp = (input: ClientIpInput): string =>
-  resolveTrustedForwardedIp(input) ?? presentOrUndefined(input.socketPeer) ?? CLIENT_IP_FALLBACK
+  resolveTrustedForwardedIp(input) ?? blankToUndefined(input.socketPeer) ?? CLIENT_IP_FALLBACK
 
 /**
  * True when the caller presented a forwarding header that this deployment is
@@ -144,6 +141,6 @@ export const hasUntrustedForwardingHeader = (input: {
   readonly trustedProxyHops: number
 }): boolean =>
   input.trustedProxyHops <= 0 &&
-  (presentOrUndefined(input.forwardedFor) !== undefined ||
-    presentOrUndefined(input.realIp) !== undefined ||
-    presentOrUndefined(input.cfConnectingIp) !== undefined)
+  (blankToUndefined(input.forwardedFor) !== undefined ||
+    blankToUndefined(input.realIp) !== undefined ||
+    blankToUndefined(input.cfConnectingIp) !== undefined)

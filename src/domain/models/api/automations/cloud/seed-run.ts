@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import {
   INSTANCE_SEED_MODES,
   INSTANCE_SEED_TABLE_PATTERN,
@@ -226,7 +226,7 @@ export const seedReportSchema = Schema.Struct({
   }),
   lines: Schema.Array(Schema.String.annotate({ description: 'One line of the report' })).annotate({
     description:
-      'The report exactly as `sovrium seed` prints it, one entry per line — accounts first, then one line per table',
+      'The report exactly as `sovrium seed` prints it, one entry per line: accounts first, then one line per table',
   }),
   revision: optionalField(
     Schema.String.annotate({
@@ -256,7 +256,7 @@ export const seedRunRecordFieldsSchema = Schema.Struct({
   error: optionalField(
     Schema.NullOr(Schema.String).annotate({
       description:
-        "Why a 'failed' run stopped — the seeder's own refusal (for example an upsert with no merge key), or the end of the host's journal — printed as is; null or absent otherwise",
+        "Why a 'failed' run stopped: the seeder's own refusal (for example an upsert with no merge key) or the end of the host's journal, printed as is; null or absent otherwise",
     })
   ),
   backup_key: optionalField(

@@ -6,19 +6,15 @@
  */
 
 import { Effect } from 'effect'
+import {
+  authorizeCreate,
+  judgeTableGrant,
+} from '@/application/use-cases/tables/permissions/authorize-record-verbs'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
-import {
-  hasCreatePermissionForRoles,
-  hasReadPermissionForRoles,
-} from '@/domain/models/app/auth/permission-evaluator-service'
-import { createAllowed } from '@/domain/models/app/tables/row-level-write-decision-service'
-import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { refuseUnlistedRow } from './readable-table-gate'
-import { fieldConditionLock } from './record-update-guards'
 import { checkTableUpdatePermissionWithRole } from './record-update-permissions'
-import { forbiddenCreateResponse, forbiddenCreateScopeResponse } from './response-helpers'
 import {
-  passesTableRoleGate,
+  createVerdictResponse,
   type RowLevelGuardContext,
   formMutationGate,
   guardForTable,
@@ -26,32 +22,8 @@ import {
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
-import type {
-  TableGateScope,
-  hasCreatePermission,
-  hasReadPermission,
-} from '@/domain/models/app/auth/permission-evaluator-service'
 import type { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import type { Context } from 'hono'
-
-/**
- * Check create permission for table and user role
- * Returns error response if permission denied, undefined otherwise
- */
-function checkCreatePermission(
-  table: Parameters<typeof hasCreatePermission>[0],
-  effectiveRoles: readonly string[],
-  c: Context,
-  allTables?: TableGateScope
-) {
-  if (hasCreatePermissionForRoles(table, effectiveRoles, allTables)) return undefined
-  // Enumeration protection: users without read access get 404 (prevents resource discovery)
-  const readTable = table as Parameters<typeof hasReadPermission>[0]
-  if (!hasReadPermissionForRoles(readTable, effectiveRoles, allTables)) {
-    return notFound(c)
-  }
-  return forbiddenCreateResponse(c)
-}
 
 interface CreateGateInput {
   readonly c: Context
@@ -64,25 +36,26 @@ interface CreateGateInput {
 }
 
 /**
- * Z-3 create role gate. Returns 404/403/undefined depending on permissions.
+ * The create gate: the create verdict, mapped to 404 (no read access — the
+ * table is not disclosed), the create refusal, or `undefined`. A table with
+ * row-level rules judges the caller's effective roles (assignment roles
+ * included); one without judges her account role and groups. The proposed row
+ * is judged later, once validated ({@link checkCreatePredicate}).
  */
 export function checkCreateGate(input: CreateGateInput): Response | undefined {
   const { c, app, table, userRole, userGroups, guard } = input
-  if (!guard) {
-    const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
-    return checkCreatePermission(table, effectiveRoles, c, app)
+  const caller = guard ?? {
+    effectiveRoles: buildEffectiveRoles(userRole, userGroups),
+    allTables: app,
+    signedOut: false,
   }
-  if (passesTableRoleGate(table, 'create', guard)) return undefined
-  // Lack of read access collapses to 404 (enumeration safety).
-  if (!passesTableRoleGate(table, 'read', guard)) {
-    return notFound(c)
-  }
-  return forbiddenCreateResponse(c)
+  return createVerdictResponse(c, judgeTableGrant(table, 'create', caller))
 }
 
 /**
- * Z-3 create.when predicate check. The user's proposed row must satisfy
- * the predicate; out-of-scope creates return 403.
+ * The `create.when` check on the validated row: the create verdict for that
+ * row, asked after {@link checkCreateGate} admitted the caller. An
+ * out-of-scope create answers 404.
  */
 export function checkCreatePredicate(
   c: Context,
@@ -91,10 +64,7 @@ export function checkCreatePredicate(
   fields: Readonly<Record<string, unknown>>
 ): Response | undefined {
   if (!guard || !table?.rowLevelPermissions) return undefined
-  if (createAllowed(table, fields, guard.current)) {
-    return undefined
-  }
-  return forbiddenCreateScopeResponse(c)
+  return createVerdictResponse(c, Effect.runSync(authorizeCreate(table, guard, [fields])))
 }
 
 interface UpdateGateInput {
@@ -151,25 +121,21 @@ const updateGateAndPredicate = (
 }
 
 /**
- * Run all pre-mutation update gates in order: the Z-3 role/predicate gate
- * then the field-`condition` read-only lock. Resolves the first failing
- * response, or `undefined` when the update may proceed.
+ * Run all pre-mutation update gates in order: the Z-3 role/predicate gate,
+ * then the check that her list of the table admits the record. Resolves the
+ * first failing response, or `undefined` when the update may proceed. The
+ * table's business rules are judged later, by the update itself
+ * (`business-rule-gate.ts`).
  */
 export const updateGates = (
   input: UpdateGateInput
 ): Effect.Effect<Response | undefined, never, TableRepository | DataSourceRepository> => {
-  const { c, app, table, session, tableName, recordId } = input
+  const { c, app, recordId } = input
   return Effect.filterOrElse(
     updateGateAndPredicate(input),
     (refusal) => refusal !== undefined,
-    () =>
-      Effect.filterOrElse(
-        // A record her list of the table does not admit is a missing one.
-        refuseUnlistedRow(c, app, recordId),
-        (refusal) => refusal !== undefined,
-        // Reject updates to records locked by a field `condition` (readOnly: true).
-        () => fieldConditionLock({ c, table, session, tableName, recordId })
-      )
+    // A record her list of the table does not admit is a missing one.
+    () => refuseUnlistedRow(c, app, recordId)
   )
 }
 

@@ -6,14 +6,14 @@
  */
 
 import { gte, sql } from 'drizzle-orm'
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import {
   UsersOverviewRepository,
   UsersOverviewDatabaseError,
 } from '@/application/ports/repositories/tables/users-overview-repository'
 import { listPendingInvitations } from '@/infrastructure/auth/better-auth/invitation-queries'
-import { db } from '@/infrastructure/database'
 import { authSessionsTable, authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { notAnAgentAccount } from '@/infrastructure/database/sql/auth-user-predicates'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
@@ -29,61 +29,68 @@ const wrap = makeDbWrap((error) => new UsersOverviewDatabaseError({ cause: error
  * and `auth_user` on SQLite, so capturing the dialect-correct object per call is
  * what keeps each query targeting a table that actually exists.
  */
-export const UsersOverviewRepositoryLive = Layer.succeed(UsersOverviewRepository, {
-  listUserRows: wrap(async () => {
-    // One full scan of auth.user id + role + created_at. The auth.user table is
-    // small (operators in the hundreds, not millions) so a per-row scan is
-    // cheaper than three separate GROUP BY queries and keeps the
-    // dialect-agnostic call site simple.
-    //
-    // Agent-mirrored accounts are excluded on the same predicate the sibling
-    // DIRECTORY read uses. Filtering only one of the two would be worse than
-    // filtering neither: the operator would read a total on the tile that does
-    // not match the number of rows in the list directly beneath it, and the
-    // discrepancy would silently equal the agent count.
-    const usersTable = authUsersTable()
-    return (await db
-      .select({ id: usersTable.id, role: usersTable.role, createdAt: usersTable.createdAt })
-      .from(usersTable)
-      .where(notAnAgentAccount(usersTable.email))) as ReadonlyArray<{
-      id: string
-      role: string | null
-      createdAt: Date | string | number
-    }>
-  }),
+export const UsersOverviewRepositoryLive = Layer.effect(
+  UsersOverviewRepository,
+  Effect.map(Database, ({ client: db }) =>
+    UsersOverviewRepository.of({
+      listUserRows: wrap(async () => {
+        // One full scan of auth.user id + role + created_at. The auth.user table is
+        // small (operators in the hundreds, not millions) so a per-row scan is
+        // cheaper than three separate GROUP BY queries and keeps the
+        // dialect-agnostic call site simple.
+        //
+        // Agent-mirrored accounts are excluded on the same predicate the sibling
+        // DIRECTORY read uses. Filtering only one of the two would be worse than
+        // filtering neither: the operator would read a total on the tile that does
+        // not match the number of rows in the list directly beneath it, and the
+        // discrepancy would silently equal the agent count.
+        const usersTable = authUsersTable()
+        return (await db
+          .select({ id: usersTable.id, role: usersTable.role, createdAt: usersTable.createdAt })
+          .from(usersTable)
+          .where(notAnAgentAccount(usersTable.email))) as ReadonlyArray<{
+          id: string
+          role: string | null
+          createdAt: Date | string | number
+        }>
+      }),
 
-  // Delegates to the invitation query module rather than re-spelling the
-  // SELECT: the identifier prefix and the two `value` encodings an invitation
-  // row can carry are one contract, decoded in one place. An accepted
-  // invitation's row is deleted, so every row read here is unaccepted.
-  listPendingInviteeIds: wrap(async () => {
-    const pending = await listPendingInvitations()
-    return [...new Set(pending.map((invitation) => invitation.userId))]
-  }),
+      // Delegates to the invitation query module rather than re-spelling the
+      // SELECT: the identifier prefix and the two `value` encodings an invitation
+      // row can carry are one contract, decoded in one place. An accepted
+      // invitation's row is deleted, so every row read here is unaccepted.
+      listPendingInviteeIds: wrap(async () => {
+        const pending = await listPendingInvitations(db)
+        return [...new Set(pending.map((invitation) => invitation.userId))]
+      }),
 
-  countActiveUsersSince: (since) =>
-    wrap(async () => {
-      // active_24h — distinct user_id from auth.session rows in the window. Use
-      // a COUNT(DISTINCT user_id) so the result is a single integer per dialect;
-      // falls back gracefully to 0 when no sessions exist.
-      const sessionsTable = authSessionsTable()
-      const rows = (await db
-        .select({ count: sql<number>`COUNT(DISTINCT ${sessionsTable.userId})` })
-        .from(sessionsTable)
-        .where(gte(sessionsTable.createdAt, since))) as ReadonlyArray<{ count: number | string }>
-      const raw = rows[0]?.count ?? 0
-      return typeof raw === 'number' ? raw : Number.parseInt(String(raw), 10) || 0
-    }),
+      countActiveUsersSince: (since) =>
+        wrap(async () => {
+          // active_24h — distinct user_id from auth.session rows in the window. Use
+          // a COUNT(DISTINCT user_id) so the result is a single integer per dialect;
+          // falls back gracefully to 0 when no sessions exist.
+          const sessionsTable = authSessionsTable()
+          const rows = (await db
+            .select({ count: sql<number>`COUNT(DISTINCT ${sessionsTable.userId})` })
+            .from(sessionsTable)
+            .where(gte(sessionsTable.createdAt, since))) as ReadonlyArray<{
+            count: number | string
+          }>
+          const raw = rows[0]?.count ?? 0
+          return typeof raw === 'number' ? raw : Number.parseInt(String(raw), 10) || 0
+        }),
 
-  listSessionRowsSince: (since) =>
-    wrap(async () => {
-      // sessions_started source — fetch the createdAt list scoped to the window.
-      const sessionsTable = authSessionsTable()
-      return (await db
-        .select({ createdAt: sessionsTable.createdAt })
-        .from(sessionsTable)
-        .where(gte(sessionsTable.createdAt, since))) as ReadonlyArray<{
-        createdAt: Date | string | number
-      }>
-    }),
-})
+      listSessionRowsSince: (since) =>
+        wrap(async () => {
+          // sessions_started source — fetch the createdAt list scoped to the window.
+          const sessionsTable = authSessionsTable()
+          return (await db
+            .select({ createdAt: sessionsTable.createdAt })
+            .from(sessionsTable)
+            .where(gte(sessionsTable.createdAt, since))) as ReadonlyArray<{
+            createdAt: Date | string | number
+          }>
+        }),
+    })
+  )
+)

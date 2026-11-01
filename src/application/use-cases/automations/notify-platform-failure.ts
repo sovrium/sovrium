@@ -36,8 +36,11 @@
  *     (`send-failure-rollup.ts`), so an automation failing every minute sends
  *     one email, then one summary an hour — not sixty. The rule is read from
  *     the run history itself, so the roll-up recomputes it without anything
- *     being recorded here. An interrupted run is always emailed at once: it is
- *     the server's event, not the automation's.
+ *     being recorded here — except for a failure the history did not record
+ *     (a database refusing writes), which the server's in-memory hold-back
+ *     counts instead. Runs a restart interrupted are not alerted here: the
+ *     sweep that closes them sends one email for the whole restart
+ *     (`reap-interrupted-runs.ts`).
  *
  * Failures inside this helper are swallowed and logged: a broken email path
  * MUST NOT re-fail the already-failed run (that would mask the real automation
@@ -46,10 +49,8 @@
 
 import { Effect } from 'effect'
 import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
-import {
-  FAILURE_ALERT_WINDOW_MS,
-  qualifiesForImmediateAlert,
-} from '@/domain/models/app/automations/automation-run-outcome-service'
+import { FailureAlertHoldBack } from '@/application/ports/services/failure-alert-hold-back'
+import { FAILURE_ALERT_WINDOW_MS } from '@/domain/models/app/automations/automation-run-outcome-service'
 import { summariseRunError } from '@/domain/models/app/automations/failure-summary-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { deliverAutomationNotice, type AutomationNoticeContent } from './automation-notice'
@@ -58,12 +59,11 @@ import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { App } from '@/domain/models/app'
 
 /**
- * How the run ended. A timed-out run is told as such, not as a generic failure;
- * an interrupted run is one the server stopped under, closed at the next boot.
+ * How the run ended. A timed-out run is told as such, not as a generic failure.
  * `exhausted` is a failure after a retry policy spent every attempt it allowed,
  * and is the only kind whose alert mentions retries.
  */
-export type PlatformFailureKind = 'failed' | 'exhausted' | 'timed-out' | 'interrupted'
+export type PlatformFailureKind = 'failed' | 'exhausted' | 'timed-out'
 
 interface NotifyPlatformFailureInput {
   readonly app: App
@@ -72,8 +72,6 @@ interface NotifyPlatformFailureInput {
   readonly error: string
   readonly failedAt: string
   readonly kind: PlatformFailureKind
-  /** The environment to read; defaults to the process environment. */
-  readonly env?: Readonly<Record<string, string | undefined>>
 }
 
 /** The title and first sentence of the alert, per way the run ended. */
@@ -86,13 +84,6 @@ export const describeFailure = (
       title: `Automation timed out: ${name}`,
       intro: `The automation "${name}" timed out: the run took longer than its time limit and was stopped.`,
       at: 'Timed out at',
-    }
-  }
-  if (input.kind === 'interrupted') {
-    return {
-      title: `Automation interrupted: ${name}`,
-      intro: `A run of the automation "${name}" never finished: the server stopped while it was running, so it was closed as failed when the server started again.`,
-      at: 'Closed at',
     }
   }
   return {
@@ -129,52 +120,58 @@ const failureNotice = (input: NotifyPlatformFailureInput): AutomationNoticeConte
 /**
  * Whether this failure is emailed at once, or held back for the hourly
  * roll-up because another final failure of the same automation completed in
- * the hour before it. An unreadable history degrades to sending: a duplicate
- * email is a nuisance, a lost alert is the failure this exists to prevent.
+ * the hour before it.
+ *
+ * The run history decides when it recorded this failure. When it did not — the
+ * database refused the write, or could not be read — the server's in-memory
+ * hold-back decides instead (`FailureAlertHoldBack`), so a full disk does not
+ * turn every failure into an email.
  */
 const isImmediate = (
   input: NotifyPlatformFailureInput
-): Effect.Effect<boolean, never, AutomationRunOutcomeRepository> =>
+): Effect.Effect<boolean, never, AutomationRunOutcomeRepository | FailureAlertHoldBack> =>
   Effect.gen(function* () {
-    if (input.kind === 'interrupted') return true
     const completedAt = new Date(input.failedAt)
     const repository = yield* AutomationRunOutcomeRepository
-    const recent = yield* repository.listFinalFailures({
-      automationName: input.automationName,
-      from: new Date(completedAt.getTime() - FAILURE_ALERT_WINDOW_MS),
-      to: new Date(completedAt.getTime() + 1),
-    })
+    const history = yield* repository
+      .listFinalFailures({
+        automationName: input.automationName,
+        from: new Date(completedAt.getTime() - FAILURE_ALERT_WINDOW_MS),
+        to: new Date(completedAt.getTime() + 1),
+      })
+      .pipe(
+        Effect.tapCause((cause) =>
+          Effect.sync(() => logError('[notify-platform-failure] failure history unreadable', cause))
+        ),
+        // effect-swallow: an unreadable history leaves the decision to the
+        // in-memory hold-back, which still sends the first alert of the hour.
+        Effect.orElseSucceed(() => undefined)
+      )
     const self = {
       id: input.runId,
       automationName: input.automationName,
       completedAt,
       error: input.error,
     }
-    return qualifiesForImmediateAlert(self, recent)
-  }).pipe(
-    Effect.tapCause((cause) =>
-      Effect.sync(() => logError('[notify-platform-failure] failure history unreadable', cause))
-    ),
-    // effect-swallow: see the doc comment — an unreadable history sends the alert.
-    Effect.orElseSucceed(() => true)
-  )
+    const holdBack = yield* FailureAlertHoldBack
+    return (yield* holdBack.decide(self, history)) === 'immediate'
+  })
 
 /**
- * Dispatch the platform failure alert after a failed, timed-out or interrupted
- * run.
+ * Dispatch the platform failure alert after a failed or timed-out run.
  *
- * Both requirements are DECLARED rather than bound (standing rule E1): the run
- * loop's failure path already runs under the automation runtime, and the boot
- * sweep and its trigger route under the server's.
+ * Every requirement is DECLARED rather than bound (standing rule E1): the run
+ * loop's failure path already runs under the automation runtime, and the
+ * stuck-run sweep and its trigger route under the server's.
  */
 export const notifyPlatformFailure = (
   input: NotifyPlatformFailureInput
-): Effect.Effect<void, never, AuthRepository | AutomationRunOutcomeRepository | EmailSender> =>
+): Effect.Effect<
+  void,
+  never,
+  AuthRepository | AutomationRunOutcomeRepository | EmailSender | FailureAlertHoldBack
+> =>
   Effect.gen(function* () {
     if (!(yield* isImmediate(input))) return
-    yield* deliverAutomationNotice({
-      app: input.app,
-      content: failureNotice(input),
-      env: input.env,
-    })
+    yield* deliverAutomationNotice({ app: input.app, content: failureNotice(input) })
   }).pipe(Effect.withSpan('automations.notify-platform-failure'))

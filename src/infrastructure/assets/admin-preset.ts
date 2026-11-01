@@ -33,7 +33,7 @@
  *
  * Infrastructure, beside the generated artifact it reads — the same position
  * `readEmbeddedDashboardConfig` held. The application layer's mount model
- * (`application/use-cases/mount/embedded-app-mount.ts`) is a pure function of
+ * (`application/use-cases/admin/embedded-app-mount.ts`) is a pure function of
  * an already-decoded preset and receives it as an argument, so it needs no view
  * of how the preset is stored.
  */
@@ -174,7 +174,7 @@ const pruneSsoSubtree = (value: unknown): unknown => {
 /** Whether the platform sign-in is configured; a malformed set is refused at boot, not here. */
 const isPlatformSsoConfigured = (): boolean => {
   try {
-    return parsePlatformSso() !== undefined
+    return parsePlatformSso(process.env) !== undefined
   } catch {
     return false
   }

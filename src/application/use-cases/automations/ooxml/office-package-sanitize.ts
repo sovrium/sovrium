@@ -9,8 +9,8 @@ import { entryText, readOoxmlPackage, textEntry, writeOoxmlPackage } from './oox
 import { removedIdsOf, stripPackageRelationships } from './ooxml-relationships'
 import { partMayNeedCleaning, sanitizePartRoot } from './ooxml-sanitize'
 import { parseXmlPart, serializePart } from './ooxml-tree'
-import type { ZipEntry } from '../action-handlers/file-zip'
-import type { ZipReadEntry } from '../action-handlers/file-zip-read'
+import type { ZipEntry } from '../action-handlers/file/zip'
+import type { ZipReadEntry } from '../action-handlers/file/zip-read'
 
 /**
  * A WHOLE OFFICE PACKAGE (`.docx`, `.xlsx`, `.pptx`) CLEANED BEFORE IT LEAVES

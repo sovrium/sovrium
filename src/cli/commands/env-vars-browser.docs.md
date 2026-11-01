@@ -1,6 +1,6 @@
 # Environment Variables: Browser Automation
 
-> A `browser/run` step drives a real browser, and Sovrium does not ship one. On a server, browser automation is off until you turn it on and point Sovrium at a Chrome — on the machine, or running as a separate service. The desktop app turns it on by itself and uses an installed Chrome or Edge, or, on a Mac without one, the system's WebKit. With no browser, a browser step fails with `browser_unavailable`, naming the variable to set.
+> A `browser/run` step drives a real browser, and Sovrium does not ship one. On a server, browser automation is off until you turn it on and point Sovrium at a Chrome, on the machine or running as a separate service. The desktop app turns it on by itself and uses an installed Chrome or Edge, or, on a Mac without one, the system's WebKit. With no browser, a browser step fails with `browser_unavailable`, naming the variable to set.
 
 ## Choosing the browser
 
@@ -10,15 +10,15 @@
 | `BROWSER_BACKEND`     | `auto`                                          | `chrome`, `webkit` or `auto`. `webkit` is allowed only in the desktop app on a Mac; anywhere else it refuses the boot with `browser_backend_refused` |
 | `BROWSER_CHROME_PATH` | auto-detected                                   | A Chrome, Chromium, Edge or `chrome-headless-shell` executable that Sovrium starts on the first browser step                                         |
 | `BROWSER_CDP_URL`     | unset                                           | `http://host:port` (or `ws://…`) of a Chrome already running with remote debugging. Cannot be combined with the path above                           |
-| `BROWSER_NO_SANDBOX`  | unset — the sandbox stays on                    | `1` starts the Chrome that Sovrium spawns without Chrome's own sandbox, for a host where it cannot create one                                        |
+| `BROWSER_NO_SANDBOX`  | unset: the sandbox stays on                     | `1` starts the Chrome that Sovrium spawns without Chrome's own sandbox, for a host where it cannot create one                                        |
 
-With `BROWSER_BACKEND=auto`, a server uses Chrome — `BROWSER_CDP_URL`, else `BROWSER_CHROME_PATH`, else an installed Chrome, Chromium or Edge — and the desktop app prefers an installed Chrome or Edge, because only Chrome holds every request a page makes to the hosts an action lists. On WebKit, the addresses a run opens are checked, but not the files a page loads.
+With `BROWSER_BACKEND=auto`, a server uses Chrome (`BROWSER_CDP_URL`, else `BROWSER_CHROME_PATH`, else an installed Chrome, Chromium or Edge), and the desktop app prefers an installed Chrome or Edge, because only Chrome holds every request a page makes to the hosts an action lists. On WebKit, the addresses a run opens are checked, but not the files a page loads.
 
-When Chrome stops as soon as it starts — on Linux, usually its sandbox failing for a user without root or user namespaces — the step fails with `browser_launch_failed`, and the message names `BROWSER_NO_SANDBOX`. Setting it to `1` starts Chrome without that sandbox; prefer a Chrome running as its own service (`BROWSER_CDP_URL`) when the sites the browser visits are not ones you trust.
+When Chrome stops as soon as it starts (on Linux, usually its sandbox failing for a user without root or user namespaces), the step fails with `browser_launch_failed`, and the message names `BROWSER_NO_SANDBOX`. Setting it to `1` starts Chrome without that sandbox; prefer a Chrome running as its own service (`BROWSER_CDP_URL`) when the sites the browser visits are not ones you trust.
 
 ## One Chrome for documents and automations
 
-Sovrium runs one Chrome per process, and the document renderer uses it too. Whichever starts it first decides how it is started for both, so the app refuses to start — `browser_config_conflict`, naming both variables — when the two would disagree:
+Sovrium runs one Chrome per process, and the document renderer uses it too. Whichever starts it first decides how it is started for both, so the app refuses to start with `browser_config_conflict`, naming both variables, when the two would disagree:
 
 - `BROWSER_CHROME_PATH` and `RENDERER_CHROME_PATH` name different executables;
 - `BROWSER_CDP_URL` and `RENDERER_CDP_URL` name different browsers;
@@ -40,7 +40,7 @@ An invalid value refuses the boot, with a message saying what each `BROWSER_*` v
 
 ## Private networks
 
-A browser step reaches only the hosts its action lists in `allowedHosts`, and never a private-network or loopback address unless the instance allows private outbound calls with `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1`. A Chrome running as a separate service should also sit on a network with no route to private ranges, since a name can resolve to a private address after Sovrium checked it.
+A browser step reaches only the hosts its action lists in `allowedHosts`, and never a private-network or loopback address unless the instance allows private outbound calls with `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1`. Sovrium resolves each host name before the browser opens it (the address a redirect leads to included) and refuses one that resolves to a private-network address; a WebSocket is allowed only towards the listed hosts whose names did not resolve to one when the page was served. The browser then resolves the name again itself, so a Chrome running as a separate service should still sit on a network with no route to private ranges.
 
 ## Running Chrome next to Sovrium
 

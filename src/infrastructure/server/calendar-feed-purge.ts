@@ -10,6 +10,7 @@ import { purgeCalendarFeedAddresses } from '@/application/use-cases/tables/calen
 import { CalendarFeedTokenRepositoryLive } from '@/infrastructure/database/repositories/tables/calendar-feed-token-repository-live'
 import { logError, logInfo } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
+import type { Database } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Delete the feed addresses of every table the applied config no longer
@@ -20,8 +21,11 @@ import type { App } from '@/domain/models/app'
  * addresses it would have deleted already answer 404 — the feed route reads
  * the CURRENT config and refuses a table without `calendarFeed` — so a missed
  * purge leaves dead rows, never a readable feed; the next apply retries.
+ *
+ * The `Database` is the caller's: the boot's, before any server runtime exists,
+ * and the running server's own on a `--watch` swap.
  */
-export const purgeStaleCalendarFeedAddresses = (app: App): Effect.Effect<void, never> =>
+export const purgeStaleCalendarFeedAddresses = (app: App): Effect.Effect<void, never, Database> =>
   purgeCalendarFeedAddresses(app).pipe(
     Effect.provide(CalendarFeedTokenRepositoryLive),
     Effect.tap((deleted) =>

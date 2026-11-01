@@ -72,7 +72,7 @@ export type MapTilesEnvConfig = Schema.Schema.Type<typeof MapTilesEnvSchema>
  * treated as unset, so `MAP_TILES_URL=` in a `.env` file means "no tiles".
  */
 export const parseMapTilesEnvConfig = (
-  processEnv: Readonly<Record<string, string | undefined>> = process.env
+  processEnv: Readonly<Record<string, string | undefined>>
 ): MapTilesEnvConfig => {
   const read = (key: string): string | undefined => {
     const value = processEnv[key]?.trim()

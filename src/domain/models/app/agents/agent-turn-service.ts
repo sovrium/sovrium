@@ -153,14 +153,25 @@ const withEmailBody = (
 }
 
 /**
+ * The email props a model never sets: the sender and the blind copy. An
+ * agent's mail goes from the operator's configured sender, under the app's
+ * name, and every recipient is one the message shows.
+ */
+const withoutSenderOverrides = (
+  args: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> =>
+  Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'from' && key !== 'bcc'))
+
+/**
  * A model's tool arguments as the action's props.
  *
  * Models name the same thing in more than one way: a record's id as `id` or
  * `recordId`, numeric or not; an email's content as `body`, `text` or `html`.
- * Each is folded onto the prop its action reads.
+ * Each is folded onto the prop its action reads. An email's `from` and `bcc`
+ * are dropped ({@link withoutSenderOverrides}).
  */
 export const toActionProps = (
   action: string,
   args: Readonly<Record<string, unknown>>
 ): Readonly<Record<string, unknown>> =>
-  action === 'email.send' ? withEmailBody(args) : withRecordId(args)
+  action === 'email.send' ? withEmailBody(withoutSenderOverrides(args)) : withRecordId(args)

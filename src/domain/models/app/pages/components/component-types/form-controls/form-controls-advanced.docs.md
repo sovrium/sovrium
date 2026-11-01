@@ -1,6 +1,6 @@
 # Date, Range & Record Controls
 
-> The four remaining form controls — slider, date-picker, date-range-picker and record-picker.
+> The four remaining form controls: slider, date-picker, date-range-picker and record-picker.
 
 Four controls handle values a plain text box handles badly: a numeric span, a single date, a period, and a link to another table's row. The number, time and file inputs a reader might expect here are specialty types and are documented with those.
 
@@ -24,7 +24,7 @@ A calendar-based date input. Reference: shadcn/ui Date Picker.
 
 <!-- sovrium:options type:date-picker -->
 
-The mode property is `datePickerMode`, not `mode` — `mode` belongs to `dataSource` and would be ignored here. `single` selects one date, `range` a start and an end.
+The mode property is `datePickerMode`, not `mode`. `mode` belongs to `dataSource` and would be ignored here. `single` selects one date, `range` a start and an end.
 
 ## `date-range-picker`
 
@@ -32,7 +32,7 @@ A period rather than a date: two calendars side by side, and named presets resol
 
 <!-- sovrium:options type:date-range-picker -->
 
-The ten presets are `today`, `yesterday`, `last-7-days`, `last-30-days`, `this-month`, `last-month`, `this-quarter`, `last-quarter`, `this-year` and `last-year`. The list is closed because each is a computation over the current date rather than a value you could write down — which is also the point of using one. "Last quarter" resolves when the panel opens, so a dashboard bookmarked in March and opened in July shows July's answer rather than March's. Choosing a preset is a whole period, so it closes the panel and puts the reader back on the field. Omit `presets` to draw no preset column at all; `months` shows one or two calendars, defaulting to two.
+The ten presets are `today`, `yesterday`, `last-7-days`, `last-30-days`, `this-month`, `last-month`, `this-quarter`, `last-quarter`, `this-year` and `last-year`. The list is closed because each is a computation over the current date rather than a value you could write down, which is also the point of using one. "Last quarter" resolves when the panel opens, so a dashboard bookmarked in March and opened in July shows July's answer rather than March's. Choosing a preset is a whole period, so it closes the panel and puts the reader back on the field. Omit `presets` to draw no preset column at all; `months` shows one or two calendars, defaulting to two.
 
 ```yaml
 components:
@@ -46,19 +46,19 @@ components:
 
 ### One field, one value
 
-`name` submits a single value — `2026-09-01/2026-09-30` — not a pair of `from` and `to` fields. A half-chosen period therefore cannot be sent: there is no state in which one end has arrived and the other has not.
+`name` submits a single value, `2026-09-01/2026-09-30`, not a pair of `from` and `to` fields. A half-chosen period therefore cannot be sent: there is no state in which one end has arrived and the other has not.
 
 `value` takes that same notation, and a **preset name is refused there by pattern**. A preset is what the panel offers; accepting one as the initial value would make the field mean two different things depending on which string it held. Presets belong in `presets`.
 
-Reach for `date-picker` with `datePickerMode: range` when you want a range in one calendar and no presets; reach for this when the period is the point — a reporting window, a stay, a billing month.
+Reach for `date-picker` with `datePickerMode: range` when you want a range in one calendar and no presets; reach for this when the period is the point: a reporting window, a stay, a billing month.
 
 ## `record-picker`
 
-Search another table and link the row you find. The reader types a name, the server matches it, and the record is linked by whatever column names it — never by its id.
+Search another table and link the row you find. The reader types a name, the server matches it, and the record is linked by whatever column names it, never by its id.
 
 <!-- sovrium:options type:record-picker depth=3 -->
 
-`dataSource.displayField` is the column that NAMES a row: it is what is searched and what is shown. Omit it and the picker searches by id and says so, rather than guessing a column. `dataSource.filter` narrows which rows can be found at all, applied on the server on every page and every keystroke. `dataSource.pageSize` defaults to 20 with a maximum of 100 — a picker is a shortlist, and it tells you when there are more rather than truncating in silence.
+`dataSource.displayField` is the column that NAMES a row: it is what is searched and what is shown. Omit it and the picker searches by id and says so, rather than guessing a column. `dataSource.filter` narrows which rows can be found at all, applied on the server on every page and every keystroke. `dataSource.pageSize` defaults to 20 with a maximum of 100. A picker is a shortlist, and it tells you when there are more rather than truncating in silence.
 
 `allowCreate` offers to create the record the search did not find and link it in one gesture; it is absent, never disabled, for a reader who cannot insert. `multiple` links more than one record as chips, and without it picking a second record replaces the first. `maxLinked` caps the count and closes the search at the cap. `readOnly` draws the linked value with no search box.
 
@@ -80,7 +80,7 @@ pages:
         allowCreate: true
 ```
 
-**You do not need this to link records inside a form or a grid.** A `relationship` column already draws this control wherever it is bound. Reach for `record-picker` when the page has no such column to dispatch from — a filter bar, a panel, a step that writes somewhere else.
+**You do not need this to link records inside a form or a grid.** A `relationship` column already draws this control wherever it is bound. Reach for `record-picker` when the page has no such column to dispatch from: a filter bar, a panel, a step that writes somewhere else.
 
 ## `rating`
 
@@ -96,7 +96,7 @@ The control that writes a `signature` field, and the reading that shows one.
 
 <!-- sovrium:options type:signature-pad -->
 
-The signer reads `statement` above a dashed well, draws in it, and confirms; with `allowTyped` (on by default) they may type their full name instead, which is a signature too and the path a reader who cannot draw needs. What is stored is the image, the signer's name, the instant, how it was made, and the statement as it read at that moment — so a later edit of the config cannot change what an existing signature agreed to. A signed field is written once: from then on the pad shows "Signed by … on …" and no well. Reference: shadcn/ui Button, Item. Clear, Type your name instead and Sign sit together at the end of the row, Sign being the one primary button; a signed field is drawn as one outlined item with a check.
+The signer reads `statement` above a dashed well, draws in it, and confirms; with `allowTyped` (on by default) they may type their full name instead, which is a signature too and the path a reader who cannot draw needs. What is stored is the image, the signer's name, the instant, how it was made, and the statement as it read at that moment, so a later edit of the config cannot change what an existing signature agreed to. A signed field is written once: from then on the pad shows "Signed by … on …" and no well. Reference: shadcn/ui Button, Item. Clear, Type your name instead and Sign sit together at the end of the row, Sign being the one primary button; a signed field is drawn as one outlined item with a check.
 
 ## Narrowing data from a control
 

@@ -55,13 +55,14 @@ import {
   type RunStatusTranslator,
 } from '@/domain/models/app/pages/automation-run-status-language'
 import { buildDetailEndpointUrl } from '@/domain/models/app/pages/system-detail-endpoint'
+import { isSpecimenDrawing } from '@/presentation/render/page/specimen-drawing'
 import {
   pageRecordOf,
   type RecordTextContext,
 } from '@/presentation/render/props/record-value-format'
 import { withSystemListText } from '@/presentation/render/props/system-record-list-text'
+import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/collection-template-substitution'
 import { autoBindCommentComponents } from '@/presentation/render/resolve/comment-record-binding'
-import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
 import { markAddressedDialogs } from '@/presentation/render/resolve/overlay-triggers'
 import {
   injectRecordIntoNestedSingleMode,
@@ -69,11 +70,15 @@ import {
 } from '@/presentation/render/resolve/page-collection-resolver'
 import { bindPageRecordToButtons } from '@/presentation/render/resolve/page-record-buttons'
 import { pageRecordScope } from '@/presentation/render/resolve/record-repeat-expansion'
-import { filterChildrenForRecord } from '@/presentation/render/resolve/record-visibility'
+import {
+  filterChildrenForRecord,
+  omitRecordGatedEntries,
+} from '@/presentation/render/resolve/record-visibility'
 import { systemRecordWithText } from '@/presentation/render/resolve/system-record-text'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
+import type { ComponentListEntry } from '@/presentation/render/resolve/component-slot-walk'
 import type { AddressBoundRecord } from '@/presentation/render/resolve/row-attachment-addresses'
 
 /** The loose shape of a page-level dataSource after the CAP-2 union widening. */
@@ -239,7 +244,10 @@ export type PageRecordBinding =
  * and emit NO enhancer marker — the tokens are already filled.
  *
  * Without a fetcher the marker is appended instead, for the browser to fill —
- * the only thing a context-less render can do.
+ * the only thing a context-less render can do. There is no record for a gate to
+ * read there, and a browser could not be trusted to apply one: gated nodes leave.
+ * A specimen keeps them: it draws the page for a designer, every branch of it,
+ * and is never served to a reader.
  */
 async function bindSystemRecord(
   page: Page,
@@ -249,7 +257,8 @@ async function bindSystemRecord(
 ): Promise<PageRecordBinding> {
   if (fetchSystemRecord === undefined) {
     const marker = buildPageSystemMarker(system, routeParams)
-    return { kind: 'page', page: { ...page, components: [...(page.components ?? []), marker] } }
+    const kept = (isSpecimenDrawing() ? page.components : withoutRecordGates(page.components)) ?? []
+    return { kind: 'page', page: { ...page, components: [...kept, marker] } }
   }
   const recordId = routeParams[system.param ?? 'id'] ?? ''
   const record = await fetchSystemRecord(buildDetailEndpointUrl(system, recordId), system.recordKey)
@@ -271,6 +280,19 @@ async function bindSystemRecord(
     kind: 'page',
     page: { ...page, components: substitutePageComponents(page.components, printed, undefined) },
   }
+}
+
+/**
+ * The components of a page with no record to hand them, without the nodes gated
+ * on one. A dialog a dropped trigger opens is marked from the authored tree, as
+ * in {@link substitutePageComponents}, so it waits closed.
+ */
+function withoutRecordGates(components: Page['components']): Page['components'] {
+  if (!components) return components
+  return markAddressedDialogs(
+    components,
+    omitRecordGatedEntries(components as readonly ComponentListEntry[])
+  ) as Page['components']
 }
 
 /**
@@ -309,6 +331,34 @@ function withApiTimestamps(record: Readonly<Record<string, unknown>>): Record<st
   return { ...record, ...alias('createdAt', 'created_at'), ...alias('updatedAt', 'updated_at') }
 }
 
+/** The `{ table, mode: single }` arm: the host record substituted across the page. */
+async function bindTableRecord(
+  page: Page,
+  ds: PageLevelDataSource,
+  hostRecord: Readonly<Record<string, unknown>>,
+  readers: SystemRecordReaders
+): Promise<PageRecordBinding> {
+  const stored = withApiTimestamps(hostRecord)
+  const bound = (await readers.addressRecord?.(page.components, stored, ds.table ?? '')) ?? {
+    tree: page.components,
+    record: stored,
+  }
+  const record = pageRecordOf(bound.record, ds.table, readers.recordText)
+  const components = substitutePageComponents(bound.tree, record, ds.table)
+  // The tab and the description name the record, as a collection page's do.
+  const meta = substituteRecordInMeta(page.meta, record)
+  return {
+    kind: 'page',
+    page: { ...page, meta, components: bindComments(components, record, ds) },
+  }
+}
+
+/** A page with no record for a gate to read, without the nodes gated on one. */
+const pageWithoutRecordGates = (page: Page): Page =>
+  page.components === undefined
+    ? page
+    : { ...page, components: withoutRecordGates(page.components) }
+
 /**
  * Apply a page-level single-record binding to a page before component filters run.
  *
@@ -317,8 +367,9 @@ function withApiTimestamps(record: Readonly<Record<string, unknown>>): Record<st
  * - `{ table, mode: 'single', param }` (with `hostRecord` already resolved) →
  *   substitute `$record.*` into the page components server-side.
  *
- * Any other page (no page-level dataSource, list/search mode, or a collection page
- * whose record was substituted by `resolveCollectionPage`) passes through unchanged.
+ * A collection page, whose record `resolveCollectionPage` already substituted,
+ * passes through unchanged. Any other page (no page-level dataSource, list/search
+ * mode, a `contentDir` article) has no record, so its record-gated nodes leave.
  */
 export async function applyPageLevelRecordBinding(
   page: Page,
@@ -330,20 +381,8 @@ export async function applyPageLevelRecordBinding(
   if (ds?.system !== undefined) {
     return bindSystemRecord(page, ds.system, routeParams, readers)
   }
-  if (ds?.mode === 'single' && hostRecord !== undefined) {
-    const stored = withApiTimestamps(hostRecord)
-    const bound = (await readers.addressRecord?.(page.components, stored, ds.table ?? '')) ?? {
-      tree: page.components,
-      record: stored,
-    }
-    const record = pageRecordOf(bound.record, ds.table, readers.recordText)
-    const components = substitutePageComponents(bound.tree, record, ds.table)
-    // The tab and the description name the record, as a collection page's do.
-    const meta = substituteRecordInMeta(page.meta, record)
-    return {
-      kind: 'page',
-      page: { ...page, meta, components: bindComments(components, record, ds) },
-    }
-  }
-  return { kind: 'page', page }
+  if (hostRecord === undefined) return { kind: 'page', page: pageWithoutRecordGates(page) }
+  return ds?.mode === 'single'
+    ? bindTableRecord(page, ds, hostRecord, readers)
+    : { kind: 'page', page }
 }

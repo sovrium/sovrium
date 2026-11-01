@@ -96,7 +96,6 @@ export const dispatchAutomationOnce = (input: {
   /** The entry of the automation's triggers the event matched: the run is recorded under its name. */
   readonly trigger: Trigger
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly triggerData: TriggerData
   readonly userId: string | undefined
   /** See `ExecuteAutomationRunInput.recordEventDepth`; omitted means 0. */
@@ -111,7 +110,7 @@ export const dispatchAutomationOnce = (input: {
   readonly startedAsGuest?: boolean
 }): Effect.Effect<RunAutomationResult | undefined, never, ExecuteAutomationRunRequirements> =>
   Effect.gen(function* () {
-    const { automation, app, processEnv, triggerData, userId } = input
+    const { automation, app, triggerData, userId } = input
     const automationId = yield* resolveAutomationIdSilent(automation.name, automation)
     if (automationId === undefined) return undefined
 
@@ -121,7 +120,6 @@ export const dispatchAutomationOnce = (input: {
       trigger: input.trigger,
       automationId,
       app,
-      processEnv,
       triggerData,
       handlers: defaultActionHandlers,
       userId,

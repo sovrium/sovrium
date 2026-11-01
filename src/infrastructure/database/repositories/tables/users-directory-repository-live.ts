@@ -6,22 +6,23 @@
  */
 
 import { and, count, gt, inArray, max, type SQL } from 'drizzle-orm'
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import {
   UsersDirectoryRepository,
   UsersDirectoryDatabaseError,
   type DirectoryAccountFacts,
   type DirectoryFilters,
 } from '@/application/ports/repositories/tables/users-directory-repository'
-import { db } from '@/infrastructure/database'
 import {
   authAccountsTable,
   authSessionsTable,
   authUsersTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { notAnAgentAccount } from '@/infrastructure/database/sql/auth-user-predicates'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 /** Wrap a DB promise, adapting failures to UsersDirectoryDatabaseError. */
 const wrap = makeDbWrap((error) => new UsersDirectoryDatabaseError({ cause: error }))
@@ -56,6 +57,7 @@ const buildSearchConditions = (filters: DirectoryFilters | undefined): ReadonlyA
  * aggregates and provider ids are selected, never a token, address or agent.
  */
 const readAccountFactsImpl = async (
+  db: PortableDb,
   userIds: readonly string[],
   now: Readonly<Date>
 ): Promise<ReadonlyMap<string, DirectoryAccountFacts>> => {
@@ -117,38 +119,46 @@ const readAccountFactsImpl = async (
  * agent shown with its synthetic address and its inherited role, indistinguishable
  * from a colleague, and ban/role affordances beside it.
  */
-export const UsersDirectoryRepositoryLive = Layer.succeed(UsersDirectoryRepository, {
-  listAllUsers: (filters) =>
-    wrap(async () => {
-      // One scan of the secret-free directory subset. The auth.user table is
-      // small (the whole account population of one self-hosted app), so a single
-      // scan is cheap. `?q=` narrows it HERE rather than in the client: `name`
-      // is one of the two searchable fields, and a term that matches nothing
-      // must return nothing — returning the unfiltered list would claim every
-      // account matched.
-      const usersTable = authUsersTable()
-      const conditions = [notAnAgentAccount(usersTable.email), ...buildSearchConditions(filters)]
-      return (await db
-        .select({
-          id: usersTable.id,
-          email: usersTable.email,
-          name: usersTable.name,
-          role: usersTable.role,
-          banned: usersTable.banned,
-          createdAt: usersTable.createdAt,
-          twoFactorEnabled: usersTable.twoFactorEnabled,
-        })
-        .from(usersTable)
-        .where(and(...conditions))) as ReadonlyArray<{
-        id: string
-        email: string
-        name: string | null
-        role: string | null
-        banned: boolean | null
-        createdAt: Date | null
-        twoFactorEnabled: boolean | null
-      }>
-    }),
+export const UsersDirectoryRepositoryLive = Layer.effect(
+  UsersDirectoryRepository,
+  Effect.map(Database, ({ client: db }) =>
+    UsersDirectoryRepository.of({
+      listAllUsers: (filters) =>
+        wrap(async () => {
+          // One scan of the secret-free directory subset. The auth.user table is
+          // small (the whole account population of one self-hosted app), so a single
+          // scan is cheap. `?q=` narrows it HERE rather than in the client: `name`
+          // is one of the two searchable fields, and a term that matches nothing
+          // must return nothing — returning the unfiltered list would claim every
+          // account matched.
+          const usersTable = authUsersTable()
+          const conditions = [
+            notAnAgentAccount(usersTable.email),
+            ...buildSearchConditions(filters),
+          ]
+          return (await db
+            .select({
+              id: usersTable.id,
+              email: usersTable.email,
+              name: usersTable.name,
+              role: usersTable.role,
+              banned: usersTable.banned,
+              createdAt: usersTable.createdAt,
+              twoFactorEnabled: usersTable.twoFactorEnabled,
+            })
+            .from(usersTable)
+            .where(and(...conditions))) as ReadonlyArray<{
+            id: string
+            email: string
+            name: string | null
+            role: string | null
+            banned: boolean | null
+            createdAt: Date | null
+            twoFactorEnabled: boolean | null
+          }>
+        }),
 
-  readAccountFacts: (userIds, now) => wrap(async () => readAccountFactsImpl(userIds, now)),
-})
+      readAccountFacts: (userIds, now) => wrap(async () => readAccountFactsImpl(db, userIds, now)),
+    })
+  )
+)

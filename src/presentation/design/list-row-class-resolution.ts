@@ -14,6 +14,7 @@ import {
   computeListSubtitleClasses,
   computeListTitleClasses,
 } from '@/presentation/design/list-default-classes'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 import type { ListItemLayout, ListRowClasses } from '@/presentation/design/list-row-classes'
 
 /**
@@ -29,9 +30,7 @@ const STACKED = {
 } as const
 
 /** The list's own `<ul>` merged with the `list` part, only when the author declared one. */
-const listPart = (
-  parts: Readonly<Record<string, string>> | undefined
-): { readonly list?: string } =>
+const listPart = (parts: PartClassMap | undefined): { readonly list?: string } =>
   parts?.['list'] === undefined ? {} : { list: cn(computeListShellClasses(), parts['list']) }
 
 /**
@@ -48,7 +47,7 @@ export const listRowClasses = ({
   parts,
 }: {
   readonly itemLayout?: ListItemLayout
-  readonly parts?: Readonly<Record<string, string>>
+  readonly parts?: PartClassMap
 } = {}): ListRowClasses => {
   const stacked = itemLayout === 'stacked'
   return {
@@ -70,7 +69,7 @@ export const listRowClasses = ({
  */
 export const declaredListRowClasses = (
   itemLayout: string | undefined,
-  parts: Readonly<Record<string, string>> | undefined
+  parts: PartClassMap | undefined
 ): { readonly rowClasses?: ListRowClasses } => {
   const stacked = itemLayout === 'stacked'
   const hasParts = parts !== undefined && Object.keys(parts).length > 0

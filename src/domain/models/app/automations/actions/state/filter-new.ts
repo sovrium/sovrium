@@ -86,7 +86,7 @@ export const StateFilterNewActionSchema = Schema.Struct({
         Schema.annotate({
           defaultNote: 'skip',
           description:
-            "What the very first run returns. 'skip': nothing — every item already there is remembered as seen, so switching the automation on does not replay the history. 'emit': every item.",
+            "What the very first run returns. 'skip': nothing, and every item already there is remembered as seen, so switching the automation on does not replay the history. 'emit': every item.",
         })
       )
     ),

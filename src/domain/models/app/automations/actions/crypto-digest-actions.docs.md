@@ -1,8 +1,8 @@
 # Crypto & Digest Actions
 
-> Two small families solving two unrelated problems — proving a payload was not tampered with, and who made it, and turning a flood of events into one message a human will read.
+> Two small families solving two unrelated problems: proving a payload was not tampered with, and who made it, and turning a flood of events into one message a human will read.
 
-## Crypto — hashing, HMAC and signatures
+## Crypto: hashing, HMAC and signatures
 
 Four operators: `hash` and `hmac` compute digests, typically to verify an inbound webhook or sign an outbound one; `sign` and `verify` make and check Ed25519 signatures.
 
@@ -44,7 +44,7 @@ An HMAC proves a payload to whoever holds the same secret, so whoever can check 
     keyId: release-2026
 ```
 
-`sign` answers `{ signature, keyId }`: the standard 64-byte Ed25519 signature over the UTF-8 bytes of `data`, in base64, which any Ed25519 implementation verifies. `privateKey` must be written `$env.NAME` — a key written inline is refused when the config is read — and holds the 32-byte seed in base64 or a PKCS#8 PEM block. Resolved environment values are masked in the run history, so the key never lands there.
+`sign` answers `{ signature, keyId }`: the standard 64-byte Ed25519 signature over the UTF-8 bytes of `data`, in base64, which any Ed25519 implementation verifies. `privateKey` must be written `$env.NAME` (a key written inline is refused when the config is read) and holds the 32-byte seed in base64 or a PKCS#8 PEM block. Resolved environment values are masked in the run history, so the key never lands there.
 
 ```yaml
 - name: checkManifest
@@ -57,15 +57,15 @@ An HMAC proves a payload to whoever holds the same secret, so whoever can check 
     algorithm: ed25519
 ```
 
-`verify` takes exactly one of `publicKey` — 32 raw bytes in base64, or an SPKI PEM block — and `keyId`, looked up among the keys of `SOVRIUM_BUNDLE_PUBLIC_KEYS` (`<id>:<base64>[,…]`). It answers `{ valid }`. A signature that does not verify, whatever the reason, is `valid: false` on a successful step, so the workflow branches on it; an unreadable public key or an unknown `keyId` fails the step, because that is a configuration mistake rather than a verdict.
+`verify` takes exactly one of `publicKey` (32 raw bytes in base64, or an SPKI PEM block) and `keyId`, looked up among the keys of `SOVRIUM_BUNDLE_PUBLIC_KEYS` (`<id>:<base64>[,…]`). It answers `{ valid }`. A signature that does not verify, whatever the reason, is `valid: false` on a successful step, so the workflow branches on it; an unreadable public key or an unknown `keyId` fails the step, because that is a configuration mistake rather than a verdict.
 
-## Digest — batch and release
+## Digest: batch and release
 
 Two operators that collect items across many runs into a named bucket, then drain them as one batch. The usual case is a notification roll-up: one automation collects each event as it happens, another releases them on a schedule.
 
 <!-- sovrium:options DigestActionSchema -->
 
-`digestKey` is required on both operators and is what pairs a producer with its consumer. `sort.direction` defaults to ascending. `sort.field` names a key of the collected items; a key starting with `$`, which reads as a JSON path rather than a key, is refused — when the config is checked, or when a key filled in from the request reaches the release, which then fails with the reason. The refusal points at `sort.field` and names the key to write instead: `$.priority` is refused with `(write "priority")`.
+`digestKey` is required on both operators and is what pairs a producer with its consumer. `sort.direction` defaults to ascending. `sort.field` names a key of the collected items; a key starting with `$`, which reads as a JSON path rather than a key, is refused, when the config is checked, or when a key filled in from the request reaches the release, which then fails with the reason. The refusal points at `sort.field` and names the key to write instead: `$.priority` is refused with `(write "priority")`.
 
 ```yaml
 - name: queueDigest
@@ -89,8 +89,8 @@ Two operators that collect items across many runs into a named bucket, then drai
 
 ### The property is `digestKey`, not `bucket`
 
-A digest action written with `bucket:` fails at runtime asking for a `digestKey`. The name is unrelated to storage buckets, which hold files — the collision is in the English, not in the system.
+A digest action written with `bucket:` fails at runtime asking for a `digestKey`. The name is unrelated to storage buckets, which hold files: the collision is in the English, not in the system.
 
 ### Two automations, not one
 
-`collect` belongs in an automation triggered by the event; `release` in one triggered by the clock. Because releasing **drains** the bucket, the next window starts empty, so a missed schedule accumulates events rather than losing them — which is the property that makes a digest safe to run on a cron that occasionally does not fire.
+`collect` belongs in an automation triggered by the event; `release` in one triggered by the clock. Because releasing **drains** the bucket, the next window starts empty, so a missed schedule accumulates events rather than losing them. That is the property that makes a digest safe to run on a cron that occasionally does not fire.

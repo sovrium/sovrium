@@ -12,8 +12,8 @@ import {
   ReadStateRepository,
   type ReadPosition,
 } from '@/application/ports/repositories/tables/read-state-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { readState as readStatePg } from '@/infrastructure/database/drizzle/schema/read-state'
 import { readState as readStateSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/read-state'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -33,41 +33,48 @@ const toPosition = (row: Readonly<Record<string, unknown>>): ReadPosition => ({
     row['lastReadAt'] instanceof Date ? row['lastReadAt'] : new Date(String(row['lastReadAt'])),
 })
 
-export const ReadStateRepositoryLive = Layer.succeed(ReadStateRepository, {
-  markRead: ({ userId, tableName, recordId, at }) =>
-    wrap(() =>
-      // One statement, so two marks racing leave one row.
-      db
-        .insert(readState)
-        .values({ userId, tableName, recordId, lastReadAt: at })
-        .onConflictDoUpdate({
-          target: [readState.userId, readState.tableName, readState.recordId],
-          set: { lastReadAt: at },
-        })
-    ).pipe(Effect.asVoid),
+export const ReadStateRepositoryLive = Layer.effect(
+  ReadStateRepository,
+  Effect.map(Database, ({ client: db }) =>
+    ReadStateRepository.of({
+      markRead: ({ userId, tableName, recordId, at }) =>
+        wrap(() =>
+          // One statement, so two marks racing leave one row.
+          db
+            .insert(readState)
+            .values({ userId, tableName, recordId, lastReadAt: at })
+            .onConflictDoUpdate({
+              target: [readState.userId, readState.tableName, readState.recordId],
+              set: { lastReadAt: at },
+            })
+        ).pipe(Effect.asVoid),
 
-  positionsOf: ({ userId, tableName, recordIds }) =>
-    recordIds.length === 0
-      ? Effect.succeed([])
-      : wrap(() =>
+      positionsOf: ({ userId, tableName, recordIds }) =>
+        recordIds.length === 0
+          ? Effect.succeed([])
+          : wrap(() =>
+              db
+                .select()
+                .from(readState)
+                .where(
+                  and(
+                    eq(readState.userId, userId),
+                    eq(readState.tableName, tableName),
+                    inArray(readState.recordId, [...recordIds])
+                  )
+                )
+            ).pipe(
+              Effect.map((rows) => (rows as readonly Record<string, unknown>[]).map(toPosition))
+            ),
+
+      listForUser: (userId) =>
+        wrap(() =>
           db
             .select()
             .from(readState)
-            .where(
-              and(
-                eq(readState.userId, userId),
-                eq(readState.tableName, tableName),
-                inArray(readState.recordId, [...recordIds])
-              )
-            )
+            .where(eq(readState.userId, userId))
+            .orderBy(asc(readState.tableName), asc(readState.recordId))
         ).pipe(Effect.map((rows) => (rows as readonly Record<string, unknown>[]).map(toPosition))),
-
-  listForUser: (userId) =>
-    wrap(() =>
-      db
-        .select()
-        .from(readState)
-        .where(eq(readState.userId, userId))
-        .orderBy(asc(readState.tableName), asc(readState.recordId))
-    ).pipe(Effect.map((rows) => (rows as readonly Record<string, unknown>[]).map(toPosition))),
-})
+    })
+  )
+)

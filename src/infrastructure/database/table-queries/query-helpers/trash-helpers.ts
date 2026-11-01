@@ -7,6 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { buildUserFilterConditions, type FilterNode } from './aggregation-helpers'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 import type { SQL } from 'drizzle-orm'
 
 /**
@@ -19,10 +20,11 @@ import type { SQL } from 'drizzle-orm'
  * trash too, never silently skipped.
  */
 export function buildTrashFilters(
+  dialect: DatabaseDialect,
   baseQuery: Readonly<SQL>,
   filters?: readonly FilterNode[]
 ): Readonly<SQL> {
-  return buildUserFilterConditions({ and: filters ?? [] }).reduce(
+  return buildUserFilterConditions(dialect, { and: filters ?? [] }).reduce(
     (query, condition) => sql`${query} AND ${condition}`,
     baseQuery
   )

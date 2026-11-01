@@ -77,3 +77,13 @@ export function crudToggleFetchAction(action: unknown, props: Node): FetchAction
   }
   return toggle as FetchAction
 }
+
+/**
+ * The toggle's state, for a screen reader: `aria-pressed` is `true` while the
+ * item carries the reader's own row and `false` while it does not. The redraw
+ * after each write fills the marker again, so the state follows the write.
+ */
+export function crudTogglePressedAttribute(props: Node): Readonly<Record<string, string>> {
+  const marker = props['_toggle'] as Node | undefined
+  return { 'aria-pressed': String(marker?.['row'] ?? '') === '' ? 'false' : 'true' }
+}

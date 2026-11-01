@@ -28,14 +28,15 @@ export type ObjectReplacingAction = Extract<BucketFileAction, 'delete' | 'upload
 
 /**
  * Whether the owner-or-admin rule governs `action` on this bucket: the bucket
- * leaves the action undeclared AND the app has sign-in. An app without `auth`
- * has no identity to own anything, so its writes keep their bucket-level gate.
+ * leaves the action undeclared. It governs on every app. On an app with no
+ * `auth` block nobody can sign in, so nobody can be shown to own an object:
+ * the rule then admits nobody, and a visitor deletes or replaces a stored file
+ * only where the bucket declares the action open to everyone.
  */
 export const ownershipGovernsAction = (input: {
   readonly permissions: Readonly<Partial<Record<BucketFileAction, unknown>>> | undefined
   readonly action: ObjectReplacingAction
-  readonly appHasAuth: boolean
-}): boolean => input.appHasAuth && input.permissions?.[input.action] === undefined
+}): boolean => input.permissions?.[input.action] === undefined
 
 /**
  * Whether the caller may delete or overwrite an object, given who uploaded it.
@@ -43,11 +44,15 @@ export const ownershipGovernsAction = (input: {
  * An admin always may. Anyone else may only when the catalog records them as
  * the uploader; an object with NO recorded uploader (stored before uploaders
  * were recorded, or by a road with nobody behind it) belongs to nobody a member
- * could prove to be, so it is an admin's alone.
+ * could prove to be, so it is an admin's alone. A caller nobody signed in
+ * (`callerId` undefined) owns nothing, so she never may.
  */
 export const mayReplaceOrRemoveObject = (input: {
   readonly uploadedBy: string | undefined
-  readonly callerId: string
+  readonly callerId: string | undefined
   readonly callerIsAdmin: boolean
 }): boolean =>
-  input.callerIsAdmin || (input.uploadedBy !== undefined && input.uploadedBy === input.callerId)
+  input.callerIsAdmin ||
+  (input.uploadedBy !== undefined &&
+    input.callerId !== undefined &&
+    input.uploadedBy === input.callerId)

@@ -87,7 +87,7 @@ export const DocumentGenerateImageActionSchema = Schema.Struct({
       Schema.Literals(['og']).pipe(
         Schema.annotate({
           description:
-            "'og' renders a social card: an HTML template rendered by the browser engine (RENDERER_*) at a fixed 1200 × 630, as a PNG (or JPEG), never AVIF. It needs the browser engine like any HTML render — with none the step fails with renderer_unavailable. It fixes the size, so width, height, webp and an SVG template are refused with it.",
+            "'og' renders a social card: an HTML template rendered by the browser engine (RENDERER_*) at a fixed 1200 × 630, as a PNG (or JPEG), never AVIF. It needs the browser engine like any HTML render: with none the step fails with renderer_unavailable. It fixes the size, so width, height, webp and an SVG template are refused with it.",
         })
       )
     ),

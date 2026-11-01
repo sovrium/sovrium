@@ -65,7 +65,7 @@ const KnowledgeMemorySchema = Schema.Struct({
     identifier: 'KnowledgeMemory',
     title: 'Knowledge Memory',
     description:
-      'RAG-based semantic retrieval from the configured knowledge sources. Vectors are stored by the active database — a pgvector column on PostgreSQL, a packed float blob on SQLite.',
+      'RAG-based semantic retrieval from the configured knowledge sources. Vectors are stored by the active database: a pgvector column on PostgreSQL, a packed float blob on SQLite.',
   })
 )
 

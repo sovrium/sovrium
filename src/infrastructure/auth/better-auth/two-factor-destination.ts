@@ -13,7 +13,7 @@ import type { AuthMiddlewareCtx } from './hook-context'
 import type { BetterAuthPlugin } from 'better-auth'
 
 /**
- * Where a password sign-in was headed, kept beside the attempt that still owes
+ * Where a sign-in was headed, kept beside the attempt that still owes
  * its second step — so the code page, a different page, sends the reader on to
  * that destination once the code is right.
  *
@@ -62,7 +62,12 @@ const setCookiesOf = (ctx: AuthMiddlewareCtx): readonly string[] => {
  * where she was headed is better than refusing a correct password.
  */
 const keepDestination = async (ctx: AuthMiddlewareCtx): Promise<void> => {
-  const destination = toSafeRedirectPath((ctx.body as { callbackURL?: unknown })?.callbackURL)
+  // A password or code sign-in names it in its body; a followed sign-in link
+  // carries it in its address.
+  const destination = toSafeRedirectPath(
+    (ctx.body as { callbackURL?: unknown } | undefined)?.callbackURL ??
+      (ctx.query as { callbackURL?: unknown } | undefined)?.callbackURL
+  )
   if (destination === undefined) return
   const cookieName = ctx.context.createAuthCookie(TWO_FACTOR_COOKIE).name
   const attemptId = attemptIdFromSetCookie(setCookiesOf(ctx), cookieName)
@@ -80,6 +85,13 @@ const keepDestination = async (ctx: AuthMiddlewareCtx): Promise<void> => {
   }
 }
 
+/** The sign-ins that can owe a code and name where they were headed. */
+const DESTINATION_PATHS: ReadonlySet<string> = new Set([
+  '/sign-in/email',
+  '/sign-in/email-otp',
+  '/magic-link/verify',
+])
+
 /**
  * The plugin keeping a sign-in's destination beside its pending attempt.
  * Registered right after Better Auth's two-factor plugin, so its `after` hook
@@ -92,7 +104,7 @@ export const buildTwoFactorDestinationPlugin = () =>
     hooks: {
       after: [
         {
-          matcher: (ctx: { readonly path?: string }) => ctx.path === '/sign-in/email',
+          matcher: (ctx: { readonly path?: string }) => DESTINATION_PATHS.has(ctx.path ?? ''),
           handler: createAuthMiddleware(keepDestination),
         },
       ],

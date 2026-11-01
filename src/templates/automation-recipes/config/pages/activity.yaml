@@ -52,8 +52,10 @@ components:
                     toast:
                       message: The latest leads were reviewed. Each has its line in the log.
                       variant: success
-              # The platform keeps every run in full — each step, its input and
-              # output — in the admin console. Admins only.
+              # The admin console keeps each run with its steps, their input and
+              # their output, for 90 days unless the server sets
+              # SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS. A trigger body over 64 KiB
+              # is kept as its size only. Admins only.
               - type: link
                 props:
                   href: /_admin/automations

@@ -30,6 +30,7 @@
  * Either way the reference never reaches the document.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   resolveCurrentUserOperand,
   substituteCurrentUserScalars,
@@ -41,9 +42,6 @@ import type { FieldCondition } from '@/domain/models/app/tables/condition-operat
 
 type Reader = CurrentUserFacts | undefined
 type Entries = Readonly<Record<string, unknown>>
-
-const isObject = (value: unknown): value is Entries =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The condition with every operand naming the reader made concrete; by reference when none does. */
 const readerCondition = (condition: FieldCondition, reader: Reader): FieldCondition => {
@@ -69,7 +67,7 @@ const readerCondition = (condition: FieldCondition, reader: Reader): FieldCondit
 
 /** A `visibility` object with its `record` gate resolved; by reference when unchanged. */
 const readerVisibility = (visibility: unknown, reader: Reader): unknown => {
-  if (!isObject(visibility) || !isObject(visibility['record'])) return visibility
+  if (!isRecord(visibility) || !isRecord(visibility['record'])) return visibility
   const record = visibility['record'] as FieldCondition
   const resolved = readerCondition(record, reader)
   return resolved === record ? visibility : { ...visibility, record: resolved }
@@ -103,7 +101,7 @@ const readerQueryValue = (value: unknown, reader: Reader): unknown =>
  */
 const readerSource = (source: Entries, reader: Reader): Entries | undefined => {
   const { query } = source
-  const values = isObject(query)
+  const values = isRecord(query)
     ? Object.entries(query).map(
         ([key, value]) => [key, value, readerQueryValue(value, reader)] as const
       )
@@ -123,9 +121,9 @@ function readerSidebarValue(value: unknown, reader: Reader): unknown {
     const walked = value.map((entry: unknown) => readerSidebarValue(entry, reader))
     return walked.every((entry, index) => entry === value[index]) ? value : walked
   }
-  if (!isObject(value)) return value
+  if (!isRecord(value)) return value
   const entries = Object.entries(value).flatMap(([key, child]): (readonly [string, unknown])[] => {
-    if (SOURCE_KEYS.has(key) && isObject(child) && typeof child['endpoint'] === 'string') {
+    if (SOURCE_KEYS.has(key) && isRecord(child) && typeof child['endpoint'] === 'string') {
       const resolved = readerSource(child, reader)
       return resolved === undefined ? [] : [[key, resolved]]
     }

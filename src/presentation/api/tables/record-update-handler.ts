@@ -9,12 +9,14 @@ import { Effect } from 'effect'
 import { recordWriteRequester } from '@/application/use-cases/tables/record-create-orchestration'
 import { updateRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
 import { StaleWriteError } from '@/domain/errors'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { updateRecordResponseSchema } from '@/domain/models/api/tables/tables'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { shapedJson } from '@/presentation/api/runtime/run-effect'
 import { handleRouteError } from './error-handlers'
 import { isAuthorizationError } from './error-helpers'
+import { withWebhookReceipt } from './record-webhook-receipt'
 import { getLinkReader } from './relationship-rules'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
@@ -85,13 +87,13 @@ export function updateResponse(config: {
       linkReader: getLinkReader(c),
       ...(clientUpdatedAt === undefined ? {} : { expectedUpdatedAt: clientUpdatedAt }),
       ...(config.linkLists === undefined ? {} : { linkLists: config.linkLists }),
-      isSqlite: isSqliteRuntime(),
-      processEnv: process.env,
       forgetDerivedVariants: evictTransformCacheForKey,
-    }),
+      origin: new URL(c.req.url).origin,
+    }).pipe(withWebhookReceipt(c)),
     {
       onFailure: (error) => updateFailureResponse(c, error),
-      onSuccess: (updated) => (updated === undefined ? notFound(c) : c.json(updated, 200)),
+      onSuccess: (updated) =>
+        updated === undefined ? notFound(c) : shapedJson(c, updated, updateRecordResponseSchema),
     }
   )
 }

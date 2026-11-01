@@ -5,11 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import type { HttpApp } from '@/application/ports/contracts/http-app'
+import type { ServerReloadError } from '@/domain/errors/server-reload-error'
+import type { ServerStopError } from '@/domain/errors/server-stop-error'
 import type { App } from '@/domain/models/app'
-import type { ServerReloadError } from '@/infrastructure/errors/server-reload-error'
-import type { ServerStopError } from '@/infrastructure/errors/server-stop-error'
 import type { Effect } from 'effect'
-import type { Hono } from 'hono'
 
 /**
  * Running server instance with stop and in-place reload capability
@@ -20,10 +20,15 @@ import type { Hono } from 'hono'
  * The actual server implementation (Bun.serve) is hidden
  * behind this interface to maintain layer separation.
  *
- * The Hono app is exposed for static site generation (SSG) purposes.
+ * The built app is exposed for static site generation (SSG) purposes.
  */
 export interface ServerInstance {
-  readonly server: ReturnType<typeof Bun.serve>
+  /**
+   * The listener, narrowed to what its readers use: the port it bound, or
+   * `undefined` on a Unix socket. The Bun server object itself stays in
+   * infrastructure, where `stop` and `reload` drive it.
+   */
+  readonly server: { readonly port: number | undefined }
   readonly url: string
   /**
    * Stop the listener, release the layer scope, and flush telemetry.
@@ -34,7 +39,7 @@ export interface ServerInstance {
    * handler was reacting to something the contract denied could happen.
    */
   readonly stop: Effect.Effect<void, ServerStopError>
-  readonly app: Readonly<Hono>
+  readonly app: HttpApp
   /**
    * Replace the request handler of the LIVE listener with one built from
    * `app`, without closing the socket. The counterpart to {@link stop} for the
@@ -48,4 +53,10 @@ export interface ServerInstance {
    * Failure leaves the previous handler serving on the same port.
    */
   readonly reload: (app: App, configHash?: string) => Effect.Effect<void, ServerReloadError>
+  /**
+   * How many of this server's runs are still working, read through the database
+   * this server owns. Rejects when the database cannot answer, and always does
+   * once the server has stopped.
+   */
+  readonly countRunningAutomations: () => Promise<number>
 }

@@ -218,14 +218,6 @@ const toBufferedParts = (
 // Transport
 // ---------------------------------------------------------------------------
 
-const requestDetails = (request: HttpClientRequest.HttpClientRequest) => ({
-  method: request.method,
-  url: request.url,
-  urlParams: Array.from(request.urlParams),
-  hash: undefined,
-  headers: {},
-})
-
 /** A transport failure, or a status Ollama answered with, as an `AiError`. */
 const transportError = (method: string) => (error: HttpClientError.HttpClientError) =>
   AiError.make({
@@ -254,7 +246,6 @@ const statusError = (
           reason: AiError.reasonFromHttpStatus({
             status: response.status,
             http: {
-              request: requestDetails(response.request),
               response: { status: response.status, headers: {} },
               body,
             },

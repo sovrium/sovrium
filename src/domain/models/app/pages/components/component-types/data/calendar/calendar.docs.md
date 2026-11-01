@@ -1,6 +1,6 @@
 # Calendars
 
-> The `event-calendar` component — a month, week or day view of date-bearing records.
+> The `event-calendar` component: a month, week or day view of date-bearing records.
 
 An event calendar places each record on the date its `dateField` names. It was named `calendar`; a config still writing `type: calendar` is refused with a message naming `event-calendar`, and renaming the `type` is the whole migration. The field mappings sit at the top level; only click handling and the time-grid settings live under `calendarEvent` and `calendarInteraction`. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. `dateField` and the other mappings stay on the calendar either way. FullCalendar draws the grid; the chrome around it is shadcn/ui's: a button group of the two period arrows, an outline Today button, the period title and a toggle group of the views, which the arrow keys walk as one tab stop. Weekday heads are muted, the grid is ruled in the border colour and today's date sits in a `primary` circle. Reference: shadcn/ui Button Group, Toggle Group.
 
@@ -32,11 +32,11 @@ pages:
 
 ## A coloured event is a block, not a dot
 
-A calendar reads `colorField` at the top level — the record-view colour rules are the same ones a kanban board follows, including where the hue comes from and what happens when a value declares none. An event takes one colour, from one option, so `colorField` must name a `single-select`: a `multi-select` is refused when the config is read, naming the field.
+A calendar reads `colorField` at the top level. The record-view colour rules are the same ones a kanban board follows, including where the hue comes from and what happens when a value declares none. An event takes one colour, from one option, so `colorField` must name a `single-select`: a `multi-select` is refused when the config is read, naming the field.
 
 In month view a calendar renders a timed event as a small dot by default. A dot is mostly empty space, so a colour applied to it is close to invisible. An event that carries a colour therefore renders as a filled **block** instead; an event with no colour keeps the default dot.
 
-Expect that as a visible layout change on any month-view calendar that sets `colorField` — day cells that used to hold lines of dots now hold bands of filled blocks.
+Expect that as a visible layout change on any month-view calendar that sets `colorField`: day cells that used to hold lines of dots now hold bands of filled blocks.
 
 With no `colorField`, an event block sits on the theme's `secondary` surface with its text in `secondary-foreground`, in either scheme, and a timed event's dot wears the theme's `primary`. A `date` field draws an all-day event, with no time.
 
@@ -48,7 +48,7 @@ A calendar writes four words itself: the button that returns to the current peri
 
 ## On a phone
 
-Below the small breakpoint, a calendar in month view reads as an agenda: the month's events stacked in date order under their day, each title in full, with no sideways scroll — seven day columns at phone width leave a title too little room to be read. The toolbar still pages from month to month, and a click on an event does what it does on the grid. Week and day views are unchanged. The view switch offers the agenda as a view of its own, in the month's place: `Agenda` reads pressed while the agenda is drawn, the month grid is not offered at phone width, and Week or Day take over from it. A wider screen offers Month and no Agenda.
+Below the small breakpoint, a calendar in month view reads as an agenda: the month's events stacked in date order under their day, each title in full, with no sideways scroll, because seven day columns at phone width leave a title too little room to be read. The toolbar still pages from month to month, and a click on an event does what it does on the grid. Week and day views are unchanged. The view switch offers the agenda as a view of its own, in the month's place: `Agenda` reads pressed while the agenda is drawn, the month grid is not offered at phone width, and Week or Day take over from it. A wider screen offers Month and no Agenda.
 
 ## Day height
 

@@ -11,7 +11,8 @@
     "default": "7d",
     "presets": [
       {
-        "id": "24h"
+        "id": "24h",
+        "granularity": "day"
       },
       {
         "id": "7d"
@@ -104,7 +105,7 @@
               "children": [
                 {
                   "type": "text",
-                  "element": "h3",
+                  "element": "h2",
                   "props": {
                     "className": "text-foreground text-md font-medium"
                   },
@@ -309,7 +310,7 @@
               "children": [
                 {
                   "type": "text",
-                  "element": "h3",
+                  "element": "h2",
                   "props": {
                     "className": "text-foreground text-md font-medium"
                   },
@@ -351,9 +352,17 @@
                   "key": "manage-region-3",
                   "element": "div",
                   "props": {
-                    "className": "flex flex-wrap items-center gap-2"
+                    "className": "border-border flex flex-col gap-3 border-t pt-4"
                   },
                   "children": [
+                    {
+                      "type": "text",
+                      "element": "h3",
+                      "props": {
+                        "className": "text-foreground text-sm font-medium"
+                      },
+                      "content": "$t:admin.links.dangerHeading"
+                    },
                     {
                       "type": "container",
                       "key": "manage-region-3-1",
@@ -366,9 +375,17 @@
                       },
                       "children": [
                         {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-muted-foreground max-w-xl min-w-0 flex-1 basis-64 text-sm"
+                          },
+                          "content": "$t:admin.links.disableMessage"
+                        },
+                        {
                           "type": "button",
                           "label": "$t:admin.links.disable",
-                          "variant": "secondary",
+                          "variant": "destructive",
                           "confirm": {
                             "title": "$t:admin.links.disableConfirm",
                             "message": "$t:admin.links.disableMessage",
@@ -392,7 +409,10 @@
                             }
                           }
                         }
-                      ]
+                      ],
+                      "props": {
+                        "className": "flex flex-wrap items-center justify-between gap-x-6 gap-y-2"
+                      }
                     },
                     {
                       "type": "container",
@@ -405,6 +425,14 @@
                         }
                       },
                       "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-muted-foreground max-w-xl min-w-0 flex-1 basis-64 text-sm"
+                          },
+                          "content": "$t:admin.links.enableConsequence"
+                        },
                         {
                           "type": "button",
                           "label": "$t:admin.links.enable",
@@ -425,33 +453,55 @@
                             }
                           }
                         }
-                      ]
+                      ],
+                      "props": {
+                        "className": "flex flex-wrap items-center justify-between gap-x-6 gap-y-2"
+                      }
                     },
                     {
-                      "type": "button",
-                      "label": "$t:admin.common.delete",
-                      "variant": "destructive",
-                      "confirm": {
-                        "title": "$t:admin.links.deleteConfirm",
-                        "message": "$t:admin.links.deleteMessage",
-                        "role": "alertdialog",
-                        "confirmLabel": "$t:admin.links.delete",
-                        "cancelLabel": "$t:admin.common.cancel"
+                      "type": "container",
+                      "key": "manage-region-3-3",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-wrap items-center justify-between gap-x-6 gap-y-2"
                       },
-                      "action": {
-                        "type": "fetch",
-                        "method": "DELETE",
-                        "url": "/api/admin/links/$param.slug",
-                        "onSuccess": {
-                          "type": "toast",
-                          "message": "$t:admin.links.deleted"
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-muted-foreground max-w-xl min-w-0 flex-1 basis-64 text-sm"
+                          },
+                          "content": "$t:admin.links.deleteConsequence"
                         },
-                        "onError": {
-                          "type": "toast",
+                        {
+                          "type": "button",
+                          "label": "$t:admin.common.delete",
                           "variant": "destructive",
-                          "message": "$t:admin.links.notDeleted"
+                          "confirm": {
+                            "title": "$t:admin.links.deleteConfirm",
+                            "message": "$t:admin.links.deleteMessage",
+                            "role": "alertdialog",
+                            "confirmLabel": "$t:admin.links.delete",
+                            "cancelLabel": "$t:admin.common.cancel",
+                            "irreversible": true
+                          },
+                          "action": {
+                            "type": "fetch",
+                            "method": "DELETE",
+                            "url": "/api/admin/links/$param.slug",
+                            "onSuccess": {
+                              "type": "toast",
+                              "message": "$t:admin.links.deleted"
+                            },
+                            "onError": {
+                              "type": "toast",
+                              "variant": "destructive",
+                              "message": "$t:admin.links.notDeleted"
+                            }
+                          }
                         }
-                      }
+                      ]
                     }
                   ]
                 }
@@ -474,7 +524,7 @@
               "children": [
                 {
                   "type": "text",
-                  "element": "h3",
+                  "element": "h2",
                   "props": {
                     "className": "text-foreground text-md font-medium"
                   },
@@ -735,7 +785,7 @@
                   "children": [
                     {
                       "type": "text",
-                      "element": "h3",
+                      "element": "h2",
                       "props": {
                         "className": "text-foreground text-md font-medium"
                       },
@@ -783,8 +833,7 @@
                                 "align": "right"
                               }
                             ],
-                            "emptyMessage": "$t:admin.analytics.noReferrers",
-                            "viewOptions": "toolbar"
+                            "emptyMessage": "$t:admin.analytics.noReferrers"
                           }
                         },
                         {
@@ -822,8 +871,7 @@
                                 "align": "right"
                               }
                             ],
-                            "emptyMessage": "$t:admin.links.noDevices",
-                            "viewOptions": "toolbar"
+                            "emptyMessage": "$t:admin.links.noDevices"
                           }
                         },
                         {
@@ -864,8 +912,7 @@
                                 "align": "right"
                               }
                             ],
-                            "emptyMessage": "$t:admin.analytics.noCampaigns",
-                            "viewOptions": "toolbar"
+                            "emptyMessage": "$t:admin.analytics.noCampaigns"
                           }
                         }
                       ]
@@ -883,49 +930,74 @@
                   "children": [
                     {
                       "type": "text",
-                      "element": "h3",
+                      "element": "h2",
                       "props": {
                         "className": "text-foreground text-md font-medium"
                       },
                       "content": "$t:admin.links.clickLog.heading"
                     },
                     {
-                      "component": "console-grid",
-                      "key": "grid-5",
-                      "vars": {
-                        "ariaLabel": "$t:admin.links.clickLog.region",
-                        "dataSource": {
-                          "system": {
-                            "endpoint": "/api/analytics/events",
-                            "rowsKey": "events",
-                            "idKey": "id",
-                            "query": {
-                              "from": "$window.start",
-                              "to": "$window.end",
-                              "granularity": "$window.granularity",
-                              "event_type": "link_click",
-                              "event_name": "$param.slug"
+                      "type": "container",
+                      "key": "click-log-entries",
+                      "element": "div",
+                      "visibility": {
+                        "declares": "analytics.full"
+                      },
+                      "children": [
+                        {
+                          "component": "console-grid",
+                          "key": "grid-5",
+                          "vars": {
+                            "ariaLabel": "$t:admin.links.clickLog.region",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/events",
+                                "rowsKey": "events",
+                                "idKey": "id",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end",
+                                  "granularity": "$window.granularity",
+                                  "event_type": "link_click",
+                                  "event_name": "$param.slug"
+                                }
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "timestamp",
+                                "label": "$t:admin.analytics.recorded",
+                                "format": "datetime"
+                              },
+                              {
+                                "field": "event_type",
+                                "label": "$t:admin.common.type"
+                              },
+                              {
+                                "field": "session_hash",
+                                "label": "$t:admin.analytics.session"
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.links.noClicks",
+                            "countLabel": {
+                              "one": "$t:admin.count.clicks.one",
+                              "other": "$t:admin.count.clicks.other"
                             }
                           }
-                        },
-                        "columns": [
-                          {
-                            "field": "timestamp",
-                            "label": "$t:admin.analytics.recorded",
-                            "format": "datetime"
-                          },
-                          {
-                            "field": "event_type",
-                            "label": "$t:admin.common.type"
-                          },
-                          {
-                            "field": "session_hash",
-                            "label": "$t:admin.analytics.session"
-                          }
-                        ],
-                        "emptyMessage": "$t:admin.links.noClicks",
-                        "viewOptions": "toolbar"
-                      }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "key": "click-log-not-listed",
+                      "element": "p",
+                      "visibility": {
+                        "unlessDeclares": "analytics.full"
+                      },
+                      "props": {
+                        "className": "text-muted-foreground text-sm"
+                      },
+                      "content": "$t:admin.links.clickLog.notListed"
                     }
                   ]
                 }

@@ -22,22 +22,23 @@
  *    `deleted_at`) the `auth.user` record — the row is never physically
  *    removed so historical activity attribution is preserved.
  *
- * The `auth.user` table is owned by Better Auth / Drizzle migrations, so the
- * agent-specific `type` and `deleted_at` columns are added with idempotent
- * `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` DDL on startup (the same lazy-DDL
- * discipline as `agent-activity-log.ts`). Agent rows carry NO `auth.account`
+ * The agent-specific `type` and `deleted_at` columns of `auth.user` are part
+ * of the Drizzle schema and created by the migrations, like every other
+ * column of the table. Agent rows carry NO `auth.account`
  * credential row, so they can never authenticate via a login endpoint
  * (an AI agent perms spec — the rejection is a natural consequence of having
  * no password account, not a special-case code path).
  *
- * Every statement is best-effort (`.catch(() => undefined)`): a sync failure
- * must never block server startup.
+ * Every statement is best-effort (`bestEffort(...).promise`): a sync failure
+ * must never block server startup, and is logged with its cause rather than lost.
  */
 
 import { sql } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { getPgDb } from '@/infrastructure/database/drizzle/portable-db'
+import { bestEffort } from '@/infrastructure/logging/best-effort'
 import { logError } from '@/infrastructure/logging/logger'
+import type { PgDb } from '@/infrastructure/database/drizzle/db'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /** Default domain for synthetic agent email addresses. */
 const AGENT_EMAIL_DOMAIN = 'agents.sovrium.local'
@@ -52,22 +53,6 @@ interface AgentForSync {
 export const agentEmail = (name: string): string => `${name}@${AGENT_EMAIL_DOMAIN}`
 
 /**
- * Ensure the agent-specific columns exist on `auth.user`.
- *
- * `type` discriminates agent users from human users; `deleted_at` carries the
- * soft-delete tombstone for agents removed from config. Both are nullable so
- * the DDL is safe to run against a table already populated with human users.
- */
-const ensureAgentColumns = async (): Promise<void> => {
-  await db
-    .execute(sql`ALTER TABLE auth."user" ADD COLUMN IF NOT EXISTS "type" TEXT`)
-    .catch(() => undefined)
-  await db
-    .execute(sql`ALTER TABLE auth."user" ADD COLUMN IF NOT EXISTS "deleted_at" TIMESTAMPTZ`)
-    .catch(() => undefined)
-}
-
-/**
  * Upsert a single agent's `auth.user` row.
  *
  * Keyed on the synthetic email so the operation is idempotent across server
@@ -75,10 +60,11 @@ const ensureAgentColumns = async (): Promise<void> => {
  * any prior soft-delete tombstone is cleared (an agent re-added to config is
  * reactivated, never duplicated).
  */
-const upsertAgentUser = async (agent: AgentForSync): Promise<void> => {
+const upsertAgentUser = async (db: PgDb, agent: AgentForSync): Promise<void> => {
   const email = agentEmail(agent.name)
-  await db
-    .execute(
+  // One agent's row failing must not stop the others, nor the boot.
+  await bestEffort('[agents] agent user not upserted', { agent: agent.name }).promise(
+    db.execute(
       sql`
         INSERT INTO auth."user" (id, name, email, email_verified, role, type, created_at, updated_at)
         VALUES (
@@ -93,7 +79,7 @@ const upsertAgentUser = async (agent: AgentForSync): Promise<void> => {
           updated_at = now()
       `
     )
-    .catch(() => undefined)
+  )
 }
 
 /**
@@ -101,7 +87,7 @@ const upsertAgentUser = async (agent: AgentForSync): Promise<void> => {
  * the current config. Rows are tombstoned via
  * `deleted_at = now()`, never physically removed.
  */
-const softDeleteRemovedAgents = async (keepEmails: readonly string[]): Promise<void> => {
+const softDeleteRemovedAgents = async (db: PgDb, keepEmails: readonly string[]): Promise<void> => {
   const placeholders =
     keepEmails.length === 0
       ? sql`(SELECT NULL WHERE false)`
@@ -109,8 +95,9 @@ const softDeleteRemovedAgents = async (keepEmails: readonly string[]): Promise<v
           keepEmails.map((email) => sql`${email}`),
           sql`, `
         )
-  await db
-    .execute(
+  // A tombstone that fails is retried by the next boot's sync; it must not stop this one.
+  await bestEffort('[agents] removed agent users not soft-deleted').promise(
+    db.execute(
       sql`
         UPDATE auth."user"
         SET deleted_at = now(), updated_at = now()
@@ -119,7 +106,7 @@ const softDeleteRemovedAgents = async (keepEmails: readonly string[]): Promise<v
           AND email NOT IN (${placeholders})
       `
     )
-    .catch(() => undefined)
+  )
 }
 
 /**
@@ -130,13 +117,15 @@ const softDeleteRemovedAgents = async (keepEmails: readonly string[]): Promise<v
  * demotes roles and soft-deletes removed agents.
  */
 export const syncAgentUsers = async (
+  db: PgDb,
   agents: readonly AgentForSync[] | undefined
 ): Promise<void> => {
-  await ensureAgentColumns()
-
   const list = agents ?? []
-  await Promise.all(list.map((agent) => upsertAgentUser(agent)))
-  await softDeleteRemovedAgents(list.map((agent) => agentEmail(agent.name)))
+  await Promise.all(list.map((agent) => upsertAgentUser(db, agent)))
+  await softDeleteRemovedAgents(
+    db,
+    list.map((agent) => agentEmail(agent.name))
+  )
 }
 
 /**
@@ -153,8 +142,8 @@ export const syncAgentUsers = async (
  * SQLite skip: the sync DDL/DML is Postgres-flavoured raw SQL — the
  * schema-qualified `auth."user"` table, `TIMESTAMPTZ`, `now()`, and `ON
  * CONFLICT` upsert. SQLite has no schemas (Better Auth's SQLite adapter uses
- * the flat `auth_user` table) and the `db` facade in SQLite mode has no
- * `.execute()` at all. Rather than emit a `db.execute is not a function`
+ * the flat `auth_user` table) and the SQLite client has no `.execute()` at
+ * all. Rather than emit a `db.execute is not a function`
  * warning per statement and silently no-op, the runner self-skips on the
  * SQLite runtime — mirroring the boot-path skip in the AI knowledge/compute
  * listeners. Agent-as-user RBAC mirroring is a PostgreSQL-only feature.
@@ -162,12 +151,14 @@ export const syncAgentUsers = async (
 export const runSyncAgentUsers = async (input: {
   readonly agents: readonly AgentForSync[] | undefined
   readonly hasAuth: boolean
+  /** The boot's `Database` service: the client the sync writes through, and its dialect. */
+  readonly database: DatabaseService
 }): Promise<void> => {
   if (!input.hasAuth) return
   // SQLite runtime: agent-user sync is a Postgres-only feature — skip cleanly
   // instead of warning on the missing `db.execute`. See the doc comment above.
-  if (isSqliteRuntime()) return
-  await syncAgentUsers(input.agents).catch((error: unknown) => {
+  if (input.database.dialect.kind === 'sqlite') return
+  await syncAgentUsers(getPgDb(input.database), input.agents).catch((error: unknown) => {
     logError('[agents] agent-user sync failed', error)
   })
 }

@@ -58,7 +58,6 @@
 
 import { Effect } from 'effect'
 import { LINKS_READ_OPERATIONS } from '@/application/use-cases/admin/admin-read-registry'
-import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import {
   configLinkRefusesOverlay,
   configSlugs,
@@ -79,57 +78,46 @@ import {
   linkStateChangeResponseSchema,
   updateLinkRequestSchema,
 } from '@/domain/models/api/admin/links'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
-import { emitAuditEvent } from '@/presentation/api/admin/audit-events'
+import { logError } from '@/infrastructure/logging/logger'
+import { emitAuditEventAs } from '@/presentation/api/admin/audit-events'
 import { conflict } from '@/presentation/api/admin/links-conflict'
 import { chainAdminReadRoutes } from '@/presentation/api/admin/read-operation-routes'
 import { badRequest, internalError, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
-import type { LinkRepository } from '@/application/ports/repositories/links/link-repository'
+import { decodeJsonBody } from '@/presentation/api/runtime/request-body'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import type { Severity } from '@/domain/models/api/admin/envelope/severity'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
-/**
- * Run a links program to a `Result`, never throwing into the Hono handler.
- *
- * The services come from the set the server resolved at boot, read off this
- * request. `createAppLayer` carries `LinkRepository` (beside the other
- * `Database`-reading repositories) and `AnalyticsRepository`, so nothing is
- * constructed here per call.
- */
-const runLinks = <A, E>(
-  c: Context,
-  program: Effect.Effect<A, E, LinkRepository | AnalyticsRepository>
-) => runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))
+/** Answer a refusal decided before any program ran: a config-declared slug's 409. */
+const answerConflict = (c: Context, slug: string): Promise<Response> =>
+  runHandlerEffect(c, answerFailures(c, conflict(c, 'LINK_IS_CONFIG_DECLARED', slug)))
 
 // ---------------------------------------------------------------------------
 // Canonical response envelopes
 // ---------------------------------------------------------------------------
 
 /** Build the detail body for a row that was just written. */
-const detailResponse = async (
-  c: Context,
-  app: App,
-  slug: string,
-  status: 200 | 201
-): Promise<Response> => {
-  const result = await runLinks(c, readLinkEntry({ app, slug, now: new Date() }))
-  if (result._tag === 'Failure' || result.success === undefined) {
-    return internalError(c, 'Failed to read the link back')
-  }
-  const body = decodeSafe(adminLinkDetailResponseSchema)({
-    link: toAdminLinkDetail(result.success),
+const detailResponse = (c: Context, app: App, slug: string, status: 200 | 201) =>
+  Effect.gen(function* () {
+    const result = yield* Effect.result(readLinkEntry({ app, slug, now: new Date() }))
+    if (result._tag === 'Failure') {
+      logError('[admin] link read-back failed', result.failure)
+      return internalError(c, 'Failed to read the link back')
+    }
+    if (result.success === undefined) return internalError(c, 'Failed to read the link back')
+    return yield* respondWith(
+      c,
+      Effect.succeed({ link: toAdminLinkDetail(result.success) }),
+      adminLinkDetailResponseSchema,
+      status
+    )
   })
-  if (!body.success) return internalError(c, 'Failed to build the link detail')
-  return c.json(body.data, status)
-}
 
 /**
  * Record one mutation in the audit log.
@@ -143,26 +131,19 @@ const detailResponse = async (
  * while leaving no trace and failing nothing — which is why the five `link.*`
  * actions are registered there and covered by a spec.
  */
-const auditLinkMutation = async (
-  c: Context,
-  action: string,
-  slug: string,
-  severity: Severity
-): Promise<void> => {
+const auditLinkMutation = (c: Context, action: string, slug: string, severity: Severity) => {
   const userId = getSessionContext(c)?.userId
-  if (userId === undefined) return
-  const actor = await runDomainPromise(c, resolveActor(userId))
-  // Returned rather than awaited: the caller awaits this promise, so ordering is
-  // unchanged (a spec reads the audit log the moment the mutation answers) while
-  // the emit stays a return statement instead of a bare side-effecting one.
-  return emitAuditEvent({
-    action,
-    actor,
-    resourceId: slug,
-    resourceName: slug,
-    severity,
-    result: 'success',
-  })
+  // Part of the handler's program, so the entry is written before the answer
+  // leaves: a spec reads the audit log the moment the mutation answers.
+  return userId === undefined
+    ? Effect.void
+    : emitAuditEventAs(userId, {
+        action,
+        resourceId: slug,
+        resourceName: slug,
+        severity,
+        result: 'success',
+      })
 }
 
 /**
@@ -172,7 +153,7 @@ const auditLinkMutation = async (
  * entry an operator scans for when reconstructing an incident; restoring service
  * is routine and should not compete with it for attention.
  */
-const auditOverlayChange = (c: Context, slug: string, disabled: boolean): Promise<void> =>
+const auditOverlayChange = (c: Context, slug: string, disabled: boolean) =>
   auditLinkMutation(
     c,
     disabled ? AUDIT_ACTIONS.LINK_DISABLED : AUDIT_ACTIONS.LINK_ENABLED,
@@ -188,21 +169,12 @@ const auditOverlayChange = (c: Context, slug: string, disabled: boolean): Promis
  * call is what lets the console read idempotency as success, and that only
  * works if both endpoints spell it the same way.
  */
-const stateChangeResponse = (
-  c: Context,
-  slug: string,
-  state: CatalogState,
-  changed: boolean
-): Response => {
-  const body = decodeSafe(linkStateChangeResponseSchema)({ slug, state, changed })
-  if (!body.success) return internalError(c, 'Failed to build the state-change response')
-  return c.json(body.data, 200)
-}
+const stateChangeResponse = (c: Context, slug: string, state: CatalogState, changed: boolean) =>
+  respondWith(c, Effect.succeed({ slug, state, changed }), linkStateChangeResponseSchema)
 
 /** POST /api/admin/links — mint a runtime link. */
 async function handleCreateLink(c: Context, app: App): Promise<Response> {
-  const raw: unknown = await c.req.json().catch(() => undefined)
-  const parsed = decodeSafe(createLinkRequestSchema)(raw)
+  const { decoded: parsed } = await decodeJsonBody(c, createLinkRequestSchema)
   if (!parsed.success) return badRequest(c, 'Invalid link payload')
 
   const { slug } = parsed.data
@@ -210,44 +182,51 @@ async function handleCreateLink(c: Context, app: App): Promise<Response> {
 
   // Both reservation guards, and the slug-taken conflict, are the use-case's:
   // the automation `link` action refuses exactly what this endpoint refuses.
-  const result = await runLinks(
+  const program = createLink({
+    app,
+    slug,
+    // Forwarded as the request supplied them: exactly one is present (the
+    // schema refuses both and neither), and the repository nulls the other
+    // column so a minted link is the same shape as a config-declared one.
+    destination: parsed.data.destination,
+    targets: parsed.data.targets,
+    enabled: parsed.data.enabled,
+    title: parsed.data.title,
+    tags: parsed.data.tags,
+    notes: parsed.data.notes,
+    validFrom: parsed.data.validFrom,
+    validUntil: parsed.data.validUntil,
+    maxClicks: parsed.data.maxClicks,
+    expiredTo: parsed.data.expiredTo,
+    utm: utmRecordFromFlat(body),
+    createdBy: getSessionContext(c)?.userId ?? null,
+  })
+
+  return runHandlerEffect(
     c,
-    createLink({
-      app,
-      slug,
-      // Forwarded as the request supplied them: exactly one is present (the
-      // schema refuses both and neither), and the repository nulls the other
-      // column so a minted link is the same shape as a config-declared one.
-      destination: parsed.data.destination,
-      targets: parsed.data.targets,
-      enabled: parsed.data.enabled,
-      title: parsed.data.title,
-      tags: parsed.data.tags,
-      notes: parsed.data.notes,
-      validFrom: parsed.data.validFrom,
-      validUntil: parsed.data.validUntil,
-      maxClicks: parsed.data.maxClicks,
-      expiredTo: parsed.data.expiredTo,
-      utm: utmRecordFromFlat(body),
-      createdBy: getSessionContext(c)?.userId ?? null,
-    })
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const result = yield* Effect.result(program)
+        if (result._tag === 'Failure') {
+          const { failure } = result
+          if (failure._tag === 'LinkMutationConflictError') {
+            return yield* conflict(c, failure.code, failure.slug, true)
+          }
+          // 400, not 500: the caller sent a value that is not a link. The request
+          // schema above already refuses a malformed slug, but it validates
+          // `destination` as a non-empty string only — so this is the branch that
+          // keeps a `javascript:` destination out of storage, which the config schema
+          // has always refused. The rule is the use-case's; rendering it is ours.
+          if (failure._tag === 'LinkValueRejectedError') return badRequest(c, failure.reason)
+          return internalError(c, 'Failed to create the link')
+        }
+
+        yield* auditLinkMutation(c, AUDIT_ACTIONS.LINK_CREATED, slug, 'info')
+        return yield* detailResponse(c, app, slug, 201)
+      })
+    )
   )
-
-  if (result._tag === 'Failure') {
-    const { failure } = result
-    if (failure._tag === 'LinkMutationConflictError')
-      return conflict(c, failure.code, failure.slug, true)
-    // 400, not 500: the caller sent a value that is not a link. The request
-    // schema above already refuses a malformed slug, but it validates
-    // `destination` as a non-empty string only — so this is the branch that
-    // keeps a `javascript:` destination out of storage, which the config schema
-    // has always refused. The rule is the use-case's; rendering it is ours.
-    if (failure._tag === 'LinkValueRejectedError') return badRequest(c, failure.reason)
-    return internalError(c, 'Failed to create the link')
-  }
-
-  await auditLinkMutation(c, AUDIT_ACTIONS.LINK_CREATED, slug, 'info')
-  return detailResponse(c, app, slug, 201)
 }
 
 /** PATCH /api/admin/links/:slug — sparse edit. There is no rename. */
@@ -258,47 +237,55 @@ async function handleUpdateLink(c: Context, app: App): Promise<Response> {
   // problem is that the slug is not theirs to write, and fixing the body would
   // not change that. `updateLink` re-checks — this is status precedence, an
   // HTTP concern, not a second copy of the rule.
-  if (configSlugs(app).has(slug)) return conflict(c, 'LINK_IS_CONFIG_DECLARED', slug)
+  if (configSlugs(app).has(slug)) return answerConflict(c, slug)
 
-  const raw: unknown = await c.req.json().catch(() => undefined)
-  const parsed = decodeSafe(updateLinkRequestSchema)(raw)
+  // The raw body is kept beside the decoded one: the UTM patch reads which keys were sent.
+  const { raw, decoded: parsed } = await decodeJsonBody(c, updateLinkRequestSchema)
   if (!parsed.success) return badRequest(c, 'Invalid link payload')
 
   const body = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
-  const result = await runLinks(
+  const program = updateLink({
+    app,
+    slug,
+    // Either form REPLACES the other; the repository clears the counterpart
+    // column so a re-pointed link cannot keep rotating to the destinations
+    // the operator has just replaced.
+    destination: parsed.data.destination,
+    targets: parsed.data.targets,
+    enabled: parsed.data.enabled,
+    title: parsed.data.title,
+    tags: parsed.data.tags,
+    notes: parsed.data.notes,
+    validFrom: parsed.data.validFrom,
+    validUntil: parsed.data.validUntil,
+    maxClicks: parsed.data.maxClicks,
+    expiredTo: parsed.data.expiredTo,
+    // A sparse patch, merged against the stored block inside the use-case —
+    // the route has not read the row and must not have to.
+    utm: utmPatchFromFlat(body),
+  })
+
+  return runHandlerEffect(
     c,
-    updateLink({
-      app,
-      slug,
-      // Either form REPLACES the other; the repository clears the counterpart
-      // column so a re-pointed link cannot keep rotating to the destinations
-      // the operator has just replaced.
-      destination: parsed.data.destination,
-      targets: parsed.data.targets,
-      enabled: parsed.data.enabled,
-      title: parsed.data.title,
-      tags: parsed.data.tags,
-      notes: parsed.data.notes,
-      validFrom: parsed.data.validFrom,
-      validUntil: parsed.data.validUntil,
-      maxClicks: parsed.data.maxClicks,
-      expiredTo: parsed.data.expiredTo,
-      // A sparse patch, merged against the stored block inside the use-case —
-      // the route has not read the row and must not have to.
-      utm: utmPatchFromFlat(body),
-    })
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const result = yield* Effect.result(program)
+        if (result._tag === 'Failure') {
+          const { failure } = result
+          if (failure._tag === 'LinkMutationConflictError') {
+            return yield* conflict(c, failure.code, failure.slug)
+          }
+          if (failure._tag === 'LinkValueRejectedError') return badRequest(c, failure.reason)
+          if (failure._tag === 'LinkNotFoundError') return notFound(c, 'Not found')
+          return internalError(c, 'Failed to update the link')
+        }
+
+        yield* auditLinkMutation(c, AUDIT_ACTIONS.LINK_UPDATED, slug, 'info')
+        return yield* detailResponse(c, app, slug, 200)
+      })
+    )
   )
-
-  if (result._tag === 'Failure') {
-    const { failure } = result
-    if (failure._tag === 'LinkMutationConflictError') return conflict(c, failure.code, failure.slug)
-    if (failure._tag === 'LinkValueRejectedError') return badRequest(c, failure.reason)
-    if (failure._tag === 'LinkNotFoundError') return notFound(c, 'Not found')
-    return internalError(c, 'Failed to update the link')
-  }
-
-  await auditLinkMutation(c, AUDIT_ACTIONS.LINK_UPDATED, slug, 'info')
-  return detailResponse(c, app, slug, 200)
 }
 
 /**
@@ -309,29 +296,38 @@ async function handleUpdateLink(c: Context, app: App): Promise<Response> {
  * and `changed: false` on a second call is what lets the console treat
  * idempotency as success instead of as a failed retry.
  */
-async function handleDeleteLink(c: Context, app: App): Promise<Response> {
+function handleDeleteLink(c: Context, app: App): Promise<Response> {
   const slug = c.req.param('slug') ?? ''
 
-  const result = await runLinks(c, deleteLink({ app, slug }))
+  return runHandlerEffect(
+    c,
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const result = yield* Effect.result(deleteLink({ app, slug }))
+        if (result._tag === 'Failure') {
+          const { failure } = result
+          if (failure._tag === 'LinkMutationConflictError') {
+            return yield* conflict(c, failure.code, failure.slug)
+          }
+          // A slug that is not shaped like one could never have matched a row, so
+          // the alternative here is the anti-enumeration 404 — which would tell the
+          // caller their address is unknown when their real problem is that it is
+          // not an address.
+          if (failure._tag === 'LinkValueRejectedError') return badRequest(c, failure.reason)
+          if (failure._tag === 'LinkNotFoundError') return notFound(c, 'Not found')
+          return internalError(c, 'Failed to delete the link')
+        }
 
-  if (result._tag === 'Failure') {
-    const { failure } = result
-    if (failure._tag === 'LinkMutationConflictError') return conflict(c, failure.code, failure.slug)
-    // A slug that is not shaped like one could never have matched a row, so
-    // the alternative here is the anti-enumeration 404 — which would tell the
-    // caller their address is unknown when their real problem is that it is
-    // not an address.
-    if (failure._tag === 'LinkValueRejectedError') return badRequest(c, failure.reason)
-    if (failure._tag === 'LinkNotFoundError') return notFound(c, 'Not found')
-    return internalError(c, 'Failed to delete the link')
-  }
-
-  if (result.success.changed) {
-    // `warning`, not `info`: a delete takes a live address out of service, and
-    // it is the entry an operator reconstructing an outage scans for.
-    await auditLinkMutation(c, AUDIT_ACTIONS.LINK_DELETED, slug, 'warning')
-  }
-  return stateChangeResponse(c, slug, 'archived', result.success.changed)
+        if (result.success.changed) {
+          // `warning`, not `info`: a delete takes a live address out of service, and
+          // it is the entry an operator reconstructing an outage scans for.
+          yield* auditLinkMutation(c, AUDIT_ACTIONS.LINK_DELETED, slug, 'warning')
+        }
+        return yield* stateChangeResponse(c, slug, 'archived', result.success.changed)
+      })
+    )
+  )
 }
 
 /**
@@ -341,31 +337,35 @@ async function handleDeleteLink(c: Context, app: App): Promise<Response> {
  * attempted; `configLinkRefusesOverlay` is the rule and it lives with the write
  * it guards. See `set-link-overlay.ts` for why the polarity is asymmetric.
  */
-async function handleSetLinkDisabled(c: Context, app: App, disabled: boolean): Promise<Response> {
+function handleSetLinkDisabled(c: Context, app: App, disabled: boolean): Promise<Response> {
   const slug = c.req.param('slug') ?? ''
-  if (configLinkRefusesOverlay(app, slug)) return conflict(c, 'LINK_IS_CONFIG_DECLARED', slug)
+  if (configLinkRefusesOverlay(app, slug)) return answerConflict(c, slug)
 
-  const result = await runLinks(
+  return runHandlerEffect(
     c,
-    setLinkOverlay({
-      app,
-      slug,
-      disabled,
-      actorId: getSessionContext(c)?.userId ?? null,
-    })
+    answerFailures(
+      c,
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          setLinkOverlay({
+            app,
+            slug,
+            disabled,
+            actorId: getSessionContext(c)?.userId ?? null,
+          })
+        )
+        if (result._tag === 'Failure') {
+          if (result.failure._tag === 'LinkNotFoundError') return notFound(c, 'Not found')
+          return internalError(c, 'Failed to change the link state')
+        }
+        if (result.success === undefined) return notFound(c, 'Not found')
+
+        if (result.success.changed) yield* auditOverlayChange(c, slug, disabled)
+
+        return yield* stateChangeResponse(c, slug, result.success.state, result.success.changed)
+      })
+    )
   )
-
-  if (result._tag === 'Failure') {
-    if (result.failure._tag === 'LinkNotFoundError') return notFound(c, 'Not found')
-    return internalError(c, 'Failed to change the link state')
-  }
-  if (result.success === undefined) return notFound(c, 'Not found')
-
-  if (result.success.changed) {
-    await auditOverlayChange(c, slug, disabled)
-  }
-
-  return stateChangeResponse(c, slug, result.success.state, result.success.changed)
 }
 
 /**
@@ -375,22 +375,17 @@ async function handleSetLinkDisabled(c: Context, app: App, disabled: boolean): P
  * actually collide (different segment counts), but keeping the more specific
  * pattern first is what stops a future `/api/admin/links/:slug/*` handler from
  * silently swallowing them.
- *
- * `resolveApp` is the live-App resolver rather than the boot `app`, so a config
- * reload is reflected without a restart — a catalog describing the previous
- * deploy's `app.links[]` would report the wrong `source` for every entry, and
- * `source` is what the console gates its Edit and Delete affordances on.
  */
-export function chainAdminLinksRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
+export function chainAdminLinksRoutes<T extends Hono>(honoApp: T, app: App): T {
   const withReads = chainAdminReadRoutes(
     honoApp
-      .post('/api/admin/links/:slug/disable', (c) => handleSetLinkDisabled(c, resolveApp(), true))
-      .post('/api/admin/links/:slug/enable', (c) => handleSetLinkDisabled(c, resolveApp(), false))
-      .post('/api/admin/links', (c) => handleCreateLink(c, resolveApp())),
-    resolveApp,
+      .post('/api/admin/links/:slug/disable', (c) => handleSetLinkDisabled(c, app, true))
+      .post('/api/admin/links/:slug/enable', (c) => handleSetLinkDisabled(c, app, false))
+      .post('/api/admin/links', (c) => handleCreateLink(c, app)),
+    app,
     LINKS_READ_OPERATIONS
   )
   return withReads
-    .patch('/api/admin/links/:slug', (c) => handleUpdateLink(c, resolveApp()))
-    .delete('/api/admin/links/:slug', (c) => handleDeleteLink(c, resolveApp())) as T
+    .patch('/api/admin/links/:slug', (c) => handleUpdateLink(c, app))
+    .delete('/api/admin/links/:slug', (c) => handleDeleteLink(c, app)) as T
 }

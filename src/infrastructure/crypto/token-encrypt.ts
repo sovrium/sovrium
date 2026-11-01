@@ -6,8 +6,8 @@
  */
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
+import { EncryptionKeyMismatchError } from '@/domain/errors/encryption-key-mismatch-error'
 import { deriveSubkey } from '@/infrastructure/crypto/root-secret'
-import { EncryptionKeyMismatchError } from '@/infrastructure/errors/encryption-key-mismatch-error'
 
 /**
  * AES-256-GCM token-at-rest encryption.

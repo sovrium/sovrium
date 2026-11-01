@@ -1,6 +1,6 @@
 # AI Providers
 
-> The language and embedding backend, selected entirely by environment variable — six providers, their keys, and the defaults each one resolves to.
+> The language and embedding backend, selected entirely by environment variable: six providers, their keys, and the defaults each one resolves to.
 
 The provider is never named in the app schema. Setting `AI_PROVIDER` is the master switch that activates the AI layer; leaving it unset keeps AI dormant.
 
@@ -62,13 +62,13 @@ Each cloud provider also accepts its own conventional variable. The generic `AI_
 | Mistral           | `mistral-large-latest` |
 | Google Gemini     | `gemini-2.0-flash`     |
 | Ollama            | `llama3.1`             |
-| OpenAI-compatible | none — set it yourself |
+| OpenAI-compatible | none: set it yourself  |
 
 A compatible endpoint points at an arbitrary backend, so there is no universal default and `AI_MODEL` is required.
 
 ## Model names are checked, not enforced
 
-For a provider with a known catalogue, a startup **warning** fires when the model name is not recognised — typically a cross-provider mix-up or a typo. It is a warning rather than an error, and the server still starts, because a catalogue goes stale faster than a deployment does.
+For a provider with a known catalogue, a startup **warning** fires when the model name is not recognised, typically after a cross-provider mix-up or a typo. It is a warning rather than an error, and the server still starts, because a catalogue goes stale faster than a deployment does.
 
 Ollama and compatible endpoints have open-ended catalogues, so name validation is skipped for them entirely.
 
@@ -92,7 +92,7 @@ Any agent can override the model, temperature and maximum length for itself, fal
 
 ## Speech-to-text
 
-Transcription uses its own endpoint, configured apart from the language model. Sovrium ships no speech model: it sends recordings to one speech server you run — an OpenAI-compatible server such as Speaches or LocalAI, or whisper.cpp's bundled server — exactly as it talks to Ollama. Leave `STT_PROVIDER` unset and speech-to-text stays off: the app boots, and a transcription step fails with "speech-to-text is not configured".
+Transcription uses its own endpoint, configured apart from the language model. Sovrium ships no speech model: it sends recordings to one speech server you run (an OpenAI-compatible server such as Speaches or LocalAI, or whisper.cpp's bundled server), exactly as it talks to Ollama. Leave `STT_PROVIDER` unset and speech-to-text stays off: the app boots, and a transcription step fails with "speech-to-text is not configured".
 
 | Variable             | Holds                                                                                         |
 | -------------------- | --------------------------------------------------------------------------------------------- |

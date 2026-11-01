@@ -24,15 +24,15 @@
 import { Cause, Effect } from 'effect'
 import { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import { BootLedgerRepository } from '@/application/ports/repositories/admin/boot-ledger-repository'
+import { StorageFootprintRepository } from '@/application/ports/repositories/admin/storage-footprint-repository'
 import { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import { AdminBucketFilesRepository } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
-import { StorageFootprintRepository } from '@/application/ports/repositories/footprint/storage-footprint-repository'
 import { AdminFormsRepository } from '@/application/ports/repositories/forms/admin-forms-repository'
 import { TablesOverviewRepository } from '@/application/ports/repositories/tables/tables-overview-repository'
 import { UsersOverviewRepository } from '@/application/ports/repositories/tables/users-overview-repository'
 import { StorageService } from '@/application/ports/services/storage-service'
-import { BuildConnectionsList } from '@/application/use-cases/admin/connections'
+import { buildConnectionsList } from '@/application/use-cases/admin/connections'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { coerceTimestampToMs } from '@/domain/kernel/time/time-series-bucketing'
 import { summariseRunError } from '@/domain/models/app/automations/failure-summary-service'
@@ -271,7 +271,7 @@ export const connectionsBlock: Effect.Effect<
   Connections,
   never,
   ConnectionRepository | ConnectionTokenRepository | Logger
-> = BuildConnectionsList.pipe(
+> = buildConnectionsList.pipe(
   Effect.map((outcome) => {
     if (outcome._tag !== 'Ok') return { healthy: 0, total: 0 }
     const { connections } = outcome.body

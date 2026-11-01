@@ -5,10 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isBehindDeclaredProxy } from '@/domain/kernel/url/request-base-url'
 import { isLocalDevDefault } from '@/domain/models/process-env/dev-mode'
 import { parseEcoFormAnalytics } from '@/domain/models/process-env/eco/eco-form-analytics'
 import { isOutgoingEmailConfigured } from '@/domain/models/process-env/email-transport'
-import { isDebugLevel } from '@/domain/models/process-env/logging'
+import { isDebugLevel, parseLoggingConfig } from '@/domain/models/process-env/logging'
+import { resolveTrustedProxyHops } from '@/domain/models/process-env/proxy'
 import {
   isInsecureOptOut,
   isLoopbackHost,
@@ -39,9 +41,9 @@ export const isProduction = (): boolean => getNodeEnv() === 'production'
  * readers include an HTTP route: the mounted-app guard that hides a mail-gated
  * public path. Importing it from the email area would have dragged `sendEmail`
  * and a live nodemailer transport into a route's import graph to answer a
- * question about an environment variable — the same shape as
- * `layers/table-layer -> checkForExistingRecords`, where an area-level
- * allowance cannot tell a pure helper from a live one.
+ * question about an environment variable — the same shape the upsert merge
+ * lookup once had through a `layers/` re-export, before it became a port: an
+ * area-level allowance cannot tell a pure helper from a live one.
  */
 export const isEmailConfigured = (): boolean => isOutgoingEmailConfigured(env)
 
@@ -53,7 +55,7 @@ export const isEmailConfigured = (): boolean => isOutgoingEmailConfigured(env)
  * its `minimumLogLevel`, gating the stdout logger and the OTLP tee together so
  * the two can never drift: debug lines print and export together, or neither.
  */
-export const isDebugEnabled = (): boolean => isDebugLevel()
+export const isDebugEnabled = (): boolean => isDebugLevel(parseLoggingConfig(process.env))
 
 /**
  * Whether the in-process render caches (compiled CSS, the page-output cache, the
@@ -166,8 +168,54 @@ export const collectPublicOriginWarning = (bindHost?: string): StartupPhase | un
   return { label, type: 'warning' as const }
 }
 
-/** Both posture `⚠` phases for `bindHost`, in banner order; empty on a safe posture. */
+/**
+ * Warn when a reverse proxy is declared (`TRUSTED_PROXY_HOPS` >= 1) in front
+ * of a loopback socket while `BASE_URL` is unset or loopback: the server is
+ * published, yet its posture still reads "local" — no CSRF checks, no `Secure`
+ * cookies, links minted for the socket address. One line naming both
+ * variables; silent without a proxy, so a plain local boot stays clean. A
+ * reachable bind is {@link collectPublicOriginWarning}'s line instead.
+ */
+export const collectProxiedLoopbackWarning = (bindHost?: string): StartupPhase | undefined => {
+  if (!isBehindDeclaredProxy(resolveTrustedProxyHops(env))) return undefined
+  if (bindHost !== undefined && !isLoopbackHost(bindHost)) return undefined
+  const canonicalHost = resolveCanonicalHost()
+  if (canonicalHost !== undefined && !isLoopbackHost(canonicalHost)) return undefined
+  return {
+    label:
+      'TRUSTED_PROXY_HOPS declares a reverse proxy while BASE_URL is unset or loopback — the server still behaves as if local: no CSRF checks, no Secure cookies, links minted for the socket address; set BASE_URL to the public origin',
+    type: 'warning' as const,
+  }
+}
+
+/**
+ * Warn when `BASE_URL` is a public `https` origin and no reverse proxy is
+ * declared. Sovrium does not terminate TLS, so something in front of it does;
+ * with `TRUSTED_PROXY_HOPS` unset the client address is read off the socket,
+ * which is that proxy for every visitor alike — one rate-limit bucket for all.
+ */
+export const collectUndeclaredProxyWarning = (): StartupPhase | undefined => {
+  const baseUrl = env['BASE_URL']
+  const canonicalHost = resolveCanonicalHost()
+  if (canonicalHost === undefined || isLoopbackHost(canonicalHost)) return undefined
+  if (
+    !baseUrl?.trim().toLowerCase().startsWith('https:') ||
+    isBehindDeclaredProxy(resolveTrustedProxyHops(env))
+  ) {
+    return undefined
+  }
+  return {
+    label:
+      'BASE_URL is https but TRUSTED_PROXY_HOPS is not set — every visitor arrives from the address of the proxy in front of the server, so every visitor shares one rate-limit address; set TRUSTED_PROXY_HOPS to the number of proxies in front of it',
+    type: 'warning' as const,
+  }
+}
+
+/** Every posture `⚠` phase for `bindHost`, in banner order; empty on a safe posture. */
 export const collectPostureWarnings = (bindHost?: string): readonly StartupPhase[] =>
-  [collectInsecureEnvWarning(bindHost), collectPublicOriginWarning(bindHost)].filter(
-    (phase): phase is StartupPhase => phase !== undefined
-  )
+  [
+    collectInsecureEnvWarning(bindHost),
+    collectPublicOriginWarning(bindHost),
+    collectProxiedLoopbackWarning(bindHost),
+    collectUndeclaredProxyWarning(),
+  ].filter((phase): phase is StartupPhase => phase !== undefined)

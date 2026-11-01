@@ -39,81 +39,70 @@
  * audit emits, then calls the use cases via the effect runner.
  *
  * Auth gating is wired upstream by `requireAdminTier()` in
- * `infrastructure/server/route-setup/api-routes.ts`. Anti-enumeration 404
+ * `middleware/admin-route-guards.ts`. Anti-enumeration 404
  * applies to every unauthorized-or-unknown path (keystone §6.4 / S1).
  */
 
+import { Effect } from 'effect'
 import { FORMS_READ_OPERATIONS } from '@/application/use-cases/admin/admin-read-registry'
-import { BuildSubmissionsBulk } from '@/application/use-cases/admin/forms-overview'
-import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
+import { buildSubmissionsBulk } from '@/application/use-cases/admin/form-submissions-overview'
+import { decodeOrThrow } from '@/domain/kernel/config-parsing/decode'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
   formsSubmissionsBulkRequestSchema,
+  formsSubmissionsBulkResponseSchema,
   tooManyIdsErrorSchema,
 } from '@/domain/models/api/admin/forms/submissions-bulk'
-import { decodeOrThrow, decodeSafe } from '@/domain/models/api/combinators/decode'
 import { logError } from '@/infrastructure/logging/logger'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
-import { emitAuditEvent } from '@/presentation/api/admin/audit-events'
+import { emitAuditEventAs } from '@/presentation/api/admin/audit-events'
 import { chainAdminReadRoutes } from '@/presentation/api/admin/read-operation-routes'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
+import { decodeJsonBody } from '@/presentation/api/runtime/request-body'
+import {
+  answerFailures,
+  respondWith,
+  runHandlerEffect,
+} from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
 
-/* eslint-disable max-lines-per-function, max-statements -- request-handler code: Hono handlers compose query validation, the use-case call, the response-status mapping, and the audit emit(s) as intentional side-effects; the per-handler statement/line counts exceed the default cap. Matches the sibling admin route handlers. */
-
-/**
- * Hono context augmented with the live-App resolver. Routes call
- * `resolveApp()` to read the App config; falls back to the boot App when
- * no draft has been published.
- */
+/** Hono context of the forms routes. */
 type FormsRouteContext = Context
 
 /**
- * Forms route module — wires every endpoint and shares the live-App resolver.
- *
- * The closure-based design keeps the live-App accessor isolated to this
- * module without polluting Hono's `c.var` namespace.
+ * Forms route module — wires every endpoint over the one App.
  */
-function chainAdminFormsRoutesInternal<T extends Hono>(honoApp: T, resolveApp: () => App): T {
-  return chainAdminReadRoutes(honoApp, resolveApp, FORMS_READ_OPERATIONS).post(
+function chainAdminFormsRoutesInternal<T extends Hono>(honoApp: T, app: App): T {
+  return chainAdminReadRoutes(honoApp, app, FORMS_READ_OPERATIONS).post(
     '/api/admin/forms/:formName/submissions/_bulk',
-    (c) => handleSubmissionsBulk(c, resolveApp)
+    (c) => handleSubmissionsBulk(c, app)
   ) as T
 }
 
 /**
  * POST /api/admin/forms/:formName/submissions/_bulk — bulk read by id array.
  */
-async function handleSubmissionsBulk(
-  c: FormsRouteContext,
-  resolveApp: () => App
-): Promise<Response> {
+async function handleSubmissionsBulk(c: FormsRouteContext, app: App): Promise<Response> {
   const session = (c as ContextWithSession).var.session!
-  const app = resolveApp()
   const formName = c.req.param('formName') ?? ''
 
   // Read raw JSON body so we can pre-screen the 100-cap BEFORE validating
   // against the strict request schema (the schema's .max(100) would conflate
   // "too many" with "shape invalid"; D8 mandates a stable error code).
-  let bodyRaw: unknown
-  try {
-    bodyRaw = await c.req.json()
-  } catch {
+  const { raw: bodyRaw, decoded: parsedRequest } = await decodeJsonBody(
+    c,
+    formsSubmissionsBulkRequestSchema
+  )
+  if (bodyRaw === undefined) {
     return c.json({ success: false, message: 'Invalid JSON body', code: 'BAD_REQUEST' }, 400)
   }
-  const idsRaw = (bodyRaw as { readonly ids?: unknown })?.ids
+  const idsRaw = (bodyRaw as { readonly ids?: unknown } | null)?.ids
   if (Array.isArray(idsRaw) && idsRaw.length > 100) {
     return c.json(decodeOrThrow(tooManyIdsErrorSchema)({ error: 'too-many-ids' }), 400)
   }
 
-  const parsedRequest = decodeSafe(formsSubmissionsBulkRequestSchema)(bodyRaw)
   if (!parsedRequest.success) {
     return c.json({ success: false, message: 'Invalid bulk request', code: 'BAD_REQUEST' }, 400)
   }
@@ -125,34 +114,43 @@ async function handleSubmissionsBulk(
     return notFound(c, 'Not found')
   }
 
-  const outcome = await runRequestEffect(
+  return runHandlerEffect(
     c,
-    provideDomain(c, BuildSubmissionsBulk(formName, requestIds))
+    answerFailures(c, bulkReadProgram(c, session.userId, formName, requestIds))
   )
-  if (outcome._tag === 'ValidationFailed') {
-    logError(
-      '[admin] submissions bulk response validation failed',
-      outcome.error,
-      requestLogAttributes(c)
-    )
-    return c.json(
-      { success: false, message: 'Failed to build bulk response', code: 'INTERNAL_ERROR' },
-      500
-    )
-  }
-
-  // ONE audit emit per call (NOT one per id) — log-storm prevention.
-  const actor = await runDomainPromise(c, resolveActor(session.userId))
-  await emitAuditEvent({
-    action: AUDIT_ACTIONS.FORM_SUBMISSION_BULK_QUERIED,
-    actor,
-    resourceId: formName,
-    severity: 'info',
-    result: 'success',
-  })
-
-  return c.json(outcome.body, 200)
 }
+
+/** Read the submissions, write the ONE audit entry of the call, answer through the contract. */
+const bulkReadProgram = (
+  c: FormsRouteContext,
+  userId: string,
+  formName: string,
+  ids: readonly string[]
+) =>
+  Effect.gen(function* () {
+    const outcome = yield* buildSubmissionsBulk(formName, ids)
+    if (outcome._tag === 'ValidationFailed') {
+      logError(
+        '[admin] submissions bulk response validation failed',
+        outcome.error,
+        requestLogAttributes(c)
+      )
+      return c.json(
+        { success: false, message: 'Failed to build bulk response', code: 'INTERNAL_ERROR' },
+        500
+      )
+    }
+
+    // ONE audit emit per call (NOT one per id) — log-storm prevention.
+    yield* emitAuditEventAs(userId, {
+      action: AUDIT_ACTIONS.FORM_SUBMISSION_BULK_QUERIED,
+      resourceId: formName,
+      severity: 'info',
+      result: 'success',
+    })
+
+    return yield* respondWith(c, Effect.succeed(outcome.body), formsSubmissionsBulkResponseSchema)
+  })
 
 /**
  * Chain the admin/forms routes onto a Hono app. Auth gating is applied
@@ -162,8 +160,6 @@ async function handleSubmissionsBulk(
  * one-submission read so `/submissions/export` is never captured as a
  * submission id; the bulk POST shadows no GET.
  */
-export function chainAdminFormsRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
-  return chainAdminFormsRoutesInternal(honoApp, resolveApp)
+export function chainAdminFormsRoutes<T extends Hono>(honoApp: T, app: App): T {
+  return chainAdminFormsRoutesInternal(honoApp, app)
 }
-
-/* eslint-enable max-lines-per-function, max-statements */

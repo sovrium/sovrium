@@ -34,6 +34,7 @@ import {
   type AdminBucketFilesScope,
   type AdminRecordAttachmentLink,
 } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
+import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
 import { stripStorageKeyUuidPrefix } from '@/domain/kernel/identity/storage-key'
 import {
   bucketFilesResponseSchema,
@@ -41,7 +42,6 @@ import {
   type BucketFilesOrder,
   type BucketFilesSort,
 } from '@/domain/models/api/admin/buckets/files'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { readableName } from '@/domain/models/app/auth/readable-name-service'
 import { isSystemBucketName } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
@@ -309,7 +309,7 @@ export type BucketFilesBuildOutcome =
  * change, and a quota that fell to zero on a non-matching term would tell the
  * operator their storage had emptied.
  */
-export const BuildBucketFiles = (
+export const buildBucketFiles = (
   input: BucketFilesInput
 ): Effect.Effect<
   BucketFilesBuildOutcome,
@@ -374,7 +374,7 @@ export const BuildBucketFiles = (
  * per-item usage of the admin bucket list. A bucket with no row is absent (the
  * caller reports zero); unattributed objects (`bucket IS NULL`) belong to none.
  */
-export const ReadBucketUsage: Effect.Effect<
+export const readBucketUsage: Effect.Effect<
   ReadonlyMap<string, { readonly fileCount: number; readonly totalBytes: number }>,
   AdminBucketFilesDatabaseError,
   AdminBucketFilesRepository

@@ -231,18 +231,15 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
  * read consistent context — field-level and row-level read permissions then
  * apply to the anonymous caller exactly as to any role.
  *
- * Implemented as a factory rather than a plain handler so the live-App
- * resolver (`resolveApp`) can be injected by the composition root —
- * `app.tables[]` is the source of truth for both per-table flags and must be
- * re-read on every request (the live-migration-on-publish design live publish).
+ * Implemented as a factory so the composition root can inject the App —
+ * `app.tables[]` is the source of truth for both per-table flags.
  */
-export function requireAuthOrGuestComment(resolveApp: () => TablesApp | undefined) {
+export function requireAuthOrGuestComment(app: TablesApp | undefined) {
   return async (c: ContextWithSession, next: Next): Promise<Response | undefined> => {
     if (c.var.session) {
       await next()
       return undefined
     }
-    const app = resolveApp()
     const isGuestComment = isGuestCommentCreateRequest(c) && guestThreadOpens(c, app)
     const isPublicRead =
       (isPublicTableRecordReadRequest(c) && tableOpensToEveryone(c, app, 'read')) ||
@@ -451,13 +448,13 @@ export function requireAuth() {
 }
 
 /**
- * Resolve the live App for tier resolution. `{}` falls back to built-in roles
+ * The App judged for tier resolution. `{}` falls back to built-in roles
  * only. Typed against the domain resolver's own `AdminRoleResolvable` contract
  * (a type-only import — erased at runtime, so the middleware keeps no heavy
  * domain-aggregate *value* dependency) rather than re-declaring an identical
  * structural shape locally; only `auth.roles[]` is read by `resolveDashboardTier`.
  */
-type ResolveTierApp = () => AdminRoleResolvable | undefined
+type TierApp = AdminRoleResolvable
 
 /** The one anti-enumeration 404 body every admin guard answers, anonymous or not. */
 const adminNotFound = (c: Context) =>
@@ -475,16 +472,13 @@ const adminNotFound = (c: Context) =>
  * `notFoundOnMissingSession` is true the guard also 404s unauthenticated
  * callers; otherwise it 401s them.
  *
- * `resolveApp` threads the live App so a custom top role (e.g. partner's
- * `engineer`) resolves to admin access implicitly. When omitted, the resolver
- * runs against an empty app, so built-in `admin` and the legacy `operator` role
+ * `app` is the App whose role vocabulary judges the caller, so a custom top
+ * role (e.g. partner's `engineer`) resolves to admin access implicitly. When
+ * omitted, the resolver runs against an empty app, so built-in `admin` and the
+ * legacy `operator` role
  * resolve, as for every call site that does not thread the app.
  */
-function makeAdminGuard(
-  notFoundOnMissingSession: boolean,
-  resolveApp?: ResolveTierApp,
-  editorOnly = false
-) {
+function makeAdminGuard(notFoundOnMissingSession: boolean, app?: TierApp, editorOnly = false) {
   return async (c: ContextWithSession, next: Next) => {
     const { session } = c.var
 
@@ -506,13 +500,13 @@ function makeAdminGuard(
     const { canEditOperations, isAdminTier } = await import('@/domain/models/app')
     const { adminPlaneNeedsPasskey } = await import('@/domain/models/app/auth/passkeys-service')
     const role = await runDomainPromise(c, getUserRole(session.userId))
-    const app = resolveApp?.() ?? {}
+    const tierApp = app ?? {}
     // `canEditOperations` is shared with the `edit-operations` page capability.
-    const admitted = editorOnly ? canEditOperations(role, app) : isAdminTier(role, app)
+    const admitted = editorOnly ? canEditOperations(role, tierApp) : isAdminTier(role, tierApp)
 
     // S1 anti-enumeration: an authenticated caller below the required tier
     // receives 404 (never 403) so the admin route surface is not discoverable.
-    if (!admitted || adminPlaneNeedsPasskey(app, session.signInMethod)) return adminNotFound(c)
+    if (!admitted || adminPlaneNeedsPasskey(tierApp, session.signInMethod)) return adminNotFound(c)
 
     await next()
   }
@@ -526,14 +520,14 @@ function makeAdminGuard(
  * from non-admins). Must be used after authMiddleware() which extracts the
  * session.
  *
- * `resolveApp` (optional) threads the live App so a custom top role resolves to
+ * `app` (optional) is the App whose custom top role resolves to
  * admin access implicitly. Built-in `admin` resolves regardless, so existing
  * call sites that omit it are unchanged.
  *
  * @returns Hono middleware function
  */
-export function requireAdmin(resolveApp?: ResolveTierApp) {
-  return makeAdminGuard(false, resolveApp)
+export function requireAdmin(app?: TierApp) {
+  return makeAdminGuard(false, app)
 }
 
 /**
@@ -547,8 +541,8 @@ export function requireAdmin(resolveApp?: ResolveTierApp) {
  *
  * @returns Hono middleware function
  */
-export function requireAdminTier(resolveApp?: ResolveTierApp) {
-  return makeAdminGuard(true, resolveApp)
+export function requireAdminTier(app?: TierApp) {
+  return makeAdminGuard(true, app)
 }
 
 /**
@@ -557,5 +551,4 @@ export function requireAdminTier(resolveApp?: ResolveTierApp) {
  * `admin-viewer` tier and the legacy `operator` alias included — receives the
  * same 404 as a stranger.
  */
-export const requireAdminEditor = (resolveApp?: ResolveTierApp) =>
-  makeAdminGuard(true, resolveApp, true)
+export const requireAdminEditor = (app?: TierApp) => makeAdminGuard(true, app, true)

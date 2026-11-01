@@ -67,6 +67,8 @@ const EXTENSION_MIME_MAP: Readonly<Record<string, string>> = /* @__PURE__ */ Obj
     html: 'text/html',
     htm: 'text/html',
     xml: 'application/xml',
+    // WebVTT captions. A browser refuses a `<track>` served as anything else.
+    vtt: 'text/vtt',
     // Office documents, OpenDocument and the legacy binary formats
     docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -206,9 +208,17 @@ const ACTIVE_IMAGE_MIME_TYPES: ReadonlySet<string> = new Set(['image/svg+xml'])
  * active image type return `false` so the caller forces `attachment` + CSP
  * (Finding #2 — signed-download SVG XSS neutralization).
  */
-export const isInlineSafeImageKey = (key: string): boolean => {
-  const mime = inferMimeFromKey(key)
-  return mime.startsWith('image/') && !ACTIVE_IMAGE_MIME_TYPES.has(mime)
+export const isInlineSafeImageKey = (key: string): boolean =>
+  isInlineSafeImageMime(inferMimeFromKey(key))
+
+/**
+ * True when `mime` is a RASTER image type safe to render `inline`: an image
+ * type carrying no active content. `image/svg+xml` and any other active image
+ * type return `false`, as does every non-image type.
+ */
+export const isInlineSafeImageMime = (mime: string): boolean => {
+  const normalised = mime.split(';')[0]?.trim().toLowerCase() ?? ''
+  return normalised.startsWith('image/') && !ACTIVE_IMAGE_MIME_TYPES.has(normalised)
 }
 
 /**

@@ -1,10 +1,10 @@
 # AI Eco Routing
 
-> Routing inference local-first by default — the three precedence modes, how a route is resolved, and the one `ECO_*` variable that absorbs a typo instead of refusing the boot.
+> Routing inference local-first by default: the three precedence modes, how a route is resolved, and the one `ECO_*` variable that absorbs a typo instead of refusing the boot.
 
 AI inference is one of the most resource-intensive operations a platform performs, so calls route **local-first**: when a local model is reachable it answers, and only when it is not does the call fall back to a configured cloud provider.
 
-One operator variable controls it, never the app schema. Like every eco variable, its default is the eco-aligned setting: operators opt _out_, never in.
+One operator variable controls it, never the app schema. The rule for every eco variable is that frugality is opt-in: a lever that trades experience for footprint ships in its experience-first setting. This one trades none, so its default, `local-first`, is already the eco-aligned route, and you change it only to opt out. [Ecoconception](/en/docs/ecoconception) lists which levers default to which.
 
 ```bash
 ECO_AI_PROVIDER_PRECEDENCE=local-first
@@ -23,7 +23,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 
 An unset, empty or **unrecognised** value resolves to `local-first`, and matching is case-sensitive, so a capitalised spelling is not recognised and falls back.
 
-That makes this the exception among the eco variables: every other one refuses the boot rather than resolving a value it does not recognise. Because a typo here is absorbed rather than reported, confirm the precedence you meant is the one in force — the health endpoint reports it.
+That makes this the exception among the eco variables: every other one refuses the boot rather than resolving a value it does not recognise. Because a typo here is absorbed rather than reported, confirm the precedence you meant is the one in force. The health endpoint reports it.
 
 ## How a route resolves
 
@@ -53,7 +53,7 @@ The runtime checks whether the configured local endpoint actually responds befor
 
 ## Auditing the decision
 
-The health endpoint reports the active routing under `ai` — to an admin session, or to every caller in an app without authentication:
+The health endpoint reports the active routing under `ai`, to an admin session or to every caller in an app without authentication:
 
 | Field              | Means                                                       |
 | ------------------ | ----------------------------------------------------------- |

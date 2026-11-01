@@ -9,12 +9,12 @@ import { and, between, count, eq, inArray } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { AnalyticsDatabaseError } from '@/application/ports/repositories/analytics/analytics-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { analyticsEvents as analyticsEventsPg } from '@/infrastructure/database/drizzle/schema/analytics-events'
 import { analyticsEvents as analyticsEventsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/analytics-events'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import type { CountEventsByNameParams } from '@/application/ports/repositories/analytics/analytics-repository'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 
 const analyticsEvents = resolveDialectSchema(analyticsEventsPg, analyticsEventsSqlite)
 
@@ -27,6 +27,7 @@ const wrap = makeDbWrap((error) => new AnalyticsDatabaseError({ cause: error }))
  * are bound parameters (S3). No name, no query.
  */
 export const countEventsByName = (
+  db: PortableDb,
   params: CountEventsByNameParams
 ): Effect.Effect<ReadonlyMap<string, number>, AnalyticsDatabaseError> =>
   params.names.length === 0

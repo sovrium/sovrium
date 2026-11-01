@@ -8,8 +8,8 @@
 // The console's own 500: a console page Sovrium failed to draw.
 //
 // The operator stays INSIDE the console, as on its 404: the sidebar is still
-// there, the page says the data is unchanged, and the ways on are Reload, the
-// report and the Overview. The request id comes from the error document the
+// there, the page says the data is unchanged, and the ways on are the Overview,
+// search, the report and Reload. The request id comes from the error document the
 // engine renders, read by the `admin-report-link` island; the page config
 // carries no id of its own.
 //

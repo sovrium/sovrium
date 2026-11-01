@@ -7,28 +7,27 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { DatabaseError } from '@/infrastructure/database'
 import { cachedColumnExists } from '@/infrastructure/database/sql/catalog-request-cache'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import { generateSqlConditionFragment } from '../filter-operators'
 import { ruledRelatedTextFragment } from '../related-text-fragment'
 import { validateColumnName, databaseTableName } from '../statement/validation'
-import { isWordSearchLeaf, wordSearchCondition } from './word-search-fragments'
-import type { RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
+import { isWordSearchLeaf, wordSearchConditionOn } from './word-search-fragments'
+import type { MaskingRunner } from './lookup-read-mask'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 /**
- * `COUNT(*)` cast to a text type for the active dialect — Postgres uses the
- * `::text` cast, SQLite uses `CAST(... AS TEXT)`.
+ * `COUNT(*)` cast to a text type on `dialect` — Postgres uses the `::text`
+ * cast, SQLite uses `CAST(... AS TEXT)`.
  */
-const countSelectClause = (): string =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? 'CAST(COUNT(*) AS TEXT) as count'
-    : 'COUNT(*)::text as count'
+const countSelectClause = (dialect: Dialect): string =>
+  dialect.kind === 'sqlite' ? 'CAST(COUNT(*) AS TEXT) as count' : 'COUNT(*)::text as count'
 
 /**
- * `COUNT(*)` returned as an integer for the active dialect, ready for callers
- * that build the SELECT clause via Drizzle's typed `sql<number>` literal:
+ * `COUNT(*)` returned as an integer on `dialect`, ready for callers that build
+ * the SELECT clause via Drizzle's typed `sql<number>` literal:
  *
  *   - Postgres: `count(*)::int`
  *   - SQLite:   `CAST(COUNT(*) AS INTEGER)`
@@ -38,51 +37,23 @@ const countSelectClause = (): string =>
  * result deserializes as a JS number, matching the Postgres-only call sites
  * that originally hard-coded `count(*)::int`.
  */
-export const countAsIntSelectClause = (): SQL<number> =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? sql<number>`CAST(COUNT(*) AS INTEGER)`
-    : sql<number>`count(*)::int`
-
-/**
- * Cast an arbitrary Drizzle SQL expression to an integer for the active dialect:
- *
- *   - Postgres: `(<expr>)::int`
- *   - SQLite:   `CAST((<expr>) AS INTEGER)`
- *
- * Used by call sites that already hand-build an aggregate (e.g. `SUM(...)`)
- * and need a dialect-aware integer cast on top.
- */
-export const castToInt = (expr: SQL): SQL<number> =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? sql<number>`CAST((${expr}) AS INTEGER)`
-    : sql<number>`(${expr})::int`
-
-/**
- * Cast an arbitrary Drizzle SQL expression to a floating-point number for the
- * active dialect:
- *
- *   - Postgres: `(<expr>)::float`
- *   - SQLite:   `CAST((<expr>) AS REAL)`
- *
- * Used by call sites that hand-build a numeric aggregate (e.g. `AVG(...)`)
- * and need a dialect-aware float cast on top.
- */
-export const castToFloat = (expr: SQL): SQL<number> =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? sql<number>`CAST((${expr}) AS REAL)`
-    : sql<number>`(${expr})::float`
+export const countAsIntSelectClause = (dialect: Dialect): SQL<number> =>
+  dialect.kind === 'sqlite' ? sql<number>`CAST(COUNT(*) AS INTEGER)` : sql<number>`count(*)::int`
 
 /**
  * Build SQL aggregation SELECT clauses for requested operations
  */
-export function buildAggregationSelects(aggregate: {
-  readonly count?: boolean
-  readonly sum?: readonly string[]
-  readonly avg?: readonly string[]
-  readonly min?: readonly string[]
-  readonly max?: readonly string[]
-}): readonly string[] {
-  const countSelect = aggregate.count ? [countSelectClause()] : []
+export function buildAggregationSelects(
+  dialect: Dialect,
+  aggregate: {
+    readonly count?: boolean
+    readonly sum?: readonly string[]
+    readonly avg?: readonly string[]
+    readonly min?: readonly string[]
+    readonly max?: readonly string[]
+  }
+): readonly string[] {
+  const countSelect = aggregate.count ? [countSelectClause(dialect)] : []
 
   const sumSelects =
     aggregate.sum?.map((field) => {
@@ -237,11 +208,11 @@ export function parseAggregationResult(
  * as it does for the write path's own copy in `mutation-helpers/delete-helpers.ts`.
  */
 export function checkDeletedAtColumn(
-  tx: Readonly<RawSqlRunner>,
+  { runner: tx, dialect }: MaskingRunner,
   tableName: string
 ): Effect.Effect<boolean, DatabaseError> {
   return Effect.tryPromise({
-    try: () => cachedColumnExists(tx, databaseTableName(tableName), 'deleted_at'),
+    try: () => cachedColumnExists(dialect.kind, tx, databaseTableName(tableName), 'deleted_at'),
     catch: (error) =>
       new DatabaseError(`Failed to check deleted_at column for ${tableName}`, error),
   })
@@ -279,22 +250,23 @@ const isOrGroup = (node: FilterNode): node is { readonly or: readonly FilterNode
  * rule through `ruledRelatedTextFragment` (the rule rendered here); `and` / `or`
  * groups recurse — an empty `or` matches nothing, an empty `and` everything.
  */
-function renderFilterNode(node: FilterNode): Readonly<SQL> {
+function renderFilterNode(dialect: DatabaseDialect, node: FilterNode): Readonly<SQL> {
+  const render = (child: FilterNode): Readonly<SQL> => renderFilterNode(dialect, child)
   if (isLeaf(node)) {
     validateColumnName(node.field)
-    if (isWordSearchLeaf(node)) return wordSearchCondition(node)
-    const ruled = ruledRelatedTextFragment(node, (rule) => renderFilterNode(rule as FilterNode))
+    if (isWordSearchLeaf(node)) return wordSearchConditionOn(dialect, node)
+    const ruled = ruledRelatedTextFragment(node, (rule) => render(rule as FilterNode))
     if (ruled !== undefined) return ruled
-    return generateSqlConditionFragment(node.field, node.operator, node.value)
+    return generateSqlConditionFragment(dialect, node.field, node.operator, node.value)
   }
   if (isOrGroup(node)) {
     if (node.or.length === 0) return sql`(1 = 0)` // empty OR matches nothing
-    const parts = node.or.map(renderFilterNode)
+    const parts = node.or.map(render)
     return sql`(${sql.join(parts, sql` OR `)})`
   }
   if (isAndGroup(node)) {
     if (node.and.length === 0) return sql`(1 = 1)` // empty AND matches everything
-    const parts = node.and.map(renderFilterNode)
+    const parts = node.and.map(render)
     return sql`(${sql.join(parts, sql` AND `)})`
   }
   // Unknown node shape — conservatively match nothing.
@@ -307,11 +279,14 @@ function renderFilterNode(node: FilterNode): Readonly<SQL> {
  * Each top-level `and` entry may itself be a nested AND/OR group (composite
  * row-level predicates); `renderFilterNode` recurses through them.
  */
-export function buildUserFilterConditions(filter?: {
-  readonly and?: readonly FilterNode[]
-}): readonly Readonly<SQL>[] {
+export function buildUserFilterConditions(
+  dialect: DatabaseDialect,
+  filter?: {
+    readonly and?: readonly FilterNode[]
+  }
+): readonly Readonly<SQL>[] {
   if (!filter?.and || filter.and.length === 0) return []
-  return filter.and.map((node) => renderFilterNode(node))
+  return filter.and.map((node) => renderFilterNode(dialect, node))
 }
 
 /**
@@ -343,7 +318,7 @@ export function buildUserFilterConditions(filter?: {
 const pageBound = (value: number | undefined): number | undefined =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined
 
-export function buildPageClause(limit?: number, offset?: number): Readonly<SQL> {
+export function buildPageClause(dialect: Dialect, limit?: number, offset?: number): Readonly<SQL> {
   const pageSize = pageBound(limit)
   const start = pageBound(offset)
   const skips = start !== undefined && start > 0
@@ -351,9 +326,7 @@ export function buildPageClause(limit?: number, offset?: number): Readonly<SQL> 
   if (!skips) return pageSize === undefined ? sql`` : sql` LIMIT ${pageSize}`
   if (pageSize !== undefined) return sql` LIMIT ${pageSize} OFFSET ${start}`
 
-  return parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? sql` LIMIT -1 OFFSET ${start}`
-    : sql` OFFSET ${start}`
+  return dialect.kind === 'sqlite' ? sql` LIMIT -1 OFFSET ${start}` : sql` OFFSET ${start}`
 }
 
 /**
@@ -385,14 +358,15 @@ export function buildPageClause(limit?: number, offset?: number): Readonly<SQL> 
  * a 500.
  */
 export function buildSelectListClause(
-  tx: Readonly<RawSqlRunner>,
+  { runner: tx, dialect }: MaskingRunner,
   tableName: string,
   columns: readonly string[] | undefined
 ): Effect.Effect<Readonly<SQL>, DatabaseError> {
   if (columns === undefined || columns.length === 0) return Effect.succeed(sql.raw('*'))
   return Effect.tryPromise({
     try: async () => {
-      const existing = await getExistingColumnNames(tx, databaseTableName(tableName), columns)
+      const table = databaseTableName(tableName)
+      const existing = await getExistingColumnNames(dialect.kind, tx, table, columns)
       const projected = columns.filter((name) => existing.has(name))
       return projected.length === 0
         ? sql.raw('*')
@@ -412,13 +386,14 @@ export function buildSelectListClause(
  * The soft-delete `deleted_at IS NULL` clause is a static fragment.
  */
 export function buildWhereClause(
+  dialect: DatabaseDialect,
   hasDeletedAt: boolean,
   includeDeleted: boolean | undefined,
   filter?: {
     readonly and?: readonly FilterNode[]
   }
 ): Readonly<SQL> {
-  const userFilterConditions = buildUserFilterConditions(filter)
+  const userFilterConditions = buildUserFilterConditions(dialect, filter)
   const softDeleteCondition: readonly Readonly<SQL>[] =
     hasDeletedAt && !includeDeleted ? [sql`deleted_at IS NULL`] : []
   const conditions = [...userFilterConditions, ...softDeleteCondition]
@@ -428,10 +403,9 @@ export function buildWhereClause(
 
 /**
  * Check which authorship columns exist in a table
- * Returns an object indicating presence of created_by, updated_by, and deleted_by
  */
 export function checkAuthorshipColumns(
-  tx: Readonly<RawSqlRunner>,
+  { runner: tx, dialect }: MaskingRunner,
   tableName: string
 ): Effect.Effect<
   {
@@ -443,7 +417,7 @@ export function checkAuthorshipColumns(
 > {
   return Effect.tryPromise({
     try: async () => {
-      const columns = await getExistingColumnNames(tx, databaseTableName(tableName), [
+      const columns = await getExistingColumnNames(dialect.kind, tx, databaseTableName(tableName), [
         'created_by',
         'updated_by',
         'deleted_by',

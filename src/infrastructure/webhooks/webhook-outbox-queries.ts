@@ -24,20 +24,17 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { WebhookOutboxScope } from '@/application/ports/services/record-webhook-dispatcher'
-import { db, DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
-import { inReadWriteTransaction } from '@/infrastructure/database/read-write-sweep'
-import { executeRaw, type RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
-import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
-import { systemTableRef } from '@/infrastructure/database/sql/dialect-sql'
-import { withTransaction } from '@/infrastructure/database/transaction'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { logInfo } from '@/infrastructure/logging/logger'
+import { DatabaseError, type PortableTx } from '@/infrastructure/database'
+import { type RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
+import { withPromiseTransaction, withTransaction } from '@/infrastructure/database/transaction'
 import type { CommittedRowChange } from '@/application/ports/services/record-change-feed'
 import type {
   PlannedDelivery,
   RecordWebhookEvent,
   WebhookOutboxScopeShape,
 } from '@/application/ports/services/record-webhook-dispatcher'
+import type { DatabaseService, Dialect } from '@/infrastructure/database/drizzle/layer'
 
 /** An outbox row, as the delivery engine reads it. */
 export interface OutboxRow {
@@ -50,15 +47,16 @@ export interface OutboxRow {
   readonly attemptCount: number
 }
 
-const outbox = (): SQL => systemTableRef('webhook_outbox')
-const subjects = (): SQL => systemTableRef('webhook_outbox_subjects')
+export const outbox = (dialect: Dialect): SQL => dialect.sql.systemTableRef('webhook_outbox')
+export const subjects = (dialect: Dialect): SQL =>
+  dialect.sql.systemTableRef('webhook_outbox_subjects')
 
 /**
- * An instant as the active engine stores it: epoch milliseconds on SQLite
+ * An instant as `dialect` stores it: epoch milliseconds on SQLite
  * (`timestamp_ms`), an ISO 8601 string on PostgreSQL (`timestamptz`).
  */
-const instant = (epochMs: number): number | string =>
-  isSqliteRuntime() ? epochMs : new Date(epochMs).toISOString()
+export const instant = (dialect: Dialect, epochMs: number): number | string =>
+  dialect.kind === 'sqlite' ? epochMs : new Date(epochMs).toISOString()
 
 /** A payload as JSON. A driver value JSON cannot hold (a bigint) is written as its digits. */
 const payloadJson = (payload: Readonly<Record<string, unknown>>): string =>
@@ -66,19 +64,26 @@ const payloadJson = (payload: Readonly<Record<string, unknown>>): string =>
     typeof value === 'bigint' ? value.toString() : value
   )
 
-const insertDelivery = (runner: Readonly<RawSqlRunner>, delivery: PlannedDelivery, now: number) =>
-  executeRaw(
+const insertDelivery = (
+  runner: Readonly<RawSqlRunner>,
+  dialect: Dialect,
+  delivery: PlannedDelivery,
+  now: number
+) =>
+  executeRawOn(
+    dialect.kind,
     runner,
-    sql`INSERT INTO ${outbox()}
+    sql`INSERT INTO ${outbox(dialect)}
           (id, table_name, webhook_name, event, record_id, payload, status, attempt_count,
            next_attempt_at, created_at)
         VALUES (${delivery.id}, ${delivery.tableName}, ${delivery.webhookName},
                 ${delivery.event}, ${delivery.recordId}, ${payloadJson(delivery.payload)},
-                'pending', 0, ${instant(now)}, ${instant(now)})`
+                'pending', 0, ${instant(dialect, now)}, ${instant(dialect, now)})`
   )
 
 const insertSubjects = async (
   runner: Readonly<RawSqlRunner>,
+  dialect: Dialect,
   delivery: PlannedDelivery
 ): Promise<void> => {
   if (delivery.subjects.length === 0) return
@@ -86,7 +91,11 @@ const insertSubjects = async (
     delivery.subjects.map((userId) => sql`(${delivery.id}, ${userId})`),
     sql`, `
   )
-  await executeRaw(runner, sql`INSERT INTO ${subjects()} (outbox_id, user_id) VALUES ${values}`)
+  await executeRawOn(
+    dialect.kind,
+    runner,
+    sql`INSERT INTO ${subjects(dialect)} (outbox_id, user_id) VALUES ${values}`
+  )
 }
 
 /**
@@ -98,6 +107,7 @@ const insertSubjects = async (
  */
 const recordCommittedDeliveries = async (
   tx: Readonly<RawSqlRunner>,
+  dialect: Dialect,
   scope: WebhookOutboxScopeShape,
   changes: readonly CommittedRowChange[]
 ): Promise<readonly string[]> => {
@@ -107,63 +117,64 @@ const recordCommittedDeliveries = async (
   // One statement at a time: a transaction handle runs its statements in order.
   await planned.reduce<Promise<void>>(async (previous, delivery) => {
     await previous
-    await insertDelivery(tx, delivery, now)
-    await insertSubjects(tx, delivery)
+    await insertDelivery(tx, dialect, delivery, now)
+    await insertSubjects(tx, dialect, delivery)
   }, Promise.resolve())
   return planned.map((delivery) => delivery.id)
 }
 
 /**
- * `db.transaction(body)` for a repository write whose body is a Promise: the
+ * `withPromiseTransaction` for a repository write whose body is a Promise: the
  * deliveries the rows it committed owe — `changesOf` names them, the same rows
  * the repository reports to the change stream — are recorded on the same
  * transaction, as the outbox scope in effect plans them, and handed to the
  * scope once it commits.
  */
 export const tryTransactionWithOutbox = <T, E>(input: {
-  readonly transaction: (tx: DrizzleTransaction) => Promise<T>
+  readonly database: DatabaseService
+  readonly transaction: (tx: Readonly<PortableTx>) => Promise<T>
   readonly changesOf: (result: T) => readonly CommittedRowChange[]
   readonly catch: (error: unknown) => E
 }): Effect.Effect<T, E> =>
   Effect.gen(function* () {
     const scope = yield* WebhookOutboxScope
-    return yield* Effect.tryPromise({
-      try: async () => {
-        const { result, recorded } = await db.transaction(async (tx) => {
-          const written = await input.transaction(tx)
-          const changes = input.changesOf(written)
-          const deliveryIds = await recordCommittedDeliveries(tx, scope, changes)
-          return { result: written, recorded: { changes, deliveryIds } }
-        })
-        scope.recorded(recorded)
-        return result
+    const { client, dialect } = input.database
+    const { result, recorded } = yield* withPromiseTransaction(
+      client,
+      async (tx) => {
+        const written = await input.transaction(tx)
+        const changes = input.changesOf(written)
+        const deliveryIds = await recordCommittedDeliveries(tx, dialect, scope, changes)
+        return { result: written, recorded: { changes, deliveryIds } }
       },
-      catch: input.catch,
-    })
+      input.catch
+    )
+    yield* Effect.try({ try: () => scope.recorded(recorded), catch: input.catch })
+    return result
   })
 
 /**
- * `withTransaction(db, body, onFailure)` for a repository write whose body is
+ * `withTransaction(client, body, onFailure)` for a repository write whose body is
  * an Effect, with the deliveries its committed rows owe recorded on the same
  * transaction (see {@link tryTransactionWithOutbox}). A failure to record is
  * the write's own failure: the transaction rolls back with it.
  */
 export const withOutboxTransaction =
-  <C>(changesOf: (result: C) => readonly CommittedRowChange[]) =>
+  <C>(database: DatabaseService, changesOf: (result: C) => readonly CommittedRowChange[]) =>
   <A extends C, E, R, E2>(
-    body: (tx: Readonly<DrizzleTransaction>) => Effect.Effect<A, E, R>,
+    body: (tx: Readonly<PortableTx>) => Effect.Effect<A, E, R>,
     onTransactionFailure: (error: unknown) => E2
   ): Effect.Effect<A, E2, R> =>
     Effect.gen(function* () {
       const scope = yield* WebhookOutboxScope
       const { result, recorded } = yield* withTransaction(
-        db,
+        database.client,
         (tx) =>
           Effect.gen(function* () {
             const written = yield* body(tx)
             const changes = changesOf(written)
             const deliveryIds = yield* Effect.tryPromise({
-              try: () => recordCommittedDeliveries(tx, scope, changes),
+              try: () => recordCommittedDeliveries(tx, database.dialect, scope, changes),
               catch: (cause) =>
                 new DatabaseError('Failed to record the webhook deliveries of a write', cause),
             })
@@ -197,9 +208,9 @@ const toOutboxRow = (row: Readonly<Record<string, unknown>>): OutboxRow => ({
  * fresh delivery is due at once (`next_attempt_at` is its write's instant); a
  * parked one only once its backoff ran out.
  */
-const claimable = (now: number): SQL =>
-  sql`status = 'pending' AND next_attempt_at <= ${instant(now)}
-      AND (locked_until IS NULL OR locked_until < ${instant(now)})`
+const claimable = (dialect: Dialect, now: number): SQL =>
+  sql`status = 'pending' AND next_attempt_at <= ${instant(dialect, now)}
+      AND (locked_until IS NULL OR locked_until < ${instant(dialect, now)})`
 
 /** A delivery about to be claimed: enough to know whose in-flight bound it waits on. */
 export interface OutboxCandidate {
@@ -220,6 +231,7 @@ const toCandidate = (row: Readonly<Record<string, unknown>>): OutboxCandidate =>
  * ({@link claimDelivery}), so a lease never runs out while it waits its turn.
  */
 export const listClaimableDeliveries = async (
+  { client, dialect }: DatabaseService,
   ids: readonly string[]
 ): Promise<readonly OutboxCandidate[]> => {
   if (ids.length === 0) return []
@@ -227,21 +239,39 @@ export const listClaimableDeliveries = async (
     ids.map((id) => sql`${id}`),
     sql`, `
   )
-  const rows = await executeRaw(
-    db,
-    sql`SELECT id, table_name, webhook_name FROM ${outbox()}
-         WHERE id IN (${idList}) AND ${claimable(Date.now())}`
+  const rows = await executeRawOn(
+    dialect.kind,
+    client,
+    sql`SELECT id, table_name, webhook_name FROM ${outbox(dialect)}
+         WHERE id IN (${idList}) AND ${claimable(dialect, Date.now())}`
   )
   return rows.map(toCandidate)
 }
 
-/** Up to `limit` deliveries that are due, oldest first. Nothing is claimed here. */
-export const listDueDeliveries = async (limit: number): Promise<readonly OutboxCandidate[]> => {
-  const rows = await executeRaw(
-    db,
-    sql`SELECT id, table_name, webhook_name FROM ${outbox()}
-         WHERE ${claimable(Date.now())}
-         ORDER BY next_attempt_at
+/**
+ * Up to `limit` deliveries that are due, at most `perWebhook` of any one
+ * webhook. Each webhook's oldest come first, taken in turns (every webhook's
+ * oldest, then every webhook's second, and so on), so one webhook's backlog
+ * never fills the batch ahead of another's due delivery. Nothing is claimed here.
+ */
+export const listDueDeliveries = async (
+  { client, dialect }: DatabaseService,
+  limit: number,
+  perWebhook: number
+): Promise<readonly OutboxCandidate[]> => {
+  const rows = await executeRawOn(
+    dialect.kind,
+    client,
+    sql`SELECT id, table_name, webhook_name FROM (
+          SELECT id, table_name, webhook_name, next_attempt_at,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY table_name, webhook_name ORDER BY next_attempt_at, id
+                 ) AS webhook_rank
+            FROM ${outbox(dialect)}
+           WHERE ${claimable(dialect, Date.now())}
+        ) due
+         WHERE webhook_rank <= ${perWebhook}
+         ORDER BY webhook_rank, next_attempt_at
          LIMIT ${limit}`
   )
   return rows.map(toCandidate)
@@ -253,14 +283,16 @@ export const listDueDeliveries = async (limit: number): Promise<readonly OutboxC
  * holds it, it settled, or it is parked until later.
  */
 export const claimDelivery = async (
+  { client, dialect }: DatabaseService,
   id: string,
   leaseMs: number
 ): Promise<OutboxRow | undefined> => {
   const now = Date.now()
-  const rows = await executeRaw(
-    db,
-    sql`UPDATE ${outbox()} SET locked_until = ${instant(now + leaseMs)}
-         WHERE id = ${id} AND ${claimable(now)}
+  const rows = await executeRawOn(
+    dialect.kind,
+    client,
+    sql`UPDATE ${outbox(dialect)} SET locked_until = ${instant(dialect, now + leaseMs)}
+         WHERE id = ${id} AND ${claimable(dialect, now)}
          RETURNING id, table_name, webhook_name, event, record_id, payload, attempt_count`
   )
   const row = rows[0]
@@ -268,10 +300,15 @@ export const claimDelivery = async (
 }
 
 /** Hold the lease on a delivery that is about to be retried in-process. */
-export const extendLease = async (id: string, untilMs: number): Promise<void> => {
-  await executeRaw(
-    db,
-    sql`UPDATE ${outbox()} SET locked_until = ${instant(untilMs)} WHERE id = ${id}`
+export const extendLease = async (
+  { client, dialect }: DatabaseService,
+  id: string,
+  untilMs: number
+): Promise<void> => {
+  await executeRawOn(
+    dialect.kind,
+    client,
+    sql`UPDATE ${outbox(dialect)} SET locked_until = ${instant(dialect, untilMs)} WHERE id = ${id}`
   )
 }
 
@@ -287,86 +324,39 @@ export interface AttemptRecord {
  * literal in a Drizzle template (`undefined` binds nothing).
  */
 export const settleDelivery = async (
+  { client, dialect }: DatabaseService,
   id: string,
   status: 'delivered' | 'dead',
   attempt: AttemptRecord
 ): Promise<void> => {
   const now = Date.now()
-  await executeRaw(
-    db,
-    sql`UPDATE ${outbox()}
+  await executeRawOn(
+    dialect.kind,
+    client,
+    sql`UPDATE ${outbox(dialect)}
            SET status = ${status}, attempt_count = ${attempt.attemptCount},
                last_http_status = ${attempt.httpStatus ?? null},
                last_error = ${attempt.error ?? null},
-               settled_at = ${instant(now)}, locked_until = NULL
+               settled_at = ${instant(dialect, now)}, locked_until = NULL
          WHERE id = ${id}`
   )
 }
 
 /** Park a delivery until `nextAttemptAtMs`, releasing its lease. */
 export const parkDelivery = async (
+  { client, dialect }: DatabaseService,
   id: string,
   nextAttemptAtMs: number,
   attempt: AttemptRecord
 ): Promise<void> => {
-  await executeRaw(
-    db,
-    sql`UPDATE ${outbox()}
+  await executeRawOn(
+    dialect.kind,
+    client,
+    sql`UPDATE ${outbox(dialect)}
            SET attempt_count = ${attempt.attemptCount},
                last_http_status = ${attempt.httpStatus ?? null},
                last_error = ${attempt.error ?? null},
-               next_attempt_at = ${instant(nextAttemptAtMs)}, locked_until = NULL
+               next_attempt_at = ${instant(dialect, nextAttemptAtMs)}, locked_until = NULL
          WHERE id = ${id}`
   )
 }
-
-/**
- * Delete the deliveries settled before `cutoffMs`, in one transaction: the
- * outbox rows, their subjects, and the delivery-log rows that settle them —
- * then the log rows written before `cutoffMs` that no outbox row stands behind
- * (a test send, a row older than the outbox, one whose delivery is gone). A
- * log row therefore never outlives its delivery, and erasure, which finds log
- * rows through their delivery, reaches every one of them. Resolves to how many
- * deliveries went.
- *
- * The transaction is opened READ WRITE (`read-write-sweep.ts`), so the purge
- * keeps freeing space on a managed PostgreSQL that has gone read-only for lack
- * of disk, and its outcome is logged every time, zero included.
- */
-export const deleteSettledBefore = async (cutoffMs: number): Promise<number> => {
-  const deleted = await deleteSettledRows(cutoffMs)
-  logInfo(
-    `[webhook-outbox] retention: deleted ${String(deleted)} delivery(ies) settled before ${new Date(cutoffMs).toISOString()}`
-  )
-  return deleted
-}
-
-const deleteSettledRows = async (cutoffMs: number): Promise<number> =>
-  inReadWriteTransaction(async (tx) => {
-    const settled = sql`SELECT id FROM ${outbox()}
-                         WHERE status <> 'pending' AND settled_at < ${instant(cutoffMs)}`
-    // The log exists only once some table declared webhooks.
-    const logged = (await listTableColumns(tx, '_webhook_deliveries')).length > 0
-    // One statement at a time: a transaction handle runs its statements in order.
-    if (logged) {
-      await executeRaw(tx, sql`DELETE FROM _webhook_deliveries WHERE delivery_id IN (${settled})`)
-    }
-    // The subjects before their outbox rows: SQLite enforces the cascade only with foreign keys on.
-    await executeRaw(tx, sql`DELETE FROM ${subjects()} WHERE outbox_id IN (${settled})`)
-    const rows = await executeRaw(
-      tx,
-      sql`DELETE FROM ${outbox()}
-           WHERE status <> 'pending' AND settled_at < ${instant(cutoffMs)}
-           RETURNING id`
-    )
-    if (!logged) return rows.length
-    await executeRaw(
-      tx,
-      sql`DELETE FROM _webhook_deliveries
-           WHERE created_at < ${instant(cutoffMs)}
-             AND (delivery_id IS NULL
-                  OR NOT EXISTS (SELECT 1 FROM ${outbox()} o
-                                  WHERE o.id = _webhook_deliveries.delivery_id))`
-    )
-    return rows.length
-  })

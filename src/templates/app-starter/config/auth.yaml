@@ -1,5 +1,13 @@
 # Every way in a business app usually needs, declared once. The sign-in page
 # draws only what is listed here: remove passkeys and its button disappears.
+#
+# Closed to strangers: nobody signs themselves up, not even through an emailed
+# link. A business app's records are its team's own, so new people join through
+# an invitation an admin sends from Settings → Team, and the demo accounts come
+# from `seed/users.yaml`. If your app should let anyone create an account, set
+# this to `true` and add a sign-up page with
+# `sovrium library add block/auth-sign-up`.
+allowSignUp: false
 strategies:
   - type: emailAndPassword
   - type: magicLink
@@ -19,7 +27,9 @@ invitationTokenExpiry: 7d
 # Single sign-on through your company's identity provider. The secret is read
 # from the environment, so nothing sensitive sits in this file; without the
 # variables the app still starts and the provider simply cannot complete a
-# sign-in until you set them.
+# sign-in until you set them. Because a provider is declared, a password account
+# must confirm its email address before it signs in: the provider links accounts
+# by address, so an unconfirmed one could be holding someone else's.
 sso:
   - id: company
     type: oidc

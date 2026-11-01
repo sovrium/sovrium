@@ -1,6 +1,6 @@
 # Passkeys
 
-> Sign in with a key held by the device, the password manager or a security key — no password to type, phish or reuse.
+> Sign in with a key held by the device, the password manager or a security key, with no password to type, phish or reuse.
 
 A passkey is a WebAuthn credential. The user creates one while signed in, and from then on signs in with it: the device asks for a fingerprint, a face or a PIN, and the server never sees a secret it could leak.
 
@@ -11,17 +11,17 @@ auth:
   passkeys: true
 ```
 
-Passkeys sit beside the other strategies rather than replacing them. One account may hold a password, two-factor authentication and several passkeys — a laptop, a phone and a hardware key, say — and use any of them.
+Passkeys sit beside the other strategies rather than replacing them. One account may hold a password, two-factor authentication and several passkeys (a laptop, a phone and a hardware key, say) and use any of them.
 
 ## Options
 
 <!-- sovrium:options PasskeysConfigSchema -->
 
-There is no `rpID` or `origin` to configure. A passkey is bound to the host it was created on, so both are derived from `BASE_URL`: the relying-party id is its host name, and the expected origin is its origin. A ceremony run from any other origin is refused. Moving the app to another domain means users register new passkeys there. Without `BASE_URL` — on a development machine — the address the browser used on `localhost` stands in.
+There is no `rpID` or `origin` to configure. A passkey is bound to the host it was created on, so both are derived from `BASE_URL`: the relying-party id is its host name, and the expected origin is its origin. A ceremony run from any other origin is refused. Moving the app to another domain means users register new passkeys there. Without `BASE_URL`, on a development machine, the address the browser used on `localhost` stands in.
 
 ## Registering a passkey
 
-A signed-in user registers a passkey from any page that carries a `registerPasskey` action — typically the account page:
+A signed-in user registers a passkey from any page that carries a `registerPasskey` action, typically the account page:
 
 ```yaml
 - type: form
@@ -32,9 +32,11 @@ A signed-in user registers a passkey from any page that carries a `registerPassk
 
 The browser asks the authenticator to create the credential; the server stores its public key, never a secret. A user can register several and remove the ones they no longer use.
 
+Registering a passkey needs the person signed in: a request authenticated by an API key is answered `404`, so a leaked key can never turn itself into a way to sign in. Each passkey added sends the account's address an email naming it and saying what to do if it was not them (remove it and change the password).
+
 ## Signing in
 
-A sign-in form whose action uses the `passkey` strategy draws a passkey button. Pressing it asks the browser for a passkey of this site and signs the user in with the one they pick — no email address needed first.
+A sign-in form whose action uses the `passkey` strategy draws a passkey button. Pressing it asks the browser for a passkey of this site and signs the user in with the one they pick, with no email address needed first.
 
 ```yaml
 - type: form
@@ -45,6 +47,8 @@ A sign-in form whose action uses the `passkey` strategy draws a passkey button. 
 ```
 
 On an app with passkeys on, the email field of every email sign-in form is marked `autocomplete="username webauthn"`, so a browser that holds a passkey for the site offers it right in that field; elsewhere it stays `email`. A sign-in password field is `current-password`, and the password chosen at sign-up or on a reset is `new-password`, so password managers fill the one and propose to save the other.
+
+Asking for sign-in options (`GET /api/auth/passkey/generate-authenticate-options`) stores a challenge before anyone has signed in, so it answers at most 30 times per client address per rate-limit window, and `429` beyond. Challenges that expire unused are deleted by a daily sweep.
 
 ## Requiring a passkey for administrators
 

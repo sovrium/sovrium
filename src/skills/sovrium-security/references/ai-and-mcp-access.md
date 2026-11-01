@@ -18,16 +18,16 @@ Launch items:
 - [ ] No agent runs with role: admin unless every caller its trigger admits could already do what the agent does
 - [ ] Each agent has a role of its own, not member (whatever members gain later, it gains too)
 - [ ] permissions.trigger is written, not left to its default, on every agent people can reach
-- [ ] auth.createUser, auth.assignRole, auth.banUser, email.send, http.request and code.runTypescript are behind approval, or absent
+- [ ] auth.createUser, auth.assignRole, auth.banUser, email.send and http.request are behind approval, or absent; code.runTypescript appears only on an agent with permissions.trigger: none (refused otherwise). In a chat, email.send, http.request, file.upload and file.delete always wait for someone else's approval
 - [ ] limits are set on every agent that a schedule or an automation runs
 ```
 
 ## Chat cost and abuse
 
-- `AI_CHAT_RATE_LIMIT` is unset by default: a signed-in user's chat has no cap until you set it, on a provider billed per token. Set it, and `AI_CHAT_RATE_WINDOW` if 60 seconds does not suit.
+- `AI_CHAT_RATE_LIMIT` defaults to 60 messages a minute per signed-in user when `AI_PROVIDER` names a hosted provider, and to no cap on a local Ollama model. Set it to the number your users need, and `AI_CHAT_RATE_WINDOW` if 60 seconds does not suit; `0` lifts it.
 - An app without `auth` is covered by `AI_ANON_RATE_LIMIT` (per client address) whether or not the first one is set.
 - On an app with `auth`, an anonymous visitor reaches an agent only when its `permissions.trigger` is `all`; otherwise the chat answers `404` to her, whatever the page's `access` says. The page's `access` decides whether the panel is drawn; the trigger decides whether the agent answers. Check both.
-- `AI_CHAT_MAX_MESSAGE_LENGTH` and `AI_CHAT_TIMEOUT` are unset by default too; set them where the chat is open to many people.
+- `AI_CHAT_MAX_MESSAGE_LENGTH` defaults to 10,000 characters on a hosted provider and to no cap on Ollama; `AI_CHAT_TIMEOUT` is unset by default. Set them where the chat is open to many people.
 - An agent's `limits.maxTokensPerDay` bounds the bill of one agent; it resets at midnight UTC.
 
 ## The app's MCP server

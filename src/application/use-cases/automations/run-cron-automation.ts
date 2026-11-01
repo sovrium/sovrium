@@ -75,7 +75,6 @@ const resolveCronAutomation = (
 export interface RunCronAutomationOptions {
   readonly name: string
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /**
    * Trigger data exposed to actions through `{{trigger.X}}`. Cron runs have
    * no upstream payload so this defaults to a synthetic envelope describing
@@ -108,7 +107,6 @@ export interface RunCronAutomationOptions {
 export const runCronAutomation = ({
   name,
   app,
-  processEnv,
   triggerData = { type: 'cron', firedAt: new Date().toISOString() },
   handlers = defaultActionHandlers,
   triggerName,
@@ -135,7 +133,6 @@ export const runCronAutomation = ({
       trigger,
       automationId,
       app,
-      processEnv,
       triggerData,
       handlers,
       userId: undefined,
@@ -149,7 +146,6 @@ export const runCronAutomation = ({
 export interface RunCronAutomationOnDemandOptions {
   readonly name: string
   readonly app: App
-  readonly processEnv: Readonly<Record<string, string | undefined>>
   /**
    * Caller's role resolved from auth.users. `undefined` for anonymous callers,
    * which are rejected — the on-demand cron run touches a system-triggered
@@ -189,7 +185,6 @@ export interface RunCronAutomationOnDemandOptions {
 export const runCronAutomationOnDemand = ({
   name,
   app,
-  processEnv,
   userRole,
   triggerData,
   handlers = defaultActionHandlers,
@@ -231,7 +226,6 @@ export const runCronAutomationOnDemand = ({
     return yield* runCronAutomation({
       name,
       app,
-      processEnv,
       triggerData: triggerData ?? {
         type: 'cron',
         firedAt: new Date().toISOString(),

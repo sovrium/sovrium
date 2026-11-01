@@ -48,7 +48,12 @@ const ButtonFieldBaseSchema = BaseFieldWithoutLabelSchema.pipe(
       })
     ),
     url: Schema.optional(
-      Schema.String.pipe(Schema.annotate({ description: "URL to open (when action is 'url')" }))
+      Schema.String.pipe(
+        Schema.annotate({
+          description:
+            "URL to open (when action is 'url'). May name fields of the record the button is drawn on as $record.<field>: a value inside the address is URL-encoded, a token that is the whole url is the address as stored, and a field the reader may not read resolves to nothing.",
+        })
+      )
     ),
     automation: Schema.optional(
       Schema.String.pipe(

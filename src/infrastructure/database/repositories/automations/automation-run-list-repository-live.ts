@@ -8,12 +8,16 @@
 /**
  * The reading half of the automation-run repository: a run row as the port
  * shapes it, and the filtered, paginated run list (by automation, status,
- * trigger name and reader scope).
+ * trigger name and reader scope), with the run filters the admin history adds:
+ * started by hand, and routine.
  */
 
 import { and, desc, eq, inArray, isNull, notInArray, or, sql, type SQL } from 'drizzle-orm'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { db } from '@/infrastructure/database'
+import {
+  ROUTINE_RUN_STATUSES,
+  type RoutineRunSource,
+} from '@/domain/models/app/automations/routine-run-service'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   automationDefinitions as automationDefinitionsPg,
@@ -23,13 +27,13 @@ import {
   automationDefinitions as automationDefinitionsSqlite,
   automationRuns as automationRunsSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
-import { castToInt } from '@/infrastructure/database/table-queries/query-helpers/aggregation-helpers'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type {
   ListRunsOptions,
   PersistedRun,
   RunReaderScope,
 } from '@/application/ports/repositories/automations/automation-run-repository'
+import type { PortableDb } from '@/infrastructure/database/drizzle/db'
+import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 const automationDefinitions = resolveDialectSchema(
   automationDefinitionsPg,
@@ -81,8 +85,8 @@ export const toRun = (
  * A run whose relay names no parent run: not one a call or a failure handler
  * started. A run another run started is not its chain starter's to read as such.
  */
-const relayNamesNoRun = (): SQL =>
-  isSqliteRuntime()
+const relayNamesNoRun = (dialect: Dialect): SQL =>
+  dialect.kind === 'sqlite'
     ? sql`json_extract(${automationRuns.relay}, '$.run') IS NULL`
     : sql`(${automationRuns.relay} ->> 'run') IS NULL`
 
@@ -96,7 +100,10 @@ const exceptAutomationsFilter = (names: readonly string[]): ReadonlyArray<SQL> =
  * names them an approver of. In the WHERE clause, so a count over the same
  * filters counts only these.
  */
-export const readableByFilters = (readableBy: RunReaderScope | undefined): ReadonlyArray<SQL> =>
+export const readableByFilters = (
+  readableBy: RunReaderScope | undefined,
+  dialect: Dialect
+): ReadonlyArray<SQL> =>
   readableBy === undefined
     ? []
     : [
@@ -104,7 +111,7 @@ export const readableByFilters = (readableBy: RunReaderScope | undefined): Reado
           and(
             eq(automationRuns.startedByHand, true),
             eq(automationRuns.triggeredByUserId, readableBy.userId),
-            relayNamesNoRun()
+            relayNamesNoRun(dialect)
           ),
           ...(readableBy.runIds.length === 0
             ? []
@@ -121,7 +128,7 @@ export const triggerNameFilter = (filter: ListRunsOptions['triggerName']): Reado
 }
 
 /** Build the SQL filter list for {@link listAllRuns}. */
-const buildListFilters = (options: ListRunsOptions): ReadonlyArray<SQL> => {
+const buildListFilters = (options: ListRunsOptions, dialect: Dialect): ReadonlyArray<SQL> => {
   const nameFilter: ReadonlyArray<SQL> =
     options.automationName !== undefined
       ? [eq(automationDefinitions.name, options.automationName)]
@@ -132,7 +139,7 @@ const buildListFilters = (options: ListRunsOptions): ReadonlyArray<SQL> => {
     ...nameFilter,
     ...statusFilter,
     ...triggerNameFilter(options.triggerName),
-    ...readableByFilters(options.readableBy),
+    ...readableByFilters(options.readableBy, dialect),
   ]
 }
 
@@ -148,14 +155,16 @@ const resolvePaging = (
 
 /** Drizzle implementation for {@link AutomationRunRepository.listAll}. */
 export const listAllRuns = async (
+  db: PortableDb,
+  dialect: Dialect,
   options: ListRunsOptions
 ): Promise<{ readonly runs: ReadonlyArray<PersistedRun>; readonly total: number }> => {
-  const filters = buildListFilters(options)
+  const filters = buildListFilters(options, dialect)
   const whereClause = filters.length === 0 ? undefined : and(...filters)
 
   // Count first (matching the filters), then page.
   const countQuery = db
-    .select({ value: castToInt(sql`COUNT(*)`) })
+    .select({ value: dialect.sql.castToInt(sql`COUNT(*)`) })
     .from(automationRuns)
     .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
   const countRows = await (whereClause === undefined ? countQuery : countQuery.where(whereClause))
@@ -181,3 +190,64 @@ export const listAllRuns = async (
     total,
   }
 }
+
+/**
+ * Whether the run's own trigger data says an operator started it by hand
+ * (`invokedOnDemand: true`) — what `?onDemand=` filters on, and what keeps a
+ * run from being routine. The JSON boolean is read by its JSON type on SQLite (where `json_extract`
+ * answers `1`) and by its text on PostgreSQL; `COALESCE` makes a run whose
+ * trigger data holds no such key one of the others, never neither.
+ */
+const startedByHand = (dialect: Dialect): SQL =>
+  dialect.kind === 'sqlite'
+    ? sql`COALESCE(json_type(${automationRuns.triggerData}, '$.invokedOnDemand') = 'true', 0) = 1`
+    : sql`COALESCE((${automationRuns.triggerData} ->> 'invokedOnDemand') = 'true', false)`
+
+/** The `?onDemand=` predicate: started by hand (`true`), or not (`false`). */
+export const onDemandCondition = (
+  onDemand: boolean | undefined,
+  dialect: Dialect
+): ReadonlyArray<SQL> => {
+  if (onDemand === undefined) return []
+  const byHand = startedByHand(dialect)
+  // `sql` rather than drizzle's `not()`, typed `SQL | undefined` since 1.0.0-rc.5.
+  return [onDemand ? byHand : sql`not (${byHand})`]
+}
+
+/** The runs one routine source starts: its automation, narrowed to its entries. */
+const fromRoutineSource = (source: RoutineRunSource): SQL | undefined => {
+  const ofAutomation = eq(automationDefinitions.name, source.automationName)
+  if (source.triggerNames === undefined) return ofAutomation
+  const named =
+    source.triggerNames.length === 0
+      ? undefined
+      : inArray(automationRuns.triggerName, [...source.triggerNames])
+  const unrecorded = source.orUnrecorded ? isNull(automationRuns.triggerName) : undefined
+  const entries = or(named, unrecorded)
+  return entries === undefined ? undefined : and(ofAutomation, entries)
+}
+
+/**
+ * `1` for a routine run, `0` for any other, on both engines: started by one of
+ * the routine `sources`, in a routine status, and not by hand. A `CASE` rather
+ * than a bare predicate so a NULL anywhere (an unrecorded trigger name, a
+ * status not yet written) reads as "not routine" — never as an unknown that
+ * drops the row from either side of a filter.
+ */
+export const routineFlag = (sources: ReadonlyArray<RoutineRunSource>, dialect: Dialect): SQL => {
+  const started = or(...sources.map(fromRoutineSource))
+  if (started === undefined) return sql`0`
+  const predicate = and(
+    started,
+    inArray(sql`COALESCE(${automationRuns.status}, 'pending')`, [...ROUTINE_RUN_STATUSES]),
+    sql`not (${startedByHand(dialect)})`
+  )
+  return sql`(CASE WHEN ${predicate} THEN 1 ELSE 0 END)`
+}
+
+/** The `?routine=` filter: absent sources list every run, else the routine ones are left out. */
+export const routineCondition = (
+  sources: ReadonlyArray<RoutineRunSource> | undefined,
+  dialect: Dialect
+): ReadonlyArray<SQL> =>
+  sources === undefined || sources.length === 0 ? [] : [sql`${routineFlag(sources, dialect)} = 0`]

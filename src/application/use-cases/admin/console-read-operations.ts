@@ -20,15 +20,17 @@
 
 import { Cause, Effect, Option, Schema } from 'effect'
 import { AdminReadHost } from '@/application/ports/services/admin-read-host'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import {
   answerWithSchema,
   defineAdminRead,
 } from '@/application/use-cases/admin/admin-read-operation'
 import { buildAdminAttention } from '@/application/use-cases/admin/attention'
 import { buildInstanceRuntimeFacts } from '@/application/use-cases/admin/config/instance-facts'
+import { readInstanceHealth } from '@/application/use-cases/admin/instance-health'
 import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import { buildAdminOverview } from '@/application/use-cases/admin/overview'
-import { SearchAdminGlobal } from '@/application/use-cases/admin/search'
+import { searchAdminGlobal } from '@/application/use-cases/admin/search'
 import { buildTablesOverview } from '@/application/use-cases/admin/tables-overview'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
@@ -113,7 +115,9 @@ const attention = defineAdminRead<undefined>({
     description:
       'The pulse cells of the console root as count and rendered-detail pairs, plus the ' +
       'per-tile sub-line counts. Every unreadable source degrades to its zero and is named ' +
-      'in `degraded`. Admin only.',
+      'in `degraded`. The instance facts add its uptime and a healthy or degraded verdict ' +
+      'for its database, its file storage and its AI provider, each from a probe bounded ' +
+      'by a short timeout. Admin only.',
     operationIdBase: 'getAdminAttention',
     responseSchema: adminAttentionResponseSchema,
     responseDescription: 'The attention report',
@@ -131,10 +135,18 @@ const attention = defineAdminRead<undefined>({
       const body = yield* buildAdminAttention(app, host.processStartedAt, language)
       // The Instance health card's facts, from the instance read's own
       // use-case: the same names and the same values as GET /api/admin/instance.
+      const facts = buildInstanceRuntimeFacts(app, host.processStartedAt, yield* ProcessEnv)
+      // How long it has been up and one bounded verdict per part it runs on.
+      const health = yield* readInstanceHealth({
+        bootedAt: facts.bootedAt,
+        generatedAt: body.generatedAt,
+        aiProvider: facts.aiProvider,
+      })
       return answerWithSchema(adminAttentionResponseSchema, {
         ...body,
         version: app.version ?? null,
-        ...buildInstanceRuntimeFacts(app, host.processStartedAt),
+        ...facts,
+        ...health,
       })
     }),
 })
@@ -169,7 +181,7 @@ const search = defineAdminRead<string>({
   subject: 'search',
   decode: (raw) => ({ _tag: 'Ok', input: typeof raw['q'] === 'string' ? raw['q'] : '' }),
   read: (app, query) =>
-    SearchAdminGlobal(app, query).pipe(
+    searchAdminGlobal(app, query).pipe(
       Effect.tapCause((cause) =>
         Effect.gen(function* () {
           const logger = yield* Logger
@@ -219,8 +231,10 @@ const footprint = defineAdminRead<undefined>({
  * is configured, the S3 fields for S3, the directory for local storage, and the
  * provider alone for bytea.
  */
-const buildStorageStatus = (): StorageStatusResponse => {
-  const config = parseStorageEnvConfig()
+const buildStorageStatus = (
+  env: Readonly<Record<string, string | undefined>>
+): StorageStatusResponse => {
+  const config = parseStorageEnvConfig(env)
   if (config.provider === 's3') {
     return {
       provider: 's3',
@@ -256,7 +270,9 @@ const storageStatus = defineAdminRead<undefined>({
   subject: 'storage status',
   decode: noInput,
   read: () =>
-    Effect.sync(() => answerWithSchema(storageStatusResponseSchema, buildStorageStatus())),
+    ProcessEnv.pipe(
+      Effect.map((env) => answerWithSchema(storageStatusResponseSchema, buildStorageStatus(env)))
+    ),
 })
 
 type Period = TablesOverviewQuery['period']

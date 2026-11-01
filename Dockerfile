@@ -35,6 +35,18 @@ RUN chmod +x /usr/local/bin/sovrium
 # in containers whose binary came from the install script.
 ENV SOVRIUM_INSTALL_METHOD=docker
 
+# Production mode: longer asset caching and structured log lines. The security
+# behaviour does not depend on it; that follows from BASE_URL and the bind address.
+ENV NODE_ENV=production
+
+# Listen on every interface of the container, so a published port reaches the
+# server. Named here rather than left to Docker's injected HOSTNAME (the
+# container id), which the server reads only as a deprecated fallback and
+# which Podman or Kubernetes may set to something else entirely. Inside the
+# container's own network namespace this is the only way a port mapping works;
+# who can reach that port is decided by `-p` on the host.
+ENV SOVRIUM_BIND_HOST=0.0.0.0
+
 # Non-root user for security. It must own the directories it writes to:
 # /app (the working directory, where the default `./.sovrium` data directory
 # lands) and /data (the documented SOVRIUM_DATA_DIR mount point). A named

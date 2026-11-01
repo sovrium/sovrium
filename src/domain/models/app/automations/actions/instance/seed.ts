@@ -50,7 +50,7 @@ const SeedDryRunSchema = Schema.Union([
   wholeTemplate('One whole {{template}} resolving to true or false'),
 ]).annotate({
   description:
-    'Report the plan computed against the app’s own data — which tables would be written, and which would be skipped because they already hold rows — and write nothing. Default false',
+    'Report the plan computed against the app’s own data (which tables would be written, and which would be skipped because they already hold rows) and write nothing. Default false',
 })
 
 /**

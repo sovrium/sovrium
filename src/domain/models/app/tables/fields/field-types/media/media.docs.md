@@ -1,6 +1,6 @@
 # Attachment & Media Fields
 
-> File uploads with bucket, MIME, size and thumbnail controls — plus the barcode field that shares their directory.
+> File uploads with bucket, MIME, size and thumbnail controls, plus the barcode field that shares their directory.
 
 Four field types live in the media category. Two upload files into a storage bucket; `signature` stores one signature with its image in a bucket; `barcode` stores a scannable value. All of them also accept the base field properties every field type shares.
 
@@ -13,7 +13,7 @@ Four field types live in the media category. Two upload files into a storage buc
 
 ## `single-attachment`
 
-One uploaded file — an avatar, a document, an image.
+One uploaded file: an avatar, a document, an image.
 
 <!-- sovrium:options SingleAttachmentFieldSchema -->
 
@@ -66,6 +66,6 @@ One signature: the drawn or typed mark as an image in a bucket, the signer's nam
 - { id: 4, name: client_signature, type: signature, bucket: signatures }
 ```
 
-It is written once. An update that would change a signed value — replacing it, or clearing it with `null` — is refused with a `400` naming the field, so a signed record cannot be quietly re-signed; an update that sends the stored value back unchanged is accepted. Omitting `bucket` stores the image in the built-in `system` bucket.
+It is written once. An update that would change a signed value (replacing it, or clearing it with `null`) is refused with a `400` naming the field, so a signed record cannot be quietly re-signed; an update that sends the stored value back unchanged is accepted. Omitting `bucket` stores the image in the built-in `system` bucket.
 
 The value is stored as one JSON object, `{ image, signerName, signedAt, statement, method }` (a `jsonb` column on PostgreSQL, JSON text on SQLite), and the records API answers it as that object on both engines. A CSV export writes it as its JSON. Purging the record deletes the image from its bucket. Erasing the signer's account replaces `signerName` with `[erased]` and the image key with `null` in every signature whose image she uploaded, keeps `signedAt`, `method` and `statement`, and deletes the image; that is the one write the write-once rule does not refuse.

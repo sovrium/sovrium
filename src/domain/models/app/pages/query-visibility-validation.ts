@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { boundNodesOf, describeNode } from './record-binding-walk'
 
 // ---------------------------------------------------------------------------
@@ -25,9 +26,6 @@ import { boundNodesOf, describeNode } from './record-binding-walk'
  * `enum` resolves to `default` and the page answers 200 — which is exactly what
  * makes an out-of-enum comparison unreachable rather than merely unlikely.
  */
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * The four operators that compare NUMERICALLY, and a declared `enum` holds

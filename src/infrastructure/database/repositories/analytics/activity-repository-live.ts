@@ -5,9 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Layer } from 'effect'
 import { ActivityRepository } from '@/application/ports/repositories/analytics/activity-repository'
-import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
+import { layerOverDatabase } from '@/infrastructure/database/drizzle/layer'
 import { getActivityById } from '@/infrastructure/database/table-queries/activity-queries'
 import { getRecordHistory } from '@/infrastructure/database/table-queries/query-helpers/activity-queries'
 import { checkRecordExists } from '@/infrastructure/database/table-queries/query-helpers/record-validation-queries'
@@ -17,8 +16,9 @@ import { checkRecordExists } from '@/infrastructure/database/table-queries/query
  *
  * Maps port method names to infrastructure function names.
  */
-export const ActivityRepositoryLive = Layer.succeed(ActivityRepository, {
-  getRecordHistory,
-  checkRecordExists,
-  getActivityById: (activityId) => getActivityById(activityId).pipe(Effect.provide(DatabaseLive)),
+export const ActivityRepositoryLive = layerOverDatabase(ActivityRepository, {
+  getRecordHistory: (db, dialect) => (config) => getRecordHistory(db, dialect, config),
+  checkRecordExists: (db, dialect) => (config) =>
+    checkRecordExists({ client: db, dialect }, config),
+  getActivityById: (db) => (activityId) => getActivityById(db, activityId),
 })

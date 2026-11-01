@@ -6,7 +6,7 @@
  */
 
 import { and, desc, eq } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   ConnectionTokenDatabaseError,
   ConnectionTokenRepository,
@@ -16,14 +16,12 @@ import {
   type ConnectionUserSummary,
 } from '@/application/ports/repositories/connections/connection-token-repository'
 import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
-import {
-  currentTokenKeyId,
-  decryptToken,
-  encryptToken,
-  envelopeKeyId,
-} from '@/infrastructure/crypto/token-encrypt'
-import { db } from '@/infrastructure/database'
+import { decryptToken, encryptToken } from '@/infrastructure/crypto/token-encrypt'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   connectionAppTokens as connectionAppTokensPg,
   connectionTokens as connectionTokensPg,
@@ -33,8 +31,14 @@ import {
   connectionTokens as connectionTokensSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/connection'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import { isEncryptionKeyMismatch } from '@/infrastructure/errors/encryption-key-mismatch-error'
 import { isProduction } from '@/infrastructure/process/env'
+import { isStrictlyLocalOrigin } from '@/infrastructure/process/security-posture'
+
+/**
+ * Every deployment refuses sentinel-shaped tokens except a strictly local one (loopback
+ * origin, no declared proxy); `NODE_ENV=production` still tightens. Not `NODE_ENV` alone.
+ */
+const refuseSentinels = (): boolean => isProduction() || !isStrictlyLocalOrigin()
 
 const connectionTokens = resolveDialectSchema(connectionTokensPg, connectionTokensSqlite)
 const connectionAppTokens = resolveDialectSchema(connectionAppTokensPg, connectionAppTokensSqlite)
@@ -56,10 +60,10 @@ const wrap = makeDbWrap((cause) => new ConnectionTokenDatabaseError({ cause }))
  */
 /**
  * Defense-in-depth guard: refuse to persist a sentinel-shaped
- * access token when running in production. Returns the error to fail
- * with, or `undefined` to proceed. Pure; takes the production check as
- * an injected predicate so unit tests can drive both branches without
- * touching `process.env`.
+ * access token on any deployment that is not strictly local. Returns the
+ * error to fail with, or `undefined` to proceed. Pure; takes the posture
+ * check as an injected predicate so unit tests can drive both branches
+ * without touching `process.env`.
  *
  * @internal — exported for unit tests; production callers go through
  * `upsertForUser` which composes this guard into the Effect.
@@ -70,10 +74,10 @@ export const checkSentinelGuard = (
     /** Absent for an `app`-scoped (shared) write — it has no user by design. */
     userId?: string
     accessToken: string
-    isProductionEnv: () => boolean
+    refuseSentinels: () => boolean
   }>
 ): Readonly<SentinelTokenInProductionError> | undefined => {
-  if (!input.isProductionEnv()) return undefined
+  if (!input.refuseSentinels()) return undefined
   if (!isSentinelAccessToken(input.accessToken)) return undefined
   return new SentinelTokenInProductionError({
     connectionId: input.connectionId,
@@ -169,130 +173,91 @@ const isSentinelEnvelope = (envelope: string): boolean => {
   }
 }
 
-/**
- * Is this stored envelope unreadable under the key this process holds?
- *
- * Two envelope shapes, two honest answers:
- *
- *   - `v2:` declares a key fingerprint, so comparing it answers the question
- *     with no cryptography at all — a string scan per row rather than a cipher.
- *   - `v1:` predates the fingerprint and declares nothing. The only truthful
- *     test is to try: one AES-GCM open against an already-derived key. Skipping
- *     these would stay silent for precisely the population most at risk — an
- *     install that upgraded and then changed its key — while calling them all
- *     foreign would cry wolf on every install that has ever upgraded.
- *
- * A row that fails for any reason OTHER than the key (a truncated or hand-edited
- * envelope) is not counted: the warning names a cause, and naming the wrong one
- * sends the operator to re-authorize users whose tokens were never the problem.
- */
-const isUnreadableUnderCurrentKey = (envelope: string, currentKeyId: string): boolean => {
-  const declared = envelopeKeyId(envelope)
-  if (declared !== undefined) return declared !== currentKeyId
-  try {
-    decryptToken(envelope)
-    return false
-  } catch (error) {
-    return isEncryptionKeyMismatch(error)
-  }
-}
+const members: MembersOverDatabase<typeof ConnectionTokenRepository> = {
+  findForUser:
+    (db) =>
+    ({ connectionId, userId }) =>
+      wrap(async () => {
+        const rows = await db
+          .select()
+          .from(connectionTokens)
+          .where(
+            and(
+              eq(connectionTokens.connectionId, connectionId),
+              eq(connectionTokens.userId, userId)
+            )
+          )
+          .limit(1)
+        return rows[0] !== undefined ? decodeRow(rows[0] as Record<string, unknown>) : undefined
+      }),
 
-/**
- * Count stored token rows that this deployment's key cannot read.
- *
- * Best-effort by construction: a failure here must never keep a server down, so
- * it resolves to `0`. Feeds the boot ⚠ described in a connection keyid spec.
- */
-export const countTokensEncryptedWithAnotherKey = async (): Promise<number> => {
-  try {
-    const rows = await db
-      .select({ accessToken: connectionTokens.accessToken })
-      .from(connectionTokens)
-    const current = currentTokenKeyId()
-    return rows.filter((row) => isUnreadableUnderCurrentKey(String(row.accessToken), current))
-      .length
-  } catch {
-    return 0
-  }
-}
-
-export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenRepository, {
-  findForUser: ({ connectionId, userId }) =>
-    wrap(async () => {
-      const rows = await db
-        .select()
-        .from(connectionTokens)
-        .where(
-          and(eq(connectionTokens.connectionId, connectionId), eq(connectionTokens.userId, userId))
-        )
-        .limit(1)
-      return rows[0] !== undefined ? decodeRow(rows[0] as Record<string, unknown>) : undefined
-    }),
-
-  upsertForUser: ({ connectionId, userId, accessToken, refreshToken, expiresAt, tokenFields }) =>
-    Effect.gen(function* () {
-      // Defense-in-depth: refuse to persist a sentinel-shaped
-      // access token in production. The seeder no-ops at NODE_ENV ===
-      // 'production' (see runSeedTestConnectionTokens), but if NODE_ENV is
-      // unset (a fail-open scenario in some deployment platforms), the
-      // seeder would still run. This repository-side check is the second
-      // line of defense — even with a misconfigured environment, a
-      // sentinel cannot reach the production database via this method.
-      // Real OAuth providers never hand back tokens ending in
-      // '.signature-placeholder', so a true positive only occurs when
-      // someone has tried to inject a test sentinel.
-      const guardError = checkSentinelGuard({
-        connectionId,
-        userId,
-        accessToken,
-        isProductionEnv: isProduction,
-      })
-      if (guardError !== undefined) {
-        return yield* guardError
-      }
-
-      return yield* wrap(async () => {
-        const accessEnvelope = encryptToken(accessToken)
-        const refreshEnvelope =
-          refreshToken !== undefined && refreshToken !== '' ? encryptToken(refreshToken) : undefined
-
-        const valuesForWrite = {
-          accessToken: accessEnvelope,
-          ...(refreshEnvelope !== undefined ? { refreshToken: refreshEnvelope } : {}),
-          ...(expiresAt !== undefined ? { expiresAt } : {}),
-          ...encodeTokenFields(tokenFields),
+  upsertForUser:
+    (db) =>
+    ({ connectionId, userId, accessToken, refreshToken, expiresAt, tokenFields }) =>
+      Effect.gen(function* () {
+        // Defense-in-depth: refuse to persist a sentinel-shaped
+        // access token on any deployment that is not strictly local. Only the E2E
+        // harness writes sentinels, straight into its loopback test database; no
+        // real provider issues a token ending in '.signature-placeholder'.
+        const guardError = checkSentinelGuard({
+          connectionId,
+          userId,
+          accessToken,
+          refuseSentinels,
+        })
+        if (guardError !== undefined) {
+          return yield* guardError
         }
 
-        // Single statement, atomic against the
-        // (connection_id, user_id) unique index. updatedAt is bumped via
-        // the schema's $onUpdate so we don't need to set it explicitly.
-        const [row] = await db
-          .insert(connectionTokens)
-          .values({ connectionId, userId, ...valuesForWrite })
-          .onConflictDoUpdate({
-            target: [connectionTokens.connectionId, connectionTokens.userId],
-            set: valuesForWrite,
-          })
-          .returning()
-        if (row === undefined) {
-          throw new Error('connection_tokens upsert returned no row')
-        }
-        return decodeRow(row as Record<string, unknown>)
-      })
-    }),
+        return yield* wrap(async () => {
+          const accessEnvelope = encryptToken(accessToken)
+          const refreshEnvelope =
+            refreshToken !== undefined && refreshToken !== ''
+              ? encryptToken(refreshToken)
+              : undefined
 
-  deleteForUser: ({ connectionId, userId }) =>
-    wrap(async () => {
-      const deleted = await db
-        .delete(connectionTokens)
-        .where(
-          and(eq(connectionTokens.connectionId, connectionId), eq(connectionTokens.userId, userId))
-        )
-        .returning({ id: connectionTokens.id })
-      return deleted.length > 0
-    }),
+          const valuesForWrite = {
+            accessToken: accessEnvelope,
+            ...(refreshEnvelope !== undefined ? { refreshToken: refreshEnvelope } : {}),
+            ...(expiresAt !== undefined ? { expiresAt } : {}),
+            ...encodeTokenFields(tokenFields),
+          }
 
-  deleteForConnection: (connectionId) =>
+          // Single statement, atomic against the
+          // (connection_id, user_id) unique index. updatedAt is bumped via
+          // the schema's $onUpdate so we don't need to set it explicitly.
+          const [row] = await db
+            .insert(connectionTokens)
+            .values({ connectionId, userId, ...valuesForWrite })
+            .onConflictDoUpdate({
+              target: [connectionTokens.connectionId, connectionTokens.userId],
+              set: valuesForWrite,
+            })
+            .returning()
+          if (row === undefined) {
+            throw new Error('connection_tokens upsert returned no row')
+          }
+          return decodeRow(row as Record<string, unknown>)
+        })
+      }),
+
+  deleteForUser:
+    (db) =>
+    ({ connectionId, userId }) =>
+      wrap(async () => {
+        const deleted = await db
+          .delete(connectionTokens)
+          .where(
+            and(
+              eq(connectionTokens.connectionId, connectionId),
+              eq(connectionTokens.userId, userId)
+            )
+          )
+          .returning({ id: connectionTokens.id })
+        return deleted.length > 0
+      }),
+
+  deleteForConnection: (db) => (connectionId) =>
     wrap(async () => {
       // Delete every operator's token row for this connection so an
       // `app`-scoped (shared) connection returns to the unconnected state
@@ -304,7 +269,7 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
       return deleted.length
     }),
 
-  countForConnection: (connectionId) =>
+  countForConnection: (db) => (connectionId) =>
     wrap(async () => {
       const rows = await db
         .select({ id: connectionTokens.id })
@@ -313,172 +278,177 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
       return rows.length
     }),
 
-  listUsersForConnection: ({ connectionId }) =>
-    wrap(async () => {
-      const rows = await db
-        .select()
-        .from(connectionTokens)
-        .where(eq(connectionTokens.connectionId, connectionId))
-      // Token-content filtering (sentinel detection, etc.) lives in the
-      // injection path (`auth-headers.ts`); the listing endpoint
-      // returns a row for every (connection_id, user_id) tuple that
-      // exists in the database, leaving role-based exclusion (admins
-      // don't authorize per-user-scope connections) to the API
-      // handler — see `users-handler.ts` for that layer.
-      const summaries: readonly ConnectionUserSummary[] = rows.map((row) => {
-        const r = row as Record<string, unknown>
-        const expires = r['expiresAt']
-        return {
-          userId: String(r['userId']),
-          expiresAt: expires instanceof Date ? expires : undefined,
-          hasRefreshToken: typeof r['refreshToken'] === 'string' && r['refreshToken'] !== '',
-          createdAt: r['createdAt'] as Date,
-          updatedAt: r['updatedAt'] as Date,
-        }
-      })
-      return summaries
-    }),
+  listUsersForConnection:
+    (db) =>
+    ({ connectionId }) =>
+      wrap(async () => {
+        const rows = await db
+          .select()
+          .from(connectionTokens)
+          .where(eq(connectionTokens.connectionId, connectionId))
+        // Token-content filtering (sentinel detection, etc.) lives in the
+        // injection path (`auth-headers.ts`); the listing endpoint
+        // returns a row for every (connection_id, user_id) tuple that
+        // exists in the database, leaving role-based exclusion (admins
+        // don't authorize per-user-scope connections) to the API
+        // handler — see `users-handler.ts` for that layer.
+        const summaries: readonly ConnectionUserSummary[] = rows.map((row) => {
+          const r = row as Record<string, unknown>
+          const expires = r['expiresAt']
+          return {
+            userId: String(r['userId']),
+            expiresAt: expires instanceof Date ? expires : undefined,
+            hasRefreshToken: typeof r['refreshToken'] === 'string' && r['refreshToken'] !== '',
+            createdAt: r['createdAt'] as Date,
+            updatedAt: r['updatedAt'] as Date,
+          }
+        })
+        return summaries
+      }),
 
   // ── `app`-scoped (shared) credential ────────────────────────────────────────
 
-  findForApp: ({ connectionId }) =>
-    wrap(async () => {
-      const rows = await db
-        .select()
-        .from(connectionAppTokens)
-        .where(eq(connectionAppTokens.connectionId, connectionId))
-        .limit(1)
-      return rows[0] !== undefined ? decodeAppRow(rows[0] as Record<string, unknown>) : undefined
-    }),
+  findForApp:
+    (db) =>
+    ({ connectionId }) =>
+      wrap(async () => {
+        const rows = await db
+          .select()
+          .from(connectionAppTokens)
+          .where(eq(connectionAppTokens.connectionId, connectionId))
+          .limit(1)
+        return rows[0] !== undefined ? decodeAppRow(rows[0] as Record<string, unknown>) : undefined
+      }),
 
-  upsertForApp: ({
-    connectionId,
-    accessToken,
-    refreshToken,
-    expiresAt,
-    tokenFields,
-    grantFingerprint,
-  }) =>
-    Effect.gen(function* () {
-      // Same defense-in-depth as `upsertForUser`, and it matters
-      // MORE here: a sentinel parked in the shared store would make every
-      // automation in the installation look connected at once.
-      const guardError = checkSentinelGuard({
-        connectionId,
-        accessToken,
-        isProductionEnv: isProduction,
-      })
-      if (guardError !== undefined) {
-        return yield* guardError
-      }
-
-      return yield* wrap(async () => {
-        const accessEnvelope = encryptToken(accessToken)
-        const refreshEnvelope =
-          refreshToken !== undefined && refreshToken !== '' ? encryptToken(refreshToken) : undefined
-
-        const valuesForWrite = {
-          accessToken: accessEnvelope,
-          ...(refreshEnvelope !== undefined ? { refreshToken: refreshEnvelope } : {}),
-          ...(expiresAt !== undefined ? { expiresAt } : {}),
-          ...encodeTokenFields(tokenFields),
-          ...(grantFingerprint !== undefined ? { grantFingerprint } : {}),
+  upsertForApp:
+    (db) =>
+    ({ connectionId, accessToken, refreshToken, expiresAt, tokenFields, grantFingerprint }) =>
+      Effect.gen(function* () {
+        // Same defense-in-depth as `upsertForUser`, and it matters
+        // MORE here: a sentinel parked in the shared store would make every
+        // automation in the installation look connected at once.
+        const guardError = checkSentinelGuard({ connectionId, accessToken, refuseSentinels })
+        if (guardError !== undefined) {
+          return yield* guardError
         }
 
-        const [row] = await db
-          .insert(connectionAppTokens)
-          .values({ connectionId, ...valuesForWrite })
-          .onConflictDoUpdate({
-            target: [connectionAppTokens.connectionId],
-            set: valuesForWrite,
+        return yield* wrap(async () => {
+          const accessEnvelope = encryptToken(accessToken)
+          const refreshEnvelope =
+            refreshToken !== undefined && refreshToken !== ''
+              ? encryptToken(refreshToken)
+              : undefined
+
+          const valuesForWrite = {
+            accessToken: accessEnvelope,
+            ...(refreshEnvelope !== undefined ? { refreshToken: refreshEnvelope } : {}),
+            ...(expiresAt !== undefined ? { expiresAt } : {}),
+            ...encodeTokenFields(tokenFields),
+            ...(grantFingerprint !== undefined ? { grantFingerprint } : {}),
+          }
+
+          const [row] = await db
+            .insert(connectionAppTokens)
+            .values({ connectionId, ...valuesForWrite })
+            .onConflictDoUpdate({
+              target: [connectionAppTokens.connectionId],
+              set: valuesForWrite,
+            })
+            .returning()
+          if (row === undefined) {
+            throw new Error('connection_app_tokens upsert returned no row')
+          }
+          return decodeAppRow(row as Record<string, unknown>)
+        })
+      }),
+
+  deleteForApp:
+    (db) =>
+    ({ connectionId }) =>
+      wrap(async () => {
+        const deleted = await db
+          .delete(connectionAppTokens)
+          .where(eq(connectionAppTokens.connectionId, connectionId))
+          .returning({ id: connectionAppTokens.id })
+        return deleted.length > 0
+      }),
+
+  findAppSummary:
+    (db) =>
+    ({ connectionId }) =>
+      wrap(async () => {
+        // Reads metadata only — never decrypts. The admin dashboard must render
+        // on an install whose encryption key has rotated, and decrypting here
+        // would turn that into a 500 on the very page that explains the problem.
+        const rows = await db
+          .select({
+            expiresAt: connectionAppTokens.expiresAt,
+            refreshToken: connectionAppTokens.refreshToken,
+            createdAt: connectionAppTokens.createdAt,
+            updatedAt: connectionAppTokens.updatedAt,
           })
-          .returning()
-        if (row === undefined) {
-          throw new Error('connection_app_tokens upsert returned no row')
+          .from(connectionAppTokens)
+          .where(eq(connectionAppTokens.connectionId, connectionId))
+          .limit(1)
+        const row = rows[0] as Record<string, unknown> | undefined
+        if (row === undefined) return undefined
+        const expires = row['expiresAt']
+        return {
+          expiresAt: expires instanceof Date ? expires : undefined,
+          hasRefreshToken: typeof row['refreshToken'] === 'string' && row['refreshToken'] !== '',
+          createdAt: row['createdAt'] as Date,
+          updatedAt: row['updatedAt'] as Date,
         }
-        return decodeAppRow(row as Record<string, unknown>)
-      })
-    }),
+      }),
 
-  deleteForApp: ({ connectionId }) =>
-    wrap(async () => {
-      const deleted = await db
-        .delete(connectionAppTokens)
-        .where(eq(connectionAppTokens.connectionId, connectionId))
-        .returning({ id: connectionAppTokens.id })
-      return deleted.length > 0
-    }),
+  adoptLegacyUserTokenAsApp:
+    (db) =>
+    ({ connectionId }) =>
+      wrap(async () => {
+        const existing = await db
+          .select({ id: connectionAppTokens.id })
+          .from(connectionAppTokens)
+          .where(eq(connectionAppTokens.connectionId, connectionId))
+          .limit(1)
+        // A shared credential already exists — it wins, always. Overwriting it
+        // from a per-user row could silently downgrade a freshly-authorized
+        // shared token to a stale one.
+        if (existing.length > 0) return false
 
-  findAppSummary: ({ connectionId }) =>
-    wrap(async () => {
-      // Reads metadata only — never decrypts. The admin dashboard must render
-      // on an install whose encryption key has rotated, and decrypting here
-      // would turn that into a 500 on the very page that explains the problem.
-      const rows = await db
-        .select({
-          expiresAt: connectionAppTokens.expiresAt,
-          refreshToken: connectionAppTokens.refreshToken,
-          createdAt: connectionAppTokens.createdAt,
-          updatedAt: connectionAppTokens.updatedAt,
-        })
-        .from(connectionAppTokens)
-        .where(eq(connectionAppTokens.connectionId, connectionId))
-        .limit(1)
-      const row = rows[0] as Record<string, unknown> | undefined
-      if (row === undefined) return undefined
-      const expires = row['expiresAt']
-      return {
-        expiresAt: expires instanceof Date ? expires : undefined,
-        hasRefreshToken: typeof row['refreshToken'] === 'string' && row['refreshToken'] !== '',
-        createdAt: row['createdAt'] as Date,
-        updatedAt: row['updatedAt'] as Date,
-      }
-    }),
+        const legacy = await db
+          .select({
+            accessToken: connectionTokens.accessToken,
+            refreshToken: connectionTokens.refreshToken,
+            expiresAt: connectionTokens.expiresAt,
+          })
+          .from(connectionTokens)
+          .where(eq(connectionTokens.connectionId, connectionId))
+          .orderBy(desc(connectionTokens.updatedAt))
+          .limit(1)
+        const row = legacy[0] as Record<string, unknown> | undefined
+        if (row === undefined) return false
 
-  adoptLegacyUserTokenAsApp: ({ connectionId }) =>
-    wrap(async () => {
-      const existing = await db
-        .select({ id: connectionAppTokens.id })
-        .from(connectionAppTokens)
-        .where(eq(connectionAppTokens.connectionId, connectionId))
-        .limit(1)
-      // A shared credential already exists — it wins, always. Overwriting it
-      // from a per-user row could silently downgrade a freshly-authorized
-      // shared token to a stale one.
-      if (existing.length > 0) return false
+        const accessEnvelope = String(row['accessToken'])
+        if (isSentinelEnvelope(accessEnvelope)) return false
 
-      const legacy = await db
-        .select({
-          accessToken: connectionTokens.accessToken,
-          refreshToken: connectionTokens.refreshToken,
-          expiresAt: connectionTokens.expiresAt,
-        })
-        .from(connectionTokens)
-        .where(eq(connectionTokens.connectionId, connectionId))
-        .orderBy(desc(connectionTokens.updatedAt))
-        .limit(1)
-      const row = legacy[0] as Record<string, unknown> | undefined
-      if (row === undefined) return false
+        const { refreshToken: refreshEnvelope, expiresAt } = row
+        // Ciphertext moves VERBATIM — no decrypt, no re-encrypt. The adoption
+        // therefore neither needs nor risks the encryption key, and the adopted
+        // row is byte-identical to what the older build wrote.
+        const inserted = await db
+          .insert(connectionAppTokens)
+          .values({
+            connectionId,
+            accessToken: accessEnvelope,
+            ...(typeof refreshEnvelope === 'string' && refreshEnvelope !== ''
+              ? { refreshToken: refreshEnvelope }
+              : {}),
+            ...(expiresAt instanceof Date ? { expiresAt } : {}),
+          })
+          .onConflictDoNothing({ target: [connectionAppTokens.connectionId] })
+          .returning({ id: connectionAppTokens.id })
+        return inserted.length > 0
+      }),
+}
 
-      const accessEnvelope = String(row['accessToken'])
-      if (isSentinelEnvelope(accessEnvelope)) return false
-
-      const { refreshToken: refreshEnvelope, expiresAt } = row
-      // Ciphertext moves VERBATIM — no decrypt, no re-encrypt. The adoption
-      // therefore neither needs nor risks the encryption key, and the adopted
-      // row is byte-identical to what the older build wrote.
-      const inserted = await db
-        .insert(connectionAppTokens)
-        .values({
-          connectionId,
-          accessToken: accessEnvelope,
-          ...(typeof refreshEnvelope === 'string' && refreshEnvelope !== ''
-            ? { refreshToken: refreshEnvelope }
-            : {}),
-          ...(expiresAt instanceof Date ? { expiresAt } : {}),
-        })
-        .onConflictDoNothing({ target: [connectionAppTokens.connectionId] })
-        .returning({ id: connectionAppTokens.id })
-      return inserted.length > 0
-    }),
-})
+export const ConnectionTokenRepositoryLive = layerOverDatabase(ConnectionTokenRepository, members)

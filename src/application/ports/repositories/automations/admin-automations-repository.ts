@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { SubmissionRunsFilter } from './submission-runs-repository'
 import type { RoutineRunSource } from '@/domain/models/app/automations/routine-run-service'
 import type { TriggerNameFilter } from '@/domain/models/app/automations/trigger-entries-service'
 import type { Effect } from 'effect'
@@ -132,6 +133,8 @@ export interface AdminRunsListFilters {
    * no operator started by hand. `undefined` lists every run.
    */
   readonly hideRoutineOf?: ReadonlyArray<RoutineRunSource> | undefined
+  /** Only the runs some form submissions started (`?submissionId=`). */
+  readonly submissionRuns?: SubmissionRunsFilter | undefined
   readonly limit: number
   /**
    * Rows to skip before the page — a NUMBERED page (`?page=`), the alternative

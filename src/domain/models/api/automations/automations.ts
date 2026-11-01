@@ -6,10 +6,10 @@
  */
 
 import { Schema } from 'effect'
-import { coercedNumber } from '@/domain/models/api/combinators/coerce'
-import { describedUnknown } from '@/domain/models/api/combinators/described-ref'
-import { looseIsoDateTime, uuid } from '@/domain/models/api/combinators/formats'
-import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { coercedNumber } from '@/domain/kernel/config-parsing/coerce'
+import { describedUnknown } from '@/domain/kernel/config-parsing/described-ref'
+import { looseIsoDateTime, uuid } from '@/domain/kernel/config-parsing/formats'
+import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 
 // ─── Run Status ──────────────────────────────────────────────────────────────
 
@@ -185,7 +185,7 @@ export const runSchema = Schema.Struct({
   durationMs: Schema.NullOr(
     Schema.Int.annotate({
       description:
-        'Active execution time in milliseconds, from startedAt to completion — time spent queued is excluded',
+        'Active execution time in milliseconds, from startedAt to completion; time spent queued is excluded',
     })
   ),
   attempt: Schema.Int.annotate({ description: 'Retry attempt number (1 = first attempt)' }),
@@ -311,40 +311,6 @@ export const listAutomationApprovalsResponseSchema = Schema.Struct({
 })
 
 export type ListAutomationApprovalsResponse = typeof listAutomationApprovalsResponseSchema.Type
-
-// ─── List Runs Response ──────────────────────────────────────────────────────
-
-/**
- * Forward-looking shape for `GET /api/automations/runs` — declares the
- * paginated response we WILL ship once the runs listing supports paging.
- *
- * Drift note: the live route handler
- * (`routes/automations/index.ts:handleListRuns`) currently emits
- * `{ runs: [...] }` without a `pagination` envelope. Pagination wiring is
- * tracked separately and will land alongside the `?page` / `?pageSize`
- * query params already declared in `listRunsQuerySchema` below.
- *
- * Until that lands, callers should treat `pagination` as forward-compatible
- * documentation and not rely on it at runtime. Once pagination ships, the
- * route will start emitting the `pagination` envelope and this schema will
- * become consumable for OpenAPI validation.
- */
-export const listRunsResponseSchema = Schema.Struct({
-  runs: Schema.Array(runSchema).annotate({ description: 'List of automation runs' }),
-  pagination: optionalField(
-    Schema.Struct({
-      total: Schema.Int.annotate({ description: 'Total count of matching runs' }),
-      page: Schema.Int.annotate({ description: 'Current page number' }),
-      pageSize: Schema.Int.annotate({ description: 'Items per page' }),
-      totalPages: Schema.Int.annotate({ description: 'Total number of pages' }),
-    }).annotate({
-      description:
-        'Pagination metadata. Currently optional (forward-looking): the live route omits this envelope until pagination wiring lands. Will become required once `?page`/`?pageSize` query params are honored.',
-    })
-  ),
-})
-
-export type ListRunsResponse = typeof listRunsResponseSchema.Type
 
 // ─── List Runs Query Params ──────────────────────────────────────────────────
 
@@ -493,6 +459,17 @@ export const webhookDefaultResponseSchema = Schema.Struct({
 export type WebhookDefaultResponse = typeof webhookDefaultResponseSchema.Type
 
 /**
+ * Answer of a webhook to a request whose deduplication key was seen within the
+ * trigger's window: the request is dropped, so it names no run.
+ */
+export const webhookDeduplicatedResponseSchema = Schema.Struct({
+  success: Schema.Literal(true).annotate({ description: 'The request was received' }),
+  deduplicated: Schema.Literal(true).annotate({
+    description: 'A duplicate of a recent request: dropped, and no run was started',
+  }),
+})
+
+/**
  * Response body of the MANUAL trigger, `POST /api/automations/:name/trigger`
  * (and of a replay). It differs from the webhook's default answer
  * ({@link webhookDefaultResponseSchema}) on purpose: the manual trigger's caller
@@ -504,20 +481,20 @@ export type WebhookDefaultResponse = typeof webhookDefaultResponseSchema.Type
  * mode. Per-action visibility lives at the runs detail endpoint
  * (`GET /api/automations/runs/:id` → `runDetailSchema.steps[]`).
  *
- * Exported for documentation / OpenAPI — the route handler does not validate
- * against this schema.
+ * `output` is whatever the last action produced, so it is any JSON value, not
+ * only an object. `id` is the stored run id, read as text: the schema promises
+ * no more than the column does.
  */
 export const triggerResponseSchema = Schema.Struct({
   success: Schema.Literal(true).annotate({
     description: 'Run was dispatched (downstream failures still produce true)',
   }),
-  id: uuid({ description: 'ID of the created run (matches runs API)' }),
+  id: Schema.String.annotate({ description: 'ID of the created run (matches runs API)' }),
   status: publicRunStatusSchema,
   output: optionalField(
-    Schema.Record(Schema.String, Schema.Unknown).annotate({
-      description:
-        'Output of the last action that produced non-empty output (n8n parity). Walks the executed-step list from the tail and returns the first `outcome.output` it finds — actions emitting nothing (filter, stop, state:set without return) are skipped over. Omitted when no action produced output. For per-action breakdown, call `GET /api/automations/runs/:id`.',
-    })
+    describedUnknown(
+      'Output of the last action that produced non-empty output (n8n parity), as any JSON value. Walks the executed-step list from the tail and returns the first `outcome.output` it finds. Actions emitting nothing (filter, stop, state:set without return) are skipped over. Omitted when no action produced output. For per-action breakdown, call `GET /api/automations/runs/:id`.'
+    )
   ),
   error: optionalField(
     Schema.String.annotate({
@@ -528,16 +505,6 @@ export const triggerResponseSchema = Schema.Struct({
 })
 
 export type TriggerResponse = typeof triggerResponseSchema.Type
-
-// ─── Cancel Run Response ─────────────────────────────────────────────────────
-
-export const cancelRunResponseSchema = Schema.Struct({
-  id: uuid({ description: 'Run ID' }),
-  status: Schema.Literal('cancelled').annotate({ description: 'New status' }),
-  cancelledAt: looseIsoDateTime({ description: 'Cancellation timestamp' }),
-})
-
-export type CancelRunResponse = typeof cancelRunResponseSchema.Type
 
 // ─── Deploy Intake (sovrium deploy ↔ a Sovrium Cloud app) ────────────────────
 
@@ -642,7 +609,7 @@ export const previousDeploymentAttemptSchema = Schema.Struct({
   ),
 }).annotate({
   description:
-    "How the previous attempt ended — its status (usually 'failed') and the host's reason — present only from the second attempt on",
+    "How the previous attempt ended (its status, usually 'failed', and the host's reason), present only from the second attempt on",
 })
 
 /** @public */
@@ -708,13 +675,13 @@ export const deployResponseSchema = Schema.Struct({
   placement: optionalField(
     Schema.Literals(['placed', 'waiting']).annotate({
       description:
-        "'placed': the app is on a machine; 'waiting': it is on none yet and none can take it now — the deployment is kept and starts once one can. Absent from a cloud that does not report placement",
+        "'placed': the app is on a machine; 'waiting': it is on none yet and none can take it now; the deployment is kept and starts once one can. Absent from a cloud that does not report placement",
     })
   ),
   hint: optionalField(
     Schema.String.annotate({
       description:
-        "A note from the cloud about when the deployment will start — for example that the app's machine has not reported for a while — shown as written",
+        "A note from the cloud about when the deployment will start (for example that the app's machine has not reported for a while), shown as written",
     })
   ),
   adminUrl: optionalField(
@@ -789,7 +756,7 @@ export const deploymentRecordFieldsSchema = Schema.Struct({
   report: optionalField(
     Schema.NullOr(Schema.String).annotate({
       description:
-        "Why a 'failed' deployment stopped — for a config the host refused, the validation report, printed as is; null or absent otherwise",
+        "Why a 'failed' deployment stopped: for a config the host refused, the validation report, printed as is; null or absent otherwise",
     })
   ),
   attempt: optionalField(Schema.NullOr(deploymentAttemptSchema)),

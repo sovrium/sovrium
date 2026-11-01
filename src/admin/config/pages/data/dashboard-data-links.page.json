@@ -11,7 +11,8 @@
     "default": "7d",
     "presets": [
       {
-        "id": "24h"
+        "id": "24h",
+        "granularity": "day"
       },
       {
         "id": "7d"
@@ -553,7 +554,8 @@
                           "title": "$t:admin.links.deleteConfirm",
                           "role": "alertdialog",
                           "confirmLabel": "$t:admin.links.delete",
-                          "cancelLabel": "$t:admin.common.cancel"
+                          "cancelLabel": "$t:admin.common.cancel",
+                          "irreversible": true
                         },
                         "visibleWhen": {
                           "field": "source",
@@ -566,7 +568,11 @@
                 ],
                 "emptyMessage": "$t:admin.links.empty",
                 "noMatchMessage": "$t:admin.links.noMatch",
-                "viewOptions": "toolbar"
+                "viewOptions": "toolbar",
+                "countLabel": {
+                  "one": "$t:admin.count.links.one",
+                  "other": "$t:admin.count.links.other"
+                }
               }
             }
           ]

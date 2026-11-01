@@ -20,6 +20,7 @@
 
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { resolveSystemSource } from '@/domain/models/app/system-sources'
+import { componentField, keyOf, rewriteComponent } from './component-rewrite'
 import type { ReadReadPosition } from '@/application/ports/repositories/tables/read-state-repository'
 import type { LookupReadMask } from '@/application/ports/repositories/tables/table-repository'
 import type {
@@ -63,6 +64,9 @@ export type DataSourceSectionResult =
  * is provided by DataSourceRepositoryLive in the infrastructure layer.
  */
 export interface DataSourceDb {
+  /** The text of a file under the app's public directory; absent, no drawing is ever found. */
+  readonly readPublicFile?: (path: string) => Promise<string | undefined>
+
   readonly fetchRecords: (
     tableName: string,
     options?: {
@@ -86,10 +90,12 @@ export interface DataSourceDb {
     tableName: string,
     paramField: string,
     paramValue: string,
-    fields?: readonly string[],
-    /** As the repository port's: `liveOnly`, and `paramLanguage` for a translatable `paramField`. */
-    options?: { readonly liveOnly?: boolean; readonly paramLanguage?: string }
-    // eslint-disable-next-line max-params -- positional signature kept for its existing callers; `options` is an optional fifth argument
+    /** As the repository port's: `fields`, `liveOnly`, and `paramLanguage` for a translatable `paramField`. */
+    options?: {
+      readonly fields?: readonly string[]
+      readonly liveOnly?: boolean
+      readonly paramLanguage?: string
+    }
   ) => Promise<Record<string, unknown> | undefined>
 
   /**
@@ -273,13 +279,12 @@ export interface LinkPreviewCardFacts {
 
 /** Injects a _dataSourceError prop into a component's props. */
 export function withDataSourceError(component: Component, errorMessage: string): Component {
-  return {
-    ...component,
+  return rewriteComponent(component, {
     props: {
       ...(component.props ?? {}),
       _dataSourceError: errorMessage,
     },
-  }
+  })
 }
 
 /** Validates dataSource fields against a table's field definitions. */
@@ -322,11 +327,10 @@ export { substituteRecordVars }
  * rejects an undeclared reference before boot.
  */
 export function desugarSystemSourceRef(component: Component, app: App): Component {
-  const dataSource = component.dataSource as { readonly systemSource?: unknown } | undefined
-  const ref = dataSource?.systemSource
+  const ref = keyOf(componentField(component, 'dataSource'), 'systemSource')
   if (typeof ref !== 'string') return component
   const entry = resolveSystemSource(ref, app.systemSources)
   if (!entry) return component
   const { name: _name, ...system } = entry
-  return { ...component, dataSource: { system } as Component['dataSource'] }
+  return rewriteComponent(component, { dataSource: { system } })
 }

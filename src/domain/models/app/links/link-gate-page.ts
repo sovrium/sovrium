@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
+
 /**
  * The interstitial a password-gated link answers instead of redirecting.
  *
@@ -21,15 +23,6 @@
  * no client bundle, no CSS compile, and no session.
  */
 
-/** Escape the five characters that can break out of HTML text or an attribute. */
-const escapeHtml = (value: string): string =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-
 /**
  * Render the gate.
  *
@@ -38,7 +31,7 @@ const escapeHtml = (value: string): string =>
  */
 export const renderLinkGatePage = (slug: string, failed: boolean): string => {
   const action = `/l/${encodeURIComponent(slug)}`
-  const title = escapeHtml('Password required')
+  const title = escapeHtmlAttribute('Password required')
   const error = failed
     ? '<p role="alert" data-testid="link-gate-error" class="error">That password is not correct.</p>'
     : ''
@@ -62,7 +55,7 @@ button{border:0;background:#0f172a;color:#fff;cursor:pointer}
 </style>
 </head>
 <body>
-<form method="post" action="${escapeHtml(action)}" data-testid="link-gate">
+<form method="post" action="${escapeHtmlAttribute(action)}" data-testid="link-gate">
 <h1>${title}</h1>
 <p>This link is protected. Enter the password to continue.</p>
 ${error}

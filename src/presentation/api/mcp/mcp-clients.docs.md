@@ -1,6 +1,6 @@
 # Connecting a Client
 
-> Pointing an assistant at a deployed app over HTTP — the configuration block every client shares, which header carries which credential, and the one request that proves the connection is really filtered.
+> Pointing an assistant at a deployed app over HTTP: the configuration block every client shares, which header carries which credential, and the one request that proves the connection is really filtered.
 
 Once the server is enabled the app serves one JSON-RPC endpoint at the configured mount path. Any MCP-capable client can speak to it.
 
@@ -19,7 +19,7 @@ Desktop assistants, IDEs and coding agents all read some form of an `mcpServers`
 }
 ```
 
-Where that block lives differs per client — a settings file, a project config, a panel in the interface — but the two values it needs are always the URL and the transport.
+Where that block lives differs per client (a settings file, a project config, a panel in the interface), but the two values it needs are always the URL and the transport.
 
 ## Authenticating
 
@@ -47,13 +47,13 @@ curl -X POST 'https://your-app.example.com/api/auth/oauth2/register' \
   }'
 ```
 
-**Clients that register themselves cannot use that cookie**, because they register before any browser session exists. Setting `SOVRIUM_OAUTH_ANONYMOUS_CLIENT_REGISTRATION=true` lets them: registration then accepts any caller, capped at 20 per minute per IP. It is off by default because registration writes a `client_name` of the caller's choosing — a client that registers itself is marked unverified on the consent screen, which leads with the registered redirect origin rather than the name it chose for itself.
+**Clients that register themselves cannot use that cookie**, because they register before any browser session exists. Setting `SOVRIUM_OAUTH_ANONYMOUS_CLIENT_REGISTRATION=true` lets them: registration then accepts any caller, capped at 20 per minute per IP. It is off by default because registration writes a `client_name` of the caller's choosing. A client that registers itself is marked unverified on the consent screen, which leads with the registered redirect origin rather than the name it chose for itself.
 
 A call carrying no credential answers `401` with a `WWW-Authenticate: Bearer` discovery header, so a compliant client can start the flow without being told how.
 
 ## A local IDE over stdio
 
-**`MCP_TRANSPORT=stdio` does not serve anything over stdin.** It only suppresses the HTTP mount — nothing on the `sovrium start` path reads stdin, so a client configured to launch `sovrium start` with that variable gets a child process that never answers. Un-mounting the route is a legitimate thing to want; serving a local client is not what this value does.
+**`MCP_TRANSPORT=stdio` does not serve anything over stdin.** It only suppresses the HTTP mount: nothing on the `sovrium start` path reads stdin, so a client configured to launch `sovrium start` with that variable gets a child process that never answers. Un-mounting the route is a legitimate thing to want; serving a local client is not what this value does.
 
 The stdio entry point is its own command, `sovrium mcp`, reached by running the binary rather than by setting a variable:
 
@@ -78,10 +78,24 @@ Do not trust the client's green dot. The smallest useful check is a tool listing
 curl -X POST 'https://your-app.example.com/mcp' \
   --header 'x-api-key: <your-api-key>' \
   --header 'Content-Type: application/json' \
-  --data '{ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }'
+  --header 'MCP-Protocol-Version: 2026-07-28' \
+  --header 'Mcp-Method: tools/list' \
+  --data '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list",
+    "params": {
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {}
+      }
+    }
+  }'
 ```
 
-The response names exactly the tools your credential can call — the tables, actions and automations marked with `aiAccess`, filtered by the role behind the credential.
+A real MCP client sends all of this on its own. A request written by hand has to carry it too, because the server speaks the `2026-07-28` protocol revision, which opens no session: each request names the revision twice, in the `MCP-Protocol-Version` header and in `params._meta`, together with the client's capabilities, and names its method in the `Mcp-Method` header. A request that leaves any of these out is refused with `400`: `-32022` when no revision is named, `-32602` when `_meta` lacks the capabilities, and `-32020` when a header and the body disagree. A `tools/call` also sends an `Mcp-Name` header matching `params.name`.
+
+The response names exactly the tools your credential can call: the tables, actions and automations marked with `aiAccess`, filtered by the role behind the credential.
 
 That last clause is what makes the check worth running twice. Run it with a key owned by an admin and one owned by a viewer: **two different lists is the proof that role filtering is live.** One identical list means something is wrong with the credentials rather than with the schema, and a green dot would have told you neither.
 

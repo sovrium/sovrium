@@ -14,9 +14,6 @@
 /** dashboard-01's content column: an `@container/main` column, 24px between sections on md+. */
 
 import template from './console-dashboard-content.template.json'
-import type { AppEncoded as AppConfig } from '@/domain/models/app'
+import type { TemplateEncoded } from '@/domain/models/app/components'
 
-type Template = NonNullable<AppConfig['components']>[number]
-
-// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
-export const consoleDashboardContent = template as unknown as Template
+export const consoleDashboardContent = template as TemplateEncoded

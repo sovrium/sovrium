@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+
 /**
  * The config keys that are DEPRECATED: still accepted, but on their way out.
  *
@@ -77,9 +79,6 @@ export interface DeprecationWarning {
 export const DEPRECATED_KEYS: readonly DeprecatedKey[] = []
 
 type Segment = string | number
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const pathOf = (segments: readonly Segment[]): string =>
   segments.reduce<string>(

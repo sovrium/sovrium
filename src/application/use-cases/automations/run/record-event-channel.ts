@@ -138,10 +138,7 @@ const isWatched = (
   )
 
 /** What the channel reads from the run it belongs to. */
-type ChannelContext = Pick<
-  StepContext,
-  'app' | 'processEnv' | 'automation' | 'recordEventDepth' | 'runProgram'
->
+type ChannelContext = Pick<StepContext, 'app' | 'automation' | 'recordEventDepth' | 'runProgram'>
 
 /** Build the record-event channel for one run. */
 export const buildRecordEventChannel = (ctx: ChannelContext): RecordEventChannel => ({
@@ -160,7 +157,6 @@ export const buildRecordEventChannel = (ctx: ChannelContext): RecordEventChannel
       ...(write.previousRecord === undefined
         ? {}
         : { previousRecord: { ...write.previousRecord } }),
-      processEnv: ctx.processEnv,
       // No person made this write: the run it starts names the system as its user.
       requester: { id: SYSTEM_USER_ID, role: SYSTEM_USER_ID },
       ...(ctx.automation.userId === undefined ? {} : { userId: ctx.automation.userId }),

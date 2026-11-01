@@ -19,7 +19,7 @@
  */
 
 import { and, asc, desc, eq, gt, isNotNull, lte, or, sql, type SQL } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   AutomationApprovalDatabaseError,
   AutomationApprovalRepository,
@@ -27,8 +27,11 @@ import {
   type AutomationApprovalRow,
   type RunApproversRow,
 } from '@/application/ports/repositories/automations/automation-approval-repository'
-import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  layerOverDatabase,
+  type MembersOverDatabase,
+} from '@/infrastructure/database/drizzle/layer'
 import {
   automationApprovalRequests as approvalsPg,
   automationDefinitions as definitionsPg,
@@ -116,21 +119,23 @@ export const expiredPendingCondition = (input: {
 export const pendingClaimCondition = (id: string) =>
   and(eq(automationApprovalRequests.id, id), eq(automationApprovalRequests.status, 'pending'))
 
-export const AutomationApprovalRepositoryLive = Layer.succeed(AutomationApprovalRepository, {
-  insertPending: ({ message, stepIndex, runId, timeoutSeconds, expiresAt, approvers }) =>
-    wrap(() =>
-      db.insert(automationApprovalRequests).values({
-        stepIndex,
-        status: 'pending',
-        message,
-        ...(approvers !== undefined ? { approvers } : {}),
-        ...(runId !== undefined ? { runId } : {}),
-        ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {}),
-        ...(expiresAt !== undefined ? { expiresAt } : {}),
-      })
-    ).pipe(Effect.asVoid),
+const members: MembersOverDatabase<typeof AutomationApprovalRepository> = {
+  insertPending:
+    (db) =>
+    ({ message, stepIndex, runId, timeoutSeconds, expiresAt, approvers }) =>
+      wrap(() =>
+        db.insert(automationApprovalRequests).values({
+          stepIndex,
+          status: 'pending',
+          message,
+          ...(approvers !== undefined ? { approvers } : {}),
+          ...(runId !== undefined ? { runId } : {}),
+          ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {}),
+          ...(expiresAt !== undefined ? { expiresAt } : {}),
+        })
+      ).pipe(Effect.asVoid),
 
-  findById: (id) =>
+  findById: (db) => (id) =>
     wrap(async (): Promise<AutomationApprovalRow | undefined> => {
       const rows = await db
         .select(approvalRowColumns)
@@ -143,52 +148,59 @@ export const AutomationApprovalRepositoryLive = Layer.succeed(AutomationApproval
 
   // An INNER join on the run is what keeps agent approvals (no run) out, and
   // it names each row's automation from its definition in the same read.
-  listAutomationStepRequests: ({ status, limit }) =>
-    wrap(async (): Promise<readonly AutomationApprovalListRow[]> => {
-      const rows = await db
-        .select({
-          id: automationApprovalRequests.id,
-          runId: automationRuns.id,
-          automationName: automationDefinitions.name,
-          stepIndex: automationApprovalRequests.stepIndex,
-          status: automationApprovalRequests.status,
-          message: automationApprovalRequests.message,
-          approvers: automationApprovalRequests.approvers,
-          createdAt: automationApprovalRequests.createdAt,
-          expiresAt: automationApprovalRequests.expiresAt,
-          respondedAt: automationApprovalRequests.respondedAt,
-        })
-        .from(automationApprovalRequests)
-        .innerJoin(automationRuns, eq(automationRuns.id, automationApprovalRequests.runId))
-        .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
-        .where(eq(automationApprovalRequests.status, status))
-        .orderBy(desc(automationApprovalRequests.createdAt), desc(automationApprovalRequests.id))
-        .limit(limit)
-      return rows
-    }),
-
-  listRunApprovers: ({ runId, mentioning }) =>
-    wrap(async (): Promise<readonly RunApproversRow[]> => {
-      const rows = await db
-        .select({
-          runId: automationApprovalRequests.runId,
-          approvers: automationApprovalRequests.approvers,
-        })
-        .from(automationApprovalRequests)
-        .where(
-          and(
-            runId === undefined
-              ? isNotNull(automationApprovalRequests.runId)
-              : eq(automationApprovalRequests.runId, runId),
-            ...mentioningFilter(mentioning)
+  listAutomationStepRequests:
+    (db) =>
+    ({ status, limit }) =>
+      wrap(async (): Promise<readonly AutomationApprovalListRow[]> => {
+        const rows = await db
+          .select({
+            id: automationApprovalRequests.id,
+            runId: automationRuns.id,
+            automationName: automationDefinitions.name,
+            stepIndex: automationApprovalRequests.stepIndex,
+            status: automationApprovalRequests.status,
+            message: automationApprovalRequests.message,
+            approvers: automationApprovalRequests.approvers,
+            createdAt: automationApprovalRequests.createdAt,
+            expiresAt: automationApprovalRequests.expiresAt,
+            respondedAt: automationApprovalRequests.respondedAt,
+          })
+          .from(automationApprovalRequests)
+          .innerJoin(automationRuns, eq(automationRuns.id, automationApprovalRequests.runId))
+          .innerJoin(
+            automationDefinitions,
+            eq(automationDefinitions.id, automationRuns.automationId)
           )
-        )
-      return rows.flatMap((row) =>
-        row.runId === null ? [] : [{ runId: row.runId, approvers: row.approvers }]
-      )
-    }),
+          .where(eq(automationApprovalRequests.status, status))
+          .orderBy(desc(automationApprovalRequests.createdAt), desc(automationApprovalRequests.id))
+          .limit(limit)
+        return rows
+      }),
 
-  findPendingIdByRunId: (runId) =>
+  listRunApprovers:
+    (db) =>
+    ({ runId, mentioning }) =>
+      wrap(async (): Promise<readonly RunApproversRow[]> => {
+        const rows = await db
+          .select({
+            runId: automationApprovalRequests.runId,
+            approvers: automationApprovalRequests.approvers,
+          })
+          .from(automationApprovalRequests)
+          .where(
+            and(
+              runId === undefined
+                ? isNotNull(automationApprovalRequests.runId)
+                : eq(automationApprovalRequests.runId, runId),
+              ...mentioningFilter(mentioning)
+            )
+          )
+        return rows.flatMap((row) =>
+          row.runId === null ? [] : [{ runId: row.runId, approvers: row.approvers }]
+        )
+      }),
+
+  findPendingIdByRunId: (db) => (runId) =>
     wrap(async (): Promise<string | undefined> => {
       const rows = await db
         .select({ id: automationApprovalRequests.id })
@@ -205,30 +217,39 @@ export const AutomationApprovalRepositoryLive = Layer.succeed(AutomationApproval
     }),
 
   // The status index narrows to the pending rows; the deadline filters those.
-  listExpiredPending: ({ now, limit, after }) =>
-    wrap(async (): Promise<readonly AutomationApprovalRow[]> =>
-      db
-        .select(approvalRowColumns)
-        .from(automationApprovalRequests)
-        .where(expiredPendingCondition({ now, ...(after === undefined ? {} : { after }) }))
-        .orderBy(asc(automationApprovalRequests.expiresAt), asc(automationApprovalRequests.id))
-        .limit(limit)
-    ),
+  listExpiredPending:
+    (db) =>
+    ({ now, limit, after }) =>
+      wrap(async (): Promise<readonly AutomationApprovalRow[]> =>
+        db
+          .select(approvalRowColumns)
+          .from(automationApprovalRequests)
+          .where(expiredPendingCondition({ now, ...(after === undefined ? {} : { after }) }))
+          .orderBy(asc(automationApprovalRequests.expiresAt), asc(automationApprovalRequests.id))
+          .limit(limit)
+      ),
 
   // Compare-and-set on `pending` (`pendingClaimCondition`): of two concurrent
   // resolutions of one request, exactly one updates the row. The other reads
   // `undefined` and is refused, so an approval can never resume its run twice.
-  resolvePending: ({ id, status, approvedById }) =>
-    wrap(async (): Promise<string | undefined> => {
-      const updated = await db
-        .update(automationApprovalRequests)
-        .set({
-          status,
-          respondedAt: new Date(),
-          ...(approvedById === undefined ? {} : { approvedById }),
-        })
-        .where(pendingClaimCondition(id))
-        .returning({ status: automationApprovalRequests.status })
-      return updated[0]?.status
-    }),
-})
+  resolvePending:
+    (db) =>
+    ({ id, status, approvedById }) =>
+      wrap(async (): Promise<string | undefined> => {
+        const updated = await db
+          .update(automationApprovalRequests)
+          .set({
+            status,
+            respondedAt: new Date(),
+            ...(approvedById === undefined ? {} : { approvedById }),
+          })
+          .where(pendingClaimCondition(id))
+          .returning({ status: automationApprovalRequests.status })
+        return updated[0]?.status
+      }),
+}
+
+export const AutomationApprovalRepositoryLive = layerOverDatabase(
+  AutomationApprovalRepository,
+  members
+)

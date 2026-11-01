@@ -11,6 +11,7 @@ import {
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
 import { AccountProvisioner } from '@/application/ports/services/account-provisioner'
+import { ProcessEnv } from '@/application/ports/services/process-env'
 import { isValidEmail } from '@/domain/kernel/sanitize/email-validation'
 import { getStrategy } from '@/domain/models/app/auth'
 import { PLATFORM_SSO_PROVIDER_ID } from '@/domain/models/process-env/platform-sso'
@@ -125,6 +126,10 @@ const createAdminUser = (
     // Extract user ID from the response
     const userId = 'userId' in result ? result.userId : undefined
 
+    // Honour the WRITTEN requireEmailVerification flag only. The default that
+    // turns verification on beside a federated provider guards addresses a
+    // stranger typed; this address was set by the operator, and no message is
+    // sent to it, so holding it would only lock the first admin out.
     // Honour the requireEmailVerification flag: when verification IS required
     // we leave emailVerified=false so the verification email flow gates access;
     // otherwise we eagerly mark verified because Better Auth's createUser API
@@ -294,7 +299,7 @@ const warnWhenAdminEmailIgnored = (): Effect.Effect<
   AuthRepository | Logger
 > =>
   Effect.gen(function* () {
-    const email = configuredAdminEmail()
+    const email = configuredAdminEmail(yield* ProcessEnv)
     if (email === undefined) return
     const held = yield* (yield* AuthRepository).findUserIdsByEmails([email])
     if (held.size > 0) return
@@ -324,8 +329,9 @@ export const bootstrapAdmin = (
   AccountProvisioner | AuthRepository | Logger
 > =>
   Effect.gen(function* () {
-    const parsedConfig = parseAdminBootstrapConfig()
-    const unreachable = app.auth !== undefined && adminEmailWithoutWayIn()
+    const env = yield* ProcessEnv
+    const parsedConfig = parseAdminBootstrapConfig(env)
+    const unreachable = app.auth !== undefined && adminEmailWithoutWayIn(env)
     const config = yield* checkBootstrapPreconditions(app, parsedConfig)
     if (!config && !unreachable) return
 

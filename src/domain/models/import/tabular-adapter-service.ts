@@ -42,6 +42,8 @@ export interface TableAdapterResult {
   readonly identities: Readonly<Record<string, RecordIdentity>>
   /** What the source's export loses on the way, for the report's `unmapped` list. */
   readonly notes?: ImportReport['unmapped']
+  /** The source's storage policies, by name: listed in the report, never translated (Supabase). */
+  readonly storagePolicies?: readonly string[]
 }
 
 /** How a tool's export lays out its grid, beyond the header row. */

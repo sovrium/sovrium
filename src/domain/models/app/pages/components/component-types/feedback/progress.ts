@@ -110,7 +110,7 @@ export const progressFields = {
       .pipe(Schema.check(Schema.isMinLength(2)))
       .annotate({
         description:
-          "Named steps for `progressVariant: 'steps'`, in order. At least two — one step is not a sequence. `progressValue` is then the 1-based current position.",
+          "Named steps for `progressVariant: 'steps'`, in order. At least two, since one step is not a sequence. `progressValue` is then the 1-based current position.",
         examples: [['Account', 'Company', 'Billing', 'Review']],
       })
   ),

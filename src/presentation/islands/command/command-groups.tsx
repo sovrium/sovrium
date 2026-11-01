@@ -17,8 +17,9 @@
  * the list's filter is off there. In both, an item's `label` and `href` may
  * carry bare `$query`, the words typed so far: such an item always matches
  * them, and with nothing typed it reads its `emptyLabel`, or is not drawn.
- * In both, typing matches an item's label OR its group's name, so the words a
- * group is named by ("help") keep every item of that group.
+ * In both, typing matches an item's label, its `description` (the caption drawn
+ * under the label) OR its group's name, so the words a group is named by
+ * ("help") keep every item of that group.
  */
 
 import { useCallback, useMemo, useState, type ReactElement } from 'react'
@@ -41,6 +42,8 @@ import { CommandHints, type CommandHintWords } from './command-hints'
 export interface AuthoredCommandItem {
   readonly label: string
   readonly emptyLabel?: string
+  /** A caption drawn under the label, matched by typing as the label is. */
+  readonly description?: string
   readonly iconNode?: unknown
   readonly href?: string
   readonly shortcut?: readonly string[]
@@ -89,7 +92,10 @@ function AuthoredItem({
     close()
     run(item)
   }, [close, item])
-  const keywords = useMemo(() => [group], [group])
+  const keywords = useMemo(
+    () => (item.description === undefined ? [group] : [group, item.description]),
+    [group, item.description]
+  )
   return (
     <CommandItem
       value={item.label}
@@ -102,7 +108,14 @@ function AuthoredItem({
           aria-hidden="true"
         />
       )}
-      <span>{item.label}</span>
+      {item.description === undefined ? (
+        <span>{item.label}</span>
+      ) : (
+        <span className="flex min-w-0 flex-col">
+          <span>{item.label}</span>
+          <span className="text-muted-foreground text-xs">{item.description}</span>
+        </span>
+      )}
       {item.shortcut === undefined ? undefined : (
         <CommandShortcut>
           {item.shortcut.map((key) => (

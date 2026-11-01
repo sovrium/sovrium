@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
+import { logError } from '@/infrastructure/logging/logger'
+import { guardCreatedAccount } from './account-creation-guard'
+import { writablePreferenceLanguages } from './account-preferences'
 import { dispatchAuthEvent, emailVerifiedHooks } from './auth-event-hooks'
 import { ensureMembership, ensureOrganization } from './org-team-seeder'
 import {
@@ -15,29 +19,19 @@ import {
 } from './plugins/platform-sso-account-hooks'
 import * as ssoPlugin from './plugins/sso'
 import { buildSessionHooks } from './session-database-hooks'
+import { refuseSsoOwnedDomainSelfSignUp } from './sso-owned-domain-guard'
 import type { createEmailHandlers } from './email-handlers'
 import type { AccountHookCtx } from './plugins/sso-account-hooks'
+import type { AuthHookPolicies } from '@/application/ports/contracts/auth-hook-policies'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/domain/models/app/auth'
+import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 import type { DomainContext } from '@/infrastructure/server/domain-runtime'
 
 /**
  * Better Auth's database hooks: the organization a new user is enrolled in, the
  * session it is activated on, and the auth events dispatched to automations.
  */
-
-/**
- * Connection definition shape consumed by the auth user-create hook for
- * test-mode token seeding. Defined locally (rather than imported from
- * `@/domain/models/app/connections`) so this module stays decoupled from
- * the connections schema — at import time we only need the structural
- * `{ name, type, props }` triple.
- */
-export type ConnectionForSeed = {
-  readonly name: string
-  readonly type: string
-  readonly props: Record<string, unknown>
-}
 
 /**
  * Optional app metadata used by the organization/team seeding hooks and the
@@ -66,6 +60,17 @@ export type ConnectionForSeed = {
 export interface AuthHookContext {
   readonly appMeta: AppMetaForOrg | undefined
   readonly domainContext: DomainContext | undefined
+  /**
+   * The application's decisions the hooks consult — the last-admin rail, the
+   * role and ban reads, the audit records, the auth-event dispatch — built by
+   * the server (`makeAuthHookPolicies`) and handed to `createAuthInstance`.
+   */
+  readonly policies: AuthHookPolicies
+  /**
+   * The database the composition handed the instance: its adapter writes
+   * through this client, and the hooks' own reads and writes go through it.
+   */
+  readonly database: DatabaseService
 }
 
 export type AppMetaForOrg = {
@@ -116,8 +121,12 @@ const buildAccountHooks = (authConfig: Auth | undefined) => {
  *    deleted session — every session Better Auth deletes: sign-out, a
  *    revocation, a ban, an admin-set password, an expired session cleaned up
  *    on read.
+ *  - `user.create.before` refuses what no road may create (a closed sign-up
+ *    through a federated or passwordless door, a client-chosen avatar, an
+ *    undeclared language, an operator-email switch) and strips markup from
+ *    the name (`account-creation-guard.ts`).
  *  - `user.create.after` runs the welcome email, auto-enrolls the new user
- *    into that organization, (test-mode only) seeds OAuth tokens, AND
+ *    into that organization, AND
  *    (AU-03) fires any `trigger.type === 'auth'` automations that
  *    subscribe to the `signUp` event.
  *  - `user.update.before`/`after` fire `emailVerified` auth-event
@@ -135,10 +144,10 @@ const buildAccountHooks = (authConfig: Auth | undefined) => {
 export function buildDatabaseHooks(
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig: Auth | undefined,
-  connections: readonly ConnectionForSeed[] | undefined,
   hookContext: AuthHookContext
 ) {
   const refuseSsoSignUp = ssoPlugin.refuseClosedSsoSignUp(authConfig)
+  const languages = writablePreferenceLanguages(hookContext.appMeta)
   return {
     session: buildSessionHooks(authConfig),
     account: buildAccountHooks(authConfig),
@@ -149,34 +158,34 @@ export function buildDatabaseHooks(
           ctx: { readonly path?: string; readonly params?: unknown } | null
         ) => {
           await refusePlatformSignUp(ctx)
-          return refuseSsoSignUp(user, ctx)
+          refuseSsoOwnedDomainSelfSignUp(authConfig, user, ctx)
+          // The avatar, name, language and operator-email rules, on every
+          // creating road, the passwordless ones included.
+          return refuseSsoSignUp(guardCreatedAccount(user, ctx, languages), ctx)
         },
-        after: async (user: Readonly<{ id: string; email: string; name: string }>) => {
+        after: async (
+          user: Readonly<{ id: string; email: string; name: string; role?: string | null }>
+        ) => {
           await handlers.welcome({ email: user.email, name: user.name })
           // Auto-enroll the user into the single per-app organization so the
           // organization-plugin team endpoints (`/api/auth/organization/*`)
           // resolve. Best-effort: a failure here must never block sign-up.
           if (authConfig) {
             try {
-              await ensureOrganization(hookContext.appMeta?.name ?? 'sovrium')
-              await ensureMembership(user.id)
-            } catch {
-              // Non-fatal: org enrollment is best-effort.
+              await ensureOrganization(
+                hookContext.database.client,
+                hookContext.appMeta?.name ?? 'sovrium'
+              )
+              await ensureMembership(
+                hookContext.database.client,
+                user.id,
+                typeof user.role === 'string' && isAdminEquivalent(user.role, { auth: authConfig })
+              )
+            } catch (error) {
+              // Non-fatal: org enrollment is best-effort, and an administrator
+              // left out is enrolled as owner on their first group change.
+              logError('[auth] organization enrollment failed after sign-up', error)
             }
-          }
-          // Test-mode auto-seed: production no-ops (the seeder checks
-          // NODE_ENV internally) so this stays safe in real deployments.
-          // Lazy-imported so the seeder's dependency graph (repositories
-          // + crypto) doesn't pull at module load time when no
-          // connections are configured.
-          if (connections !== undefined && connections.length > 0) {
-            const { runSeedTestConnectionTokens } =
-              await import('@/infrastructure/connections/test-token-seeder')
-            await runSeedTestConnectionTokens({
-              userId: user.id,
-              userEmail: user.email,
-              connections,
-            })
           }
           // AU-03: fire any `trigger.type === 'auth'` automations that
           // subscribe to the `signUp` event. The user object Better Auth
@@ -194,18 +203,3 @@ export function buildDatabaseHooks(
     },
   }
 }
-
-/**
- * Create Better Auth instance with dynamic configuration.
- *
- * When `connections` is provided, the user-create hook also seeds
- * per-user OAuth tokens for every `oauth2` connection. The seeder
- * no-ops in production (see `test-token-seeder.ts`); it exists so E2E
- * specs can assert against an "as if authorized" database state without
- * driving a real provider round-trip.
- *
- * When `authConfig` is set, the organization plugin is enabled and the
- * user/session database hooks auto-enroll users into the single per-app
- * organization so the native team endpoints (`/api/auth/organization/*`)
- * resolve against an active organization.
- */

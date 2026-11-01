@@ -22,7 +22,7 @@ import {
   FIELD_TYPE_CATEGORIES,
   isReadOnlyFieldType,
 } from '@/domain/models/app/tables/fields/field-types/catalog'
-import { readColumnOptions } from '@/presentation/render/forms/form-field-resolver'
+import { readColumnOptions } from '@/presentation/render/forms/form-table-field'
 import type { DrawerFieldLocale } from './resolve-record-drawer-fields'
 
 type Column = Readonly<Record<string, unknown>> | undefined

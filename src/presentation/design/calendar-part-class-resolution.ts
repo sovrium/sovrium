@@ -5,11 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { CALENDAR_GRID_PARTS } from '@/domain/models/app/design/component-parts'
 import { computeCalendarToolbarClasses } from '@/presentation/design/calendar-default-classes'
 import { cn } from '@/presentation/design/class-merge'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 import type { CalendarPartClasses } from '@/presentation/design/calendar-part-classes'
 
-const GRID_PARTS = ['event', 'day', 'dayNumber', 'columnHeader'] as const
+const GRID_PARTS = CALENDAR_GRID_PARTS
 
 /**
  * The calendar's piece classes, as the island payload key `calendarClasses` —
@@ -19,7 +21,7 @@ const GRID_PARTS = ['event', 'day', 'dayNumber', 'columnHeader'] as const
  * @param parts - The author's classes by part (`design.components.calendar` under `classes`).
  */
 export const declaredCalendarPartClasses = (
-  parts: Readonly<Record<string, string>> | undefined
+  parts: PartClassMap | undefined
 ): { readonly calendarClasses?: CalendarPartClasses } => {
   if (parts === undefined) return {}
   const grid = Object.fromEntries(

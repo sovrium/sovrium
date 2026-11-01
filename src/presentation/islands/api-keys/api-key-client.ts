@@ -93,5 +93,10 @@ export function formatCreatedAt(value: string | null): string {
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime())
     ? '—'
-    : formatDayRelativeTime(parsed, usableLocale(resolvePageLocale()), resolvePageTimezone())
+    : formatDayRelativeTime(
+        parsed,
+        usableLocale(resolvePageLocale()),
+        resolvePageTimezone(),
+        new Date()
+      )
 }

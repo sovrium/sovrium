@@ -76,7 +76,7 @@ export const mapFields = {
   labelField: Schema.String.pipe(
     Schema.annotate({
       description:
-        'The field whose value names each pin — on its card, in its accessible name and in the list twin',
+        'The field whose value names each pin: on its card, in its accessible name and in the list twin',
       examples: ['name', 'title'],
     }),
     Schema.check(Schema.isMinLength(1))

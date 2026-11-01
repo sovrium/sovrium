@@ -39,7 +39,7 @@ export const RecordBatchUpsertActionSchema = Schema.Struct({
     items: TemplateStringSchema.pipe(
       Schema.annotate({
         description:
-          'Template variable referencing an array of record data objects (e.g., "{{fetchContacts.result}}")',
+          'A template naming the list of record data objects to upsert, such as "{{fetchContacts.result}}". Filled in, it must be a list; a code step passes the list itself',
       })
     ),
 

@@ -45,10 +45,16 @@ const longLivedTokenOf = (
   return { renewWithinDays: typeof days === 'number' ? days : undefined }
 }
 
-/** Whether a still-valid stored token has entered its renewal window. */
+/**
+ * Whether a still-valid stored token has entered its renewal window — on the
+ * real clock, never SOVRIUM_DEV_CLOCK: the provider expires the token in real time.
+ */
 export const isRenewalDue = (conn: ConnectionDef, token: RenewableToken): boolean => {
   const declared = longLivedTokenOf(conn)
-  return declared !== undefined && isLongLivedRenewalDue(token.expiresAt, declared.renewWithinDays)
+  return (
+    declared !== undefined &&
+    isLongLivedRenewalDue(token.expiresAt, declared.renewWithinDays, Date.now())
+  )
 }
 
 const storeRenewedToken = (

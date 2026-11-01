@@ -6,6 +6,7 @@
  */
 
 export * from './envelope'
+export * from './active-scope'
 export * from './audit-log'
 export * from './automations'
 export * from './buckets'
@@ -26,3 +27,4 @@ export * from './storage/status'
 export * from './tables'
 export * from './templates'
 export * from './users'
+export * from './user-directory'

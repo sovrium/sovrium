@@ -5,8 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, param, stringParam, type BlockNode } from '@/library/manifest/block-kit'
-import { defineLibraryEntry } from '@/library/manifest/define'
+import { asComponent, param, stringParam, type BlockNode } from '@/library/kit/block-kit'
 import {
   crumbs,
   insetHeader,
@@ -15,7 +14,8 @@ import {
   sidebarFrame,
   sidebarInset,
   sidebarLayout,
-} from '@/library/manifest/navigation-block-kit'
+} from '@/library/kit/navigation-block-kit'
+import { defineLibraryEntry } from '@/library/manifest/define'
 
 type Change = readonly [file: string, state: string]
 

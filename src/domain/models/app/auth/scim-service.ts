@@ -226,3 +226,20 @@ export const scimUserNameFilter = (
 
 /** Whether a decision is a refusal. */
 export const isScimRefusal = isRefusal
+
+/** The shortest SCIM bearer token a server starts with. */
+export const SCIM_TOKEN_MIN_LENGTH = 32
+
+/**
+ * Why the SCIM token refuses the start, or `undefined`. `token` is the
+ * configured value (an `$env.` reference) and `resolved` what it reads from
+ * the environment. A token that resolves to nothing admits nobody and is left
+ * to the required-variable check; one shorter than
+ * {@link SCIM_TOKEN_MIN_LENGTH} could be guessed, so it stops the start with a
+ * sentence naming the variable, never the value or its length.
+ */
+export const scimTokenRefusal = (token: string, resolved: string): string | undefined => {
+  if (resolved === '' || resolved.length >= SCIM_TOKEN_MIN_LENGTH) return undefined
+  const variable = /\$env\.([A-Za-z_][A-Za-z0-9_]*)/.exec(token)?.[1] ?? 'The SCIM token'
+  return `${variable} must be at least ${String(SCIM_TOKEN_MIN_LENGTH)} characters: the SCIM token of auth.scim is too short to resist guessing`
+}

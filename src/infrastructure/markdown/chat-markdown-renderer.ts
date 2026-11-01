@@ -6,6 +6,7 @@
  */
 
 import MarkdownIt from 'markdown-it'
+import { escapeHtmlDoubleQuotedAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { pinLinkifyBehaviour } from '@/infrastructure/markdown/pin-linkify-behaviour'
 
 /**
@@ -76,10 +77,6 @@ const isClosedFence = (token: CodeToken, lines: readonly string[]): boolean => {
   )
 }
 
-/** Escape text for the placeholder; the same four characters markdown-it escapes. */
-const escapeHtml = (value: string): string =>
-  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
 /** A block's source, without the one newline markdown-it keeps before its closer. */
 const blockCode = (content: string): string =>
   content.endsWith('\n') ? content.slice(0, -1) : content
@@ -94,8 +91,11 @@ const blockCode = (content: string): string =>
 const codePlaceholder = (env: ChatRenderEnv, block: ChatCodeBlock): string => {
   const index = env.codeBlocks.length
   env.codeBlocks = [...env.codeBlocks, block]
-  const language = block.lang.length === 0 ? '' : ` class="language-${escapeHtml(block.lang)}"`
-  return `<pre class="sv-md-code-${String(index)} shiki"><code${language}>${escapeHtml(block.code)}</code></pre>\n`
+  const language =
+    block.lang.length === 0
+      ? ''
+      : ` class="language-${escapeHtmlDoubleQuotedAttribute(block.lang)}"`
+  return `<pre class="sv-md-code-${String(index)} shiki"><code${language}>${escapeHtmlDoubleQuotedAttribute(block.code)}</code></pre>\n`
 }
 
 /**

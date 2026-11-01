@@ -94,7 +94,8 @@ interface TableShape {
 interface PageShape {
   readonly name: string
   readonly path: DeclaredPagePath
-  readonly components?: ReadonlyArray<Record<string, unknown> & { readonly type: string }>
+  /** A page's entries: components, and references, which carry no `type`. */
+  readonly components?: ReadonlyArray<object>
 }
 
 interface AppForFormsValidation {
@@ -227,7 +228,7 @@ interface FormComponentLocator {
   readonly pageIndex: number
   readonly page: PageShape
   readonly componentIndex: number
-  readonly component: Record<string, unknown> & { readonly type: string }
+  readonly component: object
 }
 
 /**
@@ -248,9 +249,10 @@ const validateFormComponent = (
   locator: FormComponentLocator,
   formNames: ReadonlySet<string>
 ): string | undefined => {
-  const { pageIndex, page, componentIndex, component } = locator
-  if (component.type !== 'form') return undefined
-  const { formRef } = component as { readonly formRef?: unknown }
+  const { pageIndex, page, componentIndex } = locator
+  const component = locator.component as Readonly<Record<string, unknown>>
+  if (component['type'] !== 'form') return undefined
+  const { formRef } = component
   if (typeof formRef !== 'string') return undefined
   if (!formNames.has(formRef)) {
     return `pages[${pageIndex}] '${page.name}' components[${componentIndex}]: formRef '${formRef}' does not match any forms[].name`

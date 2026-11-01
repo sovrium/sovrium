@@ -34,9 +34,11 @@ export function validateSingleSelectOptions(
 
     const firstUndeclared = undeclared[0]
     if (firstUndeclared) {
-      return yield* Effect.fail(
-        new FieldFormatError(firstUndeclared.message, firstUndeclared.field, undeclared)
-      )
+      return yield* new FieldFormatError({
+        message: firstUndeclared.message,
+        field: firstUndeclared.field,
+        errors: undeclared,
+      })
     }
   })
 }

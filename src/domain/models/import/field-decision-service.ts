@@ -35,7 +35,7 @@ import { decideSelect, isSelectType } from './select-field-service'
 import { toolPossessive } from './source-display-name-service'
 import type { CanonicalField, CanonicalTable } from './canonical-base'
 import type { TableSourceTool } from './field-type-mappings'
-import type { FormulaFieldSource } from './formula-translation-service'
+import type { FormulaFieldSource } from './formula/translation-service'
 import type { FieldType } from '@/domain/models/app/tables/fields/field'
 
 /** What the decisions of one base share. */

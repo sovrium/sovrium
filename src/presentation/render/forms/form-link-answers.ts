@@ -6,8 +6,8 @@
  */
 
 import { saveForLaterOffer } from './form-save-for-later-labels'
-import type { PrefillValue } from './form-field-elements'
 import type { FormLinkState } from './form-prefill-resolver'
+import type { PrefillValue } from './form-resolved-field'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 

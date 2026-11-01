@@ -12,18 +12,17 @@ import {
   type RetentionCutoff,
   type TableRetentionPlan,
 } from '@/domain/models/app/tables/retention-service'
-import { db } from '@/infrastructure/database'
 import {
   RetentionSweepFailure,
   inReadWriteTransaction,
   isReadOnlyRefusal,
 } from '@/infrastructure/database/read-write-sweep'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logInfo } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { App } from '@/domain/models/app'
+import type { DatabaseService, Dialect } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * The table retention EXECUTOR: `tables[].retention: { field?, days }`.
@@ -51,15 +50,15 @@ import type { App } from '@/domain/models/app'
 const BATCH_SIZE = 500
 
 /** A row's age is past the window. */
-const isExpired = (plan: TableRetentionPlan, cutoff: RetentionCutoff): SQL => {
+const isExpired = (dialect: Dialect, plan: TableRetentionPlan, cutoff: RetentionCutoff): SQL => {
   const column = sql.identifier(plan.column)
   if (plan.compare === 'day') {
-    return isSqliteRuntime()
+    return dialect.kind === 'sqlite'
       ? sql`date(${column}) < ${cutoff.day}`
       : sql`${column} < CAST(${cutoff.day} AS date)`
   }
   const instant = cutoff.instant.toISOString()
-  return isSqliteRuntime()
+  return dialect.kind === 'sqlite'
     ? sql`julianday(${column}) < julianday(${instant})`
     : sql`${column} < CAST(${instant} AS timestamptz)`
 }
@@ -99,9 +98,9 @@ const isHeld = (app: App, tableName: string): SQL | undefined => {
 
 /** The ids of the next batch of rows that can go, after `afterId` in id order. */
 const nextBatch = async (
+  database: DatabaseService,
   plan: TableRetentionPlan,
-  expired: SQL,
-  held: SQL | undefined,
+  { expired, held }: { readonly expired: SQL; readonly held: SQL | undefined },
   afterId: unknown
 ): Promise<readonly unknown[]> => {
   const table = tableIdentifier(plan.tableName)
@@ -111,17 +110,23 @@ const nextBatch = async (
     ...(held === undefined ? [] : [sql`NOT (${held})`]),
     ...(afterId === undefined ? [] : [sql`${id} > ${afterId}`]),
   ]
-  const rows = await executeRaw(
-    db,
+  const rows = await executeRawOn(
+    database.dialect.kind,
+    database.client,
     sql`SELECT ${id} AS id FROM ${table} WHERE ${sql.join(conditions, sql` AND `)} ORDER BY ${id} LIMIT ${BATCH_SIZE}`
   )
   return rows.map((row) => row['id'])
 }
 
 /** Delete these rows, in one READ WRITE transaction; answers how many went. */
-const deleteRows = async (tableName: string, ids: readonly unknown[]): Promise<number> => {
-  const deleted = await inReadWriteTransaction((tx) =>
-    executeRaw(
+const deleteRows = async (
+  database: DatabaseService,
+  tableName: string,
+  ids: readonly unknown[]
+): Promise<number> => {
+  const deleted = await inReadWriteTransaction(database, (tx) =>
+    executeRawOn(
+      database.dialect.kind,
       tx,
       sql`DELETE FROM ${tableIdentifier(tableName)} WHERE ${sql.identifier('id')} IN (${sql.join(
         ids.map((id) => sql`${id}`),
@@ -138,11 +143,12 @@ const deleteRows = async (tableName: string, ids: readonly unknown[]): Promise<n
  * table. Answers the rows deleted and the rows kept.
  */
 const deleteBatch = async (
+  database: DatabaseService,
   tableName: string,
   ids: readonly unknown[]
 ): Promise<{ readonly deleted: number; readonly kept: number }> => {
   try {
-    return { deleted: await deleteRows(tableName, ids), kept: 0 }
+    return { deleted: await deleteRows(database, tableName, ids), kept: 0 }
   } catch (error) {
     // A read-only refusal is not a constraint: retrying row by row would count
     // every row as kept and hide the one failure this sweep must report.
@@ -152,7 +158,7 @@ const deleteBatch = async (
     const outcomes = await Promise.all(
       ids.map(async (id) => {
         try {
-          return await deleteRows(tableName, [id])
+          return await deleteRows(database, tableName, [id])
         } catch {
           return -1
         }
@@ -166,9 +172,15 @@ const deleteBatch = async (
 }
 
 /** The expired rows a `restrict` link keeps, counted for the log line. */
-const countHeld = async (plan: TableRetentionPlan, expired: SQL, held: SQL): Promise<number> => {
-  const rows = await executeRaw(
-    db,
+const countHeld = async (
+  database: DatabaseService,
+  plan: TableRetentionPlan,
+  expired: SQL,
+  held: SQL
+): Promise<number> => {
+  const rows = await executeRawOn(
+    database.dialect.kind,
+    database.client,
     sql`SELECT COUNT(*) AS n FROM ${tableIdentifier(plan.tableName)} WHERE ${expired} AND (${held})`
   )
   return Number(rows[0]?.['n'] ?? 0)
@@ -176,25 +188,27 @@ const countHeld = async (plan: TableRetentionPlan, expired: SQL, held: SQL): Pro
 
 /** Sweep one table; answers the rows deleted and the rows kept. */
 const sweepTable = async (
+  database: DatabaseService,
   app: App,
   plan: TableRetentionPlan,
   now: Readonly<Date>
 ): Promise<{ readonly deleted: number; readonly kept: number }> => {
-  const cutoff = retentionCutoff(now, resolveOperatorTimezone(), plan.days)
-  const expired = isExpired(plan, cutoff)
+  const cutoff = retentionCutoff(now, resolveOperatorTimezone(process.env), plan.days)
+  const expired = isExpired(database.dialect, plan, cutoff)
   const held = isHeld(app, plan.tableName)
   const loop = async (
     afterId: unknown,
     total: { readonly deleted: number; readonly kept: number }
   ): Promise<{ readonly deleted: number; readonly kept: number }> => {
-    const ids = await nextBatch(plan, expired, held, afterId)
+    const ids = await nextBatch(database, plan, { expired, held }, afterId)
     if (ids.length === 0) return total
-    const batch = await deleteBatch(plan.tableName, ids)
+    const batch = await deleteBatch(database, plan.tableName, ids)
     const next = { deleted: total.deleted + batch.deleted, kept: total.kept + batch.kept }
     return ids.length < BATCH_SIZE ? next : loop(ids[ids.length - 1], next)
   }
   const swept = await loop(undefined, { deleted: 0, kept: 0 })
-  const kept = swept.kept + (held === undefined ? 0 : await countHeld(plan, expired, held))
+  const kept =
+    swept.kept + (held === undefined ? 0 : await countHeld(database, plan, expired, held))
   logInfo(
     `[table-retention] ${plan.tableName}: deleted ${String(swept.deleted)} row(s) older than ${cutoff.instant.toISOString()}${kept > 0 ? `, kept ${String(kept)} still linked` : ''}`
   )
@@ -205,18 +219,20 @@ const sweepTable = async (
  * Run the retention sweep over every table of `app` that declares a window,
  * one table after the other.
  *
+ * @param database - the database the tables are swept in.
  * @param app - the live app config.
  * @param now - the reference instant, injected so the sweep is testable.
  * @returns the rows deleted, per table name.
  */
 export async function purgeExpiredTableRows(
+  database: DatabaseService,
   app: App,
   now: Readonly<Date> = new Date()
 ): Promise<Readonly<Record<string, number>>> {
   const plans = tableRetentionPlans(app.tables)
   return plans.reduce<Promise<Readonly<Record<string, number>>>>(async (previous, plan) => {
     const counts = await previous
-    const { deleted } = await sweepTable(app, plan, now)
+    const { deleted } = await sweepTable(database, app, plan, now)
     return { ...counts, [plan.tableName]: deleted }
   }, Promise.resolve({}))
 }

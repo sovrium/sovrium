@@ -23,6 +23,7 @@ export const currencyText = (value: unknown, fieldOptions?: CellFieldOptions): s
   return formatRecordText(
     value,
     { format: 'currency', ...(currency === undefined ? {} : { currency }) },
-    fieldOptions?.locale ?? resolvePageLocale()
+    fieldOptions?.locale ?? resolvePageLocale(),
+    new Date()
   )
 }

@@ -1,12 +1,12 @@
 # Previewing a Template
 
-> `sovrium render` renders one template asset the way an automation would, with its sample data or yours, and prints it or writes it to a file — offline, with no server and no database.
+> `sovrium render` renders one template asset the way an automation would, with its sample data or yours, and prints it or writes it to a file, offline, with no server and no database.
 
 ```text
 Usage: sovrium render <asset> [--data <file>] [--out <file>] [--email] [--locale <code>] [--config <file>]
 ```
 
-A template is easiest to get right when you can see it filled. `sovrium render` takes the path of a template declared in `assets`, fills it with the same engine an automation step uses — the same escaping, helpers, partials, translations and render rules — and shows you the result.
+A template is easiest to get right when you can see it filled. `sovrium render` takes the path of a template declared in `assets`, fills it with the same engine an automation step uses (the same escaping, helpers, partials, translations and render rules) and shows you the result.
 
 ```bash
 sovrium render templates/invoice.html                       # with the asset's sampleData
@@ -35,7 +35,7 @@ The config is the one in the current directory (`app.yaml`, `app.yml`, `app.ts` 
 
 A Word or Excel template always needs `--out`. Any other combination is refused, naming the formats the template renders to. A PDF or picture of an HTML template needs the browser engine: without one, `render` exits 1 with `renderer_unavailable`, naming the variable to set.
 
-`--email` prints an HTML template as `email/send` delivers it: its `<style>` rules inlined onto the elements they match, cleaned by the email sanitizer, and no `<style>` block left. `--locale` renders in another declared language — its translations, and its formatting of dates, numbers and amounts.
+`--email` prints an HTML template as `email/send` delivers it: its `<style>` rules inlined onto the elements they match, cleaned by the email sanitizer, and no `<style>` block left. `--locale` renders in another declared language, with its translations, and its formatting of dates, numbers and amounts.
 
 ## What it never does
 

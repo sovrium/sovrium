@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  anonymousGrant,
+  servesNoAuthVisitor,
+} from '@/domain/models/app/auth/anonymous-grant-service'
 import { deriveFilterBarFields } from '@/domain/models/app/pages/components/component-types/data/filter-bar-fields-from-service'
 import {
   callerReaderFromSession,
@@ -40,7 +44,9 @@ export interface FilterBarFieldsFromContext {
 const readableBy =
   (table: TableLike, ctx: FilterBarFieldsFromContext) =>
   (field: string): boolean => {
-    if (!ctx.app.auth) return true
+    // No `auth`: the fields of a table that opens `read` to everyone.
+    if (!ctx.app.auth)
+      return !servesNoAuthVisitor(ctx.app) || anonymousGrant(table, 'read', ctx.app)
     const plan = buildReadAccessPlan({
       app: ctx.app,
       table,

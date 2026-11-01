@@ -1,6 +1,6 @@
 # TypeScript Configs
 
-> The same configuration object as a TypeScript module — checked in your editor as you type, with no npm, no `package.json` and no install step.
+> The same configuration object as a TypeScript module, checked in your editor as you type, with no npm, no `package.json` and no install step.
 
 The CLI takes `app.ts` everywhere it takes `app.yaml`. The difference is entirely in your editor, where every property, field type and component type is checked as you write it. The types ship inside the binary, and one command writes them next to your config.
 
@@ -43,7 +43,7 @@ Run it with the same commands as any other format. To get all three files at onc
 
 Neither `import type` nor `satisfies` is a style preference here.
 
-**`import type` is erased before the binary looks.** Bare-package specifiers are left unresolved, so a _value_ imported from `sovrium` would have nothing to resolve to at boot. A type-only import disappears at transpile time, so the specifier is never resolved at all — and that is precisely what makes a typed config work with nothing installed.
+**`import type` is erased before the binary looks.** Bare-package specifiers are left unresolved, so a _value_ imported from `sovrium` would have nothing to resolve to at boot. A type-only import disappears at transpile time, so the specifier is never resolved at all. That is precisely what makes a typed config work with nothing installed.
 
 **The declaration exports types and never a value**, which makes the mistake unreachable rather than merely discouraged. A helper function living in that file would type-check clean and then refuse to boot, which is the worst shape a failure can take: the compiler exits 0, the config ships, and the error arrives at start-up. With no values to import, a value import fails in your editor for the ordinary reason that no such export exists.
 
@@ -113,9 +113,9 @@ export default {
 
 ## After upgrading the binary
 
-Re-run `sovrium types`. The declaration describes the schema of the binary that wrote it, so a stale one quietly disagrees with the engine you are now running — and rewriting it on every run is what makes that skew impossible to reach.
+Re-run `sovrium types`. The declaration describes the schema of the binary that wrote it, so a stale one quietly disagrees with the engine you are now running. Rewriting it on every run is what makes that skew impossible to reach.
 
-Your `tsconfig.json` is left alone, because by then it is yours: paths, JSX, stricter compiler flags. One thing has to stay true of it, and the command says so when it declines to touch it — the declaration must remain in the TypeScript program, which it is unless an `include` or `files` entry narrows the default glob past it.
+Your `tsconfig.json` is left alone, because by then it is yours: paths, JSX, stricter compiler flags. One thing has to stay true of it, and the command says so when it declines to touch it: the declaration must remain in the TypeScript program, which it is unless an `include` or `files` entry narrows the default glob past it.
 
 ## Choosing between the two
 

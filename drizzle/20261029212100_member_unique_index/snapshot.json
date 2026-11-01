@@ -1,0 +1,90 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "cc652fd0-4dee-48e0-bed4-ceda4974fba9",
+  "prevIds": [
+    "925bcf64-7bdd-4dd0-8113-339fc5a88336"
+  ],
+  "footprints": [
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "auth",
+        "member",
+        "member_organizationId_idx"
+      ],
+      "writes": [
+        "s|idx|auth.member_organizationId_idx",
+        "n|idx|auth.member_organizationId_idx",
+        "e|idx|auth.member_organizationId_idx",
+        "n|rel|auth.member_organizationId_idx"
+      ],
+      "reads": [
+        "e|tbl|auth.member",
+        "n|sch|auth",
+        "e|col|auth.member.organization_id"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "auth",
+        "member",
+        "member_organizationId_userId_uidx"
+      ],
+      "writes": [
+        "s|idx|auth.member_organizationId_userId_uidx",
+        "n|idx|auth.member_organizationId_userId_uidx",
+        "e|idx|auth.member_organizationId_userId_uidx",
+        "n|rel|auth.member_organizationId_userId_uidx"
+      ],
+      "reads": [
+        "n|tbl|auth.member",
+        "n|sch|auth",
+        "n|col|auth.member.organization_id",
+        "n|col|auth.member.user_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "auth",
+        "table": "member",
+        "name": "member_organizationId_userId_uidx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "organization_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"auth\",\"member_organizationId_idx\"]"
+    }
+  ]
+}

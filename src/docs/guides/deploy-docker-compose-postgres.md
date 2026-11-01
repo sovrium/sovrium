@@ -1,6 +1,6 @@
 # Deploy Sovrium with Docker Compose and PostgreSQL
 
-> Run Sovrium and PostgreSQL together with Docker Compose — one file that wires the app to a database in the same stack through `DATABASE_URL`, with its secrets kept in a separate file and HTTPS in front.
+> Run Sovrium and PostgreSQL together with Docker Compose: one file that wires the app to a database in the same stack through `DATABASE_URL`, with its secrets kept in a separate file and HTTPS in front.
 
 You want the app and its PostgreSQL database to come up together as one stack, with the database wired in by a single `DATABASE_URL`.
 
@@ -47,11 +47,11 @@ The `:?` form makes Compose refuse to start when a variable is missing, rather t
 
 The encryption key is the only Sovrium secret this stack needs: the session-signing secret derives from it.
 
-Set it here rather than letting Sovrium generate one. This stack gives the app container no volume, so a generated key would live in the container layer and disappear the next time the container is recreated — while `db-data` keeps the credentials that key encrypted. Pin the value and that mismatch cannot happen.
+Set it here rather than letting Sovrium generate one. This stack gives the app container no volume, so a generated key would live in the container layer and disappear the next time the container is recreated, while `db-data` keeps the credentials that key encrypted. Pin the value and that mismatch cannot happen.
 
 ## Why `BASE_URL` matters
 
-Sovrium decides its security posture from `BASE_URL`, not from `NODE_ENV` and not from which port is published. A `localhost` or other loopback `BASE_URL` tells it the deployment is local: the cross-site request (CSRF) origin check is turned off and session cookies lose their `Secure` attribute — even when the port is reachable from the internet. So on any host other people can reach, `BASE_URL` is the public `https://` address they type, never `http://localhost:3000`.
+Sovrium decides its security posture from `BASE_URL`, not from `NODE_ENV` and not from which port is published. A `localhost` or other loopback `BASE_URL` tells it the deployment is local: the cross-site request (CSRF) origin check is turned off and session cookies lose their `Secure` attribute, even when the port is reachable from the internet. So on any host other people can reach, `BASE_URL` is the public `https://` address they type, never `http://localhost:3000`.
 
 The stack above therefore publishes the app on the host's loopback interface only (`127.0.0.1:3000`) and expects a TLS-terminating reverse proxy on the same host to serve `https://app.example.com`. With Caddy, the whole site block is:
 
@@ -61,7 +61,7 @@ app.example.com {
 }
 ```
 
-`TRUSTED_PROXY_HOPS: 1` matches that one proxy: it lets Sovrium believe the client address the proxy forwards, so rate limits count per visitor instead of lumping everyone onto the proxy's address. Raise it only if you add a CDN in front, and never above the number of proxies actually in the path — a count higher than that reaches into a header any caller can write. If you ever publish the app port straight to the internet with no proxy, set it to `0`.
+`TRUSTED_PROXY_HOPS: 1` matches that one proxy: it lets Sovrium believe the client address the proxy forwards, so rate limits count per visitor instead of lumping everyone onto the proxy's address. Raise it only if you add a CDN in front, and never above the number of proxies actually in the path. A count higher than that reaches into a header any caller can write. If you ever publish the app port straight to the internet with no proxy, set it to `0`.
 
 ## Run and verify
 
@@ -75,7 +75,7 @@ Because `DATABASE_URL` is set, Sovrium runs on PostgreSQL and applies its schema
 
 ## Next
 
-- **Database Infrastructure** — the PostgreSQL engine Sovrium targets.
-- **Schema Migrations** — how the schema evolves on each boot.
-- **Deploy on a VPS with systemd and Caddy** — the same proxy setup, step by step.
-- **Security Hardening** — the posture rules and the production checklist.
+- **Database Infrastructure**: the PostgreSQL engine Sovrium targets.
+- **Schema Migrations**: how the schema evolves on each boot.
+- **Deploy on a VPS with systemd and Caddy**: the same proxy setup, step by step.
+- **Security Hardening**: the posture rules and the production checklist.

@@ -1,8 +1,8 @@
 # Activity Monitoring
 
-> System-wide activity logging — record CRUD, authentication events and administrative actions — with filtering, pagination, and an audit trail that outlives the rows it describes.
+> System-wide activity logging (record CRUD, authentication events and administrative actions) with filtering, pagination, and an audit trail that outlives the rows it describes.
 
-Sovrium records every meaningful action across the application — record create, update, delete and restore, authentication events, and administrative operations — into a system-wide activity log. The log is queryable through an authenticated API with filtering and pagination, giving operators and auditors a single place to answer "who did what, when".
+Sovrium records every meaningful action across the application (record create, update, delete and restore, authentication events, and administrative operations) into a system-wide activity log. The log is queryable through an authenticated API with filtering and pagination, giving operators and auditors a single place to answer "who did what, when".
 
 This is the read surface over the platform's canonical audit-log event store. Each entry is immutable and outlives the rows it references where compliance requires it: an `account.deletion.purged` event survives the erasure of the user who triggered it.
 
@@ -63,10 +63,10 @@ GET /api/activity?page=1&pageSize=20&tableName=orders&action=update
 
 - An **anonymous** request is refused `401`, whether or not the app configures auth.
 - An **admin** reads the whole feed. Here, and everywhere below, an admin is the built-in `admin` role or the app's top role (the highest-level role, at or above the built-in admin).
-- **Any other signed-in caller**, viewer included, reads only the entries of tables and rows the records API lets her read: the table's `read` permission, then the rows the records list admits her — on a table whose field rules leave her role no field to read, only the rows a grant opens to her, and none without one — then its row-level read rule, judged on the record as it stands. A table she may read no row of is left out whole, and `?tableName=` naming it answers as it does for a table that does not exist. An entry of a table the app no longer declares is shown to an admin only. Leaving entries out happens before pagination, so `pagination.total` counts what she is shown.
-- One entry by id (`GET /api/activity/:activityId`) follows the same rule for every role, viewer included: an entry she may not read answers the same `404` as one that does not exist, and an entry she may read keeps, in `changes`, only the fields she may read — a field she may not read is absent from `before` and `after` alike.
+- **Any other signed-in caller**, viewer included, reads only the entries of tables and rows the records API lets her read: the table's `read` permission, then the rows the records list admits her (on a table whose field rules leave her role no field to read, only the rows a grant opens to her, and none without one), then its row-level read rule, judged on the record as it stands. A table she may read no row of is left out whole, and `?tableName=` naming it answers as it does for a table that does not exist. An entry of a table the app no longer declares is shown to an admin only. Leaving entries out happens before pagination, so `pagination.total` counts what she is shown.
+- One entry by id (`GET /api/activity/:activityId`) follows the same rule for every role, viewer included: an entry she may not read answers the same `404` as one that does not exist, and an entry she may read keeps, in `changes`, only the fields she may read: a field she may not read is absent from `before` and `after` alike.
 - A **viewer** reads the list through the same gate as every other role: the entries of the tables and rows the records API lets her read, nothing else. The list itself carries no `changes`; an entry she opens from it by id keeps only her readable fields.
-- `?userId=` naming **someone other than yourself** is refused `404`, not `403`, unless you are an admin — the same anti-enumeration posture the rest of the platform takes. A non-admin cannot discover whether an account exists by filtering for it.
+- `?userId=` naming **someone other than yourself** is refused `404`, not `403`, unless you are an admin. This is the same anti-enumeration posture the rest of the platform takes. A non-admin cannot discover whether an account exists by filtering for it.
 - Another actor's **email** is never shown to a non-admin: an entry names her by id and name, the rule the comment thread, the record history and the user directory follow. Your own email stays on your own entries.
 
 ### AI agent entries
@@ -79,23 +79,23 @@ Beside `activities`, the list response carries `entries`: what your AI agents di
 
 ## Activity log against record history
 
-**They answer different questions and have different lifetimes; conflating them is the usual mistake.** The activity log is a cross-table, system-wide stream answering "what happened across the app". For the field-level before-and-after change set of a single record, read **Record History** — it captures the diff of each individual edit. Activity for breadth, history for depth.
+**They answer different questions and have different lifetimes; conflating them is the usual mistake.** The activity log is a cross-table, system-wide stream answering "what happened across the app". For the field-level before-and-after change set of a single record, read **Record History**: it captures the diff of each individual edit. Activity for breadth, history for depth.
 
 ## Retention
 
-**Activity entries are retained for one year, then deleted.** A sweep runs daily at 03:15 in the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset) and physically removes every activity row whose `created_at` is older than one calendar year, counted on that zone's calendar — the same boundary the record-history API uses to hide expired entries, so what you can no longer read is also what is no longer stored. The deletion is a real `DELETE`, not a `deleted_at` tombstone: an activity row's change set holds the before-and-after field values of the record it describes, and a tombstone would retain exactly the data the window says is gone.
+**Activity entries are retained for one year, then deleted.** A sweep runs daily at 03:15 in the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset) and physically removes every activity row whose `created_at` is older than one calendar year, counted on that zone's calendar. This is the same boundary the record-history API uses to hide expired entries, so what you can no longer read is also what is no longer stored. The deletion is a real `DELETE`, not a `deleted_at` tombstone: an activity row's change set holds the before-and-after field values of the record it describes, and a tombstone would retain exactly the data the window says is gone.
 
-Each run of the sweep writes one line to the server log — `[activity-log-retention] Deleted N activity-log row(s) older than …`, zero included — so the log shows that it ran. The sweep opens its transaction read-write explicitly: a managed PostgreSQL that has run out of disk stays reachable but defaults every transaction to read-only, and a read-write transaction is the one write it still allows, so the sweep keeps freeing space in exactly that state. A sweep the server still refuses — a standby does — is logged with the rows that were due and the refusal, and the next day's sweep runs regardless.
+Each run of the sweep writes one line to the server log, `[activity-log-retention] Deleted N activity-log row(s) older than …`, zero included, so the log shows that it ran. The sweep opens its transaction read-write explicitly: a managed PostgreSQL that has run out of disk stays reachable but defaults every transaction to read-only, and a read-write transaction is the one write it still allows, so the sweep keeps freeing space in exactly that state. A sweep the server still refuses, as a standby does, is logged with the rows that were due and the refusal, and the next day's sweep runs regardless.
 
 Two neighbouring stores have deliberately different lifetimes:
 
-| Store                        | Lifetime                    | Why                                                                                                                                                                                       |
-| ---------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Activity log** (this page) | 1 year, swept daily         | An operational change feed. It carries record content, so it ages out.                                                                                                                    |
-| **Canonical audit log**      | Retained — no expiry window | The compliance record of who did what, including the `account.deletion.purged` entry that proves an erasure happened. A control that must outlive a person cannot expire on a timer.      |
-| **Soft-deleted source rows** | Kept until you remove them  | Recoverable tombstones. No timer purges them unless the table declares a `retention` window (see Table Retention), which deletes them with the rest of its rows once they are old enough. |
+| Store                        | Lifetime                   | Why                                                                                                                                                                                       |
+| ---------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Activity log** (this page) | 1 year, swept daily        | An operational change feed. It carries record content, so it ages out.                                                                                                                    |
+| **Canonical audit log**      | Retained, no expiry window | The compliance record of who did what, including the `account.deletion.purged` entry that proves an erasure happened. A control that must outlive a person cannot expire on a timer.      |
+| **Soft-deleted source rows** | Kept until you remove them | Recoverable tombstones. No timer purges them unless the table declares a `retention` window (see Table Retention), which deletes them with the rest of its rows once they are old enough. |
 
-**There is no `ECO_RETENTION_PURGE_DAYS`.** Earlier documentation described soft-deleted rows ageing out on that horizon. The variable was removed because nothing ever read it — no purge job existed behind it — and a documented retention horizon that nothing enforces is worse than none. Soft-deleted rows are kept until you delete them, or until the `retention` window of their table removes them.
+**There is no `ECO_RETENTION_PURGE_DAYS`.** Earlier documentation described soft-deleted rows ageing out on that horizon. The variable was removed because nothing ever read it (no purge job existed behind it), and a documented retention horizon that nothing enforces is worse than none. Soft-deleted rows are kept until you delete them, or until the `retention` window of their table removes them.
 
 A table declaring `activityLog: false` writes no activity entry for its records, so they appear neither here nor in a record's history.
 
@@ -105,8 +105,8 @@ An admin reads every entry whole, so SOC 2 and GDPR review documentation reflect
 
 ## Related reading
 
-- **Record History** — field-level before-and-after diffs per record.
-- **Soft Delete** — recoverable deletes and the `deleted_at` tombstone.
-- **Admin Dashboard** — the operator read API over the rest of the platform.
-- **GDPR & Privacy** — erasure records and the audit trail of deletion.
-- **User Management** — the admin actions that produce activity entries.
+- **Record History**: field-level before-and-after diffs per record.
+- **Soft Delete**: recoverable deletes and the `deleted_at` tombstone.
+- **Admin Dashboard**: the operator read API over the rest of the platform.
+- **GDPR & Privacy**: erasure records and the audit trail of deletion.
+- **User Management**: the admin actions that produce activity entries.

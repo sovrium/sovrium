@@ -21,8 +21,8 @@ import type { Effect } from 'effect'
  *
  * The mirror writes are best-effort: a DB failure must never break the agent
  * runtime. The repository surfaces a typed {@link ApprovalDatabaseError} on
- * failure; the discard-on-error policy is applied by the route-side runner
- * (`runApprovalMirror`), so this port stays a clean, honest contract.
+ * failure; the discard-on-error policy is applied by the route side
+ * (`mirrorBestEffort`), so this port stays a clean, honest contract.
  *
  * {@link ApprovalMirrorRecord} is a port-level input type carrying exactly the
  * fields a DB write needs. It is deliberately decoupled from the presentation

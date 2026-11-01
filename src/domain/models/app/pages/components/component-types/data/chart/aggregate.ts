@@ -139,7 +139,7 @@ export const ChartAggregateSchema = Schema.Struct({
   color: Schema.optional(
     Schema.String.annotate({
       description:
-        'Colour of the aggregated series — a theme colour role (e.g. primary) or a hex value. Defaults to the first palette colour.',
+        'Colour of the aggregated series: a theme colour role (e.g. primary) or a hex value. Defaults to the first palette colour.',
       examples: ['primary', '#3b82f6'],
     })
   ),
