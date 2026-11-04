@@ -28,6 +28,7 @@
  * failing provider cannot be pumped.
  */
 
+import { randomInt } from 'node:crypto'
 import { Effect } from 'effect'
 import { SignatureChallengeRepository } from '@/application/ports/repositories/signatures/signature-challenge-repository'
 import { EmailSender } from '@/application/ports/services/email-sender'
@@ -39,6 +40,7 @@ import {
   maskedPhoneNumber,
   SIGNATURE_ADDRESS_WINDOW_MS,
   SIGNATURE_CODE_RESEND_COOLDOWN_MS,
+  SIGNATURE_CODE_SPACE,
   SIGNATURE_CODE_VALIDITY_MS,
   signatureCodeHmac,
   signatureCodeMail,
@@ -68,11 +70,24 @@ const ADDRESS_EVENT = { email: 'code-sent', sms: 'sms-code-sent' } as const
 
 const notFound = () => Effect.fail(new NotFoundError('Signing session not found'))
 
-/** One six-digit code, drawn uniformly from the platform's secure generator. */
-const drawCode = Effect.sync(() => {
-  const [draw] = crypto.getRandomValues(new Uint32Array(1))
-  // 2^32 is not a multiple of a million: the bias it leaves is below one in four thousand.
-  return signatureCodeOf(draw ?? 0)
+/**
+ * One six-digit code, drawn uniformly from the platform's secure generator.
+ * `randomInt` discards the draws that would land past the last whole multiple
+ * of the code space, so every code is exactly as likely as every other.
+ * `draw` is the seam a test replaces; a value it returns outside the code
+ * space is a defect, never a code.
+ */
+export const drawSignatureCode = Effect.fn('signatures.draw-code')(function* (
+  draw: (max: number) => number = (max) => randomInt(max)
+) {
+  const value = draw(SIGNATURE_CODE_SPACE)
+  const code = signatureCodeOf(value)
+  if (code === undefined) {
+    return yield* Effect.die(
+      new RangeError(`A signing code draw left the code space: ${String(value)}`)
+    )
+  }
+  return code
 })
 
 /** What each refused code says to the signer. */
@@ -194,7 +209,7 @@ export const issueSignatureChallenge = Effect.fn('signatures.issue-challenge')(f
   const { destination, hint } = yield* destinationOf(session.signerId, channel)
   const secret = yield* signingCodeSecret
   const challengeId = crypto.randomUUID()
-  const code = yield* drawCode
+  const code = yield* drawSignatureCode()
   const challenge = {
     ...{ id: challengeId, signerId: session.signerId, channel, documentHash },
     codeHmac: signatureCodeHmac(secret, {

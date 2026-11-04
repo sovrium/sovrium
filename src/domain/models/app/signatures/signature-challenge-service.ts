@@ -74,9 +74,19 @@ export const signatureCodeMatches = (
   return computed.length === stored.length && timingSafeEqual(computed, stored)
 }
 
-/** A six-digit code from one draw in `[0, 1_000_000)`, zero-padded. */
-export const signatureCodeOf = (draw: number): string =>
-  String(Math.trunc(Math.abs(draw)) % 1_000_000).padStart(6, '0')
+/** How many codes there are: every six-digit string, `000000` to `999999`. */
+export const SIGNATURE_CODE_SPACE = 1_000_000
+
+/**
+ * The six-digit code for `value`, zero-padded, or `undefined` when `value` is
+ * not an integer in `[0, SIGNATURE_CODE_SPACE)`. The value must already be
+ * drawn uniformly over that range: this only formats it, and never folds a
+ * wider draw into it, since folding is what makes some codes likelier.
+ */
+export const signatureCodeOf = (value: number): string | undefined =>
+  Number.isInteger(value) && value >= 0 && value < SIGNATURE_CODE_SPACE
+    ? String(value).padStart(6, '0')
+    : undefined
 
 /**
  * An address as a code's answer shows it: the first character of the local

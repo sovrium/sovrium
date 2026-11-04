@@ -1,3 +1,9 @@
+## [0.47.1](https://github.com/sovrium/sovrium/compare/v0.47.0...v0.47.1) (2026-11-04)
+
+### Bug Fixes
+
+- **signatures**: draw signer codes uniformly
+
 ## [0.47.0](https://github.com/sovrium/sovrium/compare/v0.46.1...v0.47.0) (2026-11-04)
 
 ### BREAKING CHANGES

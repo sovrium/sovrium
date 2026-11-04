@@ -3,6 +3,23 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.47.1",
+      "date": "2026-11-04",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.47.0...v0.47.1",
+      "sections": [
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "signatures",
+              "text": "draw signer codes uniformly"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.47.0",
       "date": "2026-11-04",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.46.1...v0.47.0",
